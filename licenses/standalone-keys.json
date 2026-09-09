@@ -1,5 +1,6 @@
 {
   "NMK-TEST-0001": {
-    "status": "unused"
+    "status": "used",
+    "usedAtUtc": "2026-09-09T17:31:27.9063597Z"
   }
 }
