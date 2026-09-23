@@ -185,6 +185,9 @@ public partial class MainWindow : Window
             try
             {
                 var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken).ConfigureAwait(true);
+                // Единственное место на пути автовхода, где компания уже известна: до сюда
+                // касса ещё ничего не продала, поэтому разделить данные аккаунтов можно здесь.
+                AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
                 // Тариф компании (Старт/Стандарт) становится известен только сейчас — без этого
                 // пункт «Клиенты» в боковом меню остаётся видимым до первого его открытия
                 // (2026-09-07, см. комментарий у SideMenuViewModel.CanViewClients).

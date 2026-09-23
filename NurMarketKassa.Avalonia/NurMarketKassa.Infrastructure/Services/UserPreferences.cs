@@ -422,6 +422,9 @@ public sealed class UserPreferences
     public string LastLoginPassword { get; set; } = "";
     /// <summary>Ключ владельца локального каталога (email|userId) для изоляции при смене аккаунта.</summary>
     public string LastCatalogUserKey { get; set; } = "";
+    /// <summary>Чьи локальные данные сейчас лежат в рабочих папках (см. AccountDataIsolation):
+    /// «c:{id компании}» либо «u:{id пользователя}» для автономного входа.</summary>
+    public string LastDataAccountKey { get; set; } = "";
     public string? PostgreSqlConnectionStringEncrypted { get; set; }
     public string? LastFilterCategory { get; set; }
     public string? LastFilterBrand { get; set; }
@@ -668,6 +671,8 @@ public sealed class UserPreferences
             p.LastLoginPassword = "";
             if (!string.IsNullOrEmpty(fromFile.LastCatalogUserKey))
                 p.LastCatalogUserKey = fromFile.LastCatalogUserKey!;
+            if (!string.IsNullOrEmpty(fromFile.LastDataAccountKey))
+                p.LastDataAccountKey = fromFile.LastDataAccountKey!;
             if (!string.IsNullOrWhiteSpace(fromFile.PostgreSqlConnectionStringEncrypted))
                 p.PostgreSqlConnectionStringEncrypted = fromFile.PostgreSqlConnectionStringEncrypted;
             if (!string.IsNullOrEmpty(fromFile.LastFilterCategory))
@@ -891,6 +896,7 @@ public sealed class UserPreferences
                 AutoShowTouchKeyboard = AutoShowTouchKeyboard,
                 LastLoginEmail = null,
                 LastCatalogUserKey = LastCatalogUserKey,
+                LastDataAccountKey = LastDataAccountKey,
                 LastLoginPassword = null,
                 LastLoginPasswordEncrypted = null,
                 PostgreSqlConnectionStringEncrypted = PostgreSqlConnectionStringEncrypted,
@@ -1084,6 +1090,7 @@ public sealed class UserPreferences
         public bool? AutoShowTouchKeyboard { get; set; }
         public string? LastLoginEmail { get; set; }
         public string? LastCatalogUserKey { get; set; }
+        public string? LastDataAccountKey { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LastLoginPassword { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -1,4 +1,4 @@
-using Application = Avalonia.Application;
+﻿using Application = Avalonia.Application;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Core.Contracts;
@@ -110,6 +110,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     await CompanyInfoService.RefreshAsync(App.AuthApi, CancellationToken.None).ConfigureAwait(true);
                     App.AuditDb.LogEvent("auth", "login", new { userId }, userId);
 
+                    // Разделение данных — ДО очистки каталога и до запуска синхронизации:
+                    // сначала под рабочими путями должен оказаться набор нужной компании,
+                    // и только потом кто-то начнёт в него писать.
+                    AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
                     AccountCatalogIsolation.PrepareForAuthenticatedUser("", userId);
                     App.GetRequiredService<SyncService>().Start();
                 }

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using NurMarketKassa.Services;
 
@@ -42,6 +42,11 @@ public sealed class ApplicationStateService : IDisposable
     private readonly object _syncRoot = new();
     private CancellationTokenSource? _saveDebounceCts;
     private bool _disposed;
+
+    /// <summary>Номер поколения состояния. Отложенная запись запоминает его и молча
+    /// отменяется, если поколение успело смениться. Нужно при разделении данных аккаунтов:
+    /// иначе корзина прежней компании дописалась бы в state.json уже новой.</summary>
+    private static int _generation;
 
     private static string StateFilePath =>
         Path.Combine(
@@ -106,17 +111,28 @@ public sealed class ApplicationStateService : IDisposable
             currentCts = _saveDebounceCts;
         }
 
-        _ = SaveAfterDelayAsync(snapshot, currentCts, delayMs);
+        _ = SaveAfterDelayAsync(snapshot, currentCts, delayMs, Volatile.Read(ref _generation));
     }
+
+    /// <summary>Отменяет отложенные записи состояния: всё, что не успело лечь на диск,
+    /// относится к прежнему аккаунту и в файлы нового попасть не должно.</summary>
+    public static void CancelPendingSaves() => Interlocked.Increment(ref _generation);
 
     private async Task SaveAfterDelayAsync(
         ApplicationState snapshot,
         CancellationTokenSource cts,
-        int delayMs)
+        int delayMs,
+        int generation)
     {
         try
         {
             await Task.Delay(delayMs, cts.Token).ConfigureAwait(false);
+            if (Volatile.Read(ref _generation) != generation)
+            {
+                PosLogger.Log("Отложенная запись состояния отменена: сменился аккаунт.", "DEBUG");
+                return;
+            }
+
             Save(snapshot);
         }
         catch (OperationCanceledException)

@@ -1125,6 +1125,11 @@ public partial class MainWindow
         if (string.Equals(previousCompanyId, CompanyInfoService.LastCompany?.Id, StringComparison.Ordinal))
             return;
 
+        // Компания сменилась вместе с кассиром — значит, и локальные данные должны быть
+        // её собственными: история продаж, смены, бонусы, отложенные чеки. Раньше здесь
+        // сбрасывался только ID кассы, а цифры оставались от прежней компании.
+        AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
+
         App.PosCashboxId = null;
         PosApp.PosCashboxId = null;
         _session.PosCashboxDisplayName = null;

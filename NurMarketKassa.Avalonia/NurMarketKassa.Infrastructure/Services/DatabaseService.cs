@@ -46,6 +46,12 @@ public sealed class DatabaseService
     private readonly object _initLock = new();
     private bool _initialized;
 
+    /// <summary>Одноразовые миграции (перенос базы из папки установки, импорт
+    /// offline_sales_pending.json) берут данные из мест, общих для всех аккаунтов. После
+    /// подмены набора данных они бы влили в базу новой компании чужие продажи, поэтому
+    /// со второго открытия базы в этом запуске отключаются.</summary>
+    private static bool _legacyImportDone;
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,
@@ -61,6 +67,20 @@ public sealed class DatabaseService
 
     public string DatabasePath => DbPath;
 
+    /// <summary>Переоткрыть базу после того, как AccountDataIsolation подменил набор данных:
+    /// путь тот же, но файл под ним стал другим (или его ещё нет). Без сброса признака
+    /// инициализации схема на новой базе не накатилась бы — EnsureSchema просто вышел бы.
+    /// Пул соединений чистим первым: иначе переиспользованное соединение продолжит держать
+    /// уже отложенный файл прежней компании.</summary>
+    public void ReopenAfterAccountSwitch()
+    {
+        _legacyImportDone = true;
+        SqliteConnection.ClearAllPools();
+        lock (_initLock)
+            _initialized = false;
+        EnsureSchema();
+    }
+
     public void EnsureSchema()
     {
         lock (_initLock)
@@ -69,7 +89,8 @@ public sealed class DatabaseService
                 return;
 
             Directory.CreateDirectory(DataDirectory);
-            MigrateFromOldInstallDir();
+            if (!_legacyImportDone)
+                MigrateFromOldInstallDir();
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
             using var command = connection.CreateCommand();
@@ -234,7 +255,8 @@ public sealed class DatabaseService
 
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
-            MigrateLegacyJsonSales(connection);
+            if (!_legacyImportDone)
+                MigrateLegacyJsonSales(connection);
 
             _initialized = true;
         }

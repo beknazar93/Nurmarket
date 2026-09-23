@@ -343,6 +343,10 @@ public partial class App : Application
             NurMarketKassa.App.SyncFromSession(appSession);
             PosCashboxId = appSession.ActiveTerminal;
 
+            // Разделение данных аккаунтов (AccountDataIsolation) здесь НЕ вызывается: на
+            // автовходе компания ещё не загружена, а ключ по пользователю разрезал бы данные
+            // одной компании между её кассирами. Оно произойдёт в MainWindow.InitializeApplicationAsync
+            // сразу после CompanyInfoService.RefreshAsync — до любой продажи.
             AccountCatalogIsolation.PrepareForAuthenticatedUser("", appSession.CurrentUserId);
             AuditDb.LogEvent(
                 "auth",
