@@ -889,6 +889,9 @@
   <x:String x:Key="clients.addressLabel">Adres</x:String>
   <x:String x:Key="clients.purchasesHeader">Satın almalar</x:String>
   <x:String x:Key="clients.openPurchases">Satın alma geçmişi</x:String>
+  <x:String x:Key="clients.telegramHeader">Telegram botu</x:String>
+  <x:String x:Key="clients.telegramCopyLink">Bağlantıyı kopyala</x:String>
+  <x:String x:Key="clients.telegramExplain">Bu bağlantıyı müşteriye gönderin — WhatsApp, SMS ile ya da fişe yazdırarak. Müşteri açıp Başlat'a bastığında kasa ona borç hatırlatmaları ve kampanya mesajları gönderebilir. Telegram telefon numarasıyla kişiye yazmaya izin vermez: ilk adımı müşteri atmalıdır.</x:String>
   <x:String x:Key="clients.addButton">+ Ekle</x:String>
   <x:String x:Key="clients.refreshButton">Yenile</x:String>
   <x:String x:Key="clients.colFullName">Tam ad</x:String>

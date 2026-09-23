@@ -214,93 +214,142 @@
             </Grid>
         </Border>
 
-        <!-- Карточка клиента (оверлей) -->
+        <!-- Карточка клиента (оверлей).
+             Раньше это был StackPanel в рамке с MaxHeight: он не прокручивается, поэтому всё,
+             что не поместилось — кнопка истории покупок, ссылка на бота, «Сохранить» — просто
+             вылезало за край карточки поверх списка. Теперь карточка устроена как окно: шапка
+             и кнопки закреплены, а середина прокручивается, сколько бы полей в ней ни было. -->
         <Border Grid.Row="0" Grid.RowSpan="3"
                 IsVisible="{Binding HasSelectedClient}"
                 Background="#66000000">
-            <Border Width="440"
-                    MaxHeight="420"
+            <Border Width="520"
+                    MaxHeight="640"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Background="{DynamicResource BrushPanel}"
                     CornerRadius="14"
-                    Padding="20"
                     BoxShadow="0 8 24 0 #33000000">
-                <StackPanel Spacing="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="{DynamicResource clients.cardHeader}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <Grid RowDefinitions="Auto,*,Auto">
+
+                    <!-- Шапка -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,16,14,12">
+                        <TextBlock Text="{DynamicResource clients.cardHeader}"
+                                   FontSize="17" FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}"/>
                         <Button Grid.Column="1" Classes="WindowControlButton" Click="CloseCardButton_Click">
                             <TextBlock Text="✕" FontSize="13"/>
                         </Button>
                     </Grid>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{DynamicResource clients.nameWatermark}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBox Text="{Binding EditName}"/>
-                    </StackPanel>
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{DynamicResource common.phone}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBox Text="{Binding EditPhone}"/>
-                    </StackPanel>
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{DynamicResource clients.addressLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBox Text="{Binding EditAddress}"/>
-                    </StackPanel>
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Email" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                        <TextBox Text="{Binding EditEmail}"/>
-                    </StackPanel>
+                    <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
+                            Background="{DynamicResource BrushBorder}"/>
 
-                    <TextBlock Text="{Binding SelectedClient.LoyaltyBalanceDisplay, StringFormat='{}{0} 🎁'}"
-                               FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource BrushAccentStrong}"/>
+                    <!-- Середина: прокручивается -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,14,20,14">
+                        <StackPanel Spacing="12">
 
-                    <!-- История покупок клиента: бонусный баланс сам по себе не отвечает на
-                         вопрос «а он у нас вообще покупает и на сколько» — теперь дата и сумма
-                         каждой покупки видны прямо в карточке. -->
-                    <Border Background="{DynamicResource BrushSurfaceSubtle}"
-                            BorderBrush="{DynamicResource BrushBorder}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="10,8"
-                            Margin="0,4,0,0">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{DynamicResource clients.purchasesHeader}" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Text="{Binding PurchasesSummary}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource BrushTextMuted}"/>
-                            <!-- Список «дата — сумма» из карточки убран: по нему нельзя было найти
-                                 сам чек. Полная история с номерами чеков и их составом — в отдельном
-                                 окне, где для неё есть место. -->
-                            <Button x:Name="PurchasesButton"
-                                    Classes="SecondaryButton"
-                                    HorizontalAlignment="Stretch"
-                                    Content="{DynamicResource clients.openPurchases}"
-                                    Click="PurchasesButton_Click"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource clients.nameWatermark}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBox Text="{Binding EditName}"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource common.phone}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBox Text="{Binding EditPhone}"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource clients.addressLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBox Text="{Binding EditAddress}"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Email" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBox Text="{Binding EditEmail}"/>
+                            </StackPanel>
+
+                            <!-- Бонусы и покупки — одним блоком: обе строки отвечают на один
+                                 вопрос, сколько этот человек для магазина значит. -->
+                            <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12,10">
+                                <StackPanel Spacing="8">
+                                    <!-- Бонус отдельной подписанной строкой: без подписи «2,7 сом»
+                                         рядом с покупками читалось как ещё одна сумма покупок. -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource clients.colLoyalty}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding SelectedClient.LoyaltyBalanceDisplay}"
+                                                   FontSize="16" FontWeight="Bold"
+                                                   Foreground="{DynamicResource BrushAccentStrong}"/>
+                                    </Grid>
+
+                                    <Border Height="1" Background="{DynamicResource BrushBorder}" Opacity="0.6"/>
+
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{DynamicResource clients.purchasesHeader}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </Grid>
+                                    <TextBlock Text="{Binding PurchasesSummary}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushTextMuted}"/>
+                                    <!-- Список «дата — сумма» из карточки убран: по нему нельзя
+                                         было найти сам чек. Полная история с номерами чеков и их
+                                         составом — в отдельном окне, где для неё есть место. -->
+                                    <Button x:Name="PurchasesButton"
+                                            Classes="SecondaryButton"
+                                            HorizontalAlignment="Stretch"
+                                            Content="{DynamicResource clients.openPurchases}"
+                                            Click="PurchasesButton_Click"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Персональная ссылка на бота. Telegram не позволяет написать
+                                 человеку по номеру телефона — он должен сам нажать «Старт».
+                                 Ссылку копируют и отправляют клиенту, и после перехода касса
+                                 сможет слать ему напоминания о долге и об акциях. -->
+                            <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12,10">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="{DynamicResource clients.telegramHeader}"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <!-- Кнопка без объяснения непонятна: владелец спросил, зачем
+                                         она вообще нужна. Пишем это прямо в карточке. -->
+                                    <TextBlock Text="{DynamicResource clients.telegramExplain}"
+                                               FontSize="11.5" TextWrapping="Wrap" LineHeight="17"
+                                               Foreground="{DynamicResource BrushTextMuted}"/>
+                                    <Button x:Name="TelegramInviteButton" Classes="SecondaryButton"
+                                            HorizontalAlignment="Stretch"
+                                            Content="{DynamicResource clients.telegramCopyLink}"
+                                            Click="TelegramInviteButton_Click"/>
+                                    <TextBlock x:Name="TelegramInviteHint" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="{Binding CardErrorMessage}"
+                                       Foreground="{DynamicResource BrushDanger}"
+                                       FontSize="13"
+                                       IsVisible="{Binding !!CardErrorMessage}"
+                                       TextWrapping="Wrap"/>
                         </StackPanel>
-                    </Border>
+                    </ScrollViewer>
 
-                    <TextBlock Text="{Binding CardErrorMessage}"
-                               Foreground="{DynamicResource BrushDanger}"
-                               FontSize="13"
-                               IsVisible="{Binding !!CardErrorMessage}"
-                               TextWrapping="Wrap"/>
+                    <Border Grid.Row="2" Height="1" VerticalAlignment="Top"
+                            Background="{DynamicResource BrushBorder}"/>
 
-                    <!-- Персональная ссылка на бота. Telegram не позволяет написать человеку по
-                         номеру телефона — он должен сам нажать «Старт». Ссылку копируют и
-                         отправляют клиенту (WhatsApp, СМС, печать на чеке), и после перехода
-                         касса сможет слать ему напоминания о долге и об акциях. -->
-                    <Button x:Name="TelegramInviteButton" Classes="SecondaryButton"
-                            Content="Скопировать ссылку на Telegram-бота"
-                            HorizontalAlignment="Left" Margin="0,4,0,0"
-                            Click="TelegramInviteButton_Click"/>
-
-                    <TextBlock x:Name="TelegramInviteHint" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
-
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+                    <!-- Кнопки закреплены внизу: до них не надо прокручивать. -->
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="20,14,20,16">
                         <Button Grid.Column="0" x:Name="DeleteClientButton" Classes="SecondaryButton"
                                 Content="{DynamicResource clients.deleteButton}"
                                 Foreground="{DynamicResource BrushDanger}"
@@ -309,7 +358,7 @@
                                 Content="{DynamicResource clients.saveButton}"
                                 Click="SaveClientButton_Click"/>
                     </Grid>
-                </StackPanel>
+                </Grid>
             </Border>
         </Border>
     </Grid>

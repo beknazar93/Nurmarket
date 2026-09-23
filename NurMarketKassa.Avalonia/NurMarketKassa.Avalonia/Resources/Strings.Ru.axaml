@@ -889,6 +889,9 @@
   <x:String x:Key="clients.addressLabel">Адрес</x:String>
   <x:String x:Key="clients.purchasesHeader">Покупки</x:String>
   <x:String x:Key="clients.openPurchases">История покупок</x:String>
+  <x:String x:Key="clients.telegramHeader">Telegram-бот</x:String>
+  <x:String x:Key="clients.telegramCopyLink">Скопировать ссылку</x:String>
+  <x:String x:Key="clients.telegramExplain">Отправьте эту ссылку клиенту — в WhatsApp, СМС или распечатайте на чеке. Когда он откроет её и нажмёт «Старт», касса сможет присылать ему напоминания о долге и сообщения об акциях. Сам Telegram написать человеку по номеру телефона не позволяет: первый шаг должен сделать клиент.</x:String>
   <x:String x:Key="clients.addButton">+ Добавить</x:String>
   <x:String x:Key="clients.refreshButton">Обновить</x:String>
   <x:String x:Key="clients.colFullName">ФИО</x:String>

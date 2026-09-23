@@ -889,6 +889,9 @@
   <x:String x:Key="clients.addressLabel">Address</x:String>
   <x:String x:Key="clients.purchasesHeader">Purchases</x:String>
   <x:String x:Key="clients.openPurchases">Purchase history</x:String>
+  <x:String x:Key="clients.telegramHeader">Telegram bot</x:String>
+  <x:String x:Key="clients.telegramCopyLink">Copy the link</x:String>
+  <x:String x:Key="clients.telegramExplain">Send this link to the customer — via WhatsApp, SMS or printed on the receipt. Once they open it and press Start, the till can send them debt reminders and promotion messages. Telegram itself does not allow writing to a person by phone number: the customer has to make the first move.</x:String>
   <x:String x:Key="clients.addButton">+ Add</x:String>
   <x:String x:Key="clients.refreshButton">Refresh</x:String>
   <x:String x:Key="clients.colFullName">Full name</x:String>

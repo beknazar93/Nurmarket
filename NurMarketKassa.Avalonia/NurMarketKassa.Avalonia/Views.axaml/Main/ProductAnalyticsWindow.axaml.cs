@@ -91,7 +91,6 @@ public sealed class ProductAnalyticsWindow : Window
         root.Children.Add(SummaryRow(inPeriod, product, periodFrom, periodTo));
         root.Children.Add(MonthCard(all));
         root.Children.Add(MovementCard(all, writeOffs, product));
-        root.Children.Add(HistoryCard(all));
         root.Children.Add(AdviceCard(all, inPeriod, product, periodFrom, periodTo));
         return root;
     }
@@ -203,8 +202,10 @@ public sealed class ProductAnalyticsWindow : Window
                        "kun - javonda turganini va chegirma vaqti kelganini tekshiring.")));
         }
 
-        return Card(Tr.T("Что это значит", "Бул эмнени билдирет", "What this means",
-                         "Bu ne anlama geliyor", "Bu nimani anglatadi"), body);
+        // «Что это значит» ни о чём не говорило: по заголовку непонятно, что внутри. В карточке
+        // лежат две вещи — на сколько хватит остатка и когда товар продавался, — так и назовём.
+        return Card(Tr.T("Остаток и сроки", "Калдык жана мөөнөттөр", "Stock and timing",
+                         "Stok ve zamanlama", "Qoldiq va muddatlar"), body);
     }
 
     /// <summary>Движение остатка: каждая продажа и каждое списание как строка со знаком, а
@@ -229,6 +230,7 @@ public sealed class ProductAnalyticsWindow : Window
                 When = sale.SoldAt.ToLocalTime(),
                 Kind = Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"),
                 Delta = -sale.Quantity,
+                PriceText = Money(sale.UnitPrice),
                 Note = Money(sale.Quantity * sale.UnitPrice),
             });
 
@@ -238,6 +240,7 @@ public sealed class ProductAnalyticsWindow : Window
                 When = writeOff.CreatedAt.ToLocalTime(),
                 Kind = Tr.T("Списание", "Эсептен чыгаруу", "Write-off", "Zayiat", "Hisobdan chiqarish"),
                 Delta = -writeOff.Quantity,
+                PriceText = "—",
                 Note = writeOff.Reason,
             });
 
@@ -272,103 +275,47 @@ public sealed class ProductAnalyticsWindow : Window
             + "   ·   " + Tr.T("Списано", "Эсептен чыгарылды", "Written off", "Zayi edildi", "Hisobdan chiqarildi")
             + ": " + writtenOff.ToString("0.###", CultureInfo.InvariantCulture)));
 
-        body.Children.Add(Grid(events, restColumn: true));
+        body.Children.Add(Grid(events));
         return Card(MovementTitle(), body);
     }
 
     private static string MovementTitle() => Tr.T(
         "Движение товара", "Товардын кыймылы", "Product movement", "Ürün hareketi", "Mahsulot harakati");
 
-    /// <summary>История продаж построчно: когда, сколько и по какой цене. Ровно то, чего не
-    /// видно ни в ABC (там итог за период), ни в чеках (там чек целиком).</summary>
-    private Control HistoryCard(
-        List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> sales)
-    {
-        var rows = sales
-            .OrderByDescending(l => l.SoldAt)
-            .Select(l => new MovementVm
-            {
-                WhenText = l.SoldAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
-                Kind = l.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
-                DeltaText = Money(l.UnitPrice),
-                DeltaBrush = Text(),
-                Note = Money(l.Quantity * l.UnitPrice),
-            })
-            .ToList();
-
-        var body = new StackPanel { Spacing = 6 };
-        if (rows.Count == 0)
-        {
-            body.Children.Add(Muted(Tr.T("Продаж не было.", "Сатуу болгон эмес.", "There were no sales.",
-                "Satış olmadı.", "Sotuv bo'lmagan.")));
-        }
-        else
-        {
-            body.Children.Add(Muted(Tr.T("Всего записей", "Баары жазуу", "Entries in total",
-                "Toplam kayıt", "Jami yozuv") + ": " + rows.Count.ToString(CultureInfo.InvariantCulture)));
-            body.Children.Add(Grid(rows, restColumn: false, priceHeaders: true));
-        }
-
-        return Card(Tr.T("История продаж", "Сатуу тарыхы", "Sales history", "Satış geçmişi",
-                         "Sotuvlar tarixi"), body);
-    }
-
-    /// <summary>Одна таблица на две карточки: колонки называются по-разному, но строка
-    /// устроена одинаково, и разводить два почти одинаковых DataGrid смысла нет.</summary>
-    private DataGrid Grid(IReadOnlyList<MovementVm> rows, bool restColumn, bool priceHeaders = false)
+    /// <summary>Движение остатка и история продаж одной таблицей.
+    ///
+    /// Сначала это были две карточки подряд, и на реальном товаре они показывали одни и те же
+    /// строки: одна с остатком, другая с ценой. Две таблицы с одинаковыми датами читаются как
+    /// ошибка — поэтому колонки сведены в одну.</summary>
+    private DataGrid Grid(IReadOnlyList<MovementVm> rows)
     {
         var grid = new DataGrid
         {
             AutoGenerateColumns = false,
             IsReadOnly = true,
-            MaxHeight = 260,
+            MaxHeight = 320,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
             ItemsSource = rows,
         };
 
-        grid.Columns.Add(new DataGridTextColumn
-        {
-            Header = Tr.T("Когда", "Качан", "When", "Ne zaman", "Qachon"),
-            Width = new DataGridLength(140),
-            Binding = new Avalonia.Data.Binding(nameof(MovementVm.WhenText)),
-        });
-        grid.Columns.Add(new DataGridTextColumn
-        {
-            Header = priceHeaders
-                ? Tr.T("Кол-во", "Саны", "Qty", "Adet", "Soni")
-                : Tr.T("Событие", "Окуя", "Event", "Olay", "Hodisa"),
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-            Binding = new Avalonia.Data.Binding(nameof(MovementVm.Kind)),
-        });
-        grid.Columns.Add(new DataGridTextColumn
-        {
-            Header = priceHeaders
-                ? Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx")
-                : Tr.T("Изменение", "Өзгөрүү", "Change", "Değişim", "O'zgarish"),
-            Width = new DataGridLength(120),
-            Binding = new Avalonia.Data.Binding(nameof(MovementVm.DeltaText)),
-        });
-
-        if (restColumn)
+        void Add(string header, string path, double width)
         {
             grid.Columns.Add(new DataGridTextColumn
             {
-                Header = Tr.T("Остаток после", "Андан кийинки калдык", "Stock after",
-                               "Sonraki stok", "Keyingi qoldiq"),
-                Width = new DataGridLength(130),
-                Binding = new Avalonia.Data.Binding(nameof(MovementVm.RestText)),
+                Header = header,
+                Width = new DataGridLength(width),
+                Binding = new Avalonia.Data.Binding(path),
             });
         }
 
-        grid.Columns.Add(new DataGridTextColumn
-        {
-            Header = priceHeaders
-                ? Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")
-                : Tr.T("Примечание", "Эскертүү", "Note", "Not", "Izoh"),
-            Width = new DataGridLength(1.2, DataGridLengthUnitType.Star),
-            Binding = new Avalonia.Data.Binding(nameof(MovementVm.Note)),
-        });
+        Add(Tr.T("Когда", "Качан", "When", "Ne zaman", "Qachon"), nameof(MovementVm.WhenText), 140);
+        Add(Tr.T("Событие", "Окуя", "Event", "Olay", "Hodisa"), nameof(MovementVm.Kind), 120);
+        Add(Tr.T("Изменение", "Өзгөрүү", "Change", "Değişim", "O'zgarish"), nameof(MovementVm.DeltaText), 110);
+        Add(Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx"), nameof(MovementVm.PriceText), 120);
+        Add(Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"), nameof(MovementVm.Note), 130);
+        Add(Tr.T("Остаток после", "Андан кийинки калдык", "Stock after", "Sonraki stok", "Keyingi qoldiq"),
+            nameof(MovementVm.RestText), 140);
 
         return grid;
     }
@@ -388,6 +335,7 @@ public sealed class ProductAnalyticsWindow : Window
         public string Kind { get; init; } = "";
         public double Delta { get; init; }
         public string DeltaText { get; set; } = "";
+        public string PriceText { get; init; } = "";
         public IBrush DeltaBrush { get; set; } = Brushes.Gray;
         public string RestText { get; set; } = "";
         public string Note { get; init; } = "";

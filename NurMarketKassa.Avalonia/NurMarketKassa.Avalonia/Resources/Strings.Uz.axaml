@@ -889,6 +889,9 @@
   <x:String x:Key="clients.addressLabel">Manzil</x:String>
   <x:String x:Key="clients.purchasesHeader">Xaridlar</x:String>
   <x:String x:Key="clients.openPurchases">Xaridlar tarixi</x:String>
+  <x:String x:Key="clients.telegramHeader">Telegram bot</x:String>
+  <x:String x:Key="clients.telegramCopyLink">Havolani nusxalash</x:String>
+  <x:String x:Key="clients.telegramExplain">Bu havolani mijozga yuboring — WhatsApp, SMS orqali yoki chekka chop etib. U ochib «Start» tugmasini bosgach, kassa unga qarz eslatmalari va aksiyalar haqida xabar yubora oladi. Telegramning o'zi telefon raqami bo'yicha odamga yoza olmaydi: birinchi qadamni mijoz qilishi kerak.</x:String>
   <x:String x:Key="clients.addButton">+ Qo'shish</x:String>
   <x:String x:Key="clients.refreshButton">Yangilash</x:String>
   <x:String x:Key="clients.colFullName">To'liq ism</x:String>

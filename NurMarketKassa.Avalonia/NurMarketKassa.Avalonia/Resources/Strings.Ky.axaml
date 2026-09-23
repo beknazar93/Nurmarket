@@ -889,6 +889,9 @@
   <x:String x:Key="clients.addressLabel">Дареги</x:String>
   <x:String x:Key="clients.purchasesHeader">Сатып алуулар</x:String>
   <x:String x:Key="clients.openPurchases">Сатып алуулар тарыхы</x:String>
+  <x:String x:Key="clients.telegramHeader">Telegram-бот</x:String>
+  <x:String x:Key="clients.telegramCopyLink">Шилтемени көчүрүү</x:String>
+  <x:String x:Key="clients.telegramExplain">Бул шилтемени кардарга жөнөтүңүз — WhatsApp, СМС аркылуу же чекке басып чыгарыңыз. Ал ачып «Старт» баскычын басканда, касса ага карыз тууралуу эскертмелерди жана акциялар жөнүндө билдирүүлөрдү жөнөтө алат. Telegram өзү адамга телефон номери боюнча жаза албайт: биринчи кадамды кардар жасашы керек.</x:String>
   <x:String x:Key="clients.addButton">+ Кошуу</x:String>
   <x:String x:Key="clients.refreshButton">Жаңылоо</x:String>
   <x:String x:Key="clients.colFullName">Аты-жөнү</x:String>
