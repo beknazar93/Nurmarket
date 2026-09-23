@@ -1030,19 +1030,36 @@ namespace NurMarketKassa.ViewModels
             var prefs = UserPreferences.Instance;
             prefs.BankQrPaths ??= new Dictionary<string, string>();
 
-            var bankNames = new[] { "Элкарт", "MBank", "ФинкаБанк" };
-            var logoNames = new Dictionary<string, string>
+            // 2026-09-23, живой баг («при выборе безнал не видны остальные банки»): здесь был
+            // только этот жёсткий список из трёх банков. Банки, которые кассир добавляет сам
+            // в «Настройки → Операции → Добавить банк», складываются в prefs.CustomBankNames,
+            // и окно оплаты о них не знало вовсе: банк заводился, QR к нему загружался, а
+            // выбрать его при оплате было невозможно.
+            var bankNames = new List<string> { "Элкарт", "MBank", "ФинкаБанк" };
+            foreach (var custom in prefs.CustomBankNames)
+            {
+                if (!string.IsNullOrWhiteSpace(custom)
+                    && !bankNames.Contains(custom, StringComparer.OrdinalIgnoreCase))
+                {
+                    bankNames.Add(custom.Trim());
+                }
+            }
+
+            // Логотип есть только у встроенных банков. Для добавленных вручную его взять
+            // неоткуда, и подставлять несуществующий путь не нужно — список показывает
+            // название, а не картинку.
+            var logoNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "Элкарт", "Elkart-logo.png" },
-                { "MBank", "Mbank-logo.png" },
-                { "ФинкаБанк", "Finca-logo.png" },
             };
 
             var list = new ObservableCollection<BankAccount>();
             foreach (var name in bankNames)
             {
                 var qrPath = prefs.BankQrPaths.TryGetValue(name, out var path) ? path : "";
-                var logoPath = $"avares://NurMarketKassa.Avalonia/Assets/{logoNames[name]}";
+                var logoPath = logoNames.TryGetValue(name, out var logo)
+                    ? $"avares://NurMarketKassa.Avalonia/Assets/{logo}"
+                    : "";
 
                 list.Add(new BankAccount
                 {
