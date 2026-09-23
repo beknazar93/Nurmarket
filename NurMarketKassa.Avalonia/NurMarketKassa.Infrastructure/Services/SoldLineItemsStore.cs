@@ -6,15 +6,24 @@ public static class SoldLineItemsStore
 {
     private static DatabaseService Db => DatabaseService.Instance;
 
-    public static void AppendSale(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines)
+    /// <param name="saleId">Номер продажи с сервера. По нему история этой кассы и история,
+    /// подтянутая с сервера на другой кассе, не задваиваются.</param>
+    public static void AppendSale(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string? saleId = null)
     {
-        Db.AppendSoldLineItems(lines, source: "local");
+        Db.AppendSoldLineItems(lines, source: "local", saleId);
         // Открытые окна аналитики пересчитаются сами — см. PosDataEvents.
         PosDataEvents.RaiseSalesChanged();
     }
 
-    public static void AppendBackfill(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines) =>
-        Db.AppendSoldLineItems(lines, source: "backfill");
+    public static void AppendBackfill(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string? saleId = null) =>
+        Db.AppendSoldLineItems(lines, source: "backfill", saleId);
+
+    /// <summary>Дата, до которой история писалась без номера продажи — раньше неё сливать
+    /// истории касс нельзя, будет задвоение.</summary>
+    public static DateTime? LegacyWatermark() => Db.GetLegacyHistoryWatermark();
+
+    /// <summary>Продажи, которые уже есть в локальной истории.</summary>
+    public static HashSet<string> KnownSaleIds() => Db.LoadKnownSaleIds();
 
     public static List<(string ProductId, string ProductName, double Quantity, DateTime SoldAt)> LoadSince(DateTime sinceUtc) =>
         Db.LoadSoldLineItemsSince(sinceUtc);

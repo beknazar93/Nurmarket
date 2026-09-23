@@ -917,7 +917,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 "PAYMENT");
 
             LogPendingInsufficientStockOverrideIfAny(result);
-            RecordSoldLineItemsForHistory();
+            RecordSoldLineItemsForHistory(TryReadSaleId(result));
             CreditOrRedeemLoyaltyPoints(checkoutVm, result);
             // Каталог должен мгновенно отразить проданный остаток (та же логика, что и после
             // пополнения склада при нулевом остатке — RefreshCatalogCommand делает полную
@@ -1083,7 +1083,29 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// <summary>Пишет проданные позиции в локальную историю (AI-фичи 2026-09-03, п.1 — прогноз
     /// пополнения склада). ДОЛЖНО вызываться до SyncLinesFromCart() — тот заново наполняет Lines
     /// для следующего чека, стирая только что проданные позиции.</summary>
-    private void RecordSoldLineItemsForHistory()
+    /// <summary>Номер продажи из ответа сервера на оплату. У офлайн-продажи его нет — тогда
+    /// строка истории останется без номера, и бэкфилл на другой кассе подтянет этот чек как
+    /// чужой. Задвоения не будет: свою запись касса делает только у себя, а после выгрузки
+    /// офлайн-чека сервер вернёт тот же чек уже с номером.</summary>
+    private static string? TryReadSaleId(PosCheckoutResult result)
+    {
+        if (result.CheckoutResponse is not { } response || response.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return null;
+
+        foreach (var key in new[] { "id", "sale_id", "sale" })
+        {
+            if (!response.TryGetProperty(key, out var value))
+                continue;
+
+            var text = value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : value.ToString();
+            if (!string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+
+        return null;
+    }
+
+    private void RecordSoldLineItemsForHistory(string? saleId)
     {
         try
         {
@@ -1111,7 +1133,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 .ToList();
 
             if (lines.Count > 0)
-                SoldLineItemsStore.AppendSale(lines);
+                SoldLineItemsStore.AppendSale(lines, saleId);
         }
         catch (Exception ex)
         {

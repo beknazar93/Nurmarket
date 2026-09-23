@@ -522,7 +522,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 total,
                 reason,
                 isWholeSale: false,
-                NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+                NurMarketKassa.PosApp.CurrentUserDisplayName);
 
             if (printError is not null)
             {
@@ -685,7 +685,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 wholeTotal,
                 reasonDialog.ReasonText,
                 isWholeSale: true,
-                NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+                NurMarketKassa.PosApp.CurrentUserDisplayName);
 
             if (wholePrintError is not null)
             {

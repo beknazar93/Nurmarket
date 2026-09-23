@@ -29,6 +29,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
     private string _newClientName = "";
     private string _newClientPhone = "";
     private string _newClientEmail = "";
+    private string _newClientAddress = "";
     private bool _isLoading;
     private bool _isSaving;
     private string _errorMessage = "";
@@ -38,6 +39,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
     private string _editName = "";
     private string _editPhone = "";
     private string _editEmail = "";
+    private string _editAddress = "";
     private bool _isCardBusy;
     private string _cardErrorMessage = "";
 
@@ -142,6 +144,14 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         set { _newClientEmail = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Адрес — необязательное поле. Нужен прежде всего долгам: по телефону должника
+    /// не всегда получается найти, по адресу можно.</summary>
+    public string NewClientAddress
+    {
+        get => _newClientAddress;
+        set { _newClientAddress = value ?? ""; OnPropertyChanged(); }
+    }
+
     public bool IsSaving
     {
         get => _isSaving;
@@ -172,6 +182,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             _editName = value?.FullName ?? "";
             _editPhone = value?.Phone ?? "";
             _editEmail = value?.Email ?? "";
+            _editAddress = value?.Address ?? "";
             CardErrorMessage = "";
             OnPropertyChanged();
             OnPropertyChanged(nameof(EditName));
@@ -292,6 +303,13 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             OnPropertyChanged();
             UpdateCardButtonStates();
         }
+    }
+
+    /// <summary>Адрес клиента — необязательное поле, полезно при продаже в долг.</summary>
+    public string EditAddress
+    {
+        get => _editAddress;
+        set { _editAddress = value ?? ""; OnPropertyChanged(); }
     }
 
     public string EditEmail
@@ -422,7 +440,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         try
         {
             var created = await _clientsApi
-                .CreateClientAsync(_newClientName, _newClientPhone, _newClientEmail)
+                .CreateClientAsync(_newClientName, _newClientPhone, _newClientEmail, _newClientAddress)
                 .ConfigureAwait(true);
 
             var row = ToClientRow(created);
@@ -493,12 +511,12 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         try
         {
             var updated = await _clientsApi
-                .UpdateClientAsync(client.Id, _editName, _editPhone, _editEmail)
+                .UpdateClientAsync(client.Id, _editName, _editPhone, _editEmail, _editAddress)
                 .ConfigureAwait(true);
 
             var row = ToClientRow(updated);
             if (string.IsNullOrWhiteSpace(row.Id))
-                row = new ClientRow { Id = client.Id, FullName = _editName.Trim(), Phone = _editPhone.Trim(), Email = (_editEmail ?? "").Trim(), CreatedAt = client.CreatedAt, CreatedAtDisplay = client.CreatedAtDisplay };
+                row = new ClientRow { Id = client.Id, FullName = _editName.Trim(), Phone = _editPhone.Trim(), Email = (_editEmail ?? "").Trim(), Address = (_editAddress ?? "").Trim(), CreatedAt = client.CreatedAt, CreatedAtDisplay = client.CreatedAtDisplay };
 
             var index = _allClients.FindIndex(c => c.Id == client.Id);
             if (index >= 0)
@@ -588,6 +606,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             FullName = TryGetString(element, "full_name") ?? "",
             Phone = TryGetString(element, "phone") ?? "",
             Email = TryGetString(element, "email") ?? "",
+            Address = TryGetString(element, "address") ?? "",
             CreatedAt = created,
             CreatedAtDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
             LoyaltyBalance = loyaltyBalance,
@@ -614,6 +633,11 @@ public sealed class ClientRow
     public string FullName { get; init; } = "";
     public string Phone { get; init; } = "";
     public string Email { get; init; } = "";
+
+    /// <summary>Адрес клиента с сервера (поле «address»). Необязателен; нужен прежде всего
+    /// для долгов — по нему можно найти покупателя, когда телефон не отвечает.</summary>
+    public string Address { get; init; } = "";
+
     public DateTimeOffset CreatedAt { get; init; }
     public string CreatedAtDisplay { get; init; } = "";
 

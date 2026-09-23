@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
@@ -17,6 +17,12 @@ namespace NurMarketKassa.Services;
 ///
 /// Раньше метод жил внутри окна «Пополнение склада» и запускался только по кнопке. Вынесен
 /// сюда, чтобы им могли пользоваться и другие разделы.
+///
+/// Он же решает вторую задачу: две кассы под одним аккаунтом не видели продаж друг друга.
+/// Каждая писала историю только о своих чеках, и в ABC, сезонности и отчётах на одной кассе
+/// не было того, что продали на другой. Теперь недостающие чеки добираются с сервера по
+/// номеру продажи, а не по дате: раньше пропускалось всё, что новее самой старой локальной
+/// записи, то есть ровно то, чего не хватало.
 /// </summary>
 public static class SalesHistoryBackfill
 {
@@ -56,27 +62,37 @@ public static class SalesHistoryBackfill
                 break;
         }
 
-        // Локальная запись делается сразу после продажи, поэтому всё, что новее самой старой
-        // локальной строки, уже учтено — второй раз не пишем.
-        var earliestLocal = SoldLineItemsStore.GetEarliestDate();
+        // Пропускаем только те чеки, которые в локальной истории уже есть — по номеру
+        // продажи. Старая проверка «всё, что новее самой старой локальной записи, уже учтено»
+        // верна лишь для одной кассы: на второй она отсекала как раз чужие чеки.
+        var known = SoldLineItemsStore.KnownSaleIds();
+        var legacyWatermark = SoldLineItemsStore.LegacyWatermark();
+        var added = 0;
 
-        var lines = new List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>();
         foreach (var sale in raw)
         {
             ct.ThrowIfCancellationRequested();
 
             if (!sale.TryGetProperty("id", out var idProp))
                 continue;
+
+            var saleId = idProp.ToString() ?? "";
+            if (string.IsNullOrWhiteSpace(saleId) || known.Contains(saleId))
+                continue;
+
             if (!sale.TryGetProperty("created_at", out var dateProp) ||
                 !DateTime.TryParse(dateProp.GetString(), out var createdAt))
                 continue;
-            if (earliestLocal.HasValue && createdAt.ToUniversalTime() >= earliestLocal.Value)
+
+            // Всё, что старше отсечки, локальная история уже содержит — просто без номера,
+            // поэтому по номеру этого не видно. Подтянуть такие чеки — значит задвоить их.
+            if (legacyWatermark is { } watermark && createdAt.ToUniversalTime() <= watermark)
                 continue;
 
             JsonElement detail;
             try
             {
-                detail = await App.SalesApi.PosSaleGetAsync(idProp.ToString() ?? "", ct).ConfigureAwait(false);
+                detail = await App.SalesApi.PosSaleGetAsync(saleId, ct).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -87,6 +103,9 @@ public static class SalesHistoryBackfill
             if (!detail.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
                 continue;
 
+            // Пишем по одному чеку за раз: номер продажи общий для всех его строк, и при
+            // обрыве связи посередине уже записанные чеки повторно не подтянутся.
+            var lines = new List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>();
             foreach (var line in items.EnumerateArray())
             {
                 var productId = CartDisplayHelper.TryProductId(line);
@@ -101,11 +120,18 @@ public static class SalesHistoryBackfill
                     CartDisplayHelper.UnitPrice(line),
                     createdAt.ToUniversalTime()));
             }
+
+            if (lines.Count == 0)
+                continue;
+
+            SoldLineItemsStore.AppendBackfill(lines, saleId);
+            known.Add(saleId);
+            added += lines.Count;
         }
 
-        if (lines.Count > 0)
-            SoldLineItemsStore.AppendBackfill(lines);
+        if (added > 0)
+            PosLogger.Log($"История продаж: с сервера добрано {added} строк(и).", "SYNC");
 
-        return lines.Count;
+        return added;
     }
 }

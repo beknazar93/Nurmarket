@@ -885,6 +885,8 @@
   <x:String x:Key="clients.newClientHeader">Yeni müşteri</x:String>
   <x:String x:Key="clients.nameWatermark">Ad / tam ad</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">E-posta (isteğe bağlı)</x:String>
+  <x:String x:Key="clients.addressOptionalWatermark">Adres (isteğe bağlı)</x:String>
+  <x:String x:Key="clients.addressLabel">Adres</x:String>
   <x:String x:Key="clients.addButton">+ Ekle</x:String>
   <x:String x:Key="clients.refreshButton">Yenile</x:String>
   <x:String x:Key="clients.colFullName">Tam ad</x:String>

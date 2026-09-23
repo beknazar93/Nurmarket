@@ -60,6 +60,7 @@ namespace NurMarketKassa.ViewModels
         private string _clientSearchText = "";
         private string _newClientName = "";
         private string _newClientPhone = "";
+        private string _newClientAddress = "";
         private bool _isAddingClient;
         private string _debtCashReceived = "0.00";
         private string _mixedCashAmount = "";
@@ -550,6 +551,19 @@ namespace NurMarketKassa.ViewModels
                 _newClientName = value;
                 OnPropertyChanged();
                 (AddClientCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+
+        /// <summary>Адрес нового клиента — необязательное поле. Заполняется прежде всего при
+        /// продаже в долг: телефон покупателя может не отвечать, и тогда адрес — единственное,
+        /// по чему его можно найти. На пустом значении поведение прежнее.</summary>
+        public string NewClientAddress
+        {
+            get => _newClientAddress;
+            set
+            {
+                _newClientAddress = value ?? "";
+                OnPropertyChanged();
             }
         }
 
@@ -1137,7 +1151,7 @@ namespace NurMarketKassa.ViewModels
             try
             {
                 var created = await _clientsApi
-                    .CreateClientAsync(_newClientName, _newClientPhone, null)
+                    .CreateClientAsync(_newClientName, _newClientPhone, null, _newClientAddress)
                     .ConfigureAwait(true);
 
                 var option = ToClientOption(created);

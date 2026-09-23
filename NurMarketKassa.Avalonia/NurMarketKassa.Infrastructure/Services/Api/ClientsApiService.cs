@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
@@ -53,6 +53,7 @@ public sealed class ClientsApiService : IClientsApiService
         string fullName,
         string phone,
         string? email,
+        string? address = null,
         CancellationToken ct = default)
     {
         var body = new Dictionary<string, string>
@@ -63,6 +64,8 @@ public sealed class ClientsApiService : IClientsApiService
         };
         if (!string.IsNullOrWhiteSpace(email))
             body["email"] = email.Trim();
+        if (!string.IsNullOrWhiteSpace(address))
+            body["address"] = address.Trim();
 
         return _client.RequestAsync(HttpMethod.Post, "api/main/clients/", body, null, ct);
     }
@@ -72,6 +75,7 @@ public sealed class ClientsApiService : IClientsApiService
         string fullName,
         string phone,
         string? email,
+        string? address = null,
         CancellationToken ct = default)
     {
         var body = new Dictionary<string, string>
@@ -81,6 +85,9 @@ public sealed class ClientsApiService : IClientsApiService
         };
         if (!string.IsNullOrWhiteSpace(email))
             body["email"] = email.Trim();
+        // Пустую строку отправляем намеренно: так адрес можно и стереть, а не только задать.
+        if (address is not null)
+            body["address"] = address.Trim();
 
         return _client.RequestAsync(HttpMethod.Patch, $"api/main/clients/{id}/", body, null, ct);
     }

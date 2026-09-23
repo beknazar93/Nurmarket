@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NurMarketKassa.ViewModels"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ClientPickerDialog"
@@ -67,6 +67,9 @@
                             <TextBlock Text="{DynamicResource csh.checkout.newClient}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBox Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
                             <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
+                            <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
+                                 должника может не отвечать. -->
+                            <TextBox Text="{Binding NewClientAddress}" Watermark="{DynamicResource clients.addressOptionalWatermark}" Height="40"/>
                             <Button Content="{DynamicResource csh.checkout.addClient}"
                                     Command="{Binding AddClientCommand}"
                                     IsEnabled="{Binding !IsAddingClient}"

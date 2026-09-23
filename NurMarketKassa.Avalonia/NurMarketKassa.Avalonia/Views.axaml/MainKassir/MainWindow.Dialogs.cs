@@ -330,7 +330,7 @@ public partial class MainWindow
             isWithdrawal: true,
             op.Amount,
             reason,
-            NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+            NurMarketKassa.PosApp.CurrentUserDisplayName);
 
         if (printError is not null)
         {

@@ -885,6 +885,8 @@
   <x:String x:Key="clients.newClientHeader">Yangi mijoz</x:String>
   <x:String x:Key="clients.nameWatermark">Ism / to'liq ism</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">Email (ixtiyoriy)</x:String>
+  <x:String x:Key="clients.addressOptionalWatermark">Manzil (ixtiyoriy)</x:String>
+  <x:String x:Key="clients.addressLabel">Manzil</x:String>
   <x:String x:Key="clients.addButton">+ Qo'shish</x:String>
   <x:String x:Key="clients.refreshButton">Yangilash</x:String>
   <x:String x:Key="clients.colFullName">To'liq ism</x:String>

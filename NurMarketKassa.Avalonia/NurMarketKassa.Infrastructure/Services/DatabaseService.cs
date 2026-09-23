@@ -197,7 +197,8 @@ public sealed class DatabaseService
                     unit_price REAL NOT NULL,
                     sold_at TEXT NOT NULL,
                     source TEXT NOT NULL DEFAULT 'local',
-                    company_id TEXT
+                    company_id TEXT,
+                    sale_id TEXT
                 );
 
                 -- Скидки и списанные бонусы по каждому проведённому чеку. Сервер про бонусы
@@ -257,6 +258,7 @@ public sealed class DatabaseService
 
             AddSoldLineItemsCompanyColumn(connection);
             AddWriteOffsCompanyColumn(connection);
+            AddSoldLineItemsSaleIdColumn(connection);
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
@@ -1555,6 +1557,26 @@ public sealed class DatabaseService
         return company is null ? "" : " AND company_id = '" + company.Replace("'", "''") + "'";
     }
 
+    /// <summary>Номер продажи в строках истории. По нему история двух касс одного аккаунта
+    /// сливается без дублей: раньше строку было не с чем сопоставить, и подтянуть продажи с
+    /// сервера можно было только в пустую базу.</summary>
+    private static void AddSoldLineItemsSaleIdColumn(SqliteConnection connection)
+    {
+        try
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE SoldLineItems ADD COLUMN sale_id TEXT;";
+            alter.ExecuteNonQuery();
+            using var index = connection.CreateCommand();
+            index.CommandText = "CREATE INDEX IF NOT EXISTS idx_sold_line_items_sale ON SoldLineItems(sale_id);";
+            index.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже есть.
+        }
+    }
+
     /// <summary>То же, что у истории продаж: списания тоже относятся к конкретной компании,
     /// и записи, сделанные до разделения аккаунтов, владельца не имеют.</summary>
     private static void AddWriteOffsCompanyColumn(SqliteConnection connection)
@@ -1592,7 +1614,66 @@ public sealed class DatabaseService
     /// (записано сразу после продажи, см. BasketPanelViewModel) или "backfill" (подтянуто с сервера
     /// один раз, см. RestockSuggestionsWindow) — нужно, чтобы бэкфилл не задваивал уже локально
     /// записанные строки.</summary>
-    public void AppendSoldLineItems(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string source)
+    /// <summary>Дата самой поздней строки истории БЕЗ номера продажи.
+    ///
+    /// Такие строки писали версии до появления номера: сопоставить их с чеком на сервере
+    /// нечем. Если бэкфилл не остановить, он подтянет те же продажи заново, и вся аналитика
+    /// задвоится. Поэтому всё, что старше этой даты, считаем уже учтённым, а сливаем истории
+    /// касс начиная с неё. Null — старых строк нет, ограничивать нечего.</summary>
+    public DateTime? GetLegacyHistoryWatermark()
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT MAX(sold_at) FROM SoldLineItems WHERE (sale_id IS NULL OR sale_id = '')"
+                + OwnRowsClause() + ";";
+            var raw = command.ExecuteScalar() as string;
+            return DateTime.TryParse(raw, null, System.Globalization.DateTimeStyles.RoundtripKind, out var value)
+                ? value.ToUniversalTime()
+                : null;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Отсечка старой истории не прочитана: {ex.Message}", "WARNING");
+            return null;
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>Есть ли уже строки этой продажи. Нужно бэкфиллу: продажу, сделанную на этой
+    /// же кассе, второй раз писать нельзя.</summary>
+    public HashSet<string> LoadKnownSaleIds()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT DISTINCT sale_id FROM SoldLineItems WHERE sale_id IS NOT NULL AND sale_id <> ''"
+                + OwnRowsClause() + ";";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                result.Add(reader.GetString(0));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Список известных продаж не прочитан: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
+    }
+
+    public void AppendSoldLineItems(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string source, string? saleId = null)
     {
         _dbLock.EnterWriteLock();
         try
@@ -1602,8 +1683,8 @@ public sealed class DatabaseService
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
-                INSERT INTO SoldLineItems (product_id, product_name, quantity, unit_price, sold_at, source, company_id)
-                VALUES ($productId, $productName, $quantity, $unitPrice, $soldAt, $source, $companyId);
+                INSERT INTO SoldLineItems (product_id, product_name, quantity, unit_price, sold_at, source, company_id, sale_id)
+                VALUES ($productId, $productName, $quantity, $unitPrice, $soldAt, $source, $companyId, $saleId);
                 """;
             var pProductId = command.CreateParameter(); pProductId.ParameterName = "$productId"; command.Parameters.Add(pProductId);
             var pProductName = command.CreateParameter(); pProductName.ParameterName = "$productName"; command.Parameters.Add(pProductName);
@@ -1614,6 +1695,8 @@ public sealed class DatabaseService
             pSource.Value = source;
             var pCompany = command.CreateParameter(); pCompany.ParameterName = "$companyId"; command.Parameters.Add(pCompany);
             pCompany.Value = (object?)CurrentCompanyId() ?? DBNull.Value;
+            var pSale = command.CreateParameter(); pSale.ParameterName = "$saleId"; command.Parameters.Add(pSale);
+            pSale.Value = string.IsNullOrWhiteSpace(saleId) ? DBNull.Value : saleId;
 
             foreach (var line in lines)
             {

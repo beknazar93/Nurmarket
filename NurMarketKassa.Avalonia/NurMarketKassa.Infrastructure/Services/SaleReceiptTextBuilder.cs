@@ -68,6 +68,14 @@ public static class SaleReceiptTextBuilder
                 Line(addr);
         }
 
+        // Кассир. В чеке, который печатается сразу после продажи, эта строка есть
+        // (CartReceiptTextBuilder), а в предпросмотре и повторной печати её не было — один и
+        // тот же чек выглядел по-разному, и по бумаге из «Продаж» нельзя было понять, кто
+        // пробил. Берём из самой продажи, если сервер вернул, иначе — текущего кассира.
+        var cashier = CartDisplayHelper.TryCashierName(sale) ?? PosApp.CurrentUserDisplayName;
+        if (!string.IsNullOrWhiteSpace(cashier))
+            Line($"Кассир - {cashier.Trim()}");
+
         if (!string.IsNullOrWhiteSpace(receiptNumber))
             Line($"Чек №: {receiptNumber.Trim()}");
 

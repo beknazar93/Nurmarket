@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -10,6 +10,28 @@ namespace NurMarketKassa.Services;
 /// <summary>Разбор корзины и строк чека по полям API (как в main.py).</summary>
 public static class CartDisplayHelper
 {
+    /// <summary>Имя кассира из ответа сервера о продаже. Поля называются по-разному в
+    /// зависимости от эндпоинта, поэтому перебираем известные: «cashier_display» —
+    /// подтверждённое имя в ответе смен, остальные встречаются в ответах по продажам.
+    /// Возвращает null, если ни одного нет — вызывающий подставит текущего кассира.</summary>
+    public static string? TryCashierName(System.Text.Json.JsonElement sale)
+    {
+        if (sale.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return null;
+
+        foreach (var key in new[] { "cashier_display", "cashier_name", "cashier", "user_name", "created_by_name" })
+        {
+            if (!sale.TryGetProperty(key, out var value) || value.ValueKind != System.Text.Json.JsonValueKind.String)
+                continue;
+
+            var text = value.GetString();
+            if (!string.IsNullOrWhiteSpace(text) && !System.Guid.TryParse(text, out _))
+                return text;
+        }
+
+        return null;
+    }
+
     /// <summary>Товары, добавленные через весовой диалог каталога: API иногда не отдаёт is_weight/unit в строке.</summary>
     private static readonly ConcurrentDictionary<string, byte> WeighedProductDisplayHints = new(StringComparer.OrdinalIgnoreCase);
 

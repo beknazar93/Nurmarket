@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:NurMarketKassa.AvaloniaHost.Views"
         x:Class="NurMarketKassa.AvaloniaHost.Views.ClientsWindow"
@@ -149,11 +149,12 @@
                 BoxShadow="0 2 8 0 #0F000000">
             <StackPanel Spacing="10">
                 <TextBlock Text="{DynamicResource clients.newClientHeader}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <Grid ColumnDefinitions="*,*,*,Auto" >
+                <Grid ColumnDefinitions="*,*,*,*,Auto" >
                     <TextBox Grid.Column="0" Margin="0,0,8,0" Watermark="{DynamicResource clients.nameWatermark}" Text="{Binding NewClientName}"/>
                     <TextBox Grid.Column="1" Margin="0,0,8,0" Watermark="{DynamicResource common.phone}" Text="{Binding NewClientPhone}"/>
-                    <TextBox Grid.Column="2" Margin="0,0,8,0" Watermark="{DynamicResource clients.emailOptionalWatermark}" Text="{Binding NewClientEmail}"/>
-                    <Button Grid.Column="3" x:Name="AddClientButton" Classes="PrimaryButton" Content="{DynamicResource clients.addButton}"
+                    <TextBox Grid.Column="2" Margin="0,0,8,0" Watermark="{DynamicResource clients.addressOptionalWatermark}" Text="{Binding NewClientAddress}"/>
+                    <TextBox Grid.Column="3" Margin="0,0,8,0" Watermark="{DynamicResource clients.emailOptionalWatermark}" Text="{Binding NewClientEmail}"/>
+                    <Button Grid.Column="4" x:Name="AddClientButton" Classes="PrimaryButton" Content="{DynamicResource clients.addButton}"
                             Click="AddClientButton_Click"/>
                 </Grid>
                 <TextBlock Text="{Binding ErrorMessage}"
@@ -233,6 +234,10 @@
                     <StackPanel Spacing="4">
                         <TextBlock Text="{DynamicResource common.phone}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                         <TextBox Text="{Binding EditPhone}"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{DynamicResource clients.addressLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBox Text="{Binding EditAddress}"/>
                     </StackPanel>
                     <StackPanel Spacing="4">
                         <TextBlock Text="Email" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
