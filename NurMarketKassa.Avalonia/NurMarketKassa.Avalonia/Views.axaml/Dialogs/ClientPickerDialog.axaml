@@ -1,0 +1,94 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ClientPickerDialog"
+        x:DataType="vm:CheckoutViewModel"
+        x:CompileBindings="False"
+        Title="{DynamicResource csh.checkout.chooseClient}"
+        Width="480" Height="580" MinWidth="380" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        SystemDecorations="None"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource BrushPanel}">
+
+    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 16 40 0 #33101828"
+            Padding="24">
+
+        <Grid RowDefinitions="Auto,*">
+
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                <TextBlock Grid.Column="0" Text="{DynamicResource csh.checkout.chooseClient}"
+                           FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <Button Grid.Column="1" Content="✕" Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource BrushTextMuted}"
+                        Cursor="Hand" Click="Close_Click"/>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="10">
+                    <TextBox Text="{Binding ClientSearchText}"
+                             Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
+                             Height="44" FontSize="15"/>
+
+                    <ItemsControl ItemsSource="{Binding ClientSearchResults}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Margin="0,0,6,6" Padding="10,6"
+                                        CornerRadius="8"
+                                        Background="{DynamicResource BrushPanelSoft}"
+                                        Foreground="{DynamicResource BrushText}"
+                                        BorderBrush="{DynamicResource BrushBorder}"
+                                        BorderThickness="1"
+                                        Cursor="Hand"
+                                        Content="{ReflectionBinding DisplayName}"
+                                        Command="{Binding DataContext.SelectClientCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="{DynamicResource csh.checkout.loadingClients}"
+                               IsVisible="{Binding IsLoadingClients}"
+                               FontSize="12"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+
+                    <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,8,0,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource csh.checkout.newClient}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <TextBox Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
+                            <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
+                            <Button Content="{DynamicResource csh.checkout.addClient}"
+                                    Command="{Binding AddClientCommand}"
+                                    IsEnabled="{Binding !IsAddingClient}"
+                                    HorizontalAlignment="Left"
+                                    Padding="14,8"
+                                    Background="{DynamicResource BrushPanelSoft}"
+                                    Foreground="{DynamicResource BrushText}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Cursor="Hand"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="{DynamicResource BrushDanger}"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding !!ErrorMessage}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</Window>

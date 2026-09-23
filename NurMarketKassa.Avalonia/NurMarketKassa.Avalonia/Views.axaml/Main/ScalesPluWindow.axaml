@@ -1,0 +1,151 @@
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.ScalesPluWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="{DynamicResource scalesPlu.title}"
+        Height="700"
+        Width="1180"
+        MinWidth="900"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="Button.PrimaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}"
+                                Opacity="{TemplateBinding Opacity}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.SecondaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="DataGrid.ModernGrid">
+            <Setter Property="Background" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowHeight" Value="40" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Column="0" Text="{DynamicResource scalesPlu.title}"
+                       FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="ExportCsvButton" Content="Экспорт в CSV" Classes="SecondaryActionButton"
+                        Margin="0,0,8,0" Click="ExportCsv_Click"/>
+                <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
+                        Margin="0,0,10,0" Click="Refresh_Click"/>
+                <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="1" x:Name="SubtitleText" Text="{DynamicResource scalesPlu.subtitle}"
+                   Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16" Margin="0,0,0,10">
+            <RadioButton x:Name="BrandShtrikhRadio" GroupName="ScaleBrand" IsChecked="True"
+                         Content="{DynamicResource scalesPlu.brandShtrikh}" Click="BrandRadio_Click"/>
+            <RadioButton x:Name="BrandRongtaRadio" GroupName="ScaleBrand"
+                         Content="{DynamicResource scalesPlu.brandRongta}" Click="BrandRadio_Click"/>
+            <RadioButton x:Name="BrandAiRadio" GroupName="ScaleBrand" Margin="16,0,0,0"
+                         Content="AI весы" Click="BrandRadio_Click"/>
+        </StackPanel>
+
+        <Grid Grid.Row="3" x:Name="RongtaSourceRow" IsVisible="False" ColumnDefinitions="Auto,Auto,Auto,Auto"
+              Margin="0,0,0,10">
+            <RadioButton Grid.Column="0" x:Name="RongtaSourceSiteRadio" GroupName="RongtaSource" IsChecked="True"
+                         Content="{DynamicResource scalesPlu.rongtaSourceSite}" Click="RongtaSourceRadio_Click"/>
+            <RadioButton Grid.Column="1" x:Name="RongtaSourceServerRadio" GroupName="RongtaSource" Margin="16,0,0,0"
+                         Content="{DynamicResource scalesPlu.rongtaSourceServer}" Click="RongtaSourceRadio_Click"/>
+            <TextBlock Grid.Column="2" x:Name="RongtaPortLabel" Text="{DynamicResource scalesPlu.rongtaPortLabel}"
+                       VerticalAlignment="Center" Margin="16,0,8,0" FontSize="12"
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
+            <TextBox Grid.Column="3" x:Name="RongtaPortBox" Width="80" Text="5001" IsVisible="False"/>
+        </Grid>
+
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,10">
+            <Button Grid.Column="0" Content="{DynamicResource scalesPlu.selectAll}" Classes="SecondaryActionButton"
+                    Margin="0,0,10,0" Click="SelectAll_Click"/>
+            <Button Grid.Column="1" Content="{DynamicResource scalesPlu.selectNone}" Classes="SecondaryActionButton"
+                    Margin="0,0,10,0" Click="SelectNone_Click"/>
+            <!-- WrapPanel, а не StackPanel: в одну строку поля «Начальный PLU», галочка
+                 «Напрямую по кабелю», IP, порт, пароль и кнопка «Проверить» не помещались —
+                 на окне 900 px последние из них уезжали за правый край и были недоступны.
+                 Теперь при нехватке ширины они переносятся на следующую строку. -->
+            <WrapPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
+                       x:Name="PluStartRow">
+                <TextBlock Text="{DynamicResource scalesPlu.pluStartLabel}" VerticalAlignment="Center" Margin="0,0,6,0"
+                           Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
+                <TextBox Margin="0,2,8,2" x:Name="PluStartBox" Width="70" Text="1"/>
+
+                <CheckBox x:Name="DirectLanCheck" Content="Напрямую по кабелю"
+                          VerticalAlignment="Center" Margin="16,0,0,0"
+                          IsCheckedChanged="DirectLan_Changed"
+                          ToolTip.Tip="Касса сама говорит с весами по локальной сети, без сервера. Не проверено на живых весах — сверьте порт в системном меню весов."/>
+                <Button x:Name="LanSettingsButton" Margin="8,2,0,2"
+                        Content="Настройки подключения…"
+                        Click="LanSettings_Click"
+                        ToolTip.Tip="Адрес, порт и пароль весов — в отдельном окне, там же проверка связи."/>
+            </WrapPanel>
+        </Grid>
+
+        <Grid Grid.Row="5">
+            <DataGrid x:Name="ProductsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="False">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="44">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{ReflectionBinding IsSelected}" HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="*" Binding="{ReflectionBinding Name}"/>
+                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="90" Binding="{ReflectionBinding PluText}"/>
+                    <DataGridTextColumn Header="Ед." Width="70" Binding="{ReflectionBinding Unit}"/>
+                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="140" Binding="{ReflectionBinding PriceLine}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock x:Name="EmptyText" IsVisible="False" Text="{DynamicResource scalesPlu.empty}"
+                       Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+            <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
+                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <Button Grid.Column="1" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
+                    Classes="PrimaryActionButton" Padding="16,0" Click="Send_Click"/>
+        </Grid>
+    </Grid>
+</Window>

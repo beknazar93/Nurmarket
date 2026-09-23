@@ -1,0 +1,174 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.NewOperationDialog"
+        Title="{DynamicResource newOperation.title}"
+        Width="480" SizeToContent="Height"
+        MaxHeight="680"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+    </Style>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="RadioButton.tab-pill">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="Root"
+                  Background="{DynamicResource BrushInputAlt}"
+                  CornerRadius="10"
+                  BorderBrush="{DynamicResource BrushBorder}"
+                  BorderThickness="1">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.tab-pill:checked /template/ Border#Root">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+    <Style Selector="TextBox.field">
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <DockPanel LastChildFill="True">
+
+      <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,18">
+        <TextBlock Text="{DynamicResource newOperation.title}"
+                   FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushText}"/>
+        <TextBlock Text="{DynamicResource newOperation.subtitle}"
+                   FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+      </StackPanel>
+
+      <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,12,*" Margin="0,20,0,0">
+        <Button Grid.Column="0"
+                Classes="btn-secondary"
+                Content="{DynamicResource common.cancel}"
+                Height="46"
+                IsCancel="True"
+                Click="Close_Click"/>
+        <Button Grid.Column="2"
+                Classes="btn-primary"
+                Content="{DynamicResource common.save}"
+                Height="46"
+                IsDefault="True"
+                Click="Save_Click"/>
+      </Grid>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    MaxHeight="420"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,8,*">
+            <RadioButton x:Name="DepositTab"
+                         Grid.Column="0"
+                         Classes="tab-pill"
+                         GroupName="OpType"
+                         Content="{DynamicResource shiftActions.deposit}"
+                         IsChecked="True"/>
+            <RadioButton x:Name="WithdrawTab"
+                         Grid.Column="2"
+                         Classes="tab-pill"
+                         GroupName="OpType"
+                         Content="{DynamicResource shiftActions.withdraw}"/>
+          </Grid>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource common.date}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <CalendarDatePicker x:Name="DateBox"
+                               Height="42"
+                               HorizontalAlignment="Stretch"/>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource common.cashier}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <ComboBox x:Name="CashierBox"
+                      Height="42"
+                      HorizontalAlignment="Stretch"
+                      CornerRadius="10"/>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource common.amount}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Grid>
+              <TextBox x:Name="AmountBox"
+                       Classes="field"
+                       Watermark="0.00"/>
+              <TextBlock Text="{DynamicResource csh.catalog.currency}"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Center"
+                         Margin="0,0,14,0"
+                         Foreground="{DynamicResource BrushTextSoft}"
+                         IsHitTestVisible="False"/>
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource common.reason}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBox x:Name="ReasonBox" Classes="field" Watermark="{DynamicResource newOperation.reasonWatermark}"/>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource newOperation.commentLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBox x:Name="CommentBox"
+                     MinHeight="72"
+                     FontSize="14"
+                     CornerRadius="10"
+                     Padding="12,10"
+                     TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     Watermark="{DynamicResource newOperation.commentWatermark}"/>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</Window>

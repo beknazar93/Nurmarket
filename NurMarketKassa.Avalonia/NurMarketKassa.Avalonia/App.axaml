@@ -1,0 +1,86 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+      <conv:HexToBrushConverter x:Key="HexToBrushConverter"/>
+      <conv:PriceAmountConverter x:Key="PriceAmountConverter"/>
+
+      <!-- Форма элементов (радиус скругления карточек/кнопок) — базовые значения "как всегда
+           было"; тема из Маркетплейса переопределяет их через Application.Resources так же,
+           как переопределяет цвет (см. AccentThemeService). -->
+      <CornerRadius x:Key="SettingsCardRadius">12</CornerRadius>
+      <CornerRadius x:Key="SettingsButtonRadius">10</CornerRadius>
+
+      <!-- Шрифт приложения — базовые значения "как всегда было"; настраивается в модалке
+           "⚙ Настройка темы" (см. AccentThemeService.ApplyFontResources). Noto Sans встроен
+           шрифтом ресурсом приложения (Assets/Fonts, 2026-09-04) и стоит первым в списке —
+           гарантированно содержит кыргызские буквы ө/ү/ң (в отличие от Segoe UI, которая на
+           некоторых POS-терминалах оказывается урезанной сборкой без кириллических расширений
+           и рисует эти буквы квадратами); Segoe UI оставлена вторым вариантом на случай, если в
+           Noto Sans не найдётся какой-то другой символ. -->
+      <FontFamily x:Key="AppFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Noto Sans, Segoe UI</FontFamily>
+      <x:Double x:Key="AppFontSize">14</x:Double>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeDark.axaml"/>
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeLight.axaml"/>
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/KeyboardIcons.axaml"/>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogTheme.axaml"/>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/NurMarketDialogTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppControlStyles.axaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogStyles.axaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/ShiftHistoryResources.axaml"/>
+    <Style Selector="Window">
+      <Setter Property="Icon" Value="avares://NurMarketKassa.Avalonia/Assets/app-icon.ico"/>
+      <Setter Property="Background" Value="{DynamicResource BrushWindow}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+      <Setter Property="FontSize" Value="{DynamicResource AppFontSize}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
+      <Setter Property="SelectionBrush" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+    <Style Selector="DatePicker">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+  </Application.Styles>
+</Application>

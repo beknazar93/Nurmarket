@@ -1,0 +1,143 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.FinanceDateRangeDialog"
+        Title="{DynamicResource financeRange.title}"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+    </Style>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="Button.quick">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.quick:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 16 40 0 #40101828"
+          Padding="26">
+    <StackPanel Spacing="18">
+
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Border Width="40" Height="40" CornerRadius="10"
+                Background="{DynamicResource BrushAccentSoft}"
+                HorizontalAlignment="Left" VerticalAlignment="Top">
+          <TextBlock Text="📅" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <StackPanel Spacing="4" VerticalAlignment="Center">
+          <TextBlock Text="{DynamicResource financeRange.title}"
+                     FontSize="20" FontWeight="Bold"
+                     Foreground="{DynamicResource BrushText}"/>
+          <TextBlock Text="{DynamicResource financeRange.subtitle}"
+                     FontSize="13" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="{DynamicResource financeRange.quickSection}" FontSize="12" FontWeight="SemiBold"
+                    Foreground="{DynamicResource BrushTextSoft}"/>
+        <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="{DynamicResource SettingsButtonRadius}" Padding="4">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="quick" Content="{DynamicResource common.today}" Tag="Today" Click="Quick_Click" HorizontalAlignment="Stretch"/>
+            <Button Classes="quick" Content="{DynamicResource common.week}" Tag="Week" Click="Quick_Click" HorizontalAlignment="Stretch"/>
+            <Button Classes="quick" Content="{DynamicResource common.month}" Tag="Month" Click="Quick_Click" HorizontalAlignment="Stretch"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,16,*">
+        <StackPanel Grid.Column="0" Spacing="6">
+          <TextBlock Text="{DynamicResource common.from}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+          <CalendarDatePicker x:Name="FromDatePicker"
+                              Height="42"
+                              CornerRadius="{DynamicResource SettingsButtonRadius}"
+                              HorizontalAlignment="Stretch"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6">
+          <TextBlock Text="{DynamicResource common.to}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+          <CalendarDatePicker x:Name="ToDatePicker"
+                              Height="42"
+                              CornerRadius="{DynamicResource SettingsButtonRadius}"
+                              HorizontalAlignment="Stretch"/>
+        </StackPanel>
+      </Grid>
+
+      <StackPanel Spacing="8">
+        <TextBlock Text="{DynamicResource financeRange.calendarSection}" FontSize="12" FontWeight="SemiBold"
+                    Foreground="{DynamicResource BrushTextSoft}"/>
+        <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="12" HorizontalAlignment="Stretch">
+          <Calendar x:Name="RangeCalendar"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    HorizontalAlignment="Center"
+                    SelectedDatesChanged="RangeCalendar_SelectedDatesChanged"/>
+        </Border>
+      </StackPanel>
+
+      <TextBlock x:Name="ErrorText"
+                 FontSize="13"
+                 Foreground="{DynamicResource BrushDanger}"
+                 TextWrapping="Wrap"
+                 IsVisible="False"/>
+
+      <Grid ColumnDefinitions="*,12,*">
+        <Button Grid.Column="0"
+                Classes="btn-secondary"
+                Content="{DynamicResource common.cancel}"
+                Height="46"
+                IsCancel="True"
+                Click="Cancel_Click"/>
+        <Button Grid.Column="2"
+                Classes="btn-primary"
+                Content="{DynamicResource csh.filter.apply}"
+                Height="46"
+                IsDefault="True"
+                Click="Apply_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>

@@ -1,0 +1,157 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.UpdatesSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="Button.UpdateGoldButton">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="16,6"/>
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.UpdateGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <!-- Центрирующий контейнер -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+        <!-- Хедер по центру -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
+                    BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                         Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource posSettings.navUpdates}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource posSettings.updates.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Единая карточка версий и обновлений -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="14">
+            <TextBlock Text="{DynamicResource posSettings.updates.systemStatus}" Classes="SettingsCardTitle" FontSize="14"/>
+
+            <!-- Блок текущей версии -->
+            <StackPanel Spacing="2">
+              <TextBlock Text="{DynamicResource posSettings.updates.currentVersionLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <!-- Без Text="{DynamicResource ...}": это была "живая" привязка на строку-заглушку
+                   ("Версия 1.0.0"), и при переключении языка Avalonia заново применяла её поверх
+                   уже установленной код-behind реальной версии, затирая её обратно на заглушку. -->
+              <TextBlock x:Name="AppVersionText" x:FieldModifier="public"
+                         FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            </StackPanel>
+
+            <!-- Кнопка с переходом вниз.
+                 MinWidth, а не Width: при жёстких 220 надпись не помещалась и обрезалась прямо
+                 посреди слова — «Проверить обновлени». В русском она длиннее английской, а в
+                 турецком и узбекском ещё длиннее, поэтому ширину задаём снизу, а не намертво. -->
+            <Button x:Name="CheckUpdateButton" x:FieldModifier="public"
+                    Content="{DynamicResource updates.checkButton}"
+                    Classes="UpdateGoldButton"
+                    MinWidth="220"
+                    HorizontalAlignment="Left"/>
+
+            <!-- Появляется только когда проверка нашла более новую версию — скачивает
+                 и ставит обновление прямо в кассе, без похода кассира в браузер. -->
+            <Button x:Name="UpdateNowButton" x:FieldModifier="public"
+                    Content="{DynamicResource updates.installButton}"
+                    Classes="UpdateGoldButton"
+                    MinWidth="220"
+                    HorizontalAlignment="Left"
+                    IsVisible="False"/>
+
+            <!-- Прогресс-бар и текстовый статус -->
+            <StackPanel Spacing="6" Margin="0,2,0,0">
+              <ProgressBar x:Name="UpdateProgressBar" x:FieldModifier="public"
+                           Height="6" IsVisible="False" IsIndeterminate="False"
+                           Minimum="0" Maximum="100" CornerRadius="3"
+                           Foreground="{DynamicResource BrushWarning}" Background="{DynamicResource BrushInputAlt}"
+                           VerticalAlignment="Top"/>
+
+              <TextBlock x:Name="UpdateStatusText" x:FieldModifier="public"
+                         FontSize="12" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" IsVisible="False"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Что нового в установленной версии. Раньше на этом экране описания не было вовсе:
+             список изменений показывался ОДИН раз всплывающим окном сразу после обновления
+             (MainWindow.ShowWhatsNewIfUpdated) и больше нигде не открывался. -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="WhatsNewTitleText" x:FieldModifier="public"
+                       Classes="SettingsCardTitle" FontSize="14"/>
+            <!-- Высота ограничена: список изменений бывает длинным и раньше растягивал карточку
+                 так, что «Откат на прошлую версию» и «Диагностика» уезжали далеко вниз за экран.
+                 MaxHeight, а не Height — на коротком списке карточка остаётся компактной и не
+                 показывает пустую рамку. -->
+            <!-- Полоса прокрутки показывается ВСЕГДА, а не по наведению: при "Auto" её не было
+                 видно, и обрезанная по высоте последняя строка выглядела как поломка вёрстки —
+                 ничто не подсказывало, что список можно прокрутить. -->
+            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Disabled">
+              <TextBlock x:Name="WhatsNewText" x:FieldModifier="public"
+                         Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
+                         Foreground="{DynamicResource BrushText}" LineHeight="18"
+                         Margin="0,0,8,0"/>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+
+        <!-- Откат на прошлую версию -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource updates.rollbackTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="{DynamicResource updates.rollbackDesc}"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+
+            <Button x:Name="ShowVersionsButton" x:FieldModifier="public"
+                    Content="{DynamicResource updates.showVersionsButton}"
+                    Classes="UpdateGoldButton"
+                    MinWidth="220"
+                    HorizontalAlignment="Left"/>
+
+            <StackPanel x:Name="VersionsListPanel" x:FieldModifier="public" Spacing="6" IsVisible="False"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Карточка диагностики -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{DynamicResource posSettings.updates.diagnosticsTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="{DynamicResource posSettings.updates.diagnosticsDesc}"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="10">
+              <TextBlock x:Name="CatalogDiagnosticsText" x:FieldModifier="public"
+                         FontSize="11" Foreground="{DynamicResource BrushText}"
+                         TextWrapping="Wrap" FontFamily="Consolas"/>
+            </Border>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

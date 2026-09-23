@@ -1,0 +1,29 @@
+﻿<!-- Avalonia: compile Views.axaml; exclude backup artifacts only. -->
+<Project>
+  <!-- This file auto-imports into every project under this folder, including the business-logic
+       libraries themselves — not just the Avalonia host. Scope the cross-project Removes below to
+       the host only, otherwise "..\NurMarketKassa.Core\**\*.cs" evaluated inside NurMarketKassa.Core.csproj
+       resolves back onto itself and strips its own sources (silently — 0 files, 0 errors, empty DLL). -->
+  <ItemGroup Condition="'$(AssemblyName)' == 'NurMarketKassa.Avalonia'">
+    <!-- Business libraries stay as ProjectReference — do not compile their sources into this host -->
+    <Compile Remove="..\NurMarketKassa\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Core\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Infrastructure\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.ViewModels\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Ui.Shared\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="**\*.bak" />
+    <Compile Remove="**\*.wpfbak" />
+    <Compile Remove="**\*.shellbak" />
+    <Compile Remove="**\*.Thin.cs" />
+    <AvaloniaXaml Remove="**\*.bak" />
+    <AvaloniaXaml Remove="**\*.wpfbak" />
+    <AvaloniaXaml Remove="**\*.shellbak" />
+
+    <None Include="**\*.bak" />
+    <None Include="**\*.wpfbak" />
+    <None Include="**\*.shellbak" />
+  </ItemGroup>
+</Project>

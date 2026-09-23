@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.EmployeesSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+    <Style Selector="TextBlock.EmployeeFieldLabel">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+    <Style Selector="TextBox.EmployeeCodeBox">
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="MinHeight" Value="38"/>
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList" MaxWidth="760" HorizontalAlignment="Center" Margin="0,16">
+
+        <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center">
+              <TextBlock Text="👥" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource posSettings.navEmployees}" Classes="SettingsPageTitle"/>
+              <TextBlock Text="{DynamicResource employees.subtitle}" Classes="SettingsPageSubtitle" TextWrapping="Wrap"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border x:Name="RolesCard" Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource employees.rolesTitle}" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="{DynamicResource employees.rolesSubtitle}" FontSize="12"
+                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <StackPanel x:Name="RolesListPanel" Spacing="6"/>
+            <Button x:Name="AddRoleButton" Classes="btn-secondary" HorizontalAlignment="Left"
+                    Content="{DynamicResource employees.addRoleButton}" Click="AddRole_Click"/>
+            <TextBlock x:Name="RolesStatusText" FontSize="12" TextWrapping="Wrap" IsVisible="False"/>
+          </StackPanel>
+        </Border>
+
+        <StackPanel x:Name="EmployeeListPanel" Spacing="10"/>
+
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button x:Name="AddEmployeeButton" Classes="btn-secondary" HorizontalAlignment="Left"
+                  Content="{DynamicResource employees.addButton}" Click="AddEmployee_Click"/>
+          <Button x:Name="LoadFromWebButton" Classes="btn-secondary" HorizontalAlignment="Left"
+                  Content="{DynamicResource employees.loadFromWeb}" Click="LoadFromWeb_Click"/>
+        </StackPanel>
+        <!-- Подложка обязательна. Этот текст — единственный на странице, кто висел прямо на
+             фоне страницы, а он прозрачный (Border.SettingsContentHost), и под ним видны обои
+             рабочего стола. Цвет обоев произвольный, поэтому ни один цвет текста не может
+             гарантировать читаемость: на скриншоте владельца сообщение «Добавлено сотрудников»
+             легло на серый #6D6D6D и дало контраст 1.14:1. Остальной текст страницы лежит на
+             карточках с непрозрачным BrushPanel и читается всегда — теперь и этот тоже. -->
+        <Border x:Name="LoadStatusPanel" IsVisible="False"
+                Background="{DynamicResource BrushPanel}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="{DynamicResource SettingsCardRadius}"
+                Padding="14,10" HorizontalAlignment="Stretch">
+          <TextBlock x:Name="LoadStatusText" FontSize="12" TextWrapping="Wrap"/>
+        </Border>
+
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource employees.saveHint}" FontSize="12"
+                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <Button x:Name="SaveButton" Classes="btn-primary" HorizontalAlignment="Left"
+                    Content="{DynamicResource common.save}" Click="Save_Click"/>
+            <TextBlock x:Name="SavedNote" Text="{DynamicResource employees.saved}"
+                       Foreground="{DynamicResource BrushSuccess}" FontSize="12" IsVisible="False"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

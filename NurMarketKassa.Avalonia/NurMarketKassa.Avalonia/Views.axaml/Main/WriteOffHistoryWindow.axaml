@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.WriteOffHistoryWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource warehouse.writeOffHistoryTitle}"
+        Height="820" Width="1300" MinHeight="500" MinWidth="900"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="SeparatorBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="DataGridRow">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="2,1"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*">
+
+        <!-- Заголовок -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                    <TextBlock Text="📦" FontSize="18" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="{DynamicResource warehouse.writeOffHistoryTitle}" FontSize="20" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
+        </Grid>
+
+        <!-- Поиск -->
+        <TextBox Grid.Row="1" x:Name="SearchBox"
+                  Watermark="{DynamicResource warehouse.writeOffHistorySearchWatermark}"
+                  Margin="0,0,0,10"
+                  TextChanged="SearchBox_TextChanged"/>
+
+        <!-- Сводка -->
+        <TextBlock Grid.Row="2" x:Name="SummaryText"
+                   Foreground="{DynamicResource BrushTextSoft}" FontSize="13" Margin="2,0,0,10"/>
+
+        <!-- Таблица -->
+        <Grid Grid.Row="3">
+            <DataGrid x:Name="HistoryGrid"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      RowHeight="46">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource common.dateTime}" Width="170" Binding="{Binding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{Binding ProductName}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="120" Binding="{Binding QuantityText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffReasonLabel}" Width="1.3*" Binding="{Binding Reason}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.cashier}" Width="2*" Binding="{Binding CashierName}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock x:Name="EmptyText" Text="{DynamicResource warehouse.writeOffHistoryEmpty}"
+                       IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
+        </Grid>
+    </Grid>
+</Window>

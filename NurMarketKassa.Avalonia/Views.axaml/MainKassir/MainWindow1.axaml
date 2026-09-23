@@ -1,0 +1,11 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow1"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <!-- Левая зона (каталог): ~2/3 ширины основного контента -->
+    <controls:CatalogPanelView DataContext="{Binding Catalog}"/>
+</UserControl>

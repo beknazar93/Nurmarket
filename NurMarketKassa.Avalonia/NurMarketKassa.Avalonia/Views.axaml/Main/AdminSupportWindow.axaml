@@ -1,0 +1,124 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.AdminSupportWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource adminSupport.title}"
+        Height="580"
+        Width="420"
+        MinHeight="480"
+        MinWidth="380"
+        CanResize="False"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="Transparent">
+
+    <Border CornerRadius="18" Background="{DynamicResource BrushPanel}" ClipToBounds="True"
+            BoxShadow="0 4 20 0 #2664748B">
+        <Grid Background="Transparent">
+            <!-- 1. Фоновые волны (убираем их на задний план ZIndex="0") -->
+            <Canvas ZIndex="0" IsHitTestVisible="False" VerticalAlignment="Bottom" Height="180">
+                <Path Fill="#FFF7C2" Opacity="0.55"
+                      Data="M -40,120 C 80,40 200,160 420,80 L 460,180 L -40,180 Z" />
+                <Path Fill="#FFE566" Opacity="0.35"
+                      Data="M -20,140 C 120,60 260,150 460,100 L 460,180 L -20,180 Z" />
+                <Path Fill="#FFF9E6" Opacity="0.7"
+                      Data="M 0,155 C 140,90 300,165 460,120 L 460,180 L 0,180 Z" />
+            </Canvas>
+
+            <!-- 2. Основной контент (Явно выносим на передний план ZIndex="1") -->
+            <StackPanel ZIndex="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32,24">
+
+                <!-- Шапка -->
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,30">
+                    <Border Width="72" Height="72" CornerRadius="5" ClipToBounds="True"
+                            HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <Image Source="/Assets/app-logo.png" Stretch="UniformToFill" />
+                    </Border>
+                    <TextBlock Text="Nur Market" FontSize="28" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource adminSupport.header}"
+                               Margin="0,4,0,0" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource adminSupport.subtitle}"
+                               Margin="0,4,0,0" FontSize="14"
+                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Кнопки контактов -->
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+
+                    <!-- Телефон -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+                            Margin="0,0,0,12" Click="Phone_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+                                Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                BoxShadow="0 1 12 0 #0F64748B">
+                            <Grid ColumnDefinitions="Auto, *">
+                                <!-- Иконка слева -->
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                                        Background="{DynamicResource BrushWarningSoft}">
+                                    <TextBlock Text="☎" FontSize="16" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}" />
+                                </Border>
+                                <!-- Текст по центру карточки -->
+                                <TextBlock Grid.Column="1" Text="+996 559340032" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" Margin="0,0,36,0" />
+                                <!-- Margin="0,0,36,0" компенсирует ширину иконки,
+                                чтобы текст был идеально по центру всего блока -->
+                            </Grid>
+                        </Border>
+                    </Button>
+
+                    <!-- WhatsApp -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+                            Margin="0,0,0,12" Click="WhatsApp_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+                                Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                BoxShadow="0 1 12 0 #0F64748B">
+                            <Grid ColumnDefinitions="Auto, *">
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                                        Background="{DynamicResource BrushWarningSoft}">
+                                    <TextBlock Text="💬" FontSize="16" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="+996 559340032" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" Margin="0,0,36,0" />
+                            </Grid>
+                        </Border>
+                    </Button>
+
+                    <!-- Сайт -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+                            Click="Website_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+                                Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                BoxShadow="0 1 12 0 #0F64748B">
+                            <Grid ColumnDefinitions="Auto, *">
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                                        Background="{DynamicResource BrushWarningSoft}">
+                                    <TextBlock Text="🌐" FontSize="16" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="https://nurcrm.kg/" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" Margin="0,0,36,0" />
+                            </Grid>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
+                <!-- Желтая кнопка «Закрыть» с центрированным текстом -->
+                <Button Content="{DynamicResource common.close}"
+                        HorizontalAlignment="Center"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        MinWidth="120" Padding="20,10"
+                        Background="{DynamicResource BrushAccent}" Foreground="{DynamicResource BrushAccentForeground}" FontWeight="SemiBold"
+                        BorderBrush="{DynamicResource BrushAccentStrong}" BorderThickness="1" Cursor="Hand"
+                        CornerRadius="10" Click="Close_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

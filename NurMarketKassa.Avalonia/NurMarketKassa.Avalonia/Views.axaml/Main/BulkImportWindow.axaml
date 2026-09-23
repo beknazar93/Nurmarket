@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.BulkImportWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource bulkImport.title}"
+        Height="720" Width="960" MinHeight="480" MinWidth="700"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}">
+
+    <Window.Styles>
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <!-- Заголовок -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                    <TextBlock Text="📥" FontSize="18" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="{DynamicResource bulkImport.title}" FontSize="20" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
+        </Grid>
+
+        <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"
+                   Text="{DynamicResource bulkImport.description}"/>
+
+        <!-- Панель действий -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,12">
+            <Button Grid.Column="0" Content="{DynamicResource bulkImport.downloadTemplate}" Classes="SecondaryButton" Click="DownloadTemplate_Click"/>
+            <Button Grid.Column="1" Content="{DynamicResource bulkImport.pickFile}" Classes="SecondaryButton" Margin="8,0,0,0" Click="PickFile_Click"/>
+            <TextBlock Grid.Column="3" x:Name="FileNameText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Предпросмотр -->
+        <DataGrid Grid.Row="3" x:Name="PreviewGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="36">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="№" Width="50" Binding="{Binding RowNumber}"/>
+                <DataGridTextColumn Header="{DynamicResource bulkImport.colName}" Width="2*" Binding="{Binding Name}"/>
+                <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140" Binding="{Binding Barcode}"/>
+                <DataGridTextColumn Header="{DynamicResource bulkImport.colQty}" Width="80" Binding="{Binding QuantityText}"/>
+                <DataGridTextColumn Header="{DynamicResource csh.catalog.colPrice}" Width="80" Binding="{Binding PriceText}"/>
+                <DataGridTextColumn Header="{DynamicResource bulkImport.colStatus}" Width="1.3*" Binding="{Binding StatusText}"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Действия и итог -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+            <TextBlock Grid.Column="0" x:Name="SummaryText" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+            <Button Grid.Column="1" x:Name="StartImportButton" Content="{DynamicResource bulkImport.startButton}" Classes="PrimaryButton"
+                    IsEnabled="False" Click="StartImport_Click"/>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,226 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftDetailsDialog"
+        Title="{DynamicResource shiftDetails.title}"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="Button.btn-chrome">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <StackPanel Spacing="18">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="{DynamicResource shiftDetails.title}"
+                     FontSize="20" FontWeight="Bold"
+                     Foreground="{DynamicResource BrushText}"/>
+          <TextBlock Text="{DynamicResource shiftDetails.subtitle}"
+                     FontSize="13" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                Classes="btn-chrome"
+                VerticalAlignment="Top"
+                Click="Close_Click"
+                ToolTip.Tip="{DynamicResource csh.filter.closeTooltip}">
+          <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                     FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,16,*">
+        <Border Grid.Column="0"
+                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{DynamicResource common.shift}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock Text="{DynamicResource shiftDetails.shiftNumberLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="{DynamicResource shiftDetails.openedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="OpenedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="{DynamicResource shiftDetails.closedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="ClosedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="{DynamicResource common.cashier}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="CashierText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2"
+                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{DynamicResource shiftDetails.totalsSection}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock Text="{DynamicResource common.status}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Border x:Name="StatusBadge" Height="28" CornerRadius="14" Padding="10,0"
+                    HorizontalAlignment="Left" Background="{DynamicResource BrushSuccessSoft}">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{DynamicResource BrushUiStatusOk}"/>
+                <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushUiStatusOk}" Text="—"/>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="{DynamicResource shiftDetails.revenueLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
+            <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- 2026-09-15, живой баг ("в чёрном текст не виден"): BrushAccentSoft/BrushAccentStrong
+           в светлой теме — оба практически один и тот же жёлтый (#FFF7C2/#D6B500), из-за чего
+           текст блока "Безналичные" сливался с фоном. BrushDiscountPanelBg/Border — отдельная,
+           реально различная в обеих темах синеватая пара; текст — обычный BrushText (гарантированно
+           контрастен фону в любой теме, как и остальной текст диалогов).-->
+      <Grid ColumnDefinitions="*,8,*,8,*,8,*">
+        <Border Grid.Column="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
+                CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="11" Foreground="{DynamicResource BrushWarning}"/>
+            <TextBlock x:Name="SalesCountText" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushWarning}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Background="{DynamicResource BrushSuccessSoft}" BorderBrush="{DynamicResource BrushUiStatusOk}" BorderThickness="1"
+                CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource common.cash}" FontSize="11" Foreground="{DynamicResource BrushUiStatusOk}"/>
+            <TextBlock x:Name="CashText" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushUiStatusOk}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="4" Background="{DynamicResource BrushDiscountPanelBg}" BorderBrush="{DynamicResource BrushDiscountPanelBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock x:Name="CardText" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="6" Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"
+                CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="{DynamicResource common.debt}" FontSize="11" Foreground="{DynamicResource BrushDanger}"/>
+            <TextBlock x:Name="DebtText" FontSize="16" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushDanger}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Второй ряд итогов (2026-09-22, по просьбе владельца): возвраты, списания, расход,
+           оплата долгов и скидки. В итогах смены на сервере этих полей нет вовсе, поэтому
+           касса ведёт их сама — см. ShiftEventsStore и ShiftSaleAdjustments. -->
+      <Grid x:Name="ExtraTotalsRow" ColumnDefinitions="*,8,*,8,*,8,*,8,*" Margin="0,8,0,0">
+        <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="Возвраты" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="ReturnsText" FontSize="15" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="Списания" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="WriteOffsText" FontSize="15" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="Расход" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="ExpenseText" FontSize="15" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="6" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="Оплата долгов" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="DebtPaidText" FontSize="15" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="8" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1" CornerRadius="12" Padding="10">
+          <StackPanel>
+            <TextBlock Text="Скидки" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="DiscountsText" FontSize="15" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+            <TextBlock x:Name="PointsRedeemedText" FontSize="10"
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Движение денег в ящике за смену. Показывается только когда операции были — иначе
+           пустая строка «Изъятия: 0,00» на каждой смене только шумит. -->
+      <Border x:Name="CashOpsPanel" IsVisible="False"
+              Background="{DynamicResource BrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+              CornerRadius="12" Padding="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Денежный ящик за смену" FontSize="11"
+                     Foreground="{DynamicResource BrushTextSoft}"/>
+          <Grid ColumnDefinitions="*,*">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="Внесения" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="DepositsText" FontSize="16" FontWeight="Bold"
+                         Foreground="{DynamicResource BrushUiStatusOk}" Text="0,00 сом"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <TextBlock Text="Изъятия (расход)" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="WithdrawalsText" FontSize="16" FontWeight="Bold"
+                         Foreground="{DynamicResource BrushDanger}" Text="0,00 сом"/>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+        <Button x:Name="PrintButton" Content="{DynamicResource shiftDetails.print}"
+                Classes="btn-secondary"
+                Height="46" MinWidth="120"
+                Click="Print_Click"/>
+        <Button Content="{DynamicResource common.close}"
+                Classes="btn-secondary"
+                Height="46" MinWidth="120"
+                IsCancel="True"
+                Click="Close_Click"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

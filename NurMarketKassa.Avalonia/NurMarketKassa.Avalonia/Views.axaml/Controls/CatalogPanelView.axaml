@@ -1,0 +1,572 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:pos="using:NurMarketKassa.Models.Pos"
+             xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView"
+             x:DataType="vm:CatalogPanelViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="Button.catalog-pager">
+            <Setter Property="MinWidth" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.catalog-pager.current">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+        <Style Selector="Button.catalog-pager:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+
+        <!-- ListBoxItem без стандартного оформления Avalonia (фон/паддинг) — визуально
+             как было с ItemsControl, только с рамкой-курсором для клавиатурной навигации
+             стрелками (WrapPanel/ListBox поддерживают её "из коробки"). -->
+        <Style Selector="ListBox.catalog-nav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.catalog-nav ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector="ListBox.catalog-nav ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox.catalog-nav ListBoxItem:selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="main-panel"
+            BorderThickness="0,0,1,0"
+            Padding="16,14"
+            HorizontalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
+              HorizontalAlignment="Stretch">
+            <TabControl Grid.Row="0"
+                        SelectedIndex="{Binding SelectedTabIndex}"
+                        Margin="0,0,0,10">
+                <TabItem Header="{DynamicResource csh.catalog.tabAll}"/>
+                <TabItem Header="{DynamicResource csh.catalog.tabWeighted}"/>
+                <TabItem Header="{DynamicResource csh.catalog.tabPiece}"/>
+                <TabItem Header="{DynamicResource csh.catalog.tabPieceOption}"/>
+                <TabItem Header="{DynamicResource csh.catalog.tabBundle}"/>
+            </TabControl>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,Auto,Auto,Auto"
+                  Margin="0,0,0,10"
+                  HorizontalAlignment="Stretch">
+                <Border Grid.Column="0"
+                        HorizontalAlignment="Stretch"
+                        Background="{DynamicResource BrushInput}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10,0">
+                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
+                        <TextBlock Classes="mdl2"
+                                   Text="&#xE721;"
+                                   FontSize="15"
+                                   Foreground="{DynamicResource BrushTextSoft}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"/>
+                        <TextBox x:Name="ProductSearchBox"
+                                 Grid.Column="1"
+                                 Text="{Binding SearchText}"
+                                 Watermark="{DynamicResource csh.catalog.searchWatermark}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 FontSize="14"
+                                 MinWidth="0"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+                <Button Grid.Column="1"
+                        Classes="main-secondary"
+                        Width="40" Height="40"
+                        Padding="0"
+                        Margin="8,0,0,0"
+                        ToolTip.Tip="{DynamicResource csh.catalog.viewTooltip}">
+                    <TextBlock Classes="mdl2" Text="&#xE712;" FontSize="16"/>
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft">
+                            <Border Background="{DynamicResource BrushPanelElevated}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="8" MinWidth="210">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource csh.catalog.viewTitle}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}"
+                                               Margin="8,4,8,6"/>
+                                    <Button Classes="main-ghost"
+                                            HorizontalContentAlignment="Left"
+                                            Click="CardView_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <TextBlock Classes="mdl2" Text="&#xE8A5;" FontSize="16" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{DynamicResource csh.catalog.cardView}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="✓" FontWeight="Bold" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushAccentStrong}"
+                                                       IsVisible="{Binding IsCardView}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="main-ghost"
+                                            HorizontalContentAlignment="Left"
+                                            Click="TableView_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <TextBlock Classes="mdl2" Text="&#xE8FD;" FontSize="16" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{DynamicResource csh.catalog.tableView}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="✓" FontWeight="Bold" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushAccentStrong}"
+                                                       IsVisible="{Binding IsTableView}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="main-primary"
+                        Margin="8,0,0,0"
+                        ToolTip.Tip="{DynamicResource csh.catalog.filterTooltip}"
+                        Click="OpenFilter_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Classes="mdl2" Text="&#xE71C;" FontSize="15"/>
+                        <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="3"
+                        Classes="main-ghost"
+                        Width="36" Height="36"
+                        Padding="0"
+                        Margin="8,0,0,0"
+                        ToolTip.Tip="{DynamicResource csh.catalog.refreshTooltip}"
+                        Command="{Binding RefreshCatalogCommand}">
+                    <TextBlock Classes="mdl2" Text="&#xE72C;" FontSize="15"/>
+                </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">
+                <Border IsVisible="{Binding IsOfflineBannerVisible}"
+                        Background="{DynamicResource BrushWarningSoft}"
+                        BorderBrush="{DynamicResource BrushWarning}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10,6">
+                    <TextBlock Text="{DynamicResource csh.catalog.offlineBanner}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushWarning}"
+                               TextWrapping="Wrap"/>
+                </Border>
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="11"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           TextWrapping="Wrap"/>
+                <Border IsVisible="{Binding HasHotkeyGroupFilter}"
+                        Background="{DynamicResource BrushAccentSoft}"
+                        CornerRadius="6"
+                        Padding="8,4"
+                        HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding HotkeyGroupFilterLabel}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushAccentStrong}"/>
+                        <Button Classes="main-ghost"
+                                Content="✕"
+                                Padding="2"
+                                FontSize="11"
+                                Command="{Binding ClearHotkeyGroupFilterCommand}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Тон полотна, а не BrushInputAlt: та кисть задаёт фон ПОЛЕЙ ВВОДА и про тему
+                 не знает — в синей тёмной теме она давала серый #2D2D2D пятном посреди
+                 тёмно-синего экрана. Измерено на скриншоте 2026-09-22. -->
+            <Border Grid.Row="3"
+                    Background="{DynamicResource BrushWindowAlt}"
+                    BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16">
+                <Grid>
+                    <Border Background="{DynamicResource BrushPanel}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="24,20"
+                            MaxWidth="360"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding IsCatalogEmpty}">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <TextBlock Text="📦"
+                                       FontSize="36"
+                                       HorizontalAlignment="Center"
+                                       Opacity="0.45"/>
+                            <TextBlock Text="{DynamicResource csh.catalog.emptyLoading}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding IsLoading}"/>
+                            <TextBlock Text="{DynamicResource csh.catalog.emptyError}"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding !IsLoading}"/>
+                            <Button Classes="main-secondary"
+                                    Content="{DynamicResource csh.catalog.refreshButton}"
+                                    MinWidth="140"
+                                    MinHeight="36"
+                                    HorizontalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    Command="{Binding RefreshCatalogCommand}"/>
+                            <Button Classes="main-primary"
+                                    Content="{DynamicResource csh.catalog.addProductButton}"
+                                    MinWidth="140"
+                                    MinHeight="36"
+                                    HorizontalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    Click="AddProductEmptyState_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid IsVisible="{Binding HasProducts}">
+                      <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    IsVisible="{Binding IsCardView}">
+                        <ListBox x:Name="CardsListBox" Classes="catalog-nav"
+                                 ItemsSource="{Binding Products}"
+                                 SelectedItem="{Binding SelectedProduct}"
+                                 SelectionMode="Single"
+                                 KeyDown="ProductsList_KeyDown">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel HorizontalAlignment="Left" Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="pos:CatalogProductTileVm">
+                                    <!-- Height, а не MinHeight: плитки с фотографией были выше
+                                         остальных, и ряды шли «ступенькой». Ровная сетка — первое,
+                                         что отличает рабочую кассовую программу от самоделки.
+                                         236 — это ровно то, что нужно самой высокой карточке, и
+                                         посчитано по её содержимому, а не подобрано на глаз:
+                                           84 фото + 8 отступ
+                                         + 34 название в две строки + 32 цена + 23 остаток
+                                         + 16 штрихкод + 30 плашка типа с нижним отступом
+                                         = 227, плюс запас на округление строк.
+                                         При 208 содержимое не помещалось, и плашка наезжала на
+                                         штрихкод — видно было на «Гайка 18» и «Влажные салфетки». -->
+                                    <Grid Width="180" Margin="6" Height="236">
+                                        <Button Classes="main-ghost"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).SelectProductCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Border Background="{DynamicResource BrushCatalogTileBg}"
+                                                    BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="12"
+                                                    Padding="12,10,12,0"
+                                                    ClipToBounds="True"
+                                                    Cursor="Hand">
+                                                <Grid RowDefinitions="Auto,*,Auto">
+                                                    <!-- Место под фото занято ВСЕГДА, даже когда фотографии нет.
+                                                         Иначе плитки с фото и без него — это две разные карточки:
+                                                         у одних название сверху, у других под картинкой, ряды идут
+                                                         вразнобой, а после выравнивания высоты плитки без фото
+                                                         выглядели наполовину пустыми. Одинаковая структура у всех
+                                                         карточек — то, на чём держится ровная сетка. -->
+                                                    <Panel Grid.Row="0" Height="84" Margin="-12,-10,-12,8" ClipToBounds="True">
+                                                        <!-- Заглушка: нейтральная подложка со значком товара.
+                                                             Не «битая картинка» и не пустота — просто спокойный фон. -->
+                                                        <Border Background="{DynamicResource BrushSurfaceSubtle}">
+                                                            <TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="22"
+                                                                       Opacity="0.35"
+                                                                       Foreground="{DynamicResource BrushTextSoft}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                                                               Stretch="UniformToFill"
+                                                               IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}"/>
+                                                    </Panel>
+                                                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,0,0,4">
+                                                        <TextBlock Grid.Row="0"
+                                                                   Text="{Binding Title}"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource BrushText}"
+                                                                   TextWrapping="Wrap"
+                                                                   MaxLines="2"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Margin="0,0,26,0"/>
+                                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0" Spacing="4">
+                                                            <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                                                       FontSize="22"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="{DynamicResource BrushCatalogPrice}"
+                                                                       VerticalAlignment="Bottom"/>
+                                                            <TextBlock Text="{DynamicResource csh.catalog.currency}"
+                                                                       FontSize="11"
+                                                                       Foreground="{DynamicResource BrushCatalogMeta}"
+                                                                       Margin="0,0,0,2"
+                                                                       VerticalAlignment="Bottom"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Row="2"
+                                                                   Text="{Binding StockInfo}"
+                                                                   FontSize="14"
+                                                                   Margin="0,4,0,0"
+                                                                   Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"/>
+                                                        <TextBlock Grid.Row="3"
+                                                                   Text="{Binding Barcode, StringFormat=ШК: {0}}"
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource BrushCatalogMeta}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Margin="0,2,0,0"/>
+                                                    </Grid>
+                                                    <Border Grid.Row="2"
+                                                            Margin="0,0,0,10"
+                                                            Padding="8,3"
+                                                            CornerRadius="4"
+                                                            HorizontalAlignment="Left"
+                                                            VerticalAlignment="Bottom"
+                                                            Background="{Binding TypeBadgeBackground, Converter={StaticResource HexToBrushConverter}}">
+                                                        <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}"
+                                                                   FontSize="10"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{Binding TypeBadgeForeground, Converter={StaticResource HexToBrushConverter}}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+
+                                        <Button Width="28" Height="28"
+                                                Padding="0"
+                                                Margin="0,6,6,0"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Top"
+                                                ZIndex="1"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip.Tip="{DynamicResource csh.catalog.favoriteTooltip}"
+                                                Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Panel Width="16" Height="16">
+                                                <Path Width="15" Height="15"
+                                                      Stretch="Uniform"
+                                                      Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z"
+                                                      Fill="Transparent"
+                                                      Stroke="{DynamicResource BrushCatalogFavoriteStroke}"
+                                                      StrokeThickness="1.3"
+                                                      IsVisible="{Binding !IsFavorite}"/>
+                                                <Path Width="15" Height="15"
+                                                      Stretch="Uniform"
+                                                      Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z"
+                                                      Fill="{DynamicResource BrushCatalogPrice}"
+                                                      Stroke="{DynamicResource BrushCatalogPrice}"
+                                                      StrokeThickness="1.3"
+                                                      IsVisible="{Binding IsFavorite}"/>
+                                            </Panel>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                      </ScrollViewer>
+
+                        <Grid IsVisible="{Binding IsTableView}" RowDefinitions="Auto,*">
+                            <Border Background="{DynamicResource BrushPanelSoft}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="10"
+                                    Padding="14,10">
+                                <Grid ColumnDefinitions="2.2*,1.4*,1*,1*,52">
+                                    <TextBlock Text="{DynamicResource csh.catalog.colName}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <TextBlock Grid.Column="1" Text="{DynamicResource csh.catalog.colBarcode}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <TextBlock Grid.Column="2" Text="{DynamicResource csh.catalog.colStock}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource csh.catalog.colPrice}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Border>
+                            <ScrollViewer Grid.Row="1" Margin="0,8,0,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                            <ListBox x:Name="TableListBox" Classes="catalog-nav"
+                                     ItemsSource="{Binding Products}"
+                                     SelectedItem="{Binding SelectedProduct}"
+                                     SelectionMode="Single"
+                                     KeyDown="ProductsList_KeyDown"
+                                     HorizontalAlignment="Stretch">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="pos:CatalogProductTileVm">
+                                        <Border Background="{DynamicResource BrushPanel}"
+                                                BorderBrush="{DynamicResource BrushBorder}"
+                                                BorderThickness="1" CornerRadius="10"
+                                                Margin="0,0,0,6" ClipToBounds="True"
+                                                HorizontalAlignment="Stretch">
+                                            <Grid MinHeight="132" ColumnDefinitions="56,2.2*,1.4*,1*,1*,52"
+                                                  Margin="14,0">
+                                                <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10"
+                                                        ClipToBounds="True" VerticalAlignment="Center"
+                                                        Margin="0,0,10,0"
+                                                        IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
+                                                    <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                                                           Stretch="UniformToFill"/>
+                                                </Border>
+                                                <!-- Whole clickable area is a real Button (not a same-Z-layer sibling
+                                                     under IsHitTestVisible=False text) — same reliable pattern the
+                                                     card view already uses, so a tap here always reaches SelectProductCommand. -->
+                                                <Button Grid.Column="0" Grid.ColumnSpan="5"
+                                                        Classes="main-ghost"
+                                                        Background="Transparent" BorderThickness="0"
+                                                        Padding="0"
+                                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                                        Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).SelectProductCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <Grid ColumnDefinitions="56,2.2*,1.4*,1*,1*">
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,14,0">
+                                                            <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource BrushText}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <!-- Здесь цвет типа товара — это ЦВЕТ ТЕКСТА, поэтому берём
+                                                                 насыщенный TypeBadgeForeground, а не бледный фон плашки:
+                                                                 бледным по белой строке текст был бы не виден. -->
+                                                            <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="11"
+                                                                       Foreground="{Binding TypeBadgeForeground, Converter={StaticResource HexToBrushConverter}}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding Barcode}" FontSize="13"
+                                                                   Foreground="{DynamicResource BrushTextSoft}"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                                   Margin="4,0,12,0"/>
+                                                        <TextBlock Grid.Column="3" Text="{Binding StockInfo}" FontSize="13"
+                                                                   Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="4,0,12,0"/>
+                                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                    Spacing="4" Margin="4,0,8,0">
+                                                            <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                                                       FontSize="18" FontWeight="Bold"
+                                                                       Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                                            <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="11"
+                                                                       Foreground="{DynamicResource BrushCatalogMeta}"
+                                                                       VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Button>
+                                                <Button Grid.Column="5" Width="52" Height="52" Padding="0"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                        Background="Transparent" BorderThickness="0"
+                                                        ToolTip.Tip="{DynamicResource csh.catalog.favoriteTooltip}"
+                                                        Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <Panel Width="26" Height="26">
+                                                        <TextBlock Text="☆" FontSize="26"
+                                                                   Foreground="{DynamicResource BrushCatalogFavoriteStroke}"
+                                                                   IsVisible="{Binding !IsFavorite}"/>
+                                                        <TextBlock Text="★" FontSize="26"
+                                                                   Foreground="{DynamicResource BrushCatalogPrice}"
+                                                                   IsVisible="{Binding IsFavorite}"/>
+                                                    </Panel>
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="4"
+                  ColumnDefinitions="Auto,*,Auto"
+                  Margin="0,10,0,0"
+                  IsVisible="{Binding ShowPager}">
+                <Button Grid.Column="0"
+                        Classes="catalog-pager"
+                        Content="{DynamicResource csh.catalog.prevPage}"
+                        Command="{Binding PreviousPageCommand}"/>
+                <StackPanel Grid.Column="1"
+                            Orientation="Vertical"
+                            HorizontalAlignment="Center"
+                            Spacing="6">
+                    <ItemsControl ItemsSource="{Binding PagerEntries}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CatalogPagerEntry">
+                                <Panel>
+                                    <Button Classes="catalog-pager"
+                                            Classes.current="{Binding IsCurrent}"
+                                            Content="{Binding Display}"
+                                            Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).GoToPageCommand}"
+                                            CommandParameter="{Binding PageNumber}"
+                                            IsEnabled="{Binding !IsCurrent}"
+                                            IsVisible="{Binding IsPage}"/>
+                                    <TextBlock Text="{Binding Display}"
+                                               MinWidth="24"
+                                               Height="36"
+                                               TextAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource BrushTextSoft}"
+                                               IsVisible="{Binding IsEllipsis}"/>
+                                </Panel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding PageStatusText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+                <Button Grid.Column="2"
+                        Classes="catalog-pager"
+                        Content="{DynamicResource csh.catalog.nextPage}"
+                        Command="{Binding NextPageCommand}"/>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

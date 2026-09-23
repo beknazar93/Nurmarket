@@ -1,0 +1,78 @@
+﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="BrushTextInverted" Color="Black" />
+  <SolidColorBrush x:Key="BrushWindow" Color="#EFF3F8" />
+  <SolidColorBrush x:Key="BrushWindowAlt" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushPanel" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushDialogPanel" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushPanelElevated" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushPanelSoft" Color="#E2E8F0" />
+  <SolidColorBrush x:Key="BrushInput" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushInputAlt" Color="#F1F5F9" />
+  <SolidColorBrush x:Key="BrushBorder" Color="#CBD5E1" />
+  <SolidColorBrush x:Key="BrushBorderStrong" Color="#94A3B8" />
+  <SolidColorBrush x:Key="BrushText" Color="#0F172A" />
+  <SolidColorBrush x:Key="BrushTextMuted" Color="#334155" />
+  <SolidColorBrush x:Key="BrushTextSoft" Color="#64748B" />
+  <SolidColorBrush x:Key="BrushAccent" Color="#F7D617" />
+  <!-- Цвет ДЕНЕГ (светлая тема) — см. пояснение в AppTheme.axaml. #F7D617 на белом даёт
+       контраст 1.44:1 (норма 3:1), то есть жёлтая сумма на белой панели практически не читается.
+       #0F172A на белом — 17.8:1. -->
+  <SolidColorBrush x:Key="BrushMoney" Color="#0F172A" />
+  <SolidColorBrush x:Key="BrushMoneyMuted" Color="#475569" />
+  <SolidColorBrush x:Key="BrushPrimary" Color="#F7D617" />
+  <SolidColorBrush x:Key="BrushAccentForeground" Color="#000000" />
+  <SolidColorBrush x:Key="BrushAccentStrong" Color="#D6B500" />
+  <SolidColorBrush x:Key="BrushAccentSoft" Color="#FFF7C2" />
+  <SolidColorBrush x:Key="BrushLoginHeroTitle" Color="#0F172A" />
+  <SolidColorBrush x:Key="BrushLoginHeroSubtitle" Color="#475569" />
+  <!-- См. комментарий в AppTheme.axaml. В светлой теме было #F7D617 — жёлтый текст на
+       белой карточке, 1.44:1. Взят тёмно-зелёный: 5.48:1 на #FFFFFF. -->
+  <SolidColorBrush x:Key="BrushSuccess" Color="#047857" />
+  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#FFF7C2" />
+  <SolidColorBrush x:Key="BrushWarning" Color="#B45309" />
+  <SolidColorBrush x:Key="BrushWarningSoft" Color="#FEF3C7" />
+  <SolidColorBrush x:Key="BrushDanger" Color="#B91C1C" />
+  <SolidColorBrush x:Key="BrushDangerSoft" Color="#FEE2E2" />
+  <SolidColorBrush x:Key="BrushOverlay" Color="#D9F8FAFC" />
+  <SolidColorBrush x:Key="BrushFocus" Color="#2563EB" />
+  <SolidColorBrush x:Key="BrushSurfaceSubtle" Color="#F8FAFC" />
+  <SolidColorBrush x:Key="BrushCatalogTileBg" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushCatalogTileBorder" Color="#E2E8F0" />
+  <!-- Тёмное золото вместо #FFD700: прежний цвет давал на белой плитке контраст 1.40:1 при
+       норме 3:1 — цену товара приходилось угадывать. #A16207 сохраняет «золотой» характер темы
+       и даёт 5.2:1. Цена на плитке намеренно осталась цветом темы (а не нейтральным BrushMoney):
+       она — часть фирменного вида каталога, в отличие от итога чека. -->
+  <SolidColorBrush x:Key="BrushCatalogPrice" Color="#A16207" />
+  <SolidColorBrush x:Key="BrushCatalogMeta" Color="#64748B" />
+  <SolidColorBrush x:Key="BrushCatalogFavoriteStroke" Color="#B0B0B0" />
+  <SolidColorBrush x:Key="BrushDiscountPanelBg" Color="#E8F2FF" />
+  <SolidColorBrush x:Key="BrushDiscountPanelBorder" Color="#BFDBFE" />
+  <SolidColorBrush x:Key="BrushCatalogTabBg" Color="#E2E8F0" />
+  <SolidColorBrush x:Key="BrushCatalogTabBgHover" Color="#F1F5F9" />
+  <SolidColorBrush x:Key="BrushCatalogTabBgSelected" Color="#F7D617" />
+  <SolidColorBrush x:Key="BrushCatalogTabBorderSelected" Color="#D6B500" />
+
+  <Color x:Key="ColorPrimaryDefault">#F7D617</Color>
+  <Color x:Key="ColorPrimaryHover">#FFE24D</Color>
+  <Color x:Key="ColorPrimaryPressed">#D6B500</Color>
+  <Color x:Key="ColorSecondaryDefault">#E2E8F0</Color>
+  <Color x:Key="ColorSecondaryHover">#EDF2F8</Color>
+  <Color x:Key="ColorSecondaryPressed">#CBD5E1</Color>
+  <Color x:Key="ColorGhostDefault">#F1F5F9</Color>
+  <Color x:Key="ColorGhostHover">#E2E8F0</Color>
+  <Color x:Key="ColorGhostPressed">#CBD5E1</Color>
+  <Color x:Key="ColorDangerDefault">#B91C1C</Color>
+  <Color x:Key="ColorDangerHover">#DC2626</Color>
+  <Color x:Key="ColorDangerPressed">#991B1B</Color>
+
+  <SolidColorBrush x:Key="BrushUiStatusMuted" Color="#64748B" />
+  <SolidColorBrush x:Key="BrushUiStatusOk" Color="#059669" />
+  <SolidColorBrush x:Key="BrushUiStatusWarn" Color="#D97706" />
+  <SolidColorBrush x:Key="BrushShiftOpenBg" Color="#DCFCE7" />
+  <SolidColorBrush x:Key="BrushShiftOpenBorder" Color="#22C55E" />
+  <SolidColorBrush x:Key="BrushShiftWarnBg" Color="#FEF3C7" />
+  <SolidColorBrush x:Key="BrushShiftWarnBorder" Color="#D97706" />
+  <SolidColorBrush x:Key="BrushToastNeutralBg" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushToastWarnBg" Color="#FDE68A" />
+</ResourceDictionary>

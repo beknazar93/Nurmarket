@@ -1,0 +1,399 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
+        xmlns:views="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
+        xmlns:mainKassir="using:NurMarketKassa.AvaloniaHost.Views.MainKassir"
+        xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+        xmlns:pos="using:NurMarketKassa.Models.Pos"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        x:CompileBindings="True"
+        Title="{DynamicResource mainWindow.windowTitle}"
+        Width="1280"
+        Height="840"
+        MinWidth="850"
+        MinHeight="520"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        KeyDown="OnMainWindowKeyDown"
+        Foreground="{DynamicResource BrushText}"
+        FontFamily="Segoe UI">
+
+    <!-- Фон окна берётся ИЗ ТЕМЫ КАССЫ, а не из системного цвета Windows. С
+         SystemRegionColor верхняя полоса окна была чёрной (#000000 — измерено на скриншоте
+         2026-09-22) и не имела отношения ни к светлой, ни к синей теме: получалась чужая
+         чёрная шапка над тёмно-синим экраном. -->
+    <Window.Background>
+        <DynamicResourceExtension ResourceKey="BrushWindow"/>
+    </Window.Background>
+
+    <Window.Resources>
+        <!--
+          Catalog minimum:
+          2 × (180px tile + 2 × 6px margin) + 32px outer padding
+          + 32px catalog padding + border/scrollbar allowance ≈ 470px.
+        -->
+        <x:Double x:Key="CatalogMinimumWidth">470</x:Double>
+        <x:Double x:Key="CartMinimumWidth">490</x:Double>
+    </Window.Resources>
+
+    <Window.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/MainViewStyles.axaml"/>
+
+        <Style Selector="GridSplitter#CatalogGridSplitter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border Background="{TemplateBinding Background}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
+                        <Border x:Name="GripLine"
+                                Width="4"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Stretch"
+                                CornerRadius="2"
+                                Background="{DynamicResource BrushBorderStrong}">
+                            <StackPanel VerticalAlignment="Center"
+                                        HorizontalAlignment="Center"
+                                        Spacing="10">
+                            </StackPanel>
+                        </Border>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="GridSplitter#CatalogGridSplitter:pointerover /template/ Border#GripLine">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
+        <!-- 1. Полностью отключаем системную рамку FocusAdorner -->
+        <Style Selector="TextBox">
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+
+        <!-- 2. Делаем внутреннюю границу PART_BorderElement полностью прозрачной при фокусе -->
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- 3. Также убираем подсвечивание границы при наведении (pointerover) -->
+        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+
+        <!-- 4. Убираем фоновый фокус у фонового контейнера (если используется FluentControlResources) -->
+        <Style Selector="TextBox:focus /template/ Border#PART_BackgroundControlThickness">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Фоновые обои экрана кассира (Настройки → Кастомизация → "Применить эти обои к
+             экрану кассира") — растянуты на оба ряда, объявлены первыми, поэтому по Z-порядку
+             документа рисуются позади всего остального. Скрыты по умолчанию (см.
+             MainWindow.RefreshBackgroundWallpaper), не мешают кликам (IsHitTestVisible=False). -->
+        <Image x:Name="BackgroundWallpaperImage" Grid.Row="0" Grid.RowSpan="2"
+               Stretch="UniformToFill" IsVisible="False" IsHitTestVisible="False">
+            <Image.Effect>
+                <BlurEffect Radius="0"/>
+            </Image.Effect>
+        </Image>
+        <Border x:Name="BackgroundTintOverlay" Grid.Row="0" Grid.RowSpan="2"
+                IsVisible="False" IsHitTestVisible="False"/>
+
+        <!-- Имитация "Жидкого стекла": мягкие цветные пятна с настоящим блюром позади
+             интерфейса — включается сама, когда активна тема "glass" и не выбрано своё фото
+             в Кастомизации (см. RefreshBackgroundWallpaper). Никакого живого снимка экрана —
+             тот подход был отброшен раньше в этой сессии как хрупкий; здесь просто статичные
+             фигуры с BlurEffect, то же самое, чем уже размывается BackgroundWallpaperImage. -->
+        <Canvas x:Name="GlassAmbientLayer" Grid.Row="0" Grid.RowSpan="2"
+                ClipToBounds="True" IsVisible="False" IsHitTestVisible="False">
+            <Canvas.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#1B1030" Offset="0"/>
+                    <GradientStop Color="#241A45" Offset="1"/>
+                </LinearGradientBrush>
+            </Canvas.Background>
+            <Ellipse Canvas.Left="-140" Canvas.Top="-120" Width="520" Height="520" Fill="#8A3B82F6">
+                <Ellipse.Effect>
+                    <BlurEffect Radius="90"/>
+                </Ellipse.Effect>
+            </Ellipse>
+            <Ellipse Canvas.Right="-160" Canvas.Top="-80" Width="460" Height="460" Fill="#8AA855F7">
+                <Ellipse.Effect>
+                    <BlurEffect Radius="90"/>
+                </Ellipse.Effect>
+            </Ellipse>
+            <Ellipse Canvas.Left="200" Canvas.Bottom="-180" Width="560" Height="560" Fill="#80EC4899">
+                <Ellipse.Effect>
+                    <BlurEffect Radius="100"/>
+                </Ellipse.Effect>
+            </Ellipse>
+            <Ellipse Canvas.Right="80" Canvas.Bottom="-140" Width="420" Height="420" Fill="#7022D3EE">
+                <Ellipse.Effect>
+                    <BlurEffect Radius="90"/>
+                </Ellipse.Effect>
+            </Ellipse>
+        </Canvas>
+
+        <!-- Масштаб интерфейса (Настройки → Экран → "Масштаб", 50–200%) — LayoutTransformControl,
+             а не голый RenderTransform, потому что он также пересчитывает координаты
+             кликов/попаданий курсором под новым масштабом, а не только картинку (см.
+             MainWindow.RefreshUiScale). Оборачивает шапку+контент+боковое меню, но НЕ фоновые
+             слои выше (обои/имитацию стекла) — они должны заполнять окно как есть, а не
+             растягиваться вместе с масштабом интерфейса. -->
+        <LayoutTransformControl x:Name="UiScaleTransform" Grid.Row="0" Grid.RowSpan="2">
+        <Grid RowDefinitions="Auto,*">
+
+        <!-- ============================ Шапка ============================ -->
+        <!-- Тон полотна кассы. Раньше здесь стояла СИСТЕМНАЯ кисть Fluent
+             (SystemControlBackgroundAltHighBrush): в тёмном режиме Windows она даёт чистый
+             чёрный, и шапка чернела независимо от выбранной темы — на скриншоте 2026-09-22
+             это #000000 над тёмно-синим экраном. К теме кассы системная кисть отношения не
+             имеет и на переключение цвета темы не реагирует вовсе. -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource BrushWindowAlt}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+
+                <!-- Меню, логотип, название кассы -->
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            VerticalAlignment="Center">
+                    <Button Classes="main-ghost"
+                            Width="38" Height="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{DynamicResource mainWindow.menuTooltip}"
+                            Command="{Binding Toolbar.ToggleSideMenuCommand}">
+                        <TextBlock Text="☰" FontSize="18"/>
+                    </Button>
+                    <Border Width="34" Height="34"
+                            CornerRadius="17"
+                            ClipToBounds="True">
+                        <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
+                               Stretch="Uniform"/>
+                    </Border>
+                    <TextBlock Text="{Binding Toolbar.UserTitle}"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Статус: сеть + баланс кассы/смены -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="18">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Ellipse Width="8" Height="8"
+                                 VerticalAlignment="Center"
+                                 Fill="{DynamicResource BrushUiStatusOk}"
+                                 IsVisible="{Binding Toolbar.Status.IsOnline}"/>
+                        <Ellipse Width="8" Height="8"
+                                 VerticalAlignment="Center"
+                                 Fill="{DynamicResource BrushUiStatusWarn}"
+                                 IsVisible="{Binding !Toolbar.Status.IsOnline}"/>
+                        <TextBlock Text="{Binding Toolbar.Status.StatusLabel}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding Toolbar.Status.NetworkModeText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               TextWrapping="Wrap"
+                               MaxWidth="280"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Очередь чеков, не отправленных на сервер (см. OfflinePendingSalesStore) -->
+                    <Border Background="{DynamicResource BrushUiStatusWarn}"
+                            CornerRadius="10"
+                            Padding="8,3"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding Toolbar.Status.HasQueuedItems}">
+                        <TextBlock Text="{Binding Toolbar.Status.QueueText}"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="White"/>
+                    </Border>
+
+                    <!-- Срок подписки: "N дн. осталось" → в последние 3 часа тикающий ЧЧ:ММ:СС -->
+                    <Border Background="{DynamicResource BrushDanger}"
+                            CornerRadius="10"
+                            Padding="8,3"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding Toolbar.Status.HasSubscriptionCountdown}">
+                        <TextBlock Text="{Binding Toolbar.Status.SubscriptionCountdownText}"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="White"/>
+                    </Border>
+
+                    <!-- Баланс кассы, по умолчанию "Касса: 0.00 сом" -->
+                    <TextBlock Text="{Binding Toolbar.Status.ShiftBalanceText}"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource BrushMoney}"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Ненавязчивое уведомление о новой версии кассы -->
+                    <Button Classes="main-ghost"
+                            Padding="10,4"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{DynamicResource mainWindow.openDownloadTooltip}"
+                            IsVisible="{Binding Toolbar.HasUpdateAvailable}"
+                            Command="{Binding Toolbar.OpenUpdateCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Classes="mdl2" Text="&#xE895;" FontSize="13" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushWarning}"/>
+                            <TextBlock Text="{Binding Toolbar.UpdateNoticeText}" VerticalAlignment="Center"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushWarning}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Тема, клавиатура, смена -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <Button Classes="main-ghost"
+                            Width="38" Height="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
+                            Command="{Binding Toolbar.CheckCustomerDisplayCommand}">
+                        <TextBlock Classes="mdl2" Text="&#xE7F4;" FontSize="15"/>
+                    </Button>
+                    <Button Classes="main-ghost"
+                            Width="38" Height="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
+                            Click="ToggleTheme_Click">
+                        <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="15"/>
+                    </Button>
+                    <Button Classes="main-ghost"
+                            Width="38" Height="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
+                            Command="{Binding Toolbar.ToggleKeyboardCommand}">
+                        <TextBlock Classes="mdl2" Text="&#xE92F;" FontSize="15"/>
+                    </Button>
+                    <Button Classes="main-ghost"
+                            Width="38" Height="38"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="{DynamicResource mainWindow.hotkeysTooltip}"
+                            Click="OpenHotkeySettings_Click">
+                        <TextBlock Classes="mdl2" Text="&#xE765;" FontSize="15"/>
+                    </Button>
+                    <Button Classes="main-outline shift-action"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="OpenShift_Click"
+                            IsEnabled="{Binding Toolbar.CanOpenShift}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <!-- 2026-09-15, по просьбе пользователя ("сделай дизайн
+                                 профессиональным") — векторная иконка вместо эмодзи 🔓, тот
+                                 же приём (PathIcon с MDI-геометрией), что уже используется в
+                                 Складе и боковом меню. -->
+                            <PathIcon Width="15" Height="15" VerticalAlignment="Center"
+                                      Data="M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10A2,2 0 0,1 6,8H15V6A3,3 0 0,0 12,3A3,3 0 0,0 9,6H7A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18Z"/>
+                            <TextBlock Text="{DynamicResource csh.toolbar.openShift}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="main-primary shift-action"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="CloseShift_Click"
+                            IsEnabled="{Binding Toolbar.CanCloseShift}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="15" Height="15" VerticalAlignment="Center"
+                                      Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                            <TextBlock Text="{DynamicResource csh.toolbar.closeShift}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ======================== Основной контент ======================== -->
+        <Grid x:Name="MainContentGrid" Grid.Row="1"
+              MinHeight="0"
+              ClipToBounds="False">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.4*"
+                                  MinWidth="{StaticResource CatalogMinimumWidth}"/>
+                <ColumnDefinition Width="8"
+                                  MinWidth="8"
+                                  MaxWidth="8"/>
+                <ColumnDefinition Width="*"
+                                  MinWidth="{StaticResource CartMinimumWidth}"/>
+            </Grid.ColumnDefinitions>
+
+            <controls:CatalogPanelView x:Name="CatalogPanel"
+                                       Grid.Column="0"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Stretch"
+                                       DataContext="{Binding Catalog}"/>
+
+            <GridSplitter x:Name="CatalogGridSplitter"
+                          Grid.Column="1"
+                          Width="8"
+                          MinWidth="8"
+                          MaxWidth="8"
+                          Background="Transparent"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          Cursor="SizeWestEast"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ShowsPreview="False"
+                          ZIndex="100"/>
+
+            <views:CustomerCartView Grid.Column="2"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch"
+                                    DataContext="{Binding Basket}"/>
+        </Grid>
+
+        <!-- Альтернативная раскладка "1С-стиль" (2026-09-06) — переключается в Настройках →
+             Экран, см. UserPreferences.MainLayoutMode / MainWindow.RefreshLayoutMode. Видимость
+             двух блоков всегда взаимоисключающая, задаётся из code-behind, не биндингом. -->
+        <mainKassir:OneCLayoutView x:Name="OneCLayout" Grid.Row="1" IsVisible="False"/>
+        <Panel Grid.RowSpan="2"
+               ZIndex="200"
+               IsVisible="{Binding IsSideMenuOpen}">
+            <Border Background="#66000000"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    PointerPressed="OnSideMenuBackdropPressed"/>
+            <controls:SideMenuView DataContext="{Binding SideMenu}"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Stretch"/>
+        </Panel>
+
+        </Grid>
+        </LayoutTransformControl>
+    </Grid>
+</Window>

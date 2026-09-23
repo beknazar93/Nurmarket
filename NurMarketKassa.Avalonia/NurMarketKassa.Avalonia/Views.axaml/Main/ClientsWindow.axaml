@@ -1,0 +1,315 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:NurMarketKassa.AvaloniaHost.Views"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.ClientsWindow"
+        Title="{DynamicResource clients.title}"
+        Height="720" Width="980" MinHeight="480" MinWidth="720"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:disabled">
+            <Setter Property="Opacity" Value="0.6"/>
+        </Style>
+
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+
+        <Style Selector="Button.WindowControlButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.WindowControlButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.WindowCloseButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="SeparatorBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="DataGridRow">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="2,1"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="DataGridRow:selected, DataGridRow:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16,12,16,16" x:CompileBindings="False">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Шапка окна -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource BrushPanel}"
+                CornerRadius="14"
+                Padding="16,10"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 8 0 #0F000000">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Classes="WindowControlButton" Click="MinimizeButton_Click" ToolTip.Tip="{DynamicResource csh.filter.minimizeTooltip}">
+                        <TextBlock Text="🗕" FontSize="12"/>
+                    </Button>
+                    <Button Classes="WindowControlButton WindowCloseButton" Click="CloseButton_Click" ToolTip.Tip="{DynamicResource csh.filter.closeTooltip}">
+                        <TextBlock Text="✕" FontSize="13"/>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                        <TextBlock Text="👥" FontSize="18" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{DynamicResource clients.title}" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Панель добавления клиента -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource BrushPanel}"
+                CornerRadius="14"
+                Padding="16"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 8 0 #0F000000">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{DynamicResource clients.newClientHeader}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <Grid ColumnDefinitions="*,*,*,Auto" >
+                    <TextBox Grid.Column="0" Margin="0,0,8,0" Watermark="{DynamicResource clients.nameWatermark}" Text="{Binding NewClientName}"/>
+                    <TextBox Grid.Column="1" Margin="0,0,8,0" Watermark="{DynamicResource common.phone}" Text="{Binding NewClientPhone}"/>
+                    <TextBox Grid.Column="2" Margin="0,0,8,0" Watermark="{DynamicResource clients.emailOptionalWatermark}" Text="{Binding NewClientEmail}"/>
+                    <Button Grid.Column="3" x:Name="AddClientButton" Classes="PrimaryButton" Content="{DynamicResource clients.addButton}"
+                            Click="AddClientButton_Click"/>
+                </Grid>
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="{DynamicResource BrushDanger}"
+                           FontSize="13"
+                           IsVisible="{Binding !!ErrorMessage}"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Список клиентов -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource BrushPanel}"
+                CornerRadius="14"
+                Padding="16"
+                BoxShadow="0 2 8 0 #0F000000">
+            <Grid RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+                    <TextBox Grid.Column="0" Watermark="{DynamicResource csh.checkout.clientSearchWatermark}" Text="{Binding SearchText}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CountText}"
+                               VerticalAlignment="Center"
+                               Margin="12,0"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               FontSize="13"/>
+                    <Button Grid.Column="2" x:Name="RefreshButton" Classes="SecondaryButton" Content="{DynamicResource clients.refreshButton}" Click="RefreshButton_Click"/>
+                </Grid>
+
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding FilteredClients}"
+                          SelectedItem="{Binding SelectedClient}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          RowHeight="44">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource clients.colFullName}" Width="*" Binding="{ReflectionBinding FullName}"/>
+                        <DataGridTextColumn Header="{DynamicResource common.phone}" Width="180" Binding="{ReflectionBinding Phone}"/>
+                        <DataGridTextColumn Header="Email" Width="220" Binding="{ReflectionBinding Email}"/>
+                        <DataGridTextColumn Header="{DynamicResource clients.colAdded}" Width="140" Binding="{ReflectionBinding CreatedAtDisplay}"/>
+                        <DataGridTextColumn Header="{DynamicResource clients.colLoyalty}" Width="120" Binding="{ReflectionBinding LoyaltyBalanceDisplay}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock Grid.Row="1"
+                           Text="{DynamicResource clients.hint}"
+                           VerticalAlignment="Bottom"
+                           Margin="4,0,0,4"
+                           FontSize="12"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </Grid>
+        </Border>
+
+        <!-- Карточка клиента (оверлей) -->
+        <Border Grid.Row="0" Grid.RowSpan="3"
+                IsVisible="{Binding HasSelectedClient}"
+                Background="#66000000">
+            <Border Width="440"
+                    MaxHeight="420"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource BrushPanel}"
+                    CornerRadius="14"
+                    Padding="20"
+                    BoxShadow="0 8 24 0 #33000000">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{DynamicResource clients.cardHeader}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <Button Grid.Column="1" Classes="WindowControlButton" Click="CloseCardButton_Click">
+                            <TextBlock Text="✕" FontSize="13"/>
+                        </Button>
+                    </Grid>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{DynamicResource clients.nameWatermark}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBox Text="{Binding EditName}"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{DynamicResource common.phone}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBox Text="{Binding EditPhone}"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Email" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBox Text="{Binding EditEmail}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding SelectedClient.LoyaltyBalanceDisplay, StringFormat='{}{0} 🎁'}"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushAccentStrong}"/>
+
+                    <!-- История покупок клиента: бонусный баланс сам по себе не отвечает на
+                         вопрос «а он у нас вообще покупает и на сколько» — теперь дата и сумма
+                         каждой покупки видны прямо в карточке. -->
+                    <Border Background="{DynamicResource BrushSurfaceSubtle}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10,8"
+                            Margin="0,4,0,0">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Покупки" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <TextBlock Text="{Binding PurchasesSummary}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushTextMuted}"/>
+                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding HasClientPurchases}">
+                                <ItemsControl ItemsSource="{Binding ClientPurchases}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="local:ClientPurchaseRow">
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding DateDisplay}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource BrushTextMuted}"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding AmountDisplay}"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushMoney}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="{Binding CardErrorMessage}"
+                               Foreground="{DynamicResource BrushDanger}"
+                               FontSize="13"
+                               IsVisible="{Binding !!CardErrorMessage}"
+                               TextWrapping="Wrap"/>
+
+                    <!-- Персональная ссылка на бота. Telegram не позволяет написать человеку по
+                         номеру телефона — он должен сам нажать «Старт». Ссылку копируют и
+                         отправляют клиенту (WhatsApp, СМС, печать на чеке), и после перехода
+                         касса сможет слать ему напоминания о долге и об акциях. -->
+                    <Button x:Name="TelegramInviteButton" Classes="SecondaryButton"
+                            Content="Скопировать ссылку на Telegram-бота"
+                            HorizontalAlignment="Left" Margin="0,4,0,0"
+                            Click="TelegramInviteButton_Click"/>
+
+                    <TextBlock x:Name="TelegramInviteHint" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+                        <Button Grid.Column="0" x:Name="DeleteClientButton" Classes="SecondaryButton"
+                                Content="{DynamicResource clients.deleteButton}"
+                                Foreground="{DynamicResource BrushDanger}"
+                                Click="DeleteClientButton_Click"/>
+                        <Button Grid.Column="2" x:Name="SaveClientButton" Classes="PrimaryButton"
+                                Content="{DynamicResource clients.saveButton}"
+                                Click="SaveClientButton_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,63 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.ServicesWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Дополнительные услуги"
+        Height="800" Width="950"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushPanelSoft}">
+
+    <ScrollViewer >
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <Button Content="✕" HorizontalAlignment="Left" Background="Transparent"
+                        BorderThickness="0" FontSize="20" Click="CloseButton_Click"/>
+                <TextBlock Text="Дополнительные услуги" FontSize="28" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center"/>
+            </Grid>
+
+            <TextBlock Grid.Row="1" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                       HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,24" MaxWidth="600"
+                       Text="Расширьте возможности вашей CRM-системы с помощью наших дополнительных услуг."/>
+
+            <TextBlock Grid.Row="2" Text="Интеграции" FontSize="14" Foreground="{DynamicResource BrushTextMuted}" Margin="6,0,6,6"/>
+
+            <UniformGrid Grid.Row="3" Columns="3" Margin="0,8,0,0">
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
+                        Padding="24" Margin="6" Height="220">
+                    <StackPanel>
+                        <TextBlock Text="WhatsApp" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="Подключите чаты для удобного общения с клиентами."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
+                        <Button Content="Подключить" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
+                        Padding="24" Margin="6" Height="220">
+                    <StackPanel>
+                        <TextBlock Text="Telegram" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="Интеграция Telegram для автоматических ответов и CRM."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
+                        <Button Content="Подключить" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36"/>
+                    </StackPanel>
+                </Border>
+                <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="12"
+                        Padding="24" Margin="6" Height="220">
+                    <StackPanel>
+                        <TextBlock Text="Интерфейс кассира" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="Быстрая продажа, оформление оплат и работа с чеками."
+                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="13" TextAlignment="Center" Height="60"/>
+                        <Button Content="Перейти" HorizontalAlignment="Center" Margin="0,16,0,0" Height="36"
+                                Background="{DynamicResource BrushWarning}"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+        </Grid>
+    </ScrollViewer>
+</Window>

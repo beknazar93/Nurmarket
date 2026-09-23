@@ -1,0 +1,135 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PackageChoiceDialog"
+        Title="Как добавить в корзину?"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI, Inter, sans-serif"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <Window.Styles>
+        <Style Selector="RadioButton.PackageOption">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Stretch"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.PackageOption:checked">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
+        <Style Selector="Button.btn-yellow">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-yellow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+
+        <Style Selector="Button.btn-light">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+      <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 16 40 0 #33101828"
+            Padding="24,22">
+        <StackPanel Spacing="14">
+            <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="HeaderTitleText" Grid.Column="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <Button Grid.Column="1" Classes="btn-light" Width="32" Height="32" Padding="0"
+                            Content="✕" FontSize="14" Click="Cancel_Click"/>
+                </Grid>
+                <TextBlock x:Name="StockText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+
+            <!-- Шаг 1: выбор способа продажи -->
+            <StackPanel x:Name="Step1Panel" Spacing="14">
+                <TextBlock x:Name="QuestionText" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
+
+                <StackPanel Spacing="8">
+                    <RadioButton x:Name="WholePackOption" GroupName="PkgMode" Classes="PackageOption" IsChecked="True" Checked="Option_Checked">
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Name="WholePackTitle" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock x:Name="WholePackSubtitle" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="PieceOption" GroupName="PkgMode" Classes="PackageOption" Checked="Option_Checked">
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Name="PieceTitle" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock x:Name="PieceSubtitle" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,10,*" Margin="0,4,0,0">
+                    <Button x:Name="CancelButton" Grid.Column="0" Classes="btn-light" Height="46" HorizontalAlignment="Stretch" Click="Cancel_Click"/>
+                    <Button x:Name="NextButton" Grid.Column="2" Classes="btn-yellow" Height="46" HorizontalAlignment="Stretch" Click="Next_Click"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Шаг 2: количество и живой расчёт цены -->
+            <StackPanel x:Name="Step2Panel" Spacing="10" IsVisible="False">
+                <TextBlock x:Name="QuantityLabel" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}"/>
+
+                <Grid ColumnDefinitions="*,10,Auto">
+                    <TextBox x:Name="QuantityBox" Grid.Column="0"
+                             Height="46"
+                             Padding="12,8"
+                             FontSize="18"
+                             FontWeight="Bold"
+                             CornerRadius="10"
+                             BorderBrush="{DynamicResource BrushBorder}"
+                             BorderThickness="1.5"
+                             Background="{DynamicResource BrushPanel}"
+                             VerticalContentAlignment="Center"
+                             TextChanged="QuantityBox_TextChanged"
+                             KeyDown="QuantityBox_KeyDown"/>
+                    <TextBlock x:Name="QuantityUnitText" Grid.Column="2" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                </Grid>
+
+                <TextBlock x:Name="PriceCalcText" FontSize="14" Foreground="{DynamicResource BrushTextMuted}"/>
+                <TextBlock x:Name="AvailableText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                <Grid ColumnDefinitions="*,10,*" Margin="0,4,0,0">
+                    <Button x:Name="BackButton" Grid.Column="0" Classes="btn-light" Height="46" HorizontalAlignment="Stretch" Click="Back_Click"/>
+                    <Button x:Name="OkButton" Grid.Column="2" Classes="btn-yellow" Height="46" HorizontalAlignment="Stretch" Click="Ok_Click"/>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+      </Border>
+</Window>

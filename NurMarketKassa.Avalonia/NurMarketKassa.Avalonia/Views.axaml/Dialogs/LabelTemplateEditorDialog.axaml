@@ -1,0 +1,201 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.LabelTemplateEditorDialog"
+        x:DataType="dialogs:LabelTemplateEditorDialog"
+        x:CompileBindings="False"
+        Title="{DynamicResource labelEditor.title}"
+        Width="1280" Height="820" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}">
+
+    <!-- Редактор этикетки (2026-09-07, визуальный проход по замечанию "дизайн не удобен и не
+         красивый"): было — три колонки без карточек прямо на сером фоне окна, инструменты и
+         свойства визуально не отделены друг от друга, холст того же белого цвета, что и рамка
+         вокруг него, поэтому границы этикетки терялись. Теперь — фон окна чуть темнее (как в
+         остальной кассе), каждая колонка своя карточка (BrushPanel + рамка + скругление, тот же
+         язык, что и в Настройках), холст на контрастной серой подложке с тенью — этикетка
+         читается как отдельный лист. НИЧЕГО в логике/координатах не менялось: EditorCanvas,
+         ToolsPanel, PropertiesPanel — те же элементы с теми же именами, код-behind их не видит
+         по-другому. -->
+
+    <Window.Styles>
+        <Style Selector="Button.btn-primary">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="18,11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.tool-item">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,9"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.tool-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.tool-item.selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+        </Style>
+        <Style Selector="Border.editor-card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="18" RowDefinitions="Auto,*" >
+
+        <!-- Заголовок окна -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,14">
+            <Border Width="34" Height="34" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
+                    BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+                <TextBlock Text="&#x1F3F7;" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="{DynamicResource labelEditor.title}" FontSize="17" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="180,16,Auto,16,300">
+
+            <!-- Левая панель: Инструменты -->
+            <Border Grid.Column="0" Classes="editor-card" VerticalAlignment="Stretch">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource labelEditor.toolsHeader}" FontWeight="SemiBold"
+                               FontSize="13" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="ToolsPanel" Spacing="6"/>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Средняя колонка: размер + холст + нижняя панель -->
+            <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
+
+                <!-- Верхняя панель: размер этикетки + пресеты -->
+                <Border Grid.Row="0" Classes="editor-card" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{DynamicResource labelEditor.widthLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <NumericUpDown x:Name="LabelWidthBox" Minimum="15" Maximum="150" Increment="1" FormatString="0" Width="130"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{DynamicResource labelEditor.heightLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <NumericUpDown x:Name="LabelHeightBox" Minimum="10" Maximum="150" Increment="1" FormatString="0" Width="130"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{DynamicResource labelEditor.presetLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <ComboBox x:Name="SizePresetCombo" Width="200"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Холст: контрастная серая подложка, чтобы белый лист этикетки был виден как
+                     отдельный физический объект, а не сливался с рамкой вокруг него. -->
+                <Border Grid.Row="1" Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1" CornerRadius="12" Padding="24" MinWidth="500" MinHeight="380">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Border Background="White" BoxShadow="0 6 20 0 #26000000" Padding="0">
+                            <Canvas x:Name="EditorCanvas" Background="White" ClipToBounds="False"/>
+                        </Border>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Низ холста: инструкция, тестовая печать, масштаб -->
+                <Border Grid.Row="2" Classes="editor-card" Margin="0,16,0,0">
+                    <StackPanel Spacing="10">
+                        <TextBlock FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                                   Text="{DynamicResource labelEditor.instructions}"
+                                   TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <Button x:Name="TestPrintButton" Content="{DynamicResource labelEditor.testPrint}" Classes="btn-secondary" Click="TestPrintButton_Click"/>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Button Content="−" Width="32" Classes="btn-secondary" Padding="0" Click="ZoomOut_Click"/>
+                                <TextBlock x:Name="ZoomLabel" Text="100%" VerticalAlignment="Center" Width="48" TextAlignment="Center"/>
+                                <Button Content="+" Width="32" Classes="btn-secondary" Padding="0" Click="ZoomIn_Click"/>
+                            </StackPanel>
+                            <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Правая панель: предпросмотр + свойства выбранного элемента -->
+            <Grid Grid.Column="4" RowDefinitions="*,Auto">
+                <Border Grid.Row="0" Classes="editor-card">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="{DynamicResource labelEditor.previewLabel}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                            <Border Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                    CornerRadius="8" Padding="8" Height="200">
+                                <Border Background="White" BoxShadow="0 4 12 0 #22000000">
+                                    <Image x:Name="PreviewImage" Stretch="Uniform"/>
+                                </Border>
+                            </Border>
+                            <Button Content="{DynamicResource labelEditor.resetDefault}" Classes="btn-secondary" HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center" Click="ResetButton_Click"/>
+
+                            <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                            <TextBlock x:Name="PropertiesHeader" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{DynamicResource BrushText}"/>
+                            <StackPanel x:Name="PropertiesPanel" Spacing="8"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,14,0,0">
+                    <Button Content="{DynamicResource common.cancel}" Classes="btn-secondary" Click="CancelButton_Click"/>
+                    <Button Content="{DynamicResource common.save}" Classes="btn-primary" Click="SaveButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

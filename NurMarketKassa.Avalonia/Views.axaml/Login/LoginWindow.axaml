@@ -1,0 +1,502 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.LoginWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
+        x:DataType="vm:LoginViewModel"
+        x:CompileBindings="True"
+        Title="Вход — Nur Market"        Height="800"
+        Width="1080"
+        MinHeight="700"
+        MinWidth="820"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource BrushWindow}">
+
+    <Window.Styles>
+        <!-- Поля ввода -->
+        <Style Selector="Border.LoginFluentField">
+            <Setter Property="Height" Value="52" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+        </Style>
+
+        <Style Selector="TextBox.LoginFluentTextBox, TextBox.LoginFluentPasswordBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CaretBrush" Value="{DynamicResource BrushText}" />
+        </Style>
+        <!-- Убираем подсветку фона у прозрачных текстбоксов при фокусе/наведении -->
+        <Style Selector="TextBox.LoginFluentTextBox:pointerover /template/ Border#PART_BorderElement,
+        TextBox.LoginFluentTextBox:focus /template/ Border#PART_BorderElement,
+        TextBox.LoginFluentPasswordBox:pointerover /template/ Border#PART_BorderElement,
+        TextBox.LoginFluentPasswordBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- Основная жёлтая кнопка «Войти» -->
+        <Style Selector="Button.LoginPrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="54" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="12"
+                            BoxShadow="0 6 16 0 #33D6B500">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.LoginPrimaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+        </Style>
+        <Style Selector="Button.LoginPrimaryButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
+        </Style>
+
+        <!-- Кнопка «Выход» -->
+        <Style Selector="Button.LoginDangerButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="54" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="12">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.LoginDangerButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
+        </Style>
+
+        <!-- Тумблер «Запомнить меня» -->
+        <Style Selector="CheckBox.ToggleSwitch">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent" ColumnDefinitions="Auto,*">
+                        <!-- Трек -->
+                        <Border x:Name="track" Width="46" Height="26" CornerRadius="13"
+                                Background="{DynamicResource BrushPanelSoft}"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <!-- Бегунок -->
+                            <Ellipse x:Name="dot" Width="20" Height="20"
+                                     Fill="White"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Center"
+                                     Margin="3,0,0,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="4" OffsetX="0" OffsetY="1" Opacity="0.25" />
+                                </Ellipse.Effect>
+                                <Ellipse.Transitions>
+                                    <Transitions>
+                                        <ThicknessTransition Property="Margin" Duration="0:0:0.15" />
+                                    </Transitions>
+                                </Ellipse.Transitions>
+                            </Ellipse>
+                        </Border>
+                        <ContentPresenter Grid.Column="1"
+                                          Content="{TemplateBinding Content}"
+                                          VerticalAlignment="Center"
+                                          Margin="12,0,0,0" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="CheckBox.ToggleSwitch:checked /template/ Border#track">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}" />
+        </Style>
+        <Style Selector="CheckBox.ToggleSwitch:checked /template/ Ellipse#dot">
+            <Setter Property="Margin" Value="23,0,0,0" />
+        </Style>
+
+        <!-- Подписи полей -->
+        <Style Selector="TextBlock.LoginFieldLabel">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="Margin" Value="2,0,0,6" />
+        </Style>
+
+        <!-- Ссылка в футере -->
+        <Style Selector="Button.LoginLink">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.LoginLink:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}" />
+        </Style>
+
+        <Style Selector="Button.LoginThemeButton">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.LoginThemeButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        </Style>
+        <Style Selector="Button.LoginThemeButton.selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+
+        <!-- Сплит-экран: брендинг и баннер слева, форма входа справа -->
+        <Grid x:Name="MainLayout" Margin="24" ColumnDefinitions="9*,20,16*">
+
+            <!-- ЛЕВАЯ КОЛОНКА: брендинг, инфо-блок и фоновый баннер -->
+            <Border Grid.Column="0" CornerRadius="20"
+                    Background="{DynamicResource BrushPanel}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    ClipToBounds="True"
+                    BoxShadow="0 10 30 0 #14101828">
+                <Grid>
+                    <!-- 1. ИЗОБРАЖЕНИЕ-ФОН.
+                    Объявляем первым, чтобы оно было самым нижним слоем.
+                    Stretch="UniformToFill" заполнит весь Border, обрезая лишнее. -->
+                    <Image x:Name="LightHeroImage"
+                           Source="avares://NurMarketKassa.Avalonia/Assets/left-banner.png"
+                           Stretch="UniformToFill"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+
+                    <Image x:Name="DarkHeroImage"
+                           Source="avares://NurMarketKassa.Avalonia/Assets/login-hero-dark.png"
+                           Stretch="UniformToFill"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="False" />
+
+                    <!-- 2. КОНТЕНТ ПОВЕРХ ФОНА.
+                    StackPanel автоматически размещается поверх Image, так как объявлен позже.
+                    Мы добавляем Margin, чтобы текст не прилипал к краям фона. -->
+                    <StackPanel Margin="24,28,24,28">
+
+                        <!-- Логотип -->
+                        <Border Width="64" Height="64" CornerRadius="14"
+                                HorizontalAlignment="Center" ClipToBounds="True"
+                                BoxShadow="0 4 14 0 #22101828"
+                                Background="{DynamicResource BrushPanel}"> <!-- Добавил фон, чтобы лого не сливалось -->
+                                <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
+                                       Stretch="UniformToFill" />
+                        </Border>
+
+                        <TextBlock Text="Nur Market" Margin="0,14,0,0"
+                                   FontSize="26" FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource BrushLoginHeroTitle}" />
+
+                        <TextBlock Text="Кассовая система для розничной торговли"
+                                   Margin="0,6,0,0" FontSize="12.5"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushLoginHeroSubtitle}" />
+
+                        <!-- Плашка безопасности (она останется поверх фото) -->
+                        <Border Margin="0,18,0,0" Padding="14,10" CornerRadius="14"
+                                Background="{DynamicResource BrushPanel}"
+                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                HorizontalAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Width="36" Height="36" CornerRadius="10"
+                                        Background="{DynamicResource BrushAccentSoft}"
+                                        VerticalAlignment="Top">
+                                    <TextBlock Text="&#xEA18;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="16" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Безопасный вход в рабочую смену"
+                                               FontSize="12.5" FontWeight="SemiBold"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushText}" />
+                                    <TextBlock Text="Данные синхронизируются с облаком и локальной базой аудита."
+                                               Margin="0,2,0,0" FontSize="11.5" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushTextSoft}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ПРАВАЯ КОЛОНКА: только форма авторизации -->
+            <Border Grid.Column="2" CornerRadius="20"
+                    Background="{DynamicResource BrushPanel}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    ClipToBounds="True"
+                    BoxShadow="0 10 30 0 #14101828">
+
+                <!-- Форма по центру -->
+                <StackPanel VerticalAlignment="Center" MaxWidth="440"
+                            Margin="56,24,56,24">
+
+                    <!-- Шапка формы: жёлтый замок + заголовок (по центру) -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,18">
+                        <Border Width="44" Height="44" CornerRadius="12"
+                                Background="{DynamicResource BrushAccent}"
+                                Margin="0,0,14,0"
+                                BoxShadow="0 4 12 0 #33D6B500">
+                            <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="18" HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource BrushText}" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Вход в кассу" FontSize="22" FontWeight="Bold"
+                                       Foreground="{DynamicResource BrushText}" />
+                            <TextBlock Text="Email и пароль от Nur CRM"
+                                       Margin="0,2,0,0" FontSize="12.5"
+                                       Foreground="{DynamicResource BrushTextSoft}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Email -->
+                    <TextBlock Text="Email" Classes="LoginFieldLabel"  />
+                    <Border x:Name="EmailFieldBorder" Classes="LoginFluentField"
+                            Margin="0,0,0,14">
+                        <Grid Margin="16,0" ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="&#xE715;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="16" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,12,0" />
+                            <TextBox x:Name="EmailBox" Grid.Column="1"
+                                     Classes="LoginFluentTextBox"
+                                     Watermark="Логин"
+                                     GotFocus="FluentField_GotFocus"
+                                     LostFocus="FluentField_LostFocus"
+                                     TextChanged="EmailBox_TextChanged"
+                                     KeyDown="EmailBox_KeyDown" />
+                            <TextBlock x:Name="EmailValidIcon" Grid.Column="2"
+                                       Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="20" VerticalAlignment="Center"
+                                       Margin="8,0,0,0"
+                                       Foreground="{DynamicResource BrushUiStatusOk}" IsVisible="False" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Пароль -->
+                    <TextBlock Text="Пароль" Classes="LoginFieldLabel" />
+                    <Border x:Name="PasswordFieldBorder" Classes="LoginFluentField"
+                            Margin="0,0,0,4">
+                        <Grid Margin="16,0" ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="16" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,12,0" />
+                            <TextBox x:Name="PasswordBox" Grid.Column="1"
+                                     Classes="LoginFluentPasswordBox"
+                                     Watermark="Пароль"
+                                     GotFocus="FluentField_GotFocus"
+                                     LostFocus="FluentField_LostFocus"
+                                     TextChanged="PasswordBox_PasswordChanged"
+                                     KeyDown="PasswordBox_KeyDown"
+                                     PasswordChar="•" />
+                            <TextBox x:Name="VisiblePasswordBox" Grid.Column="1"
+                                     Classes="LoginFluentTextBox"
+                                     IsVisible="False"
+                                     GotFocus="FluentField_GotFocus"
+                                     LostFocus="FluentField_LostFocus"
+                                     TextChanged="VisiblePasswordBox_TextChanged"
+                                     KeyDown="VisiblePasswordBox_KeyDown" />
+                            <Button x:Name="TogglePasswordButton" Grid.Column="2"
+                                    Width="40" Height="40" Padding="0" Cursor="Hand"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="TogglePasswordButton_Click"
+                                    ToolTip.Tip="Показать пароль">
+                                <Button.Template>
+                                    <ControlTemplate>
+                                        <Border Background="Transparent">
+                                            <ContentPresenter Content="{TemplateBinding Content}"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock x:Name="TogglePasswordIcon" Text="&#xE7B3;"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                           Foreground="{DynamicResource BrushTextSoft}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <CheckBox x:Name="RememberMeCheckBox"
+                              Classes="ToggleSwitch"
+                              Margin="0,10,0,0"
+                              Content="Запомнить меня"
+                              IsCheckedChanged="RememberMeCheckBox_Changed" />
+
+                    <TextBlock Text="Enter — войти" HorizontalAlignment="Center"
+                               Margin="0,6,2,0" FontSize="11"
+                               Foreground="{DynamicResource BrushTextSoft}" />
+
+                    <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushDanger}"
+                               Margin="0,8,0,0"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasError}" />
+
+                    <TextBlock Text="{Binding LoadingStatus}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               Margin="0,8,0,0"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               IsVisible="{Binding IsLoading}" />
+
+                    <ProgressBar Height="4"
+                                 Margin="0,8,0,0"
+                                 Foreground="{DynamicResource BrushAccent}"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsLoading}" />
+
+                    <!-- Войти -->
+                    <Button x:Name="LoginButton" Margin="0,18,0,0"
+                            Classes="LoginPrimaryButton"
+                            Command="{Binding LoginCommand}"
+                            IsDefault="True">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Text="{Binding LoginButtonText}" FontSize="15" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Выход -->
+                    <Button x:Name="ExitButton" Margin="0,10,0,0"
+                            Classes="LoginDangerButton"
+                            Click="ExitButton_Click">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"
+                                       Foreground="{DynamicResource BrushText}" />
+                            <TextBlock Text="Выход" FontSize="15" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Помощь -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                Margin="0,16,0,0">
+                        <Border Width="28" Height="28" CornerRadius="14"
+                                Background="{DynamicResource BrushInputAlt}" VerticalAlignment="Center"
+                                Margin="0,0,10,0">
+                            <TextBlock Text="?" FontSize="13" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}" />
+                        </Border>
+                        <TextBlock FontSize="13" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushTextSoft}"
+                                   Text="Нужна помощь? Обратитесь к " />
+                        <Button Content=" администратору"
+                                Classes="LoginLink"
+                                FontSize="13"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Открыть окно поддержки"
+                                Click="AdminSupport_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,42,42,0"
+                Padding="4"
+                CornerRadius="12"
+                Background="{DynamicResource BrushPanelElevated}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1"
+                BoxShadow="0 6 18 0 #26000000"
+                ZIndex="20">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button x:Name="LightThemeButton"
+                        Classes="LoginThemeButton"
+                        ToolTip.Tip="Светлая тема"
+                        Click="LightThemeButton_Click">
+                    <TextBlock Text="&#xE706;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="17"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Button>
+                <Button x:Name="DarkThemeButton"
+                        Classes="LoginThemeButton"
+                        ToolTip.Tip="Тёмная тема"
+                        Click="DarkThemeButton_Click">
+                    <TextBlock Text="&#xE708;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="17"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <Grid x:Name="OverlayGrid"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              IsHitTestVisible="False"
+              Background="Transparent" />
+    </Grid>
+</Window>

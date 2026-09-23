@@ -1,0 +1,119 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="Подключение телеграм-бота"
+        Height="760"
+        Width="720"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushWindow}"
+        Loaded="Window_Loaded">
+
+  <Window.Styles>
+    <Style Selector="Border.StepCard">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="TextBlock.StepTitle">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.StepBody">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="Button.Primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="18">
+    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
+      <TextBlock Text="Подключение телеграм-бота" FontSize="20" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"/>
+      <TextBlock Classes="StepBody"
+                 Text="Бот присылает вам сводку по закрытой смене и отвечает на команды: выручка, топ товаров, что пора заказать, должники. Работает из магазина без своего сервера и без белого IP."/>
+      <TextBlock Classes="StepBody" Foreground="{DynamicResource BrushWarning}"
+                 Text="Самого бота создаёт Telegram, а не касса: у BotFather нет интерфейса для программ, поэтому шаг 1 выполняется в Telegram вручную. Всё остальное касса сделает за вас."/>
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="12">
+
+        <!-- Шаг 1 -->
+        <Border Classes="StepCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" Text="Шаг 1. Создайте бота у @BotFather"/>
+            <TextBlock Classes="StepBody"
+                       Text="Нажмите «Открыть BotFather» — откроется чат в Telegram. Отправьте там команду /newbot, придумайте имя бота и имя пользователя (должно заканчиваться на bot). В ответ BotFather пришлёт токен — длинную строку вида 123456789:AAG..."/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Classes="Primary" Content="Открыть BotFather" Click="OpenBotFather_Click"/>
+              <Button Content="Скопировать /newbot" Click="CopyNewBot_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Шаг 2 -->
+        <Border Classes="StepCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" Text="Шаг 2. Вставьте токен"/>
+            <TextBlock Classes="StepBody"
+                       Text="Скопируйте токен из чата с BotFather и вставьте сюда целиком. Касса проверит его и покажет имя бота."/>
+            <TextBox x:Name="TokenBox" Watermark="123456789:AAG..." PasswordChar="•"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Classes="Primary" x:Name="CheckTokenButton" Content="Проверить токен" Click="CheckToken_Click"/>
+              <Button Content="Вставить из буфера" Click="PasteToken_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="TokenStatus" Classes="StepBody"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Шаг 3 -->
+        <Border Classes="StepCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" Text="Шаг 3. Напишите своему боту «Старт»"/>
+            <TextBlock Classes="StepBody"
+                       Text="Telegram не даёт боту написать первым — сначала вы должны открыть своего бота и нажать «Старт». После этого касса узнает, в какой чат отправлять сводки."/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button x:Name="OpenMyBotButton" Content="Открыть моего бота" Click="OpenMyBot_Click" IsEnabled="False"/>
+              <Button Classes="Primary" x:Name="DetectButton" Content="Определить получателя" Click="Detect_Click" IsEnabled="False"/>
+            </StackPanel>
+            <TextBlock x:Name="DetectStatus" Classes="StepBody"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Шаг 4 -->
+        <Border Classes="StepCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" Text="Шаг 4. Проверьте и включите"/>
+            <Button x:Name="TestButton" Content="Отправить пробное сообщение" Click="Test_Click" IsEnabled="False"/>
+            <TextBlock x:Name="TestStatus" Classes="StepBody"/>
+            <CheckBox x:Name="SummaryCheck" Content="Присылать сводку при закрытии смены"
+                      IsCheckedChanged="Toggles_Changed"/>
+            <CheckBox x:Name="CommandsCheck" Content="Отвечать на команды в Telegram"
+                      IsCheckedChanged="Toggles_Changed"/>
+            <TextBlock Classes="StepBody"
+                       Text="Команды: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники. Бот отвечает, пока касса включена."/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,14,0,0">
+      <Button Classes="Primary" Content="Готово" Click="Close_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

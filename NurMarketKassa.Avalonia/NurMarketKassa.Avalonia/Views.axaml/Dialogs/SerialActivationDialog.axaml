@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.SerialActivationDialog"
+        Title="{DynamicResource marketplace.serialTitle}"
+        Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel Spacing="4">
+      <TextBlock x:Name="TitleText" Text="{DynamicResource marketplace.serialTitle}"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 Margin="0,0,0,8"/>
+      <TextBlock x:Name="MessageText"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 Margin="0,0,0,16"/>
+      <TextBox x:Name="SerialBox"
+               Watermark="NMK-XXXX-XXXX-XXXX"
+               Height="42" FontSize="16"
+               Margin="0,0,0,10"
+               KeyDown="SerialBox_KeyDown"/>
+      <TextBlock x:Name="ErrorText"
+                 FontSize="12"
+                 Foreground="{DynamicResource BrushDanger}"
+                 TextWrapping="Wrap"
+                 IsVisible="False"
+                 Margin="0,0,0,10"/>
+      <Grid ColumnDefinitions="*,12,*">
+        <Button x:Name="CancelButton"
+                Grid.Column="0"
+                Content="{DynamicResource common.cancel}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushPanel}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Click="CancelButton_Click"/>
+        <Button x:Name="ActivateButton"
+                Grid.Column="2"
+                Content="{DynamicResource marketplace.serialActivate}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushAccentForeground}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                IsDefault="True"
+                Click="ActivateButton_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>

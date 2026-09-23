@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.MigrateToOfflineDialog"
+        Title="{DynamicResource migrateOffline.title}"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel>
+      <TextBlock Text="{DynamicResource migrateOffline.title}"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 Margin="0,0,0,8"/>
+      <TextBlock Text="{DynamicResource migrateOffline.message}"
+                 FontSize="13" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 Margin="0,0,0,16"/>
+
+      <StackPanel x:Name="FormPanel">
+        <TextBlock Text="{DynamicResource login.autonomous.keyLabel}" FontSize="12"
+                   Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4"/>
+        <TextBox x:Name="KeyBox"
+                 Watermark="{DynamicResource login.autonomous.keyWatermark}"
+                 Height="42" FontSize="15"
+                 Margin="0,0,0,10"/>
+
+        <TextBlock Text="{DynamicResource migrateOffline.newLoginLabel}" FontSize="12"
+                   Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4"/>
+        <TextBox x:Name="EmailBox"
+                 Watermark="{DynamicResource csh.login.email}"
+                 Height="42" FontSize="15"
+                 Margin="0,0,0,10"/>
+        <TextBox x:Name="PasswordBox"
+                 PasswordChar="•"
+                 Watermark="{DynamicResource csh.login.passwordWatermark}"
+                 Height="42" FontSize="15"
+                 Margin="0,0,0,10"/>
+      </StackPanel>
+
+      <TextBlock x:Name="StatusText"
+                 FontSize="13" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 IsVisible="False"
+                 Margin="0,0,0,10"/>
+
+      <TextBlock x:Name="ErrorText"
+                 FontSize="12"
+                 Foreground="{DynamicResource BrushDanger}"
+                 TextWrapping="Wrap"
+                 IsVisible="False"
+                 Margin="0,0,0,10"/>
+
+      <Grid ColumnDefinitions="*,12,*">
+        <Button x:Name="CancelButton"
+                Grid.Column="0"
+                Content="{DynamicResource common.cancel}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushPanel}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Click="CancelButton_Click"/>
+        <Button x:Name="ConfirmButton"
+                Grid.Column="2"
+                Content="{DynamicResource migrateOffline.startButton}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushAccentForeground}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                IsDefault="True"
+                Click="ConfirmButton_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>

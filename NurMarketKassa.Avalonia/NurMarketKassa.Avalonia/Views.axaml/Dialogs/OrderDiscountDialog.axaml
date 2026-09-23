@@ -1,0 +1,156 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OrderDiscountDialog"
+        Title="{DynamicResource discount.title}"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <Window.Styles>
+        <!-- Кастомный стиль для ToggleSwitch (On/Off) -->
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OffContent" Value=""/>
+            <Setter Property="OnContent" Value=""/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Стиль для Чекбокса -->
+        <Style Selector="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="28,24">
+
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <!-- Заголовок диалога -->
+            <TextBlock x:Name="HeaderTitleText" Text="{DynamicResource discount.title}"
+                       FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,0,0,8"/>
+
+            <TextBlock x:Name="ItemTitleLabel" IsVisible="False"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextMuted}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,0,0,12"/>
+
+            <!-- Выбор: Чекбокс для применимости к отдельному товару -->
+            <StackPanel x:Name="ScopePanel" HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{DynamicResource discount.applyToSelected}"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="{DynamicResource BrushText}"
+                               VerticalAlignment="Center"/>
+
+                    <CheckBox x:Name="ScopeCheckBox"
+                              Grid.Column="1"
+                              IsChecked="False"
+                              VerticalAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Переключатель On/Off: Тип скидки (Процент / Сумма) -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="DiscountTypeLabel" Text="{DynamicResource discount.modeAmountLabel}"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="{DynamicResource BrushText}"
+                               VerticalAlignment="Center"/>
+
+                    <ToggleSwitch x:Name="DiscountTypeToggle"
+                                  Grid.Column="1"
+                                  IsChecked="False"
+                                  IsCheckedChanged="DiscountType_Changed"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Ввод значения -->
+            <StackPanel Width="320" HorizontalAlignment="Center" Margin="0,0,0,12">
+                <TextBlock x:Name="ValueLabel" Text="{DynamicResource discount.enterAmountLabel}"
+                           FontSize="13" FontWeight="Medium"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,6"/>
+
+                <TextBox x:Name="ValueBox"
+                         Height="44"
+                         Padding="12,10"
+                         FontSize="15"
+                         HorizontalContentAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         CornerRadius="10"
+                         BorderBrush="{DynamicResource BrushBorder}"
+                         BorderThickness="1.5"
+                         Background="{DynamicResource BrushPanelSoft}"/>
+            </StackPanel>
+
+            <!-- Текст ошибки -->
+            <TextBlock x:Name="ErrorText"
+                       Foreground="{DynamicResource BrushDanger}"
+                       FontSize="13"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       IsVisible="False"
+                       Margin="0,0,0,12"/>
+
+            <!-- Кнопки действий -->
+            <Grid ColumnDefinitions="*,8,*,8,*" Width="340" HorizontalAlignment="Center" Margin="0,8,0,0">
+                <Button Grid.Column="0" Content="{DynamicResource csh.filter.reset}"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushInputAlt}"
+                        Foreground="{DynamicResource BrushTextMuted}"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        Click="Clear_Click"/>
+
+                <Button Grid.Column="2" Content="{DynamicResource common.cancel}"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushPanel}"
+                        Foreground="{DynamicResource BrushText}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1.5"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        Click="Cancel_Click"/>
+
+                <Button Grid.Column="4" Content="{DynamicResource csh.filter.apply}"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushAccent}"
+                        Foreground="{DynamicResource BrushAccentForeground}"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        IsDefault="True"
+                        Click="Apply_Click"/>
+            </Grid>
+
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,93 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleConnectionDialog"
+        Title="Подключение весов"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-ok">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="18,9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="18,9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Height" Value="36"/>
+    </Style>
+    <Style Selector="TextBlock.field">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel Spacing="14">
+      <TextBlock Text="Подключение весов" FontWeight="Bold" FontSize="20"
+                 Foreground="{DynamicResource BrushText}"/>
+      <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                 Text="Касса будет говорить с весами напрямую по локальной сети, без сервера. Адрес, порт и пароль возьмите из системного меню самих весов."/>
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="field" Text="IP-адрес весов"/>
+        <TextBox x:Name="IpBox" Watermark="192.168.0.50"/>
+      </StackPanel>
+
+      <Grid ColumnDefinitions="*,14,*">
+        <StackPanel Grid.Column="0" Spacing="4">
+          <TextBlock Classes="field" Text="Порт"/>
+          <TextBox x:Name="PortBox" Watermark="1111"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="4">
+          <TextBlock Classes="field" Text="Пароль (4 цифры)"/>
+          <TextBox x:Name="PasswordBox" MaxLength="4" Watermark="0030"/>
+        </StackPanel>
+      </Grid>
+
+      <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+                 Text="Порт обычно 1111, пароль — 0030. При неверном пароле весы блокируют доступ после нескольких попыток: тогда выключите и включите их и введите правильный пароль."/>
+
+      <Button x:Name="TestButton" Classes="btn-ok" Content="Проверить связь"
+              HorizontalAlignment="Left" Click="Test_Click"/>
+
+      <Border x:Name="StatusPanel" IsVisible="False" CornerRadius="8" Padding="10"
+              Background="{DynamicResource BrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+        <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12"
+                   Foreground="{DynamicResource BrushText}"/>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,4,0,0">
+        <Button Classes="btn-ok" Content="Отмена" Click="Cancel_Click"/>
+        <Button Classes="btn-primary" Content="Сохранить" Click="Save_Click"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

@@ -1,0 +1,128 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReturnLineReasonDialog"
+        Title="Причина возврата"
+        Width="480" Height="420"
+        MinHeight="360" MinWidth="420"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Window.Styles>
+    <!-- Главная кнопка (Вернуть) -->
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+
+    <!-- Вторичная кнопка (Отмена) -->
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+
+    <!-- Поле ввода причины -->
+    <Style Selector="TextBox.ModernTextArea">
+      <Setter Property="Padding" Value="12,10"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBox.ModernTextArea:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+      <!-- Заголовок -->
+      <TextBlock Grid.Row="0"
+                 Text="Укажите причину возврата"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"/>
+
+      <!-- Подсказка -->
+      <TextBlock x:Name="HintText" Grid.Row="1"
+                 Margin="0,8,0,16"
+                 TextWrapping="Wrap"
+                 FontSize="14"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"/>
+
+      <!-- Многострочное поле ввода -->
+      <TextBox x:Name="ReasonBox" Grid.Row="2"
+               Classes="ModernTextArea"
+               Margin="0,0,0,12"
+               Watermark="Введите причину..."
+               TextWrapping="Wrap"
+               AcceptsReturn="True"/>
+
+      <!-- Текст ошибки -->
+      <TextBlock x:Name="ErrorText" Grid.Row="3"
+                 Margin="0,0,0,12"
+                 FontSize="13"
+                 FontWeight="Medium"
+                 Foreground="{DynamicResource BrushDanger}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 IsVisible="False"/>
+
+      <!-- Кнопки управления -->
+      <Grid Grid.Row="4" ColumnDefinitions="*,12,*">
+        <Button Grid.Column="0"
+                Classes="btn-secondary"
+                Content="Отмена"
+                Height="44"
+                HorizontalAlignment="Stretch"
+                Click="Cancel_Click"/>
+        <Button Grid.Column="2"
+                Classes="btn-primary"
+                Content="Вернуть"
+                Height="44"
+                HorizontalAlignment="Stretch"
+                IsDefault="True"
+                Click="Ok_Click"/>
+      </Grid>
+
+    </Grid>
+  </Border>
+</Window>

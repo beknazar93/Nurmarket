@@ -1,0 +1,156 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels">
+
+  <Style Selector="Border.ShiftSettingsCard">
+    <Setter Property="Background" Value="{DynamicResource BrushCatalogTileBg}"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+    <Setter Property="Padding" Value="16"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushCatalogTileBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <Style Selector="TextBlock.ShiftFieldLabel">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    <Setter Property="Margin" Value="0,0,0,6"/>
+  </Style>
+
+  <Style Selector="Button.ShiftFlatButton">
+    <Setter Property="MinHeight" Value="42"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Padding" Value="16,8"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.ShiftFlatButton:pointerover /template/ Border#bd">
+    <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+  </Style>
+
+  <Style Selector="Button.ShiftWindowChromeButton">
+    <Setter Property="Width" Value="40"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+
+  <Style Selector="Button.ShiftSidebarButton">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Padding" Value="16,12"/>
+    <Setter Property="Margin" Value="0,2"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Cursor" Value="Hand"/>
+  </Style>
+
+  <Style Selector="Button.ShiftSidebarButton.active">
+    <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+  </Style>
+
+  <Style Selector="DataGrid.ShiftModernDataGrid">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="GridLinesVisibility" Value="None"/>
+    <Setter Property="HeadersVisibility" Value="Column"/>
+    <Setter Property="AutoGenerateColumns" Value="False"/>
+    <Setter Property="CanUserReorderColumns" Value="False"/>
+    <Setter Property="IsReadOnly" Value="True"/>
+    <Setter Property="SelectionMode" Value="Single"/>
+  </Style>
+
+  <Style Selector="Button.ShiftActionButton">
+    <Setter Property="Width" Value="36"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontSize" Value="16"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <Style Selector="Border.ShiftStatusBadge">
+    <Setter Property="Height" Value="24"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="Padding" Value="10,0"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+  </Style>
+
+  <Style Selector="Button.ShiftPagerButton">
+    <Setter Property="Width" Value="40"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="Margin" Value="4,0"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+  </Style>
+
+  <Style Selector="Button.ShiftPagerNavButton">
+    <Setter Property="Width" Value="40"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="Margin" Value="4,0"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+  </Style>
+
+  <Style Selector="Border.ShiftOperationCard">
+    <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="Margin" Value="0,0,0,8"/>
+  </Style>
+
+  <Style Selector="Button.pager">
+    <Setter Property="Width" Value="40"/>
+    <Setter Property="Height" Value="40"/>
+    <Setter Property="Margin" Value="4,0"/>
+    <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+  </Style>
+
+  <Style Selector="ContentControl.pager-entry">
+    <Setter Property="ContentTemplate">
+      <DataTemplate DataType="vm:PagerEntry">
+        <Button Content="{Binding Display}"
+                Command="{ReflectionBinding $parent[UserControl].DataContext.GoToPageCommand}"
+                CommandParameter="{Binding PageNumber}"
+                Classes="pager"/>
+      </DataTemplate>
+    </Setter>
+  </Style>
+</Styles>

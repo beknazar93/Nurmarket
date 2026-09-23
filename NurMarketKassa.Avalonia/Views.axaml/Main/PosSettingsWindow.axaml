@@ -1,0 +1,171 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow"
+        x:CompileBindings="False"
+        Title="Настройки кассы"
+        Height="820" Width="1000"
+        MinHeight="760" MinWidth="960"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+
+  <Window.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="Button.SidebarNavItem">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="12,10"/>
+      <Setter Property="Margin" Value="8,3"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Template">
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="NavRoot"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}"
+                  BoxShadow="0 1 4 0 #0F000000">
+            <Grid ColumnDefinitions="4,*">
+              <Border x:Name="AccentBar" Background="Transparent" CornerRadius="2" Margin="0,2"/>
+              <ContentPresenter Grid.Column="1" Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                HorizontalContentAlignment="Left"
+                                Content="{TemplateBinding Content}"/>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.SidebarNavItem:pointerover /template/ Border#NavRoot">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+
+    <Style Selector="Button.SidebarNavItem.nav-active">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+
+    <Style Selector="Button.SidebarNavItem.nav-active /template/ Border#NavRoot">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BoxShadow" Value="0 4 12 0 #1A000000"/>
+    </Style>
+
+    <Style Selector="Button.SidebarNavItem.nav-active /template/ Border#AccentBar">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+    </Style>
+
+    <Style Selector="Button.SidebarCloseButton">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12,10"/>
+      <Setter Property="Margin" Value="8,8,8,12"/>
+      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="Button.SidebarCloseButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid>
+    <!-- Wallpaper -->
+    <Image Stretch="UniformToFill"
+           Opacity="1"
+           Source="{Binding SettingsVm.BackgroundImage, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}}"
+           IsVisible="{Binding SettingsVm.HasBackgroundImage}"/>
+
+    <!-- Left underlay -->
+    <Border HorizontalAlignment="Left" Width="240"
+            Background="{DynamicResource BrushPanelElevated}" BoxShadow="2 0 10 0 #14000000"/>
+
+    <!-- Right underlay -->
+    <Border Margin="240,0,0,0"
+            Background="{Binding SettingsVm.BackgroundOpacity, Converter={x:Static conv:OpacityToWhiteOverlayBrushConverter.Instance}}"/>
+
+    <Grid ColumnDefinitions="240,*">
+      <!-- Sidebar -->
+      <DockPanel Grid.Column="0" Margin="0,8,0,0">
+        <Button DockPanel.Dock="Bottom"
+                Classes="SidebarCloseButton"
+                Click="SidebarClose_Click">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+            <TextBlock Text="Закрыть" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+
+        <StackPanel Margin="0,4,0,0">
+          <Button x:Name="NavScales" Classes="SidebarNavItem nav-active" Tag="0" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Весы" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavPrint" Classes="SidebarNavItem" Tag="1" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Печать" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavScreen" Classes="SidebarNavItem" Tag="2" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Экран" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavMonitor" Classes="SidebarNavItem" Tag="3" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Path Width="17" Height="17" Stretch="Uniform" Fill="Transparent"
+                    Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                    StrokeThickness="1.6" StrokeLineCap="Round"
+                    Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
+                    VerticalAlignment="Center"/>
+              <TextBlock Text="Монитор" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavUpdates" Classes="SidebarNavItem" Tag="4" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Обновления" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavOperations" Classes="SidebarNavItem" Tag="5" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Операции" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavCustomization" Classes="SidebarNavItem" Tag="6" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="🎨" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="Кастомизация" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </DockPanel>
+
+      <!-- Content host: Top alignment keeps page cards from stretching to fill -->
+      <ContentControl x:Name="ContentHost"
+                      Grid.Column="1"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch"/>
+    </Grid>
+  </Grid>
+</Window>

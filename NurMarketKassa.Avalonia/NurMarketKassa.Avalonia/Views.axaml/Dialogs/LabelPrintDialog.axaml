@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.LabelPrintDialog"
+        x:DataType="dialogs:LabelPrintDialog"
+        x:CompileBindings="True"
+        Title="{DynamicResource labelPrint.title}"
+        Width="520" Height="560" MinWidth="480" MinHeight="520"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushPanel}">
+
+    <Window.Styles>
+        <Style Selector="Button.btn-primary">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-primary:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+
+        <TextBlock Grid.Row="0" Text="{DynamicResource labelPrint.header}" FontSize="18" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushText}" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="1" Text="{Binding ProductName}" FontSize="13"
+                   Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="10" Padding="8" MinHeight="160">
+            <Grid>
+                <Image Source="{Binding Preview}" Stretch="Uniform" IsVisible="{Binding HasBarcode}"/>
+                <TextBlock IsVisible="{Binding !HasBarcode}"
+                           Text="{DynamicResource labelPrint.noBarcode}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+            <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource common.printer}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                <ComboBox ItemsSource="{Binding Printers}"
+                          SelectedItem="{Binding SelectedPrinter, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch"/>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="4" Spacing="4" Margin="0,12,0,0">
+            <TextBlock Text="{DynamicResource labelPrint.copiesLabel}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+            <NumericUpDown Value="{Binding Copies, Mode=TwoWay}" Minimum="1" Maximum="99" Increment="1" FormatString="0"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="5" Text="{Binding StatusMessage}" FontSize="12" Margin="0,12,0,0"
+                   Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+
+        <Grid Grid.Row="6" ColumnDefinitions="Auto,*" Margin="0,16,0,0">
+            <Button Grid.Column="0" Content="{DynamicResource labelPrint.editTemplate}" Classes="btn-secondary" Click="EditTemplateButton_Click"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="{DynamicResource common.close}" Classes="btn-secondary" Click="CloseButton_Click"/>
+                <Button Content="{DynamicResource labelPrint.printButton}" Classes="btn-primary" Click="PrintButton_Click"
+                        IsEnabled="{Binding HasBarcode}" IsVisible="{Binding !IsBusy}"/>
+                <Button Content="{DynamicResource labelPrint.printing}" Classes="btn-primary" IsVisible="{Binding IsBusy}" IsEnabled="False"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

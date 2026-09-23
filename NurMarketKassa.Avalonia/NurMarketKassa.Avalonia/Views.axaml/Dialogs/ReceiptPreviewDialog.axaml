@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReceiptPreviewDialog"
+        Title="{DynamicResource receiptPreview.title}"
+        Width="520" Height="720"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        MinWidth="420" MinHeight="520"
+        Background="{DynamicResource BrushInputAlt}">
+  <Grid Margin="20" RowDefinitions="Auto,*,Auto">
+    <TextBlock x:Name="TitleText"
+               Grid.Row="0"
+               Text="{DynamicResource receiptPreview.title}"
+               FontSize="20"
+               FontWeight="Bold"
+               Foreground="{DynamicResource BrushText}"
+               HorizontalAlignment="Center"
+               Margin="0,0,0,16"/>
+
+    <Border Grid.Row="1"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="20">
+      <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+        <TextBlock x:Name="ReceiptText"
+                   FontFamily="Cascadia Mono,Consolas"
+                   FontSize="14"
+                   Foreground="{DynamicResource BrushText}"
+                   TextWrapping="Wrap"/>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,16,0,0">
+      <Button Grid.Column="0"
+              Content="{DynamicResource common.close}"
+              Height="46"
+              Margin="0,0,6,0"
+              HorizontalContentAlignment="Center"
+              Click="CloseButton_Click"/>
+      <Button Grid.Column="1"
+              Content="{DynamicResource common.printAction}"
+              Height="46"
+              Margin="6,0,0,0"
+              HorizontalContentAlignment="Center"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushAccentForeground}"
+              FontWeight="Bold"
+              Click="PrintButton_Click"/>
+    </Grid>
+  </Grid>
+</Window>

@@ -1,0 +1,297 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WeighedProductDialog"
+        Title="{DynamicResource weigh.title}"
+        Width="620" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI, Inter, sans-serif"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <Window.Styles>
+        <!-- Базовый стиль кнопок нумпада и предустановок -->
+        <Style Selector="Button.NumBtn">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.NumBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+
+        <!-- Главная желтая кнопка (В чек) -->
+        <Style Selector="Button.btn-yellow">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-yellow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+
+        <!-- Серые кнопки (Отмена, Подставить с весов) -->
+        <Style Selector="Button.btn-light">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-light:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+
+        <!-- Поле ввода веса -->
+        <Style Selector="TextBox.WeightInput">
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="Padding" Value="12,0,12,0"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Переключатель "По весу"/"По сумме" -->
+        <Style Selector="Button.ModeTab">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <!-- 2026-09-15, живой баг ("текст не виден") — раньше здесь стоял BrushText
+             (тёмный), совпадавший по цвету с фоном BrushAccent при тёмной теме "Профессиональная"
+             (тёмно-синий #1E3A5F): тёмный текст на тёмном фоне. BrushAccentForeground — это
+             специально предназначенный для текста НА фоне BrushAccent токен, который меняется
+             вместе с темой (белый для тёмно-синей/синей/зелёной тем, чёрный для жёлтой) — та же
+             пара, что уже используется в PrimaryButton по всему приложению. -->
+        <Style Selector="Button.ModeTab.Active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Внешний контейнер карточки (ClipToBounds решает проблему кривых углов!) -->
+    <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            ClipToBounds="True"
+            BoxShadow="0 10 25 -5 #20000000">
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- 1. Шапка окна -->
+            <Grid Grid.Row="0" Background="{DynamicResource BrushPanelSoft}" Height="48">
+                <TextBlock Text="{DynamicResource weigh.title}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}"/>
+                <Button Click="Cancel_Click"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,12,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="{DynamicResource BrushDanger}"
+                        FontSize="18"
+                        Content="✕"
+                        Cursor="Hand"/>
+            </Grid>
+
+            <Separator Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource BrushPanelSoft}"/>
+
+            <!-- 2. Основной контент -->
+            <StackPanel Grid.Row="1" Margin="24,20,24,24" Spacing="16">
+                <!-- Название товара и цена -->
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="HeaderTitleText"
+                               Text="Взвесить: 1321312"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="PriceBlock"
+                               Text="Цена за кг: 110.00 сом"
+                               FontSize="14"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <!-- Блок отображения текущих весов: только когда реально подключены весы -->
+                <Border x:Name="LiveScaleBlock"
+                        Background="{DynamicResource BrushPanel}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16,12">
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="LiveScaleLabel" Text="{DynamicResource weigh.currentScaleLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" FontWeight="Medium"/>
+                        <TextBlock x:Name="LiveScaleText" Text="0.00 кг" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Разделитель -->
+                <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,2"/>
+
+                <!-- Сетка: Левая часть (Ввод) и Правая часть (Кнопки быстрых значений + Нумпад) -->
+                <Grid ColumnDefinitions="*,24,310">
+
+                    <!-- ЛЕВАЯ КОЛОНКА -->
+                    <StackPanel Grid.Column="0" VerticalAlignment="Top" Spacing="16">
+                        <!-- Переключатель "По весу" / "По сумме" — виден только когда известна
+                             числовая цена за кг (иначе вес из суммы посчитать нечем). -->
+                        <Grid x:Name="ModeTabsRow" ColumnDefinitions="*,6,*" IsVisible="False">
+                            <Button x:Name="ByWeightTab" Grid.Column="0" Classes="ModeTab Active"
+                                    Content="{DynamicResource weigh.byWeightTab}"
+                                    HorizontalAlignment="Stretch"
+                                    Click="ByWeightTab_Click"/>
+                            <Button x:Name="ByAmountTab" Grid.Column="2" Classes="ModeTab"
+                                    Content="{DynamicResource weigh.byAmountTab}"
+                                    HorizontalAlignment="Stretch"
+                                    Click="ByAmountTab_Click"/>
+                        </Grid>
+
+                        <!-- Ручной ввод веса (или суммы — то же поле, перепрофилируется по режиму) -->
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="WeightLabel" Text="{DynamicResource weigh.weightKgLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <TextBox x:Name="WeightBox"
+                                     Text="0.00"
+                                     Classes="WeightInput"
+                                     KeyDown="WeightBox_KeyDown"
+                                     TextChanged="WeightBox_TextChanged"/>
+                            <TextBlock x:Name="ComputedPreviewText"
+                                       IsVisible="False"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushAccent}"/>
+                        </StackPanel>
+
+                        <!-- Кнопка "Подставить с весов" -->
+                        <Button x:Name="FromScaleButton"
+                                Classes="btn-light"
+                                Content="{DynamicResource weigh.fromScaleButton}"
+                                Height="50"
+                                HorizontalAlignment="Stretch"
+                                Click="FromScale_Click"/>
+
+                        <!-- Нижние кнопки действий -->
+                        <Grid ColumnDefinitions="*,12,*" Margin="0,32,0,0">
+                            <Button x:Name="CancelButton"
+                                    Grid.Column="0"
+                                    Classes="btn-light"
+                                    Content="{DynamicResource common.cancel}"
+                                    Height="58"
+                                    FontSize="18"
+                                    FontWeight="Bold"
+                                    HorizontalAlignment="Stretch"
+                                    Click="Cancel_Click"/>
+
+                            <Button x:Name="OkButton"
+                                    Grid.Column="2"
+                                    Classes="btn-yellow"
+                                    Content="{DynamicResource weigh.addToReceipt}"
+                                    Height="58"
+                                    FontSize="18"
+                                    FontWeight="Bold"
+                                    HorizontalAlignment="Stretch"
+                                    IsDefault="True"
+                                    Click="Ok_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ПРАВАЯ КОЛОНКА (Кнопки быстрых весов + Цифровая клавиатура) -->
+                    <StackPanel Grid.Column="2" Spacing="12">
+
+                        <!-- Быстрые кнопки выбора веса (скрыты в режиме "По сумме" — пресеты веса
+                             там не имеют смысла) -->
+                        <Grid x:Name="QuickWeightRow" ColumnDefinitions="*,*,*,*,*" Height="40">
+                            <Button Grid.Column="0" Classes="NumBtn" Content="0,1 кг" Tag="0,1" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
+                            <Button Grid.Column="1" Classes="NumBtn" Content="0,5 кг" Tag="0,5" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
+                            <Button Grid.Column="2" Classes="NumBtn" Content="1 кг" Tag="1" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
+                            <Button Grid.Column="3" Classes="NumBtn" Content="2 кг" Tag="2" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
+                            <Button Grid.Column="4" Classes="NumBtn" Content="5 кг" Tag="5" Margin="2" FontSize="12" Click="OnQuickWeight_Click"/>
+                        </Grid>
+
+                        <!-- Цифровая клавиатура (Numpad) -->
+                        <Grid RowDefinitions="*,*,*,*" ColumnDefinitions="*,*,*">
+                            <Grid.Styles>
+                                <Style Selector="Button.NumBtn">
+                                    <Setter Property="Height" Value="54"/>
+                                    <Setter Property="Margin" Value="4"/>
+                                </Style>
+                            </Grid.Styles>
+
+                            <Button Grid.Row="0" Grid.Column="0" Classes="NumBtn" Content="1" Tag="1" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="0" Grid.Column="1" Classes="NumBtn" Content="2" Tag="2" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="0" Grid.Column="2" Classes="NumBtn" Content="3" Tag="3" Click="OnNumKey_Click"/>
+
+                            <Button Grid.Row="1" Grid.Column="0" Classes="NumBtn" Content="4" Tag="4" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="1" Grid.Column="1" Classes="NumBtn" Content="5" Tag="5" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="1" Grid.Column="2" Classes="NumBtn" Content="6" Tag="6" Click="OnNumKey_Click"/>
+
+                            <Button Grid.Row="2" Grid.Column="0" Classes="NumBtn" Content="7" Tag="7" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="2" Grid.Column="1" Classes="NumBtn" Content="8" Tag="8" Click="OnNumKey_Click"/>
+                            <Button Grid.Row="2" Grid.Column="2" Classes="NumBtn" Content="9" Tag="9" Click="OnNumKey_Click"/>
+
+                            <Button Grid.Row="3" Grid.Column="0" Classes="NumBtn" Content="," Tag="," Click="OnNumKey_Click"/>
+                            <Button Grid.Row="3" Grid.Column="1" Classes="NumBtn" Content="0" Tag="0" Click="OnNumKey_Click"/>
+
+                            <!-- Кнопка стереть (Backspace) -->
+                            <Button Grid.Row="3" Grid.Column="2" Classes="NumBtn"
+                                    Background="{DynamicResource BrushDangerSoft}"
+                                    BorderBrush="{DynamicResource BrushDanger}"
+                                    Click="OnBackspace_Click">
+                                <PathIcon Data="M22,3H7C6.31,3 5.77,3.35 5.41,3.88L0,12L5.41,20.11C5.77,20.64 6.31,21 7,21H22A2,2 0 0,0 24,19V5A2,2 0 0,0 22,3M19,15.59L17.59,17L14,13.41L10.41,17L9,15.59L12.59,12L9,8.41L10.41,7L14,10.59L17.59,7L19,8.41L15.41,12L19,15.59Z"
+                                          Width="20"
+                                          Height="20"
+                                          Foreground="{DynamicResource BrushDanger}"/>
+                            </Button>
+                        </Grid>
+
+                    </StackPanel>
+
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

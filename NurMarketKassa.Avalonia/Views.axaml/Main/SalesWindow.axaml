@@ -1,0 +1,314 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.SalesWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        x:CompileBindings="False"
+        Title="Продажи"
+        Height="750"
+        Width="1100"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <conv:AmountToColorConverter x:Key="AmountColor" />
+            <conv:InverseBoolConverter x:Key="InverseBool" />
+
+            <Style Selector="TextBox" x:Key="{x:Type TextBox}">
+                <Setter Property="Background" Value="#00FFFFFF" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            </Style>
+
+            <Style Selector="DatePicker" x:Key="{x:Type DatePicker}">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="Background" Value="{DynamicResource BrushInput}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="2" />
+            </Style>
+
+            <Style Selector="RadioButton.DatePill" x:Key="DatePill">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="Background" Value="#00FFFFFF" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                <Setter Property="Padding" Value="14,6" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="pill" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style Selector="Button.PrimaryActionButton" x:Key="PrimaryActionButton">
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextInverted}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="btn" Background="{TemplateBinding Background}" CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style Selector="Border.TimeBadge" x:Key="TimeBadge">
+                <Setter Property="Background" Value="{DynamicResource BrushInputAlt}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Margin" Value="0" />
+            </Style>
+
+            <Style Selector="Button.SecondaryActionButton" x:Key="SecondaryActionButton">
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style Selector="Border.KpiCard" x:Key="KpiCard">
+                <Setter Property="Background" Value="{DynamicResource BrushInputAlt}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Margin" Value="4" />
+            </Style>
+
+
+            <!-- СТИЛЬ ModernGrid -->
+            <Style Selector="DataGrid.ModernGrid" x:Key="ModernGrid">
+                <Setter Property="Background" Value="#00FFFFFF" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="RowHeight" Value="40" />
+                <Setter Property="GridLinesVisibility" Value="None" />
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- ОСНОВНАЯ СЕТКА -->
+    <Grid Margin="16" Background="{DynamicResource BrushPanel}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- 0: заголовок -->
+            <RowDefinition Height="Auto" /> <!-- 1: KPI -->
+            <RowDefinition Height="Auto" /> <!-- 2: панель дат -->
+            <RowDefinition Height="Auto" /> <!-- 3: время -->
+            <RowDefinition Height="*" />    <!-- 4: таблица + доп. контент (растягивается) -->
+            <RowDefinition Height="Auto" /> <!-- 5: ошибка -->
+        </Grid.RowDefinitions>
+
+        <!-- 0: Заголовок -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Продажи" FontSize="26" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Border Background="{DynamicResource BrushInput}" CornerRadius="8" Padding="4,0"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <TextBox x:Name="SearchReceiptBox" Width="220" Height="34"
+                             BorderThickness="0" FontSize="14" Classes="TouchTextBox"
+                             TextChanged="SearchReceiptBox_TextChanged" />
+                </Border>
+                <Button Content="Обновить" Classes="PrimaryActionButton"
+                        Margin="10,0,0,0" Click="Refresh_Click" />
+                <Button Content="Назад" Classes="SecondaryActionButton"
+                        Margin="10,0,0,0" Click="Back_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 1: KPI-карточки -->
+        <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,16">
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Выручка" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="TotalSalesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Возвраты" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="TotalRefundsText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Наличные" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="CashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Безнал" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="NonCashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Средний чек" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="AvgReceiptText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="KpiCard">
+                <StackPanel>
+                    <TextBlock Text="Чеки" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock x:Name="ReceiptCountText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- 2: Панель выбора дат -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                <RadioButton Content="Сегодня" Classes="DatePill" IsChecked="True" Tag="Today" GroupName="QuickDate" Click="QuickDate_Click" />
+                <RadioButton Content="Вчера" Classes="DatePill" Margin="4,0,0,0" Tag="Yesterday" GroupName="QuickDate" Click="QuickDate_Click" />
+                <RadioButton Content="Неделя" Classes="DatePill" Margin="4,0,0,0" Tag="Week" GroupName="QuickDate" Click="QuickDate_Click" />
+                <RadioButton Content="Месяц" Classes="DatePill" Margin="4,0,0,0" Tag="Month" GroupName="QuickDate" Click="QuickDate_Click" />
+                <RadioButton x:Name="CustomDatePill" Content="Спец. дата" Classes="DatePill" Margin="4,0,0,0" Tag="Custom" GroupName="QuickDate" Click="QuickDate_Click" />
+            </StackPanel>
+            <StackPanel x:Name="CustomDatePanel" Orientation="Horizontal" IsVisible="False">
+                <TextBlock Text="От:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
+                <DatePicker x:Name="FromPicker" Width="120" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="—" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource BrushText}" />
+                <TextBlock Text="До:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
+                <DatePicker x:Name="ToPicker" Width="120" VerticalAlignment="Center" Margin="0,0,12,0" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 3: Время -->
+        <Border Grid.Row="3" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,12">
+            <TextBlock x:Name="CurrentTimeText" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" />
+        </Border>
+
+        <!-- 4: ОСНОВНАЯ ТАБЛИЦА + ДОП. КОНТЕНТ -->
+        <Grid Grid.Row="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="3*" /> <!-- 3/5 пространства под основную таблицу -->
+                <RowDefinition Height="2*" /> <!-- 2/5 пространства под аналитику/топ-10 -->
+            </Grid.RowDefinitions>
+
+            <!-- Главная таблица чеков -->
+            <DataGrid x:Name="SalesGrid" Grid.Row="0"
+                      x:CompileBindings="False"
+                      Classes="ModernGrid"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      ItemsSource="{Binding SalesView}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Дата" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
+                    <DataGridTextColumn Header="Время" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                    <DataGridTextColumn Header="Чек" Width="*" Binding="{ReflectionBinding ReceiptNumber}" />
+                    <DataGridTextColumn Header="Сумма" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />
+                    <DataGridTextColumn Header="Оплата" Width="100" Binding="{ReflectionBinding PaymentMethod}" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Дополнительная статистика и Топ-10 (оборонуты в ScrollViewer на случай небольших экранов) -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,8,0,0">
+                    <Separator Margin="0,4,0,10" Background="{DynamicResource BrushBorder}" />
+
+                    <!-- Расширенные KPI -->
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Text="Дополнительные показатели" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" Foreground="{DynamicResource BrushText}"/>
+                        <WrapPanel>
+                            <Border Classes="KpiCard" MinWidth="180">
+                                <StackPanel>
+                                    <TextBlock Text="Чистая прибыль" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                    <TextBlock x:Name="NetProfitText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="KpiCard" MinWidth="180">
+                                <StackPanel>
+                                    <TextBlock Text="Маржа %" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                    <TextBlock x:Name="MarginPercentText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Топ-10 товаров -->
+                    <TextBlock Text="Топ-10 товаров по выручке" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="{DynamicResource BrushText}"/>
+                    <DataGrid x:Name="TopItemsGrid"
+                              x:CompileBindings="False"
+                              Classes="ModernGrid"
+                              MaxHeight="200"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding TopItems}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Товар" Width="*" Binding="{ReflectionBinding ProductName}" />
+                            <DataGridTextColumn Header="Выручка" Width="120" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}" />
+                            <DataGridTextColumn Header="Кол‑во" Width="80" Binding="{ReflectionBinding Quantity}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 5: Сообщение об ошибке -->
+        <Border Grid.Row="5" Margin="0,8,0,0" Padding="12"
+                Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                IsVisible="{Binding HasError}">
+            <TextBlock Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+        </Border>
+
+        <!-- Popup с деталями чека -->
+        <Popup x:Name="ReceiptDetailsPopup" Placement="Center">
+            <Border Background="{DynamicResource BrushPanel}" CornerRadius="12" Padding="16"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" MinWidth="400" MaxWidth="600">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" x:Name="PopupTitle" FontWeight="Bold" FontSize="16"
+                               Foreground="{DynamicResource BrushText}" Margin="0,0,0,10" />
+
+                    <ScrollViewer Grid.Row="1" MaxHeight="400">
+                        <ItemsControl x:Name="PopupItemsControl" Foreground="{DynamicResource BrushText}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,2" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Button Grid.Row="2" Content="Закрыть" Classes="SecondaryActionButton"
+                            HorizontalAlignment="Right" Margin="0,10,0,0" Click="CloseReceiptDetails_Click" />
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</Window>

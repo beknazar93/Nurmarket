@@ -1,0 +1,147 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CustomServiceDialog"
+        Title="{DynamicResource customService.title}"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <!-- «Дополнительная услуга» (2026-09-07) — как на сайте NurCRM («Интерфейс кассира» → Корзина →
+         «Доп. услуга»: Название / Сумма / Количество), плюс тип «Доход / Расход» по просьбе
+         владельца: доход (по умолчанию: доставка, услуга, продажа) прибавляется к чеку,
+         расход вычитается из него. Строка попадает в локальный чек без товара, при оплате
+         уходит на сервер через POST /pos/carts/{id}/custom-item/ (StagingCartService). -->
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector="RadioButton.TypePill">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0,9"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.TypePill:checked">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
+        <Style Selector="RadioButton.TypePill.expense:checked">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="28,24">
+        <StackPanel Spacing="14">
+            <TextBlock Text="{DynamicResource customService.title}"
+                       FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}"/>
+
+            <StackPanel>
+                <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.typeLabel}"/>
+                <Grid ColumnDefinitions="*,8,*">
+                    <RadioButton x:Name="IncomeRadio" Grid.Column="0" Classes="TypePill" GroupName="ServiceType"
+                                 IsChecked="True" Content="{DynamicResource customService.typeIncome}"/>
+                    <RadioButton x:Name="ExpenseRadio" Grid.Column="2" Classes="TypePill expense" GroupName="ServiceType"
+                                 Content="{DynamicResource customService.typeExpense}"/>
+                </Grid>
+                <TextBlock Text="{DynamicResource customService.typeHint}" FontSize="11"
+                           Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <StackPanel>
+                <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.nameLabel}"/>
+                <TextBox x:Name="NameBox" Watermark="{DynamicResource customService.nameWatermark}"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,12,120">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.priceLabel}"/>
+                    <TextBox x:Name="PriceBox" Watermark="{DynamicResource customService.priceWatermark}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.qtyLabel}"/>
+                    <TextBox x:Name="QuantityBox" Text="1"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock x:Name="ErrorText"
+                       Foreground="{DynamicResource BrushDanger}"
+                       FontSize="13" IsVisible="False" TextWrapping="Wrap"/>
+
+            <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
+                <Button Grid.Column="0" Content="{DynamicResource common.cancel}"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushPanel}"
+                        Foreground="{DynamicResource BrushText}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1.5"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        IsCancel="True"
+                        Click="Cancel_Click"/>
+                <Button Grid.Column="2" Content="{DynamicResource customService.addButton}"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushAccent}"
+                        Foreground="{DynamicResource BrushAccentForeground}"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        IsDefault="True"
+                        Click="Add_Click"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

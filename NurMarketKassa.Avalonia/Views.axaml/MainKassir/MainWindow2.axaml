@@ -1,0 +1,11 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.MainWindow2"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True">
+
+    <!-- Правая зона (корзина): ~1/3 ширины основного контента -->
+    <controls:BasketPanelView DataContext="{Binding Basket}"/>
+</UserControl>

@@ -1,0 +1,23 @@
+﻿<!-- Avalonia: compile Views.axaml; exclude backup artifacts only. -->
+<Project>
+  <ItemGroup>
+    <!-- Business libraries stay as ProjectReference — do not compile their sources into this host -->
+    <Compile Remove="..\NurMarketKassa\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Core\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Infrastructure\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.ViewModels\**\*.cs" />
+    <Compile Remove="..\NurMarketKassa.Ui.Shared\**\*.cs" />
+
+    <Compile Remove="**\*.bak" />
+    <Compile Remove="**\*.wpfbak" />
+    <Compile Remove="**\*.shellbak" />
+    <Compile Remove="**\*.Thin.cs" />
+    <AvaloniaXaml Remove="**\*.bak" />
+    <AvaloniaXaml Remove="**\*.wpfbak" />
+    <AvaloniaXaml Remove="**\*.shellbak" />
+
+    <None Include="**\*.bak" />
+    <None Include="**\*.wpfbak" />
+    <None Include="**\*.shellbak" />
+  </ItemGroup>
+</Project>

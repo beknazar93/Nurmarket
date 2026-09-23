@@ -1,0 +1,229 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:NurMarketKassa.Models"
+             xmlns:conv="using:NurMarketKassa.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.OperationsSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Resources>
+    <!-- Объявляем конвертер -->
+    <conv:PathToImageConverter x:Key="PathToImageConverter"/>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+
+      <StackPanel Classes="SettingsCardList" MaxWidth="760" HorizontalAlignment="Center" Margin="0,16">
+
+        <!-- Шапка -->
+        <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center">
+              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                         Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource posSettings.navOperations}" Classes="SettingsPageTitle"/>
+              <TextBlock Text="{DynamicResource operations.bankQrDesc}" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Телеграм-бот владельца -->
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Телеграм-бот владельца" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Сводка по закрытой смене приходит вам в Telegram: выручка, чеки, средний чек, наличные и безналичные, внесения и изъятия, недостача или излишек. Работает из магазина без белого IP и без своего сервера."/>
+
+            <!-- Главная кнопка блока: мастер ведёт по шагам и сам включает всё нужное.
+                 Поля ниже остаются для тех, кто уже знает, что делает. -->
+            <Button x:Name="TelegramWizardButton" Classes="PrimaryButton"
+                    Content="Подключить бота (пошагово)"
+                    HorizontalAlignment="Left"
+                    Click="TelegramWizard_Click"/>
+
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Как подключить вручную: 1) в Telegram напишите @BotFather команду /newbot и получите токен; 2) вставьте токен сюда; 3) откройте своего бота и нажмите «Старт»; 4) нажмите «Определить получателя»."/>
+
+            <TextBlock Text="Токен бота" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBox x:Name="TelegramTokenBox" x:FieldModifier="public"
+                     PasswordChar="•" Watermark="123456789:AA..."/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button x:Name="TelegramDetectButton" Content="Определить получателя" Click="TelegramDetect_Click"/>
+              <Button x:Name="TelegramTestButton" Content="Отправить пробное" Click="TelegramTest_Click"/>
+            </StackPanel>
+
+            <TextBlock x:Name="TelegramStatusText" x:FieldModifier="public" FontSize="12"
+                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <CheckBox x:Name="TelegramSummaryCheck" x:FieldModifier="public" Classes="ToggleSwitch"
+                      Content="Присылать сводку при закрытии смены"
+                      IsCheckedChanged="TelegramSummary_Changed"/>
+
+            <CheckBox x:Name="TelegramCommandsCheck" x:FieldModifier="public" Classes="ToggleSwitch"
+                      Content="Отвечать на команды в Telegram"
+                      IsCheckedChanged="TelegramCommands_Changed"/>
+
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Команды бота: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники с готовой ссылкой на WhatsApp. Бот отвечает, пока касса включена: своего сервера у программы нет."/>
+
+            <Button x:Name="TelegramDebtRemindersButton" Content="Разослать напоминания о долге"
+                    Click="TelegramDebtReminders_Click"/>
+
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Напоминание уходит в Telegram только тем покупателям, кто сам подписался на бота по персональной ссылке (кнопка «Ссылка для Telegram» в карточке клиента). Написать человеку по номеру телефона Telegram не разрешает — для остальных должников бот пришлёт вам список со ссылками WhatsApp."/>
+
+            <TextBlock Text="Телефон владельца (для обратной связи в рассылках клиентам)"
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <TextBox x:Name="OwnerPhoneBox" x:FieldModifier="public" Watermark="+996 700 000000"
+                     LostFocus="OwnerPhone_LostFocus"/>
+          </StackPanel>
+        </Border>
+
+        <!-- QR с суммой чека -->
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="8">
+            <CheckBox x:Name="DynamicQrCheck" x:FieldModifier="public"
+                      Classes="ToggleSwitch"
+                      Content="Показывать покупателю QR с суммой чека"
+                      IsCheckedChanged="DynamicQr_Changed"/>
+            <TextBlock FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Вместо обычного QR банка на экране покупателя показывается код, в который уже вписана сумма чека — набирать её вручную не нужно. Реквизиты берутся из загруженного выше QR."/>
+            <TextBlock FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushWarning}"
+                       Text="Перед включением отсканируйте пробный чек приложениями двух-трёх банков: формат сверен с QR MBank, на других банках не проверялся. Оплату кассир по-прежнему подтверждает вручную — касса не узнаёт о платеже сама."/>
+          </StackPanel>
+        </Border>
+
+        <!-- Список банков -->
+        <ItemsControl x:Name="BankQrItemsControl" x:FieldModifier="public"
+                      VerticalAlignment="Top"
+                      HorizontalAlignment="Stretch">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Classes="SettingsCardList" Spacing="10"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:BankQrSetting">
+              <Border Classes="SettingsCard" Padding="16,14" HorizontalAlignment="Stretch">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+
+                  <!-- Логотип банка: своя картинка (встроенная или загруженная кассиром) либо
+                       общая иконка-заглушка, если ни того ни другого нет. Клик по логотипу —
+                       загрузить/заменить его. -->
+                  <Button Grid.Column="0" Tag="{Binding}" Click="ChangeLogo_Click"
+                          Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,14,0"
+                          ToolTip.Tip="{DynamicResource posSettings.operations.addBank}">
+                    <Border Width="48" Height="48" CornerRadius="10"
+                            Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                      <Panel>
+                        <Image Source="{Binding LogoPath, Converter={StaticResource PathToImageConverter}}"
+                               Width="40" Height="40" Stretch="Uniform" Margin="4"
+                               IsVisible="{Binding HasLogo}"/>
+                        <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                   Foreground="{DynamicResource BrushTextSoft}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding HasNoLogo}"/>
+                      </Panel>
+                    </Border>
+                  </Button>
+
+                  <!-- Название и статус QR -->
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{Binding BankName}"
+                               FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+
+                    <TextBlock Text="{DynamicResource operations.qrNotLoaded}"
+                               FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                               IsVisible="{Binding !HasQrCode}"/>
+
+                    <!-- Превью QR-кода -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{Binding HasQrCode}">
+                      <Image Source="{Binding QrCodePath, Converter={StaticResource PathToImageConverter}}"
+                             Width="48" Height="48" Stretch="Uniform"/>
+                      <TextBlock Text="{DynamicResource operations.qrLoaded}" FontSize="12" Foreground="{DynamicResource BrushUiStatusOk}" VerticalAlignment="Center" FontWeight="Medium"/>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- Загрузка, обрезка и удаление QR-кода -->
+                  <StackPanel Grid.Column="2" Spacing="7" VerticalAlignment="Center">
+                    <Button Content="{DynamicResource posSettings.operations.uploadQr}"
+                            Classes="SettingsFlatButton"
+                            Height="36" Padding="16,6"
+                            Tag="{Binding}"
+                            Click="LoadQrCode_Click"/>
+
+                    <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasQrCode}">
+                      <Button Grid.Column="0"
+                              Content="{DynamicResource posSettings.operations.crop}"
+                              Classes="SettingsFlatButton"
+                              Height="34" Padding="10,5"
+                              Tag="{Binding}"
+                              Click="EditQrCode_Click"/>
+                      <Button Grid.Column="2"
+                              Content="{DynamicResource posSettings.operations.removeQr}"
+                              Classes="SettingsFlatButton"
+                              Foreground="{DynamicResource BrushDanger}"
+                              Height="34" Padding="10,5"
+                              Tag="{Binding}"
+                              Click="RemoveQrCode_Click"/>
+                    </Grid>
+
+                    <Button Content="{DynamicResource posSettings.operations.removeBank}"
+                            Classes="SettingsFlatButton"
+                            Foreground="{DynamicResource BrushDanger}"
+                            Height="34" Padding="10,5"
+                            Tag="{Binding}"
+                            IsVisible="{Binding IsCustom}"
+                            Click="RemoveBank_Click"/>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Button Content="{DynamicResource posSettings.operations.addBank}"
+                Classes="SettingsFlatButton"
+                HorizontalAlignment="Center"
+                Height="38" Padding="18,8" Margin="0,4,0,0"
+                Click="AddBank_Click"/>
+
+        <!-- Программа лояльности переехала в Маркетплейс → Доп. функции как платная доп. услуга
+             (2026-09-05) — раньше была бесплатным переключателем прямо здесь; теперь включается
+             только покупкой (см. MarketplaceView.BuildLoyaltyCard), без отдельного тумблера.
+             Но вместе с тумблером тогда исчез и ПРОЦЕНТ начисления: изменить его стало негде,
+             и он навсегда оставался равным 5 (UserPreferences.LoyaltyEarnPercent). Карточка
+             ниже возвращает только процент и видна лишь после покупки. -->
+        <Border Classes="SettingsCard" Padding="14" Margin="0,6,0,0"
+                x:Name="LoyaltyCard" x:FieldModifier="public">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource posSettings.operations.loyaltyTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+            <Grid ColumnDefinitions="Auto,12,110">
+              <TextBlock Grid.Column="0"
+                         Text="{DynamicResource posSettings.operations.loyaltyEarnPercent}"
+                         Classes="FieldLabel" VerticalAlignment="Center"/>
+              <TextBox Grid.Column="2" x:Name="LoyaltyEarnPercentBox" x:FieldModifier="public"
+                       Classes="ModernTextBox" Height="36"/>
+            </Grid>
+            <TextBlock Text="{DynamicResource posSettings.operations.loyaltyHint}"
+                       FontSize="11" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

@@ -1,0 +1,301 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             Loaded="ScaleSettingsView_Loaded">
+
+    <UserControl.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+        <Style Selector="Button.ScaleGoldButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="SettingsContentHost" Padding="16">
+        <ScrollViewer Classes="SettingsPageScroll">
+            <!-- Центрирующий контейнер с ограничением максимальной ширины -->
+            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+                <!-- Хедер выровнен по центру -->
+                <Border Classes="SettingsHeaderCard" Padding="12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                        <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
+                                BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                       Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource posSettings.navScales}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource posSettings.scale.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Единая карточка параметров -->
+                <Border Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="14">
+
+                        <!-- Включить опрос отдельно слева -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <CheckBox x:Name="ScaleEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                            <TextBlock Text="{DynamicResource posSettings.scale.enablePolling}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                        </StackPanel>
+
+                        <!-- Скрывается целиком, а не просто блокируется, когда опрос весов
+                             выключен (2026-09-05, по просьбе пользователя, тот же приём, что и
+                             для "Печать чека после оплаты" в PrintSettingsView) — IsEnabled на
+                             отдельных полях внутри оставлены как есть, они безвредны, пока сам
+                             блок скрыт. -->
+                        <StackPanel Spacing="14" IsVisible="{Binding IsChecked, ElementName=ScaleEnabledCheck}">
+                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                        <TextBlock Text="{DynamicResource posSettings.scale.connectionParams}" Classes="SettingsCardTitle" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <!-- Ряд 1: COM-порт и Скорость -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="{DynamicResource scaleSettings.comPortLabel}" Classes="FieldLabel"/>
+                                <ComboBox x:Name="ScaleComCombo" x:FieldModifier="public"
+                                          Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                                <TextBlock x:Name="StatusScalePortText" x:FieldModifier="public"
+                                           Text="{DynamicResource scaleSettings.comNotFound}" FontSize="11"
+                                           Foreground="{DynamicResource BrushDanger}" Margin="2,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="{DynamicResource posSettings.scale.baudRate}" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleBaudBox" x:FieldModifier="public"
+                                         Text="9600" Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Ряд 2: Запрос веса (hex) и Интервал опроса -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="{DynamicResource posSettings.scale.weightRequestHex}" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleHexBox" x:FieldModifier="public"
+                                         Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                         Watermark="{DynamicResource posSettings.scale.hexExample}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="{DynamicResource posSettings.scale.pollInterval}" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScalePollBox" x:FieldModifier="public"
+                                         Text="0" Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Панель проверки подключения -->
+                        <StackPanel Spacing="8" Margin="0,4,0,0">
+                            <Button x:Name="CheckScaleButton"
+                                    x:FieldModifier="public"
+                                    Content="{DynamicResource scaleSettings.testButton}"
+                                    Classes="ScaleGoldButton"
+                                    IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"/>
+
+                            <Border x:Name="ScaleAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
+                                <TextBlock x:Name="ScaleAlertText" x:FieldModifier="public"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            </Border>
+                        </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Сетевые весы с печатью этикеток (ШТРИХ-ПРИНТ по кабелю). Отдельно от
+                     блока выше: там COM-весы, которые ВЗВЕШИВАЮТ товар на кассе, а здесь весы
+                     в зале, куда ВЫГРУЖАЕТСЯ список товаров.
+                     2026-09-22: раньше эти три поля жили только внутри окна «Весы» и лишь при
+                     включённой галочке «Напрямую по кабелю» — владелец их не находил, выгрузка
+                     уходила с чужим портом и паролем, и весы блокировались по числу неудачных
+                     попыток. Теперь они на виду в настройках. -->
+                <Border Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Сетевые весы (выгрузка товаров)" Classes="SettingsCardTitle" FontSize="14"/>
+                        <TextBlock Text="Адрес, порт и пароль берутся из системного меню самих весов. Эти же значения использует окно «Весы» при выгрузке списка товаров."
+                                   FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <Grid ColumnDefinitions="*,16,Auto,16,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="IP-адрес весов" Classes="FieldLabel"/>
+                                <TextBox x:Name="LanScaleIpBox" x:FieldModifier="public"
+                                         Classes="ModernTextBox" Height="36" Watermark="192.168.0.50"
+                                         LostFocus="LanScale_LostFocus"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4" Width="110">
+                                <TextBlock Text="Порт" Classes="FieldLabel"/>
+                                <TextBox x:Name="LanScalePortBox" x:FieldModifier="public"
+                                         Classes="ModernTextBox" Height="36" Watermark="1111"
+                                         LostFocus="LanScale_LostFocus"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4" Spacing="4" Width="110">
+                                <TextBlock Text="Пароль" Classes="FieldLabel"/>
+                                <TextBox x:Name="LanScalePasswordBox" x:FieldModifier="public"
+                                         Classes="ModernTextBox" Height="36" MaxLength="4" Watermark="0030"
+                                         LostFocus="LanScale_LostFocus"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Пароль — ровно 4 цифры, обычно 0030. Если он неверный, весы блокируют доступ после нескольких попыток: тогда выключите и включите весы и введите правильный пароль. Порт обычно 1111."
+                                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <StackPanel Spacing="8">
+                            <Button Content="Открыть окно настроек подключения…"
+                                    Classes="ScaleGoldButton"
+                                    HorizontalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Click="OpenLanScaleDialog_Click"/>
+
+                            <Button x:Name="TestLanScaleButton" x:FieldModifier="public"
+                                    Content="Проверить связь с весами"
+                                    Classes="ScaleGoldButton"
+                                    HorizontalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Click="TestLanScale_Click"/>
+
+                            <Border x:Name="LanScaleAlert" x:FieldModifier="public" Classes="AlertBlock"
+                                    IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
+                                <TextBlock x:Name="LanScaleAlertText" x:FieldModifier="public"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Дисплей цены покупателя — отдельная COM-коробочка с LED/VFD-табло,
+                     не второй монитор (см. PoleDisplayService, 2026-09-04). -->
+                <Border Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="14">
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <CheckBox x:Name="PoleDisplayEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                            <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayTitle}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayDesc}"
+                                   FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+
+                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayPort}" Classes="FieldLabel"/>
+                                <ComboBox x:Name="PoleDisplayComCombo" x:FieldModifier="public"
+                                          Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                          IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="{DynamicResource posSettings.scale.baudRate}" Classes="FieldLabel"/>
+                                <TextBox x:Name="PoleDisplayBaudBox" x:FieldModifier="public"
+                                         Text="9600" Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Spacing="8" Margin="0,4,0,0">
+                            <Button x:Name="TestPoleDisplayButton"
+                                    x:FieldModifier="public"
+                                    Content="{DynamicResource posSettings.scale.poleDisplayTest}"
+                                    Classes="ScaleGoldButton"
+                                    IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"/>
+
+                            <Border x:Name="PoleDisplayAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
+                                <TextBlock x:Name="PoleDisplayAlertText" x:FieldModifier="public"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Выгрузка весовых товаров на сетевые весы Штрих-М (PLU по LAN) — отдельно от
+                     живого COM-довеса выше: это разовая массовая отправка каталога на весы,
+                     сервер сам говорит с весами по сети (см. scales-and-plu.md). Платная доп.
+                     услуга на тарифе «Старт» (2026-09-21, см. TariffGate.CanUseScales) — карточка
+                     скрывается целиком, пока не куплена (тот же приём, что и у аналитики склада/
+                     редактора ценников, см. WarehouseWindow.RefreshPaidFeatureVisibility). -->
+                <Border x:Name="PluCard" x:FieldModifier="public" Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="{DynamicResource posSettings.scale.pluSectionTitle}" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource posSettings.scale.pluSectionDesc}"
+                                   FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+
+                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                        <TextBlock Text="{DynamicResource posSettings.scale.pluBrandLabel}" FontSize="12"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton x:Name="PluBrandShtrikhRadio" GroupName="PluScaleBrand" IsChecked="True"
+                                         Content="{DynamicResource scalesPlu.brandShtrikh}" Click="PluBrandRadio_Click"/>
+                            <RadioButton x:Name="PluBrandRongtaRadio" GroupName="PluScaleBrand"
+                                         Content="{DynamicResource scalesPlu.brandRongta}" Click="PluBrandRadio_Click"/>
+                            <RadioButton x:Name="PluBrandAiRadio" GroupName="PluScaleBrand"
+                                         Content="AI весы" Click="PluBrandRadio_Click"/>
+                        </StackPanel>
+
+                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                        <TextBlock Text="{DynamicResource posSettings.scale.pluIpLabel}" FontSize="12"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <Grid ColumnDefinitions="*,16,Auto">
+                            <TextBox Grid.Column="0" x:Name="PluScaleIpBox" x:FieldModifier="public"
+                                     Watermark="192.168.1.100" Height="36"/>
+                            <Button Grid.Column="2" x:Name="PluCheckConnectionButton" x:FieldModifier="public"
+                                    Content="{DynamicResource posSettings.scale.pluCheckConnection}"
+                                    Classes="ScaleGoldButton" Click="PluCheckConnection_Click"/>
+                        </Grid>
+                        <Border x:Name="PluIpAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False"
+                                Margin="0" Padding="10" CornerRadius="6">
+                            <TextBlock x:Name="PluIpAlertText" x:FieldModifier="public"
+                                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                        </Border>
+
+                        <Button Content="{DynamicResource posSettings.scale.pluSectionButton}"
+                                Classes="ScaleGoldButton" Click="OpenScalesPlu_Click"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
+                    <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushSuccess}"
+                               FontSize="12"/>
+                    <Button Content="{DynamicResource common.save}"
+                            Classes="btn-primary"
+                            MinWidth="150"
+                            HorizontalAlignment="Center"
+                            Click="Save_Click"/>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

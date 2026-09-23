@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Controls.PhotoshopColorPicker">
+  <StackPanel Spacing="10">
+    <Grid ColumnDefinitions="Auto,10,Auto" HorizontalAlignment="Center">
+      <!-- Квадрат насыщенность/яркость + полоса оттенка — как в Photoshop -->
+      <Canvas x:Name="SvCanvas" Grid.Column="0" Width="200" Height="200" Background="White"
+              PointerPressed="SvCanvas_PointerPressed" PointerMoved="SvCanvas_PointerMoved"
+              PointerReleased="SvCanvas_PointerReleased">
+        <Rectangle x:Name="SvHueLayer" Width="200" Height="200"/>
+        <Rectangle x:Name="SvShadeLayer" Width="200" Height="200"/>
+        <Ellipse x:Name="SvThumb" Width="14" Height="14"
+                 Stroke="White" StrokeThickness="2" Fill="Transparent" IsHitTestVisible="False"/>
+      </Canvas>
+      <Canvas x:Name="HueCanvas" Grid.Column="2" Width="22" Height="200"
+              PointerPressed="HueCanvas_PointerPressed" PointerMoved="HueCanvas_PointerMoved"
+              PointerReleased="HueCanvas_PointerReleased">
+        <Rectangle x:Name="HueStrip" Width="22" Height="200"/>
+        <Rectangle x:Name="HueThumb" Width="22" Height="6"
+                   Stroke="White" StrokeThickness="2" Fill="Transparent" IsHitTestVisible="False"/>
+      </Canvas>
+    </Grid>
+
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+      <Border x:Name="ColorSwatch" Width="42" Height="42" CornerRadius="8"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"/>
+      <TextBox x:Name="HexBox" Width="160" Height="42" VerticalContentAlignment="Center"
+               Watermark="#FF6B00" MaxLength="9" TextChanged="HexBox_TextChanged"/>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

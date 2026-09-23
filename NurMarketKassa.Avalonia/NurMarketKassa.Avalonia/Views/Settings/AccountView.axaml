@@ -1,0 +1,141 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.AccountView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+
+    <Style Selector="Button.btn-danger">
+      <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList" Spacing="18" MaxWidth="680" HorizontalAlignment="Center">
+
+        <!-- Хедер -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+              <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
+                      BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+                <TextBlock Text="👤" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource account.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold"/>
+                <TextBlock Text="{DynamicResource account.subtitle}" Classes="SettingsPageSubtitle" FontSize="12"/>
+              </StackPanel>
+            </StackPanel>
+            <Button Grid.Column="2" x:Name="RefreshButton" Classes="btn-primary" Content="{DynamicResource account.refresh}"
+                    Height="34" Padding="14,4" Click="RefreshButton_Click"/>
+          </Grid>
+        </Border>
+
+        <!-- Компания -->
+        <Border Classes="SettingsCard" Padding="18">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource account.companyLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="CompanyNameText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock x:Name="CompanyInnText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Тарифный план -->
+        <Border Classes="SettingsCard" Padding="18">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource account.planLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="PlanNameText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock x:Name="PlanPriceText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Срок действия -->
+        <Border Classes="SettingsCard" Padding="18">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{DynamicResource account.expiryLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="ExpiryDatesText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Border x:Name="ExpiryStatusBadge" HorizontalAlignment="Left" CornerRadius="8" Padding="10,5" BorderThickness="1">
+              <TextBlock x:Name="ExpiryStatusText" FontSize="12" FontWeight="SemiBold"/>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Доп. услуги -->
+        <Border Classes="SettingsCard" Padding="18">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{DynamicResource account.servicesLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+            <ItemsControl x:Name="ServicesList">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Spacing="8"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <TextBlock x:Name="LoadingOrErrorText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                   HorizontalAlignment="Center" IsVisible="False"/>
+
+        <!-- 2026-09-13, по просьбе владельца — перенос текущего каталога в автономный (офлайн)
+             режим на этом же ПК, если клиент решит перейти с онлайна на офлайн. -->
+        <Border Classes="SettingsCard" Padding="18">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center" Margin="0,0,12,0">
+              <TextBlock Text="{DynamicResource migrateOffline.cardLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+              <TextBlock Text="{DynamicResource migrateOffline.cardHint}" FontSize="12" TextWrapping="Wrap"
+                         Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <Button Grid.Column="1" x:Name="MigrateOfflineButton" Classes="btn-primary"
+                    Content="{DynamicResource migrateOffline.cardButton}"
+                    Height="34" Padding="14,4" Click="MigrateOfflineButton_Click"/>
+          </Grid>
+        </Border>
+
+        <!-- Выход -->
+        <Border Classes="SettingsCard" Padding="18">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource account.logoutLabel}" Classes="SettingsCardTitle" FontSize="14"/>
+              <TextBlock Text="{DynamicResource account.logoutHint}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <Button Grid.Column="1" x:Name="LogoutButton" Classes="btn-danger" Content="{DynamicResource account.logout}"
+                    Height="34" Padding="18,4" Click="LogoutButton_Click"/>
+          </Grid>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

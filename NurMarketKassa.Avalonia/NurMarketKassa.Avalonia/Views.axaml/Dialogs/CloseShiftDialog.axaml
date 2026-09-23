@@ -1,0 +1,107 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CloseShiftDialog"
+        Title="{DynamicResource csh.toolbar.closeShift}"
+        Width="472" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <Window.Styles>
+        <!-- Стиль для кнопки "Отмена" -->
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+
+        <!-- Стиль для акцентной кнопки "Закрыть смену" -->
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="20">
+        <StackPanel>
+            <TextBlock Text="{DynamicResource closeShift.header}" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="{DynamicResource closeShift.instructions}"
+                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
+
+            <!-- 2026-09-12, по просьбе пользователя ("сделай так же как в вебе") — та же разбивка,
+                 что в веб-диалоге "Завершение смены": начальная сумма/продажи/наличные/безналичные.
+                 Скрыта, пока данные ещё не пришли (не показываем нули вместо "—"). -->
+            <Border x:Name="TotalsBorder" Padding="12" CornerRadius="8" Margin="0,0,0,10"
+                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    IsVisible="False">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.openingCashLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" x:Name="OpeningCashText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.totalSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" x:Name="TotalSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.cashSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" x:Name="CashSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource closeShift.nonCashSalesLabel}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" x:Name="NonCashSalesText" FontSize="13" FontWeight="SemiBold" Text="—"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource shift.systemBalance}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0" Text="—"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{DynamicResource closeShift.actualBalanceLabel}" FontSize="13" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,6"/>
+            <TextBox x:Name="ClosingCashBox" Height="40" FontSize="16" Margin="0,0,0,10" CornerRadius="8"
+                     TextChanged="ClosingCashBox_TextChanged"/>
+
+            <Border x:Name="DiscrepancyBorder" Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                    IsVisible="False">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource closeShift.discrepancyLabel}" FontSize="12"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock x:Name="DiscrepancyText" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Кнопки с примененными классами стилей -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                <Button Content="{DynamicResource common.cancel}"
+                        Classes="btn-secondary"
+                        Width="110" Height="40"
+                        Click="Cancel_Click"/>
+
+                <Button Content="{DynamicResource csh.toolbar.closeShift}"
+                        Classes="btn-warning"
+                        Width="145" Height="40"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

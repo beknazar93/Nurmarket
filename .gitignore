@@ -1,0 +1,78 @@
+# Создан 2026-09-22. До этого .gitignore не было вообще: в рабочем дереве лежало около
+# 28 000 неотслеживаемых файлов, из них ~21 500 — .exe/.dll/.pdb/.db/.zip, плюс секреты.
+# Одна команда `git add -A && git commit && git push` отправила бы в GitHub локальные базы
+# с реальными продажами, собранные бинарники и файлы с токенами.
+
+# ---- СЕКРЕТЫ. Никогда не коммитить ----
+token.txt
+license-token.txt
+docs/paid-serial-keys.md
+*.pfx
+*.snk
+appsettings.Local.json
+secrets.json
+
+# ---- Результаты сборки ----
+[Bb]in/
+[Oo]bj/
+publish-out/
+publish-out-*/
+release-*-out/
+installer-out/
+scratch_release_check/
+*.user
+*.suo
+.vs/
+
+# ---- Локальные данные кассы ----
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+logs/
+Logs/
+
+# ---- Крупные бинарники, попавшие в рабочее дерево ----
+*.exe
+*.msi
+*.zip
+*.7z
+*.nupkg
+AnyDesk.exe
+
+# ---- Модели голосового управления (сотни мегабайт, качаются отдельно) ----
+VoiceModel/
+vosk-model-*/
+*.onnx
+
+# ---- Служебные каталоги ИИ-инструментов ----
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.playwright-mcp/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
+
+# ---- Прочее ----
+Thumbs.db
+desktop.ini
+*.tmp
+
+# ---- Добавлено 2026-09-23 ----
+# Папка publish/ внутри проекта: тот же сборочный мусор, что и publish-out/,
+# но прежним правилом не закрывалась — в индекс попадали .pdb.
+publish/
+# Готовые пакеты Velopack: сотни мегабайт, пересоздаются командой vpk pack.
+releases/

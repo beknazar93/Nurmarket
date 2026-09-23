@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.SaleSuccessDialog"
+        Title="Оплата выполнена"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        Background="{DynamicResource BrushPanel}">
+
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="Оплата выполнена"
+                 FontSize="20" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,8"/>
+
+      <TextBlock x:Name="AmountText"
+                 FontSize="32" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushUiStatusOk}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,24"/>
+
+      <Button x:Name="PrintButton"
+              Content="Напечатать чек"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Margin="0,0,0,10"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushText}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="PrintButton_Click"/>
+
+      <Button Content="Предпросмотр чека"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Margin="0,0,0,10"
+              Background="{DynamicResource BrushInputAlt}"
+              Foreground="{DynamicResource BrushText}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="PreviewButton_Click"/>
+
+      <Button Content="Закрыть"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushPanel}"
+              Foreground="{DynamicResource BrushText}"
+              BorderBrush="{DynamicResource BrushBorder}"
+              BorderThickness="1"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="CloseButton_Click"/>
+    </StackPanel>
+  </Border>
+</Window>

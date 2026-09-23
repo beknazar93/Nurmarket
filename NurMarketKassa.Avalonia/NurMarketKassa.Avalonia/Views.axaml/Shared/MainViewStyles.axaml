@@ -1,0 +1,101 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style Selector="Button.main-ghost">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+    </Style>
+    <Style Selector="Button.main-ghost:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+
+    <Style Selector="Button.main-secondary">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <!-- 2026-09-15, по просьбе пользователя ("переделай дизайн кнопок") — у main-secondary/
+         main-primary/main-outline не было своего состояния наведения/нажатия вообще (только
+         у main-ghost) — курсор на них просто ничего не менял до самого клика, что ощущалось
+         "неотзывчиво" рядом с остальными кнопками приложения, у которых наведение есть везде. -->
+    <Style Selector="Button.main-secondary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <Style Selector="Button.main-secondary:pressed">
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+
+    <Style Selector="Button.main-primary">
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.main-primary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Button.main-primary:pressed">
+        <Setter Property="Opacity" Value="0.85"/>
+    </Style>
+
+    <Style Selector="Button.main-outline">
+        <Setter Property="Background" Value="{DynamicResource BrushWindowAlt}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.main-outline:pointerover">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+    </Style>
+    <Style Selector="Button.main-outline:pressed">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+
+    <!-- Shift buttons have an explicit disabled appearance independent of theme. -->
+    <Style Selector="Button.shift-action:disabled">
+        <Setter Property="Background" Value="#2B3240"/>
+        <Setter Property="Foreground" Value="#6C757D"/>
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    <Style Selector="Button.shift-action:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#2B3240"/>
+        <Setter Property="Foreground" Value="#6C757D"/>
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+
+    <Style Selector="TextBlock.mdl2">
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets, Segoe UI Symbol, sans-serif"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.main-panel">
+        <Setter Property="Background" Value="{DynamicResource BrushWindowAlt}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="16,12"/>
+    </Style>
+
+</Styles>

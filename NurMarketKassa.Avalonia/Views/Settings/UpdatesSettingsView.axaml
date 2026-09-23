@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.UpdatesSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="Button.UpdateGoldButton">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="16,6"/>
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.UpdateGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <!-- Центрирующий контейнер -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+        <!-- Хедер по центру -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
+                    BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                         Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Обновления" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="Проверка, скачивание и установка новых версий кассы" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Единая карточка версий и обновлений -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="14">
+            <TextBlock Text="Состояние системы" Classes="SettingsCardTitle" FontSize="14"/>
+
+            <!-- Блок текущей версии -->
+            <StackPanel Spacing="2">
+              <TextBlock Text="Текущая версия приложения:" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="AppVersionText" x:FieldModifier="public"
+                         Text="Версия 1.0.0" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            </StackPanel>
+
+            <!-- Кнопка с переходом вниз -->
+            <Button x:Name="CheckUpdateButton" x:FieldModifier="public"
+                    Content="🔄  Проверить обновления"
+                    Classes="UpdateGoldButton"
+                    Width="220"/>
+
+            <!-- Прогресс-бар и текстовый статус -->
+            <StackPanel Spacing="6" Margin="0,2,0,0">
+              <ProgressBar x:Name="UpdateProgressBar" x:FieldModifier="public"
+                           Height="6" IsVisible="False" IsIndeterminate="False"
+                           Minimum="0" Maximum="100" CornerRadius="3"
+                           Foreground="{DynamicResource BrushWarning}" Background="{DynamicResource BrushInputAlt}"
+                           VerticalAlignment="Top"/>
+
+              <TextBlock x:Name="UpdateStatusText" x:FieldModifier="public"
+                         FontSize="12" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" IsVisible="False"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Карточка диагностики -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Диагностика и каталог" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="Техническая информация приложения и рабочей директории:"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="10">
+              <TextBlock x:Name="CatalogDiagnosticsText" x:FieldModifier="public"
+                         FontSize="11" Foreground="{DynamicResource BrushText}"
+                         TextWrapping="Wrap" FontFamily="Consolas"/>
+            </Border>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

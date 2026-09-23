@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OpenShiftDialog"
+        Title="Открыть смену"
+        Width="452" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- Стиль для кнопки "Отмена" -->
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+
+        <!-- Стиль для акцентной кнопки "Открыть смену" -->
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="12"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="20">
+        <StackPanel>
+            <TextBlock Text="Открыть смену" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="Укажите сумму наличных в кассе на начало смены."
+                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
+
+            <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Остаток по системе" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0" Text="—"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Сумма на открытие" FontSize="13" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,6"/>
+            <TextBox x:Name="OpeningCashBox" Text="0.00" Height="40" FontSize="16" Margin="0,0,0,24" CornerRadius="8"/>
+
+            <!-- Кнопки с правильной шириной -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                <Button Content="Отмена"
+                        Classes="btn-secondary"
+                        Width="110" Height="40"
+                        Click="Cancel_Click"/>
+
+                <Button Content="Открыть смену"
+                        Classes="btn-primary"
+                        Width="150" Height="40"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

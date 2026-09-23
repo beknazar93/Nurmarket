@@ -1,0 +1,1016 @@
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.FinanceWindow"
+	xmlns="https://github.com/avaloniaui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:NurMarketKassa.AvaloniaHost.Converters"
+    xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+    xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
+	x:CompileBindings="False"
+	Title="{DynamicResource csh.menu.finance}"
+	Height="750"
+	Width="1100"
+	WindowStartupLocation="CenterOwner"
+	Loaded="Window_Loaded">
+    <!-- Styles -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <conv:AmountToColorConverter x:Key="AmountColor" />
+            <conv:InverseBoolConverter x:Key="InverseBool" />
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Window.Styles>
+            <Style Selector="TextBox">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+            </Style>
+            <Style Selector="DatePicker">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInput}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Padding"
+					Value="2" />
+            </Style>
+            <Style Selector="RadioButton.DatePill">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Padding"
+					Value="14,6" />
+                <Setter
+					Property="Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="RadioButton">
+                            <Border
+								x:Name="pill"
+								Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="1"
+								CornerRadius="10"
+								Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+									Content="{TemplateBinding Content}"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="Button.PrimaryActionButton">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushAccent}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushAccentForeground}" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="Button">
+                            <Border
+								x:Name="btn"
+								Background="{TemplateBinding Background}"
+								CornerRadius="{DynamicResource SettingsButtonRadius}">
+                                <ContentPresenter
+									Content="{TemplateBinding Content}"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="15,0" />
+                            </Border>
+
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="Border.TimeBadge">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInputAlt}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="CornerRadius"
+					Value="8" />
+                <Setter
+					Property="Padding"
+					Value="10,4" />
+                <Setter
+					Property="Margin"
+					Value="0" />
+            </Style>
+            <Style Selector="Button.SecondaryActionButton">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanelSoft}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="Button">
+                            <Border
+								x:Name="border"
+								Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="{TemplateBinding BorderThickness}"
+								CornerRadius="{DynamicResource SettingsButtonRadius}">
+                                <ContentPresenter
+									Content="{TemplateBinding Content}"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="12,0" />
+                            </Border>
+
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="Border.KpiCard">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInputAlt}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="CornerRadius"
+					Value="{DynamicResource SettingsCardRadius}" />
+                <Setter
+					Property="Padding"
+					Value="16" />
+                <Setter
+					Property="Margin"
+					Value="4" />
+</Style>
+
+<Style Selector="DataGrid.ModernGrid">
+                <Setter Property="Background" Value="#00FFFFFF" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="RowHeight" Value="40" />
+                <Setter Property="GridLinesVisibility" Value="None" />
+
+                <!-- Плавная вертикальная прокрутка -->
+
+<!-- Touch и растягивание -->
+
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+
+                <!-- Виртуализация -->
+
+                <!-- Заголовки столбцов -->
+</Style>
+
+            <Style Selector="TabItem.PosCatalogTabItem">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushTextMuted}" />
+                <Setter
+					Property="FontSize"
+					Value="13" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="Padding"
+					Value="16,10" />
+                <Setter
+					Property="Margin"
+					Value="0,0,6,0" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanelSoft}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="TabItem">
+                            <Border
+								x:Name="TabRoot"
+								Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="{TemplateBinding BorderThickness}"
+								CornerRadius="5"
+								Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+									Content="{TemplateBinding Content}"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="Margin" Value="8,2" />
+                <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                                    CornerRadius="{TemplateBinding CornerRadius}">
+                                <Grid ColumnDefinitions="4,*">
+                                    <Border x:Name="AccentBar" Background="Transparent" CornerRadius="2" Margin="0,4"/>
+                                    <ContentPresenter
+                                        Grid.Column="1"
+                                        Content="{TemplateBinding Content}"
+                                        Margin="10,0,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem:pointerover">
+                <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem:pressed">
+                <Setter Property="Background" Value="{DynamicResource BrushInputAlt}" />
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem.nav-active">
+                <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem.nav-active /template/ Border#AccentBar">
+                <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem.logout">
+                <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+            </Style>
+            <Style Selector="Button.HamburgerMenuItem.logout:pointerover">
+                <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
+            </Style>
+        <!-- Вкладки нижнего TabControl (Продажи/Аналитика/Возвраты/История) -->
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="10,10,0,0"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- Вкладки Открытые/Закрытые на панели "Смены" -->
+        <Style Selector="Button.TabButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.TabButton.Active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+
+        <!-- Значок статуса смены (Открыта/Закрыта) -->
+        <Style Selector="Border.ShiftStatusBadge">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+        <Style Selector="Border.ShiftStatusBadge.Open">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        </Style>
+        <Style Selector="Border.ShiftStatusBadge TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Border.ShiftStatusBadge.Open TextBlock">
+            <Setter Property="Foreground" Value="#8A6D00"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Main content -->
+    <Grid Margin="0">
+        <!-- Основной контент (занимает всё окно) -->
+        <Grid x:Name="MainContent">
+            <Grid Margin="16" Background="{DynamicResource BrushPanel}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <!-- 0: заголовок -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 1: KPI первый ряд -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 2: KPI второй ряд -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 3: панель дат -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 4: время -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 5: Popup (не используется) -->
+                        <RowDefinition Height="*" />
+                        <!-- 6: TabControl (растянется) -->
+                        <RowDefinition Height="Auto" />
+                        <!-- 7: сообщение об ошибке -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Заголовок с кнопкой гамбургера -->
+                    <Grid Row="0" Margin="0,0,0,16" RowDefinitions="Auto,Auto">
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="HamburgerButton" Grid.Column="0"
+                        Content="☰" Width="40" Height="40" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        FontSize="22" FontWeight="Bold"
+                        Foreground="{DynamicResource BrushText}"
+                        Click="HamburgerMenu_Click"
+                        ToolTip.Tip="{DynamicResource csh.toolbar.menu}"
+                        VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Column="1"
+                           Text="{DynamicResource csh.menu.finance}"
+                           FontSize="26" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}"
+                           VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Button Content="Excel" Classes="SecondaryActionButton" Margin="0,0,6,0"
+                                    Click="ExportExcel_Click"
+                                    ToolTip.Tip="Выгрузить аналитику за выбранный период в Excel с графиками и ABC-анализом."/>
+                            <Button Content="Word" Classes="SecondaryActionButton" Margin="0,0,6,0"
+                                    Click="ExportWord_Click"
+                                    ToolTip.Tip="Тот же отчёт в Word — таблицы, графики и ABC-анализ."/>
+                            <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+            Margin="0,0,10,0" Click="Refresh_Click" />
+                            <Button Content="{DynamicResource common.exit}" Classes="SecondaryActionButton"
+            Click="Exit_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Сводка простым языком (день/неделя/месяц — переключается кнопками ниже),
+                         считается из уже загруженных данных (см. FinanceWindow.axaml.cs
+                         UpdateSummaryPanel), видна всегда после первой загрузки. -->
+                    <Border x:Name="DailySummaryCard" Grid.Row="1" Classes="KpiCard"
+                            Padding="14,10" Margin="0,10,0,0" IsVisible="False"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button x:Name="SummaryPeriodDayButton" Content="{DynamicResource common.day}"
+                                        Classes="TabButton Active" Height="28" Padding="12,4" FontSize="12"
+                                        Tag="0" Click="SummaryPeriod_Click"/>
+                                <Button x:Name="SummaryPeriodWeekButton" Content="{DynamicResource common.week}"
+                                        Classes="TabButton" Height="28" Padding="12,4" FontSize="12"
+                                        Tag="1" Click="SummaryPeriod_Click"/>
+                                <Button x:Name="SummaryPeriodMonthButton" Content="{DynamicResource common.month}"
+                                        Classes="TabButton" Height="28" Padding="12,4" FontSize="12"
+                                        Tag="2" Click="SummaryPeriod_Click"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="📊" FontSize="18" VerticalAlignment="Top"/>
+                                <TextBlock x:Name="DailySummaryText" TextWrapping="Wrap" FontSize="13"
+                                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    </Grid>
+
+                    <!-- KPI-карточки -->
+                    <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,16">
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource common.revenue}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="TotalSalesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource sales.returns}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="TotalRefundsText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource common.cash}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="CashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource sales.nonCashShort}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="NonCashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource sales.avgReceipt}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="AvgReceiptText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="KpiCard">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource sales.receiptsCount}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                <TextBlock x:Name="ReceiptCountText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Панель выбора дат -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                            <RadioButton Content="{DynamicResource common.today}" Classes="DatePill" IsChecked="True" Tag="Today" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource sales.yesterday}" Classes="DatePill" Margin="4,0,0,0" Tag="Yesterday" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource common.week}" Classes="DatePill" Margin="4,0,0,0" Tag="Week" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton Content="{DynamicResource common.month}" Classes="DatePill" Margin="4,0,0,0" Tag="Month" GroupName="QuickDate" Click="QuickDate_Click" />
+                            <RadioButton x:Name="CustomDatePill" Content="{DynamicResource sales.customDate}" Classes="DatePill" Margin="4,0,0,0" Tag="Custom" GroupName="QuickDate" Click="QuickDate_Click" />
+                        </StackPanel>
+                        <StackPanel x:Name="CustomDatePanel" Orientation="Horizontal" IsVisible="False">
+                            <TextBlock Text="{DynamicResource sales.fromColon}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
+                            <DatePicker x:Name="FromPicker" Width="120" VerticalAlignment="Center" Margin="0,0,6,0"  />
+                            <TextBlock Text="—" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource BrushText}" />
+                            <TextBlock Text="{DynamicResource sales.toColon}" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="{DynamicResource BrushText}" />
+                            <DatePicker x:Name="ToPicker" Width="120" VerticalAlignment="Center" Margin="0,0,12,0"  />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Время -->
+                    <Border Grid.Row="3" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,6,10,6">
+                        <TextBlock x:Name="CurrentTimeText" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" />
+                    </Border>
+
+                    <!-- Popup с деталями чека -->
+                    <Popup x:Name="ReceiptDetailsPopup"
+       Placement="Center">
+                        <Border Background="{DynamicResource BrushPanel}" CornerRadius="12" Padding="16"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" MinWidth="400" MaxWidth="600">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <TextBlock x:Name="PopupTitle" FontWeight="Bold" FontSize="16"
+                       Foreground="{DynamicResource BrushText}" Margin="0,0,0,10" />
+                                <ScrollViewer Grid.Row="1" MaxHeight="400" >
+                                    <ItemsControl x:Name="PopupItemsControl" Foreground="{DynamicResource BrushText}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock TextWrapping="Wrap" Margin="0,2" Text="{Binding}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <Button Grid.Row="2" Content="{DynamicResource common.close}" Classes="SecondaryActionButton"
+                    HorizontalAlignment="Right" Margin="0,10,0,0" Click="CloseReceiptDetails_Click" />
+                            </Grid>
+                        </Border>
+                    </Popup>
+
+                    <!-- Вкладки с таблицами -->
+                    <TabControl Grid.Row="6" Background="#00FFFFFF" BorderThickness="0"
+                         Margin="0,10,0,0">
+                        <TabItem Header="{DynamicResource csh.menu.sales}">
+                            <Border Background="#00FFFFFF" Padding="8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Таблица продаж -->
+                                    <DataGrid x:Name="SalesGrid"
+                                            Grid.Row="0"
+                                            x:CompileBindings="False"
+                                            Classes="ModernGrid"
+                                            AutoGenerateColumns="False"
+                                            IsReadOnly="True"
+                                            DoubleTapped="SalesGrid_MouseDoubleClick"
+                                            ItemsSource="{Binding SalesView}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                                            <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="*" Binding="{ReflectionBinding ReceiptNumber}">
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}">
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="{DynamicResource common.payment}" Width="100" Binding="{ReflectionBinding PaymentMethodDisplay}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+                        </TabItem>
+                        <TabItem Header="{DynamicResource finance.tabAnalytics}">
+                            <Border Background="#00FFFFFF" Padding="8">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <!-- Блок с расширенными KPI (прибыль, маржа) -->
+                                        <StackPanel Margin="8,8,8,12">
+                                            <TextBlock Text="{DynamicResource sales.additionalMetrics}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <WrapPanel>
+                                                <Border Classes="KpiCard" MinWidth="180">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource sales.netProfit}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                                        <TextBlock x:Name="NetProfitText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Classes="KpiCard" MinWidth="180">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource sales.marginPercent}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                                        <TextBlock x:Name="MarginPercentText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!-- Расходы: деньги, вынутые из денежного ящика за период
+                                                     (изъятия, включая «Доп. услуга → Расход»). До этого
+                                                     аналитика их не показывала вовсе. -->
+                                                <Border Classes="KpiCard" MinWidth="180">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Расходы (изъятия)" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                                        <TextBlock x:Name="ExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" Text="0,00 сом" />
+                                                        <TextBlock x:Name="ExpensesBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Classes="KpiCard" MinWidth="180">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Прибыль за вычетом расходов" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap" />
+                                                        <TextBlock x:Name="ProfitAfterExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}" Text="0,00 сом" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </WrapPanel>
+                                        </StackPanel>
+
+                                        <!-- Блок "Инфографика" -->
+                                        <StackPanel Margin="8,0,8,16">
+                                            <TextBlock Text="{DynamicResource finance.paymentMethodsTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <StackPanel Spacing="10">
+                                                    <Grid x:Name="PaymentSplitBar" Height="26"/>
+                                                    <StackPanel x:Name="PaymentLegend" Orientation="Horizontal" Spacing="20"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Text="{DynamicResource finance.paymentMethodsPieTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <StackPanel x:Name="PaymentSplitPie" Spacing="10"/>
+                                            </Border>
+
+                                            <TextBlock Text="{DynamicResource finance.revenueByDayTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                                    <StackPanel x:Name="DailyRevenueBars" Orientation="Horizontal" Spacing="14"
+                                                                Height="150" VerticalAlignment="Bottom"/>
+                                                </ScrollViewer>
+                                            </Border>
+
+                                            <TextBlock Text="{DynamicResource finance.revenueByHourTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                                    <StackPanel x:Name="HourlyRevenueBars" Orientation="Horizontal" Spacing="6"
+                                                                Height="120" VerticalAlignment="Bottom"/>
+                                                </ScrollViewer>
+                                            </Border>
+
+                                            <TextBlock Text="{DynamicResource finance.revenueTrendTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <StackPanel x:Name="RevenueTrendChart" Spacing="10"/>
+                                            </Border>
+
+                                            <TextBlock Text="{DynamicResource finance.revenueCumulativeTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <StackPanel x:Name="RevenueCumulativeChart" Spacing="10"/>
+                                            </Border>
+
+                                            <TextBlock Text="{DynamicResource finance.revenueVsSalesTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,16,0,8" Foreground="{DynamicResource BrushText}"/>
+                                            <Border Classes="KpiCard">
+                                                <StackPanel x:Name="RevenueVsSalesChart" Spacing="10"/>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- Блок "Рекомендации по дням недели" -->
+                                        <StackPanel Margin="8,0,8,16">
+                                            <TextBlock Text="{DynamicResource finance.dayInsightsTitle}" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,4" Foreground="{DynamicResource BrushText}"/>
+                                            <TextBlock Text="{DynamicResource finance.dayInsightsSubtitle}" FontSize="11" Margin="0,0,0,8" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <ItemsControl x:Name="DayInsightsList" ItemsSource="{Binding DayInsights}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Classes="KpiCard" Margin="0,0,0,8" Padding="12,10">
+                                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                                <Button Content="💡" FontSize="16" Padding="4"
+                                                                        Background="Transparent" BorderThickness="0"
+                                                                        Cursor="Hand" VerticalAlignment="Center"
+                                                                        ToolTip.Tip="{DynamicResource finance.showFullInfoTooltip}"
+                                                                        Tag="{ReflectionBinding}" Click="DayInsightIcon_Click"/>
+                                                                <TextBlock Text="{ReflectionBinding SummaryText}" FontSize="13"
+                                                                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"
+                                                                           TextWrapping="Wrap"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <!-- Блок "Топ-10 товаров" -->
+                                        <TextBlock Text="{DynamicResource sales.top10Title}" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,6" Foreground="{DynamicResource BrushText}"/>
+                                        <DataGrid x:Name="TopItemsGrid"
+                                            x:CompileBindings="False"
+                                            Classes="ModernGrid"
+                                            AutoGenerateColumns="False"
+                                            IsReadOnly="True"
+                                            ItemsSource="{Binding TopItems}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="{DynamicResource common.product}" Width="*" Binding="{ReflectionBinding ProductName}" />
+                                                <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="120" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}" />
+                                                <DataGridTextColumn Header="{DynamicResource sales.colQty}" Width="80" Binding="{ReflectionBinding Quantity}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </TabItem>
+                        <TabItem Header="ABC-анализ">
+                            <analytics:AbcSectionView x:Name="AbcSection" />
+                        </TabItem>
+                        <TabItem Header="{DynamicResource sales.returns}">
+                            <Border Background="#00FFFFFF" Padding="8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <DataGrid x:Name="RefundsGrid"
+                                        x:CompileBindings="False"
+                                        Classes="ModernGrid"
+                                              AutoGenerateColumns="False"
+                                        DoubleTapped="RefundsGrid_MouseDoubleClick"
+                                        ItemsSource="{Binding RefundsView}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" Width="80" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" Width="70" Binding="{ReflectionBinding TimeDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="90" Binding="{ReflectionBinding QuantityDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource finance.estimatedAmount}" Width="140" Binding="{ReflectionBinding TotalAmount, StringFormat='≈{0:N2} сом'}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.who}" Width="1*" Binding="{ReflectionBinding DeletedBy}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+                        </TabItem>
+                        <TabItem Header="{DynamicResource common.history}">
+                            <Border Background="#00FFFFFF" Padding="8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <DataGrid x:Name="HistoryGrid"
+                      x:CompileBindings="False"
+                      Classes="ModernGrid" AutoGenerateColumns="False"
+                      DoubleTapped="HistoryGrid_MouseDoubleClick"
+                      ItemsSource="{Binding HistoryView}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="55" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="55" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.type}" Width="1*" Binding="{ReflectionBinding Type}" />
+                                            <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="3*" Binding="{ReflectionBinding ReceiptNumber}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" MinWidth="110" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.payment}" MinWidth="90" Binding="{ReflectionBinding PaymentMethodDisplay}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+                        </TabItem>
+                    </TabControl>
+
+                    <!-- Сообщение об ошибке -->
+                    <Border Grid.Row="7" Margin="0,8,0,0" Padding="12"
+                    Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                    IsVisible="{Binding HasError}">
+                        <TextBlock Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+                    </Border>
+                </Grid>
+
+        </Grid>
+
+        <Grid x:Name="UnderConstructionPanel"
+          IsVisible="False"
+          Panel.ZIndex="100"
+          Background="{DynamicResource BrushPanel}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="🚧" FontSize="72" HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource finance.underConstruction}"
+                       FontSize="18" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,12,0,16"/>
+                <Button Content="{DynamicResource finance.backArrowButton}"
+                    Classes="SecondaryActionButton"
+                    HorizontalAlignment="Center" MinWidth="120"
+                    Click="UnderConstructionBack_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Смены (открыты/закрыты) -->
+        <Grid x:Name="ShiftsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
+            <Grid Margin="16" RowDefinitions="Auto,Auto,*">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+                    <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ShiftsBack_Click"/>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource finance.navShift}" FontSize="20" FontWeight="Bold"
+                               Margin="12,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+                    <Button x:Name="ShiftsOpenTabButton" Classes="TabButton Active" Click="ShiftsOpenTab_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{DynamicResource finance.shiftsOpenTab}"/>
+                            <Border Background="{DynamicResource BrushAccent}" CornerRadius="10" Padding="7,1" MinWidth="20">
+                                <TextBlock x:Name="ShiftsOpenCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ShiftsClosedTabButton" Classes="TabButton" Click="ShiftsClosedTab_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{DynamicResource finance.shiftsClosedTab}"/>
+                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                    CornerRadius="10" Padding="7,1" MinWidth="20">
+                                <TextBlock x:Name="ShiftsClosedCountText" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="ShiftsEmptyText" IsVisible="False"
+                                   Text="{DynamicResource finance.shiftsEmpty}" FontSize="13"
+                                   Foreground="{DynamicResource BrushTextSoft}" Margin="4,20,0,0"/>
+                        <ItemsControl x:Name="ShiftsList" x:CompileBindings="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource BrushPanelSoft}"
+                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                            CornerRadius="12" Padding="16" Margin="0,0,0,10">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="16"
+                                                               Foreground="{DynamicResource BrushText}"/>
+                                                    <TextBlock Text="{Binding OpenedDisplay}" FontSize="12"
+                                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1" Classes="ShiftStatusBadge" Classes.Open="{Binding IsOpen}">
+                                                    <TextBlock Text="{Binding StatusText}"/>
+                                                </Border>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,*,*">
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="{DynamicResource common.revenue}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                    <TextBlock Text="{Binding RevenueText}" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{DynamicResource finance.salesCountLabel}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                    <TextBlock Text="{Binding SalesCountText}" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="{DynamicResource finance.shiftsCashboxLabel}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                    <TextBlock Text="{Binding CashboxName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentStrong}"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBlock Text="{Binding CashierLine}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                                                <TextBlock Grid.Column="0" Text="{DynamicResource finance.shiftsThisCashbox}"
+                                                           IsVisible="{Binding IsCurrentCashbox}" FontSize="11" FontStyle="Italic"
+                                                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                                    <Button Content="{DynamicResource finance.shiftOpenAction}" Classes="PrimaryActionButton"
+                                                            IsVisible="{Binding CanOpen}" Click="OpenShiftForCashbox_Click"
+                                                            Padding="14,4" Height="32" Tag="{Binding}"/>
+                                                    <Button Content="{DynamicResource finance.shiftCloseAction}" Classes="SecondaryActionButton"
+                                                            IsVisible="{Binding CanClose}" Click="CloseShiftForCashbox_Click"
+                                                            Padding="14,4" Height="32" Tag="{Binding}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- Товары: популярные / непопулярные (по продажам за выбранный период) -->
+        <Grid x:Name="ProductsAnalyticsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
+            <Grid Margin="16" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+                    <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ProductsBack_Click"/>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource finance.navProducts}" FontSize="20" FontWeight="Bold"
+                               Margin="12,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="18">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource finance.popularProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="12" Padding="16">
+                                <StackPanel x:Name="PopularProductsChart" Spacing="10"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource finance.popularProductsPieTitle}" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,0" Foreground="{DynamicResource BrushText}"/>
+                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="12" Padding="16">
+                                <StackPanel x:Name="PopularProductsPie" Spacing="10"/>
+                            </Border>
+                            <DataGrid x:Name="PopularProductsGrid" x:CompileBindings="False"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      Background="{DynamicResource BrushPanel}"
+                                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                      CornerRadius="12" GridLinesVisibility="Horizontal"
+                                      ItemsSource="{Binding TopItems}" MaxHeight="320">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}"/>
+                                    <DataGridTextColumn Header="{DynamicResource sales.colQty}" Width="1*" Binding="{ReflectionBinding Quantity}"/>
+                                    <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="1*" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource finance.unpopularProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource finance.unpopularProductsSubtitle}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="12" Padding="16">
+                                <StackPanel x:Name="UnpopularProductsChart" Spacing="10"/>
+                            </Border>
+                            <DataGrid x:Name="UnpopularProductsGrid" x:CompileBindings="False"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      Background="{DynamicResource BrushPanel}"
+                                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                      CornerRadius="12" GridLinesVisibility="Horizontal"
+                                      MaxHeight="320">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}"/>
+                                    <DataGridTextColumn Header="{DynamicResource csh.catalog.colStock}" Width="1*" Binding="{ReflectionBinding StockText}"/>
+                                    <DataGridTextColumn Header="{DynamicResource product.categoryLabel}" Width="1*" Binding="{ReflectionBinding CategoryName}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource finance.allProductsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource finance.allProductsSubtitle}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                            <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="12" Padding="16">
+                                <StackPanel Spacing="8">
+                                    <StackPanel x:Name="AllProductsStockPie" Spacing="10"/>
+                                    <TextBlock Text="{DynamicResource finance.allProductsPieNote}" FontSize="11"
+                                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBox x:Name="AllProductsSearchBox"
+                                     Watermark="{DynamicResource finance.allProductsSearchWatermark}"
+                                     TextChanged="AllProductsSearchBox_TextChanged"
+                                     Height="36" Margin="0,4,0,0"/>
+
+                            <DataGrid x:Name="AllProductsGrid" x:CompileBindings="False"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      Background="{DynamicResource BrushPanel}"
+                                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                      CornerRadius="12" GridLinesVisibility="Horizontal"
+                                      MaxHeight="360">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}"/>
+                                    <DataGridTextColumn Header="{DynamicResource product.articleLabel}" Width="1*" Binding="{ReflectionBinding Article}"/>
+                                    <DataGridTextColumn Header="{DynamicResource csh.catalog.colStock}" Width="1*" Binding="{ReflectionBinding StockText}"/>
+                                    <DataGridTextColumn Header="{DynamicResource product.categoryLabel}" Width="1*" Binding="{ReflectionBinding CategoryName}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- Оверлей и выезжающая панель (как в MainWindow) -->
+        <Border x:Name="HamburgerOverlay"
+            Background="#80000000" IsVisible="False"
+            ZIndex="999"
+            PointerPressed="HamburgerOverlay_PointerPressed" />
+        <Border x:Name="HamburgerPanel"
+            HorizontalAlignment="Left" VerticalAlignment="Stretch"
+            Width="320" Margin="-320,0,0,0"
+            Background="{DynamicResource BrushPanelElevated}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="0,0,1,0" ZIndex="1000">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Padding="16,14" Background="{DynamicResource BrushPanel}">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="30" Height="30" CornerRadius="15" ClipToBounds="True" Margin="0,0,10,0">
+                                <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="Uniform" />
+                            </Border>
+                            <TextBlock Text="NUR MARKET" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Content="✕" Width="32" Height="32" Padding="0"
+                            HorizontalAlignment="Right" FontSize="18"
+                            Foreground="{DynamicResource BrushText}" Background="Transparent"
+                            BorderThickness="0" Cursor="Hand"
+                            Click="HamburgerMenuClose_Click" />
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <Button Content="{DynamicResource finance.navSale}" Classes="HamburgerMenuItem" Click="NavigateToSale_Click" />
+                    <Button Content="{DynamicResource finance.navWarehouse}" Classes="HamburgerMenuItem" Click="NavigateToStock_Click" />
+                    <Button Content="{DynamicResource finance.navShift}" Classes="HamburgerMenuItem" Click="ManageShift_Click" />
+                    <Button Content="{DynamicResource finance.navProducts}" Classes="HamburgerMenuItem" Click="NavigateToProducts_Click" />
+                    <Button Content="{DynamicResource finance.navFinance}" Classes="HamburgerMenuItem nav-active" IsEnabled="False" />
+                    <Separator Margin="12,8" Background="{DynamicResource BrushBorder}" />
+                    <Button Content="{DynamicResource finance.navExit}" Classes="HamburgerMenuItem logout" Click="Exit_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

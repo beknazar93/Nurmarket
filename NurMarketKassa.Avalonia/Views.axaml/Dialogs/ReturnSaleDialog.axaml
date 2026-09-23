@@ -1,0 +1,238 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        xmlns:pos="using:NurMarketKassa.Models.Pos"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReturnSaleDialog"
+        x:DataType="dialogs:ReturnSaleDialog"
+        x:CompileBindings="True"
+        Title="Возврат по чеку"
+        WindowState="Maximized"
+        MinWidth="800" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Window.Styles>
+    <!-- Главные кнопки действий (Жёлтый акцент) -->
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+
+    <!-- Вторичные кнопки (Светлый контур) -->
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+
+    <!-- Кнопка внутри строки DataGrid -->
+    <Style Selector="Button.btn-table">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-table:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+
+    <!-- Поле ввода поиска -->
+    <Style Selector="TextBox.ModernInput">
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox.ModernInput:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="12" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+      <!-- Шапка диалога -->
+      <StackPanel Grid.Row="0">
+        <TextBlock Text="Возврат товаров по чеку" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                   Text="Выберите чек кнопкой «Выбрать». Ниже появится его состав: отметьте товары и нажмите «Вернуть выбранные» или оформите «Вернуть весь чек»."/>
+      </StackPanel>
+
+      <!-- Основная область с 2 колонками -->
+      <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,16,*">
+
+        <!-- БЛОК 1: Чеки продаж -->
+        <DockPanel Grid.Column="0" LastChildFill="True">
+          <TextBlock DockPanel.Dock="Top" Text="1. Чеки продаж"
+                     FontWeight="Bold" FontSize="16" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
+
+          <!-- Поиск и фильтры -->
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <TextBox x:Name="SearchReceiptBox" Classes="ModernInput" Width="180" Watermark="Поиск..."
+                     TextChanged="SearchReceiptBox_TextChanged"/>
+            <Button Content="Обновить" Classes="btn-secondary" Padding="12,0" Height="38" Click="RefreshSales_Click"/>
+            <Button x:Name="MoreSalesButton" Classes="btn-secondary" Content="Ещё" Padding="12,0" Height="38" Click="MoreSales_Click"/>
+          </StackPanel>
+
+          <!-- Таблица чеков -->
+          <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+            <Grid>
+              <DataGrid x:Name="SalesDataGrid"
+                        x:CompileBindings="False"
+                        ItemsSource="{Binding FilteredSales}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True"
+                        GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="№ чека" Binding="{ReflectionBinding SaleId}" Width="*"/>
+                  <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding SaleDateDisplay}" Width="130"/>
+                  <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding TotalAmountDisplay}" Width="110"/>
+                  <DataGridTemplateColumn Header="" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <Button Content="Выбрать" Tag="{ReflectionBinding SaleId}" Click="SelectSale_Click"
+                                Classes="btn-table" Height="30" Margin="4"
+                                HorizontalAlignment="Stretch"/>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                </DataGrid.Columns>
+              </DataGrid>
+
+              <ProgressBar IsIndeterminate="True" Height="4" VerticalAlignment="Top"
+                           IsVisible="{Binding IsBusy}"/>
+            </Grid>
+          </Border>
+        </DockPanel>
+
+        <!-- БЛОК 2: Содержимое выбранного чека -->
+        <DockPanel Grid.Column="2" LastChildFill="True">
+          <TextBlock DockPanel.Dock="Top" Text="2. Содержимое выбранного чека"
+                     FontWeight="Bold" FontSize="16" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
+
+          <!-- Выбранная покупка -->
+          <Border x:Name="SelectedChequeBar" DockPanel.Dock="Top"
+                  Margin="0,0,0,10" Padding="12,10"
+                  Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8"
+                  IsVisible="False">
+            <TextBlock x:Name="SelectedSaleText" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}" FontSize="13" FontWeight="Medium"/>
+          </Border>
+
+          <!-- Панель быстрых кнопок -->
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,0,0,10">
+            <Button Grid.Column="0" Content="Все" Classes="btn-secondary" Height="38" MinWidth="70"
+                    Click="SelectAllReturnable_Click"/>
+            <Button Grid.Column="1" Content="Снять" Classes="btn-secondary" Height="38" Margin="8,0,0,0" MinWidth="70"
+                    Click="ClearReturnSelection_Click"/>
+            <Button x:Name="ReturnSelectedButton" Grid.Column="3"
+                    Classes="btn-primary" Content="Вернуть выбранные" Margin="0,0,8,0"
+                    Height="38" MinWidth="160"
+                    Click="ReturnSelected_Click"/>
+            <Button x:Name="ReturnWholeReceiptButton" Grid.Column="4"
+                    Classes="btn-primary" Content="Вернуть весь чек" Height="38" MinWidth="150"
+                    Click="ReturnWholeReceipt_Click"/>
+          </Grid>
+
+          <TextBlock x:Name="LinesPlaceholder" DockPanel.Dock="Top"
+                     Margin="0,8,0,12" TextWrapping="Wrap"
+                     HorizontalAlignment="Center" TextAlignment="Center"
+                     Foreground="{DynamicResource BrushTextSoft}" FontSize="14"/>
+
+          <!-- Список позиций в чеке -->
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Lines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="pos:ReturnSaleLineVm">
+                  <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                          Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <Grid ColumnDefinitions="Auto,*">
+                      <CheckBox Grid.Column="0" VerticalAlignment="Center"
+                                Margin="0,0,12,0"
+                                IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                IsEnabled="{Binding CanReturn}"/>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Text="{Binding Title}"/>
+                        <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                                   Text="{Binding SubLine}"/>
+                        <TextBlock Margin="0,2,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushUiStatusOk}"
+                                   Text="{Binding LineSumText}"/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+
+      </Grid>
+
+      <!-- Ошибки -->
+      <TextBlock x:Name="ErrorText" Grid.Row="2"
+                 Margin="0,10,0,0" Foreground="{DynamicResource BrushDanger}"
+                 FontWeight="SemiBold" FontSize="13"
+                 HorizontalAlignment="Center" TextAlignment="Center"
+                 IsVisible="False"/>
+
+      <!-- Нижняя панель управления -->
+      <StackPanel Grid.Row="3" Margin="0,12,0,0">
+        <Expander Header="Ввести ID продажи вручную" Foreground="{DynamicResource BrushTextSoft}" FontSize="13">
+          <StackPanel Margin="0,10,0,0" Spacing="10" Orientation="Horizontal">
+            <TextBox x:Name="SaleIdBox" Classes="ModernInput" Width="220" Watermark="ID чека..."/>
+            <Button Content="Загрузить чек" Classes="btn-secondary" Height="38" Padding="16,0" Click="LoadById_Click"/>
+          </StackPanel>
+        </Expander>
+
+        <Button Content="Закрыть" Classes="btn-secondary"
+                HorizontalAlignment="Right"
+                Height="42" MinWidth="120" Margin="0,12,0,0"
+                Click="Close_Click"/>
+      </StackPanel>
+
+    </Grid>
+  </Border>
+</Window>

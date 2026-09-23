@@ -1,0 +1,238 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Controls"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ThemeSettingsDialog"
+        Title="{DynamicResource marketplace.themeSettingsButton}"
+        Width="900" Height="660" MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <!-- Редактор темы (2026-09-07, переработан по замечанию "дизайн не удобен и не красивый"):
+       было — одна узкая колонка на 460px без предпросмотра, приходилось нажимать "Применить"
+       и закрывать диалог, чтобы увидеть результат. Теперь — две колонки: слева настройки
+       (сгруппированы карточками с иконками), справа живой макет кассы (плитка товара, строка
+       чека, кнопка "Оплатить"), который перекрашивается СРАЗУ при движении ползунка/пикера —
+       через PhotoshopColorPicker.ColorChanged и уже существующие *_ValueChanged, без ожидания
+       "Применить". Само "Применить" по-прежнему нужно — оно красит всю кассу целиком через
+       AccentThemeService, предпросмотр же локальный, только для этого окна. -->
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+        <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource marketplace.themeSettingsButton}"
+                   FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+        <Border Grid.Column="1" x:Name="PriceBadge" IsVisible="False"
+                Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}"
+                BorderThickness="1" CornerRadius="10" Padding="12,6">
+          <TextBlock Text="{DynamicResource marketplace.editorPriceLabel}" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource BrushWarning}"/>
+        </Border>
+      </Grid>
+
+      <TextBlock Grid.Row="1" Text="{DynamicResource theme.editorSubtitle}" FontSize="12"
+                 Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,14"/>
+
+      <Grid Grid.Row="2" ColumnDefinitions="*,16,320">
+
+        <!-- Левая колонка: настройки -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="14">
+
+            <!-- Свой цвет — видна только когда конфигурируется тема "custom" -->
+            <Border x:Name="ColorSection" Classes="theme-card" IsVisible="False">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="&#x1F3A8;" FontSize="15"/>
+                  <TextBlock Text="{DynamicResource marketplace.customColorTitle}" FontSize="14" FontWeight="SemiBold"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+                <TextBlock Text="{DynamicResource marketplace.customColorDesc}"
+                           FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <controls:PhotoshopColorPicker x:Name="AccentColorPicker" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="ColorErrorText" FontSize="12" Foreground="{DynamicResource BrushDanger}"
+                           IsVisible="False"/>
+              </StackPanel>
+            </Border>
+
+            <!-- Шрифт -->
+            <Border Classes="theme-card">
+              <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="&#x1F520;" FontSize="15"/>
+                  <TextBlock Text="{DynamicResource marketplace.fontTitle}" FontSize="14" FontWeight="SemiBold"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+                <ItemsControl x:Name="FontFamilyList" HorizontalAlignment="Left">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource marketplace.fontSize}" FontSize="13" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="FontSizeValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
+                             Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider x:Name="FontSizeSlider" Minimum="11" Maximum="20" TickFrequency="1"
+                        IsSnapToTickEnabled="True" ValueChanged="FontSizeSlider_ValueChanged"/>
+
+                <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource marketplace.fontColor}" FontSize="13" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Classes="btn-secondary" Content="{DynamicResource marketplace.radiusReset}"
+                          Height="28" Padding="10,2" FontSize="12" Click="TextColorResetButton_Click"/>
+                </Grid>
+                <controls:PhotoshopColorPicker x:Name="TextColorPicker" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="TextColorErrorText" FontSize="12" Foreground="{DynamicResource BrushDanger}"
+                           IsVisible="False"/>
+              </StackPanel>
+            </Border>
+
+            <!-- Скруглённость -->
+            <Border Classes="theme-card">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="&#x25AD;" FontSize="15"/>
+                    <TextBlock Text="{DynamicResource marketplace.radiusTitle}" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}"/>
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="btn-secondary" Content="{DynamicResource marketplace.radiusReset}"
+                          Height="30" Padding="10,2" FontSize="12" Click="RadiusResetButton_Click"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource marketplace.radiusButtons}" FontSize="13" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="ButtonRadiusValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
+                             Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider x:Name="ButtonRadiusSlider" Minimum="0" Maximum="28" TickFrequency="2"
+                        IsSnapToTickEnabled="True" ValueChanged="ButtonRadiusSlider_ValueChanged"/>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource marketplace.radiusCards}" FontSize="13" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="CardRadiusValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
+                             Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider x:Name="CardRadiusSlider" Minimum="0" Maximum="36" TickFrequency="2"
+                        IsSnapToTickEnabled="True" ValueChanged="CardRadiusSlider_ValueChanged"/>
+              </StackPanel>
+            </Border>
+
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Правая колонка: живой предпросмотр -->
+        <Border Grid.Column="2" Background="{DynamicResource BrushPanelSoft}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="14" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource theme.previewLabel}" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <!-- "Экран" с макетом кассы: свой белый фон, чтобы предпросмотр не зависел от
+                 тёмной/светлой темы окна редактора — этот диалог её не меняет.
+                 2026-09-07 (исправление бага "предпросмотр наезжает сам на себя"): было —
+                 StackPanel Spacing, который при большом кегле (слайдер до 20px) не всегда
+                 успевал пересчитать высоту соседних детей при программной смене FontSize из
+                 code-behind — строка чека и "Итого" рисовались друг на друге. Теперь — Grid с
+                 ЯВНЫМИ RowDefinitions (Auto на каждую строку) вместо неявного накопления высот,
+                 плюс TextTrimming на длинных подписях и верхняя граница на предпросмотровые
+                 кегли (UpdatePreview кодом ограничивает их независимо от реального слайдера,
+                 который может доходить до 20px "живой" темы, но не должен настолько же раздувать
+                 320-пиксельную карточку предпросмотра). -->
+            <Border x:Name="PreviewScreen" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="12" Padding="14" ClipToBounds="True">
+              <Grid RowDefinitions="Auto,10,Auto,10,1,10,Auto,10,Auto">
+
+                <!-- Плитка товара -->
+                <Border Grid.Row="0" x:Name="PreviewTile" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12">
+                  <Grid RowDefinitions="60,6,Auto,4,Auto">
+                    <Border Grid.Row="0" Background="#E2E8F0" CornerRadius="6"/>
+                    <TextBlock Grid.Row="2" x:Name="PreviewTileTitle" Text="Молоко 3.2% 1л" FontSize="13" FontWeight="SemiBold"
+                               Foreground="#0F172A" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Row="4" x:Name="PreviewTilePrice" Text="95.00 сом" FontSize="15" FontWeight="Bold"/>
+                  </Grid>
+                </Border>
+
+                <!-- Строка чека -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,8,Auto">
+                  <TextBlock Grid.Column="0" x:Name="PreviewLineTitle" Text="Кофе натуральный × 2" FontSize="13" Foreground="#0F172A"
+                             VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock Grid.Column="2" x:Name="PreviewLinePrice" Text="640.00 сом" FontSize="13" FontWeight="Bold"
+                             VerticalAlignment="Center"/>
+                </Grid>
+
+                <Border Grid.Row="4" Background="#E2E8F0"/>
+
+                <Grid Grid.Row="6" ColumnDefinitions="*,8,Auto">
+                  <TextBlock Grid.Column="0" x:Name="PreviewTotalLabel" Text="Итого" FontSize="15" FontWeight="Bold"
+                             Foreground="#0F172A" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="2" x:Name="PreviewTotal" Text="735.00 сом" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- Кнопка "Оплатить" -->
+                <Border Grid.Row="8" x:Name="PreviewButton" Padding="0,12" HorizontalAlignment="Stretch">
+                  <TextBlock x:Name="PreviewButtonText" Text="Оплатить" FontSize="15" FontWeight="Bold"
+                             HorizontalAlignment="Center" Foreground="White"/>
+                </Border>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="3" ColumnDefinitions="*,12,*" Margin="0,16,0,0">
+        <Button x:Name="CancelButton"
+                Grid.Column="0"
+                Content="{DynamicResource common.no}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushPanel}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Click="CancelButton_Click"/>
+        <Button x:Name="ApplyButton"
+                Grid.Column="2"
+                Content="{DynamicResource common.apply}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushAccentForeground}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                IsDefault="True"
+                Click="ApplyButton_Click"/>
+      </Grid>
+    </Grid>
+  </Border>
+
+  <Window.Styles>
+    <Style Selector="Border.theme-card">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="16"/>
+    </Style>
+  </Window.Styles>
+</Window>

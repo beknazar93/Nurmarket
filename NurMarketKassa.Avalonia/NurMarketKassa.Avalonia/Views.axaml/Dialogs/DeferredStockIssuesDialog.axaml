@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.DeferredStockIssuesDialog"
+        Title="{DynamicResource stockIssues.title}"
+        Width="520" SizeToContent="Height"
+        MaxHeight="600"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Stretch">
+
+      <!-- Заголовок отцентрирован -->
+      <TextBlock Text="{DynamicResource stockIssues.title}"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,16"/>
+
+      <!-- Контент / текст отцентрирован -->
+      <ScrollViewer MaxHeight="360" Margin="0,0,0,24">
+        <TextBlock x:Name="BodyText"
+                   TextWrapping="Wrap"
+                   FontSize="14"
+                   Foreground="{DynamicResource BrushTextSoft}"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center"/>
+      </ScrollViewer>
+
+      <!-- Кнопка растянута, текст "Понятно" строго по центру -->
+      <Button Content="{DynamicResource common.gotIt}"
+              Height="46"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushAccentForeground}"
+              FontWeight="SemiBold"
+              FontSize="15"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="Ok_Click"/>
+
+    </StackPanel>
+  </Border>
+</Window>

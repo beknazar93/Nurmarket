@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.SplashWindow"
+        Title="Nur Market"
+        Width="440"
+        Height="230"
+        CanResize="False"
+        ShowInTaskbar="True"
+        SystemDecorations="None"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource SplashBackgroundBrush}">
+
+    <!-- Local theme dictionaries keep the splash readable in both app themes. -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SplashBackgroundBrush" Color="#151922" />
+                    <SolidColorBrush x:Key="SplashBorderBrush" Color="#2B3240" />
+                    <SolidColorBrush x:Key="SplashTitleBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="SplashSubtitleBrush" Color="#B8C0CC" />
+                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#007ACC" />
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SplashBackgroundBrush" Color="#F4F7FB" />
+                    <SolidColorBrush x:Key="SplashBorderBrush" Color="#D7DEE8" />
+                    <SolidColorBrush x:Key="SplashTitleBrush" Color="#172033" />
+                    <SolidColorBrush x:Key="SplashSubtitleBrush" Color="#526176" />
+                    <SolidColorBrush x:Key="SplashProgressBarForeground" Color="#007ACC" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- Credential-free startup surface: intentionally no input controls. -->
+    <Border Padding="40"
+            Background="{DynamicResource SplashBackgroundBrush}"
+            BorderBrush="{DynamicResource SplashBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="14">
+        <StackPanel Spacing="18"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center">
+            <TextBlock Text="Nur Market"
+                       HorizontalAlignment="Center"
+                       FontSize="30"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource SplashTitleBrush}" />
+
+            <TextBlock Text="{DynamicResource splash.checkingSession}"
+                       HorizontalAlignment="Center"
+                       FontSize="14"
+                       Foreground="{DynamicResource SplashSubtitleBrush}" />
+
+            <ProgressBar Height="5"
+                         Margin="4,4,4,0"
+                         HorizontalAlignment="Stretch"
+                         IsIndeterminate="True"
+                         Foreground="{DynamicResource SplashProgressBarForeground}" />
+        </StackPanel>
+    </Border>
+</Window>

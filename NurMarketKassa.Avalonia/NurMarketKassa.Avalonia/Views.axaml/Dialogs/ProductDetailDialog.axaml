@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductDetailDialog"
+        Title="ProductDetailDialog"
+        Width="640" Height="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+  <Grid Margin="16">
+    <TextBlock Text="ProductDetailDialog" FontSize="18" FontWeight="SemiBold"
+               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+  </Grid>
+</Window>

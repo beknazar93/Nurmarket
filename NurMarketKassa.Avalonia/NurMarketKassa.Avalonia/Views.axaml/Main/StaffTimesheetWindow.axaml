@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.StaffTimesheetWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource staffTimesheet.title}"
+        Height="720" Width="920" MinHeight="460" MinWidth="700"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector="Border.Card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*">
+
+        <!-- Заголовок -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Border Background="{DynamicResource BrushAccentSoft}" CornerRadius="8" Padding="8">
+                    <TextBlock Text="🧑‍💼" FontSize="18" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="{DynamicResource staffTimesheet.title}" FontSize="20" FontWeight="Bold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
+        </Grid>
+
+        <!-- Пояснение -->
+        <TextBlock Grid.Row="1" Margin="0,0,0,12" FontSize="12" TextWrapping="Wrap"
+                   Foreground="{DynamicResource BrushTextSoft}"
+                   Text="{DynamicResource staffTimesheet.description}"/>
+
+        <!-- Фильтр по датам -->
+        <Border Grid.Row="2" Classes="Card" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource staffTimesheet.periodLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                <CalendarDatePicker x:Name="FromDatePicker" Width="160" Watermark="{DynamicResource staffTimesheet.fromWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                <TextBlock Text="—" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+                <CalendarDatePicker x:Name="ToDatePicker" Width="160" Watermark="{DynamicResource staffTimesheet.toWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                <Button Content="{DynamicResource common.refresh}" Classes="PrimaryButton" Click="Refresh_Click"/>
+                <Button Content="{DynamicResource staffTimesheet.allPeriod}" Classes="SecondaryButton" Click="ClearFilter_Click"/>
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="10,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Таблица -->
+        <Border Grid.Row="3" Classes="Card">
+            <DataGrid x:Name="TimesheetGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" GridLinesVisibility="Horizontal">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colCashier}" Width="2*" Binding="{Binding Cashier}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colShifts}" Width="*" Binding="{Binding ShiftCountText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colDays}" Width="*" Binding="{Binding DaysWorkedText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colHours}" Width="1.4*" Binding="{Binding TotalWorkedText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colAvgShift}" Width="1.4*" Binding="{Binding AverageShiftText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colRevenue}" Width="1.4*" Binding="{Binding TotalRevenueText}"/>
+                    <DataGridTextColumn Header="{DynamicResource staffTimesheet.colPeriod}" Width="2.2*" Binding="{Binding PeriodText}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScreenSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="RadioButton.ClickPill">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="MinHeight" Value="34"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="6"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.ClickPill:checked">
+      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <!-- Центрирующий контейнер -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+        <!-- Хедер по центру -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
+                    BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                         Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Экран и Интерфейс" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="Отображение кассы, поведение окна и данные магазина" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Блок 1: Поведение кассы и экрана -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Поведение приложения" Classes="SettingsCardTitle" FontSize="14"/>
+
+            <!-- Тумблеры поведения -->
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Полноэкранный режим" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                <CheckBox Grid.Column="1" x:Name="FullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Запускать вместе с Windows" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                <CheckBox Grid.Column="1" x:Name="AutostartCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Авто-показ сенсорной клавиатуры" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                <CheckBox Grid.Column="1" x:Name="AutoTouchKeyboardCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+              </Grid>
+            </StackPanel>
+
+            <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+            <!-- Добавление в чек -->
+            <TextBlock Text="Добавление товаров в чек" Classes="FieldLabel"/>
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Клик по товару" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                <Grid ColumnDefinitions="*,8,*">
+                  <RadioButton Grid.Column="0" x:Name="DoubleClickToCartRadio" x:FieldModifier="public"
+                               Content="Двойной" Classes="ClickPill"/>
+                  <RadioButton Grid.Column="2" x:Name="SingleClickToCartRadio" x:FieldModifier="public"
+                               Content="Один" Classes="ClickPill"/>
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="Сбрасывать кол-во после ввода" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                  <CheckBox Grid.Column="1" x:Name="ResetManualAddQtyCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+
+          </StackPanel>
+        </Border>
+
+        <!-- Блок 2: Данные магазина в чеке -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Реквизиты и данные в чеке" Classes="SettingsCardTitle" FontSize="14"/>
+
+            <Grid ColumnDefinitions="*,16,*">
+              <!-- Название магазина -->
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Название магазина" Classes="FieldLabel"/>
+                <TextBox x:Name="StoreNameBox" x:FieldModifier="public"
+                         Classes="ModernTextBox" Height="36"
+                         Watermark="Например: Супермаркет №1"
+                         ToolTip.Tip="Отображается в верхней части чека"/>
+              </StackPanel>
+
+              <!-- Адрес магазина -->
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="Адрес магазина" Classes="FieldLabel"/>
+                <TextBox x:Name="StoreAddressBox" x:FieldModifier="public"
+                         Classes="ModernTextBox" Height="36"
+                         Watermark="Например: ул. Ленина 15"
+                         ToolTip.Tip="Печатается в чеке, если включён пункт «Адрес»"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- ИНН в чеке -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Отображать ИНН" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock Text="Печатать ИНН компании в шапке чека" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              </StackPanel>
+              <CheckBox Grid.Column="1" x:Name="ShowInnCheck" x:FieldModifier="public"
+                        Classes="ToggleSwitch" VerticalAlignment="Center"
+                        ToolTip.Tip="Печатать ИНН компании в шапке чека"/>
+            </Grid>
+
+          </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
+          <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource BrushSuccess}"
+                     FontSize="12"/>
+          <Button Content="Сохранить"
+                  Classes="btn-primary"
+                  MinWidth="150"
+                  HorizontalAlignment="Center"
+                  Click="Save_Click"/>
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

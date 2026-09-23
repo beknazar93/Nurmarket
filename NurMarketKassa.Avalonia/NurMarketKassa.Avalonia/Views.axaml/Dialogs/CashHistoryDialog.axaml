@@ -1,0 +1,107 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CashHistoryDialog"
+        x:DataType="dialogs:CashHistoryDialog"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        x:CompileBindings="True"
+        Title="{DynamicResource cashHistory.title}"
+        Width="720" Height="520"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="DataGrid">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+      <Setter Property="HorizontalGridLinesBrush" Value="#E2E8F0"/>
+      <Setter Property="RowHeight" Value="40"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <Grid RowDefinitions="Auto,*,Auto">
+
+      <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+        <TextBlock Text="{DynamicResource cashHistory.title}"
+                   FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushText}"/>
+        <TextBlock Text="{DynamicResource cashHistory.subtitle}"
+                   FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+      </StackPanel>
+
+      <Border Grid.Row="1"
+              Background="{DynamicResource BrushPanelSoft}"
+              BorderBrush="{DynamicResource BrushBorder}"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="8"
+              ClipToBounds="True">
+        <DataGrid x:CompileBindings="False"
+                  ItemsSource="{Binding HistoryItems}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="True"
+                  HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource common.dateTime}"
+                                Width="170"
+                                Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm:ss}"/>
+            <DataGridTextColumn Header="{DynamicResource common.type}"
+                                Width="120"
+                                Binding="{ReflectionBinding Type}"/>
+            <DataGridTextColumn Header="{DynamicResource common.amountSom}"
+                                Width="120"
+                                Binding="{ReflectionBinding Amount, StringFormat={}{0:N2}}"/>
+            <DataGridTextColumn Header="{DynamicResource common.user}"
+                                Width="*"
+                                Binding="{ReflectionBinding UserId}"/>
+            <DataGridTextColumn Header="{DynamicResource common.comment}"
+                                Width="*"
+                                Binding="{ReflectionBinding Comment}"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+        <TextBlock x:Name="EmptyHint"
+                   Text="{DynamicResource common.noRecords}"
+                   FontSize="13"
+                   Foreground="{DynamicResource BrushTextSoft}"
+                   VerticalAlignment="Center"
+                   IsVisible="False"/>
+        <Button Grid.Column="1"
+                Classes="btn-secondary"
+                Content="{DynamicResource common.close}"
+                Width="120" Height="46"
+                IsCancel="True"
+                IsDefault="True"
+                Click="Close_Click"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

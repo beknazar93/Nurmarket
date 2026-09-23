@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PrinterNotConnectedDialog"
+        Title="Принтер не подключен"
+        Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Stretch">
+
+      <!-- Заголовок отцентрирован -->
+      <TextBlock x:Name="TitleText"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,12"/>
+
+      <!-- Текст сообщения отцентрирован -->
+      <TextBlock x:Name="MessageText"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,22"/>
+
+      <!-- Панель из двух кнопок -->
+      <Grid x:Name="TwoButtonRow" ColumnDefinitions="*,12,*">
+        <Button x:Name="CancelButton"
+                Grid.Column="0"
+                Content="Отмена"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushPanel}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="CancelButton_Click"/>
+
+        <Button x:Name="ProceedButton"
+                Grid.Column="2"
+                Content="Продолжить без печати"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushText}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                IsDefault="True"
+                Cursor="Hand"
+                Click="ProceedButton_Click"/>
+      </Grid>
+
+      <!-- Кнопка ОК (когда режим одной кнопки) -->
+      <Button x:Name="OkButton"
+              Content="ОК"
+              Height="46"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushText}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              IsVisible="False"
+              IsDefault="True"
+              Cursor="Hand"
+              Click="OkButton_Click"/>
+
+    </StackPanel>
+  </Border>
+</Window>

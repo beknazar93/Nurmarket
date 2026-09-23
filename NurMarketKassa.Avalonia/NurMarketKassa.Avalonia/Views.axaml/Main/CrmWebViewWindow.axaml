@@ -1,0 +1,73 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NurMarketKassa.AvaloniaHost.Controls"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.CrmWebViewWindow"
+        Title="NurCRM"
+        Width="1280" Height="840"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BrushWindow}"
+        FontFamily="Segoe UI">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="{DynamicResource BrushWindowAlt}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="12,10">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                <Button Grid.Column="0" Classes="main-ghost" Width="38" Height="38" Padding="0"
+                        ToolTip.Tip="{DynamicResource common.back}" Click="Back_Click">
+                    <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                </Button>
+                <Button Grid.Column="1" Classes="main-ghost" Width="38" Height="38" Padding="0"
+                        Margin="6,0,0,0"
+                        ToolTip.Tip="{DynamicResource common.forward}" Click="Forward_Click">
+                    <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                </Button>
+                <Button Grid.Column="2" Classes="main-ghost" Width="38" Height="38" Padding="0"
+                        Margin="6,0,0,0"
+                        ToolTip.Tip="{DynamicResource common.refresh}" Click="Reload_Click">
+                    <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                </Button>
+                <TextBlock Grid.Column="3" Text="NurCRM — nurcrm.kg" FontSize="14" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="14,0,0,0"
+                           Foreground="{DynamicResource BrushTextMuted}"/>
+                <Button Grid.Column="4" Classes="main-ghost" Width="38" Height="38" Padding="0"
+                        ToolTip.Tip="{DynamicResource common.close}" Click="Close_Click">
+                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <controls:WebView2Host x:Name="WebHost"/>
+
+            <Border x:Name="LoadingPanel"
+                    Background="{DynamicResource BrushWindow}"
+                    IsVisible="True">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                    <TextBlock Text="{DynamicResource crmWebView.loading}" FontSize="16"
+                               Foreground="{DynamicResource BrushTextMuted}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ErrorPanel"
+                    Background="{DynamicResource BrushWindow}"
+                    IsVisible="False">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14" MaxWidth="480">
+                    <TextBlock Text="{DynamicResource crmWebView.errorTitle}" FontSize="18" FontWeight="Bold"
+                               HorizontalAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="ErrorDetailsText" FontSize="13" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" TextAlignment="Center"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                    <Button Content="{DynamicResource crmWebView.openInBrowser}" HorizontalAlignment="Center"
+                            Click="OpenInBrowser_Click"
+                            Background="{DynamicResource BrushAccent}"
+                            Padding="16,10" CornerRadius="10" Cursor="Hand"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

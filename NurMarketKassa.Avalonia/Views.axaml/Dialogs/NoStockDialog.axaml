@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.NoStockDialog"
+        Title="Товара нет в наличии"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <Style Selector="Button.btn-ok">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-ok:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="16"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="30,25">
+        <StackPanel HorizontalAlignment="Center">
+            <TextBlock x:Name="TitleText"
+                       Text="Товар закончился на складе"
+                       FontWeight="Bold" FontSize="20"
+                       HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+            <TextBlock x:Name="ProductNameText"
+                       TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
+
+            <TextBlock x:Name="MessageText"
+                       TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="14" Foreground="{DynamicResource BrushTextSoft}"
+                       HorizontalAlignment="Center" Margin="0,0,0,12"/>
+
+            <TextBlock x:Name="AvailableText"
+                       TextAlignment="Center" FontSize="14"
+                       FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"
+                       HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+            <Button x:Name="BtnCancel"
+                    Content="ОК"
+                    Classes="btn-ok"
+                    Width="140"
+                    Height="40"
+                    IsCancel="True"
+                    IsDefault="True"
+                    HorizontalAlignment="Center"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Border>
+</Window>

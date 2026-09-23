@@ -1,0 +1,126 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.LogsAndErrorsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="{DynamicResource csh.menu.errorLogs}"
+        Height="700"
+        Width="1050"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="Button.PrimaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.SecondaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="DataGrid.ModernGrid">
+            <Setter Property="Background" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowHeight" Value="44" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+
+        <Style Selector="Border.StatusBadge">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Border.StatusBadge TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.warn">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.warn TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.error">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.error TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.deferred">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.deferred TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Column="0" Text="{DynamicResource csh.menu.errorLogs}"
+                       FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+                        Margin="0,0,10,0" Click="Refresh_Click"/>
+                <Button Content="{DynamicResource logs.openFolder}" Classes="SecondaryActionButton"
+                        Margin="0,0,10,0" Click="OpenFolder_Click"/>
+                <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="1" Text="{DynamicResource logs.subtitle}"
+                   Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+        <Grid Grid.Row="2">
+            <DataGrid x:Name="LogGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="90" Binding="{ReflectionBinding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="80" Binding="{ReflectionBinding TimeText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="160">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Classes="StatusBadge" Classes.warn="{ReflectionBinding IsWarning}"
+                                        Classes.error="{ReflectionBinding IsError}" Classes.deferred="{ReflectionBinding IsDeferred}">
+                                    <TextBlock Text="{ReflectionBinding LevelText}"/>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{DynamicResource irregular.colNote}" Width="*" Binding="{ReflectionBinding Message}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock x:Name="EmptyText" IsVisible="False" Text="{DynamicResource logs.empty}"
+                       Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+    </Grid>
+</Window>

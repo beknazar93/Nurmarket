@@ -1,0 +1,64 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="BrushTextInverted" Color="White" />
+  <SolidColorBrush x:Key="BrushWindow" Color="#1E1E1E" />
+  <SolidColorBrush x:Key="BrushWindowAlt" Color="#252526" />
+  <SolidColorBrush x:Key="BrushPanel" Color="#252526" />
+  <SolidColorBrush x:Key="BrushPanelElevated" Color="#2B2B2C" />
+  <SolidColorBrush x:Key="BrushPanelSoft" Color="#333333" />
+  <SolidColorBrush x:Key="BrushInput" Color="#252526" />
+  <SolidColorBrush x:Key="BrushInputAlt" Color="#2D2D2D" />
+  <SolidColorBrush x:Key="BrushBorder" Color="#454545" />
+  <SolidColorBrush x:Key="BrushBorderStrong" Color="#5A5A5A" />
+  <SolidColorBrush x:Key="BrushText" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextMuted" Color="#CCCCCC" />
+  <SolidColorBrush x:Key="BrushTextSoft" Color="#A9A9A9" />
+  <SolidColorBrush x:Key="BrushAccent" Color="#007ACC" />
+  <SolidColorBrush x:Key="BrushAccentStrong" Color="#2895E8" />
+  <SolidColorBrush x:Key="BrushAccentSoft" Color="#1F3B52" />
+  <SolidColorBrush x:Key="BrushSuccess" Color="#007ACC" />
+  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#1F3B52" />
+  <SolidColorBrush x:Key="BrushWarning" Color="#D7BA7D" />
+  <SolidColorBrush x:Key="BrushWarningSoft" Color="#3A3122" />
+  <SolidColorBrush x:Key="BrushDanger" Color="#F14C4C" />
+  <SolidColorBrush x:Key="BrushDangerSoft" Color="#522626" />
+  <SolidColorBrush x:Key="BrushOverlay" Color="#D90A0F18" />
+  <SolidColorBrush x:Key="BrushFocus" Color="#007ACC" />
+  <SolidColorBrush x:Key="BrushSurfaceSubtle" Color="#252526" />
+  <SolidColorBrush x:Key="BrushCatalogTileBg" Color="#2B2B2C" />
+  <SolidColorBrush x:Key="BrushCatalogTileBorder" Color="#454545" />
+  <SolidColorBrush x:Key="BrushCatalogPrice" Color="#007ACC" />
+  <SolidColorBrush x:Key="BrushCatalogMeta" Color="#A9A9A9" />
+  <SolidColorBrush x:Key="BrushCatalogFavoriteStroke" Color="#6B6B6B" />
+  <SolidColorBrush x:Key="BrushDiscountPanelBg" Color="#243447" />
+  <SolidColorBrush x:Key="BrushDiscountPanelBorder" Color="#3D5A73" />
+  <SolidColorBrush x:Key="BrushCatalogTabBg" Color="#2D2D30" />
+  <SolidColorBrush x:Key="BrushCatalogTabBgHover" Color="#3A3A3C" />
+  <SolidColorBrush x:Key="BrushCatalogTabBgSelected" Color="#007ACC" />
+  <SolidColorBrush x:Key="BrushCatalogTabBorderSelected" Color="#2895E8" />
+
+  <Color x:Key="ColorPrimaryDefault">#007ACC</Color>
+  <Color x:Key="ColorPrimaryHover">#1A88D6</Color>
+  <Color x:Key="ColorPrimaryPressed">#0066B8</Color>
+  <Color x:Key="ColorSecondaryDefault">#333333</Color>
+  <Color x:Key="ColorSecondaryHover">#3D3D3D</Color>
+  <Color x:Key="ColorSecondaryPressed">#2E2E2E</Color>
+  <Color x:Key="ColorGhostDefault">#2D2D2D</Color>
+  <Color x:Key="ColorGhostHover">#383838</Color>
+  <Color x:Key="ColorGhostPressed">#252526</Color>
+  <Color x:Key="ColorDangerDefault">#F14C4C</Color>
+  <Color x:Key="ColorDangerHover">#FF6666</Color>
+  <Color x:Key="ColorDangerPressed">#D64545</Color>
+
+  <SolidColorBrush x:Key="BrushUiStatusMuted" Color="#94A3B8" />
+  <SolidColorBrush x:Key="BrushUiStatusOk" Color="#34D399" />
+  <SolidColorBrush x:Key="BrushUiStatusWarn" Color="#FBBF24" />
+  <SolidColorBrush x:Key="BrushShiftOpenBg" Color="#143D2C" />
+  <SolidColorBrush x:Key="BrushShiftOpenBorder" Color="#166534" />
+  <SolidColorBrush x:Key="BrushShiftWarnBg" Color="#422706" />
+  <SolidColorBrush x:Key="BrushShiftWarnBorder" Color="#B45309" />
+  <SolidColorBrush x:Key="BrushToastNeutralBg" Color="#1E293B" />
+  <SolidColorBrush x:Key="BrushToastWarnBg" Color="#B45309" />
+
+  <!-- CardShadow: WPF DropShadowEffect — use BoxShadow on Border styles in AppControlStyles -->
+</ResourceDictionary>

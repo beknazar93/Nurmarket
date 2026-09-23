@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.BundleItemPickerDialog"
+        Title="{DynamicResource product.selectBundleItems}"
+        Height="620" Width="520" MinHeight="420" MinWidth="420"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        x:CompileBindings="False">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="18,10"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,8"/>
+        </Style>
+        <Style Selector="Button.WindowControlButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.WindowControlButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource BrushPanel}" CornerRadius="{DynamicResource SettingsCardRadius}" Margin="8" BoxShadow="0 8 24 0 #33000000">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,14,16,4">
+                <TextBlock Grid.Column="0" Text="{DynamicResource product.selectBundleItems}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <Button Grid.Column="1" Classes="WindowControlButton" Click="Close_Click">
+                    <TextBlock Text="✕" FontSize="13"/>
+                </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="20,8,16,8" Spacing="10">
+                <TextBox x:Name="SearchBox" Watermark="{DynamicResource product.bundleSearchWatermark}" TextChanged="SearchBox_TextChanged"/>
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <CheckBox Grid.Column="0" x:Name="SelectAllCheckBox" Content="{DynamicResource product.selectAll}" Click="SelectAllCheckBox_Click"/>
+                    <TextBlock Grid.Column="2" x:Name="SelectedCountText" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
+                </Grid>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="2" Margin="20,0,10,0">
+                <ItemsControl x:Name="ItemsList"/>
+            </ScrollViewer>
+
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="20,10,16,16">
+                <TextBlock Grid.Column="0" x:Name="EmptyHintText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                <Button Grid.Column="1" Classes="SecondaryButton" Content="{DynamicResource common.cancel}" Click="Close_Click" Margin="0,0,10,0"/>
+                <Button Grid.Column="2" x:Name="AddButton" Classes="PrimaryButton" Content="{DynamicResource product.addSelected}" Click="AddButton_Click"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

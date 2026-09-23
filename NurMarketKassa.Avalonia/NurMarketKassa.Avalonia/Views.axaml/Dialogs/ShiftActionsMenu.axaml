@@ -1,0 +1,120 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftActionsMenu"
+        Title="{DynamicResource shiftActions.title}"
+        Width="340" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="Button.menu-item">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.menu-item:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="Button.menu-danger">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="Button.menu-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="{DynamicResource shiftActions.title}"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 Margin="4,0,4,10"/>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.View}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="{DynamicResource shiftActions.view}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Deposit}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushUiStatusOk}"/>
+          <TextBlock Text="{DynamicResource shiftActions.deposit}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Withdraw}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="{DynamicResource shiftActions.withdraw}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Export}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="{DynamicResource shiftActions.xReport}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Print}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="{DynamicResource shiftActions.zReport}" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Border Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="4,8"/>
+
+      <Button Classes="menu-danger" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Delete}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="{DynamicResource common.delete}" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+        </StackPanel>
+      </Button>
+
+      <Button Content="{DynamicResource common.cancel}"
+              Height="42"
+              Margin="0,8,0,0"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushInputAlt}"
+              Foreground="{DynamicResource BrushTextMuted}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              BorderThickness="0"
+              Cursor="Hand"
+              IsCancel="True"
+              Click="Cancel_Click"/>
+    </StackPanel>
+  </Border>
+</Window>

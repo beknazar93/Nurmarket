@@ -1,0 +1,480 @@
+﻿using System.Collections.Generic;
+using System.Net.Http;
+using System.Text.Json;
+using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Services.Api;
+
+namespace NurMarketKassa.Services;
+
+/// <summary>Фоновая синхронизация офлайн-продаж и каталога (интервал 45 с).</summary>
+public sealed class SyncService : IDisposable
+{
+    private static readonly TimeSpan SyncInterval = TimeSpan.FromSeconds(45);
+
+    // Полная синхронизация каталога (2026-09-07): раз в 2 минуты (3 — в режиме слабого ПК), отдельно
+    // от 45-секундного цикла проверки связи и отправки офлайн-продаж. Серверного признака версии
+    // каталога нет (catalog-meta/version отвечают 404, ETag не отдаётся), а каждый sync — полная
+    // загрузка каталога + diff в SQLite, поэтому чаще нет смысла. Результат sync'а теперь доходит
+    // до экрана кассира (CatalogCacheService.CatalogChanged), а после своей продажи каталог
+    // обновляется из локальной базы без сети (CatalogPanelViewModel.RepublishFromLocalAsync).
+    private static TimeSpan CatalogSyncInterval =>
+        UserPreferences.Instance.LowPerformanceMode ? TimeSpan.FromMinutes(3) : TimeSpan.FromMinutes(2);
+
+    private DateTime _lastCatalogSyncUtc = DateTime.MinValue;
+
+    // На слабых устройствах (см. UserPreferences.LowPerformanceMode) реже гоняем
+    // полную синхронизацию каталога, чтобы не конкурировать с UI-потоком за CPU/диск.
+    private static TimeSpan CurrentSyncInterval =>
+        UserPreferences.Instance.LowPerformanceMode ? TimeSpan.FromSeconds(90) : SyncInterval;
+
+    private readonly ISalesApiService _sales;
+    private readonly IAuthApiService _auth;
+    private readonly ISyncConflictResolver _syncConflictResolver;
+    private readonly ICatalogCacheService _catalogCache;
+    private readonly SemaphoreSlim _syncGate = new(1, 1);
+    private readonly CancellationTokenSource _cts = new();
+    private Task? _loopTask;
+    private bool _disposed;
+
+    public SyncService(
+        ISalesApiService sales,
+        IAuthApiService auth,
+        ISyncConflictResolver syncConflictResolver,
+        ICatalogCacheService catalogCache,
+        IShiftApiService shiftApi)
+    {
+        _sales = sales;
+        _auth = auth;
+        _syncConflictResolver = syncConflictResolver;
+        _catalogCache = catalogCache;
+        _shiftApi = shiftApi;
+    }
+
+    private readonly IShiftApiService _shiftApi;
+
+    /// <summary>Дожимает смены, закрытые на кассе, но не принятые сервером (см.
+    /// PendingShiftCloseStore). Вызывается при каждом проходе синхронизации: как только сервер
+    /// перестанет отклонять закрытие, смены закроются сами, без участия кассира.</summary>
+    private async Task FlushPendingShiftClosesAsync(CancellationToken ct)
+    {
+        var pending = PendingShiftCloseStore.LoadAll();
+        if (pending.Count == 0)
+            return;
+
+        foreach (var entry in pending)
+        {
+            if (ct.IsCancellationRequested)
+                return;
+
+            try
+            {
+                await _shiftApi
+                    .ConstructionShiftCloseAsync(entry.ShiftId, entry.ClosingCash, null, ct)
+                    .ConfigureAwait(false);
+                PendingShiftCloseStore.Remove(entry.ShiftId);
+            }
+            catch (ApiException ex) when (ex.StatusCode is 404 or 400 && IsAlreadyClosed(ex.Message))
+            {
+                // Смену закрыли где-то ещё (например, в веб-панели) — очередь об этом не знает.
+                PendingShiftCloseStore.Remove(entry.ShiftId);
+            }
+            catch (Exception ex)
+            {
+                // Сервер всё ещё не принимает — пробуем в следующий раз, в журнал пишем
+                // только смену попыток, чтобы не засорять его одной и той же строкой.
+                PendingShiftCloseStore.RecordFailure(entry.ShiftId, ex.Message);
+            }
+        }
+    }
+
+    private static bool IsAlreadyClosed(string? message) =>
+        !string.IsNullOrWhiteSpace(message)
+        && (message.Contains("закрыт", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("already", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("не найден", StringComparison.OrdinalIgnoreCase));
+
+    public event EventHandler? StateChanged;
+
+    public bool IsOnline { get; private set; }
+
+    public bool IsSyncInProgress { get; private set; }
+
+    public string StatusText { get; private set; } = "Проверка связи…";
+
+    public void Start()
+    {
+        if (_loopTask != null)
+            return;
+
+        foreach (var entry in OfflinePendingSalesStore.LoadAll())
+        {
+            if (!string.Equals(entry.Status, OfflineSaleEntry.Syncing, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            OfflinePendingSalesStore.MarkFailed(entry.Id, "Синхронизация была прервана перезапуском кассы.", retryable: true);
+        }
+
+        _loopTask = RunLoopAsync(_cts.Token);
+    }
+
+    public async Task ProbeNowAsync(CancellationToken ct = default)
+    {
+        if (_disposed || ct.IsCancellationRequested)
+            return;
+
+        IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
+        UpdateStatusText();
+        RaiseStateChanged();
+    }
+
+    public async Task TriggerSyncNowAsync(CancellationToken ct = default)
+    {
+        if (_disposed || ct.IsCancellationRequested)
+            return;
+
+        await SyncPendingAsync(ct).ConfigureAwait(false);
+    }
+
+    private async Task RunLoopAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(CurrentSyncInterval);
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await ProbeNowAsync(ct).ConfigureAwait(false);
+                if (IsOnline)
+                    await SyncPendingAsync(ct).ConfigureAwait(false);
+                await timer.WaitForNextTickAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "Синхронизация: " + ex.Message;
+                RaiseStateChanged();
+                try
+                {
+                    await Task.Delay(CurrentSyncInterval, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task SyncPendingAsync(CancellationToken ct)
+    {
+        if (_disposed || ct.IsCancellationRequested)
+            return;
+
+        if (!await _syncGate.WaitAsync(0, ct).ConfigureAwait(false))
+            return;
+
+        try
+        {
+            IsSyncInProgress = true;
+            UpdateStatusText();
+            RaiseStateChanged();
+
+            if (IsOnline)
+                await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
+
+            var pending = OfflinePendingSalesStore.LoadPendingForSync();
+            if (IsOnline && pending.Count > 0)
+                await SyncBatchAsync(pending, ct).ConfigureAwait(false);
+
+            if (IsOnline && DateTime.UtcNow - _lastCatalogSyncUtc >= CatalogSyncInterval)
+            {
+                try
+                {
+                    // Must go through the same ICatalogCacheService instance the UI catalog
+                    // reads from — the static CatalogCacheService.Products list used to be
+                    // refreshed independently here, creating a second set of product-tile
+                    // instances the UI never saw. Any stock decrement StockSyncService then
+                    // applied (via CatalogCacheService.Products) landed on those orphaned
+                    // tiles instead of the ones bound to the screen, so a sale's stock
+                    // decrement silently never appeared until the next full app restart.
+                    await _catalogCache.SyncCatalogFullAsync(ct).ConfigureAwait(false);
+                    _lastCatalogSyncUtc = DateTime.UtcNow;
+                }
+                catch
+                {
+                    /* каталог обновится при следующем цикле */
+                }
+            }
+        }
+        finally
+        {
+            IsSyncInProgress = false;
+            UpdateStatusText();
+            RaiseStateChanged();
+            _syncGate.Release();
+        }
+    }
+
+    private async Task SyncBatchAsync(IReadOnlyList<OfflineSaleEntry> pending, CancellationToken ct)
+    {
+        foreach (var entry in pending)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!IsOnline)
+                break;
+
+            OfflinePendingSalesStore.MarkSyncing(entry.Id);
+            UpdateStatusText();
+            RaiseStateChanged();
+
+            try
+            {
+                var saleId = await ReplayOfflineSaleAsync(entry, ct).ConfigureAwait(false);
+                OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
+                OfflinePendingSalesStore.RemoveSynced(entry.Id);
+            }
+            catch (HttpRequestException ex)
+            {
+                IsOnline = false;
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: true);
+                break;
+            }
+            catch (TaskCanceledException ex)
+            {
+                IsOnline = false;
+                OfflinePendingSalesStore.MarkFailed(
+                    entry.Id,
+                    string.IsNullOrWhiteSpace(ex.Message) ? "Таймаут сети." : ex.Message,
+                    retryable: true);
+                break;
+            }
+            catch (ApiException ex)
+            {
+                // Раньше ЛЮБАЯ ошибка сервера означала "failed навсегда": ничто в приложении не
+                // возвращает запись из failed обратно в очередь, то есть деньги взяты, а продажа
+                // в NurCRM не попадает никогда. Временные сбои (5xx, таймаут шлюза, «слишком
+                // много запросов») к этому не относятся — их надо повторить. Отказ по существу
+                // (4xx: нет товара, неверные данные) повтором не лечится и остаётся failed.
+                var retryable = ex.StatusCode is null or >= 500 or 408 or 429;
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable);
+                PosLogger.Log(
+                    $"OFFLINE replay: чек {entry.Id} — {(retryable ? "временная ошибка, повторим" : "отказ сервера")}: {ex.StatusCode} {ex.Message}",
+                    retryable ? "OFFLINE" : "WARNING");
+            }
+            catch (JsonException ex)
+            {
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: false);
+            }
+
+            UpdateStatusText();
+            RaiseStateChanged();
+        }
+    }
+
+    /// <summary>Спрашивает сервер, не провелась ли уже продажа по этой корзине: статус "new"
+    /// держится только пока чек не оплачен, любой другой означает "checkout применился". Та же
+    /// сверка, что в интерактивной оплате (PosCheckoutService.WasCheckoutAlreadyAppliedAsync) —
+    /// в повторе офлайн-чека её не было вовсе.</summary>
+    private async Task<bool?> WasCheckoutAlreadyAppliedAsync(string? cartId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cartId))
+            return false;
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
+            var sale = await _sales.PosSaleGetAsync(cartId, cts.Token).ConfigureAwait(false);
+            if (sale.ValueKind != JsonValueKind.Object
+                || !sale.TryGetProperty("status", out var statusEl)
+                || statusEl.ValueKind != JsonValueKind.String)
+                return null;
+
+            return !string.Equals(statusEl.GetString(), "new", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"OFFLINE replay: сверка чека {cartId} не удалась: {ex.Message}", "OFFLINE");
+            return null;
+        }
+    }
+
+    private async Task<string?> ReplayOfflineSaleAsync(OfflineSaleEntry entry, CancellationToken ct)
+    {
+        string cartId;
+
+        // Повтор ПОСЛЕ отправленного checkout'а. Раньше этой ветки не было: если ответ сервера не
+        // дошёл (обрыв/таймаут), следующий цикл через 45 с просто проводил чек заново — деньги
+        // списывались с покупателя один раз, а продажа появлялась в NurCRM дважды. Поля
+        // SyncCartId/CheckoutSubmittedAt/CheckoutCompleted были объявлены под эту защиту, но
+        // никогда не заполнялись — защита существовала только в комментарии.
+        // 2026-09-23. Чек уже проведён на сервере, но запись вернулась в очередь. Так бывает,
+        // когда касса закрылась (или её закрыли через диспетчер задач) между отметкой
+        // CheckoutCompleted и удалением записи из очереди — а между ними идёт цикл сетевых
+        // запросов по каждой позиции. При следующем запуске прерванная синхронизация
+        // возвращается в pending_sync (см. MarkFailed(retryable: true) в начале файла).
+        //
+        // Проверка ниже раньше стояла с условием !entry.CheckoutCompleted, то есть выключалась
+        // ровно в этом случае: код проваливался дальше и создавал вторую продажу с нуля.
+        // Покупатель платил один раз, в NurCRM появлялось два чека и товар списывался дважды.
+        if (entry.CheckoutCompleted)
+        {
+            PosLogger.Log(
+                $"OFFLINE replay: чек {entry.Id} уже проведён ранее — повтор пропущен.",
+                "OFFLINE");
+            return entry.SyncedSaleId;
+        }
+
+        if (entry.CheckoutSubmittedAt is not null)
+        {
+            var applied = await WasCheckoutAlreadyAppliedAsync(entry.SyncCartId, ct).ConfigureAwait(false);
+            if (applied == true)
+            {
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} уже проведён на сервере — повтор пропущен.", "OFFLINE");
+                OfflinePendingSalesStore.Update(entry.Id, e => e.CheckoutCompleted = true);
+                return entry.SyncedSaleId;
+            }
+
+            if (applied is null)
+            {
+                // Связь есть, но ответить "проводилась или нет" сервер не смог. Провести повторно
+                // здесь — значит рискнуть дублем; ждём следующего цикла, чек остаётся в очереди.
+                throw new HttpRequestException("Не удалось проверить, прошла ли оплата — повтор отложен.");
+            }
+
+            // Сервер подтвердил: корзина ещё не оплачена. Товары в ней уже лежат — добавлять их
+            // второй раз нельзя, идём сразу к оплате.
+            cartId = entry.SyncCartId!;
+            return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
+        }
+
+        var start = await _sales.PosSalesStartAsync(entry.CashboxId, ct).ConfigureAwait(false);
+        cartId = CartDisplayHelper.TryCartId(start) ?? "";
+        if (string.IsNullOrEmpty(cartId))
+            throw new ApiException("Сервер не вернул cart_id для синхронизации офлайн-чека.", 500);
+
+        // Общая с обычной оплатой выгрузка снимка (см. StagingCartService): она умеет строки
+        // «Доп. услуга» и поштучную продажу из пачки. Прежняя local-копия этого цикла молча
+        // пропускала строки без product_id и теряла sale_package_id.
+        await StagingCartService.PushItemsFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
+        await StagingCartService.ApplyOrderDiscountFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
+
+        return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
+    }
+
+    private async Task<string?> SubmitReplayCheckoutAsync(OfflineSaleEntry entry, string cartId, CancellationToken ct)
+    {
+        var body = new Dictionary<string, string>
+        {
+            ["payment_method"] = entry.PaymentMethod ?? "",
+            ["print_receipt"] = "false",
+            ["cash_received"] = entry.CashReceived ?? "",
+        };
+
+        // Смена, в которую чек был пробит на самом деле. Без этого поля сервер относил продажу к
+        // смене, открытой на момент ВЫГРУЗКИ: чек, пробитый вечером в смене А и выгруженный утром,
+        // попадал в смену Б, и её кассир отвечал за деньги, которых не брал.
+        // ВАЖНО: "offline-shift-<guid>" — это ЛОКАЛЬНЫЙ идентификатор смены, открытой без сети
+        // (CashShiftService). Серверу он не известен и валидным UUID не является, поэтому такой
+        // checkout отклоняется с 4xx, а 4xx здесь считается окончательным отказом (см. catch ниже)
+        // — запись уходит в failed, откуда её НИЧТО не возвращает. Иначе говоря, отправив это
+        // поле, мы теряли бы ровно те чеки, ради которых очередь и существует: всю офлайн-смену.
+        // Тот же фильтр стоит в интерактивной оплате (PosCheckoutService.BuildCheckoutRequestBody);
+        // здесь его сначала забыли продублировать. Без shift_id сервер отнесёт чек к смене на
+        // момент выгрузки — это хуже, чем точная привязка, но несопоставимо лучше потери продажи.
+        if (!string.IsNullOrWhiteSpace(entry.ShiftId)
+            && !entry.ShiftId!.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
+            body["shift_id"] = entry.ShiftId!;
+
+        // Отметка ставится ДО запроса и переживает перезапуск процесса — именно по ней следующий
+        // цикл поймёт, что ответ мог потеряться, и сначала сверится с сервером (см. выше).
+        OfflinePendingSalesStore.Update(entry.Id, e =>
+        {
+            e.SyncCartId = cartId;
+            e.CheckoutSubmittedAt = DateTimeOffset.Now;
+        });
+
+        var result = await _sales.PosCheckoutAsync(cartId, body, ct).ConfigureAwait(false);
+        OfflinePendingSalesStore.Update(entry.Id, e => e.CheckoutCompleted = true);
+
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(entry.CartJson) ? "{}" : entry.CartJson);
+        var root = doc.RootElement;
+
+        foreach (var item in CartDisplayHelper.EnumerateItems(root))
+        {
+            var productId = CartDisplayHelper.TryProductId(item);
+            if (string.IsNullOrEmpty(productId))
+                continue;
+
+            var soldQty = CartDisplayHelper.LineQuantity(item);
+            if (soldQty <= 0)
+                continue;
+
+            try
+            {
+                // PosCheckoutAsync above already decremented stock server-side for this
+                // sale; re-applying -soldQty via Accumulate would push serverStock+delta
+                // back to the server and double-decrement it. Just resync the local
+                // catalog cache to the now-authoritative server value instead.
+                await _syncConflictResolver.ResolveAndSyncStockAsync(
+                    productId,
+                    -soldQty,
+                    SyncStrategy.ServerWins,
+                    ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                /* синхронизация остатков не должна отменять отправку чека */
+            }
+        }
+
+        return CheckoutResponseHelper.TrySaleId(result);
+    }
+
+    private void UpdateStatusText()
+    {
+        var pending = OfflinePendingSalesStore.PendingCount;
+        if (IsSyncInProgress)
+        {
+            StatusText = pending > 0
+                ? $"Синхронизация очереди: {pending} чек(ов)."
+                : "Синхронизация завершается…";
+            return;
+        }
+
+        if (!IsOnline)
+        {
+            StatusText = pending > 0
+                ? $"Оффлайн. В очереди {pending} чек(ов)."
+                : "Оффлайн. Продажи будут сохранены локально.";
+            return;
+        }
+
+        StatusText = pending > 0
+            ? $"Онлайн. Ожидают синхронизации: {pending}."
+            : "Онлайн. Очередь синхронизации пуста.";
+    }
+
+    private void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        try { _cts.Cancel(); } catch { /* ignore */ }
+
+        try
+        {
+            _loopTask?.GetAwaiter().GetResult();
+        }
+        catch { /* ignore */ }
+
+        _cts.Dispose();
+        _syncGate.Dispose();
+    }
+}

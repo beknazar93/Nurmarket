@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentStockBlockedDialog"
+        Title="Недостаточно товара"
+        Width="520" SizeToContent="Height"
+        MaxHeight="600"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="Оплата невозможна"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,12"/>
+
+      <ScrollViewer MaxHeight="360" Margin="0,0,0,20">
+        <TextBlock x:Name="BodyText"
+                   TextWrapping="Wrap"
+                   FontSize="14"
+                   Foreground="{DynamicResource BrushTextSoft}"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center"/>
+      </ScrollViewer>
+
+      <Button Content="Понятно"
+              Height="46" Width="240"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushText}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="Ok_Click"/>
+    </StackPanel>
+  </Border>
+</Window>

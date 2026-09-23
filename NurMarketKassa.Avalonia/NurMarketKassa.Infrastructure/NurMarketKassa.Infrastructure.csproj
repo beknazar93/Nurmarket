@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NurMarketKassa.Infrastructure</RootNamespace>
+    <AssemblyName>NurMarketKassa.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NurMarketKassa.Core\NurMarketKassa.Core.csproj" />
+    <ProjectReference Include="..\NurMarketKassa.Ui.Shared\NurMarketKassa.Ui.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NurMarketKassa.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.0" />
+    <PackageReference Include="linq2db" Version="5.4.1" />
+    <PackageReference Include="linq2db.PostgreSQL" Version="5.4.1" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Octokit" Version="14.0.0" />
+    <!-- Голосовой замок (2026-09-05): проверка "тот ли голос говорит" через готовую,
+         протестированную библиотеку sherpa-onnx (Apache 2.0, k2-fsa) вместо самодельного
+         FFT/mel-filterbank в C# — извлечение признаков (Kaldi-совместимый fbank) там уже
+         реализовано и подобрано под конкретную ONNX-модель эмбеддинга диктора. -->
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.5" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.5" />
+    <PackageReference Include="QuestPDF" Version="2024.12.3" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.8" />
+    <PackageReference Include="ZXing.Net" Version="0.16.10" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.8" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.8" />
+    <PackageReference Include="Velopack" Version="1.0.1" />
+    <PackageReference Include="Vosk" Version="0.3.38" />
+    <PackageReference Include="WebSocketSharp-netstandard" Version="1.0.1" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,322 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.MonitorSettingsView"
+             x:CompileBindings="False">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+    <Style Selector="RadioButton.LayoutOption">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="MinHeight" Value="92"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="RadioButton.LayoutOption:checked">
+      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <Grid RowDefinitions="*,Auto">
+      <ScrollViewer Classes="SettingsPageScroll">
+        <StackPanel Classes="SettingsCardList">
+          <Border Classes="SettingsHeaderCard">
+            <Grid ColumnDefinitions="48,*">
+              <Border Width="42" Height="42" CornerRadius="10" Background="{DynamicResource BrushWarningSoft}">
+                <Path Width="24" Height="24" Stretch="Uniform" Fill="Transparent"
+                      Stroke="{DynamicResource BrushWarning}" StrokeThickness="1.6" StrokeLineCap="Round"
+                      Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <StackPanel Grid.Column="1" Spacing="3">
+                <TextBlock Classes="SettingsPageTitle" Text="{DynamicResource posSettings.monitor.title}"/>
+                <TextBlock Classes="SettingsPageSubtitle"
+                           Text="{DynamicResource posSettings.monitor.subtitle}"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.mainSettingsTitle}"/>
+              <CheckBox Classes="ToggleSwitch"
+                        Content="{DynamicResource posSettings.monitor.useCustomerDisplay}"
+                        IsChecked="{Binding Settings.IsEnabled}"/>
+              <CheckBox Content="{DynamicResource posSettings.monitor.keepOnTop}"
+                        IsChecked="{Binding Settings.KeepCustomerDisplayOnTop}"/>
+              <TextBlock Classes="SettingsCardBody"
+                         Text="{DynamicResource posSettings.monitor.autoOpenDesc}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.outputDeviceTitle}"/>
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.monitorLabel}"/>
+                  <ComboBox Classes="TouchComboBox" ItemsSource="{Binding Screens}"
+                            SelectedItem="{Binding SelectedScreen}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="SettingsFlatButton" Content="{DynamicResource common.refresh}"
+                        VerticalAlignment="Bottom" Click="Refresh_Click"/>
+              </Grid>
+              <StackPanel>
+                <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.windowMode}"/>
+                <ComboBox Classes="TouchComboBox" ItemsSource="{Binding WindowModes}"
+                          SelectedValueBinding="{Binding Value}"
+                          SelectedValue="{Binding Settings.WindowMode}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+              <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.productViewTitle}"/>
+              <Grid ColumnDefinitions="*,*">
+                <RadioButton Classes="LayoutOption" IsChecked="{Binding IsCardLayoutSelected}">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="{DynamicResource monitorSettings.cardMode}" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="{DynamicResource posSettings.monitor.cardLayoutDesc}"
+                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </RadioButton>
+                <RadioButton Grid.Column="1" Classes="LayoutOption" IsChecked="{Binding IsTableLayoutSelected}">
+                  <StackPanel Spacing="5">
+                    <TextBlock Text="{DynamicResource monitorSettings.tableMode}" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="{DynamicResource posSettings.monitor.tableLayoutDesc}"
+                               Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </RadioButton>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsCardLayoutSelected}">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.columnCount}"/>
+                  <ComboBox Classes="TouchComboBox" ItemsSource="{Binding ColumnModes}"
+                            SelectedValueBinding="{Binding Value}"
+                            SelectedValue="{Binding Settings.CardColumns}">
+                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.cardScale}"/>
+                  <NumericUpDown Minimum="0.75" Maximum="1.5" Increment="0.05"
+                                 Value="{Binding Settings.CardSize}" Height="42"/>
+                </StackPanel>
+              </Grid>
+              <WrapPanel IsVisible="{Binding IsCardLayoutSelected}">
+                <CheckBox Content="{DynamicResource posSettings.monitor.productImage}" IsChecked="{Binding Settings.ShowProductImage}" Margin="0,0,18,8"/>
+                <CheckBox Content="{DynamicResource csh.catalog.colBarcode}" IsChecked="{Binding Settings.ShowBarcode}" Margin="0,0,18,8"/>
+                <CheckBox Content="{DynamicResource discount.title}" IsChecked="{Binding Settings.ShowItemDiscount}" Margin="0,0,18,8"/>
+                <CheckBox Content="{DynamicResource csh.catalog.colStock}" IsChecked="{Binding Settings.ShowStock}" Margin="0,0,18,8"/>
+              </WrapPanel>
+
+              <Grid IsVisible="{Binding IsTableLayoutSelected}" ColumnDefinitions="*,Auto">
+                <ListBox x:Name="TableColumnsList" ItemsSource="{Binding TableColumns}" MinHeight="180">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <CheckBox Content="{Binding Label}" IsChecked="{Binding IsEnabled}" Padding="6"/>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel Grid.Column="1" Spacing="8">
+                  <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.moveUp}" Click="ColumnUp_Click"/>
+                  <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.moveDown}" Click="ColumnDown_Click"/>
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.livePreview}"/>
+              <Border Height="190" CornerRadius="12" Padding="14"
+                      Background="{Binding Settings.BackgroundColor}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,*,Auto">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="MARKET PLUS" FontWeight="Bold"/>
+                    <TextBlock Grid.Column="1" Text="2 поз."/>
+                  </Grid>
+                  <Grid Grid.Row="1" Margin="0,10">
+                    <Grid ColumnDefinitions="*,*" IsVisible="{Binding IsCardLayoutSelected}">
+                      <Border Background="{DynamicResource BrushPanel}" CornerRadius="8" Padding="10" Margin="0,0,5,0">
+                        <StackPanel>
+                          <TextBlock Text="{DynamicResource posSettings.monitor.sampleCoffee}" FontWeight="SemiBold"/>
+                          <TextBlock Text="×2 шт" Foreground="{DynamicResource BrushTextSoft}"/>
+                          <TextBlock Text="320.00 сом" Foreground="{Binding Settings.AccentColor}"/>
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Column="1" Background="{DynamicResource BrushPanel}" CornerRadius="8" Padding="10" Margin="5,0,0,0">
+                        <StackPanel>
+                          <TextBlock Text="{DynamicResource posSettings.monitor.sampleMilk}" FontWeight="SemiBold"/>
+                          <TextBlock Text="×1 шт" Foreground="{DynamicResource BrushTextSoft}"/>
+                          <TextBlock Text="95.00 сом" Foreground="{Binding Settings.AccentColor}"/>
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                    <StackPanel IsVisible="{Binding IsTableLayoutSelected}">
+                      <Grid ColumnDefinitions="2*,*,*" Background="{DynamicResource BrushWarningSoft}">
+                        <TextBlock Text="{DynamicResource common.product}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.monitor.qtyShort}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="{DynamicResource common.amount}" FontWeight="SemiBold"/>
+                      </Grid>
+                      <Grid ColumnDefinitions="2*,*,*" Margin="0,8,0,0">
+                        <TextBlock Text="{DynamicResource posSettings.monitor.sampleCoffee}"/>
+                        <TextBlock Grid.Column="1" Text="2"/>
+                        <TextBlock Grid.Column="2" Text="320.00"/>
+                      </Grid>
+                    </StackPanel>
+                  </Grid>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource posSettings.monitor.samplePayable}" FontWeight="Bold"
+                             HorizontalAlignment="Right" Foreground="{Binding Settings.AccentColor}"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.screenContentTitle}"/>
+              <WrapPanel>
+                <CheckBox Content="{DynamicResource posSettings.monitor.companyLogo}" IsChecked="{Binding Settings.ShowCompanyLogo}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.screen.storeName}" IsChecked="{Binding Settings.ShowStoreName}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.print.receiptNumber}" IsChecked="{Binding Settings.ShowReceiptNumber}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource common.cashier}" IsChecked="{Binding Settings.ShowCashier}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource common.dateTime}" IsChecked="{Binding Settings.ShowDateTime}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.itemCount}" IsChecked="{Binding Settings.ShowItemCount}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.subtotal}" IsChecked="{Binding Settings.ShowSubtotal}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource discount.title}" IsChecked="{Binding Settings.ShowDiscount}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.totalToPay}" IsChecked="{Binding Settings.ShowTotal}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.paymentMethod}" IsChecked="{Binding Settings.ShowPaymentMethod}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.paidAmount}" IsChecked="{Binding Settings.ShowPaidAmount}" Width="220" Margin="0,0,8,10"/>
+                <CheckBox Content="{DynamicResource posSettings.monitor.change}" IsChecked="{Binding Settings.ShowChange}" Width="220" Margin="0,0,8,10"/>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.emptyStateTitle}"/>
+              <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.titleLabel}"/>
+              <TextBox Classes="ModernTextBox" Text="{Binding Settings.EmptyTitle}"/>
+              <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.descriptionLabel}"/>
+              <TextBox Classes="ModernTextBox" Text="{Binding Settings.EmptyDescription}"/>
+              <CheckBox Content="{DynamicResource posSettings.monitor.showLogo}" IsChecked="{Binding Settings.ShowLogoInEmptyState}"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.adBlockTitle}"/>
+              <CheckBox Classes="ToggleSwitch" Content="{DynamicResource posSettings.monitor.showAdBlock}"
+                        IsChecked="{Binding Settings.AdvertisementEnabled}"/>
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.titleLabel}"/>
+                  <TextBox Classes="ModernTextBox" Text="{Binding Settings.AdvertisementTitle}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.position}"/>
+                  <ComboBox Classes="TouchComboBox" ItemsSource="{Binding AdvertisementPositions}"
+                            SelectedValueBinding="{Binding Value}"
+                            SelectedValue="{Binding Settings.AdvertisementPosition}">
+                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+              </Grid>
+              <TextBox Classes="ModernTextBox" Watermark="{DynamicResource posSettings.monitor.promoDescWatermark}"
+                       Text="{Binding Settings.AdvertisementDescription}"/>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Classes="ModernTextBox" IsReadOnly="True"
+                         Text="{Binding Settings.AdvertisementImagePath}" Watermark="{DynamicResource posSettings.monitor.noImageSelected}"/>
+                <Button Grid.Column="1" Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.selectEllipsis}" Click="PickAdImage_Click"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.appearanceTitle}"/>
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.theme}"/>
+                  <ComboBox Classes="TouchComboBox" ItemsSource="{Binding Themes}"
+                            SelectedValueBinding="{Binding Value}" SelectedValue="{Binding Settings.Theme}">
+                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.uiScale}"/>
+                  <NumericUpDown Minimum="0.75" Maximum="1.5" Increment="0.05"
+                                 Value="{Binding Settings.Scale}" Height="42"/>
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.accentColor}"/>
+                  <TextBox Classes="ModernTextBox" Text="{Binding Settings.AccentColor}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.backgroundColor}"/>
+                  <TextBox Classes="ModernTextBox" Text="{Binding Settings.BackgroundColor}"/>
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Classes="ModernTextBox" IsReadOnly="True"
+                         Text="{Binding Settings.BackgroundImagePath}" Watermark="{DynamicResource posSettings.monitor.backgroundImageWatermark}"/>
+                <Button Grid.Column="1" Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.selectBackground}" Click="PickBackground_Click"/>
+              </Grid>
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel>
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.cornerRadius}"/>
+                  <NumericUpDown Minimum="0" Maximum="40" Value="{Binding Settings.CornerRadius}" Height="42"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.backgroundDarkening}"/>
+                  <NumericUpDown Minimum="0" Maximum="0.9" Increment="0.05"
+                                 Value="{Binding Settings.BackgroundOverlayOpacity}" Height="42"/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.afterPaymentTitle}"/>
+              <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.successMessageLabel}"/>
+              <TextBox Classes="ModernTextBox" Text="{Binding Settings.SuccessText}"/>
+              <CheckBox Content="{DynamicResource posSettings.monitor.showChangeAfterPayment}" IsChecked="{Binding Settings.ShowChangeAfterPayment}"/>
+              <StackPanel>
+                <TextBlock Classes="FieldLabel" Text="{DynamicResource posSettings.monitor.clearDelayLabel}"/>
+                <NumericUpDown Minimum="0" Maximum="60" Value="{Binding Settings.ClearDelaySeconds}" Height="42"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <Border Grid.Row="1" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1,1,1,0"
+              Padding="12" Margin="0,12,0,0">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+          <Button Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.open}" Click="OpenDisplay_Click"/>
+          <Button Grid.Column="1" Classes="SettingsFlatButton" Content="{DynamicResource posSettings.monitor.show}" Click="ShowDisplay_Click"/>
+          <Button Grid.Column="2" Classes="SettingsFlatButton" Content="{DynamicResource common.close}" Click="CloseDisplay_Click"/>
+          <Button Grid.Column="3" Classes="SettingsFlatButton" Content="{DynamicResource monitorSettings.previewButton}" Click="Preview_Click"/>
+          <TextBlock Grid.Column="4" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                     Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+          <Button Grid.Column="5" Height="42" Padding="22,0" Background="{DynamicResource BrushWarning}"
+                  Foreground="{DynamicResource BrushText}" CornerRadius="10" Content="{DynamicResource common.save}" Click="Save_Click"/>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

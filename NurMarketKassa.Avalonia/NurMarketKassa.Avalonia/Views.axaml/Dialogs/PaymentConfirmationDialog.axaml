@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentConfirmationDialog"
+        Title="{DynamicResource dialog.confirmTitle}"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="{DynamicResource paymentConfirm.message}"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,24"/>
+
+      <Grid ColumnDefinitions="*,12,*" Width="300" HorizontalAlignment="Center">
+        <Button Grid.Column="0"
+                Content="{DynamicResource common.no}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushPanel}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="NoButton_Click"/>
+
+        <Button Grid.Column="2"
+                Content="{DynamicResource common.confirm}"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushAccentForeground}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                IsDefault="True"
+                Click="YesButton_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
+</Window>

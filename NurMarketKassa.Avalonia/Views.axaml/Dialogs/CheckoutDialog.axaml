@@ -1,0 +1,301 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
+        xmlns:conv="using:NurMarketKassa.Converters"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CheckoutDialog"
+        x:DataType="vm:CheckoutViewModel"
+        x:CompileBindings="True"
+        Title="Оплата"
+        Width="880" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        Background="{DynamicResource BrushPanel}">
+
+    <Window.Resources>
+        <conv:PathToImageConverter x:Key="PathToImageConverter"/>
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- Стиль для переключателей способа оплаты в виде кнопок -->
+        <Style Selector="RadioButton.PayTypeOption">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RadioButton.PayTypeOption:checked">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style Selector="CheckBox.Switch">
+            <Setter Property="Padding" Value="10,0,0,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid ColumnDefinitions="Auto,*" Background="Transparent">
+                        <!-- Фон и рамка тумблера (трек) -->
+                        <Border x:Name="PART_SwitchTrack"
+                                Width="44" Height="24"
+                                CornerRadius="12"
+                                Background="{DynamicResource BrushBorderStrong}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                                </Transitions>
+                            </Border.Transitions>
+
+                            <!-- Ползунок -->
+                            <Border x:Name="PART_SwitchThumb"
+                                    Width="18" Height="18"
+                                    Margin="3,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    CornerRadius="9"
+                                    Background="{DynamicResource BrushPanel}">
+                                <Border.Transitions>
+                                    <Transitions>
+                                        <ThicknessTransition Property="Margin"
+                                                             Duration="0:0:0.2"
+                                                             Easing="CubicEaseOut"/>
+                                    </Transitions>
+                                </Border.Transitions>
+                            </Border>
+                        </Border>
+                        <!-- Текст рядом с тумблером -->
+                        <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Grid.Column="1"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- Состояние ВКЛЮЧЕНО (Checked) -->
+        <Style Selector="CheckBox.Switch:checked /template/ Border#PART_SwitchTrack">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/> <!-- Цвет включенного состояния -->
+        </Style>
+        <Style Selector="CheckBox.Switch:checked /template/ Border#PART_SwitchThumb">
+            <Setter Property="Margin" Value="23,0,0,0"/> <!-- Смещение ползунка вправо -->
+        </Style>
+
+        <!-- Состояние Наведение (Hover) -->
+        <Style Selector="CheckBox.Switch:pointerover /template/ Border#PART_SwitchTrack">
+            <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+
+        <!-- Состояние Отключено (Disabled) -->
+        <Style Selector="CheckBox.Switch:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Кастомное модальное окно -->
+    <Border Margin="16" CornerRadius="16"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 16 40 0 #33101828"
+            Padding="32,28">
+
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- 1. Заголовок диалога -->
+            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,24">
+                <TextBlock Text="Оплата покупки" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock Text="Выберите способ оплаты и подтвердите сумму" FontSize="14" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+
+            <!-- 2. Основной контент: Итог слева, Оплата справа -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,32,*" Margin="0,0,0,24">
+
+                <!-- Левая колонка: Итоговая сумма -->
+                <Border Grid.Column="0"
+                        Background="{DynamicResource BrushPanelSoft}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="24">
+                    <StackPanel Spacing="12" VerticalAlignment="Center">
+                        <TextBlock Text="ИТОГ К ОПЛАТЕ" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <TextBlock Text="{Binding BigTotalDisplay}"
+                                   FontSize="44" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushText}"
+                                   TextWrapping="Wrap"/>
+
+                        <TextBlock Text="{Binding PayableDisplay}" FontSize="16" Foreground="{DynamicResource BrushTextMuted}"/>
+
+                        <!-- Скидка (если есть) -->
+                        <Border Background="{DynamicResource BrushDangerSoft}"
+                                CornerRadius="8"
+                                Padding="10,6"
+                                HorizontalAlignment="Left"
+                                IsVisible="{Binding !!DiscountSummaryDisplay}">
+                            <TextBlock Text="{Binding DiscountSummaryDisplay}"
+                                       Foreground="{DynamicResource BrushDanger}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Правая колонка: Способы оплаты и ввод -->
+                <StackPanel Grid.Column="2" Spacing="16" VerticalAlignment="Center">
+
+                    <TextBlock Text="СПОСОБ ОПЛАТЫ" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                    <!-- Переключение Наличные / Безналичные -->
+                    <Grid ColumnDefinitions="*,8,*">
+                        <RadioButton Grid.Column="0"
+                                     Content="💵 Наличные"
+                                     GroupName="Pay"
+                                     Classes="PayTypeOption"
+                                     IsChecked="{Binding IsCash, Mode=TwoWay}"/>
+
+                        <RadioButton Grid.Column="2"
+                                     Content="💳 Безналичные"
+                                     GroupName="Pay"
+                                     Classes="PayTypeOption"
+                                     IsChecked="{Binding IsTransfer, Mode=TwoWay}"/>
+                    </Grid>
+
+                    <!-- Поле ввода наличных (показывается только при IsCashMode) -->
+                    <StackPanel IsVisible="{Binding IsCashMode}" Spacing="8" Margin="0,4,0,0">
+                        <TextBlock Text="Получено наличными" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>
+
+                        <TextBox Text="{Binding CashReceived}"
+                                 Height="46"
+                                 Padding="12,8"
+                                 FontSize="18"
+                                 FontWeight="Bold"
+                                 CornerRadius="10"
+                                 BorderBrush="{DynamicResource BrushBorder}"
+                                 BorderThickness="1.5"
+                                 Background="{DynamicResource BrushPanel}"
+                                 VerticalContentAlignment="Center"/>
+
+                        <!-- Сдача -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <TextBlock Text="Сдача:" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ChangeAmountDisplay}" Foreground="{DynamicResource BrushUiStatusOk}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Чекбокс печати чека в виде Switch -->
+                    <!-- Банк и QR-код для безналичной оплаты -->
+                    <StackPanel IsVisible="{Binding IsBankSelectionVisible}"
+                                Spacing="10"
+                                Margin="0,4,0,0">
+                        <TextBlock Text="Выберите банк"
+                                   FontSize="13"
+                                   FontWeight="Medium"
+                                   Foreground="{DynamicResource BrushTextMuted}"/>
+
+                        <ComboBox ItemsSource="{Binding Banks}"
+                                  SelectedItem="{Binding SelectedBank, Mode=TwoWay}"
+                                  Height="42"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BankAccount">
+                                    <TextBlock Text="{Binding BankName}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <Border Background="White"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="10"
+                                HorizontalAlignment="Center"
+                                IsVisible="{Binding HasQrCode}">
+                            <Image Source="{Binding QrCodePath, Converter={StaticResource PathToImageConverter}}"
+                                   Width="180"
+                                   Height="180"
+                                   Stretch="Uniform"/>
+                        </Border>
+
+                        <TextBlock Text="Для выбранного банка QR-код не загружен. Добавьте его в Настройки → Операции."
+                                   IsVisible="{Binding !HasQrCode}"
+                                   Foreground="{DynamicResource BrushDanger}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <CheckBox Classes="Switch"
+                              Content="Напечатать чек"
+                              IsChecked="{Binding IsPrintReceiptEnabled}"
+                              Margin="0,4,0,0"/>
+
+                    <!-- Ошибка -->
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="{DynamicResource BrushDanger}"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding !!ErrorMessage}"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 3. Кнопки действий -->
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+                <Button Grid.Column="0" Content="Отмена"
+                        Click="Cancel_Click"
+                        Height="48" Width="140"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushPanel}"
+                        Foreground="{DynamicResource BrushTextMuted}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1.5"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"/>
+
+                <Button Grid.Column="1" Content="{Binding PayButtonText}"
+                        Command="{Binding PayCommand}"
+                        IsEnabled="{Binding CanPay}"
+                        Height="48"
+                        Margin="12,0,0,0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushAccent}"
+                        Foreground="{DynamicResource BrushText}"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        CornerRadius="10"
+                        Cursor="Hand"/>
+            </Grid>
+
+        </Grid>
+    </Border>
+</Window>

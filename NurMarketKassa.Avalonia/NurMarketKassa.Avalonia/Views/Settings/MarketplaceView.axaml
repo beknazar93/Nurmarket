@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.MarketplaceView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="720" HorizontalAlignment="Center">
+
+        <!-- Хедер -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
+                    BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+              <TextBlock Text="🛍️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource posSettings.navMarketplace}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource marketplace.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Баннер обновления (2026-09-05, по просьбе пользователя: "при нажатии на
+             маркетплейс обновлял список, чтобы клиенты видели новые функции и темы") —
+             новые темы/доп. услуги реально попадают в кассу только через обновление версии
+             (Velopack/GitHub Releases), отдельного каталога на сервере нет. Проверка
+             запускается автоматически при каждом открытии этого окна. -->
+        <Border x:Name="UpdateBanner" IsVisible="False"
+                Background="{DynamicResource BrushAccentSoft}"
+                BorderBrush="{DynamicResource BrushAccent}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="14">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock x:Name="UpdateBannerTitle" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentStrong}"/>
+                <TextBlock x:Name="UpdateBannerNotes" FontSize="12" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap" MaxLines="4"/>
+              </StackPanel>
+              <Button Grid.Column="1" x:Name="UpdateNowButton" Content="{DynamicResource marketplace.updateNowButton}"
+                      Classes="btn-primary" Click="UpdateNow_Click" VerticalAlignment="Top"/>
+            </Grid>
+            <ProgressBar x:Name="UpdateProgressBar" IsVisible="False" Height="6" Minimum="0" Maximum="100"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Переключатель вкладок -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+          <Button x:Name="ThemesTabButton" Classes="btn-primary"
+                  Content="{DynamicResource marketplace.themesTab}"
+                  Height="38" Padding="16,6" Click="ThemesTab_Click"/>
+          <Button x:Name="ExtrasTabButton" Classes="btn-secondary"
+                  Content="{DynamicResource marketplace.extrasTab}"
+                  Height="38" Padding="16,6" Click="ExtrasTab_Click"/>
+        </StackPanel>
+
+        <!-- Темы -->
+        <Border x:Name="ThemesPanel" Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{DynamicResource marketplace.themeTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="{DynamicResource marketplace.themeDesc}"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <ItemsControl x:Name="ThemeGalleryPanel" Margin="0,6,0,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Прозрачность "Жидкого стекла" — видна только пока выбрана эта тема. Шрифт,
+             скруглённость и "Свой цвет" настраиваются в модалке "⚙ Настройка темы" (см.
+             BuildThemeGallery/ThemeSettingsDialog) — стекло осталось отдельной инлайн-карточкой,
+             т.к. это специфичный для этой темы параметр, а не общий для всех тем. -->
+        <Border x:Name="GlassOpacityCard" Classes="SettingsCard" Padding="14" IsVisible="False">
+          <StackPanel Spacing="6">
+            <CheckBox x:Name="LiquidGlassToggle" Classes="ToggleSwitch" Height="48"
+                      Click="LiquidGlassToggle_Click">
+              <StackPanel>
+                <TextBlock Text="{DynamicResource marketplace.liquidGlassToggleTitle}" FontSize="13" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource marketplace.liquidGlassToggleDesc}"
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420"/>
+              </StackPanel>
+            </CheckBox>
+
+            <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,4"/>
+
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{DynamicResource marketplace.glassOpacityTitle}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
+              <TextBlock x:Name="GlassOpacityValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
+                         Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+            </Grid>
+            <TextBlock Text="{DynamicResource marketplace.glassOpacityDesc}"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Slider x:Name="GlassOpacitySlider" Minimum="0" Maximum="100" TickFrequency="5"
+                    IsSnapToTickEnabled="True" Margin="0,4,0,0"
+                    ValueChanged="GlassOpacitySlider_ValueChanged"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Доп. функции -->
+        <Border x:Name="ExtrasPanel" Classes="SettingsCard" Padding="14" IsVisible="False">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource marketplace.extrasIntro}"
+                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <WrapPanel x:Name="ExtrasWrapPanel">
+              <Border Classes="SettingsCard" Width="330" Padding="14" Margin="0,0,10,10">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{DynamicResource marketplace.extra2Title}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
+                    <Border Grid.Column="1" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}"
+                            BorderThickness="1" CornerRadius="10" Padding="8,3" VerticalAlignment="Center">
+                      <TextBlock Text="{DynamicResource marketplace.comingSoonBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
+                    </Border>
+                  </Grid>
+                  <TextBlock Text="{DynamicResource marketplace.extra2Desc}" Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+              </Border>
+
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

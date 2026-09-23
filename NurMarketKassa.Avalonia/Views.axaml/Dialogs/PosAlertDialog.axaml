@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog"
+        Title="Сообщение"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock x:Name="TitleText"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,12"/>
+
+      <TextBlock x:Name="MessageText"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,22"/>
+
+      <Button x:Name="OkButton"
+              Content="Понятно"
+              Height="46" Width="240"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="{DynamicResource BrushAccent}"
+              Foreground="{DynamicResource BrushText}"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              Cursor="Hand"
+              Click="OkButton_Click"/>
+    </StackPanel>
+  </Border>
+</Window>

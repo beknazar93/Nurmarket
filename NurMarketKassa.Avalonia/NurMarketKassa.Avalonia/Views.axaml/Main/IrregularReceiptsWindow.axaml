@@ -1,0 +1,171 @@
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.IrregularReceiptsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="{DynamicResource csh.menu.deferredReceipts}"
+        Height="700"
+        Width="1000"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="Button.PrimaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.SecondaryActionButton">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="DataGrid.ModernGrid">
+            <Setter Property="Background" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowHeight" Value="44" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+
+        <Style Selector="Border.StatusBadge">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Border.StatusBadge TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.pending">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.pending TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.error">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.error TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.stock">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="Border.StatusBadge.stock TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+            <TextBlock Grid.Column="0" Text="{DynamicResource csh.menu.deferredReceipts}"
+                       FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="RetryButton" Content="Отправить повторно" Classes="PrimaryActionButton"
+                        Margin="0,0,10,0" Click="Retry_Click"/>
+                <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+                        Margin="0,0,10,0" Click="Refresh_Click"/>
+                <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="{DynamicResource irregular.subtitle}"
+                       Foreground="{DynamicResource BrushTextSoft}" FontSize="12" TextWrapping="Wrap"/>
+            <TextBlock x:Name="ErrorText" IsVisible="False" Foreground="{DynamicResource BrushDanger}"
+                       FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Grid Grid.Row="2">
+            <DataGrid x:Name="ReceiptsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="90" Binding="{ReflectionBinding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="70" Binding="{ReflectionBinding TimeText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="220">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Classes="StatusBadge" Classes.pending="{ReflectionBinding IsPending}"
+                                        Classes.error="{ReflectionBinding IsError}" Classes.stock="{ReflectionBinding IsInsufficientStock}">
+                                    <TextBlock Text="{ReflectionBinding StatusText}"/>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{DynamicResource irregular.colNote}" Width="*" Binding="{ReflectionBinding Note}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" Binding="{ReflectionBinding TotalText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="150">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="{DynamicResource irregular.viewButton}" Classes="SecondaryActionButton"
+                                        IsVisible="{ReflectionBinding CanView}" Click="View_Click" Padding="12,4" Height="30"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock x:Name="EmptyText" IsVisible="False" Text="{DynamicResource irregular.empty}"
+                       Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Popup с деталями офлайн-чека: печать чисто локальна (ReceiptPrintService), сеть не нужна -->
+        <Popup x:Name="ReceiptDetailsPopup" Placement="Center">
+            <Border Background="{DynamicResource BrushPanel}" CornerRadius="12" Padding="16"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" MinWidth="400" MaxWidth="600">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" x:Name="PopupTitle" FontWeight="Bold" FontSize="16"
+                               Foreground="{DynamicResource BrushText}" Margin="0,0,0,10" />
+
+                    <ScrollViewer Grid.Row="1" MaxHeight="400">
+                        <ItemsControl x:Name="PopupItemsControl" Foreground="{DynamicResource BrushText}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,2" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
+                        <Button Content="{DynamicResource sales.printReceiptButton}" Classes="PrimaryActionButton" Click="PrintReceiptAgain_Click" />
+                        <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="CloseReceiptDetails_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</Window>

@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.ShiftsHistoryWindow"
+        x:DataType="vm:ShiftHistoryViewModel"
+        x:CompileBindings="True"
+        Title="История смен"
+        Width="1280"
+        Height="840"
+        MinWidth="960"
+        MinHeight="640"
+        WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
+        SystemDecorations="None"
+        Background="{DynamicResource BrushWindow}"
+        FontFamily="Segoe UI">
+
+  <Window.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/ShiftHistoryResources.axaml"/>
+  </Window.Styles>
+
+  <Grid RowDefinitions="48,*">
+
+    <!-- Шапка окна -->
+    <Border Grid.Row="0"
+            Background="{DynamicResource BrushPanel}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="0,0,0,1"
+            Padding="20,0"
+            PointerPressed="Header_PointerPressed">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="История смен"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource BrushText}"
+                   VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    VerticalAlignment="Center">
+          <Button Content="&#xE921;"
+                  FontFamily="Segoe MDL2 Assets"
+                  Classes="ShiftWindowChromeButton"
+                  ToolTip.Tip="Свернуть"
+                  Command="{Binding MinimizeCommand}"/>
+          <Button Content="&#xE8BB;"
+                  FontFamily="Segoe MDL2 Assets"
+                  Classes="ShiftWindowChromeButton"
+                  ToolTip.Tip="Закрыть"
+                  Command="{Binding CloseCommand}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="230,*">
+
+      <!-- Боковое меню -->
+      <Border Grid.Column="0"
+              Background="{DynamicResource BrushPanelSoft}"
+              BorderBrush="{DynamicResource BrushBorder}"
+              BorderThickness="0,0,1,0">
+        <StackPanel Margin="0,12,0,0">
+          <Button Classes="ShiftSidebarButton"
+                  Classes.active="{Binding IsHistoryPage}"
+                  Command="{Binding ShowHistoryCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE8A5;"
+                         FontFamily="Segoe MDL2 Assets"
+                         FontSize="15"
+                         VerticalAlignment="Center"/>
+              <TextBlock Text="История смен" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+
+          <Button Classes="ShiftSidebarButton"
+                  Classes.active="{Binding IsSummaryPage}"
+                  Command="{Binding ShowSummaryCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE9D2;"
+                         FontFamily="Segoe MDL2 Assets"
+                         FontSize="15"
+                         VerticalAlignment="Center"/>
+              <TextBlock Text="Общий план" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <!-- Контент: история / сводка -->
+      <Grid Grid.Column="1" Background="{DynamicResource BrushWindowAlt}">
+        <views:ShiftHistoryView IsVisible="{Binding IsHistoryPage}"/>
+        <views:ShiftSummaryView IsVisible="{Binding IsSummaryPage}"/>
+
+        <Border Background="#66000000"
+                ZIndex="20"
+                IsVisible="{Binding IsLoading}">
+          <StackPanel HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Spacing="12">
+            <TextBlock Text="Загрузка..."
+                       Foreground="White"
+                       FontSize="18"
+                       HorizontalAlignment="Center"/>
+            <ProgressBar IsIndeterminate="True"
+                         MinWidth="200"
+                         Height="8"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

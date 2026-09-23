@@ -1,0 +1,309 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+        xmlns:models="using:NurMarketKassa.Models"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
+        x:DataType="vm:WarehouseViewModel"
+        x:CompileBindings="True"
+        Title="Склад — ревизия и списание"
+        Height="760" Width="1120" MinHeight="550" MinWidth="850"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushInputAlt}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        KeyDown="Window_KeyDown"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
+
+    <Window.Styles>
+        <!-- Кастомный стиль вкладок TabControl -->
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="10,10,0,0"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- Единый стиль полей ввода TextBox / ComboBox -->
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        </Style>
+        <Style Selector="ComboBox:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+
+        <!-- Кастомный стиль кнопок -->
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+
+        <!-- Кнопки управления окном (Свернуть / Закрыть) -->
+        <Style Selector="Button.WindowControlButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.WindowControlButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.WindowCloseButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+
+        <!-- Стиль для DataGrid -->
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#F1F5F9"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="SeparatorBrush" Value="#E2E8F0"/>
+        </Style>
+        <Style Selector="DataGridRow">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="2,1"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="DataGridRow:selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16,12,16,16">
+        <Grid.RowDefinitions>
+            <!-- Кастомная шапка окна (TitleBar + действия) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Контент вкладок -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Шапка окна с возможностью перетаскивания (DragWindow) -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource BrushPanel}"
+                CornerRadius="14"
+                Padding="16,10"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 8 0 #0F000000">
+            <DockPanel LastChildFill="True">
+
+                <!-- Правый блок: Кнопки управления окном (Свернуть / Закрыть) -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="🔍" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="12" FontWeight="Medium"
+                                       Text="Сканируйте штрих-код для ввода" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Classes="WindowControlButton" Click="MinimizeButton_Click" ToolTip.Tip="Свернуть">
+                        <TextBlock Text="🗕" FontSize="12"/>
+                    </Button>
+                    <Button Classes="WindowControlButton WindowCloseButton" Click="CloseButton_Click" ToolTip.Tip="Закрыть">
+                        <TextBlock Text="✕" FontSize="13"/>
+                    </Button>
+                </StackPanel>
+
+                <!-- Левый блок: Иконка и заголовок (для перемещения окна) -->
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
+                        <TextBlock Text="📦" FontSize="18" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Управление складом" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
+                </StackPanel>
+
+            </DockPanel>
+        </Border>
+
+        <!-- Основной блок с вкладками -->
+        <TabControl x:Name="WarehouseTabs" Grid.Row="1">
+
+            <!-- Вкладка 1: Ревизия -->
+            <TabItem Header="📋 Ревизия (Инвентаризация)">
+                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                    <Grid RowDefinitions="*, Auto">
+                        <DataGrid x:Name="RevisionGrid"
+                                  Grid.Row="0"
+                                  x:CompileBindings="False"
+                                  ItemsSource="{Binding RevisionLines}"
+                                  SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  RowHeight="44">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Штрих-код" Width="150" Binding="{ReflectionBinding Barcode}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Наименование товара" Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Ожидаемый остаток" Width="160"
+                                                    Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Фактический остаток" Width="170"
+                                                    Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
+                                <DataGridTextColumn Header="Разница" Width="130"
+                                                    Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="12">
+                            <Button Content="Зафиксировать ревизию"
+                                    Classes="PrimaryButton"
+                                    Command="{Binding CommitRevisionCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- Вкладка 2: Списание -->
+            <TabItem Header="🗑️ Списание товара">
+                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="24" BoxShadow="0 4 12 0 #0D000000">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Border MaxWidth="560" HorizontalAlignment="Left"
+                                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="18">
+                                <TextBlock Text="Оформление акта списания" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+
+                                <!-- Товар -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Выбранный товар" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}" FontSize="13" />
+                                    <TextBox IsReadOnly="True"
+                                             Text="{Binding WriteOffProductName, Mode=OneWay}"
+                                             FontWeight="Bold"
+                                             Foreground="{DynamicResource BrushText}"
+                                             Background="{DynamicResource BrushInputAlt}" />
+                                    <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="2,0,0,0"
+                                               Text="{Binding WriteOffBarcode, StringFormat=Штрих-код: \{0\}}" />
+                                </StackPanel>
+
+                                <!-- Количество -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Количество для списания" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}" FontSize="13" />
+                                    <TextBox x:Name="WriteOffQuantityBox"
+                                             Text="{Binding WriteOffQuantity}"
+                                             FontSize="16"
+                                             FontWeight="Bold"/>
+                                </StackPanel>
+
+                                <!-- Причина -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Причина списания" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextMuted}" FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding WriteOffReasonOptions}"
+                                              SelectedItem="{Binding WriteOffReason}"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
+
+                                <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,6"/>
+
+                                <!-- Кнопка отправки -->
+                                <Button Content="Подтвердить списание"
+                                        Classes="PrimaryButton"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Command="{Binding WriteOffCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- Модальный индикатор загрузки (IsBusy) -->
+        <Border Grid.RowSpan="2"
+                Background="#60000000"
+                ZIndex="10"
+                IsVisible="{Binding IsBusy}"
+                CornerRadius="12">
+            <Border Background="{DynamicResource BrushPanel}"
+                    CornerRadius="16"
+                    Padding="32,24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    BoxShadow="0 20 25 -5 #20000000">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                    <ProgressBar IsIndeterminate="True" Width="220" Height="6" CornerRadius="3" Foreground="{DynamicResource BrushAccent}"/>
+                    <TextBlock Text="Сохранение данных..." Foreground="{DynamicResource BrushText}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>

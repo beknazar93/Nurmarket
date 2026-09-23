@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+    <UserControl.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+        <Style Selector="Button.ScaleGoldButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="SettingsContentHost" Padding="16">
+        <ScrollViewer Classes="SettingsPageScroll">
+            <!-- Центрирующий контейнер с ограничением максимальной ширины -->
+            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+                <!-- Хедер выровнен по центру -->
+                <Border Classes="SettingsHeaderCard" Padding="12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                        <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
+                                BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                       Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Весы" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Параметры подключения и опрос оборудования" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Единая карточка параметров -->
+                <Border Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="14">
+
+                        <!-- Включить опрос отдельно слева -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <CheckBox x:Name="ScaleEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                            <TextBlock Text="Включить опрос весов" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                        </StackPanel>
+
+                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
+
+                        <TextBlock Text="Параметры подключения" Classes="SettingsCardTitle" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <!-- Ряд 1: COM-порт и Скорость -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="COM-порт" Classes="FieldLabel"/>
+                                <ComboBox x:Name="ScaleComCombo" x:FieldModifier="public"
+                                          Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                                <TextBlock x:Name="StatusScalePortText" x:FieldModifier="public"
+                                           Text="○ COM-порт не найден" FontSize="11"
+                                           Foreground="{DynamicResource BrushDanger}" Margin="2,2,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="Скорость (baud)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleBaudBox" x:FieldModifier="public"
+                                         Text="9600" Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Ряд 2: Запрос веса (hex) и Интервал опроса -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Запрос веса (hex)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleHexBox" x:FieldModifier="public"
+                                         Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                         Watermark="например: 05 02 01 01"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="Интервал опроса (мс)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScalePollBox" x:FieldModifier="public"
+                                         Text="0" Classes="ModernTextBox" Height="36"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Панель проверки подключения -->
+                        <StackPanel Spacing="8" Margin="0,4,0,0">
+                            <Button x:Name="CheckScaleButton"
+                                    x:FieldModifier="public"
+                                    Content="⚖️  Проверить весы"
+                                    Classes="ScaleGoldButton"
+                                    IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"/>
+
+                            <Border x:Name="ScaleAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
+                                <TextBlock x:Name="ScaleAlertText" x:FieldModifier="public"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
+                    <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushSuccess}"
+                               FontSize="12"/>
+                    <Button Content="Сохранить"
+                            Classes="btn-primary"
+                            MinWidth="150"
+                            HorizontalAlignment="Center"
+                            Click="Save_Click"/>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

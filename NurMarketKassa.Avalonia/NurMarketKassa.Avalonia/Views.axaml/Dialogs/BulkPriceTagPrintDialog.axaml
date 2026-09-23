@@ -1,0 +1,126 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.BulkPriceTagPrintDialog"
+        x:DataType="dialogs:BulkPriceTagPrintDialog"
+        x:CompileBindings="False"
+        Title="{DynamicResource priceTagBulk.title}"
+        Width="820" Height="680" MinWidth="600" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushPanel}">
+
+    <Window.Styles>
+        <Style Selector="Button.btn-primary">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-primary:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ComboBox, NumericUpDown">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+
+        <TextBlock Grid.Row="0" Text="{DynamicResource priceTagBulk.header}" FontSize="18" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushText}" Margin="0,0,0,12"/>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+            <TextBox Grid.Column="0" x:Name="SearchBox" Watermark="{DynamicResource warehouse.productSearchWatermark}"
+                     TextChanged="SearchBox_TextChanged" Margin="0,0,10,0"/>
+            <Button Grid.Column="1" Classes="btn-secondary" Content="{DynamicResource priceTagBulk.selectAll}"
+                    Click="SelectAll_Click" Margin="0,0,8,0"/>
+            <Button Grid.Column="2" Classes="btn-secondary" Content="{DynamicResource priceTagBulk.selectNone}"
+                    Click="SelectNone_Click"/>
+        </Grid>
+
+        <!-- MinHeight (не "*") — на маленьком/квадратном экране список товаров ужимается сам
+             через собственный скролл DataGrid, а не выталкивает нижние кнопки печати за
+             пределы окна (см. фикс "кнопка проваливается вниз", 2026-09-04). -->
+        <Border Grid.Row="2" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8" MinHeight="180">
+            <DataGrid x:Name="ProductsGrid" AutoGenerateColumns="False" IsReadOnly="False" RowHeight="40" GridLinesVisibility="Horizontal">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="44">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{DynamicResource common.name}" Width="*" Binding="{Binding Title}" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="160" Binding="{Binding Barcode}" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="{DynamicResource csh.catalog.colPrice}" Width="120" Binding="{Binding PriceLine}" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <TextBlock Grid.Row="3" x:Name="SelectionCountText" FontSize="12" Margin="0,8,0,8"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
+
+        <Grid Grid.Row="4" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+            <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,8,8">
+                <TextBlock Text="{DynamicResource priceTag.templateLabel}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                <ComboBox x:Name="KindCombo" HorizontalAlignment="Stretch" SelectionChanged="KindCombo_SelectionChanged"/>
+                <Button x:Name="EditTemplateButton" Content="{DynamicResource priceTag.editTemplate}" Classes="btn-secondary"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        IsVisible="False" Click="EditTemplateButton_Click"/>
+            </StackPanel>
+            <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,*" Margin="8,0,0,8">
+                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,4,0">
+                    <TextBlock Text="{DynamicResource labelEditor.widthLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <NumericUpDown x:Name="WidthBox" Minimum="15" Maximum="150" Increment="1" FormatString="0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="4" Margin="4,0,0,0">
+                    <TextBlock Text="{DynamicResource labelEditor.heightLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <NumericUpDown x:Name="HeightBox" Minimum="10" Maximum="150" Increment="1" FormatString="0"/>
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" Margin="0,0,8,8">
+                <TextBlock Text="{DynamicResource priceTag.targetLabel}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <RadioButton x:Name="TargetThermalRadio" GroupName="BulkPriceTagTarget"
+                                 Content="{DynamicResource priceTag.targetThermal}" IsChecked="True" Click="Target_Changed"/>
+                    <RadioButton x:Name="TargetA4Radio" GroupName="BulkPriceTagTarget"
+                                 Content="{DynamicResource priceTag.targetA4}" Click="Target_Changed"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" Margin="8,0,0,8">
+                <TextBlock Text="{DynamicResource priceTagBulk.copiesEachLabel}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                <NumericUpDown x:Name="CopiesBox" Value="1" Minimum="1" Maximum="20" Increment="1" FormatString="0"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="4" Margin="0,0,0,8">
+                <TextBlock Text="{DynamicResource common.printer}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                <ComboBox x:Name="PrinterCombo" HorizontalAlignment="Stretch"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+            <TextBlock Grid.Column="0" x:Name="StatusText" FontSize="12" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <Button Grid.Column="1" Content="{DynamicResource common.close}" Classes="btn-secondary" Click="CloseButton_Click" Margin="0,0,10,0"/>
+            <Button Grid.Column="2" x:Name="PrintButton" Content="{DynamicResource priceTagBulk.printButton}" Classes="btn-primary" Click="PrintButton_Click"/>
+        </Grid>
+    </Grid>
+</Window>

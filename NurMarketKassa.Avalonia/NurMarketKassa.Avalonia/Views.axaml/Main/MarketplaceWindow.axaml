@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:settings="using:NurMarketKassa.AvaloniaHost.Views.Settings"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.MarketplaceWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource posSettings.navMarketplace}"
+        Height="820" Width="1000" MinHeight="520" MinWidth="700"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource BrushPanel}">
+
+    <Window.Styles>
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="16,12" Background="{DynamicResource BrushPanelElevated}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{DynamicResource posSettings.navMarketplace}"
+                           FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="{DynamicResource common.close}"
+                        Classes="btn-secondary" Click="Close_Click"/>
+            </Grid>
+        </Border>
+
+        <settings:MarketplaceView x:Name="MarketplaceContent"/>
+    </DockPanel>
+</Window>

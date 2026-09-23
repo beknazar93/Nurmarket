@@ -1,0 +1,91 @@
+using System.IO.Compression;
+using System.Net.Http;
+
+namespace NurMarketKassa.Services.Hardware;
+
+/// <summary>
+/// Модель распознавания ГОЛОСА (чей это голос, а не что сказано) для "голосового замка"
+/// (2026-09-05) — отдельная доп. услуга поверх голосового управления: WeSpeaker ResNet34-LM
+/// (Apache 2.0, обучена на VoxCeleb, ~26 МБ), запускается через sherpa-onnx
+/// (SpeakerEmbeddingExtractor/SpeakerEmbeddingManager) — та же схема, что и модели Vosk
+/// (VoiceModelDownloadService): не входит в базовую установку, скачивается отдельно после
+/// разблокировки в AppContext.BaseDirectory/VoiceLockModel.
+/// </summary>
+public static class SpeakerVerificationModelService
+{
+    private const string FileName = "wespeaker_en_voxceleb_resnet34_LM.onnx";
+    private const string DownloadUrl = "https://github.com/beknazar93/Nurmarket/releases/download/v1.16.1/voice-lock-model.zip";
+    public const int ApproxSizeMb = 27;
+
+    private static string ModelDir => Path.Combine(AppContext.BaseDirectory, "VoiceLockModel");
+    public static string ModelPath => Path.Combine(ModelDir, FileName);
+
+    public static bool IsInstalled()
+    {
+        try
+        {
+            return File.Exists(ModelPath) && new FileInfo(ModelPath).Length > 1_000_000;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Voice lock model check failed: {ex.GetType().Name}", "WARNING");
+            return false;
+        }
+    }
+
+    public static async Task<bool> DownloadAndInstallAsync(IProgress<double>? progress, CancellationToken ct = default)
+    {
+        var zipPath = Path.Combine(Path.GetTempPath(), $"nmk-voice-lock-model-{Guid.NewGuid():N}.zip");
+        try
+        {
+            Directory.CreateDirectory(ModelDir);
+
+            using (var http = new HttpClient())
+            {
+                using var response = await http.GetAsync(DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct)
+                    .ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                await using var httpStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                await using var fileStream = new FileStream(
+                    zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+
+                var buffer = new byte[81920];
+                long readTotal = 0;
+                int read;
+                while ((read = await httpStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                    readTotal += read;
+                    if (totalBytes > 0)
+                        progress?.Report(Math.Min(99.0, (double)readTotal / totalBytes * 100));
+                }
+            }
+
+            progress?.Report(99.5);
+            ZipFile.ExtractToDirectory(zipPath, ModelDir, overwriteFiles: true);
+            progress?.Report(100);
+
+            PosLogger.Log("Модель голосового замка скачана и установлена.", "VOICE_LOCK");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Voice lock model download failed: {ex}", "ERROR");
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(zipPath))
+                    File.Delete(zipPath);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Voice lock model temp file cleanup failed: {ex.GetType().Name}", "WARNING");
+            }
+        }
+    }
+}

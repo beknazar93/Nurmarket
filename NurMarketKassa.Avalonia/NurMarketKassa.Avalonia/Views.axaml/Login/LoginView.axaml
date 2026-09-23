@@ -1,0 +1,256 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.LoginView"
+             x:DataType="vm:LoginViewModel"
+             x:CompileBindings="True">
+
+    <UserControl.Styles>
+        <Style Selector="Button.login-primary">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.login-primary:pointerover">
+            <Setter Property="Opacity" Value="0.92"/>
+        </Style>
+        <Style Selector="Button.login-primary:pressed">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="Button.login-primary:disabled">
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="Button.login-link">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
+        <Style Selector="Button.login-link:pointerover">
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="{DynamicResource BrushWindow}"
+            Padding="32">
+        <Border Background="{DynamicResource BrushPanel}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1"
+                CornerRadius="16"
+                Padding="40"
+                MaxWidth="420"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto">
+          <Panel Grid.Row="0">
+
+            <!-- Обычный вход через NurCRM -->
+            <StackPanel Spacing="20" IsVisible="{Binding IsNurCrmScreen}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{DynamicResource csh.login.formTitle}"
+                               FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Text="{DynamicResource login.enterCredentials}"
+                               FontSize="14"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource csh.login.email}"
+                               FontSize="13"
+                               Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding Username}"
+                             Watermark="{DynamicResource csh.login.email}"
+                             FontSize="14"
+                             Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}"
+                             BorderThickness="1"
+                             CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource csh.login.password}"
+                               FontSize="13"
+                               Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding Password}"
+                             PasswordChar="*"
+                             Watermark="{DynamicResource csh.login.passwordWatermark}"
+                             FontSize="14"
+                             Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}"
+                             BorderThickness="1"
+                             CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <Border Background="{DynamicResource BrushDangerSoft}"
+                        BorderBrush="{DynamicResource BrushDanger}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="12,10"
+                        IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               TextWrapping="Wrap"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushDanger}"/>
+                </Border>
+
+                <Button Classes="login-primary"
+                        Content="{DynamicResource login.submitButton}"
+                        Command="{Binding LoginCommand}"
+                        IsEnabled="{Binding !IsLoading}"/>
+
+                <TextBlock Text="{DynamicResource login.loadingKassa}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           HorizontalAlignment="Center"
+                           IsVisible="{Binding IsLoading}"/>
+
+                <Button Content="{DynamicResource login.workOffline}"
+                        Command="{Binding ShowAutonomousCommand}"
+                        Classes="login-link"
+                        HorizontalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0"/>
+            </StackPanel>
+
+            <!-- Автономный режим: активация ключом -->
+            <StackPanel Spacing="20" IsVisible="{Binding IsActivationScreen}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{DynamicResource login.autonomous.activateTitle}"
+                               FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Text="{DynamicResource login.autonomous.activateHint}"
+                               FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource login.autonomous.keyLabel}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding ActivationKey}"
+                             Watermark="{DynamicResource login.autonomous.keyWatermark}"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <Border Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}"
+                        BorderThickness="1" CornerRadius="10" Padding="12,10" IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushDanger}"/>
+                </Border>
+
+                <Button Classes="login-primary" Content="{DynamicResource login.autonomous.activateButton}"
+                        Command="{Binding ActivateCommand}" IsEnabled="{Binding !IsLoading}"/>
+
+                <TextBlock Text="{Binding LoadingStatus}" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"
+                           IsVisible="{Binding IsLoading}"/>
+
+                <Button Content="{DynamicResource login.backToNurCrm}" Command="{Binding ShowNurCrmCommand}"
+                        Classes="login-link" HorizontalAlignment="Center" Background="Transparent" BorderThickness="0"/>
+            </StackPanel>
+
+            <!-- Автономный режим: создание локального аккаунта (сразу после активации) -->
+            <StackPanel Spacing="20" IsVisible="{Binding IsCreateAccountScreen}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{DynamicResource login.autonomous.createAccountTitle}"
+                               FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Text="{DynamicResource login.autonomous.createAccountHint}"
+                               FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource login.autonomous.emailLabel}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding LocalEmail}" Watermark="owner@example.com"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource login.autonomous.displayNameLabel}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding LocalDisplayName}"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource csh.login.password}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding LocalPassword}" PasswordChar="*"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <Border Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}"
+                        BorderThickness="1" CornerRadius="10" Padding="12,10" IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushDanger}"/>
+                </Border>
+
+                <Button Classes="login-primary" Content="{DynamicResource login.autonomous.createAccountButton}"
+                        Command="{Binding CreateLocalAccountCommand}" IsEnabled="{Binding !IsLoading}"/>
+            </StackPanel>
+
+            <!-- Автономный режим: обычный локальный вход (после первой активации) -->
+            <StackPanel Spacing="20" IsVisible="{Binding IsAutonomousLoginScreen}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{DynamicResource login.autonomous.loginTitle}"
+                               FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Text="{DynamicResource login.autonomous.loginHint}"
+                               FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource login.autonomous.emailLabel}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding LocalEmail}"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{DynamicResource csh.login.password}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    <TextBox Text="{Binding LocalPassword}" PasswordChar="*"
+                             FontSize="14" Padding="14,12"
+                             Background="{DynamicResource BrushInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"
+                             Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+
+                <Border Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}"
+                        BorderThickness="1" CornerRadius="10" Padding="12,10" IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushDanger}"/>
+                </Border>
+
+                <Button Classes="login-primary" Content="{DynamicResource login.submitButton}"
+                        Command="{Binding AutonomousLoginCommand}" IsEnabled="{Binding !IsLoading}"/>
+
+                <Button Content="{DynamicResource login.backToNurCrm}" Command="{Binding ShowNurCrmCommand}"
+                        Classes="login-link" HorizontalAlignment="Center" Background="Transparent" BorderThickness="0"/>
+            </StackPanel>
+          </Panel>
+        </Grid>
+        </Border>
+    </Border>
+</UserControl>

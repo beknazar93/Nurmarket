@@ -1,0 +1,61 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Плавность интерфейса (по просьбе пользователя, 2026-09-19): "максимально плавный
+       интерфейс, везде где можно". Этот файл уже подключён глобально через App.axaml
+       (StyleInclude), поэтому Transitions отсюда сразу применяются во всём приложении без
+       правки каждого окна по отдельности.
+
+       Поле ввода при фокусе не переопределяется здесь заново — цвет рамки на фокусе уже
+       задаётся локально в каждом окне (селектор "TextBox:focus /template/
+       Border#PART_BorderElement", ~14 мест). Здесь добавлены только Transitions на ТОТ ЖЕ
+       элемент — любая такая смена цвета начинает анимироваться плавно (0.5-0.6с) вместо
+       мгновенного скачка, плюс лёгкое увеличение самого поля при фокусе. -->
+  <Style Selector="TextBox">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+    <Setter Property="RenderTransform" Value="scale(1)"/>
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBox:focus">
+    <Setter Property="RenderTransform" Value="scale(1.015)"/>
+  </Style>
+  <Style Selector="TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.55"/>
+        <BrushTransition Property="Background" Duration="0:0:0.55"/>
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- Кнопки: лёгкая обратная связь при наведении/нажатии вместо мгновенной смены —
+       не трогает существующие шаблоны кнопок (main-ghost/main-primary/PrimaryActionButton
+       и т.п.), только добавляет RenderTransform поверх того, что уже нарисовано. -->
+  <Style Selector="Button">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+    <Setter Property="RenderTransform" Value="scale(1)"/>
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12"/>
+        <BrushTransition Property="Background" Duration="0:0:0.15"/>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.012)"/>
+  </Style>
+  <Style Selector="Button:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.98)"/>
+  </Style>
+
+  <!-- CheckBox/ToggleSwitch/ComboBox — та же плавная смена фона/рамки. -->
+  <Style Selector="ComboBox /template/ Border#PART_Border">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.4"/>
+      </Transitions>
+    </Setter>
+  </Style>
+</Styles>

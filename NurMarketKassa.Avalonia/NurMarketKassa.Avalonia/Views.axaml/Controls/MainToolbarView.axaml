@@ -1,0 +1,86 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.MainToolbarView"
+             x:DataType="vm:MainToolbarViewModel"
+             x:CompileBindings="True">
+
+    <Border Background="{DynamicResource BrushWindowAlt}"
+            BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="0,0,0,1"
+            Padding="16,12">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center">
+                <Button Classes="main-ghost"
+                        Width="38" Height="38"
+                        Padding="0"
+                        ToolTip.Tip="{DynamicResource csh.toolbar.menu}"
+                        Command="{Binding ToggleSideMenuCommand}">
+                    <TextBlock Text="☰" FontSize="18"/>
+                </Button>
+                <Border Width="34" Height="34"
+                        CornerRadius="17"
+                        ClipToBounds="True">
+                    <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
+                           Stretch="Uniform"/>
+                </Border>
+                <TextBlock Text="{Binding UserTitle}"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <controls:MainStatusBarView Grid.Column="1"
+                                        DataContext="{Binding Status}"
+                                        VerticalAlignment="Center"/>
+
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        VerticalAlignment="Center">
+                <Button Classes="main-ghost"
+                        Width="38" Height="38"
+                        Padding="0"
+                        ToolTip.Tip="{DynamicResource csh.toolbar.customerDisplay}"
+                        Command="{Binding CheckCustomerDisplayCommand}">
+                    <TextBlock Classes="mdl2" Text="&#xE7F4;" FontSize="15"/>
+                </Button>
+                <Button Classes="main-ghost"
+                        Width="38" Height="38"
+                        Padding="0"
+                        ToolTip.Tip="{Binding ThemeTooltip}"
+                        Command="{Binding ToggleThemeCommand}">
+                    <TextBlock Classes="mdl2" Text="{Binding ThemeGlyph}" FontSize="15"/>
+                </Button>
+                <Button Classes="main-ghost"
+                        Width="38" Height="38"
+                        Padding="0"
+                        ToolTip.Tip="{DynamicResource csh.toolbar.keyboard}"
+                        Command="{Binding ToggleKeyboardCommand}">
+                    <TextBlock Classes="mdl2" Text="&#xE92F;" FontSize="15"/>
+                </Button>
+                <Button Classes="main-outline shift-action"
+                        Command="{Binding OpenShiftCommand}"
+                        IsEnabled="{Binding CanOpenShift}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="mdl2" Text="&#xE785;" FontSize="14"/>
+                        <TextBlock Text="{DynamicResource csh.toolbar.openShift}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="main-primary shift-action"
+                        Command="{Binding CloseShiftCommand}"
+                        IsEnabled="{Binding CanCloseShift}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="mdl2" Text="&#xE72E;" FontSize="14"/>
+                        <TextBlock Text="{DynamicResource csh.toolbar.closeShift}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

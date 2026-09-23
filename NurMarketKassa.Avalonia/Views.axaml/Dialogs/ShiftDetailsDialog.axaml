@@ -1,0 +1,136 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftDetailsDialog"
+        Title="Просмотр смены"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="Button.btn-chrome">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="16"
+          Background="{DynamicResource BrushPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <StackPanel Spacing="18">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="Просмотр смены"
+                     FontSize="20" FontWeight="Bold"
+                     Foreground="{DynamicResource BrushText}"/>
+          <TextBlock Text="Детали текущей или закрытой смены"
+                     FontSize="13" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                Classes="btn-chrome"
+                VerticalAlignment="Top"
+                Click="Close_Click"
+                ToolTip.Tip="Закрыть">
+          <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                     FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,16,*">
+        <Border Grid.Column="0"
+                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Смена" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock Text="Номер смены" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="Открыта" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="OpenedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="Закрыта" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="ClosedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            <TextBlock Text="Кассир" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="CashierText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2"
+                Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Итоги" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock Text="Статус" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Border x:Name="StatusBadge" Height="28" CornerRadius="14" Padding="10,0"
+                    HorizontalAlignment="Left" Background="{DynamicResource BrushSuccessSoft}">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{DynamicResource BrushUiStatusOk}"/>
+                <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushUiStatusOk}" Text="—"/>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="Выручка за смену" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
+            <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,10,*,10,*">
+        <Border Grid.Column="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Продажи" FontSize="12" Foreground="{DynamicResource BrushWarning}"/>
+            <TextBlock x:Name="SalesCountText" FontSize="18" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushWarning}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Background="{DynamicResource BrushSuccessSoft}" BorderBrush="{DynamicResource BrushUiStatusOk}" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Наличные" FontSize="12" Foreground="{DynamicResource BrushUiStatusOk}"/>
+            <TextBlock x:Name="CashText" FontSize="18" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushUiStatusOk}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="4" Background="{DynamicResource BrushAccentSoft}" BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Безналичные" FontSize="12" Foreground="{DynamicResource BrushAccentStrong}"/>
+            <TextBlock x:Name="CardText" FontSize="18" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushAccentStrong}" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Button Content="Закрыть"
+              Classes="btn-secondary"
+              Height="46" MinWidth="120"
+              HorizontalAlignment="Right"
+              IsCancel="True"
+              Click="Close_Click"/>
+    </StackPanel>
+  </Border>
+</Window>

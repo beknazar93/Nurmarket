@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog"
+        Title="{DynamicResource dialog.messageTitle}"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+  <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock x:Name="TitleText"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource BrushText}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,12"/>
+
+      <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,0,22">
+        <TextBlock x:Name="MessageText"
+                   FontSize="14" TextWrapping="Wrap"
+                   Foreground="{DynamicResource BrushTextSoft}"
+                   HorizontalAlignment="Stretch"
+                   TextAlignment="Left"/>
+      </ScrollViewer>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+        <Button x:Name="OkButton"
+                Content="{DynamicResource common.gotIt}"
+                Height="46" Width="180"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushAccent}"
+                Foreground="{DynamicResource BrushAccentForeground}"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="OkButton_Click"/>
+        <Button x:Name="DeferButton"
+                Content="{DynamicResource dialog.deferError}"
+                Height="46" Width="180"
+                IsVisible="False"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="{DynamicResource BrushPanelSoft}"
+                Foreground="{DynamicResource BrushText}"
+                BorderBrush="{DynamicResource BrushBorderStrong}"
+                BorderThickness="1"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="DeferButton_Click"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

@@ -1,0 +1,64 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <!-- Light theme: amber warning action. -->
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="WarningButtonBackground" Color="#E6A100" />
+          <SolidColorBrush x:Key="WarningButtonHover" Color="#FFB703" />
+          <SolidColorBrush x:Key="WarningButtonPressed" Color="#C98C00" />
+        </ResourceDictionary>
+
+        <!-- Dark theme: blue action with better contrast on dark surfaces. -->
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="WarningButtonBackground" Color="#2563EB" />
+          <SolidColorBrush x:Key="WarningButtonHover" Color="#3B82F6" />
+          <SolidColorBrush x:Key="WarningButtonPressed" Color="#1D4ED8" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Open shift: stable blue primary action in both light and dark themes. -->
+  <Style Selector="Button.btn-primary">
+    <Setter Property="Background" Value="#2563EB" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Padding" Value="16,10" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#3B82F6" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.btn-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#1D4ED8" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+
+  <!-- Close shift: palette is selected by the active Avalonia theme. -->
+  <Style Selector="Button.btn-warning">
+    <Setter Property="Background" Value="{DynamicResource WarningButtonBackground}" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Padding" Value="16,10" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.btn-warning:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource WarningButtonHover}" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+  <Style Selector="Button.btn-warning:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource WarningButtonPressed}" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
+  </Style>
+</Styles>

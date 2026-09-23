@@ -1,0 +1,342 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:pos="using:NurMarketKassa.Models.Pos"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.OneCLayoutView"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="True"
+             Background="{DynamicResource BrushInputAlt}">
+
+    <!-- Альтернативная раскладка кассы "1С-стиль" (четвёртая правка, 2026-09-07 — доведена до
+         уровня реального образца NurCRM «Интерфейс кассира» и 1С РМК):
+         • строка сканера сверху (Basket.BarcodeInput + AddByBarcodeCommand по Enter, диалог
+           "пачка/поштучно" срабатывает сам — см. MainWindow.Dialogs.AddProductFromCatalogAsync);
+         • панель избранных товаров (Catalog.FavoriteProducts) — единственный способ добавить товар
+           без штрих-кода в этой раскладке, клик идёт тем же путём, что и плитка в обычной
+           (Catalog.SelectProductCommand → bridge.TryAddProduct → AddProductFromCatalogAsync);
+         • вкладки чеков (Basket.ReceiptTabs / NewReceiptCommand) — как «Корзины» на сайте;
+         • увеличенная карточка активной строки следует за сканером (см. code-behind), в ней код
+           товара, кол-во × цена, скидка, сумма, кнопки "Скидка на позицию" и "Удалить";
+         • шапка колонок над чеком, сам чек — список с тонкими линиями между строками и подсветкой выбранной
+           строки; справа карточка итогов с "Оплатить"; снизу зелёные пилюли быстрых действий.
+         Активная строка — SelectedItem ListBox'а, обычная (не compiled) привязка через
+         #ReceiptList, чтобы не тянуть новое состояние во ViewModel. -->
+
+    <UserControl.Styles>
+        <Style Selector="ListBox#ReceiptList">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.onec-colhead">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+        </Style>
+        <Style Selector="Button.onec-step">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="Button.onec-action">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.onec-tab">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.onec-tab.active">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
+        <Style Selector="Button.onec-fav">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.onec-fav:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Button.onec-pill">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="10,14"/>
+        </Style>
+        <Style Selector="Border.onec-card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Разделение на карточки (2026-09-07, по замечанию "разделение полей сделай нормальным"):
+         фон страницы светло-серый (BrushInputAlt), каждая зона — белая карточка с рамкой:
+         строка сканера (кремовая), избранное, чек (вкладки → активная строка → шапка колонок →
+         список с линиями между строками), итоги справа с кнопкой "Оплатить" внизу карточки,
+         нижняя панель быстрых действий отделена линией. -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+        <!-- Строка сканера -->
+        <Border Grid.Row="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
+                CornerRadius="10" Padding="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto,64,Auto">
+                <TextBox x:Name="ScannerBox" Grid.Column="0" Text="{Binding Basket.BarcodeInput, Mode=TwoWay}"
+                         Watermark="{DynamicResource csh.cart.barcodeWatermark}" FontSize="15" Height="40">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding Basket.AddByBarcodeCommand}"/>
+                    </TextBox.KeyBindings>
+                </TextBox>
+                <Button Grid.Column="1" Content="−" Classes="onec-step" Margin="8,0,0,0"
+                        Command="{Binding Basket.DecreaseManualQuantityCommand}"/>
+                <Border Grid.Column="2" Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        CornerRadius="7" Margin="6,0">
+                    <TextBlock Text="{Binding Basket.ManualQuantity}" FontSize="16" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <Button Grid.Column="3" Content="+" Classes="onec-step"
+                        Command="{Binding Basket.IncreaseManualQuantityCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- Избранные товары -->
+        <Border Grid.Row="1" Classes="onec-card" Padding="12,8" Margin="0,0,0,10"
+                IsVisible="{Binding Catalog.HasFavorites}">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Grid.Column="0" Classes="onec-colhead" Text="{DynamicResource onecLayout.favoritesLabel}"
+                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Catalog.FavoriteProducts}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="pos:CatalogProductTileVm">
+                                <Button Classes="onec-fav"
+                                        Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).Catalog.SelectProductCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
+                                                   MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding PriceLine}" FontSize="11"
+                                                   Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Чек | итоги -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,12,320">
+
+            <!-- Карточка чека -->
+            <Border Grid.Column="0" Classes="onec-card" Padding="0" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+                    <!-- Вкладки чеков -->
+                    <Border Grid.Row="0" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="12,8">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Classes="onec-colhead" Text="{DynamicResource onecLayout.receiptsLabel}"
+                                       VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Basket.ReceiptTabs}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ReceiptTabVm">
+                                            <Button Classes="onec-tab" Classes.active="{Binding IsActive}"
+                                                    Command="{Binding SelectCommand}" CommandParameter="{Binding}">
+                                                <TextBlock Text="{Binding Title}" MaxWidth="220" TextTrimming="CharacterEllipsis"/>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <Button Grid.Column="2" Classes="onec-tab" Margin="8,0,0,0"
+                                    Content="{DynamicResource onecLayout.newReceiptShort}"
+                                    Command="{Binding Basket.NewReceiptCommand}"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Активная строка / подсказка для пустого чека -->
+                    <Grid Grid.Row="1" Margin="12,12,12,10">
+                        <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1" CornerRadius="10" Padding="16"
+                                IsVisible="{Binding Basket.IsEmpty}">
+                            <TextBlock Text="{DynamicResource onecLayout.emptyHint}" FontSize="16"
+                                       Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap" TextAlignment="Center"/>
+                        </Border>
+                        <Border Background="{DynamicResource BrushSuccessSoft}" BorderBrush="{DynamicResource BrushSuccess}" BorderThickness="1" CornerRadius="10" Padding="16"
+                                x:CompileBindings="False" DataContext="{Binding #ReceiptList.SelectedItem}"
+                                IsVisible="{Binding #ReceiptList.DataContext.Basket.HasItems}">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="Bold"
+                                               TextWrapping="Wrap" Foreground="{DynamicResource BrushSuccess}"/>
+                                    <TextBlock Text="{Binding Code}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border Background="White" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                                CornerRadius="7" Padding="10,4">
+                                            <TextBlock Text="{Binding QuantityDisplay}" FontSize="16" FontWeight="SemiBold"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding PriceQuantityLine}" FontSize="14" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                        <TextBlock Text="{Binding DiscountDisplayText}" FontSize="14" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="10" HorizontalAlignment="Right" Margin="16,0,0,0">
+                                    <TextBlock Text="{Binding LineTotalDisplay}" FontSize="24" FontWeight="Bold"
+                                               HorizontalAlignment="Right" Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                        <Button Classes="onec-action" Content="{DynamicResource onecLayout.lineDiscountButton}"
+                                                Command="{Binding DiscountCommand}" CommandParameter="{Binding}"/>
+                                        <Button Classes="onec-step" Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                                ToolTip.Tip="{DynamicResource common.delete}">
+                                            <PathIcon Width="14" Height="14" Foreground="{DynamicResource BrushDanger}"
+                                                      Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Шапка колонок чека (ширины = колонкам строки ниже) -->
+                    <Border Grid.Row="2" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,1" Padding="12,7,26,7">
+                        <Grid ColumnDefinitions="90,*,110,140,90">
+                            <TextBlock Grid.Column="0" Classes="onec-colhead" Text="{DynamicResource onecLayout.colCode}"/>
+                            <TextBlock Grid.Column="1" Classes="onec-colhead" Text="{DynamicResource onecLayout.colName}"/>
+                            <TextBlock Grid.Column="2" Classes="onec-colhead" Text="{DynamicResource onecLayout.colPrice}"/>
+                            <TextBlock Grid.Column="3" Classes="onec-colhead" Text="{DynamicResource onecLayout.colQuantity}" TextAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Classes="onec-colhead" Text="{DynamicResource onecLayout.colSum}" TextAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Список позиций чека -->
+                    <ListBox Grid.Row="3" x:Name="ReceiptList" ItemsSource="{Binding Basket.Lines}" SelectionMode="Single">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CartLineItemVm">
+                                <Grid ColumnDefinitions="90,*,110,140,90">
+                                    <TextBlock Grid.Column="0" Text="{Binding Code}" FontSize="13"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="19"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource BrushText}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding UnitPriceDisplay}" FontSize="14" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                        <Button Content="−" Classes="onec-step" Width="26" Height="26" FontSize="12"
+                                                Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"/>
+                                        <TextBlock Text="{Binding QuantityDisplay}" FontSize="14" Width="46"
+                                                   TextAlignment="Center" VerticalAlignment="Center"/>
+                                        <Button Content="+" Classes="onec-step" Width="26" Height="26" FontSize="12"
+                                                IsEnabled="{Binding CanIncrease}"
+                                                Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="4" Text="{Binding LineTotalDisplay}" FontSize="15" FontWeight="Bold"
+                                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Карточка итогов и оплаты -->
+            <Border Grid.Column="2" Classes="onec-card" Padding="16">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource csh.cart.subtotal}" FontSize="14" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Basket.SubtotalDisplay}" FontSize="14"/>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource onecLayout.discountLabel}" FontSize="14" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Basket.DiscountDisplay}" FontSize="14"/>
+                    </Grid>
+                    <Border Grid.Row="2" Height="1" Background="{DynamicResource BrushBorder}" Margin="0,12"/>
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{DynamicResource onecLayout.totalLabel}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Basket.TotalDisplay}" FontSize="26" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushCatalogPrice}"/>
+                    </Grid>
+                    <Button Grid.Row="5" Content="{Binding Basket.PayButtonText}" FontSize="18" FontWeight="Bold"
+                            Background="{DynamicResource BrushAccent}" Foreground="{DynamicResource BrushAccentForeground}"
+                            CornerRadius="10" Padding="0,16" HorizontalContentAlignment="Center"
+                            HorizontalAlignment="Stretch" Command="{Binding Basket.PayCommand}"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Панель быстрых действий -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="{DynamicResource onecLayout.holdButton}" Classes="onec-pill"
+                        Command="{Binding Basket.HoldReceiptCommand}"/>
+                <Button Content="{DynamicResource onecLayout.customServiceButton}" Classes="onec-pill"
+                        Command="{Binding Basket.AddCustomItemCommand}"/>
+                <Button Content="{DynamicResource onecLayout.discountButton}" Classes="onec-pill"
+                        Command="{Binding Basket.ApplyOrderDiscountCommand}"/>
+                <Button Content="{DynamicResource onecLayout.payDebtButton}" Classes="onec-pill"
+                        Command="{Binding Basket.OpenPayDebtCommand}"/>
+                <Button Content="{DynamicResource onecLayout.clearButton}" Classes="onec-pill"
+                        Command="{Binding Basket.ClearCartCommand}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,370 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.PrintSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+    <Style Selector="RadioButton.PrintModePill">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="6"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.PrintModePill:checked">
+      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="Button.PrintGoldButton">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,6"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.PrintGoldButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost" Padding="16">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <!-- Центрирующий контейнер -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+
+        <!-- Хедер по центру -->
+        <Border Classes="SettingsHeaderCard" Padding="12">
+          <StackPanel Spacing="10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+              <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
+                      BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                           Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource posSettings.print.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource posSettings.print.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+
+            <!-- Главный переключатель печати -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" Margin="0,2,0,0">
+              <TextBlock Text="{DynamicResource posSettings.print.printAfterPayment}" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+              <CheckBox x:Name="ReceiptEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Все настройки ниже относятся только к самой печати чека — если "Печать чека
+             после оплаты" выключена, показывать их нет смысла (2026-09-05, по просьбе
+             пользователя: "если выключить, пропадает всё что стоит после него"). -->
+        <StackPanel Spacing="10" IsVisible="{Binding #ReceiptEnabledCheck.IsChecked}">
+
+        <!-- Единый блок оборудования -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{DynamicResource posSettings.print.equipmentTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+
+            <!-- Строка 1: Порт LPT и Повторы -->
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.foundPrinters}" Classes="FieldLabel"/>
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <ComboBox Grid.Column="0" x:Name="DiscoveredPrintersCombo" x:FieldModifier="public"
+                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                            PlaceholderText="{DynamicResource posSettings.print.nothingFoundPlaceholder}"/>
+                  <Button Grid.Column="2" x:Name="BtnFindPrinters" x:FieldModifier="public"
+                          Content="{DynamicResource printSettings.findButton}" Classes="PrintGoldButton"/>
+                </Grid>
+
+                <TextBlock Text="{DynamicResource printSettings.lptWatermark}" Classes="FieldLabel" Margin="0,6,0,0"/>
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <TextBox Grid.Column="0" x:Name="ReceiptLptBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+                  <Button Grid.Column="2" x:Name="BtnPhysicalPrint" x:FieldModifier="public"
+                          Content="{DynamicResource printSettings.testButton}" Classes="PrintGoldButton"/>
+                </Grid>
+                <TextBlock x:Name="StatusPortText" x:FieldModifier="public"
+                           Text="{DynamicResource printSettings.lptNotFound}" FontSize="11" Foreground="{DynamicResource BrushDanger}"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.retriesOnFailure}" Classes="FieldLabel"/>
+                <TextBox x:Name="ReceiptRetryBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- Денежный ящик. Отдельного порта у него нет: ящик подключается к чековому
+                 принтеру (разъём "DK"), поэтому импульс уходит в тот же порт, что задан выше. -->
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.cashDrawerTitle}" Classes="FieldLabel"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox x:Name="CashDrawerEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                  <TextBlock Text="{DynamicResource posSettings.print.cashDrawerEnable}" FontSize="12"
+                             VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="4" IsVisible="{Binding #CashDrawerEnabledCheck.IsChecked}">
+                <TextBlock Text="{DynamicResource posSettings.print.cashDrawerPin}" Classes="FieldLabel"/>
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <ComboBox Grid.Column="0" x:Name="CashDrawerPinCombo" x:FieldModifier="public"
+                            Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                    <ComboBoxItem Content="{DynamicResource printSettings.cashDrawerPin2}" Tag="0"/>
+                    <ComboBoxItem Content="{DynamicResource printSettings.cashDrawerPin5}" Tag="1"/>
+                  </ComboBox>
+                  <Button Grid.Column="2" x:Name="BtnTestCashDrawer" x:FieldModifier="public"
+                          Content="{DynamicResource printSettings.cashDrawerTestButton}" Classes="PrintGoldButton"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+
+            <!-- Строка 2: Ширина ленты, Графика и Выбор режима -->
+            <Grid ColumnDefinitions="*,12,*,12,1.2*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.tapeWidth}" Classes="FieldLabel"/>
+                <ComboBox x:Name="ReceiptPaperWidthCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="{DynamicResource printSettings.width58}" Tag="58"/>
+                  <ComboBoxItem Content="{DynamicResource printSettings.width80}" Tag="80"/>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.graphicsDots}" Classes="FieldLabel"/>
+                <TextBox x:Name="GraphicWidthBox" x:FieldModifier="public" Text="384" Classes="ModernTextBox" Height="36" IsReadOnly="True"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="4" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.printMode}" Classes="FieldLabel"/>
+                <Grid ColumnDefinitions="*,6,*">
+                  <RadioButton Grid.Column="0" x:Name="TextModeRadio" x:FieldModifier="public"
+                               Content="{DynamicResource posSettings.print.modeText}" GroupName="PrintMode"
+                               Classes="PrintModePill"/>
+                  <RadioButton Grid.Column="2" x:Name="GraphicModeRadio" x:FieldModifier="public"
+                               Content="{DynamicResource posSettings.print.modeGraphics}" GroupName="PrintMode"
+                               Classes="PrintModePill"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Блок 1: Настройки ESC/POS (когда выбран Текстовый режим) -->
+        <Border Classes="SettingsCard" Padding="14" IsVisible="{Binding #TextModeRadio.IsChecked}">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{DynamicResource posSettings.print.escPosParams}" Classes="SettingsCardTitle" FontSize="14"/>
+            <Grid ColumnDefinitions="*,12,*,12,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.encoding}" Classes="FieldLabel"/>
+                <ComboBox x:Name="ReceiptEncCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="cp866" Tag="cp866"/>
+                  <ComboBoxItem Content="cp1251" Tag="cp1251"/>
+                  <ComboBoxItem Content="wpc1251" Tag="wpc1251"/>
+                  <ComboBoxItem Content="iso-8859-5" Tag="iso-8859-5"/>
+                  <ComboBoxItem Content="koi8-r" Tag="koi8-r"/>
+                  <ComboBoxItem Content="{DynamicResource printSettings.utf8AsCp1251}" Tag="utf-8"/>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.escTable}" Classes="FieldLabel"/>
+                <ComboBox x:Name="ReceiptTableCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="{DynamicResource posSettings.print.auto}" Tag=""/>
+                  <ComboBoxItem Content="17 — CP866" Tag="17"/>
+                  <ComboBoxItem Content="46 — CP1251" Tag="46"/>
+                  <ComboBoxItem Content="73" Tag="73"/>
+                  <ComboBoxItem Content="26 — ISO" Tag="26"/>
+                  <ComboBoxItem Content="53 — KOI8" Tag="53"/>
+                  <ComboBoxItem Content="{DynamicResource printSettings.pc437NoCyrillic}" Tag="0"/>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Grid.Column="4" Spacing="4">
+                <TextBlock Text="ESC R (0–255)" Classes="FieldLabel"/>
+                <TextBox x:Name="ReceiptEscRBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- 2026-09-08: размер шрифта чека перенесён сюда же, в блок текстовой печати —
+                 раньше был только в отдельной карточке "Настройки чека" ниже, владелец не видел
+                 его в блоке, где настраивает именно текстовый принтер ("вот тут ненастроить
+                 размер"). Тот же самый GraphicFontSizeCombo/UserPreferences.GraphicFontSize —
+                 одно значение теперь одинаково доступно и настраивает оба режима печати (см.
+                 EscPosTextReceiptPrinter.TextFontHeightMultiplier для текстового режима). -->
+            <Grid ColumnDefinitions="*,12,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.fontSize}" Classes="FieldLabel"/>
+                <ComboBox x:Name="TextFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="6" Tag="6"/><ComboBoxItem Content="8" Tag="8"/>
+                  <ComboBoxItem Content="10" Tag="10"/><ComboBoxItem Content="12" Tag="12"/>
+                  <ComboBoxItem Content="14" Tag="14"/><ComboBoxItem Content="16" Tag="16"/>
+                  <ComboBoxItem Content="18" Tag="18"/><ComboBoxItem Content="20" Tag="20"/>
+                  <ComboBoxItem Content="22" Tag="22"/><ComboBoxItem Content="24" Tag="24"/>
+                </ComboBox>
+              </StackPanel>
+            </Grid>
+
+            <Button x:Name="TestTextPrintButton" x:FieldModifier="public"
+                    Content="{DynamicResource printSettings.previewTextReceipt}"
+                    Classes="SettingsFlatButton" HorizontalAlignment="Stretch" Height="36"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Блок 2: Настройки чека (шрифт, размер, что печатать) — видны всегда, не только в графическом режиме -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{DynamicResource posSettings.print.receiptSettings}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource posSettings.print.enableLayout}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                <CheckBox x:Name="GraphicReceiptEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- Шрифт и Размер -->
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.font}" Classes="FieldLabel"/>
+                <ComboBox x:Name="GraphicFontCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="Consolas" Tag="Consolas"/>
+                  <ComboBoxItem Content="Lucida Console" Tag="Lucida Console"/>
+                  <ComboBoxItem Content="Courier New" Tag="Courier New"/>
+                  <ComboBoxItem Content="Arial" Tag="Arial"/>
+                  <ComboBoxItem Content="Tahoma" Tag="Tahoma"/>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.fontSize}" Classes="FieldLabel"/>
+                <ComboBox x:Name="GraphicFontSizeCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
+                  <ComboBoxItem Content="6" Tag="6"/><ComboBoxItem Content="8" Tag="8"/>
+                  <ComboBoxItem Content="10" Tag="10"/><ComboBoxItem Content="12" Tag="12"/>
+                  <ComboBoxItem Content="14" Tag="14"/><ComboBoxItem Content="16" Tag="16"/>
+                  <ComboBoxItem Content="18" Tag="18"/><ComboBoxItem Content="20" Tag="20"/>
+                  <ComboBoxItem Content="22" Tag="22"/><ComboBoxItem Content="24" Tag="24"/>
+                </ComboBox>
+              </StackPanel>
+            </Grid>
+
+            <!-- Элементы чека -->
+            <TextBlock Text="{DynamicResource posSettings.print.displayedElements}" Classes="FieldLabel" Margin="0,2,0,0"/>
+            <Grid ColumnDefinitions="*,24,*">
+              <StackPanel Grid.Column="0" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.screen.storeName}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowStoreNameCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.print.receiptNumber}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowReceiptNumberCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.print.itemsList}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowItemsCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource printSettings.qrHeader}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowQrCodeCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Grid.Column="2" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.print.address}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowAddressCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource common.dateTime}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowDateCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.print.totalAmount}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <CheckBox Grid.Column="1" x:Name="ShowTotalCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+
+            <!-- QR и Предпросмотр -->
+            <Grid ColumnDefinitions="Auto,8,Auto,*,Auto" Margin="0,4,0,0">
+              <Button Grid.Column="0" x:Name="LoadGraphicQrButton" x:FieldModifier="public"
+                      Content="{DynamicResource printSettings.uploadQr}" Classes="SettingsFlatButton" Height="34"/>
+              <Button Grid.Column="2" x:Name="DeleteGraphicQrButton" x:FieldModifier="public"
+                      Content="{DynamicResource printSettings.deleteQr}" Classes="SettingsFlatButton" Height="34"/>
+              <TextBlock Grid.Column="3" x:Name="GraphicQrStatusText" x:FieldModifier="public"
+                         Text="{DynamicResource printSettings.qrNotLoaded}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                         VerticalAlignment="Center" Margin="8,0"/>
+              <Button Grid.Column="4" x:Name="TestGraphicPrintButton" x:FieldModifier="public"
+                      Content="{DynamicResource printSettings.previewButton}" Classes="SettingsFlatButton" Height="34"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Статус печати -->
+        <Border Classes="SettingsCard" Padding="12">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{DynamicResource posSettings.print.logAndStatus}" Classes="SettingsCardTitle" FontSize="13"/>
+            <TextBox x:Name="StatusText" x:FieldModifier="public"
+                     Classes="ModernTextBox" Height="48"
+                     IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
+                     Foreground="{DynamicResource BrushText}" Background="{DynamicResource BrushPanelSoft}"/>
+
+            <Border x:Name="PrintErrorPanel" x:FieldModifier="public"
+                    IsVisible="False" CornerRadius="6" Padding="8"
+                    Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.errorDetails}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+                <TextBox x:Name="TxtPrintErrorDetails" x:FieldModifier="public"
+                         IsReadOnly="True" TextWrapping="Wrap"
+                         FontFamily="Consolas" FontSize="11" MaxHeight="100"
+                         BorderThickness="0" Background="Transparent" Foreground="{DynamicResource BrushDanger}"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        </StackPanel>
+
+        <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
+          <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource BrushSuccess}"
+                     FontSize="12"/>
+          <Button Content="{DynamicResource common.save}"
+                  Classes="btn-primary"
+                  MinWidth="150"
+                  HorizontalAlignment="Center"
+                  Click="Save_Click"/>
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

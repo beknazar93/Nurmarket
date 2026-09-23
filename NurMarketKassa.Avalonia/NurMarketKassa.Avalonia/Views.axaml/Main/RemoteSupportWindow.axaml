@@ -1,0 +1,88 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.RemoteSupportWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="{DynamicResource csh.menu.remoteSupport}"
+        Height="480"
+        Width="520"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <!-- 2026-09-08: переделаны отступы всего окна (владелец: "переделать все отступы... для
+         красоты") + кнопка теперь не даёт тексту прятаться (владелец: "текст отчётливо читался
+         а не прятался") — было Height=46 без явного FontSize/MinHeight у ContentPresenter, из-за
+         чего эмодзи+длинный текст на некоторых языках (например "AnyDesk запустить" на русском
+         короче, но "AnyDesk’ni ishga tushirish" на узбекском заметно длиннее) мог обрезаться;
+         теперь высота больше, явный FontSize, TextWrapping разрешён вместо жёсткого обрезания. -->
+    <Window.Styles>
+        <Style Selector="Button.PrimaryActionButton">
+            <Setter Property="Height" Value="54" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="20,8" TextBlock.TextAlignment="Center" TextBlock.TextWrapping="Wrap" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SecondaryActionButton">
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{DynamicResource SettingsButtonRadius}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="16,8" TextBlock.TextAlignment="Center" TextBlock.TextWrapping="Wrap" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="28" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="14">
+            <Border Width="44" Height="44" CornerRadius="12" Background="{DynamicResource BrushAccentSoft}"
+                    BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+                <TextBlock Text="🖥" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="{DynamicResource csh.menu.remoteSupport}" FontSize="20" FontWeight="Bold"
+                       VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="{DynamicResource remoteSupport.intro}" FontSize="13"
+                   Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" LineHeight="20" Margin="0,20,0,0"/>
+
+        <StackPanel Grid.Row="2" VerticalAlignment="Center" Spacing="12" Margin="0,20,0,0">
+            <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap" LineHeight="19"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+        </StackPanel>
+
+        <Button Grid.Row="3" x:Name="LaunchButton" Content="{DynamicResource remoteSupport.launchButton}"
+                Classes="PrimaryActionButton" Click="LaunchButton_Click" Margin="0,0,0,14"/>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+            <Button x:Name="DownloadButton" Content="{DynamicResource remoteSupport.downloadButton}"
+                    Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click"/>
+            <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
