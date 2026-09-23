@@ -31,6 +31,7 @@ public sealed class SyncService : IDisposable
     private readonly IAuthApiService _auth;
     private readonly ISyncConflictResolver _syncConflictResolver;
     private readonly ICatalogCacheService _catalogCache;
+    private readonly NurMarketKassa.Core.Contracts.IAutonomousAuthService _autonomous;
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private Task? _loopTask;
@@ -41,8 +42,10 @@ public sealed class SyncService : IDisposable
         IAuthApiService auth,
         ISyncConflictResolver syncConflictResolver,
         ICatalogCacheService catalogCache,
-        IShiftApiService shiftApi)
+        IShiftApiService shiftApi,
+        NurMarketKassa.Core.Contracts.IAutonomousAuthService autonomous)
     {
+        _autonomous = autonomous;
         _sales = sales;
         _auth = auth;
         _syncConflictResolver = syncConflictResolver;
@@ -123,8 +126,33 @@ public sealed class SyncService : IDisposable
             return;
 
         IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
+        LeaveOfflineModeIfBackOnline();
         UpdateStatusText();
         RaiseStateChanged();
+    }
+
+    /// <summary>Снимает офлайн-режим, когда связь с сервером подтвердилась.
+    ///
+    /// PosApp.IsOfflineBootstrap выставлялся ОДИН раз — на экране входа — и больше не
+    /// сбрасывался никогда. Если кассир вошёл, пока интернета не было, касса до конца сессии
+    /// продавала «в офлайн»: каждый чек ложился в очередь, хотя связь давно вернулась, а в
+    /// шапке при этом горело «Онлайн» (её рисует IsOnline, который проверяется постоянно).
+    /// Именно это владелец и видел: «постоянно в офлайне, но показывает, что подключено».
+    ///
+    /// Обратно в офлайн по неудачной проверке НЕ переводим: разовый сбой пробы ещё не значит,
+    /// что сервер недоступен, а продажа и так уйдёт в очередь сама, если запрос не пройдёт.
+    /// Автономный режим (работа вообще без NurCRM) не трогаем — там офлайн не временный.</summary>
+    private void LeaveOfflineModeIfBackOnline()
+    {
+        if (!PosApp.IsOfflineBootstrap)
+            return;
+
+        if (_autonomous.IsCurrentSessionAutonomous)
+            return;
+
+        PosApp.IsOfflineBootstrap = false;
+        PosApp.OfflineBootstrapMessage = null;
+        PosLogger.Log("Связь с сервером восстановлена — касса вышла из офлайн-режима.", "OFFLINE");
     }
 
     public async Task TriggerSyncNowAsync(CancellationToken ct = default)
@@ -185,6 +213,19 @@ public sealed class SyncService : IDisposable
                 await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
 
             var pending = OfflinePendingSalesStore.LoadPendingForSync();
+
+            // Без этой записи застрявшую очередь невозможно разобрать по журналу: у чека,
+            // который ни разу не пытались отправить, LastError пуст, и в окне «Некорректные
+            // чеки» он выглядит так же, как только что поставленный в очередь. Пишем только
+            // когда очередь не пуста — иначе журнал заполнится строками ни о чём.
+            if (pending.Count > 0)
+            {
+                PosLogger.Log(
+                    $"OFFLINE очередь: {pending.Count} чек(ов), связь {(IsOnline ? "есть" : "нет")}"
+                    + (IsOnline ? ", отправляю" : ", жду связи"),
+                    "OFFLINE");
+            }
+
             if (IsOnline && pending.Count > 0)
                 await SyncBatchAsync(pending, ct).ConfigureAwait(false);
 
