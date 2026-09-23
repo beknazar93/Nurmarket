@@ -419,6 +419,44 @@ public sealed class LocalProductRepository
         }
     }
 
+    /// <summary>Товары, отмеченные звёздочкой. Берутся запросом к базе, а не из in-memory
+    /// кэша каталога: тот наполняется страницей, которую сейчас показывает каталог, и у
+    /// вызывающего кода (панель чека) он может быть пуст вовсе.</summary>
+    public IReadOnlyList<CatalogProductTileVm> LoadFavoriteTiles(int limit = 12)
+    {
+        var result = new List<CatalogProductTileVm>();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
+                       image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
+                       is_bundle, article, bundle_items_json, alternate_barcodes,
+                       alternate_barcode_variants, product_code
+                FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
+                """;
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$limit";
+            parameter.Value = limit;
+            command.Parameters.Add(parameter);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var tile = ToTileVm(ReadRecord(reader));
+                if (tile != null)
+                    result.Add(tile);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Избранные товары не прочитаны: {ex.Message}", "WARNING");
+        }
+
+        return result;
+    }
+
     /// <summary>Полный текстовый поиск по 100% кэша (без раннего обрыва), с пагинацией результата.</summary>
     public IReadOnlyList<CatalogProductTileVm> SearchFullCatalogText(
         string query,

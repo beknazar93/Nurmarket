@@ -240,11 +240,17 @@
                          пробивает каждый день. Блока нет вовсе, если избранного не отметили:
                          пустая рамка с заголовком была бы хуже, чем ничего. -->
                     <StackPanel Spacing="10" Margin="0,18,0,0" IsVisible="{Binding HasQuickProducts}">
-                        <TextBlock Text="{DynamicResource csh.cart.quickProducts}"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   TextAlignment="Center"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <Grid ColumnDefinitions="*,Auto,*" Margin="10,0">
+                            <Rectangle Grid.Column="0" Height="1" VerticalAlignment="Center"
+                                       Fill="{DynamicResource BrushCatalogTileBorder}"/>
+                            <TextBlock Grid.Column="1" Text="{DynamicResource csh.cart.quickProducts}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Margin="10,0"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <Rectangle Grid.Column="2" Height="1" VerticalAlignment="Center"
+                                       Fill="{DynamicResource BrushCatalogTileBorder}"/>
+                        </Grid>
                         <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="440">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -253,10 +259,19 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="pos:CatalogProductTileVm">
-                                    <Button Classes="main-ghost"
-                                            Width="134" Height="62"
+                                    <!-- Рамку и фон задаём прямо здесь, а не классом: у класса
+                                         main-ghost фона нет вовсе, и плитки читались как простой
+                                         текст посреди пустой панели, без намёка на то, что по ним
+                                         можно нажать. Вид взят у карточки каталога — один и тот же
+                                         товар должен выглядеть одинаково с обеих сторон экрана. -->
+                                    <Button Width="134" Height="66"
                                             Margin="4"
                                             Padding="10,6"
+                                            Cursor="Hand"
+                                            Background="{DynamicResource BrushCatalogTileBg}"
+                                            BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
                                             HorizontalContentAlignment="Stretch"
                                             Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).AddQuickProductCommand}"
                                             CommandParameter="{Binding}">

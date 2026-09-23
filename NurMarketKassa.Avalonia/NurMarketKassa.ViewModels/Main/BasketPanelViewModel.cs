@@ -166,7 +166,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             product => { if (product != null) AddProductFromCatalog(product); },
             product => product != null && !IsBusy);
         RefreshQuickProducts();
-        CatalogCacheService.CacheUpdated += () => _dispatcher.InvokeAsync(RefreshQuickProducts);
+        // Каталог мог обновиться (синхронизация, отметка звёздочкой) — перечитываем.
+        CatalogCacheService.CatalogChanged += () => _dispatcher.InvokeAsync(RefreshQuickProducts);
 
         // Смена языка интерфейса: кнопка «Оплатить» и подписи строк чека собираются в коде (2026-09-07).
         Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
@@ -213,16 +214,14 @@ public sealed class BasketPanelViewModel : ViewModelBase
     {
         try
         {
-            var favourites = CatalogCacheService.Products
-                .Where(p => p.IsFavorite)
-                .Take(12)
-                .ToList();
+            var favourites = LocalProductRepository.Instance.LoadFavoriteTiles();
 
             QuickProducts.Clear();
             foreach (var product in favourites)
                 QuickProducts.Add(product);
 
             OnPropertyChanged(nameof(HasQuickProducts));
+
         }
         catch (Exception ex)
         {
