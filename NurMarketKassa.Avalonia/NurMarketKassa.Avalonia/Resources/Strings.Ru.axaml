@@ -81,6 +81,7 @@
   <x:String x:Key="csh.cart.newReceipt">+ Новый чек</x:String>
   <x:String x:Key="csh.cart.empty">Корзина пуста</x:String>
   <x:String x:Key="csh.cart.emptyHint">Выберите товар слева или&#x0a;отсканируйте штрихкод</x:String>
+  <x:String x:Key="csh.cart.quickProducts">Быстрые товары</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Скидка на этот товар</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Перевзвесить товар</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Уменьшить</x:String>
@@ -103,6 +104,10 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Проверить экран покупателя</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экранная клавиатура</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Горячие клавиши</x:String>
+  <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
+  <x:String x:Key="header.labelTheme">Тема</x:String>
+  <x:String x:Key="header.labelKeyboard">Клавиши</x:String>
+  <x:String x:Key="header.labelHotkeys">Горячие</x:String>
   <x:String x:Key="mainWindow.windowTitle">Касса — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Назад</x:String>
   <x:String x:Key="printSettings.findButton">Найти</x:String>

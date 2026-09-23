@@ -270,40 +270,60 @@
                             Spacing="8"
                             VerticalAlignment="Center">
                     <Button Classes="main-ghost"
-                            Width="38" Height="38"
+                            Width="58" Height="46"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
                             Command="{Binding Toolbar.CheckCustomerDisplayCommand}">
-                        <TextBlock Classes="mdl2" Text="&#xE7F4;" FontSize="15"/>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Classes="mdl2" Text="&#xE7F4;" FontSize="15" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource header.labelCustomerDisplay}" FontSize="9"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
                     </Button>
                     <Button Classes="main-ghost"
-                            Width="38" Height="38"
+                            Width="58" Height="46"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
                             Click="ToggleTheme_Click">
-                        <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="15"/>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="15" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource header.labelTheme}" FontSize="9"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
                     </Button>
                     <Button Classes="main-ghost"
-                            Width="38" Height="38"
+                            Width="58" Height="46"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
                             Command="{Binding Toolbar.ToggleKeyboardCommand}">
-                        <TextBlock Classes="mdl2" Text="&#xE92F;" FontSize="15"/>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Classes="mdl2" Text="&#xE92F;" FontSize="15" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource header.labelKeyboard}" FontSize="9"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
                     </Button>
                     <Button Classes="main-ghost"
-                            Width="38" Height="38"
+                            Width="58" Height="46"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.hotkeysTooltip}"
                             Click="OpenHotkeySettings_Click">
-                        <TextBlock Classes="mdl2" Text="&#xE765;" FontSize="15"/>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Classes="mdl2" Text="&#xE765;" FontSize="15" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource header.labelHotkeys}" FontSize="9"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
                     </Button>
                     <Button Classes="main-outline shift-action"
                             HorizontalContentAlignment="Center"

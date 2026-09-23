@@ -162,6 +162,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
         OpenPayDebtCommand = new RelayCommand(() => _openPayDebt?.Invoke());
         ApplyOrderDiscountCommand = new AsyncRelayCommand(ApplyOrderDiscountAsync, () => HasItems && !IsBusy);
         AddCustomItemCommand = new AsyncRelayCommand(AddCustomItemAsync);
+        AddQuickProductCommand = new RelayCommand<CatalogProductTileVm>(
+            product => { if (product != null) AddProductFromCatalog(product); },
+            product => product != null && !IsBusy);
+        RefreshQuickProducts();
+        CatalogCacheService.CacheUpdated += () => _dispatcher.InvokeAsync(RefreshQuickProducts);
 
         // Смена языка интерфейса: кнопка «Оплатить» и подписи строк чека собираются в коде (2026-09-07).
         Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
@@ -190,6 +195,40 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     public ObservableCollection<CartLineItemVm> Lines { get; } = new();
     public ObservableCollection<ReceiptTabVm> ReceiptTabs { get; } = new();
+
+    /// <summary>Избранные товары — показываются в правой панели, пока чек пуст.
+    ///
+    /// До этого половина экрана при пустой корзине была занята рисунком тележки и подписью
+    /// «Выберите товар слева». Кассир и так знает, что делать; а вот товары, которые он пробивает
+    /// каждый день, стоило положить под руку — их отмечают звёздочкой в каталоге.</summary>
+    public ObservableCollection<CatalogProductTileVm> QuickProducts { get; } = new();
+
+    public bool HasQuickProducts => QuickProducts.Count > 0;
+
+    public ICommand AddQuickProductCommand { get; private set; } = null!;
+
+    /// <summary>Перечитывает избранное из каталога. Вызывается при старте и когда каталог
+    /// обновился — иначе отмеченный только что товар появился бы здесь лишь после перезапуска.</summary>
+    public void RefreshQuickProducts()
+    {
+        try
+        {
+            var favourites = CatalogCacheService.Products
+                .Where(p => p.IsFavorite)
+                .Take(12)
+                .ToList();
+
+            QuickProducts.Clear();
+            foreach (var product in favourites)
+                QuickProducts.Add(product);
+
+            OnPropertyChanged(nameof(HasQuickProducts));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Быстрые товары не обновились: {ex.Message}", "WARNING");
+        }
+    }
 
     public string BarcodeInput
     {

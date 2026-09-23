@@ -81,6 +81,7 @@
   <x:String x:Key="csh.cart.newReceipt">+ Yangi chek</x:String>
   <x:String x:Key="csh.cart.empty">Savat bo'sh</x:String>
   <x:String x:Key="csh.cart.emptyHint">Chapdan mahsulot tanlang yoki&#x0a;shtrix-kodni skanerlang</x:String>
+  <x:String x:Key="csh.cart.quickProducts">Tezkor mahsulotlar</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Ushbu mahsulotga chegirma</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Mahsulotni qayta tortish</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Kamaytirish</x:String>
@@ -103,6 +104,10 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Xaridor ekranini tekshirish</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klaviaturasi</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Tezkor tugmalar</x:String>
+  <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
+  <x:String x:Key="header.labelTheme">Mavzu</x:String>
+  <x:String x:Key="header.labelKeyboard">Klaviatura</x:String>
+  <x:String x:Key="header.labelHotkeys">Tezkor</x:String>
   <x:String x:Key="mainWindow.windowTitle">Kassa — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Orqaga</x:String>
   <x:String x:Key="printSettings.findButton">Topish</x:String>

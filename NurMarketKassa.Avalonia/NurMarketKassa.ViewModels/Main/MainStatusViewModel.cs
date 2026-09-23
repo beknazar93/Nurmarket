@@ -1,4 +1,4 @@
-using NurMarketKassa.Core.Contracts;
+﻿using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
 using NurMarketKassa.Ui.Shared;
 
@@ -140,10 +140,10 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     public void RefreshFromSession()
     {
-        var name = _session.PosCashboxDisplayName;
-        NetworkModeText = string.IsNullOrWhiteSpace(name)
-            ? (_session.IsOfflineBootstrap ? "Офлайн-режим" : "")
-            : name;
+        // Название кассы здесь НЕ показываем: оно уже стоит слева, рядом с логотипом, и в
+        // шапке получалось два одинаковых «Основная касса компании» подряд. В центре остаётся
+        // только то, чего больше нигде нет, — причина, по которой касса работает без сервера.
+        NetworkModeText = _session.IsOfflineBootstrap ? "Офлайн-режим" : "";
 
         // 2026-09-12: в автономном режиме уже виден отдельный жёлтый баннер "Работа в
         // автономном режиме" прямо в каталоге — этот же текст ещё раз в шапке (рядом с именем

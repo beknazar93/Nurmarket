@@ -81,6 +81,7 @@
   <x:String x:Key="csh.cart.newReceipt">+ New receipt</x:String>
   <x:String x:Key="csh.cart.empty">Cart is empty</x:String>
   <x:String x:Key="csh.cart.emptyHint">Pick a product on the left or&#x0a;scan a barcode</x:String>
+  <x:String x:Key="csh.cart.quickProducts">Quick products</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Discount on this item</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Re-weigh the item</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Decrease</x:String>
@@ -103,6 +104,10 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Check customer display</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">On-screen keyboard</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Hotkeys</x:String>
+  <x:String x:Key="header.labelCustomerDisplay">Display</x:String>
+  <x:String x:Key="header.labelTheme">Theme</x:String>
+  <x:String x:Key="header.labelKeyboard">Keyboard</x:String>
+  <x:String x:Key="header.labelHotkeys">Hotkeys</x:String>
   <x:String x:Key="mainWindow.windowTitle">POS — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Back</x:String>
   <x:String x:Key="printSettings.findButton">Find</x:String>

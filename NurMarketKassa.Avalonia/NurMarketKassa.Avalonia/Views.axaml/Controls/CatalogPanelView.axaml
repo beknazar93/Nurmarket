@@ -293,15 +293,14 @@
                                     <!-- Height, а не MinHeight: плитки с фотографией были выше
                                          остальных, и ряды шли «ступенькой». Ровная сетка — первое,
                                          что отличает рабочую кассовую программу от самоделки.
-                                         236 — это ровно то, что нужно самой высокой карточке, и
-                                         посчитано по её содержимому, а не подобрано на глаз:
-                                           84 фото + 8 отступ
-                                         + 34 название в две строки + 32 цена + 23 остаток
-                                         + 16 штрихкод + 30 плашка типа с нижним отступом
-                                         = 227, плюс запас на округление строк.
-                                         При 208 содержимое не помещалось, и плашка наезжала на
-                                         штрихкод — видно было на «Гайка 18» и «Влажные салфетки». -->
-                                    <Grid Width="180" Margin="6" Height="236">
+                                         204 посчитано по содержимому карточки, а не подобрано на глаз:
+                                           64 фото + 8 отступ + 40 название в две строки
+                                         + 34 цена + 19 остаток + 24 отступы карточки
+                                         + 31 плашка типа с отступом.
+                                         Фото есть не у всех, и его строка у остальных схлопывается —
+                                         они просто начинаются ниже, а коробка плитки у всех одна,
+                                         поэтому ряды остаются ровными. -->
+                                    <Grid Width="190" Margin="6" Height="204">
                                         <Button Classes="main-ghost"
                                                 Padding="0"
                                                 Background="Transparent"
@@ -316,72 +315,92 @@
                                                     BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                                     BorderThickness="1"
                                                     CornerRadius="12"
-                                                    Padding="12,10,12,0"
+                                                    Padding="14,12"
                                                     ClipToBounds="True"
                                                     Cursor="Hand">
-                                                <Grid RowDefinitions="Auto,*,Auto">
-                                                    <!-- Место под фото занято ВСЕГДА, даже когда фотографии нет.
-                                                         Иначе плитки с фото и без него — это две разные карточки:
-                                                         у одних название сверху, у других под картинкой, ряды идут
-                                                         вразнобой, а после выравнивания высоты плитки без фото
-                                                         выглядели наполовину пустыми. Одинаковая структура у всех
-                                                         карточек — то, на чём держится ровная сетка. -->
-                                                    <Panel Grid.Row="0" Height="84" Margin="-12,-10,-12,8" ClipToBounds="True">
-                                                        <!-- Заглушка: нейтральная подложка со значком товара.
-                                                             Не «битая картинка» и не пустота — просто спокойный фон. -->
-                                                        <Border Background="{DynamicResource BrushSurfaceSubtle}">
-                                                            <TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets"
-                                                                       FontSize="22"
-                                                                       Opacity="0.35"
-                                                                       Foreground="{DynamicResource BrushTextSoft}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"/>
-                                                        </Border>
+                                                <!-- Карточка держит три вещи: что это, сколько стоит и
+                                                     сколько осталось. Всё остальное убрано осознанно:
+
+                                                     • Полоса под фото высотой в треть карточки стояла у
+                                                       КАЖДОГО товара, а фотография есть у единиц — у
+                                                       остальных это был пустой серый прямоугольник.
+                                                       Теперь фото — маленькая миниатюра слева от
+                                                       названия, и её место пустует, а не заливается
+                                                       заглушкой.
+                                                     • Штрихкод кассир не читает: он его сканирует. В
+                                                       карточке он занимал строку и утяжелял её.
+                                                     • Плашка «Штучный» стояла почти на каждом товаре —
+                                                       см. CatalogProductTileVm.ShowTypeBadge. -->
+                                                <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+                                                    <!-- Фотография, когда она есть: крупно, сверху,
+                                                         по центру карточки. Строка схлопывается у
+                                                         товаров без фото, поэтому пустых серых
+                                                         прямоугольников, как было раньше, не
+                                                         появляется, а высота плитки у всех одна. -->
+                                                    <Border Grid.Row="0"
+                                                            Height="64"
+                                                            MaxWidth="104"
+                                                            Margin="0,0,0,8"
+                                                            CornerRadius="10"
+                                                            ClipToBounds="True"
+                                                            HorizontalAlignment="Center"
+                                                            IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
                                                         <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
-                                                               Stretch="UniformToFill"
-                                                               IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}"/>
-                                                    </Panel>
-                                                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,0,0,4">
-                                                        <TextBlock Grid.Row="0"
-                                                                   Text="{Binding Title}"
-                                                                   FontSize="13"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource BrushText}"
-                                                                   TextWrapping="Wrap"
-                                                                   MaxLines="2"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   Margin="0,0,26,0"/>
-                                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0" Spacing="4">
+                                                               Stretch="UniformToFill"/>
+                                                    </Border>
+
+                                                    <!-- Название занимает всю ширину карточки: оно и есть
+                                                         то, по чему товар узнают. Миниатюра ушла в нижний
+                                                         угол — когда она стояла слева от названия, у неё
+                                                         уходило 54 px из 162, и «Патроны для Степлера»
+                                                         обрезалось на первом слове. -->
+                                                    <!-- Название занимает всё свободное место и стоит
+                                                         по центру. У товара с фотографией это место под
+                                                         ней, у товара без фотографии — вся карточка:
+                                                         текст оказывается посередине, а не приклеен к
+                                                         верхнему краю над пустотой. -->
+                                                    <TextBlock Grid.Row="1"
+                                                               Text="{Binding Title}"
+                                                               Margin="4,0,4,8"
+                                                               FontSize="14"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource BrushText}"
+                                                               TextWrapping="Wrap"
+                                                               MaxLines="2"
+                                                               TextAlignment="Center"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+
+                                                    <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Spacing="2">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                                                             <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
-                                                                       FontSize="22"
+                                                                       FontSize="24"
                                                                        FontWeight="Bold"
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"
                                                                        VerticalAlignment="Bottom"/>
                                                             <TextBlock Text="{DynamicResource csh.catalog.currency}"
                                                                        FontSize="11"
                                                                        Foreground="{DynamicResource BrushCatalogMeta}"
-                                                                       Margin="0,0,0,2"
+                                                                       Margin="0,0,0,4"
                                                                        VerticalAlignment="Bottom"/>
                                                         </StackPanel>
-                                                        <TextBlock Grid.Row="2"
-                                                                   Text="{Binding StockInfo}"
-                                                                   FontSize="14"
-                                                                   Margin="0,4,0,0"
+
+                                                        <TextBlock Text="{Binding StockInfo}"
+                                                                   FontSize="13"
+                                                                   HorizontalAlignment="Center"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
-                                                        <TextBlock Grid.Row="3"
-                                                                   Text="{Binding Barcode, StringFormat=ШК: {0}}"
-                                                                   FontSize="10"
-                                                                   Foreground="{DynamicResource BrushCatalogMeta}"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   Margin="0,2,0,0"/>
-                                                    </Grid>
-                                                    <Border Grid.Row="2"
-                                                            Margin="0,0,0,10"
+                                                    </StackPanel>
+
+
+                                                    <Border Grid.Row="3"
+                                                            Margin="0,8,0,0"
                                                             Padding="8,3"
                                                             CornerRadius="4"
-                                                            HorizontalAlignment="Left"
-                                                            VerticalAlignment="Bottom"
+                                                            HorizontalAlignment="Center"
+                                                            IsVisible="{Binding ShowTypeBadge}"
                                                             Classes.badge-weighted="{Binding IsWeighted}"
                                                             Classes.badge-bundle="{Binding IsBundle}"
                                                             Background="{DynamicResource BrushBadgePieceBg}">

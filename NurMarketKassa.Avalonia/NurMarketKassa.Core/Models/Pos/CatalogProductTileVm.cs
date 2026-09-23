@@ -246,6 +246,14 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
 
     public bool HasPieceOption => PieceOption != null;
 
+    /// <summary>Показывать ли плашку типа товара.
+    ///
+    /// Обычный штучный товар плашки не получает: она стояла на каждой второй карточке и
+    /// перестала что-либо различать — цвет, который есть у всех, не несёт информации, только
+    /// шумит. Плашка остаётся там, где тип МЕНЯЕТ ПОВЕДЕНИЕ кассы: весовой (спросит вес),
+    /// комплект (разложится на составляющие), поштучный из пачки (спросит, целая или штука).</summary>
+    public bool ShowTypeBadge => IsWeighted || IsBundle || HasPieceOption;
+
     /// <summary>Комплект/набор из нескольких разных товаров (поле "kind"="bundle" в NurCRM).</summary>
     public bool IsBundle { get; set; }
 

@@ -81,6 +81,7 @@
   <x:String x:Key="csh.cart.newReceipt">+ Жаңы чек</x:String>
   <x:String x:Key="csh.cart.empty">Себет бош</x:String>
   <x:String x:Key="csh.cart.emptyHint">Солдогу товардан тандаңыз же&#x0a;штрихкодду скандаңыз</x:String>
+  <x:String x:Key="csh.cart.quickProducts">Ыкчам товарлар</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Бул товарга арзандатуу</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Товарды кайра тартуу</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Азайтуу</x:String>
@@ -103,6 +104,10 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Сатып алуучунун экранын текшерүү</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экрандык клавиатура</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Ыкчам баскычтар</x:String>
+  <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
+  <x:String x:Key="header.labelTheme">Тема</x:String>
+  <x:String x:Key="header.labelKeyboard">Баскыч</x:String>
+  <x:String x:Key="header.labelHotkeys">Ыкчам</x:String>
   <x:String x:Key="mainWindow.windowTitle">Касса — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Артка</x:String>
   <x:String x:Key="printSettings.findButton">Табуу</x:String>

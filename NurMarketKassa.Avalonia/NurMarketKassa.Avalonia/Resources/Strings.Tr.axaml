@@ -81,6 +81,7 @@
   <x:String x:Key="csh.cart.newReceipt">+ Yeni fiş</x:String>
   <x:String x:Key="csh.cart.empty">Sepet boş</x:String>
   <x:String x:Key="csh.cart.emptyHint">Soldan bir ürün seçin veya&#x0a;barkod okutun</x:String>
+  <x:String x:Key="csh.cart.quickProducts">Hızlı ürünler</x:String>
   <x:String x:Key="csh.cart.discountTooltip">Bu üründe indirim</x:String>
   <x:String x:Key="csh.cart.weighTooltip">Ürünü yeniden tart</x:String>
   <x:String x:Key="csh.cart.decreaseTooltip">Azalt</x:String>
@@ -103,6 +104,10 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Müşteri ekranını kontrol et</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klavyesi</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Kısayol tuşları</x:String>
+  <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
+  <x:String x:Key="header.labelTheme">Tema</x:String>
+  <x:String x:Key="header.labelKeyboard">Klavye</x:String>
+  <x:String x:Key="header.labelHotkeys">Kısayol</x:String>
   <x:String x:Key="mainWindow.windowTitle">Kasa — Nur Market</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Geri</x:String>
   <x:String x:Key="printSettings.findButton">Bul</x:String>

@@ -1,6 +1,7 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:pos="using:NurMarketKassa.Models.Pos"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketPanelView"
              x:DataType="vm:BasketPanelViewModel"
              x:CompileBindings="True"
@@ -233,6 +234,49 @@
                                Foreground="{DynamicResource BrushTextSoft}"
                                TextAlignment="Center"
                                TextWrapping="Wrap"/>
+
+                    <!-- Товары, отмеченные звёздочкой в каталоге. Пока чек пуст, половина
+                         экрана всё равно ничем не занята — пусть на ней лежит то, что кассир
+                         пробивает каждый день. Блока нет вовсе, если избранного не отметили:
+                         пустая рамка с заголовком была бы хуже, чем ничего. -->
+                    <StackPanel Spacing="10" Margin="0,18,0,0" IsVisible="{Binding HasQuickProducts}">
+                        <TextBlock Text="{DynamicResource csh.cart.quickProducts}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="440">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="pos:CatalogProductTileVm">
+                                    <Button Classes="main-ghost"
+                                            Width="134" Height="62"
+                                            Margin="4"
+                                            Padding="10,6"
+                                            HorizontalContentAlignment="Stretch"
+                                            Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).AddQuickProductCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       MaxLines="1"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource BrushText}"/>
+                                            <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                                       FontSize="15"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </StackPanel>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
