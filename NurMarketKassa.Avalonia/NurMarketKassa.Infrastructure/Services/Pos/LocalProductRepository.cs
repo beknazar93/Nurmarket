@@ -318,20 +318,74 @@ public sealed class LocalProductRepository
         }
     }
 
+    /// <summary>Товар по штрихкоду.
+    ///
+    /// Сначала смотрим в готовый кэш — если он прогрет, это словарь и ответ мгновенный. Если
+    /// НЕ прогрет, раньше здесь вызывался EnsureCacheReady(), а он блокирует вызывающий поток
+    /// на полной пересборке кэша из базы. Путь достижим со сканирования штрихкода, то есть с
+    /// UI-потока: касса замирала на всё время пересборки, а на каталоге в 20 тыс. товаров это
+    /// заметная пауза ровно в тот момент, когда кассир пробивает товар.
+    ///
+    /// Поэтому непрогретый кэш больше не ждём: один товар достаём запросом к базе по
+    /// индексу idx_products_barcode — это доли миллисекунды. Прогрев при этом запускается
+    /// фоном, чтобы следующие обращения шли уже по словарю.</summary>
     public CatalogProductTileVm? TryGetTileByBarcode(string barcode)
     {
-        if (string.IsNullOrWhiteSpace(barcode) || !EnsureCacheReady())
+        if (string.IsNullOrWhiteSpace(barcode))
             return null;
 
         var key = barcode.Trim();
-        _cacheLock.EnterReadLock();
+
+        if (_cacheReady)
+        {
+            _cacheLock.EnterReadLock();
+            try
+            {
+                if (_barcodeCache.TryGetValue(key, out var cached))
+                    return cached;
+            }
+            finally
+            {
+                _cacheLock.ExitReadLock();
+            }
+        }
+
+        var direct = LoadSingleTile("barcode", key);
+        if (direct != null || _cacheReady)
+            return direct;
+
+        // Кэш ещё не строился — пусть строится, но уже без нас.
+        _ = EnsureCacheReadyAsync();
+        return null;
+    }
+
+    /// <summary>Один товар из базы по точному совпадению поля. Нужен, когда кэш ещё не готов:
+    /// достать одну строку по индексу дешевле, чем поднять весь каталог.</summary>
+    private CatalogProductTileVm? LoadSingleTile(string column, string value)
+    {
         try
         {
-            return _barcodeCache.TryGetValue(key, out var tile) ? tile : null;
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
+                       image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
+                       is_bundle, article, bundle_items_json, alternate_barcodes,
+                       alternate_barcode_variants, product_code
+                FROM Products WHERE {column} = $value COLLATE NOCASE LIMIT 1;
+                """;
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$value";
+            parameter.Value = value;
+            command.Parameters.Add(parameter);
+
+            using var reader = command.ExecuteReader();
+            return reader.Read() ? ToTileVm(ReadRecord(reader)) : null;
         }
-        finally
+        catch (Exception ex)
         {
-            _cacheLock.ExitReadLock();
+            PosLogger.Log($"Товар по {column} не прочитан: {ex.Message}", "WARNING");
+            return null;
         }
     }
 
@@ -340,10 +394,20 @@ public sealed class LocalProductRepository
 
     public CatalogProductTileVm? TryGetTileById(string id)
     {
-        if (string.IsNullOrWhiteSpace(id) || !EnsureCacheReady())
+        if (string.IsNullOrWhiteSpace(id))
             return null;
 
         var key = id.Trim();
+        if (!_cacheReady)
+        {
+            var direct = LoadSingleTile("id", key);
+            if (direct != null)
+                return direct;
+
+            _ = EnsureCacheReadyAsync();
+            return null;
+        }
+
         _cacheLock.EnterReadLock();
         try
         {

@@ -35,6 +35,11 @@ public sealed class SyncService : IDisposable
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private Task? _loopTask;
+
+    /// <summary>Догрузка истории продаж с сервера: первый проход сразу, дальше раз в полчаса.
+    /// Чаще незачем — это не продажи текущей кассы, а чужие чеки для аналитики.</summary>
+    private static readonly TimeSpan HistoryBackfillInterval = TimeSpan.FromMinutes(30);
+    private DateTime _lastHistoryBackfillUtc = DateTime.MinValue;
     private bool _disposed;
 
     public SyncService(
@@ -228,6 +233,28 @@ public sealed class SyncService : IDisposable
 
             if (IsOnline && pending.Count > 0)
                 await SyncBatchAsync(pending, ct).ConfigureAwait(false);
+
+            // История продаж других касс этого же аккаунта. Раньше её добирал раздел ABC при
+            // открытии — и на кассе с пустой историей окно висело минутами. Здесь это фоновая
+            // работа: порциями, никто не ждёт.
+            if (IsOnline && DateTime.UtcNow - _lastHistoryBackfillUtc >= HistoryBackfillInterval)
+            {
+                _lastHistoryBackfillUtc = DateTime.UtcNow;
+                try
+                {
+                    var added = await SalesHistoryBackfillHook.RunAsync(ct).ConfigureAwait(false);
+                    if (added > 0)
+                        PosDataEvents.RaiseSalesChanged();
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"История продаж не догружена: {ex.Message}", "WARNING");
+                }
+            }
 
             if (IsOnline && DateTime.UtcNow - _lastCatalogSyncUtc >= CatalogSyncInterval)
             {

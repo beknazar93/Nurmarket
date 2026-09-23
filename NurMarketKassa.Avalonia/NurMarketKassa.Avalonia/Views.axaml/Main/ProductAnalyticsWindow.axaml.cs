@@ -57,9 +57,11 @@ public sealed class ProductAnalyticsWindow : Window
             Foreground = Text(),
         });
 
-        var all = SoldLineItemsStore
-            .LoadWithPriceSince(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
-            .Where(l => string.Equals(l.ProductName, productName, StringComparison.OrdinalIgnoreCase))
+        // Выборка по товару делается запросом к базе, а не фильтром по всей истории: на
+        // 300 тыс. строк полный проход занимал 1179 мс и создавал триста тысяч лишних
+        // объектов, причём в UI-потоке.
+        var all = SoldLineItemsStore.LoadForProduct(productName)
+            .OrderByDescending(l => l.SoldAt)
             .ToList();
 
         if (all.Count == 0)

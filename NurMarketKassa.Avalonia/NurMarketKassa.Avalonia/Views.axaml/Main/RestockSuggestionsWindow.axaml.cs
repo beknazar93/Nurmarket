@@ -51,10 +51,19 @@ public partial class RestockSuggestionsWindow : Window
         LoadReorderTab();
     }
 
-    private void LoadReorderTab()
+    /// <summary>Готовит вкладку «Что пора заказать».
+    ///
+    /// Чтение истории продаж вынесено в фоновый поток: раньше оно шло прямо в обработчике
+    /// открытия окна, и на магазине с длинной историей касса замирала на секунды. Сама
+    /// раскладка по гриду остаётся на UI-потоке — это уже дёшево.</summary>
+    private async void LoadReorderTab()
     {
         var since = DateTime.UtcNow.AddDays(-_salesLookbackDays);
-        var soldLines = SoldLineItemsStore.LoadSince(since);
+        ReorderSubtitle.Text = Tr.T("Считаю по истории продаж…", "Сатуу тарыхы боюнча эсептелүүдө…",
+            "Calculating from the sales history…", "Satış geçmişinden hesaplanıyor…",
+            "Sotuvlar tarixi bo'yicha hisoblanmoqda…");
+
+        var soldLines = await Task.Run(() => SoldLineItemsStore.LoadSince(since)).ConfigureAwait(true);
 
         var earliest = soldLines.Count > 0 ? soldLines.Min(l => l.SoldAt) : (DateTime?)null;
         var spanDays = earliest.HasValue
@@ -87,6 +96,8 @@ public partial class RestockSuggestionsWindow : Window
         }
 
         var sorted = rows.OrderBy(r => r.DaysLeft).Take(60).ToList();
+        ReorderSubtitle.Text = Tr.T("Что пора заказать", "Эмнени заказ кылуу керек", "What to reorder",
+            "Neyi yeniden sipariş etmeli", "Nimani qayta buyurtma qilish kerak");
         ReorderGrid.ItemsSource = sorted;
         ReorderEmptyText.IsVisible = sorted.Count == 0;
     }

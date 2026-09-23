@@ -20,10 +20,6 @@ public partial class AbcAnalysisWindow : Window
     private DateTime _from = DateTime.Today.AddDays(-30);
     private DateTime _to = DateTime.Today;
     private CancellationTokenSource? _cts;
-    /// <summary>Историю с сервера тянем не больше одного раза за открытие окна: если продаж
-    /// там действительно нет, повторные попытки при каждом переключении периода только
-    /// подвешивали бы окно.</summary>
-    private bool _backfillTried;
     private bool _suppressPickerEvents;
 
     public AbcAnalysisWindow()
@@ -177,27 +173,6 @@ public partial class AbcAnalysisWindow : Window
             // Аналитика считается по локальным строкам, а их пишет только сама касса. На
             // компьютере, где эта компания ещё не продавала, история пуста, хотя на сервере
             // продажи есть — тогда один раз подтягиваем их оттуда и пересчитываем.
-            // Добираем историю с сервера при каждом открытии окна, а не только когда локально
-            // пусто: на второй кассе того же аккаунта своя история есть, а чужих чеков в ней
-            // нет — именно этот случай раньше и не закрывался.
-            if (!_backfillTried && !OfflineModeHelper.UseLocalOperations)
-            {
-                _backfillTried = true;
-                ShowError(Tr.T("Загружаю историю продаж с сервера…", "Сатуу тарыхы серверден жүктөлүүдө…",
-                    "Loading the sales history from the server…", "Satış geçmişi sunucudan yükleniyor…",
-                    "Sotuvlar tarixi serverdan yuklanmoqda…"));
-                var added = await SalesHistoryBackfill.RunAsync(cts.Token).ConfigureAwait(true);
-                cts.Token.ThrowIfCancellationRequested();
-                ShowError(null);
-
-                if (added > 0)
-                {
-                    data = await Task.Run(() => AnalyticsReportData.Build(from, to), cts.Token)
-                        .ConfigureAwait(true);
-                    cts.Token.ThrowIfCancellationRequested();
-                }
-            }
-
             AbcSection.Update(data);
         }
         catch (OperationCanceledException)

@@ -344,6 +344,29 @@ public sealed class PosCheckoutService : IPosCheckoutService
             var cartJsonSnapshot = _cart.GetRawText();
             var total = CartTotalsCalculator.Calculate(_cart.Root).TotalDue;
 
+            // Сверяем наличные с итогом ПОСЛЕ переноса чека на сервер.
+            //
+            // Кассир вводит деньги по сумме, которую показала касса ДО переноса. Если серверная
+            // корзина после переноса стоит дороже — из-за скидки, не доехавшей до сервера, или
+            // из-за копейки на весовом товаре, — сервер отвечает «Сумма, полученная наличными,
+            // меньше суммы продажи», и кассир видит отказ без единой цифры: ни сколько не
+            // хватило, ни почему. Ловим это здесь и называем обе суммы.
+            if (string.Equals(request.PaymentMethod, "cash", StringComparison.OrdinalIgnoreCase)
+                && double.TryParse(request.CashReceived, NumberStyles.Any, CultureInfo.InvariantCulture, out var cashGiven)
+                && cashGiven + 0.005 < total)
+            {
+                var shortfall = total - cashGiven;
+                PosLogger.Log(
+                    $"PAY mismatch: наличные {cashGiven:0.00}, итог после переноса {total:0.00}, "
+                    + $"не хватает {shortfall:0.00}. Корзина: {cartJsonSnapshot}",
+                    "PAYMENT");
+
+                return PosCheckoutResult.Failed(
+                    $"Сумма чека изменилась при переносе на сервер: касса показала {cashGiven:0.00} сом, "
+                    + $"сервер посчитал {total:0.00} сом (не хватает {shortfall:0.00}). "
+                    + "Чаще всего это скидка, которую сервер не принял. Проверьте скидку и повторите оплату.");
+            }
+
             if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline)
             {
                 if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))

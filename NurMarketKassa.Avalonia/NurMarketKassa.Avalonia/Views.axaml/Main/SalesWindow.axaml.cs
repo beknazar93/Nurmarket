@@ -902,15 +902,42 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Скидка чека, как её записал сервер. Обычная скидка и списанные бонусы
         /// приходят ОДНОЙ суммой — разделить их здесь нельзя, для этого есть локальная таблица
         /// (ClientLoyaltyStore.AdjustmentsBetween).</summary>
+        /// <summary>Скидка по проведённой продаже.
+        ///
+        /// Раньше читались ТОЛЬКО поля шапки чека (discount_total / order_discount_total), и
+        /// это давало живой баг: на экране кассы скидка есть, а в чеке её нет. Причина в том,
+        /// что скидку фиксированной суммой сервер у кассира отклоняет пятисоткой, и касса
+        /// раскладывает её по строкам чека (StagingCartService.TrySpreadDiscountOverLinesAsync).
+        /// После этого в шапке ноль, а вся скидка лежит на позициях — предпросмотр и повторная
+        /// печать показывали чек так, будто скидки не было вовсе.
+        ///
+        /// Теперь складываем обе части: скидку на чек и сумму построчных скидок.</summary>
         private static decimal ReadSaleDiscount(System.Text.Json.JsonElement json)
         {
+            var header = 0m;
             foreach (var name in new[] { "discount_total", "order_discount_total" })
             {
                 if (ReadDecimalProperty(json, name) is { } value && value > 0m)
-                    return value;
+                {
+                    header = value;
+                    break;
+                }
             }
 
-            return 0m;
+            var lines = 0m;
+            foreach (var item in CartDisplayHelper.EnumerateSaleLineItems(json))
+            {
+                foreach (var name in new[] { "discount_total", "line_discount", "discount" })
+                {
+                    if (ReadDecimalProperty(item, name) is { } value && value > 0m)
+                    {
+                        lines += value;
+                        break;
+                    }
+                }
+            }
+
+            return header + lines;
         }
 
         /// <summary>Итог чека со стороны сервера — то, что покупатель реально заплатил.</summary>

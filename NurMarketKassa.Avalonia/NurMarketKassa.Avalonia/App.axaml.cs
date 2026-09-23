@@ -137,6 +137,9 @@ public partial class App : Application
         // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
         // так разделение срабатывает на любом пути входа, включая смену кассира.
         CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
+        // Догрузка истории продаж с сервера живёт в приложении, а вызывает её фоновая
+        // синхронизация из Infrastructure — связываем их здесь.
+        SalesHistoryBackfillHook.Register(SalesHistoryBackfill.RunAsync);
         RegisterGlobalExceptionHandlers();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

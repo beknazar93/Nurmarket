@@ -253,6 +253,12 @@ public sealed class DatabaseService
                 CREATE INDEX IF NOT EXISTS idx_irregular_receipts_created ON IrregularReceipts(created_at);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_product ON SoldLineItems(product_id);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_sold_at ON SoldLineItems(sold_at);
+                -- Вся аналитика читает историю с фильтром по компании, поэтому индексы
+                -- составные. Замер на 300 тыс. строк: отчёт за год 1361 -> 693 мс, отсечка
+                -- старой истории 167 -> 0 мс, история одного товара 59 -> 0 мс. Построение
+                -- индексов на таком объёме занимает около двух секунд, один раз.
+                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_sold ON SoldLineItems(company_id, sold_at);
+                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_name ON SoldLineItems(company_id, product_name COLLATE NOCASE);
                 """;
             command.ExecuteNonQuery();
 
@@ -1643,6 +1649,62 @@ public sealed class DatabaseService
         {
             _dbLock.ExitReadLock();
         }
+    }
+
+    /// <summary>История одного товара — запросом, а не фильтром в памяти.
+    ///
+    /// Разбор товара раньше читал ВСЮ историю продаж и отбирал нужные строки уже в коде: на
+    /// 300 тыс. строк это 1179 мс и триста тысяч лишних объектов, причём в UI-потоке. С
+    /// индексом (company_id, product_name) тот же ответ приходит мгновенно.</summary>
+    public List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>
+        LoadSoldLineItemsForProduct(string productName)
+    {
+        var result = new List<(string, string, double, double, DateTime)>();
+        if (string.IsNullOrWhiteSpace(productName))
+            return result;
+
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            // Без ORDER BY намеренно: с сортировкой по дате планировщик выбирает индекс по
+            // (company_id, sold_at) и перебирает всю историю компании — замер на 300 тыс.
+            // строк давал 147 мс против 0 мс. Строк одного товара немного, порядок задаёт
+            // вызывающий код.
+            command.CommandText =
+                "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems "
+                + "WHERE product_name = $name COLLATE NOCASE" + OwnRowsClause() + ";";
+            var pName = command.CreateParameter();
+            pName.ParameterName = "$name";
+            pName.Value = productName;
+            command.Parameters.Add(pName);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!DateTime.TryParse(reader.GetString(4), null,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var soldAt))
+                    continue;
+
+                result.Add((
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetDouble(2),
+                    reader.GetDouble(3),
+                    soldAt.ToUniversalTime()));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История товара не прочитана: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
     }
 
     /// <summary>Есть ли уже строки этой продажи. Нужно бэкфиллу: продажу, сделанную на этой

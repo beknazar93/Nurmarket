@@ -18,6 +18,10 @@ public static class SoldLineItemsStore
     public static void AppendBackfill(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string? saleId = null) =>
         Db.AppendSoldLineItems(lines, source: "backfill", saleId);
 
+    /// <summary>Вся история одного товара — для разбора товара.</summary>
+    public static List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>
+        LoadForProduct(string productName) => Db.LoadSoldLineItemsForProduct(productName);
+
     /// <summary>Дата, до которой история писалась без номера продажи — раньше неё сливать
     /// истории касс нельзя, будет задвоение.</summary>
     public static DateTime? LegacyWatermark() => Db.GetLegacyHistoryWatermark();

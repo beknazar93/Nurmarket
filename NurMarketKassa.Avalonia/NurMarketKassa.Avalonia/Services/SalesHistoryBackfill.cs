@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,19 @@ public static class SalesHistoryBackfill
 {
     private const int PageSize = 200;
     private const int MaxPages = 3;   // до 600 чеков — тот же порядок, что и в «Финансах»
+
+    /// <summary>Сколько чеков дочитываем за один проход.
+    ///
+    /// Раньше ограничения не было: на кассе с пустой историей бэкфилл запрашивал детали всех
+    /// 600 чеков ПОДРЯД. Замер живого API — 0,28–0,47 с на запрос, то есть до четырёх минут, и
+    /// всё это время раздел ABC показывал «Загружаю историю продаж с сервера…». Теперь за проход
+    /// берём порцию, а остальное доберут следующие проходы фоновой синхронизации.</summary>
+    private const int MaxSalesPerPass = 120;
+
+    /// <summary>Сколько запросов деталей идёт одновременно. Последовательно 120 чеков — это
+    /// около минуты; по шесть — около десяти секунд. Больше не ставим: это чужой сервер, и
+    /// заваливать его ради фоновой задачи незачем.</summary>
+    private const int Parallelism = 6;
 
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
@@ -69,6 +83,9 @@ public static class SalesHistoryBackfill
         var legacyWatermark = SoldLineItemsStore.LegacyWatermark();
         var added = 0;
 
+        // Отбираем, что вообще нужно тянуть, и только потом идём в сеть — так видно объём
+        // работы и можно честно ограничить порцию.
+        var todo = new List<(string SaleId, DateTime CreatedAt)>();
         foreach (var sale in raw)
         {
             ct.ThrowIfCancellationRequested();
@@ -89,18 +106,42 @@ public static class SalesHistoryBackfill
             if (legacyWatermark is { } watermark && createdAt.ToUniversalTime() <= watermark)
                 continue;
 
-            JsonElement detail;
+            todo.Add((saleId, createdAt.ToUniversalTime()));
+            if (todo.Count >= MaxSalesPerPass)
+                break;
+        }
+
+        if (todo.Count == 0)
+            return 0;
+
+        // Детали чеков качаем параллельно: это независимые запросы, и последовательность в них
+        // ничего не даёт, кроме ожидания.
+        var gate = new SemaphoreSlim(Parallelism);
+        var fetched = await Task.WhenAll(todo.Select(async item =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                detail = await App.SalesApi.PosSaleGetAsync(saleId, ct).ConfigureAwait(false);
+                var detail = await App.SalesApi.PosSaleGetAsync(item.SaleId, ct).ConfigureAwait(false);
+                return (item.SaleId, item.CreatedAt, Detail: (JsonElement?)detail);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Чек не прочитан при загрузке истории: {ex.Message}", "DEBUG");
-                continue;
+                return (item.SaleId, item.CreatedAt, Detail: (JsonElement?)null);
             }
+            finally
+            {
+                gate.Release();
+            }
+        })).ConfigureAwait(false);
 
-            if (!detail.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+        foreach (var (saleId, createdAt, detail) in fetched)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (detail is not { } sale)
+                continue;
+            if (!sale.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
                 continue;
 
             // Пишем по одному чеку за раз: номер продажи общий для всех его строк, и при
@@ -118,7 +159,7 @@ public static class SalesHistoryBackfill
                     name,
                     CartDisplayHelper.LineQuantity(line),
                     CartDisplayHelper.UnitPrice(line),
-                    createdAt.ToUniversalTime()));
+                    createdAt));
             }
 
             if (lines.Count == 0)

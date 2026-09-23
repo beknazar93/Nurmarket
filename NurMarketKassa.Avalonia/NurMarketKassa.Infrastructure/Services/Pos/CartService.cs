@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -218,24 +218,24 @@ public sealed class CartService : ICartService, IDisposable
             SalePackageId: CartDisplayHelper.SalePackageId(line));
     }
 
+    /// <summary>Пустой локальный чек — то, с чего начинается новый чек и чем заканчивается
+    /// оплата предыдущего.
+    ///
+    /// Флаг «локальный» (IsStaging) ставится ВСЕГДА, а не наследуется у прежнего чека. Новый
+    /// чек по определению ещё не существует на сервере: он выгружается туда один раз, при
+    /// оплате. Раньше флаг восстанавливался только если прежний чек был локальным — и после
+    /// чека, уже выгруженного на сервер, новый оказывался помечен как серверный, хотя за ним
+    /// не стояло ни одной корзины.</summary>
     public void LoadEmptyStagingCart()
     {
         lock (_sync)
         {
-            // Запоминаем, был ли чек отложенным
-            bool wasStaging = _session.IsStaging;
-
-            // Очищаем корзину (это сбросит IsStaging, но мы восстановим)
             _session.Clear();
 
-            // Загружаем валидную пустую корзину
             var empty = CartJsonHelper.CreateEmptyCart();
             using var doc = JsonDocument.Parse(empty.ToJsonString());
             _session.SetCart(doc.RootElement);
-
-            // Восстанавливаем флаг отложенного чека
-            if (wasStaging)
-                _session.SetStaging(true);
+            _session.SetStaging(true);
         }
     }
 
