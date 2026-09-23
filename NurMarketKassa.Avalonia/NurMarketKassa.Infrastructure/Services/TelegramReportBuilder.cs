@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace NurMarketKassa.Services;
@@ -186,6 +187,211 @@ public static class TelegramReportBuilder
         return sb.ToString();
     }
 
+    /// <summary>Предел сообщения в Telegram — 4096 символов. Отчёты строятся по живым данным
+    /// магазина, и на большом ассортименте список легко уходит за предел: сообщение тогда не
+    /// отправляется вовсе. Поэтому режем сами и честно говорим, что показано не всё.</summary>
+    private const int TelegramLimit = 3900;
+
+    private static string Trim(StringBuilder builder)
+    {
+        var text = builder.ToString();
+        if (text.Length <= TelegramLimit)
+            return text;
+
+        var cut = text.LastIndexOf('\n', TelegramLimit - 1);
+        if (cut < 0)
+            cut = TelegramLimit - 1;
+
+        return text[..cut] + "\n\n<i>…список обрезан, целиком — в кассе, раздел «ABC-анализ».</i>";
+    }
+
+    /// <summary>ABC-анализ за период. Присылается сводка по группам во всех срезах сразу —
+    /// именно сравнение срезов и полезно: товар из группы A по выручке часто оказывается в C
+    /// по прибыли, и по одной выручке такой товар не разглядеть.</summary>
+    public static string BuildAbc(int days = 30)
+    {
+        var to = DateTime.Today;
+        var from = to.AddDays(-(days - 1));
+        var data = AnalyticsReportData.Build(from, to, includeSeasonality: false);
+
+        if (data.AbcSlices.Count == 0 || data.AbcSlices[0].Rows.Count == 0)
+            return $"<b>ABC-анализ за {days} дн.</b>\n\nПродаж за период нет — считать не на чем.";
+
+        var text = new StringBuilder();
+        text.AppendLine($"<b>ABC-анализ за {days} дн.</b>");
+        text.AppendLine("<i>A — первые 80 % результата, B — следующие 15 %, C — остальные 5 %.</i>");
+
+        foreach (var slice in data.AbcSlices)
+        {
+            if (slice.Rows.Count == 0)
+                continue;
+
+            text.AppendLine();
+            text.AppendLine($"<b>{Escape(slice.Title)}</b>");
+            foreach (var group in slice.Summary)
+            {
+                var amount = slice.Unit == "шт."
+                    ? group.Sum.ToString("N0", Ru) + " шт."
+                    : Money(group.Sum);
+                text.AppendLine($"{group.Group}: {group.Count} поз. — {amount} ({group.Share:0.#} %)");
+            }
+        }
+
+        // Группа A по выручке — то, что нельзя допускать до пустых полок.
+        var topSlice = data.AbcSlices[0];
+        var groupA = topSlice.Rows.Where(r => r.Group == "A").Take(10).ToList();
+        if (groupA.Count > 0)
+        {
+            text.AppendLine();
+            text.AppendLine("<b>Группа A по выручке</b>");
+            foreach (var row in groupA)
+                text.AppendLine($"• {Escape(row.Name)} — {Money(row.Sum)} ({row.Share:0.#} %)");
+        }
+
+        return Trim(text);
+    }
+
+    /// <summary>Сезонность: какие товары продаются в одни месяцы и не продаются в другие.
+    /// Считается по ВСЕЙ истории кассы, а не за период: за один месяц сезонность не видна.</summary>
+    public static string BuildSeasonality()
+    {
+        var report = AnalyticsReportData.BuildSeasonality();
+        var text = new StringBuilder();
+        text.AppendLine("<b>Сезонность товаров</b>");
+
+        if (report.Rows.Count == 0)
+            return text.AppendLine().Append("Продаж в истории кассы пока нет.").ToString();
+
+        if (!report.Reliable)
+        {
+            // Без этой оговорки отчёт вреден: на короткой истории сезонным выглядит весь
+            // ассортимент просто потому, что раньше касса не работала.
+            text.AppendLine();
+            text.AppendLine($"История: {report.FirstSale:dd.MM.yyyy} — {report.LastSale:dd.MM.yyyy}, "
+                + $"продажи есть в {report.CoveredMonths} мес.");
+            text.AppendLine();
+            text.AppendLine("Выводов о сезонности пока нет: нужна история хотя бы за два сезона. "
+                + "Иначе любой товар выглядит сезонным потому, что в другие месяцы касса ещё не работала. "
+                + "Отчёт заполнится сам, как накопится история.");
+            return text.ToString();
+        }
+
+        text.AppendLine($"<i>История: {report.FirstSale:dd.MM.yyyy} — {report.LastSale:dd.MM.yyyy}, "
+            + $"{report.CoveredMonths} мес. с продажами.</i>");
+
+        var seasonal = report.Rows.Where(r => r.Kind == "Сезонный").ToList();
+        if (seasonal.Count == 0)
+        {
+            text.AppendLine();
+            text.AppendLine("Сезонных товаров не нашлось — продажи распределены по месяцам ровно.");
+            return text.ToString();
+        }
+
+        foreach (var season in new[] { "лето", "осень", "зима", "весна" })
+        {
+            var items = seasonal.Where(r => r.PeakSeason == season).Take(8).ToList();
+            if (items.Count == 0)
+                continue;
+
+            text.AppendLine();
+            text.AppendLine($"<b>{char.ToUpper(season[0], Ru)}{season[1..]}</b> — {items.Count} товар(ов)");
+            foreach (var item in items)
+                text.AppendLine($"• {Escape(item.Name)} — пик: {Escape(item.PeakMonths)}");
+        }
+
+        return Trim(text);
+    }
+
+    /// <summary>Рекомендации: то, ради чего владелец вообще смотрит аналитику.
+    ///
+    /// Собирается из пересечений, которых не видно ни на одном отдельном экране: товар группы A,
+    /// который вот-вот кончится; товар, который делает выручку и не делает прибыли; товар,
+    /// который лежит на складе и не продаётся вовсе.</summary>
+    public static string BuildRecommendations(int days = 30)
+    {
+        var to = DateTime.Today;
+        var from = to.AddDays(-(days - 1));
+        var data = AnalyticsReportData.Build(from, to, includeSeasonality: false);
+
+        var text = new StringBuilder();
+        text.AppendLine($"<b>Рекомендации за {days} дн.</b>");
+
+        if (data.AbcSlices.Count == 0 || data.AbcSlices[0].Rows.Count == 0)
+            return text.AppendLine().Append("Продаж за период нет — советовать нечего.").ToString();
+
+        var byRevenue = data.AbcSlices[0];
+        var groupA = byRevenue.Rows.Where(r => r.Group == "A")
+            .Select(r => r.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Главное: товар группы A, которого осталось меньше чем на неделю. Пустая полка
+        // по такому товару бьёт по выручке сильнее всего остального вместе взятого.
+        var urgent = data.Restock
+            .Where(r => groupA.Contains(r.Name) && r.DaysLeft <= 7)
+            .OrderBy(r => r.DaysLeft)
+            .Take(10)
+            .ToList();
+        if (urgent.Count > 0)
+        {
+            text.AppendLine();
+            text.AppendLine("<b>Срочно заказать — группа A на исходе</b>");
+            foreach (var row in urgent)
+                text.AppendLine($"• {Escape(row.Name)} — осталось на {row.DaysLeft:0.#} дн. ({row.Stock:0.##})");
+        }
+
+        // 2. Делает выручку, но не делает прибыли: в A по деньгам и в C по прибыли.
+        var profitSlice = data.AbcSlices.FirstOrDefault(x => x.Title.Contains("прибыли"));
+        if (profitSlice is { Rows.Count: > 0 })
+        {
+            var weakProfit = profitSlice.Rows
+                .Where(r => r.Group == "C" && groupA.Contains(r.Name))
+                .Take(8)
+                .ToList();
+            if (weakProfit.Count > 0)
+            {
+                text.AppendLine();
+                text.AppendLine("<b>Оборот есть, прибыли нет</b>");
+                text.AppendLine("<i>В группе A по выручке и в C по прибыли — проверьте наценку.</i>");
+                foreach (var row in weakProfit)
+                    text.AppendLine($"• {Escape(row.Name)} — прибыль {Money(row.Sum)}");
+            }
+        }
+
+        // 3. Лежит на складе и не продаётся: деньги, замороженные в товаре.
+        var sold = byRevenue.Rows.Select(r => r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dead = CatalogCacheService.Products
+            .Where(x => x.Quantity > 0 && !sold.Contains(x.Title))
+            .Select(x => (x.Title, Value: x.Quantity * LocalCartService.ParsePrice(x.PriceLine)))
+            .Where(x => x.Value > 0)
+            .OrderByDescending(x => x.Value)
+            .Take(8)
+            .ToList();
+        if (dead.Count > 0)
+        {
+            var frozen = dead.Sum(x => x.Value);
+            text.AppendLine();
+            text.AppendLine($"<b>Не продавалось за период</b> — заморожено {Money(frozen)}");
+            foreach (var item in dead)
+                text.AppendLine($"• {Escape(item.Title)} — {Money(item.Value)}");
+        }
+
+        // 4. Длинный хвост: сколько позиций держат всего 5 % выручки.
+        var tail = byRevenue.Rows.Count(r => r.Group == "C");
+        if (tail > 0)
+        {
+            var share = tail * 100.0 / byRevenue.Rows.Count;
+            text.AppendLine();
+            text.AppendLine($"<b>Длинный хвост</b>: {tail} позиц. из {byRevenue.Rows.Count} "
+                + $"({share:0.#} % ассортимента) дают последние 5 % выручки. "
+                + "По ним запас можно сокращать смелее.");
+        }
+
+        if (text.Length < 60)
+            text.AppendLine().Append("Явных проблем не видно — запасы и наценка в порядке.");
+
+        return Trim(text);
+    }
+
     public static string BuildHelp() =>
         """
         <b>Что умеет бот</b>
@@ -193,6 +399,9 @@ public static class TelegramReportBuilder
         /segodnya — выручка за сегодня
         /nedelya — выручка за 7 дней
         /top — топ продаваемых товаров
+        /abc — ABC-анализ: где деньги магазина
+        /sezon — сезонность: что продаётся не круглый год
+        /soveti — рекомендации: что заказать, где нет наценки, что лежит мёртвым грузом
         /zakaz — что пора заказать
         /ostatki — что заканчивается
         /dolgi — должники и ссылки для напоминания

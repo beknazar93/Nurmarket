@@ -183,6 +183,9 @@ public sealed class TelegramBotPollingService
             "segodnya" or "сегодня" when isOwner => TelegramReportBuilder.BuildRevenue(1, "Сегодня"),
             "nedelya" or "неделя" when isOwner => TelegramReportBuilder.BuildRevenue(7, "За 7 дней"),
             "top" or "топ" when isOwner => TelegramReportBuilder.BuildTopProducts(7),
+            "abc" or "абс" or "авс" when isOwner => TelegramReportBuilder.BuildAbc(30),
+            "sezon" or "сезон" or "сезонность" when isOwner => TelegramReportBuilder.BuildSeasonality(),
+            "soveti" or "советы" or "рекомендации" when isOwner => TelegramReportBuilder.BuildRecommendations(30),
             "zakaz" or "заказ" when isOwner => TelegramReportBuilder.BuildRestockSuggestions(),
             "ostatki" or "остатки" when isOwner => TelegramReportBuilder.BuildLowStock(),
             // Долги живут только на сервере — эти две команды требуют запроса и обрабатываются

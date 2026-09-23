@@ -84,6 +84,9 @@ public sealed class AnalyticsReportData
         IReadOnlyList<bool> MonthCovered,
         IReadOnlyList<SeasonRow> Rows);
 
+    private static readonly SeasonalityReport EmptySeasonality =
+        new(null, null, 0, 0, false, "", new double[12], new bool[12], []);
+
     /// <summary>Сезонность товаров за всю историю кассы.</summary>
     public SeasonalityReport Seasonality { get; init; } =
         new(null, null, 0, 0, false, "", new double[12], new bool[12], []);
@@ -97,7 +100,12 @@ public sealed class AnalyticsReportData
     /// <summary>Собирает отчёт из локальных данных кассы. Всё считается на месте, без сети:
     /// выгрузку часто просят тогда, когда интернет уже недоступен, а цифры нужны те же, что
     /// на экране «Отчёты».</summary>
-    public static AnalyticsReportData Build(DateTime fromLocal, DateTime toLocal)
+    /// <param name="includeSeasonality">Считать ли сезонность. Она читает ВСЮ историю продаж,
+    /// а не выбранный период, поэтому нужна только там, где её показывают. Телеграм-бот и
+    /// выгрузка ABC запрашивают отчёт часто и без неё — лишний полный проход по базе на каждый
+    /// запрос там ни к чему.</param>
+    public static AnalyticsReportData Build(
+        DateTime fromLocal, DateTime toLocal, bool includeSeasonality = true)
     {
         var fromUtc = fromLocal.Date.ToUniversalTime();
         var toUtc = toLocal.Date.AddDays(1).ToUniversalTime();
@@ -147,7 +155,7 @@ public sealed class AnalyticsReportData
             AbcSummary = slices.Count > 0 ? slices[0].Summary : [],
             AbcSlices = slices,
             Restock = BuildRestock(lines),
-            Seasonality = BuildSeasonality(),
+            Seasonality = includeSeasonality ? BuildSeasonality() : EmptySeasonality,
             StockValue = CatalogCacheService.Products.Sum(p => p.Quantity * LocalCartService.ParsePrice(p.PriceLine)),
             StockPositions = CatalogCacheService.Products.Count,
         };
