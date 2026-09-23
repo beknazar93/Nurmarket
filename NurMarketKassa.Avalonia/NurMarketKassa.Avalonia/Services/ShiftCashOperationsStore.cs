@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using NurMarketKassa.Models;
 
 namespace NurMarketKassa.Services;
@@ -51,6 +51,8 @@ public static class ShiftCashOperationsStore
             ShiftId = NurMarketKassa.PosApp.ActiveShiftId,
         });
         SaveStored(list);
+        // Деньги в ящике изменились — отчёт по смене пересчитываем.
+        PosDataEvents.RaiseSalesChanged();
     }
 
     /// <summary>

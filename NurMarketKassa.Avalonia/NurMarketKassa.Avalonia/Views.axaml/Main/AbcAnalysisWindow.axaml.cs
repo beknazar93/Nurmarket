@@ -29,6 +29,7 @@ public partial class AbcAnalysisWindow : Window
 
     private async void Window_Loaded(object? sender, RoutedEventArgs e)
     {
+        PosDataEvents.SalesChanged += OnSalesChangedExternally;
         ExcelButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         WordButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         SyncPickers();
@@ -83,6 +84,36 @@ public partial class AbcAnalysisWindow : Window
 
         var days = (_to - _from).Days + 1;
         PeriodText.Text = $"период: {days} дн.";
+    }
+
+    private CancellationTokenSource? _liveCts;
+
+    /// <summary>Пересчёт по сигналу «продажи изменились». С задержкой: за один чек сигнал
+    /// приходит несколько раз, а при выгрузке офлайн-очереди — по разу на чек, и без неё
+    /// раздел перезагружался бы десятки раз подряд. Сигнал приходит из фонового потока,
+    /// поэтому уходим на UI-поток.</summary>
+    private void OnSalesChangedExternally()
+    {
+        _liveCts?.Cancel();
+        _liveCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _liveCts = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1200, cts.Token).ConfigureAwait(false);
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await ReloadAsync());
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Живое обновление ABC не выполнено: {ex.Message}", "WARNING");
+            }
+        });
     }
 
     private async Task ReloadAsync()
@@ -178,6 +209,10 @@ public partial class AbcAnalysisWindow : Window
     /// продолжение писало в контролы уже закрытого окна.</summary>
     protected override void OnClosed(EventArgs e)
     {
+        PosDataEvents.SalesChanged -= OnSalesChangedExternally;
+        _liveCts?.Cancel();
+        _liveCts?.Dispose();
+        _liveCts = null;
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;

@@ -77,6 +77,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            PosDataEvents.SalesChanged -= OnSalesChangedExternally;
+            _liveCts?.Cancel();
+            _liveCts?.Dispose();
+            _liveCts = null;
             _clockTimer?.Stop();
             CancelLoad();
             _searchCts?.Cancel();
@@ -86,6 +90,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            PosDataEvents.SalesChanged += OnSalesChangedExternally;
+
             FromPicker.SelectedDate = new DateTimeOffset(_historyFrom);
             ToPicker.SelectedDate = new DateTimeOffset(_historyTo);
             CustomDatePill.IsChecked = false;
@@ -122,6 +128,40 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PosLogger.Log($"ABC-анализ не построен: {ex.Message}", "WARNING");
 
             }
+        }
+
+        /// <summary>Пересчёт по сигналу «продажи изменились».
+        ///
+        /// С задержкой: за один чек хранилища поднимают сигнал несколько раз (строки продажи,
+        /// событие смены, движение по кассе), а при выгрузке офлайн-очереди — по разу на чек.
+        /// Без задержки окно перезагружалось бы десятки раз подряд и мигало.
+        ///
+        /// Сигнал приходит из фонового потока, поэтому обязательно уходим на UI-поток.</summary>
+        private System.Threading.CancellationTokenSource? _liveCts;
+
+        private void OnSalesChangedExternally()
+        {
+            _liveCts?.Cancel();
+            _liveCts?.Dispose();
+            var cts = new System.Threading.CancellationTokenSource();
+            _liveCts = cts;
+
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await System.Threading.Tasks.Task.Delay(1200, cts.Token).ConfigureAwait(false);
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await LoadDataAsync(_historyFrom, _historyTo));
+                }
+                catch (System.OperationCanceledException)
+                {
+                    // Пришёл следующий сигнал — этот пересчёт уже не нужен.
+                }
+                catch (System.Exception ex)
+                {
+                    PosLogger.Log($"Живое обновление не выполнено: {ex.Message}", "WARNING");
+                }
+            });
         }
 
         private async Task LoadDataAsync(DateTime from, DateTime to)

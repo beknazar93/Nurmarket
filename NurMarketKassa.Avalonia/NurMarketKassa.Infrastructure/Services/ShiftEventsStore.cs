@@ -51,6 +51,8 @@ public static class ShiftEventsStore
         try
         {
             Db.RecordShiftEvent(kind, shiftId, sourceId, amount, note);
+            // Возврат, списание, изъятие и оплата долга меняют Z-отчёт и аналитику.
+            PosDataEvents.RaiseSalesChanged();
         }
         catch (Exception ex)
         {

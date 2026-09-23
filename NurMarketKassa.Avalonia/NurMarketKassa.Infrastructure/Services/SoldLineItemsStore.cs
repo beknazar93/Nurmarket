@@ -6,8 +6,12 @@ public static class SoldLineItemsStore
 {
     private static DatabaseService Db => DatabaseService.Instance;
 
-    public static void AppendSale(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines) =>
+    public static void AppendSale(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines)
+    {
         Db.AppendSoldLineItems(lines, source: "local");
+        // Открытые окна аналитики пересчитаются сами — см. PosDataEvents.
+        PosDataEvents.RaiseSalesChanged();
+    }
 
     public static void AppendBackfill(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines) =>
         Db.AppendSoldLineItems(lines, source: "backfill");
