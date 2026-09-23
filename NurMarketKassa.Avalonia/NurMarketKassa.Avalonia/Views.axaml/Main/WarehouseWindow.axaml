@@ -19,6 +19,10 @@
         Closed="Window_Closed">
 
     <Window.Styles>
+        <!-- Остаток: цвет из темы, красный — только при малом количестве. -->
+        <Style Selector="TextBlock.stock-low">
+            <Setter Property="Foreground" Value="{DynamicResource BrushCatalogStockLow}"/>
+        </Style>
         <!-- Пилюли фильтра "Единица продажи" (2026-09-07) — тот же визуальный стиль, что и
              RadioButton.ClickPill в ScreenSettingsView.axaml, продублирован локально: тот стиль
              определён в другом файле и не виден отсюда. -->
@@ -410,7 +414,8 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{ReflectionBinding Quantity, StringFormat=\{0:0.###\}}" FontWeight="SemiBold"
-                                                       Foreground="{ReflectionBinding StockForeground, Converter={StaticResource HexToBrushConverter}}"
+                                                       Classes.stock-low="{ReflectionBinding IsLowStock}"
+                                                       Foreground="{DynamicResource BrushCatalogStock}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>

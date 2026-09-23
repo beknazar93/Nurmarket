@@ -29,6 +29,11 @@ public sealed class AbcSectionView : UserControl
     private readonly List<SliceView> _views = [];
     private readonly SeasonalityView _seasonality = new();
 
+    /// <summary>Попросили разбор конкретного товара — нажали на столбец диаграммы Парето или
+    /// на строку таблицы. Само окно раздел не открывает: он живёт и во вкладке «Продаж», и в
+    /// отдельном окне ABC, а владелец окна у них разный.</summary>
+    public event Action<string>? ProductAnalyticsRequested;
+
     public AbcSectionView()
     {
         Content = _tabs;
@@ -72,6 +77,7 @@ public sealed class AbcSectionView : UserControl
             foreach (var slice in slices)
             {
                 var view = new SliceView();
+            view.ProductAnalyticsRequested += name => ProductAnalyticsRequested?.Invoke(name);
                 _views.Add(view);
                 _tabs.Items.Add(new TabItem { Header = slice.Title, Content = view });
             }
@@ -94,9 +100,27 @@ public sealed class AbcSectionView : UserControl
             Foreground = Brushes.Gray,
         };
 
+        public event Action<string>? ProductAnalyticsRequested;
+
         private readonly StackPanel _legend = new() { Margin = new Thickness(0, 0, 0, 8) };
         private readonly StackPanel _pyramid = new();
         private readonly StackPanel _pareto = new();
+        private readonly StackPanel _paretoColumns = new();
+
+        private readonly TextBlock _paretoColumnsTitle = new()
+        {
+            FontWeight = FontWeight.SemiBold,
+            FontSize = 13,
+            Margin = new Thickness(0, 0, 0, 2),
+        };
+
+        private readonly TextBlock _paretoColumnsHint = new()
+        {
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+            Foreground = Brushes.Gray,
+        };
         private readonly StackPanel _groups = new();
 
         private readonly TextBlock _pyramidTitle = new()
@@ -110,7 +134,18 @@ public sealed class AbcSectionView : UserControl
         {
             FontWeight = FontWeight.SemiBold,
             FontSize = 13,
-            Margin = new Thickness(0, 0, 0, 6),
+            Margin = new Thickness(0, 0, 0, 2),
+        };
+
+        /// <summary>Пояснение к диаграмме. Владелец попросил подписать, что она показывает:
+        /// без этого три ряда столбцов и порог читаются как украшение, а не как ответ на
+        /// вопрос «какие товары держат магазин».</summary>
+        private readonly TextBlock _paretoHint = new()
+        {
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+            Foreground = Brushes.Gray,
         };
 
         private readonly DataGrid _grid = new()
@@ -127,6 +162,14 @@ public sealed class AbcSectionView : UserControl
 
         public SliceView()
         {
+            // По строке таблицы — тот же разбор, что и по столбцу диаграммы: искать товар
+            // глазами на диаграмме из двух десятков столбцов неудобно, а в таблице он есть весь.
+            _grid.DoubleTapped += (_, _) =>
+            {
+                if (_grid.SelectedItem is RowVm row && !string.IsNullOrWhiteSpace(row.Name))
+                    ProductAnalyticsRequested?.Invoke(row.Name);
+            };
+
             _grid.Columns.Add(new DataGridTemplateColumn
             {
                 Header = Tr.T("Гр.", "Тп.", "Gr.", "Gr.", "Gr."),
@@ -196,7 +239,8 @@ public sealed class AbcSectionView : UserControl
             // ассортимента даёт почти всю выручку — насколько сильно?») одним взглядом, а
             // Парето и таблица уже уточняют, какие именно позиции за этим стоят.
             body.Children.Add(Card(_pyramidTitle, _pyramid));
-            body.Children.Add(Card(_paretoTitle, _pareto));
+            body.Children.Add(Card(_paretoTitle, _paretoHint, _pareto));
+            body.Children.Add(Card(_paretoColumnsTitle, _paretoColumnsHint, _paretoColumns));
             body.Children.Add(Card(
                 new TextBlock
                 {
@@ -245,6 +289,13 @@ public sealed class AbcSectionView : UserControl
                 Tr.T("Позиции", "Позициялар", "Positions", "Kalemler", "Pozitsiyalar"), rightTitle);
 
             BarChartRenderer.RenderAbcLegend(_legend, slice.Summary, slice.Unit);
+            _paretoHint.Text = Tr.T(
+                "Товары слева направо — от самого весомого к самому мелкому. Высота столбца — доля товара, цвет — его группа. Ломаная сверху — та же доля нарастающим итогом: где она пересекает пунктир 80 %, заканчивается группа A, где 95 % — группа B. Нажмите на столбец, чтобы посмотреть разбор товара.",
+                "Товарлар солдон оңго — эң салмактуудан эң майдага. Мамынын бийиктиги — товардын үлүшү, түсү — анын тобу. Үстүндөгү сызык — ошол эле үлүш топтолмо түрүндө: ал 80 % пунктирин кесип өткөн жерде A тобу, 95 % кесип өткөн жерде B тобу аяктайт. Товардын чечмелөөсүн көрүү үчүн мамыны басыңыз.",
+                "Products run left to right, from the heaviest to the smallest. Bar height is the product's share, colour is its group. The line on top is the same share accumulated: where it crosses the 80 % dashes group A ends, where it crosses 95 % group B ends. Click a bar to see the product breakdown.",
+                "Ürünler soldan sağa, en ağırdan en küçüğe. Çubuk yüksekliği ürünün payı, rengi grubudur. Üstteki çizgi aynı payın birikmiş hâli: %80 kesik çizgisini geçtiği yerde A grubu, %95'i geçtiği yerde B grubu biter. Ürün ayrıntısı için bir çubuğa tıklayın.",
+                "Mahsulotlar chapdan o'ngga — eng salmoqlidan eng maydaga. Ustun balandligi — mahsulot ulushi, rangi — uning guruhi. Yuqoridagi chiziq — o'sha ulush to'plangan holda: u 80 % punktirini kesib o'tgan joyda A guruhi, 95 % ni kesib o'tgan joyda B guruhi tugaydi. Mahsulot tahlilini ko'rish uchun ustunni bosing.");
+
             BarChartRenderer.RenderPareto(_pareto, slice.Rows
                 .Take(shown)
                 .Select(r => (
@@ -253,7 +304,29 @@ public sealed class AbcSectionView : UserControl
                     Cumulative: r.Cumulative,
                     Group: r.Group,
                     ValueText: Format(r.Sum, slice.Unit)))
-                .ToList());
+                .ToList(),
+                name => ProductAnalyticsRequested?.Invoke(name));
+            _paretoColumnsTitle.Text = Tr.T(
+                "Парето столбцами", "Парето мамылар менен", "Pareto as columns", "Sütunlarla Pareto", "Ustunlar bilan Pareto")
+                + $": {shown} / {slice.Rows.Count}";
+            _paretoColumnsHint.Text = Tr.T(
+                "Та же картина, но накопленная доля и порог 80 % — столбцами: так их высоты сравниваются напрямую. Где оранжевый столбец перерос серый, заканчивается группа A.",
+                "Ошол эле сүрөт, бирок топтолгон үлүш жана 80 % босогосу — мамылар менен: ошондо алардын бийиктиги түз салыштырылат. Кызгылт сары мамы бозду басып озгон жерде A тобу аяктайт.",
+                "The same picture, but the cumulative share and the 80 % threshold are columns, so their heights compare directly. Where the orange column overtakes the grey one, group A ends.",
+                "Aynı tablo, ama kümülatif pay ve %80 eşiği sütun hâlinde: yükseklikleri doğrudan karşılaştırılır. Turuncu sütun griyi geçtiği yerde A grubu biter.",
+                "O'sha manzara, lekin to'plangan ulush va 80 % chegarasi — ustunlar: balandliklari to'g'ridan-to'g'ri taqqoslanadi. To'q sariq ustun kulrangdan o'zib ketgan joyda A guruhi tugaydi.");
+
+            BarChartRenderer.RenderParetoColumns(_paretoColumns, slice.Rows
+                .Take(shown)
+                .Select(r => (
+                    Label: r.Name,
+                    Value: r.Sum,
+                    Cumulative: r.Cumulative,
+                    ValueText: Format(r.Sum, slice.Unit)))
+                .ToList(),
+                rightTitle,
+                name => ProductAnalyticsRequested?.Invoke(name));
+
             BarChartRenderer.RenderAbcGroups(_groups, slice.Summary);
 
             _grid.ItemsSource = slice.Rows.Select(r => new RowVm
@@ -273,10 +346,14 @@ public sealed class AbcSectionView : UserControl
                 ? value.ToString("0.###", CultureInfo.InvariantCulture) + " " + unit
                 : value.ToString("N2", CultureInfo.CurrentCulture) + " " + unit;
 
-        private static Border Card(Control title, Control body)
+        private static Border Card(Control title, Control body) => Card(title, null, body);
+
+        private static Border Card(Control title, Control? hint, Control body)
         {
             var panel = new StackPanel();
             panel.Children.Add(title);
+            if (hint is not null)
+                panel.Children.Add(hint);
             panel.Children.Add(body);
 
             return new Border

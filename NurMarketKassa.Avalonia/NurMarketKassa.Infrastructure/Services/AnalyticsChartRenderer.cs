@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -96,6 +97,201 @@ public static class AnalyticsChartRenderer
 
         return ToPng(bitmap);
     }
+
+    /// <summary>Диаграмма Парето для отчёта — та же, что на экране: на каждый товар три
+    /// столбца, само значение по левой шкале, накопленная доля и порог 80 % по правой.
+    ///
+    /// Рисуется отдельно от <see cref="RenderBars"/>, потому что здесь две разные шкалы: одна
+    /// в деньгах, другая в процентах. Свести их в один столбчатый график нельзя — высота
+    /// перестала бы что-либо значить.</summary>
+    public static byte[] RenderPareto(
+        string title,
+        IReadOnlyList<(string Label, double Value, double Cumulative)> data,
+        string valueLegend,
+        int width = 980,
+        int height = 460)
+    {
+        var colorValue = Color.FromArgb(78, 134, 199);
+        var colorCumulative = Color.FromArgb(237, 125, 49);
+        var colorThreshold = Color.FromArgb(165, 165, 165);
+        const double threshold = 80.0;
+
+        using var bitmap = new Bitmap(width, height);
+        using var g = Graphics.FromImage(bitmap);
+        Prepare(g, width, height);
+
+        using var titleFont = new Font("Segoe UI", 13, FontStyle.Bold);
+        using var labelFont = new Font("Segoe UI", 8.5f);
+        using var ink = new SolidBrush(Ink);
+        using var muted = new SolidBrush(Muted);
+        using var gridPen = new Pen(Grid, 1);
+
+        g.DrawString(title, titleFont, ink, 18, 14);
+
+        if (data.Count == 0)
+        {
+            g.DrawString("Нет данных за период", labelFont, muted, 18, 60);
+            return ToPng(bitmap);
+        }
+
+        const int left = 78, right = 60, top = 56, bottom = 86;
+        var plotWidth = width - left - right;
+        var plotHeight = height - top - bottom;
+        var max = Math.Max(data.Max(d => d.Value), 0.0001);
+
+        for (var i = 0; i <= 5; i++)
+        {
+            var y = top + plotHeight - plotHeight * i / 5f;
+            g.DrawLine(gridPen, left, y, left + plotWidth, y);
+            g.DrawString(FormatShort(max * i / 5), labelFont, muted, 8, y - 8);
+            g.DrawString((i * 20).ToString(System.Globalization.CultureInfo.InvariantCulture) + " %",
+                labelFont, muted, left + plotWidth + 6, y - 8);
+        }
+
+        var slot = plotWidth / (float)data.Count;
+        var barWidth = Math.Min(slot * 0.24f, 22f);
+
+        for (var i = 0; i < data.Count; i++)
+        {
+            var (label, value, cumulative) = data[i];
+            var groupX = left + slot * i + (slot - barWidth * 3) / 2f;
+
+            void Bar(int index, double fraction, Color color)
+            {
+                var barHeight = (float)(plotHeight * Math.Clamp(fraction, 0, 1));
+                using var fill = new SolidBrush(color);
+                g.FillRectangle(fill, groupX + index * barWidth, top + plotHeight - barHeight,
+                    barWidth - 1, Math.Max(barHeight, 1));
+            }
+
+            Bar(0, value / max, colorValue);
+            Bar(1, Math.Clamp(cumulative, 0, 100) / 100.0, colorCumulative);
+            Bar(2, threshold / 100.0, colorThreshold);
+
+            var shortLabel = Ellipsize(g, label, labelFont, slot - 2);
+            var labelSize = g.MeasureString(shortLabel, labelFont);
+            g.DrawString(shortLabel, labelFont, muted,
+                groupX + (barWidth * 3 - labelSize.Width) / 2, top + plotHeight + 8);
+        }
+
+        // Легенда: три ряда одинаковой формы различимы только по цвету.
+        var legendY = height - 28f;
+        var legendX = (float)left;
+        foreach (var (color, text) in new[]
+                 {
+                     (colorValue, valueLegend),
+                     (colorCumulative, "Накопленная доля"),
+                     (colorThreshold, "Порог 80 %"),
+                 })
+        {
+            using var swatch = new SolidBrush(color);
+            g.FillRectangle(swatch, legendX, legendY, 12, 12);
+            g.DrawString(text, labelFont, muted, legendX + 16, legendY - 2);
+            legendX += 20 + g.MeasureString(text, labelFont).Width + 18;
+        }
+
+        return ToPng(bitmap);
+    }
+
+    /// <summary>Классическая Парето для отчёта: столбцы долей, окрашенные по группе ABC, и
+    /// накопительная ломаная по правой шкале с пунктирами 80 % и 95 %.
+    ///
+    /// Вторая, столбцовая, версия — <see cref="RenderPareto"/>. В отчёт идут обе, как и на
+    /// экране: по ломаной ловят перелом, по столбцам сравнивают накопленную долю с порогом.</summary>
+    public static byte[] RenderParetoClassic(
+        string title,
+        IReadOnlyList<(string Label, double Share, double Cumulative, string Group)> data,
+        int width = 980,
+        int height = 460)
+    {
+        using var bitmap = new Bitmap(width, height);
+        using var g = Graphics.FromImage(bitmap);
+        Prepare(g, width, height);
+
+        using var titleFont = new Font("Segoe UI", 13, FontStyle.Bold);
+        using var labelFont = new Font("Segoe UI", 8.5f);
+        using var ink = new SolidBrush(Ink);
+        using var muted = new SolidBrush(Muted);
+        using var gridPen = new Pen(Grid, 1);
+
+        g.DrawString(title, titleFont, ink, 18, 14);
+
+        if (data.Count == 0)
+        {
+            g.DrawString("Нет данных за период", labelFont, muted, 18, 60);
+            return ToPng(bitmap);
+        }
+
+        const int left = 60, right = 56, top = 56, bottom = 86;
+        var plotWidth = width - left - right;
+        var plotHeight = height - top - bottom;
+        var maxShare = Math.Max(data.Max(d => d.Share), 0.0001);
+
+        for (var i = 0; i <= 4; i++)
+        {
+            var y = top + plotHeight - plotHeight * i / 4f;
+            g.DrawLine(gridPen, left, y, left + plotWidth, y);
+            g.DrawString((i * 25).ToString(System.Globalization.CultureInfo.InvariantCulture) + " %",
+                labelFont, muted, left + plotWidth + 6, y - 8);
+        }
+
+        // Границы групп: 80 % — конец A, 95 % — конец B.
+        foreach (var boundary in new[] { (Value: 80.0, Color: Color.FromArgb(245, 158, 11)), (Value: 95.0, Color: Color.FromArgb(59, 130, 246)) })
+        {
+            var y = top + plotHeight - (float)(plotHeight * boundary.Value / 100.0);
+            using var pen = new Pen(boundary.Color, 1.5f) { DashStyle = DashStyle.Dash };
+            g.DrawLine(pen, left, y, left + plotWidth, y);
+            using var tagBrush = new SolidBrush(boundary.Color);
+            g.DrawString(boundary.Value.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " %",
+                labelFont, tagBrush, 8, y - 8);
+        }
+
+        var slot = plotWidth / (float)data.Count;
+        var barWidth = Math.Min(slot * 0.55f, 34f);
+        var points = new List<PointF>();
+
+        for (var i = 0; i < data.Count; i++)
+        {
+            var (label, share, cumulative, group) = data[i];
+            var barHeight = (float)(plotHeight * (share / maxShare));
+            var x = left + slot * i + (slot - barWidth) / 2f;
+
+            using var fill = new SolidBrush(GroupColor(group));
+            g.FillRectangle(fill, x, top + plotHeight - barHeight, barWidth, Math.Max(barHeight, 1));
+
+            var shortLabel = Ellipsize(g, label, labelFont, slot - 2);
+            var labelSize = g.MeasureString(shortLabel, labelFont);
+            g.DrawString(shortLabel, labelFont, muted,
+                x + (barWidth - labelSize.Width) / 2, top + plotHeight + 8);
+
+            points.Add(new PointF(x + barWidth / 2f,
+                top + plotHeight - (float)(plotHeight * Math.Clamp(cumulative, 0, 100) / 100.0)));
+        }
+
+        if (points.Count > 1)
+        {
+            using var linePen = new Pen(Ink, 2);
+            g.DrawLines(linePen, points.ToArray());
+        }
+
+        using var dotFill = new SolidBrush(Color.White);
+        using var dotPen = new Pen(Ink, 1.5f);
+        foreach (var point in points)
+        {
+            g.FillEllipse(dotFill, point.X - 3.5f, point.Y - 3.5f, 7, 7);
+            g.DrawEllipse(dotPen, point.X - 3.5f, point.Y - 3.5f, 7, 7);
+        }
+
+        return ToPng(bitmap);
+    }
+
+    /// <summary>Цвет группы ABC — тот же, что на экране, чтобы отчёт и программа не спорили.</summary>
+    private static Color GroupColor(string group) => group switch
+    {
+        "A" => Color.FromArgb(22, 163, 74),
+        "B" => Color.FromArgb(245, 158, 11),
+        _ => Color.FromArgb(59, 130, 246),
+    };
 
     /// <summary>Круговая диаграмма с легендой справа. Доли меньше 1,5 % не подписываются на
     /// самом круге — подписи наезжали бы друг на друга; они остаются в легенде.</summary>

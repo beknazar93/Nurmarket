@@ -1,4 +1,4 @@
-namespace NurMarketKassa.Services;
+﻿namespace NurMarketKassa.Services;
 
 using System.Globalization;
 using NurMarketKassa.Models;
@@ -14,6 +14,14 @@ public static class CompanyInfoService
     /// в Настройках (тариф, срок действия, подключённые доп. услуги), без отдельного похода
     /// на сервер каждый раз, когда кассир открывает этот экран.</summary>
     public static CompanyDto? LastCompany { get; private set; }
+
+    /// <summary>Сработало, когда загруженная компания отличается от прошлой. На это
+    /// подписано разделение локальных данных (AccountDataIsolation): раньше оно вызывалось
+    /// из трёх мест входа, и на пути смены кассира срабатывало не всегда — компания успевала
+    /// обновиться раньше, чем код сравнивал её со старой, и подмена набора пропускалась.
+    /// Здесь же событие поднимается ровно в тот момент, когда компания реально сменилась,
+    /// каким бы путём вход ни произошёл.</summary>
+    public static event Action<string?>? CompanyChanged;
 
     /// <summary>
     /// Возвращает null, если статус подписки не удалось определить (нет связи с сервером,
@@ -32,7 +40,10 @@ public static class CompanyInfoService
         try
         {
             var company = await authApi.GetCompanyAsync(ct).ConfigureAwait(false);
+            var previousId = LastCompany?.Id;
             LastCompany = company;
+            if (!string.Equals(previousId, company?.Id, StringComparison.Ordinal))
+                RaiseCompanyChanged(company?.Id);
             ApplyCompanyToPreferences(company);
             await RefreshScaleSettingsAsync(authApi, ct).ConfigureAwait(false);
             return ComputeSubscriptionStatus(company);
@@ -44,6 +55,18 @@ public static class CompanyInfoService
             // окончания (UserPreferences.SubscriptionEndDateRaw) и системных часов, а не
             // молча пропускаем проверку: касса должна доотсчитать дни до истечения и офлайн.
             return GetCachedSubscriptionStatus();
+        }
+    }
+
+    private static void RaiseCompanyChanged(string? companyId)
+    {
+        try
+        {
+            CompanyChanged?.Invoke(companyId);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обработчик смены компании упал: {ex}", "ERROR");
         }
     }
 

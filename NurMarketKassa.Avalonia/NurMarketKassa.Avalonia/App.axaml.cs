@@ -134,6 +134,9 @@ public partial class App : Application
             .Build();
 
         PosLogger.Configure(AppHost.Services.GetRequiredService<ILoggerFactory>());
+        // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
+        // так разделение срабатывает на любом пути входа, включая смену кассира.
+        CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
         RegisterGlobalExceptionHandlers();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

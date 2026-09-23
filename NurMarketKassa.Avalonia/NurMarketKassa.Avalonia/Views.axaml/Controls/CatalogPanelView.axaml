@@ -8,6 +8,23 @@
              x:CompileBindings="True">
 
     <UserControl.Styles>
+        <!-- Цвет остатка и плашки типа зависит от товара, но берётся из темы: один и тот же
+             hex на обе темы не работает — что читаемо на белом, то сливается с тёмным. -->
+        <Style Selector="TextBlock.stock-low">
+            <Setter Property="Foreground" Value="{DynamicResource BrushCatalogStockLow}"/>
+        </Style>
+        <Style Selector="Border.badge-weighted">
+            <Setter Property="Background" Value="{DynamicResource BrushBadgeWeightedBg}"/>
+        </Style>
+        <Style Selector="Border.badge-bundle">
+            <Setter Property="Background" Value="{DynamicResource BrushBadgeBundleBg}"/>
+        </Style>
+        <Style Selector="TextBlock.badge-weighted">
+            <Setter Property="Foreground" Value="{DynamicResource BrushBadgeWeightedFg}"/>
+        </Style>
+        <Style Selector="TextBlock.badge-bundle">
+            <Setter Property="Foreground" Value="{DynamicResource BrushBadgeBundleFg}"/>
+        </Style>
         <Style Selector="Button.catalog-pager">
             <Setter Property="MinWidth" Value="36"/>
             <Setter Property="Height" Value="36"/>
@@ -350,7 +367,8 @@
                                                                    Text="{Binding StockInfo}"
                                                                    FontSize="14"
                                                                    Margin="0,4,0,0"
-                                                                   Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"/>
+                                                                   Classes.stock-low="{Binding IsLowStock}"
+                                                                   Foreground="{DynamicResource BrushCatalogStock}"/>
                                                         <TextBlock Grid.Row="3"
                                                                    Text="{Binding Barcode, StringFormat=ШК: {0}}"
                                                                    FontSize="10"
@@ -364,11 +382,15 @@
                                                             CornerRadius="4"
                                                             HorizontalAlignment="Left"
                                                             VerticalAlignment="Bottom"
-                                                            Background="{Binding TypeBadgeBackground, Converter={StaticResource HexToBrushConverter}}">
+                                                            Classes.badge-weighted="{Binding IsWeighted}"
+                                                            Classes.badge-bundle="{Binding IsBundle}"
+                                                            Background="{DynamicResource BrushBadgePieceBg}">
                                                         <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}"
                                                                    FontSize="10"
                                                                    FontWeight="SemiBold"
-                                                                   Foreground="{Binding TypeBadgeForeground, Converter={StaticResource HexToBrushConverter}}"
+                                                                   Classes.badge-weighted="{Binding IsWeighted}"
+                                                                   Classes.badge-bundle="{Binding IsBundle}"
+                                                                   Foreground="{DynamicResource BrushBadgePieceFg}"
                                                                    VerticalAlignment="Center"/>
                                                     </Border>
                                                 </Grid>
@@ -470,14 +492,17 @@
                                                                  насыщенный TypeBadgeForeground, а не бледный фон плашки:
                                                                  бледным по белой строке текст был бы не виден. -->
                                                             <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="11"
-                                                                       Foreground="{Binding TypeBadgeForeground, Converter={StaticResource HexToBrushConverter}}"/>
+                                                                       Classes.badge-weighted="{Binding IsWeighted}"
+                                                                       Classes.badge-bundle="{Binding IsBundle}"
+                                                                       Foreground="{DynamicResource BrushBadgePieceFg}"/>
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="2" Text="{Binding Barcode}" FontSize="13"
                                                                    Foreground="{DynamicResource BrushTextSoft}"
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
                                                         <TextBlock Grid.Column="3" Text="{Binding StockInfo}" FontSize="13"
-                                                                   Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"
+                                                                   Classes.stock-low="{Binding IsLowStock}"
+                                                                   Foreground="{DynamicResource BrushCatalogStock}"
                                                                    VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
                                                         <StackPanel Grid.Column="4" Orientation="Horizontal"

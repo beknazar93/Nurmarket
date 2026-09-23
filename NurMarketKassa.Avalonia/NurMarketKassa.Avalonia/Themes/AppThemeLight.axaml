@@ -45,6 +45,14 @@
        она — часть фирменного вида каталога, в отличие от итога чека. -->
   <SolidColorBrush x:Key="BrushCatalogPrice" Color="#A16207" />
   <SolidColorBrush x:Key="BrushCatalogMeta" Color="#64748B" />
+  <SolidColorBrush x:Key="BrushCatalogStock" Color="#64748B" />
+  <SolidColorBrush x:Key="BrushCatalogStockLow" Color="#DC2626" />
+  <SolidColorBrush x:Key="BrushBadgePieceBg" Color="#FEF3C7" />
+  <SolidColorBrush x:Key="BrushBadgePieceFg" Color="#92400E" />
+  <SolidColorBrush x:Key="BrushBadgeWeightedBg" Color="#DCFCE7" />
+  <SolidColorBrush x:Key="BrushBadgeWeightedFg" Color="#15803D" />
+  <SolidColorBrush x:Key="BrushBadgeBundleBg" Color="#EDE9FE" />
+  <SolidColorBrush x:Key="BrushBadgeBundleFg" Color="#5B21B6" />
   <SolidColorBrush x:Key="BrushCatalogFavoriteStroke" Color="#B0B0B0" />
   <SolidColorBrush x:Key="BrushDiscountPanelBg" Color="#E8F2FF" />
   <SolidColorBrush x:Key="BrushDiscountPanelBorder" Color="#BFDBFE" />

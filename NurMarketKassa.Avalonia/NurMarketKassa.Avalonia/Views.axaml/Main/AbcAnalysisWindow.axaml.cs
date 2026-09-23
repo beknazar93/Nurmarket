@@ -20,6 +20,10 @@ public partial class AbcAnalysisWindow : Window
     private DateTime _from = DateTime.Today.AddDays(-30);
     private DateTime _to = DateTime.Today;
     private CancellationTokenSource? _cts;
+    /// <summary>Историю с сервера тянем не больше одного раза за открытие окна: если продаж
+    /// там действительно нет, повторные попытки при каждом переключении периода только
+    /// подвешивали бы окно.</summary>
+    private bool _backfillTried;
     private bool _suppressPickerEvents;
 
     public AbcAnalysisWindow()
@@ -30,6 +34,7 @@ public partial class AbcAnalysisWindow : Window
     private async void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         PosDataEvents.SalesChanged += OnSalesChangedExternally;
+        AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
         ApplyTexts();
         ExcelButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         WordButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
@@ -55,6 +60,21 @@ public partial class AbcAnalysisWindow : Window
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
         MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
         QuarterButton.Content = Tr.T("Квартал", "Чейрек", "Quarter", "Çeyrek", "Chorak");
+    }
+
+    /// <summary>Разбор одного товара поверх раздела. Окно немодальное: владелец сравнивает
+    /// несколько товаров подряд, и каждый раз закрывать разбор, чтобы вернуться к диаграмме,
+    /// было бы лишней работой.</summary>
+    private void ShowProductAnalytics(string productName)
+    {
+        try
+        {
+            new ProductAnalyticsWindow(productName, _from, _to).Show(this);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Разбор товара не открылся: {ex}", "WARNING");
+        }
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
@@ -153,6 +173,27 @@ public partial class AbcAnalysisWindow : Window
             var data = await Task.Run(() => AnalyticsReportData.Build(from, to), cts.Token)
                 .ConfigureAwait(true);
             cts.Token.ThrowIfCancellationRequested();
+
+            // Аналитика считается по локальным строкам, а их пишет только сама касса. На
+            // компьютере, где эта компания ещё не продавала, история пуста, хотя на сервере
+            // продажи есть — тогда один раз подтягиваем их оттуда и пересчитываем.
+            if (!_backfillTried && data.AbcSlices.Count == 0 && !OfflineModeHelper.UseLocalOperations)
+            {
+                _backfillTried = true;
+                ShowError(Tr.T("Загружаю историю продаж с сервера…", "Сатуу тарыхы серверден жүктөлүүдө…",
+                    "Loading the sales history from the server…", "Satış geçmişi sunucudan yükleniyor…",
+                    "Sotuvlar tarixi serverdan yuklanmoqda…"));
+                var added = await SalesHistoryBackfill.RunAsync(cts.Token).ConfigureAwait(true);
+                cts.Token.ThrowIfCancellationRequested();
+                ShowError(null);
+
+                if (added > 0)
+                {
+                    data = await Task.Run(() => AnalyticsReportData.Build(from, to), cts.Token)
+                        .ConfigureAwait(true);
+                    cts.Token.ThrowIfCancellationRequested();
+                }
+            }
 
             AbcSection.Update(data);
         }

@@ -7,6 +7,7 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.Ui.Shared;
@@ -310,10 +311,14 @@ public static class BarChartRenderer
     /// на группы выглядело бы взятым с потолка.
     ///
     /// Столбцы окрашены по группе, а не по порядку: цвет здесь несёт смысл, а не различает
-    /// соседей.</summary>
+    /// соседей.
+    ///
+    /// <paramref name="onItemClick"/> — по нажатию на столбец открывается разбор этого товара.
+    /// Без него столбцы на нажатие не реагируют.</summary>
     public static void RenderPareto(
         StackPanel container,
-        IReadOnlyList<(string Label, double Share, double Cumulative, string Group, string ValueText)> items)
+        IReadOnlyList<(string Label, double Share, double Cumulative, string Group, string ValueText)> items,
+        Action<string>? onItemClick = null)
     {
         container.Children.Clear();
         if (items.Count == 0)
@@ -404,6 +409,13 @@ public static class BarChartRenderer
                 Background = Brush.Parse(AbcColor(item.Group)),
                 CornerRadius = new CornerRadius(3, 3, 0, 0),
             };
+            if (onItemClick is not null)
+            {
+                bar.Cursor = new Cursor(StandardCursorType.Hand);
+                var clicked = item.Label;
+                bar.PointerPressed += (_, _) => onItemClick(clicked);
+            }
+
             ToolTip.SetTip(bar, item.Label + "\n" + item.ValueText
                 + "\n" + Tr.T("Доля", "Улушу", "Share", "Pay", "Ulush") + ": "
                 + item.Share.ToString("0.##", CultureInfo.InvariantCulture) + " %"
@@ -469,6 +481,173 @@ public static class BarChartRenderer
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Height = height + 6,
         });
+    }
+
+    /// <summary>Та же Парето, но столбцами — как её строят в Excel: на каждый товар три
+    /// столбца рядом (значение по левой шкале, накопленная доля и постоянный порог 80 % по
+    /// правой).
+    ///
+    /// Стоит рядом с обычной Парето, а не вместо неё: по ломаной удобнее ловить перелом, а по
+    /// трём столбцам — сравнивать накопленную долю с порогом, потому что обе величины меряются
+    /// одной высотой. Владелец просил обе.
+    ///
+    /// Цвета здесь по назначению столбца, а не по группе ABC: три разноцветных ряда рядом
+    /// читаются только при постоянных цветах, а группа видна на соседней диаграмме.</summary>
+    public static void RenderParetoColumns(
+        StackPanel container,
+        IReadOnlyList<(string Label, double Value, double Cumulative, string ValueText)> items,
+        string valueTitle,
+        Action<string>? onItemClick = null)
+    {
+        container.Children.Clear();
+        if (items.Count == 0)
+        {
+            container.Children.Add(new TextBlock
+            {
+                Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Secilen donemde satis yok", "Tanlangan davrda sotuv yoq"),
+                FontSize = 12,
+                Foreground = Brushes.Gray,
+            });
+            return;
+        }
+
+        const string ColorValue = "#4E86C7";
+        const string ColorCumulative = "#ED7D31";
+        const string ColorThreshold = "#A5A5A5";
+        const double Threshold = 80.0;
+
+        const double height = 330;
+        const double topPad = 14, bottomPad = 100, leftPad = 74, rightPad = 52;
+        const double barWidth = 13, innerGap = 2, groupGap = 18;
+        var groupWidth = barWidth * 3 + innerGap * 2;
+        var step = groupWidth + groupGap;
+        var plotHeight = height - topPad - bottomPad;
+        var plotWidth = step * items.Count;
+
+        var maxValue = items.Max(i => i.Value);
+        if (maxValue <= 0) maxValue = 1;
+
+        var canvas = new Canvas { Width = leftPad + rightPad + plotWidth, Height = height };
+        var gridBrush = new SolidColorBrush(Color.Parse("#94A3B8"), 0.35);
+
+        for (var percent = 0; percent <= 100; percent += 20)
+        {
+            var y = topPad + (1 - percent / 100.0) * plotHeight;
+            canvas.Children.Add(new Line
+            {
+                StartPoint = new Point(leftPad, y),
+                EndPoint = new Point(leftPad + plotWidth, y),
+                Stroke = gridBrush,
+                StrokeThickness = 1,
+            });
+
+            var left = new TextBlock
+            {
+                Text = (maxValue * percent / 100.0).ToString("N0", CultureInfo.CurrentCulture),
+                FontSize = 10,
+                Foreground = Brushes.Gray,
+                Width = leftPad - 8,
+                TextAlignment = TextAlignment.Right,
+            };
+            Canvas.SetLeft(left, 0);
+            Canvas.SetTop(left, y - 7);
+            canvas.Children.Add(left);
+
+            var right = new TextBlock
+            {
+                Text = percent.ToString(CultureInfo.InvariantCulture) + " %",
+                FontSize = 10,
+                Foreground = Brushes.Gray,
+                Width = rightPad - 6,
+            };
+            Canvas.SetLeft(right, leftPad + plotWidth + 6);
+            Canvas.SetTop(right, y - 7);
+            canvas.Children.Add(right);
+        }
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            var groupX = leftPad + i * step + groupGap / 2;
+            var tip = item.Label + "\n" + valueTitle + ": " + item.ValueText + "\n"
+                + Tr.T("Накопительно", "Топтолмо", "Cumulative", "Kumulatif", "Jami") + ": "
+                + item.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %";
+
+            void AddBar(int index, double fraction, string color)
+            {
+                var barHeight = Math.Max(2, Math.Clamp(fraction, 0, 1) * plotHeight);
+                var bar = new Border
+                {
+                    Width = barWidth,
+                    Height = barHeight,
+                    Background = Brush.Parse(color),
+                    CornerRadius = new CornerRadius(2, 2, 0, 0),
+                };
+                ToolTip.SetTip(bar, tip);
+                if (onItemClick is not null)
+                {
+                    bar.Cursor = new Cursor(StandardCursorType.Hand);
+                    var clicked = item.Label;
+                    bar.PointerPressed += (_, _) => onItemClick(clicked);
+                }
+
+                Canvas.SetLeft(bar, groupX + index * (barWidth + innerGap));
+                Canvas.SetTop(bar, topPad + plotHeight - barHeight);
+                canvas.Children.Add(bar);
+            }
+
+            AddBar(0, item.Value / maxValue, ColorValue);
+            AddBar(1, Math.Clamp(item.Cumulative, 0, 100) / 100.0, ColorCumulative);
+            AddBar(2, Threshold / 100.0, ColorThreshold);
+
+            var caption = new TextBlock
+            {
+                Text = item.Label,
+                FontSize = 10,
+                Foreground = Brushes.Gray,
+                Width = bottomPad - 14,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                RenderTransform = new RotateTransform(48),
+                RenderTransformOrigin = RelativePoint.TopLeft,
+            };
+            Canvas.SetLeft(caption, groupX + groupWidth / 2);
+            Canvas.SetTop(caption, topPad + plotHeight + 6);
+            canvas.Children.Add(caption);
+        }
+
+        container.Children.Add(new ScrollViewer
+        {
+            Content = canvas,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Height = height + 6,
+        });
+
+        var legend = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        void AddLegend(string color, string text)
+        {
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 16, 0),
+                Spacing = 6,
+            };
+            row.Children.Add(new Border
+            {
+                Width = 12,
+                Height = 12,
+                CornerRadius = new CornerRadius(2),
+                Background = Brush.Parse(color),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            row.Children.Add(new TextBlock { Text = text, FontSize = 11, Foreground = Brushes.Gray });
+            legend.Children.Add(row);
+        }
+
+        AddLegend(ColorValue, valueTitle);
+        AddLegend(ColorCumulative, Tr.T("Накопленная доля", "Топтолгон үлүш", "Cumulative share", "Kümülatif pay", "To'plangan ulush"));
+        AddLegend(ColorThreshold, Tr.T("Порог 80 %", "Босого 80 %", "80 % threshold", "Eşik %80", "Chegara 80 %"));
+        container.Children.Add(legend);
     }
 
     /// <summary>Классическая картинка ABC «две колонки»: слева доля ПОЗИЦИЙ, справа доля

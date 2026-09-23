@@ -40,7 +40,21 @@
   <SolidColorBrush x:Key="BrushSurfaceSubtle" Color="#252526" />
   <SolidColorBrush x:Key="BrushCatalogTileBg" Color="#2B2B2C" />
   <SolidColorBrush x:Key="BrushCatalogTileBorder" Color="#454545" />
-  <SolidColorBrush x:Key="BrushCatalogPrice" Color="#007ACC" />
+  <!-- Цена на плитке. Было #007ACC: 3.1:1 на фоне плитки #2B2B2C — главная цифра карточки
+       читалась хуже всего остального. Светлее тот же синий даёт 5.5:1. -->
+  <SolidColorBrush x:Key="BrushCatalogPrice" Color="#4FA8E8" />
+  <!-- Остаток товара. Раньше цвет приходил из модели одним hex-кодом на обе темы
+       (#64748B / #DC2626) — на тёмной это 2.9:1, то есть почти невидимо. -->
+  <SolidColorBrush x:Key="BrushCatalogStock" Color="#A9B4C2" />
+  <SolidColorBrush x:Key="BrushCatalogStockLow" Color="#F87171" />
+  <!-- Плашка типа товара. На тёмной теме бледная заливка светлой темы выглядела ярким
+       пятном, поэтому здесь тёмный тон того же цвета со светлым текстом. -->
+  <SolidColorBrush x:Key="BrushBadgePieceBg" Color="#3A2E12" />
+  <SolidColorBrush x:Key="BrushBadgePieceFg" Color="#FBBF24" />
+  <SolidColorBrush x:Key="BrushBadgeWeightedBg" Color="#14301F" />
+  <SolidColorBrush x:Key="BrushBadgeWeightedFg" Color="#34D399" />
+  <SolidColorBrush x:Key="BrushBadgeBundleBg" Color="#2A1E4A" />
+  <SolidColorBrush x:Key="BrushBadgeBundleFg" Color="#C4B5FD" />
   <SolidColorBrush x:Key="BrushCatalogMeta" Color="#A9A9A9" />
   <SolidColorBrush x:Key="BrushCatalogFavoriteStroke" Color="#6B6B6B" />
   <SolidColorBrush x:Key="BrushDiscountPanelBg" Color="#243447" />

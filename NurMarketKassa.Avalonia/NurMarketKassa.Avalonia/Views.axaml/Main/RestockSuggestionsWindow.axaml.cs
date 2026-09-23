@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -126,7 +126,7 @@ public partial class RestockSuggestionsWindow : Window
         BackfillButton.IsEnabled = false;
         try
         {
-            var count = await BackfillFromServerAsync();
+            var count = await SalesHistoryBackfill.RunAsync();
             PosDialogs.Info(this,
                 count > 0
                     ? Tr.T($"Готово: добавлено записей — {count}.", $"Даяр: {count} жазуу кошулду.",
@@ -147,73 +147,6 @@ public partial class RestockSuggestionsWindow : Window
         {
             BackfillButton.IsEnabled = true;
         }
-    }
-
-    /// <summary>Один раз тянет историю продаж с сервера в SoldLineItems (source="backfill"),
-    /// не дублируя то, что уже записано локально после каждой продажи — если локальная история
-    /// уже начинается раньше самого старого чека с сервера, бэкфилл не нужен.</summary>
-    private async Task<int> BackfillFromServerAsync()
-    {
-        const int pageSize = 200;
-        const int maxPages = 3; // до 600 чеков — тот же порядок, что и Finance (капа в 500)
-
-        var raw = new List<JsonElement>();
-        for (var page = 1; page <= maxPages; page++)
-        {
-            var pageItems = await App.SalesApi.PosSalesListAsync(page, pageSize, null, System.Threading.CancellationToken.None);
-            if (pageItems.Count == 0)
-                break;
-            raw.AddRange(pageItems);
-            if (pageItems.Count < pageSize)
-                break;
-        }
-
-        var earliestLocal = SoldLineItemsStore.GetEarliestDate();
-
-        var lines = new List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>();
-        foreach (var sale in raw)
-        {
-            if (!sale.TryGetProperty("id", out var idProp))
-                continue;
-            if (!sale.TryGetProperty("created_at", out var dateProp) ||
-                !DateTime.TryParse(dateProp.GetString(), out var createdAt))
-                continue;
-
-            // Уже покрыто локальной записью (см. BasketPanelViewModel.RecordSoldLineItemsForHistory)
-            // — не задваиваем.
-            if (earliestLocal.HasValue && createdAt.ToUniversalTime() >= earliestLocal.Value)
-                continue;
-
-            JsonElement detail;
-            try
-            {
-                detail = await App.SalesApi.PosSaleGetAsync(idProp.ToString() ?? "", System.Threading.CancellationToken.None);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (!detail.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
-                continue;
-
-            foreach (var line in items.EnumerateArray())
-            {
-                var productId = CartDisplayHelper.TryProductId(line);
-                if (string.IsNullOrEmpty(productId))
-                    continue;
-
-                var name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
-                var qty = CartDisplayHelper.LineQuantity(line);
-                var unitPrice = CartDisplayHelper.UnitPrice(line);
-                lines.Add((productId, name, qty, unitPrice, createdAt.ToUniversalTime()));
-            }
-        }
-
-        if (lines.Count > 0)
-            SoldLineItemsStore.AppendBackfill(lines);
-
-        return lines.Count;
     }
 
     private static string FormatQuantity(double qty) =>

@@ -195,7 +195,8 @@ public sealed class DatabaseService
                     quantity REAL NOT NULL,
                     unit_price REAL NOT NULL,
                     sold_at TEXT NOT NULL,
-                    source TEXT NOT NULL DEFAULT 'local'
+                    source TEXT NOT NULL DEFAULT 'local',
+                    company_id TEXT
                 );
 
                 -- Скидки и списанные бонусы по каждому проведённому чеку. Сервер про бонусы
@@ -253,6 +254,7 @@ public sealed class DatabaseService
                 """;
             command.ExecuteNonQuery();
 
+            AddSoldLineItemsCompanyColumn(connection);
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
@@ -1488,6 +1490,45 @@ public sealed class DatabaseService
 
     #region SoldLineItems
 
+    /// <summary>ID компании, которой принадлежит текущая сессия. Пока она не загружена,
+    /// возвращает null — новые строки тогда пишутся без владельца, как и раньше.</summary>
+    private static string? CurrentCompanyId()
+    {
+        var id = CompanyInfoService.LastCompany?.Id;
+        return string.IsNullOrWhiteSpace(id) ? null : id;
+    }
+
+    /// <summary>Условие «только строки текущей компании» для запросов истории продаж.
+    ///
+    /// Строки без владельца (company_id IS NULL) — это записи, сделанные до разделения данных
+    /// аккаунтов. Они могли остаться от другой компании: у пользователя в ABC показывались
+    /// товары чужого каталога. Отличить среди них свои невозможно, поэтому в аналитику они
+    /// не идут — но и не удаляются, данные остаются на месте.
+    ///
+    /// Пока компания неизвестна (нет связи с сервером на старте), ничего не фильтруем: иначе
+    /// касса без интернета показывала бы пустые отчёты вместо своих.</summary>
+    private static string OwnRowsClause()
+    {
+        var company = CurrentCompanyId();
+        return company is null ? "" : " AND company_id = '" + company.Replace("'", "''") + "'";
+    }
+
+    /// <summary>Колонка владельца в уже существующих базах: CREATE TABLE IF NOT EXISTS её
+    /// не добавит.</summary>
+    private static void AddSoldLineItemsCompanyColumn(SqliteConnection connection)
+    {
+        try
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE SoldLineItems ADD COLUMN company_id TEXT;";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже есть — обычное дело для баз этой версии схемы.
+        }
+    }
+
     /// <summary>Записывает проданные позиции чека — по одной строке на товар. Источник данных для
     /// прогноза пополнения склада (AI-фичи 2026-09-03, п.1). <paramref name="source"/> — "local"
     /// (записано сразу после продажи, см. BasketPanelViewModel) или "backfill" (подтянуто с сервера
@@ -1503,8 +1544,8 @@ public sealed class DatabaseService
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
-                INSERT INTO SoldLineItems (product_id, product_name, quantity, unit_price, sold_at, source)
-                VALUES ($productId, $productName, $quantity, $unitPrice, $soldAt, $source);
+                INSERT INTO SoldLineItems (product_id, product_name, quantity, unit_price, sold_at, source, company_id)
+                VALUES ($productId, $productName, $quantity, $unitPrice, $soldAt, $source, $companyId);
                 """;
             var pProductId = command.CreateParameter(); pProductId.ParameterName = "$productId"; command.Parameters.Add(pProductId);
             var pProductName = command.CreateParameter(); pProductName.ParameterName = "$productName"; command.Parameters.Add(pProductName);
@@ -1513,6 +1554,8 @@ public sealed class DatabaseService
             var pSoldAt = command.CreateParameter(); pSoldAt.ParameterName = "$soldAt"; command.Parameters.Add(pSoldAt);
             var pSource = command.CreateParameter(); pSource.ParameterName = "$source"; command.Parameters.Add(pSource);
             pSource.Value = source;
+            var pCompany = command.CreateParameter(); pCompany.ParameterName = "$companyId"; command.Parameters.Add(pCompany);
+            pCompany.Value = (object?)CurrentCompanyId() ?? DBNull.Value;
 
             foreach (var line in lines)
             {
@@ -1548,8 +1591,8 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = untilUtc is null
-                ? "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since;"
-                : "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since AND sold_at < $until;";
+                ? "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause() + ";"
+                : "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since AND sold_at < $until" + OwnRowsClause() + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             if (untilUtc is { } until)
                 command.Parameters.AddWithValue("$until", until.ToString("O"));
@@ -1584,7 +1627,7 @@ public sealed class DatabaseService
             var list = new List<(string, string, double, DateTime)>();
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT product_id, product_name, quantity, sold_at FROM SoldLineItems WHERE sold_at >= $since;";
+            command.CommandText = "SELECT product_id, product_name, quantity, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause() + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -1611,7 +1654,7 @@ public sealed class DatabaseService
         {
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT MIN(sold_at) FROM SoldLineItems;";
+            command.CommandText = "SELECT MIN(sold_at) FROM SoldLineItems WHERE 1=1" + OwnRowsClause() + ";";
             var raw = command.ExecuteScalar() as string;
             return !string.IsNullOrEmpty(raw)
                 && DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)

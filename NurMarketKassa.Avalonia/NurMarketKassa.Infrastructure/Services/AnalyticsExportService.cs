@@ -364,6 +364,33 @@ public static class AnalyticsExportService
                 data.AbcSummary.Select(g => ($"Группа {g.Group} ({g.Count} поз.)", g.Sum)).ToList())));
         }
 
+        // Каждый срез ABC — своей парой картинок: доля групп и диаграмма Парето. Раньше в
+        // отчёт попадала только сводка по выручке, хотя на экране срезов пять, и решения по
+        // закупке принимают как раз по разным срезам.
+        foreach (var slice in data.AbcSlices)
+        {
+            if (slice.Summary.Count > 0)
+            {
+                charts.Add(($"ABC: {slice.Title} — доля групп", AnalyticsChartRenderer.RenderPie(
+                    $"ABC: {slice.Title} — доля групп",
+                    slice.Summary.Select(g => ($"Группа {g.Group} ({g.Count} поз.)", g.Sum)).ToList())));
+            }
+
+            if (slice.Rows.Count > 0)
+            {
+                var top = slice.Rows.Take(20).ToList();
+
+                charts.Add(($"Парето: {slice.Title}", AnalyticsChartRenderer.RenderParetoClassic(
+                    $"Диаграмма Парето: {slice.Title}",
+                    top.Select(r => (r.Name, r.Share, r.Cumulative, r.Group)).ToList())));
+
+                charts.Add(($"Парето столбцами: {slice.Title}", AnalyticsChartRenderer.RenderPareto(
+                    $"Парето столбцами: {slice.Title}",
+                    top.Select(r => (r.Name, r.Sum, r.Cumulative)).ToList(),
+                    slice.Title)));
+            }
+        }
+
         return charts;
     }
 
