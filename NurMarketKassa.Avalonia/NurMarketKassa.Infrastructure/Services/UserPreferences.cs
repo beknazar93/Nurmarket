@@ -342,6 +342,11 @@ public sealed class UserPreferences
     /// beyond the app's built-in default list (Элкарт/MBank/ФинкаБанк) — see OperationsSettingsView.</summary>
     public List<string> CustomBankNames { get; set; } = new();
 
+    /// <summary>Какие банки показывать кассиру при безналичной оплате. Отмечаются в
+    /// «Настройки → Операции». Пустой список означает «владелец ещё не выбирал» — тогда
+    /// берётся KyrgyzBanks.DefaultVisible, то есть те же три банка, что были до обновления.</summary>
+    public List<string> VisibleBankNames { get; set; } = new();
+
     public List<EmployeeAccessCode> EmployeeAccessCodes { get; set; } = new();
 
     /// <summary>Бонусная программа (AI-фичи 2026-09-04) — баланс хранится ЛОКАЛЬНО на этой кассе
@@ -745,6 +750,9 @@ public sealed class UserPreferences
                 p.BankLogoPaths = fromFile.BankLogoPaths;
             if (fromFile.CustomBankNames != null)
                 p.CustomBankNames = fromFile.CustomBankNames;
+
+            if (fromFile.VisibleBankNames != null)
+                p.VisibleBankNames = fromFile.VisibleBankNames;
             if (fromFile.EmployeeAccessCodes != null)
                 p.EmployeeAccessCodes = fromFile.EmployeeAccessCodes;
             if (fromFile.LoyaltyEnabled is not null)
@@ -924,6 +932,7 @@ public sealed class UserPreferences
                 BankQrPaths = BankQrPaths,
                 BankLogoPaths = BankLogoPaths,
                 CustomBankNames = CustomBankNames,
+                VisibleBankNames = VisibleBankNames,
                 EmployeeAccessCodes = EmployeeAccessCodes,
                 LoyaltyEnabled = LoyaltyEnabled,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
@@ -1115,6 +1124,7 @@ public sealed class UserPreferences
         public int? ScaleLanPort { get; set; }
         public string? ScaleLanPassword { get; set; }
         public Dictionary<string, string>? BankQrPaths { get; set; }
+        public List<string>? VisibleBankNames { get; set; }
         public Dictionary<string, string>? BankLogoPaths { get; set; }
         public List<string>? CustomBankNames { get; set; }
         public List<EmployeeAccessCode>? EmployeeAccessCodes { get; set; }

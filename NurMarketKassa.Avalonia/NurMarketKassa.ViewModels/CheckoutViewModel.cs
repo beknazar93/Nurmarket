@@ -1030,33 +1030,48 @@ namespace NurMarketKassa.ViewModels
             var prefs = UserPreferences.Instance;
             prefs.BankQrPaths ??= new Dictionary<string, string>();
 
-            // 2026-09-23, живой баг («при выборе безнал не видны остальные банки»): здесь был
-            // только этот жёсткий список из трёх банков. Банки, которые кассир добавляет сам
-            // в «Настройки → Операции → Добавить банк», складываются в prefs.CustomBankNames,
-            // и окно оплаты о них не знало вовсе: банк заводился, QR к нему загружался, а
-            // выбрать его при оплате было невозможно.
-            var bankNames = new List<string> { "Элкарт", "MBank", "ФинкаБанк" };
-            foreach (var custom in prefs.CustomBankNames)
-            {
-                if (!string.IsNullOrWhiteSpace(custom)
-                    && !bankNames.Contains(custom, StringComparer.OrdinalIgnoreCase))
-                {
-                    bankNames.Add(custom.Trim());
-                }
-            }
+            // 2026-09-23, живой баг («при выборе безнал не видны остальные банки»). Причин было
+            // две, и обе здесь.
+            //
+            // Первая: список был жёстко задан тремя строками, хотя в Кыргызстане по реестру
+            // НБКР работают 26 коммерческих банков. Кассир физически не мог выбрать свой банк.
+            //
+            // Вторая: банки, которые владелец добавляет сам в «Настройки → Операции →
+            // Добавить банк», складываются в prefs.CustomBankNames, и окно оплаты о них не
+            // знало вовсе — банк заводился, QR к нему загружался, а выбрать его было нельзя.
+            //
+            // Названия встроенных банков менять НЕЛЬЗЯ: prefs.BankQrPaths хранит загруженные
+            // QR-коды по имени банка как по ключу, и переименование потеряет уже настроенные QR.
+            // Показываем только то, что владелец отметил в «Настройки → Операции». Банков в
+            // Кыргызстане больше двух десятков, и вываливать их все кассиру в очереди нельзя.
+            // Пустой список означает «не выбирал» — тогда те же три банка, что и до обновления.
+            var visible = prefs.VisibleBankNames is { Count: > 0 }
+                ? prefs.VisibleBankNames
+                : KyrgyzBanks.DefaultVisible.ToList();
 
-            // Логотип есть только у встроенных банков: файлы лежат в Assets и берутся из
-            // официальных материалов самих банков. Для банков, добавленных кассиром вручную,
-            // картинки взять неоткуда — путь остаётся пустым, и список показывает название.
-            // Подставлять несуществующий путь нельзя: конвертер молча вернёт null, и вместо
-            // логотипа будет пустое место без единого следа в журнале (так и было с MBank
-            // и ФинкаБанком до 2026-09-23 — файлов в репозитории не существовало вообще).
+            var bankNames = visible
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            // Банки с загруженным QR — наверх. Их у магазина обычно один-два, и заставлять
+            // кассира искать свой банк среди двух с половиной десятков в очереди не стоит.
+            bankNames = bankNames
+                .OrderByDescending(name => prefs.BankQrPaths.ContainsKey(name))
+                .ToList();
+
+            // Логотипы есть только у встроенных: файлы лежат в Assets и взяты из официальных
+            // материалов самих банков. Для остальных путь остаётся пустым — подставлять
+            // несуществующий нельзя, конвертер молча вернёт null и следа в журнале не оставит.
             var logoNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "Элкарт", "Elkart-logo.png" },
                 { "MBank", "Mbank-logo.png" },
                 { "ФинкаБанк", "Finca-logo.png" },
             };
+
+            if (bankNames.Count == 0)
+                bankNames = KyrgyzBanks.DefaultVisible.ToList();
 
             var list = new ObservableCollection<BankAccount>();
             foreach (var name in bankNames)

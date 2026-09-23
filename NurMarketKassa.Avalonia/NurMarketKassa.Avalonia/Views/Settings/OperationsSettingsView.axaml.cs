@@ -21,10 +21,11 @@ public partial class OperationsSettingsView : UserControl
     // Segoe MDL2 Assets glyph), пока кассир сам не загрузит свой логотип через
     // ChangeLogo_Click — тогда путь сохраняется в UserPreferences.BankLogoPaths и переживает
     // перезапуск кассы.
-    private readonly string[] _banks =
-    {
-        "Элкарт", "MBank", "ФинкаБанк", "Bakai Bank", "Optima Bank", "Демир банк", "O!Dengi"
-    };
+    // 2026-09-23: собственного списка здесь больше нет. Он расходился с тем, что показывало
+    // окно оплаты: тут предлагалось семь банков, там жёстко значились три. Владелец настраивал
+    // QR для банка, которого при оплате просто не существовало. Теперь список один на всю
+    // программу — см. KyrgyzBanks.
+    private string[] _banks => KyrgyzBanks.All;
 
     public OperationsSettingsView()
     {
@@ -53,13 +54,22 @@ public partial class OperationsSettingsView : UserControl
                 ? customLogo
                 : null;
 
-            _bankSettings.Add(new BankQrSetting
+            // Пустой список отмеченных означает «владелец ещё не выбирал» — отмечаем те же
+            // три банка, что показывались до обновления, чтобы касса не изменилась сама собой.
+            var visible = prefs.VisibleBankNames is { Count: > 0 }
+                ? prefs.VisibleBankNames
+                : KyrgyzBanks.DefaultVisible.ToList();
+
+            var row = new BankQrSetting
             {
                 BankName = bank,
                 LogoPath = logoPath,
                 QrCodePath = qrPath,
-                IsCustom = isCustom
-            });
+                IsCustom = isCustom,
+                ShowAtCheckout = visible.Contains(bank, StringComparer.OrdinalIgnoreCase),
+            };
+            row.PropertyChanged += BankRow_PropertyChanged;
+            _bankSettings.Add(row);
         }
 
         foreach (var bank in _banks)
@@ -245,6 +255,21 @@ public partial class OperationsSettingsView : UserControl
         prefs.SaveToDisk();
     }
 
+
+    /// <summary>Сохраняет отметки «показывать при оплате». Пишем весь список целиком, а не
+    /// по одной записи: так в настройках не остаётся банков, которые владелец уже снял.</summary>
+    private void BankRow_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(BankQrSetting.ShowAtCheckout) || _bankSettings is null)
+            return;
+
+        var prefs = UserPreferences.Instance;
+        prefs.VisibleBankNames = _bankSettings
+            .Where(x => x.ShowAtCheckout)
+            .Select(x => x.BankName)
+            .ToList();
+        prefs.SaveToDisk();
+    }
 
     private void AddBank_Click(object? sender, RoutedEventArgs e)
     {

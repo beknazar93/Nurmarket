@@ -15,6 +15,22 @@ namespace NurMarketKassa.Models
         /// shows, since built-in banks should stay in the list even with no QR uploaded yet.</summary>
         public bool IsCustom { get; set; }
 
+        private bool _showAtCheckout;
+
+        /// <summary>Показывать ли этот банк кассиру в окне оплаты. Банков в списке больше двух
+        /// десятков, и вываливать их все в очереди нельзя — владелец отмечает свои.</summary>
+        public bool ShowAtCheckout
+        {
+            get => _showAtCheckout;
+            set
+            {
+                if (_showAtCheckout == value)
+                    return;
+                _showAtCheckout = value;
+                OnPropertyChanged();
+            }
+        }
+
         public string? QrCodePath
         {
             get => _qrCodePath;

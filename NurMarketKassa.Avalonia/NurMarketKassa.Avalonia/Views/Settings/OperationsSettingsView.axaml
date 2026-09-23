@@ -73,7 +73,7 @@
                       IsCheckedChanged="TelegramCommands_Changed"/>
 
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Команды бота: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники с готовой ссылкой на WhatsApp. Бот отвечает, пока касса включена: своего сервера у программы нет."/>
+                       Text="Команды бота: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /abc — ABC-анализ, /sezon — сезонность, /soveti — рекомендации, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники с готовой ссылкой на WhatsApp. Бот отвечает, пока касса включена: своего сервера у программы нет."/>
 
             <Button x:Name="TelegramDebtRemindersButton" Content="Разослать напоминания о долге"
                     Click="TelegramDebtReminders_Click"/>
@@ -143,6 +143,14 @@
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                     <TextBlock Text="{Binding BankName}"
                                FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+
+                    <!-- Банков в списке больше двух десятков, а магазин обычно работает с
+                         одним-двумя. Кассиру в очереди показываем только отмеченные. -->
+                    <CheckBox Content="Показывать при оплате"
+                              IsChecked="{Binding ShowAtCheckout, Mode=TwoWay}"
+                              FontSize="12"
+                              Margin="0,2,0,2"
+                              MinHeight="0"/>
 
                     <TextBlock Text="{DynamicResource operations.qrNotLoaded}"
                                FontSize="12" Foreground="{DynamicResource BrushTextSoft}"

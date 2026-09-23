@@ -1,4 +1,4 @@
-<Window x:Class="NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow"
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.TelegramBotSetupWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:CompileBindings="False"
@@ -105,7 +105,7 @@
             <CheckBox x:Name="CommandsCheck" Content="Отвечать на команды в Telegram"
                       IsCheckedChanged="Toggles_Changed"/>
             <TextBlock Classes="StepBody"
-                       Text="Команды: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники. Бот отвечает, пока касса включена."/>
+                       Text="Команды: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /abc — ABC-анализ, /sezon — сезонность, /soveti — рекомендации, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники. Бот отвечает, пока касса включена."/>
           </StackPanel>
         </Border>
 
