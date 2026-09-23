@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 
 namespace NurMarketKassa.Services;
@@ -127,6 +127,9 @@ public static class ShiftBalanceHelper
             // null (диалог покажет "—" вместо вводящего в заблуждение 0.00).
             DebtSales = debtSales,
             ExpectedCash = TryReadBalance(shiftRow),
+            ExpenseTotal = FirstOf(shiftRow, "expense_total"),
+            IncomeTotal = FirstOf(shiftRow, "income_total"),
+            CashDiff = FirstOf(shiftRow, "cash_diff"),
             // 2026-09-14, по просьбе пользователя ("нужен подробный отчёт при закрытии смены,
             // как на вебке") — "sales_count" того же ответа, подтверждено рабочим кодом
             // FinanceWindow.ParseShiftRow.
@@ -167,6 +170,14 @@ public static class ShiftBalanceHelper
         public decimal? DebtSales { get; init; }
         public decimal? ExpectedCash { get; init; }
         public int? SalesCount { get; init; }
+
+        /// <summary>Приходы и расходы по кассе с сервера (income_total / expense_total того
+        /// же ответа). Нужны отчёту при закрытии смены: локальный cash_history.json знает
+        /// только операции, сделанные на этом компьютере, и расход в печатном чеке выходил
+        /// меньше настоящего.</summary>
+        public decimal? ExpenseTotal { get; init; }
+        public decimal? IncomeTotal { get; init; }
+        public decimal? CashDiff { get; init; }
     }
 
     private static IEnumerable<JsonElement> EnumerateRows(JsonElement data)

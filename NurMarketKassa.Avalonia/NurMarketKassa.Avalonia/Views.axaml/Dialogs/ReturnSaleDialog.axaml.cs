@@ -21,6 +21,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private const int SalesPageSize = 35;
 
     private string? _currentSaleId;
+
+    /// <summary>Номер чека, по которому идёт возврат — печатается на чеке возврата, чтобы
+    /// кассир и покупатель могли сопоставить две бумажки.</summary>
+    private string? _currentReceiptNumber;
     private int _salesPage;
     private readonly HashSet<string> _salesSeenIds = new(StringComparer.OrdinalIgnoreCase);
     private string _searchFilter = "";
@@ -328,6 +332,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             var sale = await App.SalesApi.PosSaleGetAsync(saleId).ConfigureAwait(true);
             _currentSaleId = saleId;
+            _currentReceiptNumber = Sales.FirstOrDefault(x => x.SaleId == saleId)?.ReceiptNumber;
             FillLinesFromSale(sale);
             UpdateReceiptChrome();
             if (Lines.Count == 0)
@@ -504,6 +509,28 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 }
             }
 
+            // Чек возврата обязателен: это выдача денег из кассы, её подтверждают бумагой
+            // так же, как продажу. Печатаем после того, как сервер принял возврат — чтобы на
+            // руках не оказалось чека по непрошедшей операции.
+            var printError = OperationReceiptPrinter.PrintReturn(
+                _currentReceiptNumber,
+                selected.Select(l => (
+                    Name: l.Title,
+                    Quantity: l.Quantity > 0 ? l.Quantity : 1,
+                    UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
+                    Sum: l.RefundSum)).ToList(),
+                total,
+                reason,
+                isWholeSale: false,
+                NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+
+            if (printError is not null)
+            {
+                PosMessageBox.Show(this, printError,
+                    Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
             PosMessageBox.Show(this, selected.Count == 1
                     ? Tr.T("Возврат оформлен.", "Кайтаруу таризделди.", "Return completed.", "İade tamamlandı.", "Qaytarish rasmiylashtirildi.")
                     : Tr.T($"Возврат оформлен ({selected.Count} поз.).", $"Кайтаруу таризделди ({selected.Count} поз.).", $"Return completed ({selected.Count} items).", $"İade tamamlandı ({selected.Count} kalem).", $"Qaytarish rasmiylashtirildi ({selected.Count} poz.)."),
@@ -647,6 +674,25 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 PosApp.ActiveShiftId,
                 ShiftEventsStore.OperationKey(_currentSaleId),
                 (double)wholeTotal);
+
+            var wholePrintError = OperationReceiptPrinter.PrintReturn(
+                _currentReceiptNumber,
+                Lines.Where(l => l.CanReturn).Select(l => (
+                    Name: l.Title,
+                    Quantity: l.Quantity > 0 ? l.Quantity : 1,
+                    UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
+                    Sum: l.RefundSum)).ToList(),
+                wholeTotal,
+                reasonDialog.ReasonText,
+                isWholeSale: true,
+                NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+
+            if (wholePrintError is not null)
+            {
+                PosMessageBox.Show(this, wholePrintError,
+                    Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
 
             // 2026-09-13, живой баг: полный возврат чека не отменял баллы лояльности,
             // начисленные/списанные при этой продаже (см. BasketPanelViewModel.

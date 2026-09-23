@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using NurMarketKassa.Models;
 
@@ -62,6 +62,12 @@ public static class ShiftHistoryService
                 NonCashSales = TryNullableDecimal(row, "noncash_sales_total", "non_cash_sales_total", "non_cash_sales"),
                 DebtSales = TryNullableDecimal(row, "debt_sales_total", "debt_total", "debt"),
                 SalesCount = TryNullableInt(row, "sales_count"),
+                // Имена полей взяты не по аналогии, а из живого ответа сервера (2026-09-23):
+                // income_total, expense_total, expected_cash, cash_diff.
+                ExpenseTotal = TryNullableDecimal(row, "expense_total"),
+                IncomeTotal = TryNullableDecimal(row, "income_total"),
+                ExpectedCash = TryNullableDecimal(row, "expected_cash", "drawer_expected_cash", "ledger_expected_cash"),
+                CashDiff = TryNullableDecimal(row, "cash_diff"),
             });
         }
 

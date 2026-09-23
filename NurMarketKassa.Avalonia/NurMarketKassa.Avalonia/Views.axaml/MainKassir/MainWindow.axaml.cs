@@ -1887,6 +1887,13 @@ public partial class MainWindow : Window
                 NonCashSales = fresh?.NonCashSales ?? before?.NonCashSales,
                 DebtSales = fresh?.DebtSales ?? before?.DebtSales,
                 SalesCount = fresh?.SalesCount ?? before?.SalesCount,
+                // Расход и приход — с сервера. Без них отчёт считал изъятия по локальному
+                // файлу и печатал меньше настоящего (живой случай: расход 1 940, в чеке 490).
+                ExpenseTotal = before?.ExpenseTotal,
+                IncomeTotal = before?.IncomeTotal,
+                // Ожидаемый остаток и расхождение НЕ берём из снимка «до закрытия»: они
+                // посчитаны до того, как кассир ввёл фактическую сумму. Здесь их считает
+                // сам отчёт по опорным цифрам, которые уже серверные.
             };
             SendShiftSummaryToTelegram(shift, shiftId);
             PosDialogHost.Show(new ShiftDetailsDialog(shift), this);

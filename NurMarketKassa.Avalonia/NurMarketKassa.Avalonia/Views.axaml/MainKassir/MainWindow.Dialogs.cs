@@ -324,6 +324,20 @@ public partial class MainWindow
                 op.Comment);
         }
 
+        // Расходный чек обязателен: по нему деньги, вынутые из ящика, сходятся при
+        // пересчёте кассы. Раньше изъятие проходило молча — подтвердить его было нечем.
+        var printError = OperationReceiptPrinter.PrintCashOperation(
+            isWithdrawal: true,
+            op.Amount,
+            reason,
+            NurMarketKassa.AvaloniaHost.App.CurrentUserId);
+
+        if (printError is not null)
+        {
+            _viewModel.Basket.CartMessage = printError;
+            return;
+        }
+
         _viewModel.Basket.CartMessage = Tr.T(
             $"Изъятие оформлено: {amount:0.00} сом.",
             $"Изъятим жасалды: {amount:0.00} сом.",

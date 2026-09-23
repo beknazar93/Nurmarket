@@ -44,7 +44,7 @@ public partial class ShiftDetailsDialog : Window
         CardText.Text = shift.NonCashSales is { } card ? $"{card:N2} сом" : "—";
         DebtText.Text = shift.DebtSales is { } debt ? $"{debt:N2} сом" : "—";
 
-        BindExtraTotals(shift.Id);
+        BindExtraTotals(shift.Id, shift.ExpenseTotal);
 
         var (deposits, withdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
         CashOpsPanel.IsVisible = deposits > 0m || withdrawals > 0m;
@@ -71,7 +71,7 @@ public partial class ShiftDetailsDialog : Window
     /// полей нет — там только выручка, наличные/безналичные и расход. Прочерк вместо нуля
     /// означает «операций такого рода не было», а у смен, закрытых до появления этого учёта,
     /// он будет стоять всегда — цифры копятся с версии 1.16.86.</summary>
-    private void BindExtraTotals(string? shiftId)
+    private void BindExtraTotals(string? shiftId, decimal? serverExpense)
     {
         static string Money(double value) => $"{value:N2} сом";
 
@@ -87,7 +87,9 @@ public partial class ShiftDetailsDialog : Window
 
         var returns = Get(ShiftEventsStore.KindReturn);
         var writeOffs = Get(ShiftEventsStore.KindWriteOff);
-        var expenses = Get(ShiftEventsStore.KindExpense);
+        // Расход — с сервера, если он его прислал: касса видит только свои операции, и
+        // экран расходился бы с печатным чеком, где эта цифра уже серверная.
+        var expenses = serverExpense is { } fromServer ? (double)fromServer : Get(ShiftEventsStore.KindExpense);
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
 
         ReturnsText.Text = returns > 0.005 ? Money(returns) : "—";
@@ -180,7 +182,12 @@ public partial class ShiftDetailsDialog : Window
         // остаток» считался как начальная сумма плюс наличная выручка, поэтому изъятие 40 000
         // в середине смены печаталось как расхождение на те же 40 000 — и противоречило окну
         // закрытия смены, которое эти операции учитывает (см. MainWindow.CloseShiftAsync).
-        var (deposits, withdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
+        // Приходы и расходы берём у сервера: он знает обо всех операциях, включая сделанные
+        // на вебе и на других кассах. Локальный cash_history.json — только запасной вариант на
+        // случай, когда сервер этих полей не прислал (старая версия API или работа офлайн).
+        var (localDeposits, localWithdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
+        var deposits = shift.IncomeTotal ?? localDeposits;
+        var withdrawals = shift.ExpenseTotal ?? localWithdrawals;
         if (deposits > 0m || withdrawals > 0m)
         {
             if (deposits > 0m)
@@ -195,7 +202,17 @@ public partial class ShiftDetailsDialog : Window
             sb.AppendLine($"Начальная сумма: {opening.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             if (shift.ClosingCash is { } actual)
             {
-                var expected = opening + (shift.CashSales ?? 0m) + deposits - withdrawals;
+                // Ожидаемый остаток тоже с сервера, если он его прислал: свой расчёт
+                // повторял бы серверный и расходился с ним ровно на те операции, о которых
+                // касса не знает.
+                // Формула ровно та, по которой считает сервер (проверено на живых сменах
+                // 2026-09-23): начальная сумма плюс наличная выручка минус расход. Прочие
+                // приходы в ожидаемый остаток сервер НЕ включает и показывает отдельной
+                // строкой — повторяем это, иначе касса опять разойдётся с сайтом.
+                var expected = shift.ExpectedCash
+                    ?? (shift.ExpenseTotal is not null
+                        ? opening + (shift.CashSales ?? 0m) - withdrawals
+                        : opening + (shift.CashSales ?? 0m) + deposits - withdrawals);
                 var diff = actual - expected;
                 sb.AppendLine($"Ожидаемый остаток: {expected.ToString("0.00", CultureInfo.InvariantCulture)} сом");
                 sb.AppendLine($"Фактический остаток: {actual.ToString("0.00", CultureInfo.InvariantCulture)} сом");
