@@ -321,15 +321,33 @@ public partial class ScalesPluWindow : Window
 
             var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
             var records = new List<ShtrikhPluRecord>();
+            // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
+            // и без этого списка непонятно, какую наклейку куда клеить.
+            var keyMap = new List<(int Plu, string Name)>();
             var nextPlu = pluStart;
             foreach (var id in selectedIds)
             {
                 if (!byId.TryGetValue(id, out var product))
                     continue;
 
-                var plu = product.Plu is > 0 ? product.Plu.Value : nextPlu++;
-                if (product.Plu is not > 0)
+                // 2026-09-23, живой баг («программа отправляет ПЛУ, но кнопки не работают»).
+                //
+                // Клавиши на панели весов (120 штук на ШТРИХ-ПРИНТ) вызывают ПЛУ по его
+                // НОМЕРУ и по положению: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2. Раньше сюда
+                // подставлялся СОБСТВЕННЫЙ номер товара из каталога, а он произвольный —
+                // у «Айфона», например, 10007. Запись уходила в ПЛУ 10007, до которого ни
+                // одна клавиша не дотягивается, и панель выглядела нерабочей, хотя выгрузка
+                // формально проходила.
+                //
+                // Поэтому по умолчанию нумеруем подряд: порядок товаров в списке и есть
+                // порядок клавиш. Выключить можно галочкой — если весы настроены обращаться
+                // к ПЛУ по коду товара, а не по номеру.
+                var sequential = SequentialPluCheck.IsChecked == true;
+                var plu = sequential || product.Plu is not > 0 ? nextPlu++ : product.Plu!.Value;
+                if (!sequential && product.Plu is > 0)
                     nextPlu = Math.Max(nextPlu, plu + 1);
+
+                keyMap.Add((plu, product.Title));
 
                 records.Add(ShtrikhPrintLanScaleService.CreateRecord(
                     pluNumber: plu,
@@ -352,8 +370,17 @@ public partial class ScalesPluWindow : Window
             var result = await scale.UploadPlusAsync(records, progress, CancellationToken.None).ConfigureAwait(true);
 
             StatusText.Text = result.Ok
-                ? $"Выгружено на весы: {result.Sent}."
+                ? $"Выгружено на весы: {result.Sent}. Клавиша 1 — «{keyMap.FirstOrDefault().Name}», далее по порядку списка."
                 : $"Выгружено: {result.Sent}, с ошибками: {result.Failed}. " + string.Join(" · ", result.Errors.Take(3));
+
+            // Печатаем раскладку в журнал: панель на 120 клавиш подписывают вручную, и владельцу
+            // нужен список «номер клавиши — товар», чтобы наклеить ярлыки.
+            if (result.Ok && keyMap.Count > 0)
+            {
+                PosLogger.Log(
+                    "Весы, раскладка клавиш: " + string.Join("; ", keyMap.Select(x => $"{x.Plu} — {x.Name}")),
+                    "SCALES");
+            }
 
             foreach (var error in result.Errors)
                 PosLogger.Log($"Выгрузка ПЛУ по LAN: {error}", "SCALES");

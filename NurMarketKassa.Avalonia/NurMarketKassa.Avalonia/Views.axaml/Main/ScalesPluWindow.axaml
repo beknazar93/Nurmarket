@@ -108,6 +108,11 @@
                            Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
                 <TextBox Margin="0,2,8,2" x:Name="PluStartBox" Width="70" Text="1"/>
 
+                <CheckBox x:Name="SequentialPluCheck" Content="Нумеровать под клавиши весов"
+                          IsChecked="True"
+                          Margin="12,2,0,2"
+                          ToolTip.Tip="Клавиши на панели весов вызывают ПЛУ по его НОМЕРУ: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2 и так далее. Если записать товар под его собственным номером (например 10007), ни одна клавиша его не найдёт. С этой галочкой товары получают номера подряд, начиная с указанного, и порядок в списке ниже — это порядок клавиш."/>
+
                 <CheckBox x:Name="DirectLanCheck" Content="Напрямую по кабелю"
                           VerticalAlignment="Center" Margin="16,0,0,0"
                           IsCheckedChanged="DirectLan_Changed"

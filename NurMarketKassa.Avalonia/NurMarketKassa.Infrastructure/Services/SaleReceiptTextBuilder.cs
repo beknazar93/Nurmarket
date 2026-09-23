@@ -104,16 +104,35 @@ public static class SaleReceiptTextBuilder
 
         var due = total ?? linesTotal - discount;
 
-        // Скидку показываем, только если она сходится с итогом: сумма строк минус скидка
-        // должна давать ИТОГО. Сервер иногда отдаёт total, в котором скидка УЖЕ учтена в ценах
-        // строк, и тогда получался чек с арифметикой, которая не сходится на глазах у
-        // покупателя: «Сумма 6 114,70 / Скидка −15,00 / ИТОГО 6 114,70». Лучше показать один
-        // честный итог, чем три числа, которые друг другу противоречат.
-        var reconciles = Math.Abs(linesTotal - discount - due) < 0.01m;
-        if (discount > 0.005m && reconciles)
+        // Скидка приходит от сервера отдельным числом, но попасть в чек она могла двумя
+        // разными путями, и от этого зависит, что считать строкой «Сумма».
+        //
+        // 1) Обычный путь: сервер принял скидку на весь чек. Цены позиций остались полными,
+        //    итог уже уменьшен: сумма строк − скидка = итог.
+        // 2) Наш обходной путь: скидку суммой сервер у кассира отбивает ошибкой 500, поэтому
+        //    касса раскладывает её по позициям. Цены строк тогда УЖЕ уменьшены, и сумма строк
+        //    равна итогу.
+        //
+        // Во втором случае показывать «Сумма = сумма строк» нельзя: получался чек, где
+        // «Сумма 6 114,70 / Скидка −15,00 / ИТОГО 6 114,70» — скидка есть, а итог от неё не
+        // изменился. Правильная «Сумма» там — итог ПЛЮС скидка, то есть цена до скидки.
+        if (discount > 0.005m)
         {
-            Line(ReceiptLineLayout.FormatLabelAmount("Сумма", linesTotal.ToString("N2", CultureInfo.CurrentCulture), w));
-            Line(ReceiptLineLayout.FormatLabelAmount("Скидка", "-" + discount.ToString("N2", CultureInfo.CurrentCulture), w));
+            decimal? subtotal = null;
+            if (Math.Abs(linesTotal - discount - due) < 0.01m)
+                subtotal = linesTotal;                 // путь 1
+            else if (Math.Abs(linesTotal - due) < 0.01m)
+                subtotal = due + discount;             // путь 2
+
+            // Если не сходится ни так, ни так — печатаем только итог. Три числа, которые
+            // противоречат друг другу, хуже одного честного.
+            if (subtotal is { } sum)
+            {
+                Line(ReceiptLineLayout.FormatLabelAmount(
+                    "Сумма", sum.ToString("N2", CultureInfo.CurrentCulture), w));
+                Line(ReceiptLineLayout.FormatLabelAmount(
+                    "Скидка", "-" + discount.ToString("N2", CultureInfo.CurrentCulture), w));
+            }
         }
 
         Line(ReceiptLineLayout.FormatLabelAmount(
