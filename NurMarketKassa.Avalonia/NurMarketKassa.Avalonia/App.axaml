@@ -1,4 +1,4 @@
-<Application xmlns="https://github.com/avaloniaui"
+﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
              x:Class="NurMarketKassa.AvaloniaHost.App"
@@ -73,6 +73,91 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     </Style>
+    <!-- Календарь. Раньше не оформлялся вообще: выпадающая панель приходила из темы Fluent
+         со своим фоном и своими цветами, поэтому в окне ABC-анализа она выглядела чужеродной
+         белой таблицей поверх тёмного интерфейса, а выбранный день терялся. Стили общие для
+         всей программы, а не только для одного окна: CalendarDatePicker используется и в
+         других местах, и разнобой был бы заметнее самой проблемы. -->
+    <Style Selector="CalendarDatePicker">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="MinHeight" Value="38"/>
+    </Style>
+    <Style Selector="CalendarDatePicker /template/ TextBox#PART_TextBox">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <Style Selector="Calendar">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+    </Style>
+
+    <!-- Сетка дней лежит на собственном фоне CalendarItem из темы Fluent. Без этого правила
+         она остаётся серо-голубой плашкой поверх белой карточки диалога (и наоборот в тёмной
+         теме) — сам Calendar.Background до неё не доходит. -->
+    <Style Selector="CalendarItem">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Calendar /template/ CalendarItem">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <!-- Шапка «август 2026 г.» и стрелки переключения месяца. -->
+    <Style Selector="Calendar /template/ Button">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <!-- Подписи дней недели: приглушённые, чтобы не спорили с числами. -->
+    <Style Selector="Calendar /template/ Grid#PART_MonthView > TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="CalendarDayButton">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <!-- Дни соседних месяцев — бледные: это подсказка, а не выбор. -->
+    <Style Selector="CalendarDayButton:inactive">
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+    </Style>
+    <Style Selector="CalendarDayButton:pointerover">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="CalendarDayButton:selected">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextInverted}"/>
+    </Style>
+    <!-- Сегодняшний день: обводкой, а не заливкой, иначе спорит с выбранным. -->
+    <Style Selector="CalendarDayButton:today">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+    </Style>
+
+    <Style Selector="CalendarButton">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+    <Style Selector="CalendarButton:pointerover">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+    <Style Selector="CalendarButton:selected">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextInverted}"/>
+    </Style>
+
     <Style Selector="NumericUpDown">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
