@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.FinanceDateRangeDialog"
         Title="{DynamicResource financeRange.title}"
@@ -108,7 +108,10 @@
       <StackPanel Spacing="8">
         <TextBlock Text="{DynamicResource financeRange.calendarSection}" FontSize="12" FontWeight="SemiBold"
                     Foreground="{DynamicResource BrushTextSoft}"/>
-        <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+        <!-- Фон рамки совпадает с карточкой диалога. Раньше стоял BrushPanelSoft — в светлой
+           теме это #E2E8F0, и календарь выглядел серо-голубой плашкой, наклеенной на белый
+           диалог. -->
+        <Border Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="12" HorizontalAlignment="Stretch">
           <Calendar x:Name="RangeCalendar"
                     Background="Transparent"

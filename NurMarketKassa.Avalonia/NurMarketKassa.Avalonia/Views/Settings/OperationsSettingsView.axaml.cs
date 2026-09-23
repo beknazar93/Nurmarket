@@ -21,11 +21,11 @@ public partial class OperationsSettingsView : UserControl
     // Segoe MDL2 Assets glyph), пока кассир сам не загрузит свой логотип через
     // ChangeLogo_Click — тогда путь сохраняется в UserPreferences.BankLogoPaths и переживает
     // перезапуск кассы.
-    // 2026-09-23: собственного списка здесь больше нет. Он расходился с тем, что показывало
-    // окно оплаты: тут предлагалось семь банков, там жёстко значились три. Владелец настраивал
-    // QR для банка, которого при оплате просто не существовало. Теперь список один на всю
-    // программу — см. KyrgyzBanks.
-    private string[] _banks => KyrgyzBanks.All;
+    // Показываем только три основных банка. Полный список из двадцати шести — в диалоге
+    // «Добавить банк»: владелец выбирает оттуда свои, и они появляются в этом списке.
+    // Вываливать все 26 сразу нельзя — владелец жаловался, что список слишком длинный,
+    // а магазин работает с одним-двумя банками.
+    private string[] _banks => KyrgyzBanks.DefaultVisible;
 
     public OperationsSettingsView()
     {
@@ -276,7 +276,10 @@ public partial class OperationsSettingsView : UserControl
         if (TopLevel.GetTopLevel(this) is not Window owner)
             return;
 
-        var name = AddBankDialog.Show(owner);
+        var name = AddBankDialog.Show(owner, KyrgyzBanks.All
+            .Where(x => !_banks.Contains(x, StringComparer.OrdinalIgnoreCase)
+                && !UserPreferences.Instance.CustomBankNames.Contains(x, StringComparer.OrdinalIgnoreCase))
+            .ToList());
         if (string.IsNullOrWhiteSpace(name))
             return;
 
@@ -294,6 +297,14 @@ public partial class OperationsSettingsView : UserControl
         }
 
         prefs.CustomBankNames.Add(name);
+        if (!prefs.VisibleBankNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            // Банк добавляют, чтобы им платить. Заставлять после этого искать галочку —
+            // лишний шаг, который владелец пропустит и решит, что добавление не сработало.
+            if (prefs.VisibleBankNames.Count == 0)
+                prefs.VisibleBankNames = KyrgyzBanks.DefaultVisible.ToList();
+            prefs.VisibleBankNames.Add(name);
+        }
         prefs.SaveToDisk();
         LoadBankQrSettings();
     }

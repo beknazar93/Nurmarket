@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -14,11 +15,30 @@ public partial class AddBankDialog : Window
         Opened += (_, _) => NameBox.Focus();
     }
 
-    /// <summary>Возвращает введённое название банка (обрезанное, непустое) или null при отмене.</summary>
-    public static string? Show(Window? owner)
+    /// <summary>Возвращает выбранное или введённое название банка либо null при отмене.</summary>
+    /// <param name="known">Банки, которых ещё нет в списке настроек. Показываются готовым
+    /// списком: от написания названия зависит ключ, по которому хранится QR-код банка,
+    /// и опечатка привела бы к «потерянному» QR.</param>
+    public static string? Show(Window? owner, IReadOnlyList<string>? known = null)
     {
         var dialog = new AddBankDialog();
+        if (known is { Count: > 0 })
+            dialog.KnownBox.ItemsSource = known;
+        else
+            dialog.KnownBox.IsVisible = false;
+
         return PosDialogHost.Show(dialog, owner) == true ? dialog.EnteredName : null;
+    }
+
+    /// <summary>Выбор из списка сразу подставляется в поле ввода — так работает и проверка
+    /// на пустое значение, и обработка Enter, без второй ветки логики.</summary>
+    private void KnownBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (KnownBox.SelectedItem is string name && !string.IsNullOrWhiteSpace(name))
+        {
+            NameBox.Text = name;
+            ErrorText.IsVisible = false;
+        }
     }
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close(false);

@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.AddBankDialog"
         Title="{DynamicResource posSettings.operations.addBankTitle}"
@@ -24,6 +24,22 @@
                  FontSize="14" TextWrapping="Wrap"
                  Foreground="{DynamicResource BrushTextSoft}"
                  Margin="0,0,0,16"/>
+      <!-- Готовый список банков Кыргызстана: владельцу не нужно вспоминать точное
+           написание, а от написания зависит ключ, по которому хранится QR. Поле ввода
+           ниже остаётся для банков, которых в списке нет. -->
+      <ComboBox x:Name="KnownBox"
+                Height="42"
+                FontSize="16"
+                Margin="0,0,0,10"
+                HorizontalAlignment="Stretch"
+                PlaceholderText="Выберите банк из списка"
+                SelectionChanged="KnownBox_SelectionChanged"/>
+
+      <TextBlock Text="или впишите своё название"
+                 FontSize="12"
+                 Foreground="{DynamicResource BrushTextSoft}"
+                 Margin="0,0,0,6"/>
+
       <TextBox x:Name="NameBox"
                Height="42"
                FontSize="16"

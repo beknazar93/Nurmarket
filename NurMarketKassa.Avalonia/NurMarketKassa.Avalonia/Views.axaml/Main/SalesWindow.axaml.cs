@@ -844,41 +844,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // для суммы строки в разных ответах — прямое чтение "price"/"total" молча давало
                 // 0.00 для обоих (кассир видел "1,000 × 0,00 = 0,00"). CartDisplayHelper уже умеет
                 // это надёжно разбирать (тот же разбор, что и в диалоге возврата).
-                decimal previewTotal = 0;
-                foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(json))
-                {
-                    var name = CartDisplayHelper.ItemName(line);
-                    var qty = CartDisplayHelper.LineQuantity(line);
-                    var unitPrice = CartDisplayHelper.UnitPrice(line);
-                    var total = CartDisplayHelper.LineTotal(line);
-                    // Суммируем то же значение, что и показываем по строке (LineTotal), а не
-                    // пересчитываем qty*unitPrice заново — иначе итог может разойтись со
-                    // строками, если у сервера итог строки не равен ровно qty*unitPrice
-                    // (скидки на позицию и т.п.).
-                    if (decimal.TryParse(total, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var totalDec))
-                        previewTotal += totalDec;
-                    items.Add($"• {name} — {qty:0.###} × {unitPrice:N2} = {total}");
-                }
-                // 2026-09-13, живой баг: при повторной печати сам предпросмотр (это всплывающее
-                // окно) показывал только строки товаров без итога — итог появлялся только в
-                // РАСПечатанном чеке (см. PrintReceiptAgain_Click ниже), не на экране. Обычный
-                // (первый) чек всегда показывает итог, повторный должен выглядеть так же.
-                // 2026-09-22, живой баг: предпросмотр складывал только суммы строк и молча
-                // ИГНОРИРОВАЛ скидку на чек — по продаже на 152,00 сом (160,00 минус 8,00
-                // бонусами) окно показывало «ИТОГО: 160,00 сом», расходясь и со списком чеков,
-                // и с тем, что покупатель реально заплатил.
+                // Предпросмотр строится тем же построителем, что и печать: раньше это были
+                // два разных формата, и кассир видел на экране одно, а на бумаге другое.
                 var receiptDiscount = ReadSaleDiscount(json);
-                var receiptTotal = ReadSaleTotal(json) ?? previewTotal - receiptDiscount;
-                items.Add(new string('-', 24));
-                if (receiptDiscount > 0.005m)
-                {
-                    items.Add($"Сумма: {previewTotal:N2} сом");
-                    items.Add($"Скидка: -{receiptDiscount:N2} сом");
-                }
+                var receiptTotal = ReadSaleTotal(json);
+                PopupReceiptText.Text = SaleReceiptTextBuilder.Build(
+                    json, receiptNumber, receiptDiscount, receiptTotal);
 
-                items.Add($"ИТОГО: {receiptTotal:N2} сом");
                 PopupTitle.Text = "Чек " + receiptNumber;
-                PopupItemsControl.ItemsSource = items;
                 _currentReceiptJson = json;
                 _currentReceiptNumber = receiptNumber;
                 ReceiptDetailsPopup.IsOpen = true;
@@ -928,47 +901,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             try
             {
-                var lines = new List<string>();
-                lines.Add("Чек " + _currentReceiptNumber);
-                lines.Add(new string('-', 24));
+                // Тот же построитель, что и в предпросмотре: раньше повторная печать
+                // собирала собственный, третий по счёту формат чека.
+                var reprintText = SaleReceiptTextBuilder.Build(
+                    _currentReceiptJson,
+                    _currentReceiptNumber,
+                    ReadSaleDiscount(_currentReceiptJson),
+                    ReadSaleTotal(_currentReceiptJson),
+                    isReprint: true);
 
-                // 2026-09-12: было "product_name"/"quantity"/"price"/"total" — таких полей в
-                // реальном ответе сервера нет (см. комментарий у ShowReceiptDetailsByIdAsync:
-                // сервер называет поле цены "unit_price", не "price"), поэтому price/lineTotal
-                // всегда читались как 0, и ИТОГО в повторной печати всегда показывал 0.00.
-                // CartDisplayHelper уже умеет это надёжно разбирать (тот же разбор, что и в
-                // диалоге деталей чека выше).
-                decimal total = 0;
-                foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(_currentReceiptJson))
-                {
-                    var name = CartDisplayHelper.ItemName(line);
-                    var qty = (decimal)CartDisplayHelper.LineQuantity(line);
-                    var price = (decimal)CartDisplayHelper.UnitPrice(line);
-                    // 2026-09-13: печатаем ту же сумму строки, что LineTotal уже надёжно находит
-                    // (8 запасных имён поля), а не qty*price заново — для поштучных/пакетных
-                    // строк (sale_package_id вместо unit_price) это единственный источник
-                    // правильной суммы, если у сервера итог строки не точно равен qty*price.
-                    var lineTotalStr = CartDisplayHelper.LineTotal(line);
-                    if (!decimal.TryParse(lineTotalStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var lineTotal))
-                        lineTotal = qty * price;
-                    total += lineTotal;
-                    lines.Add(name);
-                    lines.Add($"  {qty} x {price:N2} = {lineTotal:N2}");
-                }
-
-                var printDiscount = ReadSaleDiscount(_currentReceiptJson);
-                var printTotal = ReadSaleTotal(_currentReceiptJson) ?? total - printDiscount;
-                lines.Add(new string('-', 24));
-                if (printDiscount > 0.005m)
-                {
-                    lines.Add($"Сумма: {total:N2} сом");
-                    lines.Add($"Скидка: -{printDiscount:N2} сом");
-                }
-
-                lines.Add($"ИТОГО: {printTotal:N2} сом");
-                lines.Add("(повторная печать)");
-
-                ReceiptPrintService.PrintReceipt("{}", receiptText: string.Join("\n", lines));
+                ReceiptPrintService.PrintReceipt("{}", receiptText: reprintText);
                 ErrorMessage = "";
             }
             catch (Exception ex)

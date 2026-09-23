@@ -105,6 +105,11 @@
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="BorderThickness" Value="0"/>
     </Style>
+    <!-- Сетку дней рисует Grid внутри шаблона CalendarItem, и у него свой фон из темы
+         Fluent: ни Calendar.Background, ни CalendarItem.Background до него не доходят. -->
+    <Style Selector="CalendarItem /template/ Grid">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
     <Style Selector="Calendar /template/ CalendarItem">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="BorderThickness" Value="0"/>
