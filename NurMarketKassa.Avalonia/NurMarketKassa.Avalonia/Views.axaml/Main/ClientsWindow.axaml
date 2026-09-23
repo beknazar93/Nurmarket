@@ -183,18 +183,25 @@
                     <Button Grid.Column="2" x:Name="RefreshButton" Classes="SecondaryButton" Content="{DynamicResource clients.refreshButton}" Click="RefreshButton_Click"/>
                 </Grid>
 
+                <!-- Колонки по тому, зачем в этот список вообще заходят: найти человека и
+                     позвонить ему. Имя занимает всё свободное место, телефон и адрес — рядом;
+                     Email ушёл в конец и сузился: у большинства клиентов он пустой. -->
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding FilteredClients}"
                           SelectedItem="{Binding SelectedClient}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
-                          RowHeight="44">
+                          CanUserResizeColumns="True"
+                          CanUserSortColumns="True"
+                          GridLinesVisibility="Horizontal"
+                          RowHeight="46">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource clients.colFullName}" Width="*" Binding="{ReflectionBinding FullName}"/>
-                        <DataGridTextColumn Header="{DynamicResource common.phone}" Width="180" Binding="{ReflectionBinding Phone}"/>
-                        <DataGridTextColumn Header="Email" Width="220" Binding="{ReflectionBinding Email}"/>
-                        <DataGridTextColumn Header="{DynamicResource clients.colAdded}" Width="140" Binding="{ReflectionBinding CreatedAtDisplay}"/>
+                        <DataGridTextColumn Header="{DynamicResource clients.colFullName}" Width="2*" Binding="{ReflectionBinding FullName}"/>
+                        <DataGridTextColumn Header="{DynamicResource common.phone}" Width="170" Binding="{ReflectionBinding Phone}"/>
+                        <DataGridTextColumn Header="{DynamicResource clients.addressLabel}" Width="1.4*" Binding="{ReflectionBinding Address}"/>
+                        <DataGridTextColumn Header="{DynamicResource clients.colAdded}" Width="130" Binding="{ReflectionBinding CreatedAtDisplay}"/>
                         <DataGridTextColumn Header="{DynamicResource clients.colLoyalty}" Width="120" Binding="{ReflectionBinding LoyaltyBalanceDisplay}"/>
+                        <DataGridTextColumn Header="Email" Width="180" Binding="{ReflectionBinding Email}"/>
                     </DataGrid.Columns>
                 </DataGrid>
 
@@ -257,32 +264,21 @@
                             CornerRadius="8"
                             Padding="10,8"
                             Margin="0,4,0,0">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Покупки" FontSize="12" FontWeight="SemiBold"
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource clients.purchasesHeader}" FontSize="12" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBlock Text="{Binding PurchasesSummary}"
                                        FontSize="12"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource BrushTextMuted}"/>
-                            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
-                                          IsVisible="{Binding HasClientPurchases}">
-                                <ItemsControl ItemsSource="{Binding ClientPurchases}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="local:ClientPurchaseRow">
-                                            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                <TextBlock Grid.Column="0"
-                                                           Text="{Binding DateDisplay}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource BrushTextMuted}"/>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding AmountDisplay}"
-                                                           FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource BrushMoney}"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                            <!-- Список «дата — сумма» из карточки убран: по нему нельзя было найти
+                                 сам чек. Полная история с номерами чеков и их составом — в отдельном
+                                 окне, где для неё есть место. -->
+                            <Button x:Name="PurchasesButton"
+                                    Classes="SecondaryButton"
+                                    HorizontalAlignment="Stretch"
+                                    Content="{DynamicResource clients.openPurchases}"
+                                    Click="PurchasesButton_Click"/>
                         </StackPanel>
                     </Border>
 

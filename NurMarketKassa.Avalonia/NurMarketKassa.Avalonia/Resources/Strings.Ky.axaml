@@ -887,6 +887,8 @@
   <x:String x:Key="clients.emailOptionalWatermark">Email (милдеттүү эмес)</x:String>
   <x:String x:Key="clients.addressOptionalWatermark">Дареги (милдеттүү эмес)</x:String>
   <x:String x:Key="clients.addressLabel">Дареги</x:String>
+  <x:String x:Key="clients.purchasesHeader">Сатып алуулар</x:String>
+  <x:String x:Key="clients.openPurchases">Сатып алуулар тарыхы</x:String>
   <x:String x:Key="clients.addButton">+ Кошуу</x:String>
   <x:String x:Key="clients.refreshButton">Жаңылоо</x:String>
   <x:String x:Key="clients.colFullName">Аты-жөнү</x:String>

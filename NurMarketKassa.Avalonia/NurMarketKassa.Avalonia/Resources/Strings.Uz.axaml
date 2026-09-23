@@ -887,6 +887,8 @@
   <x:String x:Key="clients.emailOptionalWatermark">Email (ixtiyoriy)</x:String>
   <x:String x:Key="clients.addressOptionalWatermark">Manzil (ixtiyoriy)</x:String>
   <x:String x:Key="clients.addressLabel">Manzil</x:String>
+  <x:String x:Key="clients.purchasesHeader">Xaridlar</x:String>
+  <x:String x:Key="clients.openPurchases">Xaridlar tarixi</x:String>
   <x:String x:Key="clients.addButton">+ Qo'shish</x:String>
   <x:String x:Key="clients.refreshButton">Yangilash</x:String>
   <x:String x:Key="clients.colFullName">To'liq ism</x:String>

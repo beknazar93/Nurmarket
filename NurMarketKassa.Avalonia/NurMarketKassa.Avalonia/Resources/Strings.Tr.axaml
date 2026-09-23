@@ -887,6 +887,8 @@
   <x:String x:Key="clients.emailOptionalWatermark">E-posta (isteğe bağlı)</x:String>
   <x:String x:Key="clients.addressOptionalWatermark">Adres (isteğe bağlı)</x:String>
   <x:String x:Key="clients.addressLabel">Adres</x:String>
+  <x:String x:Key="clients.purchasesHeader">Satın almalar</x:String>
+  <x:String x:Key="clients.openPurchases">Satın alma geçmişi</x:String>
   <x:String x:Key="clients.addButton">+ Ekle</x:String>
   <x:String x:Key="clients.refreshButton">Yenile</x:String>
   <x:String x:Key="clients.colFullName">Tam ad</x:String>

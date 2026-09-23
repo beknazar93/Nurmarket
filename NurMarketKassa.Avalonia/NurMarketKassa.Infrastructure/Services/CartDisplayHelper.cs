@@ -19,7 +19,7 @@ public static class CartDisplayHelper
         if (sale.ValueKind != System.Text.Json.JsonValueKind.Object)
             return null;
 
-        foreach (var key in new[] { "cashier_display", "cashier_name", "cashier", "user_name", "created_by_name" })
+        foreach (var key in new[] { "user_display", "cashier_display", "cashier_name", "cashier", "user_name", "created_by_name" })
         {
             if (!sale.TryGetProperty(key, out var value) || value.ValueKind != System.Text.Json.JsonValueKind.String)
                 continue;

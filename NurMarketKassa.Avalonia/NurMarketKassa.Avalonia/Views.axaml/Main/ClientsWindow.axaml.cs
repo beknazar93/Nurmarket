@@ -96,6 +96,24 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             + "Отправьте её клиенту. После нажатия «Старт» он начнёт получать напоминания.";
     }
 
+    /// <summary>Открывает историю покупок выбранного клиента отдельным окном. В карточке для
+    /// неё места нет: нужны номер чека, способ оплаты и состав, а это таблица, а не список из
+    /// двух колонок.</summary>
+    private void PurchasesButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedClient is not { } client || string.IsNullOrWhiteSpace(client.Id))
+            return;
+
+        try
+        {
+            new ClientPurchasesWindow(client.Id, client.FullName).Show(this);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История покупок не открылась: {ex}", "WARNING");
+        }
+    }
+
     private async void RefreshButton_Click(object? sender, RoutedEventArgs e)
     {
         if (_isLoading)

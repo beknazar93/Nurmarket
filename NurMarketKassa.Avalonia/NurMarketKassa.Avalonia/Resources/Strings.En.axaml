@@ -887,6 +887,8 @@
   <x:String x:Key="clients.emailOptionalWatermark">Email (optional)</x:String>
   <x:String x:Key="clients.addressOptionalWatermark">Address (optional)</x:String>
   <x:String x:Key="clients.addressLabel">Address</x:String>
+  <x:String x:Key="clients.purchasesHeader">Purchases</x:String>
+  <x:String x:Key="clients.openPurchases">Purchase history</x:String>
   <x:String x:Key="clients.addButton">+ Add</x:String>
   <x:String x:Key="clients.refreshButton">Refresh</x:String>
   <x:String x:Key="clients.colFullName">Full name</x:String>
