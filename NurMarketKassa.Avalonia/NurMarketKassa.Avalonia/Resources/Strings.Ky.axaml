@@ -14,6 +14,7 @@
   <x:String x:Key="csh.menu.deferredReceipts">Туура эмес чектер</x:String>
   <x:String x:Key="csh.menu.finance">Каржы</x:String>
   <x:String x:Key="csh.menu.sales">Сатуулар</x:String>
+  <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенттер</x:String>
   <x:String x:Key="csh.menu.payDebt">Карыз төлөө</x:String>
   <x:String x:Key="csh.menu.settings">Жөндөөлөр</x:String>

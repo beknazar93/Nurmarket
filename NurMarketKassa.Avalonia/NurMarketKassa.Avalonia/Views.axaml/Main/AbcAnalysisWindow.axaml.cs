@@ -30,10 +30,31 @@ public partial class AbcAnalysisWindow : Window
     private async void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         PosDataEvents.SalesChanged += OnSalesChangedExternally;
+        ApplyTexts();
         ExcelButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         WordButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         SyncPickers();
         await ReloadAsync();
+    }
+
+    /// <summary>Подписи задаются из кода через Tr.T, а не литералами в разметке: иначе окно
+    /// остаётся русским при кыргызском (и любом другом) интерфейсе — именно так и было.</summary>
+    private void ApplyTexts()
+    {
+        Title = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili");
+        TitleText.Text = Title;
+        SubtitleText.Text = Tr.T(
+            "Группа A даёт первые 80 % результата, B — следующие 15 %, C — остальные 5 %.",
+            "A тобу натыйжанын алгачкы 80 %ин берет, B — кийинки 15 %, C — калган 5 %.",
+            "Group A gives the first 80 % of the result, B the next 15 %, C the remaining 5 %.",
+            "A grubu sonucun ilk %80'ini, B sonraki %15'ini, C kalan %5'ini verir.",
+            "A guruhi natijaning birinchi 80 % ini beradi, B - keyingi 15 %, C - qolgan 5 %.");
+        RefreshButton.Content = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
+        CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
+        TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
+        WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
+        MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
+        QuarterButton.Content = Tr.T("Квартал", "Чейрек", "Quarter", "Çeyrek", "Chorak");
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
@@ -83,7 +104,7 @@ public partial class AbcAnalysisWindow : Window
         _suppressPickerEvents = false;
 
         var days = (_to - _from).Days + 1;
-        PeriodText.Text = $"период: {days} дн.";
+        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "d.", "gün", "kun");
     }
 
     private CancellationTokenSource? _liveCts;
@@ -142,7 +163,7 @@ public partial class AbcAnalysisWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"ABC-анализ не построен: {ex}", "WARNING");
-            ShowError("Не удалось построить ABC-анализ: " + ex.Message);
+            ShowError(Tr.T("Не удалось построить ABC-анализ", "ABC-анализди түзүү мүмкүн болгон жок", "Could not build the ABC analysis", "ABC analizi oluşturulamadı", "ABC tahlilini tuzib bo'lmadi") + ": " + ex.Message);
         }
         finally
         {
@@ -167,7 +188,9 @@ public partial class AbcAnalysisWindow : Window
         var extension = toWord ? "docx" : "xlsx";
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = toWord ? "Сохранить отчёт в Word" : "Сохранить отчёт в Excel",
+            Title = toWord
+                ? Tr.T("Сохранить отчёт в Word", "Отчётту Word форматында сактоо", "Save the report to Word", "Raporu Word olarak kaydet", "Hisobotni Word formatida saqlash")
+                : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel форматында сактоо", "Save the report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel formatida saqlash"),
             SuggestedFileName = $"abc-{_from:yyyy-MM-dd}_{_to:yyyy-MM-dd}.{extension}",
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
@@ -177,13 +200,13 @@ public partial class AbcAnalysisWindow : Window
         var path = file.TryGetLocalPath();
         if (string.IsNullOrEmpty(path))
         {
-            ShowError("Не удалось определить путь файла — выберите папку на этом компьютере.");
+            ShowError(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютерден папка тандаңыз.", "Could not determine the file path - choose a folder on this computer.", "Dosya yolu belirlenemedi - bu bilgisayarda bir klasör seçin.", "Fayl yo'li aniqlanmadi - shu kompyuterdan papka tanlang."));
             return;
         }
 
         try
         {
-            ShowError("Готовлю отчёт…");
+            ShowError(Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…"));
             var data = await Task.Run(() => AnalyticsReportData.Build(_from, _to)).ConfigureAwait(true);
             var shop = UserPreferences.Instance.StoreName;
 
@@ -195,12 +218,12 @@ public partial class AbcAnalysisWindow : Window
                     AnalyticsExportService.ExportToExcel(path!, data, shop);
             }).ConfigureAwait(true);
 
-            ShowError($"Отчёт сохранён: {path}");
+            ShowError(Tr.T("Отчёт сохранён", "Отчёт сакталды", "Report saved", "Rapor kaydedildi", "Hisobot saqlandi") + $": {path}");
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Выгрузка ABC не удалась: {ex}", "WARNING");
-            ShowError("Не удалось сохранить отчёт: " + ex.Message);
+            ShowError(Tr.T("Не удалось сохранить отчёт", "Отчётту сактоо мүмкүн болгон жок", "Could not save the report", "Rapor kaydedilemedi", "Hisobotni saqlab bo'lmadi") + ": " + ex.Message);
         }
     }
 

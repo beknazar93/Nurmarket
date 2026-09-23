@@ -706,7 +706,7 @@
                                 </ScrollViewer>
                             </Border>
                         </TabItem>
-                        <TabItem Header="ABC-анализ">
+                        <TabItem Header="{DynamicResource csh.menu.abc}">
                             <analytics:AbcSectionView x:Name="AbcSection" />
                         </TabItem>
                         <TabItem Header="{DynamicResource sales.returns}">

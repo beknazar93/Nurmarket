@@ -531,7 +531,7 @@ public static class BarChartRenderer
         }
 
         Header(leftX, columnWidth, leftTitle.ToUpperInvariant());
-        Header(leftX + columnWidth, columnGap, "СЕГМЕНТЫ");
+        Header(leftX + columnWidth, columnGap, Tr.T("СЕГМЕНТЫ", "СЕГМЕНТТЕР", "SEGMENTS", "SEGMENTLER", "SEGMENTLAR"));
         Header(rightX, columnWidth, rightTitle.ToUpperInvariant());
 
         // Полоса группы: высота пропорциональна доле, подпись — процент внутри полосы.
@@ -692,7 +692,7 @@ public static class BarChartRenderer
 
             column.Children.Add(new TextBlock
             {
-                Text = group.Count.ToString(CultureInfo.InvariantCulture) + " поз.",
+                Text = group.Count.ToString(CultureInfo.InvariantCulture) + " " + Tr.T("поз.", "поз.", "items", "kalem", "poz."),
                 FontSize = 11,
                 Foreground = Brushes.Gray,
                 TextAlignment = TextAlignment.Center,
@@ -734,7 +734,7 @@ public static class BarChartRenderer
             chip.Children.Add(new TextBlock
             {
                 Text = group.Group + ": " + group.Count.ToString(CultureInfo.InvariantCulture)
-                    + " поз. — " + group.Sum.ToString(unit == "шт." ? "0.###" : "N0", CultureInfo.CurrentCulture)
+                    + " " + Tr.T("поз.", "поз.", "items", "kalem", "poz.") + " — " + group.Sum.ToString(unit == "шт." || unit == "даана" ? "0.###" : "N0", CultureInfo.CurrentCulture)
                     + " " + unit + " (" + group.Share.ToString("0.#", CultureInfo.InvariantCulture) + " %)",
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,

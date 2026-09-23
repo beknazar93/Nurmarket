@@ -14,6 +14,7 @@
   <x:String x:Key="csh.menu.deferredReceipts">Irregular receipts</x:String>
   <x:String x:Key="csh.menu.finance">Finance</x:String>
   <x:String x:Key="csh.menu.sales">Sales</x:String>
+  <x:String x:Key="csh.menu.abc">ABC analysis</x:String>
   <x:String x:Key="csh.menu.clients">Clients</x:String>
   <x:String x:Key="csh.menu.payDebt">Pay debt</x:String>
   <x:String x:Key="csh.menu.settings">Settings</x:String>

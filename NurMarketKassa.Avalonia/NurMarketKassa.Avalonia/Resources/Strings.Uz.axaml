@@ -14,6 +14,7 @@
   <x:String x:Key="csh.menu.deferredReceipts">Noto'g'ri cheklar</x:String>
   <x:String x:Key="csh.menu.finance">Moliya</x:String>
   <x:String x:Key="csh.menu.sales">Sotuvlar</x:String>
+  <x:String x:Key="csh.menu.abc">ABC tahlili</x:String>
   <x:String x:Key="csh.menu.clients">Mijozlar</x:String>
   <x:String x:Key="csh.menu.payDebt">Qarzni to'lash</x:String>
   <x:String x:Key="csh.menu.settings">Sozlamalar</x:String>

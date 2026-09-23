@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -20,8 +20,12 @@ namespace NurMarketKassa.AvaloniaHost.Views.Analytics;
 /// хотя бы два сезона, вверху висит предупреждение и ни один товар не помечается сезонным.</summary>
 public sealed class SeasonalityView : UserControl
 {
-    private static readonly string[] MonthShort =
-        ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    private static string[] MonthShort => Tr.T(
+        "янв,фев,мар,апр,май,июн,июл,авг,сен,окт,ноя,дек",
+        "янв,фев,мар,апр,май,июн,июл,авг,сен,окт,ноя,дек",
+        "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
+        "Oca,Şub,Mar,Nis,May,Haz,Tem,Ağu,Eyl,Eki,Kas,Ara",
+        "Yan,Fev,Mar,Apr,May,Iyn,Iyl,Avg,Sen,Okt,Noy,Dek").Split(',');
 
     private const string ColorSeasonal = "#16A34A";
     private const string ColorYearRound = "#3B82F6";
@@ -69,7 +73,7 @@ public sealed class SeasonalityView : UserControl
 
         _grid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Тип",
+            Header = Tr.T("Тип", "Түрү", "Type", "Tür", "Turi"),
             Width = new DataGridLength(120),
             CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : new Border
             {
@@ -91,7 +95,7 @@ public sealed class SeasonalityView : UserControl
 
         _grid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Товар",
+            Header = Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
             Binding = new Avalonia.Data.Binding(nameof(RowVm.Name)),
         });
@@ -100,28 +104,28 @@ public sealed class SeasonalityView : UserControl
         // серая штриховка — месяц, за который истории нет.
         _grid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = "Янв … дек",
+            Header = Tr.T("Янв … дек", "Янв … дек", "Jan … Dec", "Oca … Ara", "Yan … Dek"),
             Width = new DataGridLength(230),
             CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : BuildStrip(row)),
         });
 
         _grid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Пик",
+            Header = Tr.T("Пик", "Чокусу", "Peak", "Zirve", "Cho'qqi"),
             Width = new DataGridLength(170),
             Binding = new Avalonia.Data.Binding(nameof(RowVm.Peak)),
         });
 
         _grid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Не продаётся",
+            Header = Tr.T("Не продаётся", "Сатылбайт", "Not sold", "Satılmıyor", "Sotilmaydi"),
             Width = new DataGridLength(170),
             Binding = new Avalonia.Data.Binding(nameof(RowVm.Quiet)),
         });
 
         _grid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Выручка",
+            Header = Tr.T("Выручка", "Түшкөн акча", "Revenue", "Ciro", "Tushum"),
             Width = new DataGridLength(120),
             Binding = new Avalonia.Data.Binding(nameof(RowVm.SumText)),
         });
@@ -129,8 +133,8 @@ public sealed class SeasonalityView : UserControl
         var body = new StackPanel { Margin = new Thickness(10) };
         body.Children.Add(_warning);
         body.Children.Add(_note);
-        body.Children.Add(Card("Выручка магазина по месяцам (вся история)", _shopChart));
-        body.Children.Add(Card("Сезонные товары по сезонам", _seasonGroups));
+        body.Children.Add(Card(Tr.T("Выручка магазина по месяцам (вся история)", "Дүкөндүн айлар боюнча түшкөн акчасы (бүт тарых)", "Shop revenue by month (all history)", "Aylara göre mağaza cirosu (tüm geçmiş)", "Oylar bo'yicha do'kon tushumi (butun tarix)"), _shopChart));
+        body.Children.Add(Card(Tr.T("Сезонные товары по сезонам", "Мезгилдүү товарлар сезондор боюнча", "Seasonal products by season", "Mevsime göre mevsimlik ürünler", "Mavsumlar bo'yicha mavsumiy mahsulotlar"), _seasonGroups));
         body.Children.Add(_grid);
 
         var scroller = new ScrollViewer
@@ -149,9 +153,8 @@ public sealed class SeasonalityView : UserControl
         _note.Foreground = Brushes.Gray;
 
         _warning.IsVisible = !report.Reliable && report.Rows.Count > 0;
-        _warningText.Text = "Выводов о сезонности пока нет: история продаж покрывает "
-            + report.CoveredSeasons.ToString(CultureInfo.InvariantCulture)
-            + " сезон(а) из четырёх. Копите историю — раздел заполнится сам.";
+        _warningText.Text = Tr.T("Выводов о сезонности пока нет: история продаж покрывает", "Мезгилдүүлүк боюнча тыянак жок: сатуу тарыхы камтыйт", "No seasonality conclusions yet: the sales history covers", "Henüz mevsimsellik sonucu yok: satış geçmişi kapsıyor", "Hozircha mavsumiylik xulosasi yo'q: sotuvlar tarixi qamrab oladi") + " " + report.CoveredSeasons.ToString(CultureInfo.InvariantCulture) + " / 4. "
+            + Tr.T("Копите историю — раздел заполнится сам.", "Тарых чогулсун — бөлүм өзү толот.", "Keep collecting history - the section will fill itself.", "Geçmiş biriksin - bölüm kendi kendine dolacak.", "Tarix to'plansin - bo'lim o'zi to'ladi.");
         _warningText.Foreground = Brush.Parse("#F59E0B");
 
         RenderShopMonths(report);
@@ -159,7 +162,7 @@ public sealed class SeasonalityView : UserControl
 
         _grid.ItemsSource = report.Rows.Select(r => new RowVm
         {
-            Kind = r.Kind,
+            Kind = TranslateKind(r.Kind),
             KindBrush = Brush.Parse(r.Kind switch
             {
                 "Сезонный" => ColorSeasonal,
@@ -171,7 +174,7 @@ public sealed class SeasonalityView : UserControl
             MonthCovered = report.MonthCovered,
             Peak = r.PeakMonths,
             Quiet = r.QuietMonths,
-            SumText = r.TotalSum.ToString("N2", CultureInfo.CurrentCulture) + " сом",
+            SumText = r.TotalSum.ToString("N2", CultureInfo.CurrentCulture) + " " + Tr.T("сом", "сом", "KGS", "KGS", "KGS"),
         }).ToList();
     }
 
@@ -186,7 +189,7 @@ public sealed class SeasonalityView : UserControl
         {
             _shopChart.Children.Add(new TextBlock
             {
-                Text = "Продаж в истории нет.",
+                Text = Tr.T("Продаж в истории нет.", "Тарыхта сатуу жок.", "No sales in the history.", "Geçmişte satış yok.", "Tarixda sotuv yo'q."),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -202,7 +205,7 @@ public sealed class SeasonalityView : UserControl
 
             column.Children.Add(new TextBlock
             {
-                Text = covered ? value.ToString("N0", CultureInfo.CurrentCulture) : "нет",
+                Text = covered ? value.ToString("N0", CultureInfo.CurrentCulture) : Tr.T("нет", "жок", "none", "yok", "yo'q"),
                 FontSize = 10,
                 Foreground = Brushes.Gray,
                 TextAlignment = TextAlignment.Center,
@@ -243,7 +246,7 @@ public sealed class SeasonalityView : UserControl
 
         _shopChart.Children.Add(new TextBlock
         {
-            Text = "Пустая рамка — за этот месяц истории нет, а не ноль продаж.",
+            Text = Tr.T("Пустая рамка — за этот месяц истории нет, а не ноль продаж.", "Бош алкак — бул айга тарых жок, нөл сатуу эмес.", "An empty frame means no history for that month, not zero sales.", "Boş çerçeve o ay için geçmiş olmadığını gösterir, sıfır satış değil.", "Bo'sh ramka - o'sha oyga tarix yo'q, nol sotuv emas."),
             FontSize = 11,
             Foreground = Brushes.Gray,
             Margin = new Thickness(0, 8, 0, 0),
@@ -262,8 +265,8 @@ public sealed class SeasonalityView : UserControl
             _seasonGroups.Children.Add(new TextBlock
             {
                 Text = report.Reliable
-                    ? "Сезонных товаров не нашлось — продажи распределены по месяцам ровно."
-                    : "Пока история короткая, сезонные товары не выделяются.",
+                    ? Tr.T("Сезонных товаров не нашлось — продажи распределены по месяцам ровно.", "Мезгилдүү товарлар табылган жок — сатуу айлар боюнча бирдей бөлүнгөн.", "No seasonal products found - sales are spread evenly across the months.", "Mevsimlik ürün bulunamadı - satışlar aylara eşit dağılmış.", "Mavsumiy mahsulot topilmadi - sotuvlar oylar bo'yicha teng taqsimlangan.")
+                    : Tr.T("Пока история короткая, сезонные товары не выделяются.", "Тарых кыска болгондуктан, мезгилдүү товарлар бөлүнбөйт.", "While the history is short, seasonal products are not singled out.", "Geçmiş kısa olduğu sürece mevsimlik ürünler ayrılmaz.", "Tarix qisqa ekan, mavsumiy mahsulotlar ajratilmaydi."),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -279,8 +282,8 @@ public sealed class SeasonalityView : UserControl
             var block = new StackPanel();
             block.Children.Add(new TextBlock
             {
-                Text = char.ToUpperInvariant(season[0]) + season[1..]
-                    + " — " + items.Count.ToString(CultureInfo.InvariantCulture) + " товар(ов)",
+                Text = TranslateSeason(season)
+                    + " — " + items.Count.ToString(CultureInfo.InvariantCulture) + " " + Tr.T("товар(ов)", "товар", "product(s)", "ürün", "mahsulot"),
                 FontWeight = FontWeight.SemiBold,
                 FontSize = 13,
                 Margin = new Thickness(0, 0, 0, 4),
@@ -290,8 +293,8 @@ public sealed class SeasonalityView : UserControl
             {
                 block.Children.Add(new TextBlock
                 {
-                    Text = "• " + item.Name + " — пик: " + item.PeakMonths
-                        + "; не продаётся: " + item.QuietMonths,
+                    Text = "• " + item.Name + " — " + Tr.T("пик", "чокусу", "peak", "zirve", "cho'qqi") + ": " + item.PeakMonths
+                        + "; " + Tr.T("не продаётся", "сатылбайт", "not sold", "satılmıyor", "sotilmaydi") + ": " + item.QuietMonths,
                     FontSize = 12,
                     TextWrapping = TextWrapping.Wrap,
                     Foreground = Brushes.Gray,
@@ -332,12 +335,36 @@ public sealed class SeasonalityView : UserControl
             };
             ToolTip.SetTip(cell, covered
                 ? MonthShort[m] + ": " + share.ToString("0.#", CultureInfo.InvariantCulture) + " %"
-                : MonthShort[m] + ": истории нет");
+                : MonthShort[m] + ": " + Tr.T("истории нет", "тарых жок", "no history", "geçmiş yok", "tarix yo'q"));
             strip.Children.Add(cell);
         }
 
         return strip;
     }
+
+    /// <summary>Kind — внутренний код («Сезонный», «Круглогодичный», «Мало истории»): по нему
+    /// идёт отбор и раскраска, поэтому переводить его в данных нельзя. Переводим только здесь,
+    /// на показ.</summary>
+    /// <summary>PeakSeason — внутренний код («лето», «зима»…), по нему группируются товары,
+    /// поэтому переводим его только здесь, при выводе заголовка группы.</summary>
+    private static string TranslateSeason(string season)
+    {
+        var text = season switch
+        {
+            "зима" => Tr.T("зима", "кыш", "winter", "kış", "qish"),
+            "весна" => Tr.T("весна", "жаз", "spring", "ilkbahar", "bahor"),
+            "лето" => Tr.T("лето", "жай", "summer", "yaz", "yoz"),
+            _ => Tr.T("осень", "күз", "autumn", "sonbahar", "kuz"),
+        };
+        return char.ToUpperInvariant(text[0]) + text[1..];
+    }
+
+    private static string TranslateKind(string kind) => kind switch
+    {
+        "Сезонный" => Tr.T("Сезонный", "Мезгилдүү", "Seasonal", "Mevsimlik", "Mavsumiy"),
+        "Круглогодичный" => Tr.T("Круглогодичный", "Жыл бою", "Year-round", "Yıl boyu", "Yil bo'yi"),
+        _ => Tr.T("Мало истории", "Тарых аз", "Not enough history", "Yetersiz geçmiş", "Tarix kam"),
+    };
 
     private static Border Card(string title, Control body)
     {

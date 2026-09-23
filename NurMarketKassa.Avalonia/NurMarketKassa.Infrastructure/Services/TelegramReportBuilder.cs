@@ -340,7 +340,9 @@ public static class TelegramReportBuilder
         }
 
         // 2. Делает выручку, но не делает прибыли: в A по деньгам и в C по прибыли.
-        var profitSlice = data.AbcSlices.FirstOrDefault(x => x.Title.Contains("прибыли"));
+        // По ключу, а не по названию: названия переводятся, и на кыргызском поиск по слову
+        // «прибыли» ничего бы не нашёл.
+        var profitSlice = data.AbcSlices.FirstOrDefault(x => x.Key == "profit");
         if (profitSlice is { Rows.Count: > 0 })
         {
             var weakProfit = profitSlice.Rows

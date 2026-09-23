@@ -1,9 +1,9 @@
-<Window x:Class="NurMarketKassa.AvaloniaHost.Views.AbcAnalysisWindow"
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.AbcAnalysisWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:analytics="using:NurMarketKassa.AvaloniaHost.Views.Analytics"
         x:CompileBindings="False"
-        Title="ABC-анализ"
+        Title="ABC"
         Height="820"
         Width="1180"
         WindowStartupLocation="CenterOwner"
@@ -22,26 +22,26 @@
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="ABC-анализ"
+                <TextBlock x:Name="TitleText"
                            FontSize="26" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}"/>
-                <TextBlock Text="Группа A даёт первые 80 % результата, B — следующие 15 %, C — остальные 5 %."
+                <TextBlock x:Name="SubtitleText"
                            FontSize="12" Margin="0,2,0,0"
                            Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button x:Name="ExcelButton" Content="Excel" Classes="period" Click="ExportExcel_Click"/>
                 <Button x:Name="WordButton" Content="Word" Classes="period" Click="ExportWord_Click"/>
-                <Button Content="Обновить" Classes="period" Click="Refresh_Click"/>
-                <Button Content="Закрыть" Classes="period" Click="Close_Click"/>
+                <Button x:Name="RefreshButton" Classes="period" Click="Refresh_Click"/>
+                <Button x:Name="CloseButton" Classes="period" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="Сегодня" Classes="period" Click="Today_Click"/>
-            <Button Content="Неделя" Classes="period" Click="Week_Click"/>
-            <Button Content="Месяц" Classes="period" Click="Month_Click"/>
-            <Button Content="Квартал" Classes="period" Click="Quarter_Click"/>
+            <Button x:Name="TodayButton" Classes="period" Click="Today_Click"/>
+            <Button x:Name="WeekButton" Classes="period" Click="Week_Click"/>
+            <Button x:Name="MonthButton" Classes="period" Click="Month_Click"/>
+            <Button x:Name="QuarterButton" Classes="period" Click="Quarter_Click"/>
         </StackPanel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" Spacing="8">

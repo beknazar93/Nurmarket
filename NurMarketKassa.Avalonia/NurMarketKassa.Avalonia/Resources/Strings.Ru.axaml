@@ -14,6 +14,7 @@
   <x:String x:Key="csh.menu.deferredReceipts">Некорректные чеки</x:String>
   <x:String x:Key="csh.menu.finance">Финансы</x:String>
   <x:String x:Key="csh.menu.sales">Продажи</x:String>
+  <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенты</x:String>
   <x:String x:Key="csh.menu.payDebt">Оплата долга</x:String>
   <x:String x:Key="csh.menu.settings">Настройки</x:String>

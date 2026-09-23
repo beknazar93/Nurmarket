@@ -316,7 +316,7 @@
                                 <Rectangle Canvas.Left="14" Canvas.Top="13" Width="4.5" Height="5" RadiusX="1" RadiusY="1" Fill="#3B82F6"/>
                             </Canvas>
                             <TextBlock Grid.Column="2"
-                                       Text="ABC-анализ"
+                                       Text="{DynamicResource csh.menu.abc}"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"/>
                         </Grid>

@@ -51,17 +51,17 @@ public sealed class AbcSectionView : UserControl
             _views.Clear();
             _tabs.Items.Add(new TabItem
             {
-                Header = "ABC-анализ",
+                Header = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
                 Content = new TextBlock
                 {
-                    Text = "Продаж за выбранный период нет — считать ABC не на чем.",
+                    Text = Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөөгө эч нерсе жок.", "No sales in the selected period - nothing to calculate ABC from.", "Seçilen dönemde satış yok - ABC hesaplanacak bir şey yok.", "Tanlangan davrda sotuv yo'q - ABC hisoblash uchun hech narsa yo'q."),
                     Margin = new Thickness(12),
                     Foreground = Brushes.Gray,
                 },
             });
             // Сезонность считается по всей истории, а не за выбранный период, поэтому она
             // осмысленна даже когда в периоде продаж нет.
-            _tabs.Items.Add(new TabItem { Header = "Сезонность", Content = _seasonality });
+            _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
             return;
         }
 
@@ -75,7 +75,7 @@ public sealed class AbcSectionView : UserControl
                 _views.Add(view);
                 _tabs.Items.Add(new TabItem { Header = slice.Title, Content = view });
             }
-            _tabs.Items.Add(new TabItem { Header = "Сезонность", Content = _seasonality });
+            _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
             _tabs.SelectedIndex = 0;
         }
 
@@ -101,7 +101,7 @@ public sealed class AbcSectionView : UserControl
 
         private readonly TextBlock _pyramidTitle = new()
         {
-            Text = "Позиции против выручки",
+            Text = "",
             FontWeight = FontWeight.SemiBold,
             FontSize = 13,
             Margin = new Thickness(0, 0, 0, 6),
@@ -129,7 +129,7 @@ public sealed class AbcSectionView : UserControl
         {
             _grid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = "Гр.",
+                Header = Tr.T("Гр.", "Тп.", "Gr.", "Gr.", "Gr."),
                 Width = new DataGridLength(54),
                 CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : new Border
                 {
@@ -154,14 +154,14 @@ public sealed class AbcSectionView : UserControl
 
             _grid.Columns.Add(new DataGridTextColumn
             {
-                Header = "Название",
+                Header = Tr.T("Название", "Аталышы", "Name", "Ad", "Nomi"),
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.Name)),
             });
 
             _quantityColumn = new DataGridTextColumn
             {
-                Header = "Кол-во",
+                Header = Tr.T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
                 Width = new DataGridLength(95),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.QuantityText)),
             };
@@ -169,7 +169,7 @@ public sealed class AbcSectionView : UserControl
 
             _valueColumn = new DataGridTextColumn
             {
-                Header = "Сумма",
+                Header = Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"),
                 Width = new DataGridLength(130),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.SumText)),
             };
@@ -177,14 +177,14 @@ public sealed class AbcSectionView : UserControl
 
             _grid.Columns.Add(new DataGridTextColumn
             {
-                Header = "Доля",
+                Header = Tr.T("Доля", "Үлүшү", "Share", "Pay", "Ulush"),
                 Width = new DataGridLength(85),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.ShareText)),
             });
 
             _grid.Columns.Add(new DataGridTextColumn
             {
-                Header = "Накопл.",
+                Header = Tr.T("Накопл.", "Топтолмо", "Cumul.", "Kümül.", "Jami"),
                 Width = new DataGridLength(95),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.CumulativeText)),
             });
@@ -200,7 +200,7 @@ public sealed class AbcSectionView : UserControl
             body.Children.Add(Card(
                 new TextBlock
                 {
-                    Text = "Доля групп",
+                    Text = Tr.T("Доля групп", "Топтордун үлүшү", "Group share", "Grup payı", "Guruhlar ulushi"),
                     FontWeight = FontWeight.SemiBold,
                     FontSize = 13,
                     Margin = new Thickness(0, 0, 0, 6),
@@ -225,19 +225,24 @@ public sealed class AbcSectionView : UserControl
         {
             _hint.Text = slice.Hint;
 
-            var money = slice.Unit != "шт.";
-            _valueColumn.Header = money ? "Сумма" : "Количество";
+            var money = slice.IsMoney;
+            _valueColumn.Header = money
+                ? Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")
+                : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
             // В срезе «по количеству» мера и есть количество — вторая такая же колонка мешала бы.
             _quantityColumn.IsVisible = money;
 
             var shown = Math.Min(slice.Rows.Count, 20);
             _paretoTitle.Text = slice.Rows.Count > shown
-                ? $"Диаграмма Парето — {shown} крупнейших из {slice.Rows.Count}"
-                : $"Диаграмма Парето — все {slice.Rows.Count}";
+                ? Tr.T("Диаграмма Парето — крупнейшие", "Парето диаграммасы — эң ириси", "Pareto chart - largest", "Pareto grafiği - en büyükleri", "Pareto diagrammasi - eng yiriklari") + $": {shown} / {slice.Rows.Count}"
+                : Tr.T("Диаграмма Парето — все", "Парето диаграммасы — баары", "Pareto chart - all", "Pareto grafiği - tümü", "Pareto diagrammasi - barchasi") + $": {slice.Rows.Count}";
 
-            var rightTitle = slice.Unit == "шт." ? "Количество" : "Выручка";
-            _pyramidTitle.Text = "Доля позиций против доли: " + rightTitle.ToLowerInvariant();
-            BarChartRenderer.RenderAbcPyramid(_pyramid, slice.Summary, "Позиции", rightTitle);
+            var rightTitle = slice.IsMoney
+                ? Tr.T("Выручка", "Түшкөн акча", "Revenue", "Ciro", "Tushum")
+                : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
+            _pyramidTitle.Text = Tr.T("Доля позиций против доли", "Позициялардын үлүшү үлүшкө каршы", "Positions versus share", "Kalemler paya karşı", "Pozitsiyalar ulushga qarshi") + ": " + rightTitle.ToLowerInvariant();
+            BarChartRenderer.RenderAbcPyramid(_pyramid, slice.Summary,
+                Tr.T("Позиции", "Позициялар", "Positions", "Kalemler", "Pozitsiyalar"), rightTitle);
 
             BarChartRenderer.RenderAbcLegend(_legend, slice.Summary, slice.Unit);
             BarChartRenderer.RenderPareto(_pareto, slice.Rows
@@ -264,9 +269,9 @@ public sealed class AbcSectionView : UserControl
         }
 
         private static string Format(double value, string unit) =>
-            unit == "шт."
-                ? value.ToString("0.###", CultureInfo.InvariantCulture) + " шт."
-                : value.ToString("N2", CultureInfo.CurrentCulture) + " сом";
+            unit == "шт." || unit == "даана" || unit == "pcs" || unit == "adet" || unit == "dona"
+                ? value.ToString("0.###", CultureInfo.InvariantCulture) + " " + unit
+                : value.ToString("N2", CultureInfo.CurrentCulture) + " " + unit;
 
         private static Border Card(Control title, Control body)
         {
