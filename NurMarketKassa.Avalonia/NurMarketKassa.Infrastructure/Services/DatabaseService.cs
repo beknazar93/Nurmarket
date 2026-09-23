@@ -148,7 +148,8 @@ public sealed class DatabaseService
                     quantity REAL NOT NULL,
                     reason TEXT NOT NULL,
                     cashier_name TEXT,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    company_id TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS ClientLoyalty (
@@ -255,6 +256,7 @@ public sealed class DatabaseService
             command.ExecuteNonQuery();
 
             AddSoldLineItemsCompanyColumn(connection);
+            AddWriteOffsCompanyColumn(connection);
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
@@ -808,8 +810,8 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO WriteOffHistory (product_id, product_name, quantity, reason, cashier_name, created_at)
-                VALUES ($productId, $productName, $quantity, $reason, $cashierName, $createdAt);
+                INSERT INTO WriteOffHistory (product_id, product_name, quantity, reason, cashier_name, created_at, company_id)
+                VALUES ($productId, $productName, $quantity, $reason, $cashierName, $createdAt, $companyId);
                 """;
             command.Parameters.AddWithValue("$productId", productId);
             command.Parameters.AddWithValue("$productName", productName);
@@ -817,6 +819,7 @@ public sealed class DatabaseService
             command.Parameters.AddWithValue("$reason", reason);
             command.Parameters.AddWithValue("$cashierName", (object?)cashierName ?? DBNull.Value);
             command.Parameters.AddWithValue("$createdAt", DateTime.UtcNow.ToString("O"));
+            command.Parameters.AddWithValue("$companyId", (object?)CurrentCompanyId() ?? DBNull.Value);
             command.ExecuteNonQuery();
         }
         finally
@@ -850,6 +853,44 @@ public sealed class DatabaseService
     }
 
     /// <summary>Последние записи журнала списаний, самые новые первые.</summary>
+    /// <summary>Списания одного товара — для карточки «Движение товара». Ищем по названию:
+    /// в разборе товар приходит из ABC, где есть только оно.</summary>
+    public List<(double Quantity, string Reason, DateTime CreatedAt)> LoadWriteOffsForProduct(string productName)
+    {
+        var result = new List<(double, string, DateTime)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT quantity, reason, created_at FROM WriteOffHistory WHERE product_name = $name COLLATE NOCASE"
+                + OwnRowsClause() + " ORDER BY created_at DESC;";
+            var pName = command.CreateParameter();
+            pName.ParameterName = "$name";
+            pName.Value = productName;
+            command.Parameters.Add(pName);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!DateTime.TryParse(reader.GetString(2), null,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var created))
+                    continue;
+                result.Add((reader.GetDouble(0), reader.IsDBNull(1) ? "" : reader.GetString(1), created));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Списания товара не прочитаны: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
+    }
+
     public List<(string ProductName, double Quantity, string Reason, string? CashierName, DateTime CreatedAt)> LoadWriteOffHistory(int limit = 200)
     {
         _dbLock.EnterReadLock();
@@ -858,7 +899,8 @@ public sealed class DatabaseService
             var list = new List<(string, double, string, string?, DateTime)>();
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT product_name, quantity, reason, cashier_name, created_at FROM WriteOffHistory ORDER BY created_at DESC LIMIT $limit;";
+            command.CommandText = "SELECT product_name, quantity, reason, cashier_name, created_at FROM WriteOffHistory WHERE 1=1"
+                + OwnRowsClause() + " ORDER BY created_at DESC LIMIT $limit;";
             command.Parameters.AddWithValue("$limit", limit);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -1511,6 +1553,22 @@ public sealed class DatabaseService
     {
         var company = CurrentCompanyId();
         return company is null ? "" : " AND company_id = '" + company.Replace("'", "''") + "'";
+    }
+
+    /// <summary>То же, что у истории продаж: списания тоже относятся к конкретной компании,
+    /// и записи, сделанные до разделения аккаунтов, владельца не имеют.</summary>
+    private static void AddWriteOffsCompanyColumn(SqliteConnection connection)
+    {
+        try
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE WriteOffHistory ADD COLUMN company_id TEXT;";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже есть.
+        }
     }
 
     /// <summary>Колонка владельца в уже существующих базах: CREATE TABLE IF NOT EXISTS её

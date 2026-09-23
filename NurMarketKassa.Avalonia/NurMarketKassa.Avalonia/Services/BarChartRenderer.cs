@@ -295,6 +295,21 @@ public static class BarChartRenderer
     /// <summary>Цвета групп ABC. Держим их в одном месте: ими красятся и столбцы диаграммы,
     /// и строки таблицы, и легенда — расхождение сбивало бы с толку сильнее, чем отсутствие
     /// цвета вовсе.</summary>
+    /// <summary>Прозрачная полоса, по которой открывается разбор товара. Прозрачный фон
+    /// обязателен: без заданного Background панель в Avalonia не ловит нажатия вовсе.</summary>
+    private static Border ClickZone(string label, double width, double height, Action<string> onClick)
+    {
+        var zone = new Border
+        {
+            Width = width,
+            Height = height,
+            Background = Brushes.Transparent,
+            Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        zone.PointerPressed += (_, _) => onClick(label);
+        return zone;
+    }
+
     public static string AbcColor(string group) => group switch
     {
         "A" => "#16A34A",
@@ -409,13 +424,6 @@ public static class BarChartRenderer
                 Background = Brush.Parse(AbcColor(item.Group)),
                 CornerRadius = new CornerRadius(3, 3, 0, 0),
             };
-            if (onItemClick is not null)
-            {
-                bar.Cursor = new Cursor(StandardCursorType.Hand);
-                var clicked = item.Label;
-                bar.PointerPressed += (_, _) => onItemClick(clicked);
-            }
-
             ToolTip.SetTip(bar, item.Label + "\n" + item.ValueText
                 + "\n" + Tr.T("Доля", "Улушу", "Share", "Pay", "Ulush") + ": "
                 + item.Share.ToString("0.##", CultureInfo.InvariantCulture) + " %"
@@ -442,6 +450,19 @@ public static class BarChartRenderer
             canvas.Children.Add(label);
         }
 
+        // Полоса клика на каждый товар — во всю высоту поля и поверх столбцов, сетки и
+        // ломаной. Добавляется последней, чтобы ничто её не перекрывало.
+        if (onItemClick is not null)
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                var zone = ClickZone(items[i].Label, step, plotHeight + 6, onItemClick);
+                Canvas.SetLeft(zone, leftPad + i * step);
+                Canvas.SetTop(zone, topPad);
+                canvas.Children.Add(zone);
+            }
+        }
+
         // Накопительная ломаная по правой шкале.
         var linePoints = new Avalonia.Points();
         for (var i = 0; i < items.Count; i++)
@@ -457,6 +478,7 @@ public static class BarChartRenderer
             Stroke = Brush.Parse("#0F172A"),
             StrokeThickness = 2,
             StrokeJoin = PenLineJoin.Round,
+            IsHitTestVisible = false,
         });
 
         foreach (var point in linePoints)
@@ -468,6 +490,7 @@ public static class BarChartRenderer
                 Fill = Brushes.White,
                 Stroke = Brush.Parse("#0F172A"),
                 StrokeThickness = 1.5,
+                IsHitTestVisible = false,
             };
             Canvas.SetLeft(dot, point.X - 3.5);
             Canvas.SetTop(dot, point.Y - 3.5);
@@ -584,12 +607,6 @@ public static class BarChartRenderer
                     CornerRadius = new CornerRadius(2, 2, 0, 0),
                 };
                 ToolTip.SetTip(bar, tip);
-                if (onItemClick is not null)
-                {
-                    bar.Cursor = new Cursor(StandardCursorType.Hand);
-                    var clicked = item.Label;
-                    bar.PointerPressed += (_, _) => onItemClick(clicked);
-                }
 
                 Canvas.SetLeft(bar, groupX + index * (barWidth + innerGap));
                 Canvas.SetTop(bar, topPad + plotHeight - barHeight);
@@ -613,6 +630,17 @@ public static class BarChartRenderer
             Canvas.SetLeft(caption, groupX + groupWidth / 2);
             Canvas.SetTop(caption, topPad + plotHeight + 6);
             canvas.Children.Add(caption);
+        }
+
+        if (onItemClick is not null)
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                var zone = ClickZone(items[i].Label, step, plotHeight + 6, onItemClick);
+                Canvas.SetLeft(zone, leftPad + i * step);
+                Canvas.SetTop(zone, topPad);
+                canvas.Children.Add(zone);
+            }
         }
 
         container.Children.Add(new ScrollViewer
