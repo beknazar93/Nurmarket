@@ -29,7 +29,7 @@
   <!-- См. комментарий в AppTheme.axaml. В светлой теме было #F7D617 — жёлтый текст на
        белой карточке, 1.44:1. Взят тёмно-зелёный: 5.48:1 на #FFFFFF. -->
   <SolidColorBrush x:Key="BrushSuccess" Color="#047857" />
-  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#FFF7C2" />
+  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#D1FAE5" />
   <SolidColorBrush x:Key="BrushWarning" Color="#B45309" />
   <SolidColorBrush x:Key="BrushWarningSoft" Color="#FEF3C7" />
   <SolidColorBrush x:Key="BrushDanger" Color="#B91C1C" />

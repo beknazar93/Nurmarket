@@ -174,12 +174,18 @@
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
         </Style>
+        <!-- Ячейки таблицы: без этого отступа название товара начиналось вплотную к левой
+             рамке, а иконки действий упирались в правую. -->
+        <Style Selector="DataGridCell">
+            <Setter Property="Padding" Value="12,0"/>
+        </Style>
+
         <Style Selector="DataGridColumnHeader">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="8,10"/>
+            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="SeparatorBrush" Value="{DynamicResource BrushBorder}"/>
         </Style>
@@ -193,11 +199,29 @@
         <Style Selector="DataGridRow:selected">
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
+
+        <!-- Плашка остатка. Зелёная — товар есть, красная — заканчивается (порог считает
+             IsLowStock во вьюмодели). -->
+        <Style Selector="Border.low">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.low TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+
+        <!-- Вид операции в журнале перемещений: продажа — акцентом, списание — красным, чтобы
+             потери отличались от обычного расхода при беглом просмотре. -->
+        <Style Selector="Border.writeoff">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.writeoff TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
         <!-- Кнопки-иконки в строке таблицы товаров (2026-09-07): векторные PathIcon вместо эмодзи —
              эмодзи-карандаш в Segoe UI не отрисовывался, остальные выходили обрезанными. -->
         <Style Selector="Button.RowIcon">
-            <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="34"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -263,7 +287,7 @@
             <!-- Вкладка 1: Товары -->
             <TabItem x:Name="ProductsTabItem" Header="{DynamicResource warehouse.tabProducts}">
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
-                    <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,12">
                             <TextBox Grid.Column="0"
                                      Watermark="{DynamicResource warehouse.productSearchWatermark}"
@@ -300,6 +324,17 @@
                                          Content="{DynamicResource warehouse.saleUnitPiece}" Click="SaleUnitFilter_Changed"/>
                             <RadioButton x:Name="SaleUnitPiecePackageRadio" GroupName="SaleUnitFilter" Classes="SaleUnitPill"
                                          Content="{DynamicResource warehouse.saleUnitPiecePackage}" Click="SaleUnitFilter_Changed"/>
+
+                            <!-- Вид списка. Таблица отвечает на вопрос «сколько и почём» — цифры в
+                                 колонках сравнивать удобнее; плитки отвечают на «что это» — товар
+                                 узнают по фотографии. Нужны оба: приёмка идёт по цифрам, а поиск
+                                 глазами — по картинкам. -->
+                            <Border Width="1" Margin="10,2,10,2"
+                                    Background="{DynamicResource BrushBorder}"/>
+                            <RadioButton x:Name="ViewListRadio" GroupName="WarehouseViewMode" Classes="SaleUnitPill" IsChecked="True"
+                                         Content="{DynamicResource warehouse.viewList}" Click="WarehouseViewMode_Changed"/>
+                            <RadioButton x:Name="ViewTilesRadio" GroupName="WarehouseViewMode" Classes="SaleUnitPill"
+                                         Content="{DynamicResource warehouse.viewTiles}" Click="WarehouseViewMode_Changed"/>
                         </StackPanel>
 
                         <!-- Таблица товаров (2026-09-07, перестроена по образцу Shopify Polaris IndexTable:
@@ -313,16 +348,20 @@
                              (Изменить / Этикетка / Ценник / Фото / Удалить) вместо широких кнопок с текстом,
                              чтобы место доставалось названию. -->
                         <DataGrid Grid.Row="2"
+                                  x:Name="ProductsGrid"
                                   x:CompileBindings="False"
                                   ItemsSource="{Binding PagedProducts}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   RowHeight="52">
                             <DataGrid.Columns>
-                                <!-- Сумма ширин НЕ должна превышать окно. Было 90+150+100+120+104+110+230 = 904 плюс
-                                     минимум названия 220 = 1124 при доступных ~1060 — таблица не
-                                     помещалась, появлялась горизонтальная прокрутка, а последняя
-                                     кнопка в «Действиях» обрезалась по краю. Стало 802 + 200 = 1002. -->
+                                <!-- Сумма ширин НЕ должна превышать окно, иначе появляется горизонтальная прокрутка
+                                     и последняя кнопка в «Действиях» обрезается по краю. Сейчас
+                                     160+124+128+120+190 = 722 плюс минимум названия 200 = 922 при
+                                     доступных ~990 (окно минус поля). Колонку «Ед. изм.» убрали:
+                                     единица переехала в плашку остатка — «93 шт». Прибавку заголовкам «Скидка» и «Остаток» (они
+                                     обрезались при крупном шрифте) оплатили «Действия»: иконки стали
+                                     32 px вместо 36, и колонка ужалась с 210 до 184. -->
                                 <DataGridTemplateColumn Header="{DynamicResource common.name}" Width="*" MinWidth="200" SortMemberPath="Title">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -345,88 +384,108 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="76" SortMemberPath="Article">
+                                <!-- Код и штрихкод — одна колонка в две строки. По отдельности они занимали
+                                     две трети ширины таблицы, хотя читают их редко: код сверху, штрихкод под
+                                     ним мельче. Освободившееся место ушло названию товара. -->
+                                <DataGridTemplateColumn Width="160" SortMemberPath="Article">
                                     <DataGridTemplateColumn.Header>
-                                        <TextBlock Text="{DynamicResource warehouse.colCode}" TextAlignment="Center"/>
+                                        <TextBlock Text="{DynamicResource warehouse.colCodeBarcode}" TextAlignment="Left"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding Article}" Foreground="{DynamicResource BrushTextSoft}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{ReflectionBinding Article}"
+                                                           FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushTextMuted}"/>
+                                                <TextBlock Text="{ReflectionBinding Barcode}"
+                                                           FontSize="11.5"
+                                                           Foreground="{DynamicResource BrushTextSoft}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="132" SortMemberPath="Barcode">
+                                <!-- Ширины колонок держат запас под заголовок: они были подогнаны впритык под кегль 13,
+                                     и стоило шрифту стать крупнее (масштаб интерфейса, тема с крупным шрифтом), как
+                                     «Скидка» превращалась в «Скидк», а «Остаток» — в «Остато». -->
+
+                                <!-- Цена прижата вправо: у чисел сравнивают разряды, а по центру единицы,
+                                     десятки и тысячи стоят вразнобой и колонку приходится читать построчно. -->
+                                <DataGridTemplateColumn Width="124" SortMemberPath="PriceLine">
                                     <DataGridTemplateColumn.Header>
-                                        <TextBlock Text="{DynamicResource csh.catalog.colBarcode}" TextAlignment="Center"/>
+                                        <TextBlock Text="{DynamicResource csh.catalog.colPrice}" TextAlignment="Right"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding Barcode}" Foreground="{DynamicResource BrushTextSoft}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <!-- 100, а не 84: «Ед. изм.» не помещалось и обрезалось до «Ед. из». -->
-                                <DataGridTemplateColumn Width="92" SortMemberPath="Unit">
-                                    <DataGridTemplateColumn.Header>
-                                        <TextBlock Text="{DynamicResource warehouse.colUnit}" TextAlignment="Center"/>
-                                    </DataGridTemplateColumn.Header>
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding Unit}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="108" SortMemberPath="PriceLine">
-                                    <DataGridTemplateColumn.Header>
-                                        <TextBlock Text="{DynamicResource csh.catalog.colPrice}" TextAlignment="Center"/>
-                                    </DataGridTemplateColumn.Header>
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding PriceLine}" FontWeight="SemiBold"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="88" SortMemberPath="DiscountPercent">
-                                    <DataGridTemplateColumn.Header>
-                                        <TextBlock Text="{DynamicResource warehouse.colDiscountPercent}" TextAlignment="Center"/>
-                                    </DataGridTemplateColumn.Header>
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <TextBlock Text="—" Foreground="{DynamicResource BrushTextMuted}"
-                                                           IsVisible="{ReflectionBinding !HasDiscount}"/>
-                                                <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="6" Padding="8,2"
+                                            <StackPanel VerticalAlignment="Center" Spacing="2" Margin="0,0,6,0">
+                                                <TextBlock Text="{ReflectionBinding PriceLine}"
+                                                           FontSize="14" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrushText}"
+                                                           HorizontalAlignment="Right"/>
+                                                <!-- Скидка переехала под цену: своей колонкой она стояла пустым
+                                                     прочерком почти во всех строках и занимала место, которое
+                                                     понадобилось себестоимости. -->
+                                                <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="5" Padding="6,1"
+                                                        HorizontalAlignment="Right"
                                                         IsVisible="{ReflectionBinding HasDiscount}">
                                                     <TextBlock Text="{ReflectionBinding DiscountPercent, StringFormat=-\{0:0.##\}%}"
-                                                               FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
+                                                               FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource BrushWarning}"/>
                                                 </Border>
-                                            </Grid>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="96" SortMemberPath="Quantity">
+                                <!-- Себестоимость, как в «Остатках товаров»: сверху закупочная цена за
+                                     единицу, снизу — вся сумма, которая лежит на полке этим товаром
+                                     (закупка × остаток). До этого закупочную цену в таблице не показывали
+                                     вовсе, и сказать, на сколько денег стоит склад, можно было только
+                                     через вкладку «Аналитика». -->
+                                <DataGridTemplateColumn Width="128" SortMemberPath="PurchasePrice">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.colCost}" TextAlignment="Right"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Spacing="1" Margin="0,0,6,0">
+                                                <TextBlock Text="{ReflectionBinding PurchasePrice, StringFormat=\{0:N2\}}"
+                                                           FontSize="13" FontWeight="SemiBold"
+                                                           HorizontalAlignment="Right"
+                                                           Foreground="{DynamicResource BrushTextMuted}"/>
+                                                <TextBlock Text="{ReflectionBinding StockCostText}"
+                                                           FontSize="11.5"
+                                                           HorizontalAlignment="Right"
+                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <!-- Остаток — плашкой: заканчивающийся товар должен бросаться в глаза при
+                                     беглом взгляде на страницу, а не отличаться оттенком цифры. -->
+                                <DataGridTemplateColumn Width="120" SortMemberPath="Quantity">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource csh.catalog.colStock}" TextAlignment="Center"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{ReflectionBinding Quantity, StringFormat=\{0:0.###\}}" FontWeight="SemiBold"
-                                                       Classes.stock-low="{ReflectionBinding IsLowStock}"
-                                                       Foreground="{DynamicResource BrushCatalogStock}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Border CornerRadius="6" Padding="10,3"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    Background="{DynamicResource BrushSuccessSoft}"
+                                                    Classes.low="{ReflectionBinding IsLowStock}">
+                                                <TextBlock Text="{ReflectionBinding StockWithUnitText}"
+                                                           FontSize="13" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrushSuccess}"/>
+                                            </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Width="210">
+                                <DataGridTemplateColumn Width="190">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource warehouse.colActions}" TextAlignment="Center"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,12,0">
                                                 <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource product.editRowButton}"
                                                         Click="EditProduct_Click" Tag="{Binding}">
                                                     <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
@@ -456,7 +515,119 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0"
+                        <!-- Плиточный вид: та же страница товаров, но карточками. Скрыт, пока в
+                             переключателе выбран «Список». -->
+                        <ScrollViewer Grid.Row="2" x:Name="ProductsTilesScroll" IsVisible="False"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl x:CompileBindings="False" ItemsSource="{Binding PagedProducts}" Margin="0,0,4,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="208" Margin="0,0,12,12" Padding="12"
+                                                Background="{DynamicResource BrushCatalogTileBg}"
+                                                BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                                BorderThickness="1"
+                                                CornerRadius="{DynamicResource SettingsCardRadius}">
+                                            <StackPanel Spacing="8">
+                                                <Grid Height="96">
+                                                    <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"/>
+                                                    <PathIcon Width="26" Height="26"
+                                                              Foreground="{DynamicResource BrushTextSoft}"
+                                                              Data="M12,2L2,7V17L12,22L22,17V7L12,2M12,4.15L19.16,7.75L12,11.35L4.84,7.75L12,4.15M4,9.28L11,12.78V19.7L4,16.2V9.28M13,19.7V12.78L20,9.28V16.2L13,19.7Z"/>
+                                                    <Border CornerRadius="8" ClipToBounds="True"
+                                                            IsVisible="{ReflectionBinding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
+                                                        <Image Source="{ReflectionBinding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                                                               Stretch="UniformToFill"/>
+                                                    </Border>
+                                                </Grid>
+
+                                                <TextBlock Text="{ReflectionBinding Title}"
+                                                           FontSize="13.5" FontWeight="SemiBold"
+                                                           MaxLines="2" TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Height="36"
+                                                           Foreground="{DynamicResource BrushText}"
+                                                           ToolTip.Tip="{ReflectionBinding Title}"/>
+
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{ReflectionBinding PriceLine}"
+                                                               FontSize="15" FontWeight="Bold"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                                    <Border Grid.Column="1" CornerRadius="6" Padding="8,2"
+                                                            VerticalAlignment="Center"
+                                                            Background="{DynamicResource BrushSuccessSoft}"
+                                                            Classes.low="{ReflectionBinding IsLowStock}">
+                                                        <TextBlock Text="{ReflectionBinding Quantity, StringFormat=\{0:0.###\}}"
+                                                                   FontSize="12" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource BrushSuccess}"/>
+                                                    </Border>
+                                                </Grid>
+
+                                                <TextBlock Text="{ReflectionBinding Barcode}"
+                                                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+                                                           TextTrimming="CharacterEllipsis"/>
+
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource product.editRowButton}"
+                                                            Click="EditProduct_Click" Tag="{Binding}">
+                                                        <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                                                    </Button>
+                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.priceTagButton}"
+                                                            Click="PrintPriceTag_Click" Tag="{Binding}">
+                                                        <PathIcon Foreground="{DynamicResource BrushSuccess}"
+                                                                  Data="M7,15H9C9,16.08 10.37,17 12,17C13.63,17 15,16.08 15,15C15,13.9 13.96,13.5 11.76,12.97C9.64,12.44 7,11.78 7,9C7,7.21 8.47,5.69 10.5,5.18V3H13.5V5.18C15.53,5.69 17,7.21 17,9H15C15,7.92 13.63,7 12,7C10.37,7 9,7.92 9,9C9,10.1 10.04,10.5 12.24,11.03C14.36,11.56 17,12.22 17,15C17,16.79 15.53,18.31 13.5,18.82V21H10.5V18.82C8.47,18.31 7,16.79 7,15Z"/>
+                                                    </Button>
+                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.photoButton}"
+                                                            Click="UploadPhoto_Click" Tag="{Binding}">
+                                                        <PathIcon Data="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/>
+                                                    </Button>
+                                                    <Button Classes="SecondaryButton RowIcon" ToolTip.Tip="{DynamicResource warehouse.deleteButton}"
+                                                            Click="DeleteProduct_Click" Tag="{Binding}">
+                                                        <PathIcon Foreground="{DynamicResource BrushDanger}"
+                                                                  Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <!-- Итог по складу — то же, что в нижней строке «Остатков товаров»: сколько
+                             позиций, сколько единиц лежит и на какую сумму, по закупке и по продаже.
+                             Считается по всему каталогу, а не по текущей странице: страница — это
+                             способ показа, а не часть склада. -->
+                        <Border Grid.Row="3" Margin="0,10,0,0" Padding="14,10"
+                                Background="{DynamicResource BrushPanelSoft}"
+                                CornerRadius="{DynamicResource SettingsCardRadius}">
+                            <ItemsControl x:Name="WarehouseTotalsPanel" x:CompileBindings="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,26,0" Spacing="7">
+                                            <TextBlock Text="{Binding Label}" FontSize="12.5"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <TextBlock Text="{Binding Value}" FontSize="13.5" FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushText}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0"
                               IsVisible="{Binding ShowProductPager}">
                             <Button Grid.Column="0" Classes="SecondaryButton"
                                     Content="{DynamicResource csh.catalog.prevPage}"
@@ -655,6 +826,104 @@
                  Платная доп. услуга (2026-09-04) — пока не куплена и не активирована в
                  Маркетплейс → Доп. функции, вкладка вообще не показывается (не просто заблокирована
                  поверх — её нет в списке табов, см. WarehouseWindow.axaml.cs, RefreshPaidFeatureVisibility). -->
+            <!-- Вкладка: перемещение товаров. Журнал того, что уходило со склада — продажи и
+                 списания в одном списке. До этого движение можно было смотреть только по одному
+                 товару за раз, открыв его карточку из каталога. -->
+            <TabItem x:Name="MovementsTabItem" Header="{DynamicResource warehouse.tabMovements}">
+                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                            <TextBox x:Name="MovementsSearchBox" Width="320"
+                                     Watermark="{DynamicResource warehouse.movementsSearchHint}"
+                                     TextChanged="MovementsFilter_Changed"/>
+                            <RadioButton x:Name="MovementsWeekRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill" IsChecked="True"
+                                         Content="{DynamicResource warehouse.movementsWeek}" Click="MovementsFilter_Changed"/>
+                            <RadioButton x:Name="MovementsMonthRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
+                                         Content="{DynamicResource warehouse.movementsMonth}" Click="MovementsFilter_Changed"/>
+                            <RadioButton x:Name="MovementsQuarterRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
+                                         Content="{DynamicResource warehouse.movementsQuarter}" Click="MovementsFilter_Changed"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="1" x:Name="MovementsSummaryText" Margin="2,0,0,10"
+                                   FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <DataGrid Grid.Row="2" x:Name="MovementsGrid"
+                                  x:CompileBindings="False"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  RowHeight="44">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="150">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.movementsWhen}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding WhenText}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="*" MinWidth="220">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource common.name}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding ProductName}" VerticalAlignment="Center"
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{ReflectionBinding ProductName}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="150">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.movementsKind}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border CornerRadius="6" Padding="9,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{DynamicResource BrushAccentSoft}"
+                                                    Classes.writeoff="{ReflectionBinding IsWriteOff}">
+                                                <TextBlock Text="{ReflectionBinding KindText}" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushAccentStrong}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="136">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.movementsQuantity}" TextAlignment="Right"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding QuantityText}" VerticalAlignment="Center"
+                                                       HorizontalAlignment="Right" FontWeight="Bold" Margin="0,0,10,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="260">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.movementsNote}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding Note}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextSoft}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
             <TabItem x:Name="AnalyticsTabItem" Header="{DynamicResource warehouse.tabAnalytics}" IsVisible="False">
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">

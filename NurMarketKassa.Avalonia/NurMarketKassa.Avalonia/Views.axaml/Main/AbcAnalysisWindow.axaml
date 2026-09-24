@@ -16,6 +16,34 @@
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
+
+        <!-- Выбранный период. Раньше все четыре кнопки выглядели одинаково, и понять, за какой
+             срок сейчас цифры, можно было только по датам в календарях ниже. Отсюда же и
+             «не работает Месяц»: он ставит те же 30 дней, что уже стояли, и без подсветки
+             нажатие выглядело как будто ничего не произошло. -->
+        <Style Selector="Button.period.accent">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
+        <Style Selector="Button.period.active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
     </Window.Styles>
 
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
@@ -32,12 +60,12 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button x:Name="ExcelButton" Content="Excel" Classes="period" Click="ExportExcel_Click"/>
                 <Button x:Name="WordButton" Content="Word" Classes="period" Click="ExportWord_Click"/>
-                <Button x:Name="RefreshButton" Classes="period" Click="Refresh_Click"/>
+                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
                 <Button x:Name="CloseButton" Classes="period" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
             <Button x:Name="TodayButton" Classes="period" Click="Today_Click"/>
             <Button x:Name="WeekButton" Classes="period" Click="Week_Click"/>
             <Button x:Name="MonthButton" Classes="period" Click="Month_Click"/>

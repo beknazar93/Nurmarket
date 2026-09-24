@@ -246,6 +246,73 @@ public sealed class DatabaseService
                 CREATE INDEX IF NOT EXISTS idx_shift_events_shift ON ShiftEvents(shift_id);
                 CREATE INDEX IF NOT EXISTS idx_shift_events_created ON ShiftEvents(created_at);
 
+                -- Перемещения товаров между складами, зонами и ячейками. Сервер NurCRM таких
+                -- документов не знает (в его ответе по остаткам склады есть только как справочная
+                -- разбивка), поэтому журнал перемещений живёт в кассе: он не уедет на другое
+                -- устройство, пока на сервере не появится своя поддержка.
+                CREATE TABLE IF NOT EXISTS StockPlaces (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    kind TEXT NOT NULL,            -- warehouse | zone | cell
+                    parent_id TEXT,
+                    company_id TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS StockTransfers (
+                    id TEXT PRIMARY KEY,
+                    number TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    status TEXT NOT NULL,          -- created | in_transit | delivered | cancelled
+                    from_place_id TEXT,
+                    to_place_id TEXT,
+                    responsible TEXT,
+                    carrier TEXT,
+                    tracking_number TEXT,
+                    total_weight REAL NOT NULL DEFAULT 0,
+                    note TEXT,
+                    company_id TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS StockTransferItems (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transfer_id TEXT NOT NULL,
+                    product_id TEXT,
+                    product_name TEXT NOT NULL,
+                    article TEXT,
+                    barcode TEXT,
+                    quantity REAL NOT NULL,
+                    unit TEXT,
+                    weight REAL NOT NULL DEFAULT 0
+                );
+
+                -- Хронология: когда собрали, когда отправили, кто принял. Пишется на каждую смену
+                -- статуса и не перезаписывается — по ней потом разбирают недостачи.
+                CREATE TABLE IF NOT EXISTS StockTransferLog (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transfer_id TEXT NOT NULL,
+                    at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    employee TEXT,
+                    note TEXT
+                );
+
+                -- Накладные, акты приёма-передачи, транспортные документы и фотографии повреждений.
+                -- В базе лежит только путь к файлу: сами файлы копируются в папку кассы.
+                CREATE TABLE IF NOT EXISTS StockTransferFiles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    transfer_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    file_name TEXT NOT NULL,
+                    kind TEXT,                     -- invoice | act | transport | damage | other
+                    added_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_transfers_created ON StockTransfers(created_at);
+                CREATE INDEX IF NOT EXISTS idx_transfers_status ON StockTransfers(status);
+                CREATE INDEX IF NOT EXISTS idx_transfer_items_transfer ON StockTransferItems(transfer_id);
+                CREATE INDEX IF NOT EXISTS idx_transfer_log_transfer ON StockTransferLog(transfer_id);
+                CREATE INDEX IF NOT EXISTS idx_transfer_files_transfer ON StockTransferFiles(transfer_id);
+
                 CREATE INDEX IF NOT EXISTS idx_products_barcode ON Products(barcode);
                 CREATE INDEX IF NOT EXISTS idx_products_name ON Products(name COLLATE NOCASE);
                 CREATE INDEX IF NOT EXISTS idx_offline_sales_status ON OfflineSales(sync_status);
@@ -268,6 +335,43 @@ public sealed class DatabaseService
             _initialized = true;
         }
     }
+
+    /// <summary>Открывает соединение, отдаёт его действию и закрывает. Нужен службам, которые
+    /// живут рядом с базой, но своей копией строки подключения обзаводиться не должны — например
+    /// журналу перемещений (StockTransferService).</summary>
+    public void WithConnection(Action<SqliteConnection> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        _dbLock.EnterWriteLock();
+        try
+        {
+            using var connection = OpenConnection();
+            action(connection);
+        }
+        finally
+        {
+            _dbLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>Компания текущей сессии — для таблиц, которые ведут свои службы.</summary>
+    public string? CurrentCompany() => CurrentCompanyId();
+
+    /// <summary>Условие «только строки текущей компании» для чужих таблиц. Префикс — псевдоним
+    /// таблицы в запросе, если он есть.</summary>
+    public string OwnRowsClauseFor(string? alias = null)
+    {
+        var company = CurrentCompanyId();
+        if (company is null)
+            return "";
+
+        var prefix = string.IsNullOrWhiteSpace(alias) ? "" : alias + ".";
+        return " AND " + prefix + "company_id = '" + company.Replace("'", "''") + "'";
+    }
+
+    /// <summary>Папка с данными кассы — туда складываются файлы, привязанные к записям базы
+    /// (например, накладные и фотографии в перемещениях).</summary>
+    public string DataFolder => Path.GetDirectoryName(DbPath) ?? AppContext.BaseDirectory;
 
     public SqliteConnection OpenConnection()
     {
@@ -892,6 +996,69 @@ public sealed class DatabaseService
         }
 
         return result;
+    }
+
+    /// <summary>Движение товаров за период: проданное и списанное в одном списке, от свежего к
+    /// старому. Нужен вкладке «Перемещение» на складе — до этого посмотреть, что уходило со
+    /// склада, можно было только по одному товару за раз, через его карточку.
+    ///
+    /// Приход отдельной таблицей не ведётся: остаток приходит с сервера NurCRM целиком, поэтому
+    /// здесь только расход — продажи и списания.</summary>
+    public List<(string ProductName, double Quantity, string Kind, string Note, DateTime At)> LoadStockMovements(
+        DateTime from, DateTime to, int limit = 500)
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            var list = new List<(string, double, string, string, DateTime)>();
+            using var connection = OpenConnection();
+
+            using (var sales = connection.CreateCommand())
+            {
+                sales.CommandText = "SELECT product_name, quantity, sold_at, source FROM SoldLineItems "
+                    + "WHERE sold_at >= $from AND sold_at <= $to" + OwnRowsClause()
+                    + " ORDER BY sold_at DESC LIMIT $limit;";
+                sales.Parameters.AddWithValue("$from", from.ToString("o", CultureInfo.InvariantCulture));
+                sales.Parameters.AddWithValue("$to", to.ToString("o", CultureInfo.InvariantCulture));
+                sales.Parameters.AddWithValue("$limit", limit);
+                using var reader = sales.ExecuteReader();
+                while (reader.Read())
+                {
+                    var at = DateTime.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                        ? parsed
+                        : DateTime.MinValue;
+                    list.Add((reader.GetString(0), reader.GetDouble(1), "sale",
+                        reader.IsDBNull(3) ? "" : reader.GetString(3), at));
+                }
+            }
+
+            using (var writeOffs = connection.CreateCommand())
+            {
+                writeOffs.CommandText = "SELECT product_name, quantity, reason, cashier_name, created_at FROM WriteOffHistory "
+                    + "WHERE created_at >= $from AND created_at <= $to" + OwnRowsClause()
+                    + " ORDER BY created_at DESC LIMIT $limit;";
+                writeOffs.Parameters.AddWithValue("$from", from.ToString("o", CultureInfo.InvariantCulture));
+                writeOffs.Parameters.AddWithValue("$to", to.ToString("o", CultureInfo.InvariantCulture));
+                writeOffs.Parameters.AddWithValue("$limit", limit);
+                using var reader = writeOffs.ExecuteReader();
+                while (reader.Read())
+                {
+                    var at = DateTime.TryParse(reader.GetString(4), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                        ? parsed
+                        : DateTime.MinValue;
+                    var note = reader.GetString(2);
+                    if (!reader.IsDBNull(3))
+                        note += " · " + reader.GetString(3);
+                    list.Add((reader.GetString(0), reader.GetDouble(1), "writeoff", note, at));
+                }
+            }
+
+            return list.OrderByDescending(x => x.Item5).Take(limit).ToList();
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
     }
 
     public List<(string ProductName, double Quantity, string Reason, string? CashierName, DateTime CreatedAt)> LoadWriteOffHistory(int limit = 200)

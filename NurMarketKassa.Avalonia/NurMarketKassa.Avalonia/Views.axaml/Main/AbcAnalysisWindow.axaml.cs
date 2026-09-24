@@ -121,6 +121,32 @@ public partial class AbcAnalysisWindow : Window
 
         var days = (_to - _from).Days + 1;
         PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "d.", "gün", "kun");
+        HighlightActivePeriod();
+    }
+
+    /// <summary>Отмечает кнопку периода, которой соответствуют текущие даты. Нужна и после
+    /// нажатия самой кнопки, и после ручного выбора дат в календарях: если кассир выставил
+    /// ровно неделю руками, подсветиться должна «Неделя», а если произвольный отрезок — ни
+    /// одна.</summary>
+    private void HighlightActivePeriod()
+    {
+        var today = DateTime.Today;
+        var presets = new (Button Button, DateTime From, DateTime To)[]
+        {
+            (TodayButton, today, today),
+            (WeekButton, today.AddDays(-6), today),
+            (MonthButton, today.AddDays(-29), today),
+            (QuarterButton, today.AddDays(-89), today),
+        };
+
+        foreach (var (button, from, to) in presets)
+        {
+            var isActive = _from.Date == from && _to.Date == to;
+            if (isActive && !button.Classes.Contains("active"))
+                button.Classes.Add("active");
+            else if (!isActive)
+                button.Classes.Remove("active");
+        }
     }
 
     private CancellationTokenSource? _liveCts;

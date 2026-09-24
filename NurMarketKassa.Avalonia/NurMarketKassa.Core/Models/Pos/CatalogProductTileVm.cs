@@ -201,6 +201,17 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
 
     public double PurchasePrice { get; set; }
 
+    /// <summary>Остаток вместе с единицей измерения: «93 шт», «12,5 кг». Отдельная колонка
+    /// «Ед. изм.» из таблицы склада убрана — она повторяла одно и то же слово во всех строках и
+    /// занимала место, из-за которого заголовки соседних колонок обрезались.</summary>
+    public string StockWithUnitText =>
+        Quantity.ToString("0.###") + (string.IsNullOrWhiteSpace(Unit) ? "" : " " + Unit);
+
+    /// <summary>Сколько денег лежит на полке этим товаром: закупочная цена × остаток. Показывается
+    /// в таблице склада под ценой закупки — по образцу «Остатков товаров», где рядом стоят
+    /// себестоимость единицы и общая.</summary>
+    public string StockCostText => PurchasePrice > 0 ? (PurchasePrice * Quantity).ToString("N2") : "—";
+
     /// <summary>Остальные поля карточки товара из NurCRM, которых не было в "лёгкой" версии
     /// этой модели — нужны, чтобы форма редактирования товара (ProductEditDialog) могла
     /// показать и сохранить их, а не молча стирать при каждом сохранении (баг: раньше эти

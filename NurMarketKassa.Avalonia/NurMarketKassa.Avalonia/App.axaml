@@ -24,6 +24,18 @@
            Noto Sans не найдётся какой-то другой символ. -->
       <FontFamily x:Key="AppFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Noto Sans, Segoe UI</FontFamily>
       <x:Double x:Key="AppFontSize">14</x:Double>
+
+      <!-- Раскладка каталога и элементов — базовые значения «как всегда было». Тема из
+           Маркетплейса переопределяет их вместе с цветом (см. AccentThemeService.Apply):
+           «Сенсорная» увеличивает плитку и кнопки, «Плотная» уменьшает. -->
+      <x:Double x:Key="CatalogTileWidth">190</x:Double>
+      <x:Double x:Key="CatalogTileHeight">204</x:Double>
+      <x:Double x:Key="CatalogTilePhotoHeight">64</x:Double>
+      <x:Double x:Key="CatalogTileNameSize">14</x:Double>
+      <x:Double x:Key="CatalogTilePriceSize">24</x:Double>
+      <x:Double x:Key="CatalogTileStockSize">13</x:Double>
+      <x:Double x:Key="AppControlHeight">36</x:Double>
+      <Thickness x:Key="AppBorderThickness">1</Thickness>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
           <ResourceDictionary.MergedDictionaries>

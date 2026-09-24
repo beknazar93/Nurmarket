@@ -35,13 +35,22 @@ public static class AccentThemeService
         string Accent, string AccentStrong, string AccentSoft, string AccentForeground,
         string TileBg, string TileBorder, string Price, string Meta, string Stock,
         string TabBg, string TabBgHover, string TabBgSelected, string TabBorderSelected,
-        string Focus, string Money, string SurfaceSubtle);
+        string Focus, string Money, string SurfaceSubtle,
+        string? Header = null, string? HeaderText = null);
 
-    /// <summary>Тема целиком: палитры обоих вариантов, форма и шрифт.</summary>
+    /// <summary>Тема целиком: палитры обоих вариантов, форма, шрифт и раскладка.
+    ///
+    /// Метрики здесь — это то, чем тема меняет не цвет, а саму компоновку кассы: размер плитки
+    /// товара (сколько их помещается на экран), высоту кнопок и полей (насколько удобно
+    /// попадать пальцем), кегль названия, цены и остатка, толщину границ. Одна и та же касса
+    /// в «Сенсорной» и «Плотной» теме выглядит как две разные программы.</summary>
     private sealed record Skin(
         Palette Light, Palette Dark,
         double ButtonRadius, double CardRadius,
-        double FontSize, string? FontFamily = null);
+        double FontSize, string? FontFamily = null,
+        double TileWidth = 190, double TileHeight = 204, double TilePhotoHeight = 64,
+        double TileNameSize = 14, double TilePriceSize = 24, double TileStockSize = 13,
+        double ControlHeight = 36, double BorderThickness = 1);
 
     /// <summary>Шрифт с кириллицей и кыргызскими буквами (ң, ө, ү): системный Segoe UI рисует
     /// их не во всех начертаниях, поэтому первым в списке идёт вшитый Noto Sans.</summary>
@@ -129,7 +138,9 @@ public static class AccentThemeService
                 TabBg = "#38261C", TabBgHover = "#422E22", TabBgSelected = "#FB923C", TabBorderSelected = "#EA580C",
                 Focus = "#FB923C", Money = "#FDEBDD", SurfaceSubtle = "#2E1F17",
             },
-            ButtonRadius: 18, CardRadius: 22, FontSize: 14.5),
+            ButtonRadius: 18, CardRadius: 22, FontSize: 14.5,
+            TileWidth: 205, TileHeight: 216, TilePhotoHeight: 72,
+            TilePriceSize: 25, ControlHeight: 40),
 
         // Зелёная, спокойная: холодноватый мятный фон, тёмно-зелёная цена, умеренные углы.
         ["forest"] = new(
@@ -182,7 +193,9 @@ public static class AccentThemeService
                 TabBg = "#000000", TabBgHover = "#1A1A1A", TabBgSelected = "#FACC15", TabBorderSelected = "#FFFFFF",
                 Focus = "#FFFFFF", Money = "#FFFFFF", SurfaceSubtle = "#000000",
             },
-            ButtonRadius: 0, CardRadius: 0, FontSize: 15.5),
+            ButtonRadius: 0, CardRadius: 0, FontSize: 15.5,
+            TileNameSize: 15, TilePriceSize: 26, TileStockSize: 14,
+            ControlHeight: 42, BorderThickness: 2),
 
         // Моноширинный «ламповый» вид старых касс: текст ровной сеткой, зелёный по тёмному.
         // Светлый вариант — та же сетка на бумаге.
@@ -209,7 +222,102 @@ public static class AccentThemeService
                 TabBg = "#0F2213", TabBgHover = "#14301A", TabBgSelected = "#22C55E", TabBorderSelected = "#16A34A",
                 Focus = "#22C55E", Money = "#B9F6CA", SurfaceSubtle = "#0B1A0E",
             },
-            ButtonRadius: 2, CardRadius: 2, FontSize: 14, FontFamily: "Consolas"),
+            ButtonRadius: 2, CardRadius: 2, FontSize: 14, FontFamily: "Consolas",
+            TileWidth: 168, TileHeight: 182, TilePhotoHeight: 52,
+            TileNameSize: 13, TilePriceSize: 21, TileStockSize: 12, ControlHeight: 34),
+
+        // Для сенсорных моноблоков: всё крупнее, чтобы попадать пальцем без промахов. Плитка
+        // почти вдвое больше по площади, кнопки и поля высотой 52 — на экран помещается меньше
+        // товаров, зато кассир не целится.
+        ["touch"] = new(
+            BaseLight with
+            {
+                Window = "#E9EEF6", WindowAlt = "#F6F9FD", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
+                PanelSoft = "#DCE5F2", Input = "#FFFFFF", InputAlt = "#EEF3FA",
+                Border = "#C3D0E4", BorderStrong = "#8FA4C4",
+                Text = "#0B1B33", TextMuted = "#27405F", TextSoft = "#5B7A9E",
+                Accent = "#2563EB", AccentStrong = "#1D4ED8", AccentSoft = "#DBE7FE", AccentForeground = "#FFFFFF",
+                TileBg = "#FFFFFF", TileBorder = "#CBD8EC", Price = "#1D4ED8", Meta = "#8FA4C4", Stock = "#27405F",
+                TabBg = "#DCE5F2", TabBgHover = "#C3D0E4", TabBgSelected = "#2563EB", TabBorderSelected = "#1D4ED8",
+                Focus = "#2563EB", Money = "#0B1B33", SurfaceSubtle = "#F3F7FC",
+            },
+            BaseDark with
+            {
+                Window = "#0D1420", WindowAlt = "#131C2B", Panel = "#131C2B", PanelElevated = "#182336",
+                PanelSoft = "#1F2C42", Input = "#131C2B", InputAlt = "#182336",
+                Border = "#28374F", BorderStrong = "#3D5271",
+                Text = "#EAF1FB", TextMuted = "#C3D3E8", TextSoft = "#8DA3C0",
+                Accent = "#3B82F6", AccentStrong = "#2563EB", AccentSoft = "#16233A", AccentForeground = "#04101F",
+                TileBg = "#182336", TileBorder = "#28374F", Price = "#93C5FD", Meta = "#8DA3C0", Stock = "#C3D3E8",
+                TabBg = "#182336", TabBgHover = "#1F2C42", TabBgSelected = "#3B82F6", TabBorderSelected = "#2563EB",
+                Focus = "#3B82F6", Money = "#EAF1FB", SurfaceSubtle = "#131C2B",
+            },
+            ButtonRadius: 14, CardRadius: 18, FontSize: 16,
+            TileWidth: 248, TileHeight: 268, TilePhotoHeight: 96,
+            TileNameSize: 17, TilePriceSize: 30, TileStockSize: 15,
+            ControlHeight: 52, BorderThickness: 1),
+
+        // Обратная крайность: мелкая сетка, чтобы на экран помещалось вдвое больше товаров —
+        // для магазинов, где ассортимент ищут глазами, а не сканером.
+        ["compact"] = new(
+            BaseLight with
+            {
+                Window = "#F1F3F5", WindowAlt = "#FAFBFC", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
+                PanelSoft = "#E6E9EC", Input = "#FFFFFF", InputAlt = "#F2F4F6",
+                Border = "#D3D8DD", BorderStrong = "#9AA3AC",
+                Text = "#15202B", TextMuted = "#3B4754", TextSoft = "#6E7A87",
+                Accent = "#0F766E", AccentStrong = "#115E59", AccentSoft = "#D6F0EC", AccentForeground = "#FFFFFF",
+                TileBg = "#FFFFFF", TileBorder = "#DFE4E9", Price = "#115E59", Meta = "#9AA3AC", Stock = "#3B4754",
+                TabBg = "#E6E9EC", TabBgHover = "#D3D8DD", TabBgSelected = "#0F766E", TabBorderSelected = "#115E59",
+                Focus = "#0F766E", Money = "#15202B", SurfaceSubtle = "#F7F8F9",
+            },
+            BaseDark with
+            {
+                Window = "#15181B", WindowAlt = "#1B1F23", Panel = "#1B1F23", PanelElevated = "#21262B",
+                PanelSoft = "#282E34", Input = "#1B1F23", InputAlt = "#21262B",
+                Border = "#32383F", BorderStrong = "#495159",
+                Text = "#E8ECEF", TextMuted = "#C6CCD2", TextSoft = "#959EA7",
+                Accent = "#14B8A6", AccentStrong = "#0D9488", AccentSoft = "#12312E", AccentForeground = "#05201D",
+                TileBg = "#21262B", TileBorder = "#32383F", Price = "#5EEAD4", Meta = "#959EA7", Stock = "#C6CCD2",
+                TabBg = "#21262B", TabBgHover = "#282E34", TabBgSelected = "#14B8A6", TabBorderSelected = "#0D9488",
+                Focus = "#14B8A6", Money = "#E8ECEF", SurfaceSubtle = "#1B1F23",
+            },
+            ButtonRadius: 6, CardRadius: 8, FontSize: 13,
+            TileWidth: 152, TileHeight: 168, TilePhotoHeight: 46,
+            TileNameSize: 12.5, TilePriceSize: 19, TileStockSize: 11.5,
+            ControlHeight: 32, BorderThickness: 1),
+
+        // Единственная тема с залитой цветом шапкой: касса перестаёт быть «серой программой».
+        // Фото товара крупное — на него и смотрят в первую очередь.
+        ["showcase"] = new(
+            BaseLight with
+            {
+                Window = "#F5F2FA", WindowAlt = "#FBFAFE", Panel = "#FFFFFF", PanelElevated = "#FFFFFF",
+                PanelSoft = "#E9E3F4", Input = "#FFFFFF", InputAlt = "#F4F0FB",
+                Border = "#DCD2EC", BorderStrong = "#A892CE",
+                Text = "#241A3B", TextMuted = "#43325F", TextSoft = "#7A6796",
+                Accent = "#7C3AED", AccentStrong = "#6D28D9", AccentSoft = "#EDE4FE", AccentForeground = "#FFFFFF",
+                TileBg = "#FFFFFF", TileBorder = "#E4DBF2", Price = "#6D28D9", Meta = "#A892CE", Stock = "#43325F",
+                TabBg = "#E9E3F4", TabBgHover = "#DCD2EC", TabBgSelected = "#7C3AED", TabBorderSelected = "#6D28D9",
+                Focus = "#7C3AED", Money = "#241A3B", SurfaceSubtle = "#FAF7FE",
+                Header = "#6D28D9", HeaderText = "#FFFFFF",
+            },
+            BaseDark with
+            {
+                Window = "#15101F", WindowAlt = "#1C1530", Panel = "#1C1530", PanelElevated = "#241B3C",
+                PanelSoft = "#2C2149", Input = "#1C1530", InputAlt = "#241B3C",
+                Border = "#372A59", BorderStrong = "#4F3C7D",
+                Text = "#EDE7FA", TextMuted = "#CFC2EC", TextSoft = "#9B8AC0",
+                Accent = "#A855F7", AccentStrong = "#9333EA", AccentSoft = "#241B3C", AccentForeground = "#12071F",
+                TileBg = "#241B3C", TileBorder = "#372A59", Price = "#D8B4FE", Meta = "#9B8AC0", Stock = "#CFC2EC",
+                TabBg = "#241B3C", TabBgHover = "#2C2149", TabBgSelected = "#A855F7", TabBorderSelected = "#9333EA",
+                Focus = "#A855F7", Money = "#EDE7FA", SurfaceSubtle = "#1C1530",
+                Header = "#3B1D6B", HeaderText = "#F3ECFF",
+            },
+            ButtonRadius: 16, CardRadius: 20, FontSize: 14.5,
+            TileWidth: 222, TileHeight: 252, TilePhotoHeight: 116,
+            TileNameSize: 15, TilePriceSize: 26, TileStockSize: 13,
+            ControlHeight: 44, BorderThickness: 1),
     };
 
     /// <summary>Список для галереи в Маркетплейсе — порядок здесь и есть порядок карточек.</summary>
@@ -233,6 +341,15 @@ public static class AccentThemeService
         new("terminal", "Терминал", "Терминал", "",
             "Моноширинный шрифт и зелёный по тёмному — вид старых кассовых терминалов. Цифры выстраиваются ровной сеткой.",
             "Моношириналуу шрифт жана караңгы фондо жашыл — эски кассалык терминалдардын көрүнүшү."),
+        new("touch", "Сенсорная", "Сенсордук", "",
+            "Для работы пальцем: плитка товара вдвое крупнее, кнопки и поля высотой 52 точки, увеличенные цена и название. Товаров на экране меньше, зато промахнуться трудно.",
+            "Манжа менен иштөө үчүн: товардын плиткасы эки эсе чоң, баскычтар менен талаалар бийик, баасы жана аты чоңойтулган."),
+        new("compact", "Плотная", "Тыгыз", "",
+            "Обратная крайность: мелкая сетка и низкие элементы — на экран помещается вдвое больше товаров. Для залов с большим ассортиментом, где товар ищут глазами.",
+            "Тескери чеги: майда тор жана жапыз элементтер — экранга эки эсе көп товар батат."),
+        new("showcase", "Витрина", "Витрина", "",
+            "Единственная тема с залитой цветом шапкой: фиолетовая полоса сверху, крупное фото товара на карточке, мягкие скругления. Касса выглядит витриной, а не служебной программой.",
+            "Башы түскө боёлгон жалгыз тема: өйдө кызгылт көк тилке, карточкада чоң сүрөт, жумшак бурчтар."),
     ];
 
     /// <summary>Ключи, которые задаёт тема. Список нужен, чтобы при переключении снимать всё
@@ -246,6 +363,7 @@ public static class AccentThemeService
         "BrushCatalogTileBg", "BrushCatalogTileBorder", "BrushCatalogPrice", "BrushCatalogMeta", "BrushCatalogStock",
         "BrushCatalogTabBg", "BrushCatalogTabBgHover", "BrushCatalogTabBgSelected", "BrushCatalogTabBorderSelected",
         "BrushFocus", "BrushMoney", "BrushSurfaceSubtle",
+        "BrushHeader", "BrushHeaderText",
     ];
 
     /// <summary>Применяет тему поверх выбранного светлого/тёмного варианта.</summary>
@@ -299,8 +417,22 @@ public static class AccentThemeService
         app.Resources["BrushMoney"] = Brush(p.Money);
         app.Resources["BrushSurfaceSubtle"] = Brush(p.SurfaceSubtle);
 
+        // Шапка кассы: у большинства тем — своя панель, у «Витрины» — заливка акцентом.
+        app.Resources["BrushHeader"] = Brush(p.Header ?? p.WindowAlt);
+        app.Resources["BrushHeaderText"] = Brush(p.HeaderText ?? p.Text);
+
         app.Resources["SettingsButtonRadius"] = new CornerRadius(skin.ButtonRadius);
         app.Resources["SettingsCardRadius"] = new CornerRadius(skin.CardRadius);
+
+        // Раскладка каталога и элементов управления — см. комментарий к Skin.
+        app.Resources["CatalogTileWidth"] = skin.TileWidth;
+        app.Resources["CatalogTileHeight"] = skin.TileHeight;
+        app.Resources["CatalogTilePhotoHeight"] = skin.TilePhotoHeight;
+        app.Resources["CatalogTileNameSize"] = skin.TileNameSize;
+        app.Resources["CatalogTilePriceSize"] = skin.TilePriceSize;
+        app.Resources["CatalogTileStockSize"] = skin.TileStockSize;
+        app.Resources["AppControlHeight"] = skin.ControlHeight;
+        app.Resources["AppBorderThickness"] = new Thickness(skin.BorderThickness);
 
         // FontFamily в Avalonia разбирает запись вида "avares://…#Имя, Запасной" только когда
         // ссылка на встроенный шрифт стоит ПЕРВОЙ. Поэтому тему со своим шрифтом («Терминал»)

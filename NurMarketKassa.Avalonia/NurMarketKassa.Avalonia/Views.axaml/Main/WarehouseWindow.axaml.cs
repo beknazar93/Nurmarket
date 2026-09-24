@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls;
@@ -78,7 +78,130 @@ public partial class WarehouseWindow : Window
     private void WarehouseTabs_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (WarehouseTabs.SelectedIndex == 3)
+            RefreshMovements();
+        else if (WarehouseTabs.SelectedIndex == 4)
             RefreshAnalytics();
+    }
+
+    /// <summary>Строка журнала перемещений. Отдельный тип, а не кортеж: DataGrid привязывается
+    /// к именам свойств.</summary>
+    private sealed class MovementRow
+    {
+        public string WhenText { get; init; } = "";
+        public string ProductName { get; init; } = "";
+        public string KindText { get; init; } = "";
+        public string QuantityText { get; init; } = "";
+        public string Note { get; init; } = "";
+        public bool IsWriteOff { get; init; }
+    }
+
+    /// <summary>Журнал движения товаров за выбранный период. Продажи и списания читаются из
+    /// локальной базы одним запросом и показываются вперемешку по времени — так видно всю
+    /// историю расхода, а не только одну её половину.</summary>
+    private void RefreshMovements()
+    {
+        if (MovementsGrid is null)
+            return;
+
+        var days = MovementsQuarterRadio.IsChecked == true ? 90
+            : MovementsMonthRadio.IsChecked == true ? 30
+            : 7;
+
+        var to = DateTime.Now;
+        var from = to.Date.AddDays(-(days - 1));
+        var search = MovementsSearchBox?.Text?.Trim() ?? "";
+
+        var movements = DatabaseService.Instance.LoadStockMovements(from, to);
+
+        var rows = movements
+            .Where(m => search.Length == 0 ||
+                        m.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Select(m => new MovementRow
+            {
+                WhenText = m.At.ToString("dd.MM.yyyy HH:mm"),
+                ProductName = m.ProductName,
+                KindText = m.Kind == "writeoff"
+                    ? Tr.T("Списание", "Эсептен чыгаруу", "Write-off", "Zayiat", "Hisobdan chiqarish")
+                    : Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"),
+                QuantityText = "−" + m.Quantity.ToString("0.###"),
+                Note = DescribeMovementNote(m.Kind, m.Note),
+                IsWriteOff = m.Kind == "writeoff",
+            })
+            .ToList();
+
+        MovementsGrid.ItemsSource = rows;
+
+        var soldTotal = movements.Where(m => m.Kind != "writeoff").Sum(m => m.Quantity);
+        var writeOffTotal = movements.Where(m => m.Kind == "writeoff").Sum(m => m.Quantity);
+        MovementsSummaryText.Text =
+            Tr.T("За период", "Мезгил ичинде", "For the period", "Dönem boyunca", "Davr ichida")
+            + $": {rows.Count} "
+            + Tr.T("записей", "жазуу", "records", "kayıt", "yozuv")
+            + " · " + Tr.T("продано", "сатылды", "sold", "satıldı", "sotildi") + $" {soldTotal:N0}"
+            + " · " + Tr.T("списано", "эсептен чыгарылды", "written off", "zayiat", "hisobdan chiqarildi") + $" {writeOffTotal:N0}";
+    }
+
+    /// <summary>Примечание к строке журнала. У продаж в базе лежит служебное слово источника
+    /// («local» — записано кассой при продаже, «backfill» — подтянуто с сервера при догрузке
+    /// истории); кассиру оно ничего не говорит, поэтому переводится на человеческий язык.
+    /// У списаний примечание — это причина, её показываем как есть.</summary>
+    private static string DescribeMovementNote(string kind, string note)
+    {
+        if (kind == "writeoff")
+            return note;
+
+        return note switch
+        {
+            "backfill" => Tr.T("из истории сервера", "сервердин тарыхынан", "from server history",
+                               "sunucu geçmişinden", "server tarixidan"),
+            "local" or "" => Tr.T("продажа на кассе", "кассадагы сатуу", "sold at the till",
+                                  "kasada satış", "kassadagi sotuv"),
+            _ => note,
+        };
+    }
+
+    private void MovementsFilter_Changed(object? sender, RoutedEventArgs e) => RefreshMovements();
+
+    private void MovementsFilter_Changed(object? sender, TextChangedEventArgs e) => RefreshMovements();
+
+    /// <summary>Переключение «Список / Плитки». Обе панели стоят в одной ячейке сетки и просто
+    /// показываются по очереди — данные у них общие (та же страница каталога), поэтому
+    /// перезагружать ничего не нужно.</summary>
+    private void WarehouseViewMode_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (ProductsGrid is null || ProductsTilesScroll is null)
+            return;
+
+        var tiles = ViewTilesRadio.IsChecked == true;
+        ProductsGrid.IsVisible = !tiles;
+        ProductsTilesScroll.IsVisible = tiles;
+    }
+
+    /// <summary>Итог под таблицей товаров: позиции, единицы и стоимость склада по закупке и по
+    /// продаже. Считается по всему каталогу, а не по показанной странице — иначе цифра менялась
+    /// бы при каждом листании и не отвечала бы на вопрос «сколько всего лежит на складе».</summary>
+    private void RefreshWarehouseTotals()
+    {
+        var products = CatalogCacheService.Products.ToList();
+        if (products.Count == 0)
+        {
+            WarehouseTotalsPanel.ItemsSource = System.Array.Empty<KpiCardVm>();
+            return;
+        }
+
+        var units = products.Sum(p => p.Quantity);
+        var purchaseValue = products.Sum(p => p.Quantity * p.PurchasePrice);
+        var saleValue = products.Sum(p => p.Quantity * ParsePriceValue(p.PriceLine));
+        var lowOrOut = products.Count(p => p.Quantity <= 0 || p.IsLowStock);
+
+        WarehouseTotalsPanel.ItemsSource = new List<KpiCardVm>
+        {
+            new() { Label = Tr.T("Позиций:", "Позициялар:", "Items:", "Kalem:", "Pozitsiya:"), Value = products.Count.ToString("N0") },
+            new() { Label = Tr.T("Единиц на складе:", "Кампадагы бирдик:", "Units in stock:", "Stoktaki adet:", "Ombordagi birlik:"), Value = units.ToString("N0") },
+            new() { Label = Tr.T("По закупке:", "Сатып алуу боюнча:", "At cost:", "Maliyetle:", "Tannarxda:"), Value = $"{purchaseValue:N0} " + Tr.T("сом", "сом", "KGS", "som", "so'm") },
+            new() { Label = Tr.T("По продаже:", "Сатуу боюнча:", "At sale price:", "Satışta:", "Sotuvda:"), Value = $"{saleValue:N0} " + Tr.T("сом", "сом", "KGS", "som", "so'm") },
+            new() { Label = Tr.T("Заканчивается:", "Аяктап жатат:", "Running low:", "Azalıyor:", "Tugayapti:"), Value = lowOrOut.ToString("N0") },
+        };
     }
 
     /// <summary>Списки причин списания через "Брак" собираются вручную вместо ComboBox — тот же
@@ -142,6 +265,7 @@ public partial class WarehouseWindow : Window
         try
         {
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+            RefreshWarehouseTotals();
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
                 _viewModel.HandleBarcodeScan(InitialBarcode.Trim(), isRevisionTab: true);
         }

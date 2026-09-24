@@ -30,7 +30,7 @@
        сотрудников…» оказывался синим #1C79C9 на сером #6D6D6D: контраст 1.14:1 при норме
        4.5:1 — читать невозможно. Теперь это настоящий зелёный: 7.96:1 на #252526. -->
   <SolidColorBrush x:Key="BrushSuccess" Color="#34D399" />
-  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#1F3B52" />
+  <SolidColorBrush x:Key="BrushSuccessSoft" Color="#14352A" />
   <SolidColorBrush x:Key="BrushWarning" Color="#D7BA7D" />
   <SolidColorBrush x:Key="BrushWarningSoft" Color="#3A3122" />
   <SolidColorBrush x:Key="BrushDanger" Color="#F14C4C" />

@@ -300,7 +300,7 @@
                                          Фото есть не у всех, и его строка у остальных схлопывается —
                                          они просто начинаются ниже, а коробка плитки у всех одна,
                                          поэтому ряды остаются ровными. -->
-                                    <Grid Width="190" Margin="6" Height="204">
+                                    <Grid Width="{DynamicResource CatalogTileWidth}" Margin="6" Height="{DynamicResource CatalogTileHeight}">
                                         <Button Classes="main-ghost"
                                                 Padding="0"
                                                 Background="Transparent"
@@ -339,8 +339,8 @@
                                                          прямоугольников, как было раньше, не
                                                          появляется, а высота плитки у всех одна. -->
                                                     <Border Grid.Row="0"
-                                                            Height="64"
-                                                            MaxWidth="104"
+                                                            Height="{DynamicResource CatalogTilePhotoHeight}"
+                                                            MaxWidth="140"
                                                             Margin="0,0,0,8"
                                                             CornerRadius="10"
                                                             ClipToBounds="True"
@@ -363,7 +363,7 @@
                                                     <TextBlock Grid.Row="1"
                                                                Text="{Binding Title}"
                                                                Margin="4,0,4,8"
-                                                               FontSize="14"
+                                                               FontSize="{DynamicResource CatalogTileNameSize}"
                                                                FontWeight="SemiBold"
                                                                Foreground="{DynamicResource BrushText}"
                                                                TextWrapping="Wrap"
@@ -376,7 +376,7 @@
                                                     <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Spacing="2">
                                                         <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                                                             <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
-                                                                       FontSize="24"
+                                                                       FontSize="{DynamicResource CatalogTilePriceSize}"
                                                                        FontWeight="Bold"
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"
                                                                        VerticalAlignment="Bottom"/>
@@ -388,7 +388,7 @@
                                                         </StackPanel>
 
                                                         <TextBlock Text="{Binding StockInfo}"
-                                                                   FontSize="13"
+                                                                   FontSize="{DynamicResource CatalogTileStockSize}"
                                                                    HorizontalAlignment="Center"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"/>
