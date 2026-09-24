@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.MonitorSettingsView"
              x:CompileBindings="False">
@@ -22,14 +22,16 @@
   <Border Classes="SettingsContentHost">
     <Grid RowDefinitions="*,Auto">
       <ScrollViewer Classes="SettingsPageScroll">
-        <StackPanel Classes="SettingsCardList">
+        <!-- Та же ширина колонки, что и на остальных вкладках: эта одна растягивалась на всё
+             окно, и при переходе с «Экрана» карточки скачком уезжали к краям. -->
+        <StackPanel Classes="SettingsCardList" MaxWidth="860" HorizontalAlignment="Stretch">
           <Border Classes="SettingsHeaderCard">
             <Grid ColumnDefinitions="48,*">
               <Border Width="42" Height="42" CornerRadius="10" Background="{DynamicResource BrushWarningSoft}">
                 <Path Width="24" Height="24" Stretch="Uniform" Fill="Transparent"
                       Stroke="{DynamicResource BrushWarning}" StrokeThickness="1.6" StrokeLineCap="Round"
                       Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      HorizontalAlignment="Left" VerticalAlignment="Center"/>
               </Border>
               <StackPanel Grid.Column="1" Spacing="3">
                 <TextBlock Classes="SettingsPageTitle" Text="{DynamicResource posSettings.monitor.title}"/>

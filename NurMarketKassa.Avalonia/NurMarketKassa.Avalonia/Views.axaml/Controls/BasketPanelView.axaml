@@ -271,7 +271,7 @@
                                             Background="{DynamicResource BrushCatalogTileBg}"
                                             BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                             BorderThickness="1"
-                                            CornerRadius="10"
+                                            CornerRadius="{DynamicResource SettingsButtonRadius}"
                                             HorizontalContentAlignment="Stretch"
                                             Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).AddQuickProductCommand}"
                                             CommandParameter="{Binding}">

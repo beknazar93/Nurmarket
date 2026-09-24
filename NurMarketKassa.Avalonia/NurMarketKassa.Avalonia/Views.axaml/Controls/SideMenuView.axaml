@@ -123,15 +123,41 @@
                             Background="{DynamicResource BrushPanel}"
                             BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1">
+                        <!-- Вместо неподвижной подписи «Кассовая смена» — живое состояние:
+                             открыта ли смена и кто за кассой. Кассира не видно больше нигде, а
+                             при пересменке это первое, что стоит проверить: чек уйдёт на сервер
+                             от того, кто здесь записан. -->
                         <StackPanel Spacing="6">
-                            <TextBlock Text="{DynamicResource sideMenu.shiftLabel}"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="{DynamicResource BrushSuccess}"
+                                         IsVisible="{Binding IsShiftOpen}"/>
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="{DynamicResource BrushTextSoft}"
+                                         IsVisible="{Binding !IsShiftOpen}"/>
+                                <TextBlock Text="{Binding ShiftStateText}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </StackPanel>
                             <TextBlock Text="{Binding ShiftBalanceText}"
                                        FontSize="20"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource BrushAccent}"/>
+                            <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding CashierLabel}"
+                                           FontSize="12"
+                                           Margin="0,0,8,0"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding CashierName}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource BrushText}"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 

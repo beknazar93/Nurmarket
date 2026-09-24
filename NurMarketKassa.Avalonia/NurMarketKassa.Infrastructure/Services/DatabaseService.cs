@@ -253,18 +253,13 @@ public sealed class DatabaseService
                 CREATE INDEX IF NOT EXISTS idx_irregular_receipts_created ON IrregularReceipts(created_at);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_product ON SoldLineItems(product_id);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_sold_at ON SoldLineItems(sold_at);
-                -- Вся аналитика читает историю с фильтром по компании, поэтому индексы
-                -- составные. Замер на 300 тыс. строк: отчёт за год 1361 -> 693 мс, отсечка
-                -- старой истории 167 -> 0 мс, история одного товара 59 -> 0 мс. Построение
-                -- индексов на таком объёме занимает около двух секунд, один раз.
-                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_sold ON SoldLineItems(company_id, sold_at);
-                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_name ON SoldLineItems(company_id, product_name COLLATE NOCASE);
                 """;
             command.ExecuteNonQuery();
 
             AddSoldLineItemsCompanyColumn(connection);
             AddWriteOffsCompanyColumn(connection);
             AddSoldLineItemsSaleIdColumn(connection);
+            AddCompanyHistoryIndexes(connection);
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
@@ -1596,6 +1591,34 @@ public sealed class DatabaseService
         catch (SqliteException)
         {
             // Колонка уже есть.
+        }
+    }
+
+    /// <summary>Индексы по компании — строго ПОСЛЕ добавления самой колонки.
+    ///
+    /// 2026-09-24, касса владельца перестала запускаться с «SQLite Error 1: no such column:
+    /// company_id». Эти два индекса стояли в общем скрипте схемы, который выполняется одной
+    /// командой и ДО ALTER TABLE. На базе, созданной прежними версиями, таблица SoldLineItems
+    /// уже существует (CREATE TABLE IF NOT EXISTS её не трогает) и колонки company_id в ней
+    /// нет — CREATE INDEX по несуществующей колонке валил весь скрипт, а вместе с ним и запуск
+    /// кассы. На свежей базе ошибки не было, поэтому при проверке здесь она и не всплыла.</summary>
+    private static void AddCompanyHistoryIndexes(SqliteConnection connection)
+    {
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_sold
+                    ON SoldLineItems(company_id, sold_at);
+                CREATE INDEX IF NOT EXISTS idx_sold_line_items_company_name
+                    ON SoldLineItems(company_id, product_name COLLATE NOCASE);
+                """;
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            // Без индексов аналитика работает, просто медленнее — запуск кассы важнее.
+            PosLogger.Log($"Индексы истории по компании не созданы: {ex.Message}", "WARNING");
         }
     }
 

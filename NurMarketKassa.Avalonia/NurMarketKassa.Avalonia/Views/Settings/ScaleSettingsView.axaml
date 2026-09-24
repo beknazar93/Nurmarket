@@ -25,20 +25,23 @@
 
     <Border Classes="SettingsContentHost" Padding="16">
         <ScrollViewer Classes="SettingsPageScroll">
-            <!-- Центрирующий контейнер с ограничением максимальной ширины -->
-            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+            <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
+                 переключении карточки прыгали от края к краю вслед за содержимым. -->
+            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
-                <!-- Хедер выровнен по центру -->
+                <!-- Заголовок страницы прижат влево — по одной вертикали с содержимым
+                     карточек ниже. По центру он плавал: при переходе между вкладками название
+                     прыгало из стороны в сторону вслед за длиной строки. -->
                 <Border Classes="SettingsHeaderCard" Padding="12">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
                         <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
                                 BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
                             <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16"
                                        Foreground="{DynamicResource BrushWarning}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource posSettings.navScales}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock Text="{DynamicResource posSettings.scale.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource posSettings.navScales}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{DynamicResource posSettings.scale.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -162,20 +165,23 @@
                                    FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
                         <StackPanel Spacing="8">
-                            <Button Content="Открыть окно настроек подключения…"
-                                    Classes="ScaleGoldButton"
-                                    HorizontalAlignment="Center"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Click="OpenLanScaleDialog_Click"/>
+                            <!-- Кнопки раздела стоят в ряд по левому краю, на одной вертикали с
+                                 полями и подписями над ними. Столбиком по центру они были разной
+                                 ширины и «ступеньками» уезжали от остального содержимого. -->
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                                <Button Content="Открыть окно настроек подключения…"
+                                        Classes="ScaleGoldButton"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Click="OpenLanScaleDialog_Click"/>
 
-                            <Button x:Name="TestLanScaleButton" x:FieldModifier="public"
-                                    Content="Проверить связь с весами"
-                                    Classes="ScaleGoldButton"
-                                    HorizontalAlignment="Center"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Click="TestLanScale_Click"/>
+                                <Button x:Name="TestLanScaleButton" x:FieldModifier="public"
+                                        Content="Проверить связь с весами"
+                                        Classes="ScaleGoldButton"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Click="TestLanScale_Click"/>
+                            </StackPanel>
 
                             <Border x:Name="LanScaleAlert" x:FieldModifier="public" Classes="AlertBlock"
                                     IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
@@ -221,7 +227,7 @@
                                     Content="{DynamicResource posSettings.scale.poleDisplayTest}"
                                     Classes="ScaleGoldButton"
                                     IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"
-                                    HorizontalAlignment="Center"
+                                    HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"/>

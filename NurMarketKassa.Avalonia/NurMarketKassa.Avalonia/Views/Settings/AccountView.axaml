@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.AccountView"
              x:CompileBindings="False"
@@ -42,7 +42,7 @@
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" Spacing="18" MaxWidth="680" HorizontalAlignment="Center">
+      <StackPanel Classes="SettingsCardList" Spacing="18" MaxWidth="860" HorizontalAlignment="Stretch">
 
         <!-- Хедер -->
         <Border Classes="SettingsHeaderCard" Padding="12">
@@ -50,7 +50,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
               <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                       BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
-                <TextBlock Text="👤" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Center"/>
               </Border>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource account.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold"/>

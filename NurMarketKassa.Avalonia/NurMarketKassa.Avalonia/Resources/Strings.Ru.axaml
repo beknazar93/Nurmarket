@@ -658,6 +658,7 @@
   <x:String x:Key="marketplace.themesTab">Темы</x:String>
   <x:String x:Key="marketplace.extrasTab">Доп. функции</x:String>
   <x:String x:Key="marketplace.themeTitle">Тема оформления</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">Прежние темы сняты — набор оформления собирается заново. Сейчас касса работает в светлом или тёмном режиме, переключатель — в шапке.</x:String>
   <x:String x:Key="marketplace.themeDesc">Меняет акцентный цвет, форму кнопок и карточек и фон окон сразу во всей программе. Применяется одним нажатием.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Жидкое стекло</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">Включено — глянцевые полупрозрачные карточки и блюр на кассе. Выключено — матовые, слабо прозрачные карточки без блюра.</x:String>
@@ -673,6 +674,7 @@
   <x:String x:Key="theme.editorSubtitle">Изменения видны сразу справа — нажмите «Применить», чтобы использовать их во всей кассе</x:String>
   <x:String x:Key="theme.previewLabel">ПРЕДПРОСМОТР</x:String>
   <x:String x:Key="marketplace.themeSettingsButton">Настройка темы</x:String>
+  <x:String x:Key="marketplace.themeFactoryReset">Вернуть к заводским настройкам</x:String>
   <x:String x:Key="marketplace.fontTitle">Шрифт</x:String>
   <x:String x:Key="marketplace.fontSize">Размер</x:String>
   <x:String x:Key="marketplace.fontColor">Цвет текста</x:String>

@@ -658,6 +658,7 @@
   <x:String x:Key="marketplace.themesTab">Темалар</x:String>
   <x:String x:Key="marketplace.extrasTab">Кошумча функциялар</x:String>
   <x:String x:Key="marketplace.themeTitle">Дизайн темасы</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">Мурунку темалар алынды — жаңы жыйнак кайра түзүлүүдө. Азыр касса жарык же караңгы режимде иштейт, которгуч — баштын үстүндө.</x:String>
   <x:String x:Key="marketplace.themeDesc">Акцент түсүн, баскыч/карточкалардын формасын жана терезелердин фонун бүт программада дароо өзгөртөт. Бир басуу менен колдонулат.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Суюк айнек</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">Күйгүзүлгөндө — жылтылдаган жарым-тунук карточкалар жана кассада бүдөмүктөтүү. Өчүрүлгөндө — туманданган, азыраак тунук карточкалар, бүдөмүктөтүүсүз.</x:String>
@@ -673,6 +674,7 @@
   <x:String x:Key="theme.editorSubtitle">Өзгөрүүлөр оң жакта дароо көрүнөт — бүт кассада колдонуу үчүн «Колдонуу» баскычын басыңыз</x:String>
   <x:String x:Key="theme.previewLabel">АЛДЫН АЛА КӨРҮҮ</x:String>
   <x:String x:Key="marketplace.themeSettingsButton">Теманы тууралоо</x:String>
+  <x:String x:Key="marketplace.themeFactoryReset">Заводдук жөндөөлөргө кайтаруу</x:String>
   <x:String x:Key="marketplace.fontTitle">Шрифт</x:String>
   <x:String x:Key="marketplace.fontSize">Өлчөм</x:String>
   <x:String x:Key="marketplace.fontColor">Тексттин түсү</x:String>

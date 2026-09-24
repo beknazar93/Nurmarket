@@ -16,16 +16,6 @@ namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
 public partial class MarketplaceView : UserControl
 {
-    private bool _suppressGlassOpacityChange;
-
-    /// <summary>"Золотая" (родная по умолчанию), "Синяя" и "Профессиональная" — бесплатные
-    /// темы; остальные (включая "Свой цвет") платные — 1500 сом, применение пока заблокировано,
-    /// т.к. реальной оплаты ещё нет (см. ShowPaidThemeLockedMessage). "Профессиональная"
-    /// (2026-09-15) добавлена как новый бесплатный базовый вид по просьбе пользователя, а не
-    /// как платное дополнение.</summary>
-    private static readonly System.Collections.Generic.HashSet<string> FreeThemeIds =
-        new(System.StringComparer.OrdinalIgnoreCase) { "gold", "blue", "navy" };
-
     public MarketplaceView()
     {
         InitializeComponent();
@@ -42,14 +32,6 @@ public partial class MarketplaceView : UserControl
         RefreshShiftAnalyticsCard();
         RefreshAnalyticsExportCard();
         RefreshScalesCard();
-
-        _suppressGlassOpacityChange = true;
-        GlassOpacitySlider.Value = UserPreferences.Instance.GlassOpacityPercent;
-        _suppressGlassOpacityChange = false;
-        UpdateGlassOpacityText(UserPreferences.Instance.GlassOpacityPercent);
-        LiquidGlassToggle.IsChecked = UserPreferences.Instance.LiquidGlassEnabled;
-
-        UpdateGlassOpacityVisibility();
 
         // "Список" новых тем/доп. услуг — это, по сути, новая версия кассы (Velopack/GitHub
         // Releases): отдельного каталога на сервере нет, все карточки зашиты в код. Поэтому
@@ -149,40 +131,6 @@ public partial class MarketplaceView : UserControl
         }
     }
 
-    private void UpdateGlassOpacityVisibility() =>
-        GlassOpacityCard.IsVisible = string.Equals(
-            UserPreferences.Instance.AccentTheme, "glass", System.StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>п.1.3: вкл/выкл самого эффекта "Жидкое стекло" отдельно от выбора темы —
-    /// выключено оставляет форму/скруглённость темы "glass", но убирает глянцевую текстуру и
-    /// блюр на кассе (см. AccentThemeService.Apply/MainWindow.RefreshBackgroundWallpaper).</summary>
-    private void LiquidGlassToggle_Click(object? sender, RoutedEventArgs e)
-    {
-        UserPreferences.Instance.LiquidGlassEnabled = LiquidGlassToggle.IsChecked == true;
-        UserPreferences.Instance.SaveToDisk();
-        AccentThemeService.Apply(UserPreferences.Instance.AccentTheme, UserPreferences.Instance.DarkTheme);
-
-        // Живое обновление ambient-блюра на кассе (та же схема, что и у смены темы/обоев).
-        App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshBackgroundWallpaper();
-    }
-
-    private void UpdateGlassOpacityText(double percent) =>
-        GlassOpacityValueText.Text = $"{percent:F0}%";
-
-    private void GlassOpacitySlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
-    {
-        if (_suppressGlassOpacityChange)
-            return;
-
-        UserPreferences.Instance.GlassOpacityPercent = e.NewValue;
-        UserPreferences.Instance.SaveToDisk();
-        UpdateGlassOpacityText(e.NewValue);
-
-        // Живое обновление без пересборки всей темы — цвет/форма не поменялись, только
-        // прозрачность стекла (см. AccentThemeService.Apply, читает GlassOpacityPercent сам).
-        AccentThemeService.Apply(UserPreferences.Instance.AccentTheme, UserPreferences.Instance.DarkTheme);
-    }
-
     private void ThemesTab_Click(object? sender, RoutedEventArgs e)
     {
         ThemesPanel.IsVisible = true;
@@ -203,29 +151,119 @@ public partial class MarketplaceView : UserControl
         ThemesTabButton.Classes.Add("btn-secondary");
     }
 
-    /// <summary>Карточки-темы собираются в коде, а не через ItemsControl+Binding — тот же
-    /// надёжный приём, что уже применялся в этой сессии для похожих "выбери один из
-    /// нескольких вариантов" списков (никакого Command/CanExecute, только прямой Click).
-    /// Каждая карточка — описание конкретных изменений темы (акцент, форма кнопок/карточек,
-    /// фон), а не только название и цвет.</summary>
+    /// <summary>Галерея тем. Карточки собираются в коде, а не через ItemsControl+Binding:
+    /// каждая рисует собственный предпросмотр цветами САМОЙ темы (фон окна, плитка товара,
+    /// кнопка), а не цветами текущей. Словами разницу между шестью оформлениями не передать,
+    /// а перебирать их вживую — каждый раз перекрашивать весь экран.</summary>
     private void BuildThemeGallery()
     {
         ThemeGalleryPanel.Items.Clear();
-        var current = UserPreferences.Instance.AccentTheme;
+
+        var prefs = UserPreferences.Instance;
+        var current = AccentThemeService.Normalize(prefs.AccentTheme);
+        var dark = prefs.DarkTheme;
 
         foreach (var theme in AccentThemeService.AvailableThemes)
         {
             bool isActive = string.Equals(theme.Id, current, System.StringComparison.OrdinalIgnoreCase);
-            bool isCustomColorTheme = string.Equals(theme.Id, "custom", System.StringComparison.OrdinalIgnoreCase);
-            bool isFree = FreeThemeIds.Contains(theme.Id);
-            bool isUnlocked = isFree || UserPreferences.Instance.UnlockedThemeIds.Contains(theme.Id);
+            var preview = AccentThemeService.GetPreview(theme.Id, dark);
 
-            var iconText = new TextBlock
+            var card = new Button
+            {
+                Tag = theme.Id,
+                Width = 250,
+                Margin = new Thickness(0, 0, 10, 10),
+                Padding = new Thickness(0),
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                Background = ThemeBrush("BrushPanel", Brushes.White),
+                BorderBrush = isActive
+                    ? ThemeBrush("BrushAccent", Brushes.Goldenrod)
+                    : ThemeBrush("BrushBorder", Brushes.LightGray),
+                BorderThickness = new Thickness(isActive ? 2 : 1),
+                CornerRadius = new CornerRadius(12),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            };
+
+            var rows = new StackPanel { Spacing = 0 };
+
+            // --- предпросмотр: кусок кассы в миниатюре, цветами этой темы
+            if (preview is { } pv)
+            {
+                var windowBrush = new SolidColorBrush(Color.Parse(pv.Window));
+                var tileBrush = new SolidColorBrush(Color.Parse(pv.Tile));
+                var accentBrush = new SolidColorBrush(Color.Parse(pv.Accent));
+                var textBrush = new SolidColorBrush(Color.Parse(pv.Text));
+
+                var tiles = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                for (var i = 0; i < 3; i++)
+                    tiles.Children.Add(new Border
+                    {
+                        Width = 42,
+                        Height = 30,
+                        Background = tileBrush,
+                        BorderBrush = new SolidColorBrush(Color.Parse(pv.TileBorder)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(4),
+                        Child = new Border
+                        {
+                            Height = 4,
+                            Width = 22,
+                            Margin = new Thickness(6, 0, 0, 6),
+                            HorizontalAlignment = HorizontalAlignment.Left,
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            CornerRadius = new CornerRadius(2),
+                            Background = accentBrush,
+                        },
+                    });
+
+                var payButton = new Border
+                {
+                    Height = 18,
+                    Width = 138,
+                    Margin = new Thickness(0, 8, 0, 0),
+                    CornerRadius = new CornerRadius(4),
+                    Background = accentBrush,
+                };
+
+                rows.Children.Add(new Border
+                {
+                    Background = windowBrush,
+                    Padding = new Thickness(12, 12, 12, 10),
+                    CornerRadius = new CornerRadius(11, 11, 0, 0),
+                    Child = new StackPanel
+                    {
+                        Spacing = 0,
+                        Children =
+                        {
+                            tiles,
+                            payButton,
+                            new TextBlock
+                            {
+                                Text = Tr.T("Каталог и кнопка оплаты", "Каталог жана төлөм баскычы",
+                                            "Catalogue and pay button", "Katalog ve ödeme düğmesi",
+                                            "Katalog va to'lov tugmasi"),
+                                FontSize = 9,
+                                Margin = new Thickness(0, 7, 0, 0),
+                                Foreground = textBrush,
+                                Opacity = 0.65,
+                            },
+                        },
+                    },
+                });
+            }
+
+            // --- название и состояние
+            var titleRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+
+            titleRow.Children.Add(new TextBlock
             {
                 Text = theme.Icon,
-                FontSize = 24,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-            };
+                Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
+            });
 
             var nameText = new TextBlock
             {
@@ -233,142 +271,51 @@ public partial class MarketplaceView : UserControl
                 FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
+                Foreground = ThemeBrush("BrushText", Brushes.Black),
             };
+            Grid.SetColumn(nameText, 1);
+            titleRow.Children.Add(nameText);
 
-            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            headerRow.Children.Add(iconText);
-            headerRow.Children.Add(nameText);
-            if (!isUnlocked)
+            if (isActive)
             {
-                // Платная тема — 1500 сом (см. FreeThemeIds); "Золотая" и "Синяя" бесплатны,
-                // остальные заблокированы до ввода серийного номера (см. BuyThemeButton_Click).
-                headerRow.Children.Add(new Border
+                var badge = new Border
                 {
-                    Background = ThemeBrush("BrushWarningSoft", Brushes.Transparent),
-                    BorderBrush = ThemeBrush("BrushWarning", Brushes.Orange),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(8, 3),
+                    Background = ThemeBrush("BrushAccentSoft", Brushes.LightGoldenrodYellow),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(7, 2),
                     VerticalAlignment = VerticalAlignment.Center,
                     Child = new TextBlock
                     {
-                        Text = "1500 сом",
+                        Text = Tr.T("Выбрана", "Тандалды", "Active", "Seçili", "Tanlangan"),
                         FontSize = 10,
                         FontWeight = FontWeight.SemiBold,
-                        Foreground = ThemeBrush("BrushWarning", Brushes.DarkOrange),
+                        Foreground = ThemeBrush("BrushAccentStrong", Brushes.DarkGoldenrod),
                     },
-                });
+                };
+                Grid.SetColumn(badge, 2);
+                titleRow.Children.Add(badge);
             }
 
             var descText = new TextBlock
             {
                 Text = Tr.T(theme.DescRu, theme.DescKy),
-                FontSize = 12,
-                Opacity = 0.75,
+                FontSize = 11,
                 TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 5, 0, 0),
+                Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
             };
 
-            Control actionControl;
-            if (isActive)
+            rows.Children.Add(new Border
             {
-                var installedBadge = new Border
-                {
-                    Background = ThemeBrush("BrushAccentSoft", Brushes.Transparent),
-                    BorderBrush = ThemeBrush("BrushAccent", Brushes.Gray),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(10, 6),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Child = new TextBlock
-                    {
-                        Text = Tr.T("✓ Установлена", "✓ Орнотулган", "✓ Installed", "✓ Yüklendi", "✓ O'rnatilgan"),
-                        FontSize = 12,
-                        FontWeight = FontWeight.SemiBold,
-                        Foreground = ThemeBrush("BrushAccent", Brushes.Black),
-                    },
-                };
+                Padding = new Thickness(12, 10, 12, 12),
+                Child = new StackPanel { Spacing = 0, Children = { titleRow, descText } },
+            });
 
-                var activeRow = new StackPanel { Orientation = Orientation.Vertical, Spacing = 8 };
-                activeRow.Children.Add(installedBadge);
-
-                // "⚙ Настройка темы" (шрифт/цвет/скруглённость) — платный редактор, см.
-                // ThemeSettingsDialog и marketplace.editorPriceLabel. Бесплатные пресеты его
-                // не получают вообще — кнопка есть только у платной темы "Свой цвет". На всю
-                // ширину карточки и ПОД бейджем (не рядом) — в один ряд рядом с "✓ Установлена"
-                // текст кнопки не помещался в 260px карточки и вылезал за её границу.
-                if (isCustomColorTheme)
-                {
-                    var settingsButton = new Button
-                    {
-                        Classes = { "btn-secondary" },
-                        Content = Tr.T("⚙ Настройка темы", "⚙ Теманы тууралоо", "⚙ Theme settings", "⚙ Tema ayarları", "⚙ Mavzu sozlamalari"),
-                        Height = 32,
-                        Padding = new Thickness(12, 4),
-                        FontSize = 12,
-                        HorizontalAlignment = HorizontalAlignment.Stretch,
-                        HorizontalContentAlignment = HorizontalAlignment.Center,
-                    };
-                    settingsButton.Click += ThemeSettingsButton_Click;
-                    activeRow.Children.Add(settingsButton);
-                }
-
-                actionControl = activeRow;
-            }
-            else if (!isUnlocked)
-            {
-                // Платная тема, ещё не разблокирована — по клику просит серийный номер
-                // (см. BuyThemeButton_Click/TryValidateSerial). Раньше "Свой цвет" тут сразу
-                // открывал редактор — теперь он такая же платная тема, как остальные.
-                var themeLabel = Tr.T(theme.LabelRu, theme.LabelKy);
-                var lockedButton = new Button
-                {
-                    Classes = { "btn-secondary" },
-                    Content = Tr.T("🔒 Купить — 1500 сом", "🔒 Сатып алуу — 1500 сом", "🔒 Buy — 1500 som", "🔒 Satın al — 1500 som", "🔒 Sotib olish — 1500 so'm"),
-                    Height = 32,
-                    Padding = new Thickness(14, 4),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                };
-                lockedButton.Click += (_, _) => BuyThemeButton_Click(theme.Id, themeLabel);
-                actionControl = lockedButton;
-            }
-            else
-            {
-                var installButton = new Button
-                {
-                    Classes = { "btn-primary" },
-                    Content = Tr.T("Установить", "Орнотуу", "Install", "Yükle", "O'rnatish"),
-                    Height = 32,
-                    Padding = new Thickness(14, 4),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Tag = theme.Id,
-                };
-                installButton.Click += ThemeCard_Click;
-                actionControl = installButton;
-            }
-
-            var content = new StackPanel { Spacing = 8 };
-            content.Children.Add(headerRow);
-            content.Children.Add(descText);
-            content.Children.Add(actionControl);
-
-            var card = new Border
-            {
-                Classes = { "SettingsCard" },
-                Padding = new Thickness(14),
-                Width = 260,
-                Margin = new Thickness(0, 0, 10, 10),
-                Child = content,
-            };
-
+            card.Content = rows;
+            card.Click += ThemeCard_Click;
             ThemeGalleryPanel.Items.Add(card);
         }
     }
-
-    private IBrush ThemeBrush(string key, IBrush fallback) =>
-        Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true
-        && value is IBrush brush
-            ? brush
-            : fallback;
 
     private void ThemeCard_Click(object? sender, RoutedEventArgs e)
     {
@@ -377,16 +324,22 @@ public partial class MarketplaceView : UserControl
 
         App.ApplyAccentTheme(themeId);
 
-        // Перерисовываем карточки, чтобы подсветить новую активную тему.
+        // Предпросмотры рисуются под текущий светлый/тёмный вариант, а рамка отмечает
+        // выбранную — после смены темы пересобираем галерею целиком.
         BuildThemeGallery();
-        UpdateGlassOpacityVisibility();
     }
 
-    /// <summary>Проверка серийного номера — офлайн, нет сервера лицензий. 2026-09-07: два вида
-    /// принимаемых ключей — постоянный (свой на каждую фичу, см. LicenseKeys.IsPermanentSerial)
-    /// разблокирует фичу навсегда, единый мастер-ключ (LicenseKeys.MasterTestSerial) разблокирует
-    /// ЛЮБУЮ фичу, но временно — 15 минут, см. LicenseKeys.ExpireIfDue. isPermanent говорит
-    /// вызывающему коду, какой из двух случаев сработал (постоянный флаг vs временное окно).</summary>
+    /// <summary>Кисть из ресурсов приложения — карточки Маркетплейса собираются в коде, а там
+    /// DynamicResource недоступен, поэтому значение берётся напрямую с запасным вариантом.</summary>
+    private IBrush ThemeBrush(string key, IBrush fallback) =>
+        this.TryFindResource(key, out var value) && value is IBrush brush
+            ? brush
+            : fallback;
+
+    /// <summary>Проверка серийного номера — офлайн, нет сервера лицензий. Два вида принимаемых
+    /// ключей: постоянный (свой на каждую функцию, см. LicenseKeys.IsPermanentSerial) открывает
+    /// её навсегда, единый мастер-ключ (LicenseKeys.MasterTestSerial) — любую, но на 15 минут
+    /// (LicenseKeys.ExpireIfDue). isPermanent говорит вызывающему коду, какой случай сработал.</summary>
     private static bool TryValidateSerial(string serial, string featureSlug, out bool isPermanent)
     {
         if (LicenseKeys.IsPermanentSerial(featureSlug, serial))
@@ -397,75 +350,6 @@ public partial class MarketplaceView : UserControl
 
         isPermanent = false;
         return LicenseKeys.IsMasterSerial(serial);
-    }
-
-    private void BuyThemeButton_Click(string themeId, string themeLabel)
-    {
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var serial = SerialActivationDialog.Show(owner, themeLabel);
-        if (serial == null)
-            return; // отменено
-
-        if (!TryValidateSerial(serial, "theme", out var isPermanent))
-        {
-            PosAlertDialog.Show(
-                owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
-                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
-                PosAlertKind.Error);
-            return;
-        }
-
-        var prefs = UserPreferences.Instance;
-        var newlyUnlocked = new System.Collections.Generic.List<string>();
-        foreach (var t in AccentThemeService.AvailableThemes)
-            if (!FreeThemeIds.Contains(t.Id) && !prefs.UnlockedThemeIds.Contains(t.Id))
-            {
-                prefs.UnlockedThemeIds.Add(t.Id);
-                newlyUnlocked.Add(t.Id);
-            }
-
-        if (isPermanent)
-            prefs.SaveToDisk();
-        else
-            LicenseKeys.ActivateMasterThemeAccess(newlyUnlocked);
-
-        PosAlertDialog.Show(
-            owner,
-            Tr.T("Тема разблокирована", "Тема ачылды", "Theme unlocked", "Temanın kilidi açıldı", "Mavzu ochildi"),
-            isPermanent
-                ? Tr.T("Серийный номер принят — все платные темы разблокированы навсегда.", "Серия номери кабыл алынды — бардык акылуу темалар түбөлүккө ачылды.", "Serial number accepted — all paid themes unlocked permanently.", "Seri numarası kabul edildi — tüm ücretli temaların kilidi kalıcı olarak açıldı.", "Seriya raqami qabul qilindi — barcha pullik mavzular butunlay ochildi.")
-                : Tr.T("Серийный номер принят — все платные темы разблокированы на 15 минут (тестовый ключ).", "Серия номери кабыл алынды — бардык акылуу темалар 15 мүнөткö ачылды (тест ачкычы).", "Serial number accepted — all paid themes unlocked for 15 minutes (test key).", "Seri numarası kabul edildi — tüm ücretli temaların kilidi 15 dakikalığına açıldı (test anahtarı).", "Seriya raqami qabul qilindi — barcha pullik mavzular 15 daqiqaga ochildi (test kaliti)."),
-            PosAlertKind.Success);
-
-        if (string.Equals(themeId, "custom", System.StringComparison.OrdinalIgnoreCase))
-        {
-            // "Свой цвет" сама по себе ничего не красит без выбранного цвета — сразу
-            // открываем редактор, чтобы разблокировка не выглядела "ничего не изменилось".
-            OpenThemeSettingsDialog(isCustomColorTheme: true);
-            return;
-        }
-
-        App.ApplyAccentTheme(themeId);
-        BuildThemeGallery();
-        UpdateGlassOpacityVisibility();
-    }
-
-    private void ThemeSettingsButton_Click(object? sender, RoutedEventArgs e) =>
-        // Эта кнопка сейчас появляется только на карточке "Свой цвет" (платный редактор,
-        // см. BuildThemeGallery) — isCustomColorTheme всегда true здесь.
-        OpenThemeSettingsDialog(isCustomColorTheme: true);
-
-    private void OpenThemeSettingsDialog(bool isCustomColorTheme)
-    {
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        if (!ThemeSettingsDialog.Show(owner, isCustomColorTheme))
-            return;
-
-        // Применение (радиус/шрифт всегда; для "Свой цвет" — ещё и AccentTheme/цвет) уже
-        // произошло внутри диалога — здесь только освежаем UI галереи под новое состояние.
-        BuildThemeGallery();
-        UpdateGlassOpacityVisibility();
     }
 
     private Border? _voiceControlCard;

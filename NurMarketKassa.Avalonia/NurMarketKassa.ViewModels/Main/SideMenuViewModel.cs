@@ -1,5 +1,6 @@
 ﻿using System.Windows.Input;
 using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Services;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.ViewModels.Main;
@@ -100,6 +101,34 @@ public sealed class SideMenuViewModel : ViewModelBase
     {
         get => _shiftBalanceText;
         set => SetProperty(ref _shiftBalanceText, value ?? "—");
+    }
+
+    /// <summary>Кто сейчас за кассой. В шапке главного окна этого нет вовсе, а при пересменке
+    /// это первое, что нужно проверить: чек уйдёт на сервер от того, кто здесь записан.</summary>
+    public string CashierName =>
+        string.IsNullOrWhiteSpace(_session.CurrentUserDisplayName)
+            ? "—"
+            : _session.CurrentUserDisplayName!;
+
+    public bool IsShiftOpen => _session.IsShiftOpen;
+
+    public string ShiftStateText => _session.IsShiftOpen
+        ? Tr.T("Смена открыта", "Смена ачык", "Shift open", "Vardiya açık", "Smena ochiq")
+        : Tr.T("Смена закрыта", "Смена жабык", "Shift closed", "Vardiya kapalı", "Smena yopiq");
+
+    public string CashierLabel =>
+        Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir");
+
+    /// <summary>Сессия — обычный объект без уведомлений, поэтому карточку в шапке меню
+    /// обновляет тот же код, что пересчитывает остаток в кассе (MainWindow.UpdateShiftBalanceUi):
+    /// смена открылась, закрылась или кассир сменился — три момента, когда это меняется.</summary>
+    public void RefreshSessionInfo()
+    {
+        OnPropertyChanged(nameof(CashierName));
+        OnPropertyChanged(nameof(IsShiftOpen));
+        OnPropertyChanged(nameof(ShiftStateText));
+        OnPropertyChanged(nameof(CashierLabel));
+        OnPropertyChanged(nameof(CashboxTitle));
     }
 
     public string CashboxTitle =>

@@ -1,4 +1,4 @@
-<Styles xmlns="https://github.com/avaloniaui"
+﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Style Selector="Border.SettingsCard">
@@ -54,10 +54,16 @@
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
   </Style>
 
+  <!-- Подзаголовок страницы переносится по словам и не тянется во всю ширину окна: у
+       «Сотрудников» он в одну строку уходил за 170 символов, а читаемая строка — это
+       примерно 60–80. -->
   <Style Selector="TextBlock.SettingsPageSubtitle">
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     <Setter Property="Margin" Value="0,2,0,0"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="MaxWidth" Value="620"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
   </Style>
 
   <Style Selector="TextBlock.SettingsCardTitle">
@@ -91,7 +97,12 @@
                   Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Margin="0,0,10,0"/>
           <Ellipse x:Name="dot" Width="20" Height="20" Fill="#FFFFFF"
                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"/>
-          <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0"
+          <!-- Content обязательно пробрасывать вручную: у безымянного ContentPresenter
+               в Avalonia нет автоматической привязки, и подписи тумблеров, заданные через
+               Content, не выводились вовсе — например «Применять к экрану кассира» в
+               «Кастомизации» выглядел голым переключателем без единого слова. -->
+          <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}"
+                            VerticalAlignment="Center" Margin="4,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}"/>
         </Grid>
       </ControlTemplate>

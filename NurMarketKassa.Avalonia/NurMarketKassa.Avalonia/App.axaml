@@ -49,6 +49,21 @@
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppControlStyles.axaml"/>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogStyles.axaml"/>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/ShiftHistoryResources.axaml"/>
+    <!-- Шрифт темы. Одного Setter'а на Window мало: FluentTheme задаёт начертание своим
+         шаблонам, и наследование от окна до текста не доходит — тема со своим шрифтом
+         («Терминал») не меняла на экране ничего. Селектор исключает значки: у них своё
+         начертание Segoe MDL2, и без исключения вместо иконок были бы квадраты. Поля ввода и
+         кнопки перечислены отдельно — у них шрифт тоже приходит из шаблона Fluent. -->
+    <Style Selector="TextBlock:not(.mdl2)">
+      <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
+    </Style>
+
     <Style Selector="Window">
       <Setter Property="Icon" Value="avares://NurMarketKassa.Avalonia/Assets/app-icon.ico"/>
       <Setter Property="Background" Value="{DynamicResource BrushWindow}"/>

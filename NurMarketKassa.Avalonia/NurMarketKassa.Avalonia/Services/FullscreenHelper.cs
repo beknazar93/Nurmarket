@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
@@ -19,6 +19,14 @@ public static class FullscreenHelper
         var prefs = UserPreferences.Instance;
         if (!prefs.Fullscreen)
             return;
+
+        // Окна, которые до этого вызвали FitToScreen(), несут потолок «рабочая область минус
+        // поле в 24 px» — он нужен, чтобы окно с фиксированными Width/Height целиком влезало
+        // на компактный моноблок. В полноэкранном режиме этот же потолок не даёт окну занять
+        // экран: оно останавливается на пару десятков пикселей раньше, и по краям — снизу
+        // заметнее всего — просвечивает окно кассы под ним.
+        window.MaxWidth = double.PositiveInfinity;
+        window.MaxHeight = double.PositiveInfinity;
 
         if (prefs.TrueFullscreen)
         {

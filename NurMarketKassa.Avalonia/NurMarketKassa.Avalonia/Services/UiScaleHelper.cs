@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Media;
 using NurMarketKassa.Services;
 
@@ -20,8 +20,15 @@ public static class UiScaleHelper
     public static void Apply(LayoutTransformControl transformRoot, double designWidth, double designHeight)
     {
         var preferred = Math.Clamp(UserPreferences.Instance.UiScalePercent, 50, 200) / 100.0;
-        var autoFit = ComputeAutoFitScale(transformRoot, designWidth, designHeight);
-        var scale = Math.Min(preferred, autoFit);
+
+        // Автоподбор умеет только уменьшать (его потолок — 1.0), и пока он участвовал в выборе
+        // всегда, ползунок выше 100% ничего не делал: min(1.7, 1.0) = 1.0. Автоподбор нужен для
+        // обратного случая — когда макет не влезает на маленький экран терминала. Поэтому он
+        // применяется только к масштабу «как есть или мельче»; увеличение кассир задаёт
+        // осознанно и видит результат сразу, без перезапуска.
+        var scale = preferred > 1.0
+            ? preferred
+            : Math.Min(preferred, ComputeAutoFitScale(transformRoot, designWidth, designHeight));
 
         transformRoot.LayoutTransform = Math.Abs(scale - 1.0) < 0.001
             ? null

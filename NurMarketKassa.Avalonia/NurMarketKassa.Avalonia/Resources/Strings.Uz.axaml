@@ -658,6 +658,7 @@
   <x:String x:Key="marketplace.themesTab">Mavzular</x:String>
   <x:String x:Key="marketplace.extrasTab">Qo'shimcha funksiyalar</x:String>
   <x:String x:Key="marketplace.themeTitle">Mavzu</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">Avvalgi mavzular olib tashlandi — to'plam qaytadan tuzilmoqda. Hozircha kassa yorug' yoki qorong'i rejimda ishlaydi; almashtirgich sarlavhada.</x:String>
   <x:String x:Key="marketplace.themeDesc">Butun dasturda bir vaqtning o'zida urg'u rangini, tugma/karta shaklini va oyna foni o'zgartiradi. Bir bosishda qo'llaniladi.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Suyuq shisha</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">Yoqilgan — kassada yaltiroq yarim shaffof kartalar va xiralik. O'chirilgan — mat, kam shaffof, xiraliksiz kartalar.</x:String>
@@ -673,6 +674,7 @@
   <x:String x:Key="theme.editorSubtitle">O'zgarishlar o'ngda darhol ko'rinadi — butun kassada qo'llash uchun Qo'llash tugmasini bosing</x:String>
   <x:String x:Key="theme.previewLabel">OLDINDAN KO'RISH</x:String>
   <x:String x:Key="marketplace.themeSettingsButton">Mavzu sozlamalari</x:String>
+  <x:String x:Key="marketplace.themeFactoryReset">Zavod sozlamalariga qaytarish</x:String>
   <x:String x:Key="marketplace.fontTitle">Shrift</x:String>
   <x:String x:Key="marketplace.fontSize">O'lcham</x:String>
   <x:String x:Key="marketplace.fontColor">Matn rangi</x:String>

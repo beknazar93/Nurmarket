@@ -150,7 +150,11 @@ public sealed class UserPreferences
     public int AppliedPublishDefaultsVersion { get; set; }
     public DateTime? LastUpdateCheckUtc { get; set; }
     public bool DarkTheme { get; set; } = true;
-    public string AccentTheme { get; set; } = "gold";
+    /// <summary>Выбранная тема оформления (см. AccentThemeService.AvailableThemes). 2026-09-23:
+    /// прежний набор тем снят, значение по умолчанию — "classic", родной вид кассы. Старые
+    /// значения ("gold", "navy", "glass"…) в уже сохранённых настройках не мешают: неизвестный
+    /// id сводится к "classic".</summary>
+    public string AccentTheme { get; set; } = "classic";
 
     /// <summary>Раскладка главного экрана кассы (2026-09-06): "standard" — текущая (каталог +
     /// корзина рядом, resizable), "onec" — альтернативная, в стиле 1С "Рабочее место кассира"

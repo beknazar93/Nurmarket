@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
         x:Class="NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow"
@@ -156,21 +156,24 @@
               <TextBlock Text="{DynamicResource posSettings.navOperations}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
+          <!-- Значки вкладок — глифы Segoe MDL2, как у всех остальных пунктов. Раньше три
+               последние вкладки стояли с цветными эмодзи (🎨 👤 👥): в ровном сером столбце они
+               выглядели случайными наклейками, а в тёмной теме ещё и светились своим цветом. -->
           <Button x:Name="NavCustomization" Classes="SidebarNavItem" Tag="6" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="🎨" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navCustomization}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavAccount" Classes="SidebarNavItem" Tag="7" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="👤" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navAccount}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavEmployees" Classes="SidebarNavItem" Tag="8" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="👥" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navEmployees}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>

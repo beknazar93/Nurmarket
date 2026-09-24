@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Settings"
              xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
@@ -49,19 +49,20 @@
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <!-- Центрирующий контейнер -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+      <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
+           переключении карточки прыгали от края к краю вслед за содержимым. -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
-        <!-- Хедер по центру -->
+        <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
-              <TextBlock Text="🎨" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </Border>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="{DynamicResource posSettings.navCustomization}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.customization.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource posSettings.navCustomization}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
+              <TextBlock Text="{DynamicResource posSettings.customization.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
             </StackPanel>
           </StackPanel>
         </Border>
@@ -96,7 +97,7 @@
                 <StackPanel>
                   <TextBlock Text="{DynamicResource posSettings.customization.applyToCashierTitle}" FontSize="13" FontWeight="SemiBold"/>
                   <TextBlock Text="{DynamicResource posSettings.customization.applyToCashierDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420"/>
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left"/>
                 </StackPanel>
               </CheckBox>
             </StackPanel>

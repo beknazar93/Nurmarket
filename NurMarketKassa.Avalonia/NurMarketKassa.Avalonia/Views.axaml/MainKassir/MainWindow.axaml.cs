@@ -1968,6 +1968,7 @@ public partial class MainWindow : Window
         _viewModel.SideMenu.ShiftBalanceText = _session.IsShiftOpen
             ? ShiftBalanceHelper.FormatBalance(balance)
             : "Смена не открыта";
+        _viewModel.SideMenu.RefreshSessionInfo();
 
         if (_viewModel.Toolbar.Status.ShiftBalanceText != balanceText)
             _viewModel.Toolbar.Status.ShiftBalanceText = balanceText;

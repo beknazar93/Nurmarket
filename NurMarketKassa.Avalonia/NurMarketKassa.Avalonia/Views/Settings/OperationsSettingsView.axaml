@@ -19,7 +19,7 @@
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
 
-      <StackPanel Classes="SettingsCardList" MaxWidth="760" HorizontalAlignment="Center" Margin="0,16">
+      <StackPanel Classes="SettingsCardList" MaxWidth="860" HorizontalAlignment="Stretch" Margin="0,16">
 
         <!-- Шапка -->
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">

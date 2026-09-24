@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.PrintSettingsView"
              x:CompileBindings="False"
@@ -56,26 +56,27 @@
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <!-- Центрирующий контейнер -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+      <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
+           переключении карточки прыгали от края к краю вслед за содержимым. -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
-        <!-- Хедер по центру -->
+        <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
           <StackPanel Spacing="10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
               <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushWarningSoft}"
                       BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
                 <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16"
                            Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="{DynamicResource posSettings.print.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="{DynamicResource posSettings.print.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+                <TextBlock Text="{DynamicResource posSettings.print.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
+                <TextBlock Text="{DynamicResource posSettings.print.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
               </StackPanel>
             </StackPanel>
 
             <!-- Главный переключатель печати -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8" Margin="0,2,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="8" Margin="0,2,0,0">
               <TextBlock Text="{DynamicResource posSettings.print.printAfterPayment}" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
               <CheckBox x:Name="ReceiptEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
             </StackPanel>

@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.MarketplaceView"
              x:CompileBindings="False"
@@ -42,18 +42,18 @@
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="720" HorizontalAlignment="Center">
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
         <!-- Хедер -->
         <Border Classes="SettingsHeaderCard" Padding="12">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
-              <TextBlock Text="🛍️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <TextBlock Text="🛍️" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </Border>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="{DynamicResource posSettings.navMarketplace}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource marketplace.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource posSettings.navMarketplace}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
+              <TextBlock Text="{DynamicResource marketplace.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
             </StackPanel>
           </StackPanel>
         </Border>
@@ -92,13 +92,16 @@
                   Height="38" Padding="16,6" Click="ExtrasTab_Click"/>
         </StackPanel>
 
-        <!-- Темы -->
+        <!-- Темы. Карточки собираются в коде (BuildThemeGallery): у каждой свой живой
+             предпросмотр, нарисованный цветами самой темы, — по описанию словами разницу
+             между шестью оформлениями не передать. -->
         <Border x:Name="ThemesPanel" Classes="SettingsCard" Padding="14">
           <StackPanel Spacing="8">
             <TextBlock Text="{DynamicResource marketplace.themeTitle}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource marketplace.themeDesc}"
-                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-            <ItemsControl x:Name="ThemeGalleryPanel" Margin="0,6,0,0">
+                       Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <ItemsControl x:Name="ThemeGalleryPanel" Margin="0,8,0,0">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <WrapPanel/>
@@ -108,35 +111,6 @@
           </StackPanel>
         </Border>
 
-        <!-- Прозрачность "Жидкого стекла" — видна только пока выбрана эта тема. Шрифт,
-             скруглённость и "Свой цвет" настраиваются в модалке "⚙ Настройка темы" (см.
-             BuildThemeGallery/ThemeSettingsDialog) — стекло осталось отдельной инлайн-карточкой,
-             т.к. это специфичный для этой темы параметр, а не общий для всех тем. -->
-        <Border x:Name="GlassOpacityCard" Classes="SettingsCard" Padding="14" IsVisible="False">
-          <StackPanel Spacing="6">
-            <CheckBox x:Name="LiquidGlassToggle" Classes="ToggleSwitch" Height="48"
-                      Click="LiquidGlassToggle_Click">
-              <StackPanel>
-                <TextBlock Text="{DynamicResource marketplace.liquidGlassToggleTitle}" FontSize="13" FontWeight="SemiBold"/>
-                <TextBlock Text="{DynamicResource marketplace.liquidGlassToggleDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420"/>
-              </StackPanel>
-            </CheckBox>
-
-            <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,4"/>
-
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Text="{DynamicResource marketplace.glassOpacityTitle}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
-              <TextBlock x:Name="GlassOpacityValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
-                         Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-            </Grid>
-            <TextBlock Text="{DynamicResource marketplace.glassOpacityDesc}"
-                       Classes="SettingsCardBody" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-            <Slider x:Name="GlassOpacitySlider" Minimum="0" Maximum="100" TickFrequency="5"
-                    IsSnapToTickEnabled="True" Margin="0,4,0,0"
-                    ValueChanged="GlassOpacitySlider_ValueChanged"/>
-          </StackPanel>
-        </Border>
 
         <!-- Доп. функции -->
         <Border x:Name="ExtrasPanel" Classes="SettingsCard" Padding="14" IsVisible="False">

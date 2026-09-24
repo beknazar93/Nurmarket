@@ -658,6 +658,7 @@
   <x:String x:Key="marketplace.themesTab">Themes</x:String>
   <x:String x:Key="marketplace.extrasTab">Extras</x:String>
   <x:String x:Key="marketplace.themeTitle">Theme</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">The previous themes have been removed — the set is being rebuilt. For now the POS runs in light or dark mode; the switch is in the header.</x:String>
   <x:String x:Key="marketplace.themeDesc">Changes the accent color, button/card shape and window background across the whole app at once. Applies with one click.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Liquid glass</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">On — glossy semi-transparent cards and blur on the till. Off — matte, barely transparent cards without blur.</x:String>
@@ -673,6 +674,7 @@
   <x:String x:Key="theme.editorSubtitle">Changes show up on the right instantly — click Apply to use them across the whole POS</x:String>
   <x:String x:Key="theme.previewLabel">PREVIEW</x:String>
   <x:String x:Key="marketplace.themeSettingsButton">Theme settings</x:String>
+  <x:String x:Key="marketplace.themeFactoryReset">Restore factory settings</x:String>
   <x:String x:Key="marketplace.fontTitle">Font</x:String>
   <x:String x:Key="marketplace.fontSize">Size</x:String>
   <x:String x:Key="marketplace.fontColor">Text color</x:String>

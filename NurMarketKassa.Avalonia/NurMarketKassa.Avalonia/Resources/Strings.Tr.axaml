@@ -658,6 +658,7 @@
   <x:String x:Key="marketplace.themesTab">Temalar</x:String>
   <x:String x:Key="marketplace.extrasTab">Ek özellikler</x:String>
   <x:String x:Key="marketplace.themeTitle">Tema</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">Önceki temalar kaldırıldı — set yeniden hazırlanıyor. Şimdilik kasa açık veya koyu modda çalışır; anahtar başlıkta.</x:String>
   <x:String x:Key="marketplace.themeDesc">Tüm programda aynı anda vurgu rengini, düğme/kart şeklini ve pencere arka planını değiştirir. Tek tıkla uygulanır.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Sıvı cam</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">Açık — kasada parlak yarı saydam kartlar ve bulanıklık. Kapalı — mat, hafif saydam, bulanıklıksız kartlar.</x:String>
@@ -673,6 +674,7 @@
   <x:String x:Key="theme.editorSubtitle">Değişiklikler sağda anında görünür — tüm kasada kullanmak için Uygula'ya tıklayın</x:String>
   <x:String x:Key="theme.previewLabel">ÖNİZLEME</x:String>
   <x:String x:Key="marketplace.themeSettingsButton">Tema ayarları</x:String>
+  <x:String x:Key="marketplace.themeFactoryReset">Fabrika ayarlarına dön</x:String>
   <x:String x:Key="marketplace.fontTitle">Yazı tipi</x:String>
   <x:String x:Key="marketplace.fontSize">Boyut</x:String>
   <x:String x:Key="marketplace.fontColor">Metin rengi</x:String>

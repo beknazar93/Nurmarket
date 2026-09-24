@@ -314,7 +314,7 @@
                                             <Border Background="{DynamicResource BrushCatalogTileBg}"
                                                     BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                                     BorderThickness="1"
-                                                    CornerRadius="12"
+                                                    CornerRadius="{DynamicResource SettingsCardRadius}"
                                                     Padding="14,12"
                                                     ClipToBounds="True"
                                                     Cursor="Hand">

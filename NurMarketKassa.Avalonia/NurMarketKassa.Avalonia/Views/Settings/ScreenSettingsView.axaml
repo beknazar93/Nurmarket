@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScreenSettingsView"
              x:CompileBindings="False"
@@ -52,20 +52,21 @@
 
   <Border Classes="SettingsContentHost" Padding="16">
     <ScrollViewer Classes="SettingsPageScroll">
-      <!-- Центрирующий контейнер -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="680" HorizontalAlignment="Center">
+      <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
+           переключении карточки прыгали от края к краю вслед за содержимым. -->
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
-        <!-- Хедер по центру -->
+        <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
               <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="16"
                          Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="{DynamicResource posSettings.screen.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.screen.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource posSettings.screen.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
+              <TextBlock Text="{DynamicResource posSettings.screen.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
             </StackPanel>
           </StackPanel>
         </Border>
@@ -76,10 +77,12 @@
              для бокового меню кассы. Первая группа открыта по умолчанию, остальные свёрнуты —
              страница перестаёт быть "длинным списком вниз". -->
 
+        <!-- Значки групп — глифы Segoe MDL2. Цветные эмодзи (🖥 ⚡ 🏪 🔍) в ровном списке
+             заголовков светились каждый своим цветом и читались как наклейки. -->
         <StackPanel Spacing="0">
           <ToggleButton x:Name="DisplayGroupToggle" Classes="SettingsGroupHeader" IsChecked="True">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#x1F5A5;" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupDisplay}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #DisplayGroupToggle.IsChecked}"/>
@@ -97,7 +100,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreen}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreenDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="TrueFullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -113,7 +116,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="PerfGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#x26A1;" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupPerformance}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #PerfGroupToggle.IsChecked}"/>
@@ -126,7 +129,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfMode}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfModeDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="LowPerformanceModeCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -135,7 +138,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.voiceControl}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.voiceControlMovedDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <Button Grid.Column="1" x:Name="VoiceControlOpenMarketplaceButton" x:FieldModifier="public" Classes="SecondaryButton"
                         Content="{DynamicResource posSettings.screen.voiceControlOpenMarketplace}"
@@ -151,7 +154,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotos}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotosDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="ShowCatalogPhotosCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -162,7 +165,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="CashierGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#x1F3EA;" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="&#xE719;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupCashierLang}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #CashierGroupToggle.IsChecked}"/>
@@ -185,7 +188,7 @@
               <StackPanel Spacing="6">
                 <TextBlock Text="{DynamicResource posSettings.screen.cashierLanguage}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.appliesImmediately}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="480"/>
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="480" HorizontalAlignment="Left"/>
                 <!-- WrapPanel вместо фиксированной сетки колонок — легко добавлять языки дальше,
                      не переверстывая раскладку (было только 2 языка, теперь 5). -->
                 <WrapPanel Orientation="Horizontal">
@@ -211,7 +214,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="LayoutGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#x1F50D;" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupScaleLayout}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #LayoutGroupToggle.IsChecked}"/>
@@ -227,7 +230,7 @@
                              Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock Text="{DynamicResource posSettings.screen.uiScaleDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 <Slider x:Name="UiScaleSlider" x:FieldModifier="public" Minimum="50" Maximum="200"
                         TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
                         ValueChanged="UiScaleSlider_ValueChanged"/>
@@ -239,7 +242,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="FieldLabel"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360"/>
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 <Grid ColumnDefinitions="*,8,*">
                   <RadioButton Grid.Column="0" x:Name="StandardLayoutRadio" x:FieldModifier="public"
                                Content="{DynamicResource posSettings.screen.layoutStandard}" Classes="ClickPill"
