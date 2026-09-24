@@ -192,7 +192,7 @@
                 </Border>
 
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,14,0,0">
-                    <Button Content="{DynamicResource common.cancel}" Classes="btn-secondary" Click="CancelButton_Click"/>
+                    <Button IsCancel="True" Content="{DynamicResource common.cancel}" Classes="btn-secondary" Click="CancelButton_Click"/>
                     <Button Content="{DynamicResource common.save}" Classes="btn-primary" Click="SaveButton_Click"/>
                 </StackPanel>
             </Grid>

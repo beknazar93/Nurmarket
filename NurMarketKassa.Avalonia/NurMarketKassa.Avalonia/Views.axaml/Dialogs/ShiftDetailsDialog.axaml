@@ -103,9 +103,11 @@
            текст блока "Безналичные" сливался с фоном. BrushDiscountPanelBg/Border — отдельная,
            реально различная в обеих темах синеватая пара; текст — обычный BrushText (гарантированно
            контрастен фону в любой теме, как и остальной текст диалогов).-->
+      <!-- Каждая плитка нажимается и открывает подробный отчёт: чеки с товарами или записи
+           журнала смены (2026-09-24, ShiftDrillDownDialog). -->
       <Grid ColumnDefinitions="*,8,*,8,*,8,*">
         <Border Grid.Column="0" Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
-                CornerRadius="12" Padding="10">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="sales" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="{DynamicResource csh.menu.sales}" FontSize="11" Foreground="{DynamicResource BrushWarning}"/>
             <TextBlock x:Name="SalesCountText" FontSize="16" FontWeight="Bold"
@@ -113,7 +115,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Background="{DynamicResource BrushSuccessSoft}" BorderBrush="{DynamicResource BrushUiStatusOk}" BorderThickness="1"
-                CornerRadius="12" Padding="10">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="cash" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="{DynamicResource common.cash}" FontSize="11" Foreground="{DynamicResource BrushUiStatusOk}"/>
             <TextBlock x:Name="CashText" FontSize="16" FontWeight="Bold"
@@ -121,7 +123,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="4" Background="{DynamicResource BrushDiscountPanelBg}" BorderBrush="{DynamicResource BrushDiscountPanelBorder}" BorderThickness="1"
-                CornerRadius="12" Padding="10">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="card" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" Foreground="{DynamicResource BrushText}"/>
             <TextBlock x:Name="CardText" FontSize="16" FontWeight="Bold"
@@ -129,7 +131,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="6" Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"
-                CornerRadius="12" Padding="10">
+                CornerRadius="12" Padding="10" Cursor="Hand" Tag="debt" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="{DynamicResource common.debt}" FontSize="11" Foreground="{DynamicResource BrushDanger}"/>
             <TextBlock x:Name="DebtText" FontSize="16" FontWeight="Bold"
@@ -143,7 +145,7 @@
            касса ведёт их сама — см. ShiftEventsStore и ShiftSaleAdjustments. -->
       <Grid x:Name="ExtraTotalsRow" ColumnDefinitions="*,8,*,8,*,8,*,8,*" Margin="0,8,0,0">
         <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="returns" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="Возвраты" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ReturnsText" FontSize="15" FontWeight="Bold"
@@ -151,7 +153,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="writeoffs" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="Списания" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="WriteOffsText" FontSize="15" FontWeight="Bold"
@@ -159,7 +161,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="expense" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="Расход" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ExpenseText" FontSize="15" FontWeight="Bold"
@@ -167,7 +169,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="6" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="debtpaid" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="Оплата долгов" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DebtPaidText" FontSize="15" FontWeight="Bold"
@@ -175,7 +177,7 @@
           </StackPanel>
         </Border>
         <Border Grid.Column="8" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1" CornerRadius="12" Padding="10">
+                BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="discounts" PointerReleased="Tile_PointerReleased">
           <StackPanel>
             <TextBlock Text="Скидки" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DiscountsText" FontSize="15" FontWeight="Bold"

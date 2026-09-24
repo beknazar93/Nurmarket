@@ -50,7 +50,7 @@
                 Click="LogoutOnlyButton_Click"/>
 
         <Grid ColumnDefinitions="*,12,*">
-          <Button Grid.Column="0"
+          <Button IsCancel="True" Grid.Column="0"
                   Content="{DynamicResource common.cancel}"
                   Height="46"
                   HorizontalAlignment="Stretch"

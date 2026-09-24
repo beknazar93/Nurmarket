@@ -108,7 +108,7 @@
 
       <!-- Кнопки управления -->
       <Grid Grid.Row="4" ColumnDefinitions="*,12,*">
-        <Button Grid.Column="0"
+        <Button IsCancel="True" Grid.Column="0"
                 Classes="btn-secondary"
                 Content="{DynamicResource common.cancel}"
                 Height="44"

@@ -287,7 +287,7 @@ public partial class MainWindow
         return Task.CompletedTask;
     }
 
-    private void RecordCashWithdrawal(string reason, double amount)
+    private async void RecordCashWithdrawal(string reason, double amount)
     {
         if (string.IsNullOrWhiteSpace(NurMarketKassa.PosApp.ActiveShiftId))
         {
@@ -326,11 +326,21 @@ public partial class MainWindow
 
         // Расходный чек обязателен: по нему деньги, вынутые из ящика, сходятся при
         // пересчёте кассы. Раньше изъятие проходило молча — подтвердить его было нечем.
-        var printError = OperationReceiptPrinter.PrintCashOperation(
-            isWithdrawal: true,
-            op.Amount,
-            reason,
-            NurMarketKassa.PosApp.CurrentUserDisplayName);
+        // Печать — в фоне: медленный принтер не подвешивает кассу (2026-09-25).
+        var cashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
+        string? printError;
+        try
+        {
+            printError = await Task.Run(() => OperationReceiptPrinter.PrintCashOperation(
+                isWithdrawal: true,
+                op.Amount,
+                reason,
+                cashier)).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            printError = ex.Message;
+        }
 
         if (printError is not null)
         {

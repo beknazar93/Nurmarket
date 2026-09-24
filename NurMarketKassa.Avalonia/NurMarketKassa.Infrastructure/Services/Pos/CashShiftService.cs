@@ -532,7 +532,10 @@ public sealed class CashShiftService : ICashShiftService
     {
         try
         {
-            var saleDetail = await _salesApi.PosSaleGetAsync(saleId, cancellationToken).ConfigureAwait(false);
+            // По запросу на каждую долговую продажу смены — в общем темпе массовых загрузок,
+            // чтобы не упереться в ограничение частоты запросов сервера.
+            var saleDetail = await NurMarketKassa.Services.Api.ApiThrottle
+                .RunBulkAsync(() => _salesApi.PosSaleGetAsync(saleId, cancellationToken), cancellationToken).ConfigureAwait(false);
             var dealId = saleDetail.ValueKind == System.Text.Json.JsonValueKind.Object
                 && saleDetail.TryGetProperty("deal_id", out var dealIdEl)
                 && dealIdEl.ValueKind == System.Text.Json.JsonValueKind.String

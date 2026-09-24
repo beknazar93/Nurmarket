@@ -22,6 +22,14 @@ public partial class IrregularReceiptsWindow : Window
     public IrregularReceiptsWindow()
     {
         InitializeComponent();
+        // Esc: сначала всплывающий чек, потом само окно.
+        EscapeKey.Attach(this, () =>
+        {
+            if (!ReceiptDetailsPopup.IsOpen)
+                return false;
+            ReceiptDetailsPopup.IsOpen = false;
+            return true;
+        });
     }
 
     private void Window_Loaded(object? sender, RoutedEventArgs e) => LoadRows();
@@ -173,7 +181,7 @@ public partial class IrregularReceiptsWindow : Window
         }
     }
 
-    private void PrintReceiptAgain_Click(object? sender, RoutedEventArgs e)
+    private async void PrintReceiptAgain_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -197,7 +205,9 @@ public partial class IrregularReceiptsWindow : Window
             lines.Add($"ИТОГО: {total:N2} сом");
             lines.Add("(повторная печать)");
 
-            ReceiptPrintService.PrintReceipt("{}", receiptText: string.Join("\n", lines));
+            // В фоне: медленный принтер не подвешивает окно.
+            var text = string.Join("\n", lines);
+            await System.Threading.Tasks.Task.Run(() => ReceiptPrintService.PrintReceipt("{}", receiptText: text)).ConfigureAwait(true);
             ErrorText.IsVisible = false;
         }
         catch (Exception ex)

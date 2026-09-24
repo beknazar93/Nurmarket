@@ -32,7 +32,7 @@
                 <TextBlock Grid.Column="3" Text="NurCRM — nurcrm.kg" FontSize="14" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="14,0,0,0"
                            Foreground="{DynamicResource BrushTextMuted}"/>
-                <Button Grid.Column="4" Classes="main-ghost" Width="38" Height="38" Padding="0"
+                <Button IsCancel="True" Grid.Column="4" Classes="main-ghost" Width="38" Height="38" Padding="0"
                         ToolTip.Tip="{DynamicResource common.close}" Click="Close_Click">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                 </Button>

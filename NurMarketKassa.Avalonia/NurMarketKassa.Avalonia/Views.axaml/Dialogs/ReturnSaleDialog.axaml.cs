@@ -482,6 +482,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 reason,
                 App.PosCashboxId).ConfigureAwait(true);
 
+            SaleDetailCache.Forget(_currentSaleId);
+
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
             ShiftEventsStore.Record(
@@ -512,17 +514,22 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // Чек возврата обязателен: это выдача денег из кассы, её подтверждают бумагой
             // так же, как продажу. Печатаем после того, как сервер принял возврат — чтобы на
             // руках не оказалось чека по непрошедшей операции.
-            var printError = OperationReceiptPrinter.PrintReturn(
-                _currentReceiptNumber,
-                selected.Select(l => (
-                    Name: l.Title,
-                    Quantity: l.Quantity > 0 ? l.Quantity : 1,
-                    UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
-                    Sum: l.RefundSum)).ToList(),
+            // Печать — в фоне (2026-09-25): медленный или отключённый принтер больше не
+            // подвешивает окно на время записи в порт.
+            var printLines = selected.Select(l => (
+                Name: l.Title,
+                Quantity: l.Quantity > 0 ? l.Quantity : 1,
+                UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
+                Sum: l.RefundSum)).ToList();
+            var printReceiptNumber = _currentReceiptNumber;
+            var printCashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
+            var printError = await Task.Run(() => OperationReceiptPrinter.PrintReturn(
+                printReceiptNumber,
+                printLines,
                 total,
                 reason,
                 isWholeSale: false,
-                NurMarketKassa.PosApp.CurrentUserDisplayName);
+                printCashier)).ConfigureAwait(true);
 
             if (printError is not null)
             {
@@ -675,17 +682,21 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ShiftEventsStore.OperationKey(_currentSaleId),
                 (double)wholeTotal);
 
-            var wholePrintError = OperationReceiptPrinter.PrintReturn(
-                _currentReceiptNumber,
-                Lines.Where(l => l.CanReturn).Select(l => (
-                    Name: l.Title,
-                    Quantity: l.Quantity > 0 ? l.Quantity : 1,
-                    UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
-                    Sum: l.RefundSum)).ToList(),
+            var wholeLines = Lines.Where(l => l.CanReturn).Select(l => (
+                Name: l.Title,
+                Quantity: l.Quantity > 0 ? l.Quantity : 1,
+                UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
+                Sum: l.RefundSum)).ToList();
+            var wholeReceiptNumber = _currentReceiptNumber;
+            var wholeReason = reasonDialog.ReasonText;
+            var wholeCashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
+            var wholePrintError = await Task.Run(() => OperationReceiptPrinter.PrintReturn(
+                wholeReceiptNumber,
+                wholeLines,
                 wholeTotal,
-                reasonDialog.ReasonText,
+                wholeReason,
                 isWholeSale: true,
-                NurMarketKassa.PosApp.CurrentUserDisplayName);
+                wholeCashier)).ConfigureAwait(true);
 
             if (wholePrintError is not null)
             {

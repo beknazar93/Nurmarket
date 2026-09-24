@@ -23,7 +23,7 @@
                  Margin="0,0,0,24"/>
 
       <Grid ColumnDefinitions="*,12,*" Width="300" HorizontalAlignment="Center">
-        <Button Grid.Column="0"
+        <Button IsCancel="True" Grid.Column="0"
                 Content="{DynamicResource common.no}"
                 Height="46"
                 HorizontalAlignment="Stretch"

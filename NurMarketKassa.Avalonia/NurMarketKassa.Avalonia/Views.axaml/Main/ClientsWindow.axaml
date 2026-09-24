@@ -107,6 +107,8 @@
     </Window.Styles>
 
     <Grid Margin="16,12,16,16" x:CompileBindings="False">
+        <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
+        <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>

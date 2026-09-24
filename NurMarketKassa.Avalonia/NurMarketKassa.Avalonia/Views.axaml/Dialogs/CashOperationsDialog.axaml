@@ -61,7 +61,7 @@
                 Cursor="Hand"
                 Click="CloseShift_Click"/>
 
-        <Button Content="{DynamicResource common.close}"
+        <Button IsCancel="True" Content="{DynamicResource common.close}"
                 Height="46"
                 Margin="0,6,0,0"
                 HorizontalAlignment="Stretch"

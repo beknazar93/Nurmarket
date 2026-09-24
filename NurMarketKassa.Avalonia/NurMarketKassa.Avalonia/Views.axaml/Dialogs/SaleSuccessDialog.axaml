@@ -57,7 +57,7 @@
               Cursor="Hand"
               Click="PreviewButton_Click"/>
 
-      <Button Content="{DynamicResource common.close}"
+      <Button IsCancel="True" Content="{DynamicResource common.close}"
               Height="46" Width="280"
               HorizontalAlignment="Center"
               HorizontalContentAlignment="Center"

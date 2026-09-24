@@ -436,7 +436,7 @@
 
             <!-- 3. Кнопки действий -->
             <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
-                <Button Grid.Column="0" Content="{DynamicResource csh.checkout.cancel}"
+                <Button IsCancel="True" Grid.Column="0" Content="{DynamicResource csh.checkout.cancel}"
                         Click="Cancel_Click"
                         Height="48" Width="140"
                         HorizontalContentAlignment="Center"

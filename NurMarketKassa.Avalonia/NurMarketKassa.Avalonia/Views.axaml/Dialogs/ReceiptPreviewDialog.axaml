@@ -34,7 +34,7 @@
     </Border>
 
     <Grid Grid.Row="2" ColumnDefinitions="*,*" Margin="0,16,0,0">
-      <Button Grid.Column="0"
+      <Button IsCancel="True" Grid.Column="0"
               Content="{DynamicResource common.close}"
               Height="46"
               Margin="0,0,6,0"

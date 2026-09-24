@@ -105,7 +105,7 @@
                     <Button x:Name="MinimizeButton" Classes="WindowControlButton" Click="MinimizeButton_Click">
                         <TextBlock Text="🗕" FontSize="12"/>
                     </Button>
-                    <Button x:Name="CloseWindowButton" Classes="WindowControlButton WindowCloseButton" Click="CloseButton_Click">
+                    <Button IsCancel="True" x:Name="CloseWindowButton" Classes="WindowControlButton WindowCloseButton" Click="CloseButton_Click">
                         <TextBlock Text="✕" FontSize="13"/>
                     </Button>
                 </StackPanel>

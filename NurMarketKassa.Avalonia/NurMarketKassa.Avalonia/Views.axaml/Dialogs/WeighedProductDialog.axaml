@@ -128,7 +128,7 @@
                            FontSize="16"
                            FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}"/>
-                <Button Click="Cancel_Click"
+                <Button IsCancel="True" Click="Cancel_Click"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Margin="0,0,12,0"

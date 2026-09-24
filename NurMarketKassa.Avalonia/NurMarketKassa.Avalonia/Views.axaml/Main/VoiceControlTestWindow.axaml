@@ -64,7 +64,7 @@
                 <TextBlock Text="Проверка голосового управления" FontSize="20" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
             </StackPanel>
-            <Button Grid.Column="1" Content="Закрыть" Classes="SecondaryButton" Click="Close_Click"/>
+            <Button IsCancel="True" Grid.Column="1" Content="Закрыть" Classes="SecondaryButton" Click="Close_Click"/>
         </Grid>
 
         <!-- Всё остальное — раньше не помещалось на маленьком экране/окне и низ (Живой поток)

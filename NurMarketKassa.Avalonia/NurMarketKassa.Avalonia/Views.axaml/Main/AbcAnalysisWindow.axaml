@@ -47,6 +47,8 @@
     </Window.Styles>
 
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
+        <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
             <StackPanel Grid.Column="0">
@@ -61,7 +63,7 @@
                 <Button x:Name="ExcelButton" Content="Excel" Classes="period" Click="ExportExcel_Click"/>
                 <Button x:Name="WordButton" Content="Word" Classes="period" Click="ExportWord_Click"/>
                 <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
-                <Button x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 

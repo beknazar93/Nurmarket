@@ -370,6 +370,8 @@
 
     <!-- Main content -->
     <Grid Margin="0">
+        <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
+        <ProgressBar IsVisible="{Binding IsLoading}" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
         <!-- Основной контент (занимает всё окно) -->
         <Grid x:Name="MainContent">
             <Grid Margin="16" Background="{DynamicResource BrushPanel}">

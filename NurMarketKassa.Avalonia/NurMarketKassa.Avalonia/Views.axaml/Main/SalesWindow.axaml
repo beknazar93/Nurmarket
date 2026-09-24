@@ -124,6 +124,8 @@
             <RowDefinition Height="*" />    <!-- 4: таблица + доп. контент (растягивается) -->
             <RowDefinition Height="Auto" /> <!-- 5: ошибка -->
         </Grid.RowDefinitions>
+        <!-- Полоска загрузки, пока данные идут с сервера (2026-09-25, просьба владельца). -->
+        <ProgressBar Grid.Row="0" Margin="0,-10,0,0" IsVisible="{Binding IsLoading}" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
 
         <!-- 0: Заголовок -->
         <Grid Grid.Row="0" Margin="0,0,0,16">

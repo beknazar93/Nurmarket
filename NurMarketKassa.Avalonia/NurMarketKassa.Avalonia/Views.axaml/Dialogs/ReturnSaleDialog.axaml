@@ -233,7 +233,7 @@
           <Button Content="{DynamicResource common.windowedMode}" Classes="btn-secondary"
                   Height="42" MinWidth="120"
                   Click="ToggleFullscreen_Click"/>
-          <Button Content="{DynamicResource common.close}" Classes="btn-secondary"
+          <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary"
                   Height="42" MinWidth="120"
                   Click="Close_Click"/>
         </StackPanel>

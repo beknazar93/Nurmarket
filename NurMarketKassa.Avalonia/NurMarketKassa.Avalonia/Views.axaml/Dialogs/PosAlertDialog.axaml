@@ -31,9 +31,9 @@
       </ScrollViewer>
 
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-        <Button x:Name="OkButton"
+        <Button IsCancel="True" x:Name="OkButton"
                 Content="{DynamicResource common.gotIt}"
-                Height="46" Width="180"
+                Height="46" Width="165"
                 HorizontalContentAlignment="Center"
                 VerticalContentAlignment="Center"
                 Background="{DynamicResource BrushAccent}"
@@ -42,9 +42,10 @@
                 CornerRadius="10"
                 Cursor="Hand"
                 Click="OkButton_Click"/>
+        <!-- Надпись переносится на вторую строку: по-кыргызски «Катаны кийинкиге калтыруу» в одну
+             строку не помещалась и обрезалась (2026-09-25). -->
         <Button x:Name="DeferButton"
-                Content="{DynamicResource dialog.deferError}"
-                Height="46" Width="180"
+                Height="46" Width="165" Padding="8,0"
                 IsVisible="False"
                 HorizontalContentAlignment="Center"
                 VerticalContentAlignment="Center"
@@ -55,7 +56,10 @@
                 FontWeight="SemiBold"
                 CornerRadius="10"
                 Cursor="Hand"
-                Click="DeferButton_Click"/>
+                Click="DeferButton_Click">
+          <TextBlock Text="{DynamicResource dialog.deferError}" TextWrapping="Wrap" TextAlignment="Center"
+                     LineHeight="17" VerticalAlignment="Center"/>
+        </Button>
       </StackPanel>
     </StackPanel>
   </Border>

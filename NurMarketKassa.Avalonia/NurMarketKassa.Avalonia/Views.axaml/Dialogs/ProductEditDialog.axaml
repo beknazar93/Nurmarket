@@ -123,7 +123,7 @@
                         ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}" Margin="0,0,6,0">
                     <TextBlock Text="&#xE92F;" FontFamily="Segoe MDL2 Assets, Segoe UI Symbol, sans-serif" FontSize="14"/>
                 </Button>
-                <Button Grid.Column="2" Classes="WindowControlButton" Click="CloseButton_Click">
+                <Button IsCancel="True" Grid.Column="2" Classes="WindowControlButton" Click="CloseButton_Click">
                     <TextBlock Text="✕" FontSize="13"/>
                 </Button>
             </Grid>

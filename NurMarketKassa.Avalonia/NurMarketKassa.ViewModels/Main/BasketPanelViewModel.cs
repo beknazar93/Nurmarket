@@ -194,6 +194,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// поправляет локальное состояние/тулбар той же логикой, что и обычное закрытие смены.</summary>
     public event EventHandler? ShiftDesyncDetected;
 
+    /// <summary>Оплата прошла (на UI-потоке). Окно кассы по нему подтягивает остаток смены.</summary>
+    public event EventHandler? CheckoutSucceeded;
+
     public ObservableCollection<CartLineItemVm> Lines { get; } = new();
     public ObservableCollection<ReceiptTabVm> ReceiptTabs { get; } = new();
 
@@ -1001,6 +1004,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışverişiniz için teşekkürler!", "Xaridingiz uchun rahmat!"));
                 SyncLinesFromCart();
                 UpdateCartTotals();
+                CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм жергиликтүү сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov mahalliy saqlandi.")
                     : result.InfoMessage ?? Tr.T("Оплата выполнена. Новый чек открыт.", "Төлөм аткарылды. Жаңы чек ачылды.", "Payment completed. A new receipt has been opened.", "Ödeme tamamlandı. Yeni fiş açıldı.", "To'lov amalga oshirildi. Yangi chek ochildi.");

@@ -81,7 +81,7 @@
     <Grid Grid.Row="2" ColumnDefinitions="*,Auto,12,Auto" Margin="0,20,0,0">
       <TextBlock Text="{DynamicResource qrCrop.resultNote}"
                  VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
-      <Button Grid.Column="1" Content="{DynamicResource common.cancel}" Classes="SettingsFlatButton"
+      <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.cancel}" Classes="SettingsFlatButton"
               MinWidth="120" Click="Cancel_Click"/>
       <Button Grid.Column="3" Content="{DynamicResource qrCrop.saveButton}" Classes="btn-primary"
               MinWidth="190" Click="Save_Click"/>

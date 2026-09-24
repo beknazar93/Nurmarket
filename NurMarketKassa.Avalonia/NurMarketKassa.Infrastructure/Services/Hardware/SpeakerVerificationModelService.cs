@@ -14,7 +14,12 @@ namespace NurMarketKassa.Services.Hardware;
 public static class SpeakerVerificationModelService
 {
     private const string FileName = "wespeaker_en_voxceleb_resnet34_LM.onnx";
-    private const string DownloadUrl = "https://github.com/beknazar93/Nurmarket/releases/download/v1.16.1/voice-lock-model.zip";
+    // 2026-09-25: раньше модель лежала архивом в нашем выпуске v1.16.1 на GitHub; выпуск удалён,
+    // и скачивание падало с 404 («Не удалось скачать модуль голосового замка»). Теперь файл
+    // берётся напрямую у первоисточника — выпуск моделей sherpa-onnx (так у них и называется,
+    // с опечаткой «recongition»), он не зависит от чистки наших выпусков.
+    private const string DownloadUrl =
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx";
     public const int ApproxSizeMb = 27;
 
     private static string ModelDir => Path.Combine(AppContext.BaseDirectory, "VoiceLockModel");
@@ -35,7 +40,7 @@ public static class SpeakerVerificationModelService
 
     public static async Task<bool> DownloadAndInstallAsync(IProgress<double>? progress, CancellationToken ct = default)
     {
-        var zipPath = Path.Combine(Path.GetTempPath(), $"nmk-voice-lock-model-{Guid.NewGuid():N}.zip");
+        var tempPath = Path.Combine(ModelDir, $"{FileName}.{Guid.NewGuid():N}.part");
         try
         {
             Directory.CreateDirectory(ModelDir);
@@ -49,7 +54,7 @@ public static class SpeakerVerificationModelService
                 var totalBytes = response.Content.Headers.ContentLength ?? -1L;
                 await using var httpStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 await using var fileStream = new FileStream(
-                    zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+                    tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
 
                 var buffer = new byte[81920];
                 long readTotal = 0;
@@ -63,8 +68,11 @@ public static class SpeakerVerificationModelService
                 }
             }
 
+            if (new FileInfo(tempPath).Length < 1_000_000)
+                throw new InvalidDataException("Скачанный файл модели слишком мал — вероятно, это страница ошибки, а не модель.");
+
             progress?.Report(99.5);
-            ZipFile.ExtractToDirectory(zipPath, ModelDir, overwriteFiles: true);
+            File.Move(tempPath, ModelPath, overwrite: true);
             progress?.Report(100);
 
             PosLogger.Log("Модель голосового замка скачана и установлена.", "VOICE_LOCK");
@@ -79,8 +87,8 @@ public static class SpeakerVerificationModelService
         {
             try
             {
-                if (File.Exists(zipPath))
-                    File.Delete(zipPath);
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
             }
             catch (Exception ex)
             {

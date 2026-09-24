@@ -121,7 +121,7 @@
                         Margin="0,0,10,0" Click="Backfill_Click"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
                         Margin="0,0,10,0" Click="Refresh_Click"/>
-                <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+                <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
             </StackPanel>
         </Grid>
 

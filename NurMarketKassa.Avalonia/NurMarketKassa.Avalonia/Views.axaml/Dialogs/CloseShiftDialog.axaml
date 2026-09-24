@@ -91,7 +91,7 @@
 
             <!-- Кнопки с примененными классами стилей -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-                <Button Content="{DynamicResource common.cancel}"
+                <Button IsCancel="True" Content="{DynamicResource common.cancel}"
                         Classes="btn-secondary"
                         Width="110" Height="40"
                         Click="Cancel_Click"/>

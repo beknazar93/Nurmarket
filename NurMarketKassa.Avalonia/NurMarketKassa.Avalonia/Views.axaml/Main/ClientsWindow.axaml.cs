@@ -62,6 +62,14 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         _clientsApi = clientsApi;
         InitializeComponent();
         DataContext = this;
+        // Esc: сначала карточка клиента, потом само окно.
+        EscapeKey.Attach(this, () =>
+        {
+            if (SelectedClient is null)
+                return false;
+            SelectedClient = null;
+            return true;
+        });
 
         UpdateCardButtonStates();
         UpdateAddButtonState();
@@ -406,6 +414,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         _loadCts = cts;
 
         _isLoading = true;
+        LoadingBar.IsVisible = true;
         if (RefreshButton != null)
             RefreshButton.IsEnabled = false;
         ErrorMessage = "";
@@ -441,6 +450,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         finally
         {
             _isLoading = false;
+            LoadingBar.IsVisible = false;
             if (RefreshButton != null)
                 RefreshButton.IsEnabled = true;
         }

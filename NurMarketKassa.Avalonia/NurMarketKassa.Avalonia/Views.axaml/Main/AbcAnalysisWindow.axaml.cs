@@ -185,6 +185,7 @@ public partial class AbcAnalysisWindow : Window
         var cts = new CancellationTokenSource();
         _cts = cts;
 
+        LoadingBar.IsVisible = true;
         try
         {
             ShowError(null);
@@ -213,7 +214,10 @@ public partial class AbcAnalysisWindow : Window
         finally
         {
             if (ReferenceEquals(_cts, cts))
+            {
                 _cts = null;
+                LoadingBar.IsVisible = false;
+            }
             cts.Dispose();
         }
     }

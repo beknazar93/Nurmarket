@@ -130,7 +130,7 @@ public static class SalesHistoryBackfill
             await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                var detail = await App.SalesApi.PosSaleGetAsync(item.SaleId, ct).ConfigureAwait(false);
+                var detail = await SaleDetailCache.GetAsync(item.SaleId, ct).ConfigureAwait(false);
                 return (item.SaleId, item.CreatedAt, Detail: (JsonElement?)detail);
             }
             catch (Exception ex)
@@ -237,7 +237,9 @@ public static class SalesHistoryBackfill
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var sale = await App.SalesApi.PosSaleGetAsync(saleId, ct).ConfigureAwait(false);
+                    // Свежий статус, не из кэша отчётов, но в общем темпе массовых загрузок.
+                    var sale = await NurMarketKassa.Services.Api.ApiThrottle
+                        .RunBulkAsync(() => App.SalesApi.PosSaleGetAsync(saleId, ct), ct).ConfigureAwait(false);
                     var status = sale.TryGetProperty("status", out var st) ? st.GetString() : null;
                     if (string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase))
                         gone.Add(saleId);

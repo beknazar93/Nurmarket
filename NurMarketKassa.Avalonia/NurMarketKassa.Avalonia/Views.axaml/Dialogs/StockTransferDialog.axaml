@@ -43,7 +43,7 @@
           <TextBlock x:Name="CreatedText" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource BrushTextSoft}"/>
         </StackPanel>
-        <Button Grid.Column="1" Classes="SecondaryButton"
+        <Button IsCancel="True" Grid.Column="1" Classes="SecondaryButton"
                 Content="{DynamicResource common.close}" Click="Close_Click"/>
       </Grid>
 

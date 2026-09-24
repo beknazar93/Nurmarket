@@ -108,8 +108,10 @@ public static class App
 
     public static void SyncFromSession(IAppSession session)
     {
+        var sameUser = string.Equals(PosApp.CurrentUserId, session.CurrentUserId, StringComparison.OrdinalIgnoreCase);
         PosApp.CurrentUserId = session.CurrentUserId;
-        PosApp.CurrentUserDisplayName = session.CurrentUserDisplayName;
+        if (!sameUser || !string.IsNullOrWhiteSpace(session.CurrentUserDisplayName))
+            PosApp.CurrentUserDisplayName = session.CurrentUserDisplayName;
         PosApp.ActiveShiftId = session.ActiveShiftId;
         PosApp.PosCashboxDisplayName = session.PosCashboxDisplayName;
         PosApp.IsOfflineBootstrap = session.IsOfflineBootstrap;
@@ -126,8 +128,12 @@ public static class App
 
     public static void SyncToSession(IAppSession session)
     {
+        // Пустое имя не затирает известное имя того же кассира (баг «Кассир —»): другой кассир
+        // появляется только через новый вход, и там имя приходит заново.
+        var sameUser = string.Equals(session.CurrentUserId, PosApp.CurrentUserId, StringComparison.OrdinalIgnoreCase);
         session.CurrentUserId = PosApp.CurrentUserId;
-        session.CurrentUserDisplayName = PosApp.CurrentUserDisplayName;
+        if (!sameUser || !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName))
+            session.CurrentUserDisplayName = PosApp.CurrentUserDisplayName;
         session.ActiveShiftId = PosApp.ActiveShiftId;
         session.PosCashboxDisplayName = PosApp.PosCashboxDisplayName;
         session.IsOfflineBootstrap = PosApp.IsOfflineBootstrap;

@@ -54,6 +54,9 @@ public partial class WarehouseWindow : Window
         InitializeComponent();
         this.FitToScreen();
         DataContext = _viewModel;
+        // Esc закрывает склад, но не молча выбрасывает набранные строки приёмки и ревизии:
+        // они живут только в этом окне и после закрытия пропадут.
+        EscapeKey.Attach(this, closeWindow: CloseByEscape);
         _viewModel.RevisionLineAdded += OnRevisionLineAdded;
         InitializeWriteOffReasonPicker();
         WarehouseTabs.SelectionChanged += WarehouseTabs_SelectionChanged;
@@ -1194,6 +1197,32 @@ public partial class WarehouseWindow : Window
     }
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close();
+
+    private void CloseByEscape()
+    {
+        var receiving = _viewModel.ReceivingLines.Count;
+        var revision = _viewModel.RevisionLines.Count;
+        if (receiving + revision > 0)
+        {
+            var parts = new List<string>();
+            if (receiving > 0)
+                parts.Add(Tr.T($"приёмка — {receiving}", $"кабыл алуу — {receiving}", $"receiving — {receiving}", $"kabul — {receiving}", $"qabul — {receiving}"));
+            if (revision > 0)
+                parts.Add(Tr.T($"ревизия — {revision}", $"ревизия — {revision}", $"stocktake — {revision}", $"sayım — {revision}", $"reviziya — {revision}"));
+            var close = PosConfirmDialog.Show(
+                this,
+                Tr.T("Закрыть склад?", "Кампаны жабуу керекпи?", "Close the warehouse?", "Depo kapatılsın mı?", "Omborni yopasizmi?"),
+                Tr.T("Есть непроведённые строки: ", "Өткөрүлө элек саптар бар: ", "There are unposted lines: ", "Kaydedilmemiş satırlar var: ", "O'tkazilmagan qatorlar bor: ")
+                    + string.Join(", ", parts)
+                    + Tr.T(". После закрытия они пропадут.", ". Жабылгандан кийин алар жоголот.", ". They will be lost after closing.", ". Kapatınca kaybolacaklar.", ". Yopilgandan keyin ular yo'qoladi."),
+                confirmText: Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"),
+                cancelText: Tr.T("Остаться", "Калуу", "Stay", "Kal", "Qolish"));
+            if (!close)
+                return;
+        }
+
+        Close();
+    }
 
     private void ExpandWriteOffHistory_Click(object? sender, RoutedEventArgs e) =>
         WriteOffHistoryWindow.Open(this);

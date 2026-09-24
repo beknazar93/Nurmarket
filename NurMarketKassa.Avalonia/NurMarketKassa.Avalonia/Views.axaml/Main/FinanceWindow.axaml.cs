@@ -99,6 +99,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public FinanceWindow()
         {
             InitializeComponent();
+            // Esc: всплывающий чек → меню → подраздел (Смены/Товары/заглушка) → выход из окна.
+            EscapeKey.Attach(this, () =>
+            {
+                if (ReceiptDetailsPopup.IsOpen)
+                    ReceiptDetailsPopup.IsOpen = false;
+                else if (_isHamburgerOpen)
+                    CloseHamburgerMenu();
+                else if (ShiftsPanel.IsVisible || ProductsAnalyticsPanel.IsVisible || UnderConstructionPanel.IsVisible)
+                {
+                    ShiftsPanel.IsVisible = false;
+                    ProductsAnalyticsPanel.IsVisible = false;
+                    UnderConstructionPanel.IsVisible = false;
+                    MainContent.IsVisible = true;
+                }
+                else
+                    return false;
+                return true;
+            }, () => Exit_Click(this, new RoutedEventArgs()));
             _currentUserId = App.CurrentUserId;
 
             _salesViewSource.Source = _sales;
@@ -927,7 +945,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 try
                 {
                     token.ThrowIfCancellationRequested();
-                    var json = await App.SalesApi.PosSaleGetAsync(sale.Id, token);
+                    var json = await SaleDetailCache.GetAsync(sale.Id, token);
                     var lineFacts = new List<SaleLineFact>();
                     // парсим элементы чека
                     if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)

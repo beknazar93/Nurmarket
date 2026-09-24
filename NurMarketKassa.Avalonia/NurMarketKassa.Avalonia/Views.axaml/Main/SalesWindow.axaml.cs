@@ -64,6 +64,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public SalesWindow()
         {
             InitializeComponent();
+            // Esc: сначала всплывающий чек, потом само окно.
+            EscapeKey.Attach(this, () =>
+            {
+                if (!ReceiptDetailsPopup.IsOpen)
+                    return false;
+                ReceiptDetailsPopup.IsOpen = false;
+                return true;
+            });
             _salesViewSource.Source = _sales;
             _salesViewSource.Filter += FilterSales;
             DataContext = this;
@@ -729,13 +737,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             using var gate = new SemaphoreSlim(8);
 
+            // Один снимок каталога на весь проход: раньше на КАЖДУЮ строку КАЖДОГО чека товар
+            // искался перебором всего каталога (то же исправление, что уже сделано в «Финансах»).
+            var catalogById = new Dictionary<string, NurMarketKassa.Models.Pos.CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in CatalogCacheService.Products)
+            {
+                if (!string.IsNullOrEmpty(p.Id))
+                    catalogById[p.Id] = p;
+            }
+
             async Task<(decimal revenue, decimal cost, List<(string name, decimal total, int qty)> lines)> FetchOneAsync(SaleItem sale)
             {
                 await gate.WaitAsync(token);
                 try
                 {
                     token.ThrowIfCancellationRequested();
-                    var json = await App.SalesApi.PosSaleGetAsync(sale.Id, CancellationToken.None);
+                    var json = await SaleDetailCache.GetAsync(sale.Id, token);
                     var lines = new List<(string, decimal, int)>();
                     decimal revenue = 0m, cost = 0m;
                     if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
@@ -754,9 +771,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                             revenue += total;
                             var productId = CartDisplayHelper.TryProductId(line);
-                            var product = !string.IsNullOrEmpty(productId)
-                                ? CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase))
-                                : null;
+                            NurMarketKassa.Models.Pos.CatalogProductTileVm? product = null;
+                            if (!string.IsNullOrEmpty(productId))
+                                catalogById.TryGetValue(productId, out product);
                             if (product != null && product.PurchasePrice > 0)
                                 cost += (decimal)product.PurchasePrice * qty;
 
@@ -964,7 +981,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
         }
 
-        private void PrintReceiptAgain_Click(object sender, RoutedEventArgs e)
+        private async void PrintReceiptAgain_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -977,7 +994,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ReadSaleTotal(_currentReceiptJson),
                     isReprint: true);
 
-                ReceiptPrintService.PrintReceipt("{}", receiptText: reprintText);
+                // В фоне: медленный принтер не подвешивает окно.
+                await Task.Run(() => ReceiptPrintService.PrintReceipt("{}", receiptText: reprintText)).ConfigureAwait(true);
                 ErrorMessage = "";
             }
             catch (Exception ex)

@@ -35,7 +35,7 @@
 
       <!-- Панель из двух кнопок -->
       <Grid x:Name="TwoButtonRow" ColumnDefinitions="*,12,*">
-        <Button x:Name="CancelButton"
+        <Button IsCancel="True" x:Name="CancelButton"
                 Grid.Column="0"
                 Content="{DynamicResource common.cancel}"
                 Height="46"

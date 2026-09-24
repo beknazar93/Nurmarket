@@ -32,7 +32,7 @@
                    TextAlignment="Center"/>
       </ScrollViewer>
 
-      <Button Content="{DynamicResource common.gotIt}"
+      <Button IsCancel="True" Content="{DynamicResource common.gotIt}"
               Height="46" Width="240"
               HorizontalAlignment="Center"
               HorizontalContentAlignment="Center"

@@ -58,7 +58,7 @@
 
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="20,14,16,4">
                 <TextBlock Grid.Column="0" Text="{DynamicResource product.selectBundleItems}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <Button Grid.Column="1" Classes="WindowControlButton" Click="Close_Click">
+                <Button IsCancel="True" Grid.Column="1" Classes="WindowControlButton" Click="Close_Click">
                     <TextBlock Text="✕" FontSize="13"/>
                 </Button>
             </Grid>

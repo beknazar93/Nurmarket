@@ -85,7 +85,7 @@
         <Grid Grid.Row="6" ColumnDefinitions="Auto,*" Margin="0,16,0,0">
             <Button Grid.Column="0" Content="{DynamicResource labelPrint.editTemplate}" Classes="btn-secondary" Click="EditTemplateButton_Click"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                <Button Content="{DynamicResource common.close}" Classes="btn-secondary" Click="CloseButton_Click"/>
+                <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary" Click="CloseButton_Click"/>
                 <Button Content="{DynamicResource labelPrint.printButton}" Classes="btn-primary" Click="PrintButton_Click"
                         IsEnabled="{Binding HasBarcode}" IsVisible="{Binding !IsBusy}"/>
                 <Button Content="{DynamicResource labelPrint.printing}" Classes="btn-primary" IsVisible="{Binding IsBusy}" IsEnabled="False"/>

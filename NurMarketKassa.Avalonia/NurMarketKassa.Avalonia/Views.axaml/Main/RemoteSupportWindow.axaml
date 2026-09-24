@@ -82,7 +82,7 @@
         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
             <Button x:Name="DownloadButton" Content="{DynamicResource remoteSupport.downloadButton}"
                     Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click"/>
-            <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
         </StackPanel>
     </Grid>
 </Window>

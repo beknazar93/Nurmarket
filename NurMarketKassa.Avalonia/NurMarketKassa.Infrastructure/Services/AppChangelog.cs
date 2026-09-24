@@ -33,6 +33,14 @@ public static class AppChangelog
         "Новая карточка товара на складе сама подставляет название из общей базы товаров NurCRM по штрихкоду и сразу предупреждает, если такой штрихкод уже есть на складе",
         "Обновления выходят сначала как тестовые: касса клиента на «Проверить обновления» отвечает, что новая версия в тестировании и обновиться можно будет после его завершения. Тестировщики включают тестовый канал кодом в «Настройки → Обновления»",
         "Окно подтверждения отката больше не уходит за край экрана: описание версии прокручивается, вопрос и кнопки всегда видны",
+        "В отчёте закрытой смены нажимается каждая плитка: «Продажи», «Наличные», «Безналичные», «Долг», «Возвраты», «Списания», «Расход», «Оплата долгов», «Скидки». Открывается подробный отчёт: чеки с товарами, время, способ оплаты и итог",
+        "Работает Esc: закрывает окна и диалоги так же, как их кнопка «Закрыть» или «Отмена». В «Финансах», «Продажах» и «Клиентах» он сначала закрывает открытый чек или карточку, на главном экране закрывает меню и возвращает из поиска к сканеру. Если на складе остались непроведённые строки, касса сначала переспросит",
+        "Касса больше не упирается в ограничение сервера на частоту запросов. «Финансы» и «Продажи» загружают чеки спокойнее и не скачивают уже загруженные повторно. Если сервер просит подождать, касса ждёт и повторяет запрос сама: оплата не падает с ошибкой «Запрос был проигнорирован»",
+        "Остаток кассы в шапке и в меню обновляется после каждой оплаты, а не только при запуске",
+        "Исправлено: в меню и в «Аккаунте» пропадало имя кассира (показывалось «Кассир —»)",
+        "Пока загружаются «Финансы», «Продажи», «Клиенты», ABC-анализ и отчёт смены, видна полоска загрузки",
+        "Чеки возврата и изъятия, а также повторная печать чека печатаются в фоне: медленный принтер больше не подвешивает кассу",
+        "Модуль голосового замка снова скачивается. В окне ошибки длинная надпись на кнопке больше не обрезается",
     ];
 
     public static readonly string[] LatestKy =
@@ -57,6 +65,14 @@ public static class AppChangelog
         "Жаңы товар карточкасы штрихкод боюнча NurCRM жалпы базасынан атын өзү коёт",
         "Жаңыртуулар адегенде тесттик болуп чыгат: кардарга версия текшерүүдө экени айтылат, тестерлер код менен алышат",
         "Кайтууну ырастоо терезеси экрандан чыкпайт",
+        "Жабылган сменанын отчётунда ар бир плитка басылат: «Сатуулар», «Накталай», «Накталай эмес», «Карыз», «Кайтаруулар», «Эсептен чыгаруулар», «Чыгаша», «Карыз төлөө», «Арзандатуулар». Толук отчёт ачылат: товарлары менен чектер, убакыт, төлөм ыкмасы жана жыйынтык",
+        "Esc иштейт: терезелерди жана диалогдорду алардын «Жабуу» же «Жокко чыгаруу» баскычы сыяктуу жабат. «Финансы», «Сатуулар» жана «Кардарлар» бөлүмүндө адегенде ачык чекти же карточканы жабат, башкы экранда менюну жабат жана издөөдөн сканерге кайтарат. Кампада өткөрүлө элек саптар калса, касса адегенде сурайт",
+        "Касса сервердин суроо-талаптардын жыштыгына болгон чегине такалбайт. «Финансы» жана «Сатуулар» чектерди жайыраак жүктөп, жүктөлгөндөрүн кайра жүктөбөйт. Сервер күтүүнү сураса, касса күтүп, суроону өзү кайталайт: төлөм «Суроо четке кагылды» катасы менен токтобойт",
+        "Шапкадагы жана менюдагы кассанын калдыгы ар бир төлөмдөн кийин жаңыланат, ишке киргенде гана эмес",
+        "Оңдолду: менюда жана «Аккаунтта» кассирдин аты жоголуп калчу («Кассир —»)",
+        "«Финансы», «Сатуулар», «Кардарлар», ABC-анализ жана смена отчёту жүктөлүп жатканда жүктөө тилкеси көрүнөт",
+        "Кайтаруу жана алып чыгуу чектери, ошондой эле чекти кайра басып чыгаруу фондо жүрөт: жай принтер кассаны токтотпойт",
+        "Үн кулпусунун модулу кайра жүктөлөт. Ката терезесиндеги баскычтын узун жазуусу кесилбейт",
     ];
 
     public static readonly string[] LatestEn =
@@ -81,6 +97,14 @@ public static class AppChangelog
         "A new product card fills in the name from the NurCRM shared product base by barcode",
         "Updates are released as test versions first: customers are told the version is under testing, testers get it with a code",
         "The rollback confirmation no longer runs off the screen",
+        "Every tile in a closed shift report can now be clicked: Sales, Cash, Non-cash, Debt, Returns, Write-offs, Expenses, Debt payments, Discounts. It opens a detailed report with receipts and their items, time, payment method and the total",
+        "Esc now works: it closes windows and dialogs the same way their Close or Cancel button does. In Finance, Sales and Clients it first closes the open receipt or card; on the main screen it closes the menu and returns from search to the scanner. If the warehouse has unposted lines, the POS asks first",
+        "The POS no longer runs into the server's request rate limit. Finance and Sales load receipts more gently and do not download already loaded ones again. When the server asks to wait, the POS waits and retries on its own, so payment no longer fails with \"Request was throttled\"",
+        "The cash balance in the header and menu updates after every payment, not only at startup",
+        "Fixed: the cashier name disappeared from the menu and the Account page (it showed \"Cashier —\")",
+        "A loading bar is shown while Finance, Sales, Clients, ABC analysis and the shift report are loading",
+        "Return and withdrawal receipts and receipt reprints are printed in the background, so a slow printer no longer freezes the POS",
+        "The voice lock module downloads again. A long button label in the error window is no longer cut off",
     ];
 
     public static readonly string[] LatestTr =
@@ -105,6 +129,14 @@ public static class AppChangelog
         "Yeni ürün kartı barkoda göre NurCRM ortak tabanından adı doldurur",
         "Güncellemeler önce test sürümü olarak çıkar: müşteriye sürümün testte olduğu söylenir, test edenler kodla alır",
         "Geri dönüş onay penceresi artık ekrandan taşmıyor",
+        "Kapanan vardiya raporundaki her kutucuğa tıklanabilir: Satışlar, Nakit, Nakit dışı, Borç, İadeler, Zayiatlar, Gider, Borç ödemeleri, İndirimler. Fişler ve ürünleri, saat, ödeme yöntemi ve toplamla ayrıntılı rapor açılır",
+        "Esc çalışıyor: pencereleri ve diyalogları Kapat veya İptal düğmesi gibi kapatır. Finans, Satışlar ve Müşteriler'de önce açık fişi veya kartı kapatır; ana ekranda menüyü kapatır ve aramadan tarayıcıya döndürür. Depoda kaydedilmemiş satırlar varsa kasa önce sorar",
+        "Kasa artık sunucunun istek sıklığı sınırına takılmıyor. Finans ve Satışlar fişleri daha sakin yükler ve yüklenmiş olanları tekrar indirmez. Sunucu beklemeyi isterse kasa bekler ve isteği kendisi tekrarlar: ödeme \"İstek yok sayıldı\" hatasıyla durmaz",
+        "Başlıktaki ve menüdeki kasa bakiyesi yalnızca açılışta değil, her ödemeden sonra güncellenir",
+        "Düzeltildi: kasiyer adı menüden ve Hesap sayfasından kayboluyordu (\"Kasiyer —\" görünüyordu)",
+        "Finans, Satışlar, Müşteriler, ABC analizi ve vardiya raporu yüklenirken yükleme çubuğu görünür",
+        "İade ve çekim fişleri ile fişin yeniden yazdırılması arka planda yapılır: yavaş yazıcı artık kasayı dondurmaz",
+        "Ses kilidi modülü yeniden indiriliyor. Hata penceresindeki uzun düğme yazısı artık kesilmiyor",
     ];
 
     public static readonly string[] LatestUz =
@@ -129,6 +161,14 @@ public static class AppChangelog
         "Yangi mahsulot kartasi shtrix-kod bo'yicha NurCRM umumiy bazasidan nomni to'ldiradi",
         "Yangilanishlar avval test versiyasi sifatida chiqadi: mijozga versiya sinovda ekani aytiladi, sinovchilar uni kod bilan oladi",
         "Qaytishni tasdiqlash oynasi endi ekrandan chiqib ketmaydi",
+        "Yopilgan smena hisobotidagi har bir plitka bosiladi: Sotuvlar, Naqd, Naqdsiz, Qarz, Qaytarishlar, Hisobdan chiqarishlar, Xarajat, Qarz to'lovlari, Chegirmalar. Mahsulotlari bilan cheklar, vaqt, to'lov usuli va jami ko'rsatilgan batafsil hisobot ochiladi",
+        "Esc ishlaydi: oynalar va dialoglarni ularning Yopish yoki Bekor qilish tugmasi kabi yopadi. Moliya, Sotuvlar va Mijozlarda avval ochiq chek yoki kartani yopadi; asosiy ekranda menyuni yopadi va qidiruvdan skanerga qaytaradi. Omborda o'tkazilmagan qatorlar qolsa, kassa avval so'raydi",
+        "Kassa endi serverning so'rovlar chastotasi chegarasiga urilmaydi. Moliya va Sotuvlar cheklarni sekinroq yuklaydi va yuklanganlarini qayta yuklamaydi. Server kutishni so'rasa, kassa kutadi va so'rovni o'zi takrorlaydi: to'lov \"So'rov rad etildi\" xatosi bilan to'xtamaydi",
+        "Sarlavha va menyudagi kassa qoldig'i faqat ishga tushganda emas, har bir to'lovdan keyin yangilanadi",
+        "Tuzatildi: menyu va Hisob sahifasida kassir ismi yo'qolib qolardi (\"Kassir —\" ko'rinardi)",
+        "Moliya, Sotuvlar, Mijozlar, ABC tahlili va smena hisoboti yuklanayotganda yuklash chizig'i ko'rinadi",
+        "Qaytarish va chiqim cheklari hamda chekni qayta chop etish fonda bajariladi: sekin printer endi kassani qotirmaydi",
+        "Ovozli qulf moduli yana yuklab olinadi. Xato oynasidagi uzun tugma yozuvi endi kesilmaydi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

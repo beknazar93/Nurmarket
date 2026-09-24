@@ -1428,6 +1428,75 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>Записи одного вида за смену — для подробного отчёта по плитке смены.</summary>
+    public List<(DateTime CreatedAt, double Amount, string? Note)> ListShiftEvents(string shiftId, string kind)
+    {
+        var list = new List<(DateTime, double, string?)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT created_at, amount, note FROM ShiftEvents WHERE shift_id = $shift AND kind = $kind ORDER BY created_at;";
+            command.Parameters.AddWithValue("$shift", shiftId);
+            command.Parameters.AddWithValue("$kind", kind);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var at = DateTime.TryParse(reader.GetString(0), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                    ? parsed
+                    : DateTime.MinValue;
+                list.Add((at, reader.GetDouble(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ShiftEvents list read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return list;
+    }
+
+    /// <summary>Строки продаж по номерам продаж — товары чеков для подробного отчёта смены.</summary>
+    public Dictionary<string, List<(string ProductName, double Quantity, double UnitPrice)>> LoadSoldLinesBySaleIds(IReadOnlyCollection<string> saleIds)
+    {
+        var result = new Dictionary<string, List<(string, double, double)>>(StringComparer.OrdinalIgnoreCase);
+        if (saleIds.Count == 0)
+            return result;
+
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            foreach (var saleId in saleIds)
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT product_name, quantity, unit_price FROM SoldLineItems WHERE sale_id = $id" + OwnRowsClause() + ";";
+                command.Parameters.AddWithValue("$id", saleId);
+                using var reader = command.ExecuteReader();
+                var lines = new List<(string, double, double)>();
+                while (reader.Read())
+                    lines.Add((reader.GetString(0), reader.GetDouble(1), reader.GetDouble(2)));
+                if (lines.Count > 0)
+                    result[saleId] = lines;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"SoldLineItems by sale read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
+    }
+
     public Dictionary<string, double> GetShiftEventTotals(string shiftId) =>
         QueryShiftEventTotals("WHERE shift_id = $shift", ("$shift", shiftId));
 

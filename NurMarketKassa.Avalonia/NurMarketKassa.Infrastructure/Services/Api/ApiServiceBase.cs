@@ -92,6 +92,15 @@ public abstract class ApiServiceBase
                 throw new ApiException(AuthInvalidHintRu, 401);
             }
 
+            if ((int)resp.StatusCode == 429)
+            {
+                // Отказ из-за частоты запросов — не «нет сети»: HttpRequestException из
+                // EnsureSuccessStatusCode выглядел бы для вызывающих как обрыв связи.
+                var body = await resp.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+                ApiThrottle.ReportThrottled(resp, body);
+                throw new ApiException(ApiErrorParser.Parse(resp, body), 429, TryParse(body));
+            }
+
             resp.EnsureSuccessStatusCode();
 
             using var stream = await resp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
@@ -122,7 +131,7 @@ public abstract class ApiServiceBase
         await Session.HttpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
         try
         {
-            return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: true, linked.Token)
+            return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: true, linked.Token, retryThrottle: true)
                 .ConfigureAwait(false);
         }
         finally
@@ -137,7 +146,8 @@ public abstract class ApiServiceBase
         object? jsonBody,
         IReadOnlyDictionary<string, string>? query,
         bool retryRefresh,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool retryThrottle = false)
     {
         relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
         var uri = BuildUri(relativePath, query);
@@ -155,12 +165,25 @@ public abstract class ApiServiceBase
         if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && retryRefresh && !string.IsNullOrEmpty(Session.RefreshToken))
         {
             if (await RefreshAccessUnlockedAsync(ct).ConfigureAwait(false))
-                return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: false, ct).ConfigureAwait(false);
+                return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: false, ct, retryThrottle).ConfigureAwait(false);
             Session.Clear();
         }
         else if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(Session.RefreshToken))
         {
             Session.Clear();
+        }
+
+        if ((int)resp.StatusCode == 429)
+        {
+            // Сервер отклонил запрос ДО обработки (ограничение частоты), поэтому повторить его,
+            // в том числе POST, безопасно. Один повтор после паузы, которую сервер назвал сам,
+            // вместо ошибки оплаты «Запрос был проигнорирован».
+            var wait = ApiThrottle.ReportThrottled(resp, text);
+            if (retryThrottle && wait <= TimeSpan.FromSeconds(15))
+            {
+                await Task.Delay(wait, ct).ConfigureAwait(false);
+                return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh, ct, retryThrottle: false).ConfigureAwait(false);
+            }
         }
 
         if (!resp.IsSuccessStatusCode)

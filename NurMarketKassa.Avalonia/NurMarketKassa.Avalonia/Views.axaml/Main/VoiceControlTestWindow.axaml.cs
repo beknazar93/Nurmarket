@@ -434,7 +434,8 @@ public partial class VoiceControlTestWindow : Window
     {
         VoiceLockDownloadButton.IsEnabled = false;
         VoiceLockProgress.IsVisible = true;
-        VoiceLockStatusText.Text = "Скачивание модуля голосового замка…";
+        VoiceLockStatusText.Text = Tr.T("Скачивание модуля голосового замка…", "Үн кулпусунун модулу жүктөлүүдө…",
+            "Downloading the voice lock module…", "Ses kilidi modülü indiriliyor…", "Ovozli qulf moduli yuklab olinmoqda…");
 
         var ok = await SpeakerVerificationModelService.DownloadAndInstallAsync(progress: null).ConfigureAwait(true);
 
@@ -444,8 +445,12 @@ public partial class VoiceControlTestWindow : Window
         if (!ok)
         {
             PosMessageBox.Show(this,
-                "Не удалось скачать модуль голосового замка. Проверьте интернет-соединение и попробуйте снова.",
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Tr.T("Не удалось скачать модуль голосового замка. Проверьте интернет-соединение и попробуйте снова.",
+                    "Үн кулпусунун модулун жүктөп алуу мүмкүн болгон жок. Интернетти текшерип, кайра аракет кылыңыз.",
+                    "Could not download the voice lock module. Check the internet connection and try again.",
+                    "Ses kilidi modülü indirilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.",
+                    "Ovozli qulf modulini yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring."),
+                Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         RefreshVoiceLockUi();

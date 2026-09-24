@@ -106,9 +106,9 @@ public sealed class SideMenuViewModel : ViewModelBase
     /// <summary>Кто сейчас за кассой. В шапке главного окна этого нет вовсе, а при пересменке
     /// это первое, что нужно проверить: чек уйдёт на сервер от того, кто здесь записан.</summary>
     public string CashierName =>
-        string.IsNullOrWhiteSpace(_session.CurrentUserDisplayName)
-            ? "—"
-            : _session.CurrentUserDisplayName!;
+        !string.IsNullOrWhiteSpace(_session.CurrentUserDisplayName) ? _session.CurrentUserDisplayName!
+        : !string.IsNullOrWhiteSpace(PosApp.CurrentUserDisplayName) ? PosApp.CurrentUserDisplayName!
+        : "—";
 
     public bool IsShiftOpen => _session.IsShiftOpen;
 

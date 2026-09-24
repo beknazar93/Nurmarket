@@ -125,6 +125,7 @@ public partial class MainWindow : Window
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
+        _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
 
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -681,6 +682,23 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Esc на кассе (2026-09-24): закрывает боковое меню, а из поля поиска или ввода кода
+        // возвращает к сканеру (поиск при этом очищается). Чек Esc не трогает.
+        if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None)
+        {
+            e.Handled = true;
+            if (_viewModel.IsSideMenuOpen)
+            {
+                _viewModel.CloseSideMenu();
+                return;
+            }
+
+            if (FocusManager?.GetFocusedElement() is TextBox { Name: "ProductSearchBox" } search)
+                search.Text = "";
+            RestoreScannerFocus();
+            return;
+        }
+
         if (FocusManager?.GetFocusedElement() is TextBox)
             return;
 
@@ -1045,6 +1063,52 @@ public partial class MainWindow : Window
     /// Остаток кассы с учётом локальных внесений/изъятий текущей смены,
     /// которых нет в балансе с сервера/офлайн-состояния.
     /// </summary>
+    private DispatcherTimer? _balanceRefreshTimer;
+
+    /// <summary>2026-09-25, живой случай: за смену прошло 10 продаж на 112 255 сом, а в шапке и
+    /// в меню «Касса: 0.00 сом» — остаток смены спрашивался у сервера только при запуске.
+    /// Теперь после оплаты он подтягивается в фоне; несколько продаж подряд дают один запрос
+    /// (таймер перезапускается), оплату это не задерживает.</summary>
+    private void OnCheckoutSucceeded(object? sender, EventArgs e)
+    {
+        if (_balanceRefreshTimer == null)
+        {
+            _balanceRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _balanceRefreshTimer.Tick += async (_, _) =>
+            {
+                _balanceRefreshTimer.Stop();
+                await RefreshShiftBalanceQuietAsync().ConfigureAwait(true);
+            };
+        }
+
+        _balanceRefreshTimer.Stop();
+        _balanceRefreshTimer.Start();
+    }
+
+    private async Task RefreshShiftBalanceQuietAsync()
+    {
+        if (!_session.IsShiftOpen
+            || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
+            return;
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+            var list = await App.ShiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cts.Token).ConfigureAwait(true);
+            if (ShiftBalanceHelper.FindOpenShiftBalance(list, App.PosCashboxId) is not { } balance)
+                return;
+
+            _shiftCashBalance = balance;
+            _shiftTotals = ShiftBalanceHelper.FindOpenShiftTotals(list, App.PosCashboxId) ?? _shiftTotals;
+            UpdateShiftBalanceUi();
+        }
+        catch (Exception ex) when (!_windowCts.IsCancellationRequested)
+        {
+            PosLogger.Log($"Остаток смены после оплаты не обновлён: {ex.Message}", "DEBUG");
+        }
+    }
+
     private decimal? EffectiveShiftCashBalance
     {
         get

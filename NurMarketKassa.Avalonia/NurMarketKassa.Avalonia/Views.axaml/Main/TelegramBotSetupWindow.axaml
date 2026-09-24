@@ -113,7 +113,7 @@
     </ScrollViewer>
 
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,14,0,0">
-      <Button Classes="Primary" Content="Готово" Click="Close_Click"/>
+      <Button IsCancel="True" Classes="Primary" Content="Готово" Click="Close_Click"/>
     </StackPanel>
   </Grid>
 </Window>

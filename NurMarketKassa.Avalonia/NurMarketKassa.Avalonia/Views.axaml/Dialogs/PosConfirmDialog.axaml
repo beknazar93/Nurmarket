@@ -29,7 +29,7 @@
                    Foreground="{DynamicResource BrushTextSoft}"/>
       </ScrollViewer>
       <Grid ColumnDefinitions="*,12,*">
-        <Button x:Name="CancelButton"
+        <Button IsCancel="True" x:Name="CancelButton"
                 Grid.Column="0"
                 Content="{DynamicResource common.no}"
                 Height="46"

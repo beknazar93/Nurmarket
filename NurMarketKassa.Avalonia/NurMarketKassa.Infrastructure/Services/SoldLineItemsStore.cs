@@ -29,6 +29,10 @@ public static class SoldLineItemsStore
     /// <summary>Продажи, которые уже есть в локальной истории.</summary>
     public static HashSet<string> KnownSaleIds() => Db.LoadKnownSaleIds();
 
+    /// <summary>Товары чеков по номерам продаж.</summary>
+    public static Dictionary<string, List<(string ProductName, double Quantity, double UnitPrice)>> LinesBySale(IReadOnlyCollection<string> saleIds) =>
+        Db.LoadSoldLinesBySaleIds(saleIds);
+
     /// <summary>Продажи локальной истории за промежуток.</summary>
     public static HashSet<string> KnownSaleIdsBetween(DateTime sinceUtc, DateTime untilUtc) =>
         Db.LoadKnownSaleIdsBetween(sinceUtc, untilUtc);

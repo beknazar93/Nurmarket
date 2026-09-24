@@ -123,7 +123,7 @@
                         Cursor="Hand"
                         Click="Clear_Click"/>
 
-                <Button Grid.Column="2" Content="{DynamicResource common.cancel}"
+                <Button IsCancel="True" Grid.Column="2" Content="{DynamicResource common.cancel}"
                         Height="44"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"

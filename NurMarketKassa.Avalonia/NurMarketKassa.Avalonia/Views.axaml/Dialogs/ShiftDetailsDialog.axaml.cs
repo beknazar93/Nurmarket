@@ -151,6 +151,14 @@ public partial class ShiftDetailsDialog : Window
             ? brush
             : fallback;
 
+    private void Tile_PointerReleased(object? sender, Avalonia.Input.PointerReleasedEventArgs e)
+    {
+        if (_shift is null || sender is not Control { Tag: string kind })
+            return;
+
+        PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind), this);
+    }
+
     private void Close_Click(object? sender, RoutedEventArgs e)
     {
         DialogResult = false;

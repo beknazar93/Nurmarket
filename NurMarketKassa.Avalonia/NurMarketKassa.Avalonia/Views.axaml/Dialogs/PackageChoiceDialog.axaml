@@ -69,7 +69,7 @@
             <StackPanel Spacing="4">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock x:Name="HeaderTitleText" Grid.Column="0" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
-                    <Button Grid.Column="1" Classes="btn-light" Width="32" Height="32" Padding="0"
+                    <Button IsCancel="True" Grid.Column="1" Classes="btn-light" Width="32" Height="32" Padding="0"
                             Content="✕" FontSize="14" Click="Cancel_Click"/>
                 </Grid>
                 <TextBlock x:Name="StockText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>

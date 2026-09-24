@@ -33,7 +33,7 @@
                 <TextBlock Grid.Column="0" Text="{DynamicResource posSettings.navMarketplace}"
                            FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
                            VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Content="{DynamicResource common.close}"
+                <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}"
                         Classes="btn-secondary" Click="Close_Click"/>
             </Grid>
         </Border>

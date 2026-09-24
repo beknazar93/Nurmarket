@@ -67,6 +67,12 @@ public static class ShiftEventsStore
             ? new Dictionary<string, double>(StringComparer.Ordinal)
             : Db.GetShiftEventTotals(shiftId!);
 
+    /// <summary>Записи одного вида за смену — подробный отчёт по плитке смены.</summary>
+    public static List<(DateTime CreatedAt, double Amount, string? Note)> ListForShift(string? shiftId, string kind) =>
+        string.IsNullOrWhiteSpace(shiftId)
+            ? new List<(DateTime, double, string?)>()
+            : Db.ListShiftEvents(shiftId!, kind);
+
     /// <summary>Суммы по видам событий за период (UTC) — для аналитики продаж.</summary>
     public static Dictionary<string, double> TotalsBetween(DateTime fromUtc, DateTime toUtc) =>
         Db.GetShiftEventTotalsBetween(fromUtc, toUtc);

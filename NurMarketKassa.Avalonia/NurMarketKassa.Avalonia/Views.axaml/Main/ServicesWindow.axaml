@@ -16,7 +16,7 @@
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="0,0,0,4">
-                <Button Content="✕" HorizontalAlignment="Left" Background="Transparent"
+                <Button IsCancel="True" Content="✕" HorizontalAlignment="Left" Background="Transparent"
                         BorderThickness="0" FontSize="20" Click="CloseButton_Click"/>
                 <TextBlock Text="{DynamicResource services.title}" FontSize="28" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}" HorizontalAlignment="Center"/>
