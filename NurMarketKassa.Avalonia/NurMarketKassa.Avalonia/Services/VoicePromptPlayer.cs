@@ -47,6 +47,10 @@ public static class VoicePromptPlayer
     /// <summary>Папка, куда владелец может положить свои записи (см. комментарий к классу).</summary>
     public static string OverrideDirectory => OverrideDir;
 
+    /// <summary>Прослушать фразу на выбранном языке («ru»/«ky») — своя запись, если есть,
+    /// иначе встроенная (карточка «Озвучка своим голосом», CustomVoicePrompts).</summary>
+    public static void PlayPrompt(string key, string lang) => Play($"{key}_{lang}.wav");
+
     private static void PlayByLanguage(string ruFileName, string kyFileName) =>
         Play(UserPreferences.Instance.Language == AppLanguage.Kyrgyz ? kyFileName : ruFileName);
 

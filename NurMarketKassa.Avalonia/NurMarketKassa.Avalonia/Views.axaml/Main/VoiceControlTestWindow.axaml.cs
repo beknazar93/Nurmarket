@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models.Pos;
@@ -67,6 +68,19 @@ public partial class VoiceControlTestWindow : Window
         // класса) — нужен и в выпадающем списке, и в самом текстовом поле после выбора.
         NewAliasProductBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<CatalogProductTileVm>(
             (p, _) => new TextBlock { Text = p?.Title ?? "" });
+
+        _promptLang = UserPreferences.Instance.Language == AppLanguage.Kyrgyz ? "ky" : "ru";
+        PromptLangRu.IsChecked = _promptLang == "ru";
+        PromptLangKy.IsChecked = _promptLang == "ky";
+        CustomPromptsTitle.Text = Tr.T("Озвучка своим голосом", "Өз үнүңүз менен үндөө", "Your own voice for prompts",
+            "Kendi sesinizle seslendirme", "O'z ovozingiz bilan ovozlashtirish");
+        CustomPromptsHint.Text = Tr.T(
+            "Касса произносит эти фразы вашим голосом — с вашей интонацией и тоном. Запишите фразу с микрофона (нажмите «Записать», скажите, нажмите «Стоп») или загрузите готовый файл WAV/MP3. Тишина по краям обрезается сама. Записывайте свой голос или голос человека, который на это согласен.",
+            "Касса бул сөздөрдү сиздин үнүңүз менен — сиздин интонацияңыз жана обонуңуз менен айтат. Сөз айкашын микрофондон жазыңыз («Жазуу» басып, айтып, «Токтотуу» басыңыз) же даяр WAV/MP3 файлын жүктөңүз. Четтердеги тынчтык өзү кесилет. Өз үнүңүздү же макул болгон адамдын үнүн жазыңыз.",
+            "The POS says these phrases in your voice, with your intonation and tone. Record a phrase from the microphone (press Record, speak, press Stop) or upload a WAV/MP3 file. Silence at the edges is trimmed automatically. Record your own voice or the voice of someone who agrees to it.",
+            "Kasa bu cümleleri sizin sesinizle, tonlamanız ve tonunuzla söyler. Cümleyi mikrofondan kaydedin (Kaydet'e basın, söyleyin, Durdur'a basın) veya hazır bir WAV/MP3 dosyası yükleyin. Kenarlardaki sessizlik otomatik kesilir. Kendi sesinizi veya buna razı olan birinin sesini kaydedin.",
+            "Kassa bu iboralarni sizning ovozingiz, ohangingiz va tembringiz bilan aytadi. Iborani mikrofondan yozing (Yozish'ni bosing, ayting, To'xtatish'ni bosing) yoki tayyor WAV/MP3 faylini yuklang. Chetlardagi sukunat avtomatik kesiladi. O'z ovozingizni yoki bunga rozi bo'lgan odamning ovozini yozing.");
+        RefreshCustomPrompts();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -77,6 +91,189 @@ public partial class VoiceControlTestWindow : Window
             _voiceControl.CommandRecognized -= OnCommandRecognized;
         }
         _statusTimer?.Stop();
+        StopPromptRecordingSilently();
+    }
+
+    // ── Озвучка своим голосом ──────────────────────────────────────────────────────────
+
+    private string _promptLang = "ru";
+    private CustomVoicePrompts.Recorder? _promptRecorder;
+    private string? _recordingKey;
+    private bool _voiceWasListening;
+
+    private void PromptLang_Click(object? sender, RoutedEventArgs e)
+    {
+        _promptLang = PromptLangKy.IsChecked == true ? "ky" : "ru";
+        RefreshCustomPrompts();
+    }
+
+    private void RefreshCustomPrompts()
+    {
+        CustomPromptsPanel.Children.Clear();
+        var recording = _promptRecorder != null;
+        foreach (var prompt in CustomVoicePrompts.All)
+        {
+            var own = CustomVoicePrompts.HasCustom(prompt.Key, _promptLang);
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto") };
+
+            var text = new StackPanel { Spacing = 2, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            text.Children.Add(new TextBlock { Text = prompt.Text(_promptLang), FontSize = 13, Foreground = ThemeBrush("BrushText"), TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(new TextBlock
+            {
+                Text = own
+                    ? Tr.T("своя запись", "өз жазууңуз", "your recording", "kendi kaydınız", "o'z yozuvingiz")
+                    : Tr.T("стандартная", "стандарттуу", "standard", "standart", "standart"),
+                FontSize = 11,
+                Foreground = own ? ThemeBrush("BrushAccent") : ThemeBrush("BrushTextSoft"),
+            });
+            row.Children.Add(text);
+
+            Button MakeButton(string content, int column, bool primary, Action onClick, bool enabled = true)
+            {
+                var button = new Button
+                {
+                    Content = content,
+                    Classes = { primary ? "PrimaryButton" : "SecondaryButton" },
+                    IsEnabled = enabled,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    Margin = new Avalonia.Thickness(6, 0, 0, 0),
+                };
+                button.Click += (_, _) => onClick();
+                Grid.SetColumn(button, column);
+                row.Children.Add(button);
+                return button;
+            }
+
+            var key = prompt.Key;
+            var isThisRecording = recording && _recordingKey == key;
+            MakeButton("▶", 1, false, () => VoicePromptPlayer.PlayPrompt(key, _promptLang), !recording);
+            MakeButton(
+                isThisRecording
+                    ? Tr.T("■ Стоп", "■ Токтотуу", "■ Stop", "■ Durdur", "■ To'xtatish")
+                    : Tr.T("● Записать", "● Жазуу", "● Record", "● Kaydet", "● Yozish"),
+                2, true, () => _ = TogglePromptRecordingAsync(key), !recording || isThisRecording);
+            MakeButton(Tr.T("Файл…", "Файл…", "File…", "Dosya…", "Fayl…"), 3, false, () => _ = ImportPromptAsync(key), !recording);
+            MakeButton(Tr.T("Стандартная", "Стандарттуу", "Standard", "Standart", "Standart"), 4, false, () =>
+            {
+                CustomVoicePrompts.Reset(key, _promptLang);
+                CustomPromptsStatus.Text = Tr.T("Возвращена стандартная фраза.", "Стандарттуу сөз айкашы кайтарылды.",
+                    "The standard phrase is back.", "Standart cümle geri geldi.", "Standart ibora qaytarildi.");
+                RefreshCustomPrompts();
+            }, !recording && own);
+
+            CustomPromptsPanel.Children.Add(row);
+        }
+    }
+
+    private async Task TogglePromptRecordingAsync(string key)
+    {
+        if (_promptRecorder == null)
+        {
+            try
+            {
+                // Микрофон занят прослушиванием команд — на время записи оно останавливается.
+                _voiceWasListening = _voiceControl?.IsListening == true;
+                if (_voiceWasListening)
+                    _voiceControl!.Stop();
+
+                _promptRecorder = new CustomVoicePrompts.Recorder();
+                _recordingKey = key;
+                _promptRecorder.Start();
+                CustomPromptsStatus.Text = Tr.T("Идёт запись — скажите фразу и нажмите «Стоп».",
+                    "Жазылууда — сөз айкашын айтып, «Токтотуу» басыңыз.", "Recording - say the phrase and press Stop.",
+                    "Kaydediliyor - cümleyi söyleyin ve Durdur'a basın.", "Yozilmoqda - iborani ayting va To'xtatish'ni bosing.");
+            }
+            catch (Exception ex)
+            {
+                StopPromptRecordingSilently();
+                CustomPromptsStatus.Text = Tr.T("Микрофон не открылся: ", "Микрофон ачылган жок: ", "Could not open the microphone: ",
+                    "Mikrofon açılamadı: ", "Mikrofon ochilmadi: ") + ex.Message;
+            }
+
+            RefreshCustomPrompts();
+            return;
+        }
+
+        var recorder = _promptRecorder;
+        _promptRecorder = null;
+        _recordingKey = null;
+        try
+        {
+            await recorder.StopAndSaveAsync(key, _promptLang).ConfigureAwait(true);
+            CustomPromptsStatus.Text = Tr.T("Записано. Нажмите ▶, чтобы послушать.", "Жазылды. Угуу үчүн ▶ басыңыз.",
+                "Recorded. Press ▶ to listen.", "Kaydedildi. Dinlemek için ▶ basın.", "Yozildi. Tinglash uchun ▶ ni bosing.");
+            VoicePromptPlayer.PlayPrompt(key, _promptLang);
+        }
+        catch (Exception ex)
+        {
+            CustomPromptsStatus.Text = ex.Message;
+            PosLogger.Log($"Своя озвучка не записана: {ex}", "VOICE_PROMPT");
+        }
+        finally
+        {
+            recorder.Dispose();
+            ResumeVoiceControl();
+            RefreshCustomPrompts();
+        }
+    }
+
+    private async Task ImportPromptAsync(string key)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = Tr.T("Файл с голосом", "Үн файлы", "Voice file", "Ses dosyası", "Ovoz fayli"),
+            FileTypeFilter =
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType(Tr.T("Аудио", "Аудио", "Audio", "Ses", "Audio"))
+                {
+                    Patterns = ["*.wav", "*.mp3", "*.m4a", "*.aac", "*.wma"],
+                },
+            ],
+        }).ConfigureAwait(true);
+        var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        try
+        {
+            CustomPromptsStatus.Text = Tr.T("Обработка файла…", "Файл иштетилүүдө…", "Processing the file…", "Dosya işleniyor…", "Fayl ishlanmoqda…");
+            await CustomVoicePrompts.ImportAsync(path, key, _promptLang).ConfigureAwait(true);
+            CustomPromptsStatus.Text = Tr.T("Файл загружен. Нажмите ▶, чтобы послушать.", "Файл жүктөлдү. Угуу үчүн ▶ басыңыз.",
+                "File uploaded. Press ▶ to listen.", "Dosya yüklendi. Dinlemek için ▶ basın.", "Fayl yuklandi. Tinglash uchun ▶ ni bosing.");
+            VoicePromptPlayer.PlayPrompt(key, _promptLang);
+        }
+        catch (Exception ex)
+        {
+            CustomPromptsStatus.Text = Tr.T("Файл не подошёл: ", "Файл туура келген жок: ", "The file did not work: ",
+                "Dosya uygun değil: ", "Fayl mos kelmadi: ") + ex.Message;
+            PosLogger.Log($"Своя озвучка из файла не загружена: {ex}", "VOICE_PROMPT");
+        }
+
+        RefreshCustomPrompts();
+    }
+
+    private void StopPromptRecordingSilently()
+    {
+        _promptRecorder?.Dispose();
+        _promptRecorder = null;
+        _recordingKey = null;
+        ResumeVoiceControl();
+    }
+
+    private void ResumeVoiceControl()
+    {
+        if (!_voiceWasListening)
+            return;
+        _voiceWasListening = false;
+        try
+        {
+            _voiceControl?.Start();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Голосовое управление не возобновилось после записи фразы: {ex.Message}", "VOICE_PROMPT");
+        }
     }
 
     private void RefreshStatus()
