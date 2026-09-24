@@ -672,25 +672,41 @@
 
                         <!-- Поставщик и оплата. С поставщиком приход проводится документом
                              «Закупки» сайта, без него — пишется прямо в товар. -->
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10"
-                                    x:CompileBindings="False">
-                            <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
-                                       FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-                            <ComboBox x:Name="ReceivingSupplierBox" Width="280"
-                                      ItemsSource="{Binding ReceivingSuppliers}"
-                                      SelectedItem="{Binding ReceivingSupplier}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{ReflectionBinding Name}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                            <ComboBox x:Name="ReceivingPaymentBox" Width="220"
-                                      IsVisible="{Binding HasReceivingSupplier}"
-                                      SelectionChanged="ReceivingPayment_Changed">
-                                <ComboBoxItem Content="{DynamicResource warehouse.receivingPaidNow}"/>
-                                <ComboBoxItem Content="{DynamicResource warehouse.receivingOnDebt}"/>
-                            </ComboBox>
+                        <!-- Без выпадающих списков (2026-09-25): у окна склада своя рамка без
+                             системного хрома, и всплывающий список ComboBox в нём не открывается
+                             (так же не работал фильтр статусов перемещений). Поставщик — кнопка с
+                             раскрывающимся прямо в окне списком, оплата — два переключателя. -->
+                        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,10" x:CompileBindings="False">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
+                                           FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                                <Button x:Name="ReceivingSupplierButton" Classes="SecondaryButton" Width="280"
+                                        HorizontalContentAlignment="Stretch" Click="ReceivingSupplierButton_Click">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding ReceivingSupplier.Name}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="▾" Margin="8,0,0,0" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </Grid>
+                                </Button>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasReceivingSupplier}">
+                                    <RadioButton x:Name="ReceivingPaidRadio" GroupName="ReceivingPayment" Classes="SaleUnitPill" IsChecked="True"
+                                                 Content="{DynamicResource warehouse.receivingPaidNow}" Click="ReceivingPayment_Click"/>
+                                    <RadioButton x:Name="ReceivingDebtRadio" GroupName="ReceivingPayment" Classes="SaleUnitPill"
+                                                 Content="{DynamicResource warehouse.receivingOnDebt}" Click="ReceivingPayment_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <Border x:Name="ReceivingSupplierPanel" IsVisible="False" Width="400" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1" CornerRadius="8" Padding="4">
+                                <ListBox x:Name="ReceivingSupplierList" MaxHeight="240"
+                                         ItemsSource="{Binding ReceivingSuppliers}"
+                                         SelectionChanged="ReceivingSupplierList_SelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding Name}" Foreground="{DynamicResource BrushText}"/>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
@@ -993,8 +1009,6 @@
                             <RadioButton x:Name="MovementsQuarterRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
                                          Content="{DynamicResource warehouse.movementsQuarter}" Click="MovementsFilter_Changed"/>
 
-                            <ComboBox x:Name="TransferStatusFilter" Width="170" IsVisible="False"
-                                      SelectionChanged="TransferStatusFilter_Changed"/>
                             <Button x:Name="CreateTransferButton" Classes="PrimaryButton" IsVisible="False"
                                     Content="{DynamicResource warehouse.transferCreate}"
                                     Click="CreateTransfer_Click"/>
@@ -1006,8 +1020,14 @@
                                     Content="Word" Click="ExportTransfersWord_Click"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="1" x:Name="MovementsSummaryText" Margin="2,0,0,10"
-                                   FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <!-- Фильтр статусов — кнопками, а не выпадающим списком (2026-09-25, «статусы
+                             серые, не нажимаются»): у окна склада своя рамка без системного хрома, и
+                             всплывающий список ComboBox в таком окне у Avalonia не открывается. -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
+                            <StackPanel x:Name="TransferStatusPills" Orientation="Horizontal" Spacing="6" IsVisible="False"/>
+                            <TextBlock x:Name="MovementsSummaryText" Margin="6,0,0,0" VerticalAlignment="Center"
+                                       FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
 
                         <DataGrid Grid.Row="2" x:Name="TransfersGrid"
                                   x:CompileBindings="False"

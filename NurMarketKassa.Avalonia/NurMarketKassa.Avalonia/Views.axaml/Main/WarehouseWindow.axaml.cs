@@ -179,10 +179,29 @@ public partial class WarehouseWindow : Window
         RefreshReceivingSummary();
     }
 
-    private void ReceivingPayment_Changed(object? sender, SelectionChangedEventArgs e)
+    private void ReceivingPayment_Click(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel is not null && ReceivingPaymentBox is not null)
-            _viewModel.ReceivingPaidNow = ReceivingPaymentBox.SelectedIndex != 1;
+        if (_viewModel is not null)
+            _viewModel.ReceivingPaidNow = ReceivingDebtRadio.IsChecked != true;
+    }
+
+    /// <summary>Список поставщиков раскрывается прямо в окне — всплывающий список ComboBox в окне
+    /// склада не открывался (см. комментарий в разметке).</summary>
+    private void ReceivingSupplierButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ReceivingSupplierPanel.IsVisible = !ReceivingSupplierPanel.IsVisible;
+        if (ReceivingSupplierPanel.IsVisible)
+            ReceivingSupplierList.SelectedItem = _viewModel.ReceivingSupplier;
+    }
+
+    private void ReceivingSupplierList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!ReceivingSupplierPanel.IsVisible
+            || ReceivingSupplierList.SelectedItem is not PurchaseReceivingService.Supplier supplier)
+            return;
+
+        _viewModel.ReceivingSupplier = supplier;
+        ReceivingSupplierPanel.IsVisible = false;
     }
 
     /// <summary>Название и единицу правят только у нового товара: у существующего они живут в
@@ -281,7 +300,7 @@ public partial class WarehouseWindow : Window
             return;
 
         var search = MovementsSearchBox?.Text?.Trim() ?? "";
-        var status = (TransferStatusFilter?.SelectedItem as ComboBoxItem)?.Tag as string;
+        var status = _transferStatusFilter;
 
         var rows = StockTransferService.Instance.LoadTransfers(search, status)
             .Select(t => new TransferRow
@@ -341,7 +360,7 @@ public partial class WarehouseWindow : Window
         TransfersGrid.IsVisible = docs;
         MovementsGrid.IsVisible = !docs;
 
-        TransferStatusFilter.IsVisible = docs;
+        TransferStatusPills.IsVisible = docs;
         CreateTransferButton.IsVisible = docs;
         TransfersExcelButton.IsVisible = docs;
         TransfersWordButton.IsVisible = docs;
@@ -358,24 +377,38 @@ public partial class WarehouseWindow : Window
             RefreshMovements();
     }
 
-    private void TransferStatusFilter_Changed(object? sender, SelectionChangedEventArgs e) => RefreshTransfers();
+    /// <summary>Выбранный статус в фильтре перемещений; null — все.</summary>
+    private string? _transferStatusFilter;
 
-    /// <summary>Заполняет фильтр статусов. Собирается в коде, а не в разметке: подписи переводятся
-    /// на язык интерфейса, а он меняется на ходу.</summary>
+    /// <summary>Заполняет фильтр статусов кнопками-переключателями (2026-09-25: выпадающий список
+    /// в окне склада без системной рамки не открывался). Собирается в коде, а не в разметке:
+    /// подписи переводятся на язык интерфейса, а он меняется на ходу.</summary>
     private void InitializeTransferStatusFilter()
     {
         // Заполняется один раз, при первом открытии вкладки. Раньше вызов стоял в загрузке
         // окна, после ожидания каталога: стоило загрузке затянуться или упасть — и список
         // статусов оставался пустым, хотя сама вкладка работала.
-        if (TransferStatusFilter.Items.Count > 0)
+        if (TransferStatusPills.Children.Count > 0)
             return;
 
-        TransferStatusFilter.Items.Clear();
-        TransferStatusFilter.Items.Add(new ComboBoxItem
+        void AddPill(string text, string? status)
         {
-            Content = Tr.T("Все статусы", "Бардык абалдар", "All statuses", "Tüm durumlar", "Barcha holatlar"),
-            Tag = null,
-        });
+            var pill = new RadioButton
+            {
+                Content = text,
+                GroupName = "TransferStatus",
+                IsChecked = status == _transferStatusFilter,
+            };
+            pill.Classes.Add("SaleUnitPill");
+            pill.Click += (_, _) =>
+            {
+                _transferStatusFilter = status;
+                RefreshTransfers();
+            };
+            TransferStatusPills.Children.Add(pill);
+        }
+
+        AddPill(Tr.T("Все статусы", "Бардык абалдар", "All statuses", "Tüm durumlar", "Barcha holatlar"), null);
         foreach (var status in new[]
                  {
                      StockTransferService.StatusCreated,
@@ -384,9 +417,8 @@ public partial class WarehouseWindow : Window
                      StockTransferService.StatusCancelled,
                  })
         {
-            TransferStatusFilter.Items.Add(new ComboBoxItem { Content = TransferStatusText(status), Tag = status });
+            AddPill(TransferStatusText(status), status);
         }
-        TransferStatusFilter.SelectedIndex = 0;
     }
 
     private void CreateTransfer_Click(object? sender, RoutedEventArgs e)
@@ -426,7 +458,7 @@ public partial class WarehouseWindow : Window
         try
         {
             var search = MovementsSearchBox?.Text?.Trim() ?? "";
-            var status = (TransferStatusFilter?.SelectedItem as ComboBoxItem)?.Tag as string;
+            var status = _transferStatusFilter;
             var transfers = StockTransferService.Instance.LoadTransfers(search, status);
             var shop = UserPreferences.Instance.StoreName;
 
@@ -644,7 +676,8 @@ public partial class WarehouseWindow : Window
             _viewModel.ReceivingLines.CollectionChanged += (_, _) => RefreshReceivingSummary();
             _viewModel.ReceivingLineAdded += _ => RefreshReceivingSummary();
             RefreshReceivingSummary();
-            ReceivingPaymentBox.SelectedIndex = 0;
+            ReceivingPaidRadio.IsChecked = true;
+            _viewModel.ReceivingPaidNow = true;
             _ = _viewModel.LoadReceivingSuppliersAsync();
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
                 _viewModel.HandleBarcodeScan(InitialBarcode.Trim(), isRevisionTab: true);

@@ -141,9 +141,20 @@ public partial class StockTransferDialog : Window
         ShipButton.IsEnabled = _transfer.Status == StockTransferService.StatusCreated;
         DeliverButton.IsEnabled = _transfer.Status == StockTransferService.StatusInTransit;
         CancelTransferButton.IsEnabled = !closed;
+        // Состав принятой или отменённой партии уже не меняют (2026-09-25: добавлять и убирать
+        // товары можно было и после «Принять»).
+        ItemEditPanel.IsEnabled = !closed;
+        if (closed)
+            SuggestionsBox.IsVisible = false;
     }
 
-    private void StatusText_Set(string status) => StatusText.Text = DescribeStatus(status);
+    private void StatusText_Set(string status)
+    {
+        StatusText.Text = DescribeStatus(status);
+        StatusBadge.Classes.Set("transit", status == StockTransferService.StatusInTransit);
+        StatusBadge.Classes.Set("done", status == StockTransferService.StatusDelivered);
+        StatusBadge.Classes.Set("cancelled", status == StockTransferService.StatusCancelled);
+    }
 
     /// <summary>Поля шапки сохраняются, как только из них уходит курсор. Перемещение заполняют
     /// в несколько заходов, и кнопка «Сохранить» здесь только создавала бы риск потерять

@@ -22,6 +22,40 @@
       <Setter Property="Padding" Value="10,4"/>
       <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
     </Style>
+    <Style Selector="Border.status TextBlock"><Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/></Style>
+    <!-- Цвет плашки статуса — как в списке документов на складе (2026-09-25: «В пути» здесь была
+         синей, а в списке жёлтой). -->
+    <Style Selector="Border.status.transit"><Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/></Style>
+    <Style Selector="Border.status.transit TextBlock"><Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/></Style>
+    <Style Selector="Border.status.done"><Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/></Style>
+    <Style Selector="Border.status.done TextBlock"><Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/></Style>
+    <Style Selector="Border.status.cancelled"><Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/></Style>
+    <Style Selector="Border.status.cancelled TextBlock"><Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/></Style>
+
+    <!-- Свои стили кнопок (2026-09-25, «статусы серые, не нажимаются»): это отдельное окно, стили
+         окна склада сюда не доходили, и «Отправить»/«Принять»/«Отменить» рисовались одинаково
+         серыми — рабочую кнопку было не отличить от выключенной. -->
+    <Style Selector="Button.PrimaryButton">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="16,8"/>
+    </Style>
+    <Style Selector="Button.SecondaryButton">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="14,8"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.35"/>
+    </Style>
   </Window.Styles>
 
   <Border Margin="14" CornerRadius="{DynamicResource SettingsCardRadius}"
@@ -36,9 +70,8 @@
         <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <TextBlock x:Name="NumberText" FontSize="20" FontWeight="Bold"
                      Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-          <Border Classes="status" VerticalAlignment="Center">
-            <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"
-                       Foreground="{DynamicResource BrushAccentStrong}"/>
+          <Border x:Name="StatusBadge" Classes="status" VerticalAlignment="Center">
+            <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"/>
           </Border>
           <TextBlock x:Name="CreatedText" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource BrushTextSoft}"/>
@@ -86,10 +119,11 @@
       <TabControl Grid.Row="2">
         <TabItem Header="{DynamicResource warehouse.transferContent}">
           <Grid RowDefinitions="Auto,Auto,*" Margin="0,10,0,0">
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <StackPanel x:Name="ItemEditPanel" Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
               <!-- Три пути добавить товар, и все нужны: отсканировать (поле принимает скан как
                    обычный ввод и срабатывает по Enter), набрать пару букв названия и выбрать из
                    подсказок, либо открыть весь каталог списком. -->
+              <!-- Весь ряд выключается у принятого или отменённого документа (ItemEditPanel). -->
               <TextBox x:Name="ItemSearchBox" Width="320"
                        Watermark="{DynamicResource warehouse.transferAddHint}"
                        TextChanged="ItemSearch_TextChanged"
