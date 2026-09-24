@@ -187,6 +187,11 @@ public sealed class UserPreferences
     /// большому каталогу, а шапку и чек при этом менять незачем.</summary>
     public double CatalogTileScalePercent { get; set; } = 100;
 
+    /// <summary>Сфера магазина (2026-09-25, Настройки → Операции): «grocery» — продуктовый, как было;
+    /// «clothing» — одежда и похожие, при оплате можно указать консультанта; «services» — чаще всего
+    /// продаются услуги, каталог открывается на них.</summary>
+    public string MarketSphere { get; set; } = MarketSpheres.Grocery;
+
     /// <summary>Ручной оверрайд скруглённости кнопок (px) поверх значения активной темы —
     /// null означает "как задано в теме" (см. AccentThemeService.Apply).</summary>
     public double? CustomButtonRadius { get; set; }
@@ -807,6 +812,8 @@ public sealed class UserPreferences
                 p.UpdateTesterCode = fromFile.UpdateTesterCode;
             if (fromFile.CatalogTileScalePercent is not null)
                 p.CatalogTileScalePercent = Math.Clamp(fromFile.CatalogTileScalePercent.Value, 70, 160);
+            if (fromFile.MarketSphere is not null)
+                p.MarketSphere = MarketSpheres.Normalize(fromFile.MarketSphere);
             if (fromFile.CustomerDisplay is not null)
             {
                 fromFile.CustomerDisplay.Normalize();
@@ -996,6 +1003,7 @@ public sealed class UserPreferences
                 ApplyBackgroundToCashierScreen = ApplyBackgroundToCashierScreen,
                 UiScalePercent = UiScalePercent,
                 CatalogTileScalePercent = CatalogTileScalePercent,
+                MarketSphere = MarketSphere,
                 UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
@@ -1192,6 +1200,7 @@ public sealed class UserPreferences
         public bool? ApplyBackgroundToCashierScreen { get; set; }
         public double? UiScalePercent { get; set; }
         public double? CatalogTileScalePercent { get; set; }
+        public string? MarketSphere { get; set; }
         public string? UpdateTesterCode { get; set; }
         public double? BackgroundOpacity { get; set; }
         public CustomerDisplaySettings? CustomerDisplay { get; set; }
@@ -1201,5 +1210,36 @@ public sealed class UserPreferences
     {
         public int Version { get; set; }
         public bool Fullscreen { get; set; }
+    }
+}
+
+/// <summary>Сферы магазина для UserPreferences.MarketSphere.</summary>
+public static class MarketSpheres
+{
+    public const string Grocery = "grocery";
+    public const string Clothing = "clothing";
+    public const string Services = "services";
+
+    public static string Normalize(string? value) => value switch
+    {
+        Clothing => Clothing,
+        Services => Services,
+        _ => Grocery,
+    };
+
+    public static bool IsClothing => UserPreferences.Instance.MarketSphere == Clothing;
+    public static bool IsServices => UserPreferences.Instance.MarketSphere == Services;
+
+    /// <summary>Сфера сменилась в настройках — окна, которые от неё зависят, перестраиваются сразу.</summary>
+    public static event Action? Changed;
+
+    public static void Set(string sphere)
+    {
+        var normalized = Normalize(sphere);
+        if (UserPreferences.Instance.MarketSphere == normalized)
+            return;
+        UserPreferences.Instance.MarketSphere = normalized;
+        UserPreferences.Instance.SaveToDisk();
+        Changed?.Invoke();
     }
 }

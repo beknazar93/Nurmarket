@@ -912,7 +912,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             var cashReceived = checkoutVm.CashReceivedForApi;
 
             PosLogger.Log(
-                $"PAY API checkout: method={checkoutVm.PaymentMethod}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}",
+                $"PAY API checkout: method={checkoutVm.PaymentMethod}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}, " +
+                $"consultant={checkoutVm.ConsultantIdForApi ?? "-"}",
                 "PAYMENT");
 
             if (_checkoutUiFlow != null)
@@ -929,6 +930,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 OrderDiscountBody = checkoutVm.PendingOrderDiscountBody,
                 ClientId = checkoutVm.ClientId,
                 NonCashReceived = checkoutVm.NonCashReceivedForApi,
+                ConsultantId = checkoutVm.ConsultantIdForApi,
+                ConsultantCommissionEnabled = checkoutVm.ConsultantCommissionEnabledForApi,
+                ConsultantCommissionPercent = checkoutVm.ConsultantCommissionPercentForApi,
+                ConsultantName = checkoutVm.ConsultantNameForReceipt,
             }).ConfigureAwait(false);
 
             if (!result.IsSuccess)

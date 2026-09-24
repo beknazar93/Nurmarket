@@ -18,6 +18,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     private bool _canViewFinance = true;
     private bool _canViewSales = true;
     private bool _canViewClients = true;
+    private bool _canViewSalary = true;
     private bool _canViewPayDebt = true;
     private bool _canViewCrm = true;
     private bool _canViewErrorLogs = true;
@@ -50,7 +51,8 @@ public sealed class SideMenuViewModel : ViewModelBase
         Func<Task>? switchCashier = null,
         Func<Task>? logout = null,
         Action? exitApplication = null,
-        IPermissionService? permissions = null)
+        IPermissionService? permissions = null,
+        Action? navigateSalary = null)
     {
         _session = session;
         _permissions = permissions;
@@ -62,6 +64,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateReturnCommand = new RelayCommand(() => { navigateReturn?.Invoke(); closeMenu(); });
         NavigateDeferredReceiptsCommand = new RelayCommand(() => { navigateDeferredReceipts?.Invoke(); closeMenu(); });
         NavigateFinanceCommand = new RelayCommand(() => { navigateFinance?.Invoke(); closeMenu(); });
+        NavigateSalaryCommand = new RelayCommand(() => { navigateSalary?.Invoke(); closeMenu(); });
         NavigateSalesCommand = new RelayCommand(() => { navigateSales?.Invoke(); closeMenu(); });
         NavigateClientsCommand = new RelayCommand(() => { navigateClients?.Invoke(); closeMenu(); });
         NavigateAbcCommand = new RelayCommand(() => { navigateAbc?.Invoke(); closeMenu(); });
@@ -178,6 +181,14 @@ public sealed class SideMenuViewModel : ViewModelBase
         private set => SetProperty(ref _canViewFinance, value);
     }
 
+    /// <summary>«Зарплата» (2026-09-25): суммы начислений всех сотрудников — только тем, кому
+    /// открыты настройки (владелец/администратор), и не на тарифе Старт, как «Финансы».</summary>
+    public bool CanViewSalary
+    {
+        get => _canViewSalary;
+        private set => SetProperty(ref _canViewSalary, value);
+    }
+
     public bool CanViewSales
     {
         get => _canViewSales;
@@ -263,6 +274,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewDeferredReceipts = !isStart;
         CanViewRestock = !isStart;
         CanViewFinance = !isStart;
+        CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && !isStart;
         CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
         CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients;
         CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
@@ -303,6 +315,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     public ICommand NavigateReturnCommand { get; }
     public ICommand NavigateDeferredReceiptsCommand { get; }
     public ICommand NavigateFinanceCommand { get; }
+    public ICommand NavigateSalaryCommand { get; }
     public ICommand NavigateSalesCommand { get; }
 
     /// <summary>Раздел ABC-анализа. Видимость привязана к тому же праву, что и «Продажи»:

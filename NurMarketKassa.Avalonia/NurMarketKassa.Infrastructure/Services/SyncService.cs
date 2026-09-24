@@ -440,6 +440,7 @@ public sealed class SyncService : IDisposable
             ["print_receipt"] = "false",
             ["cash_received"] = entry.CashReceived ?? "",
         };
+        PosCheckoutService.AddConsultant(body, entry.ConsultantId, entry.ConsultantCommissionEnabled, entry.ConsultantCommissionPercent);
 
         // Смена, в которую чек был пробит на самом деле. Без этого поля сервер относил продажу к
         // смене, открытой на момент ВЫГРУЗКИ: чек, пробитый вечером в смене А и выгруженный утром,

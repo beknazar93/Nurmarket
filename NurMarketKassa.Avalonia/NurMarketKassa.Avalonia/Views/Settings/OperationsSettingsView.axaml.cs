@@ -32,8 +32,60 @@ public partial class OperationsSettingsView : UserControl
         InitializeComponent();
     }
 
+    // ── Сфера магазина ───────────────────────────────────────────────────────────────
+
+    private void RefreshSphereUi()
+    {
+        SphereTitle.Text = Tr.T("Сфера магазина", "Дүкөндүн тармагы", "Store type", "Mağaza türü", "Do'kon turi");
+        SphereHint.Text = Tr.T(
+            "Под что настроена касса. Меняется в любой момент, на продажи и отчёты не влияет.",
+            "Касса эмнеге ыңгайлаштырылган. Каалаган убакта өзгөрөт, сатууларга жана отчётторго таасир этпейт.",
+            "What the POS is set up for. Can be changed at any time; sales and reports are not affected.",
+            "Kasanın neye göre ayarlandığı. İstediğiniz zaman değişir, satışları ve raporları etkilemez.",
+            "Kassa nimaga moslangan. Istalgan vaqtda o'zgartiriladi, sotuv va hisobotlarga ta'sir qilmaydi.");
+        SphereGroceryRadio.Content = Tr.T("Продуктовый", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat");
+        SphereClothingRadio.Content = Tr.T("Одежда и похожие", "Кийим жана ушул сыяктуу", "Clothing and similar", "Giyim ve benzeri", "Kiyim va shunga o'xshash");
+        SphereServicesRadio.Content = Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar");
+
+        var sphere = UserPreferences.Instance.MarketSphere;
+        SphereGroceryRadio.IsChecked = sphere == MarketSpheres.Grocery;
+        SphereClothingRadio.IsChecked = sphere == MarketSpheres.Clothing;
+        SphereServicesRadio.IsChecked = sphere == MarketSpheres.Services;
+        SphereDescription.Text = sphere switch
+        {
+            MarketSpheres.Clothing => Tr.T(
+                "При оплате появляется блок «Консультант»: кто помог покупателю, и процент ему с этой продажи — как на сайте.",
+                "Төлөөдө «Консультант» блогу пайда болот: сатып алуучуга ким жардам берди жана ага бул сатуудан пайыз — сайттагыдай.",
+                "The payment window gets a Consultant block: who helped the customer and their percentage of the sale, as on the website.",
+                "Ödemede «Danışman» bölümü çıkar: müşteriye kim yardım etti ve bu satıştan ona yüzde — sitedeki gibi.",
+                "To'lovda «Maslahatchi» bloki paydo bo'ladi: xaridorga kim yordam berdi va unga bu sotuvdan foiz — saytdagidek."),
+            MarketSpheres.Services => Tr.T(
+                "Каталог открывается на вкладке «Услуги». Услуги продаются без остатка: касса не просит пополнить склад и не показывает у них количество.",
+                "Каталог «Кызматтар» өтмөгүндө ачылат. Кызматтар калдыксыз сатылат: касса кампаны толуктоону сурабайт жана алардын санын көрсөтпөйт.",
+                "The catalogue opens on the Services tab. Services are sold without stock: the POS does not ask to restock them and does not show their quantity.",
+                "Katalog «Hizmetler» sekmesinde açılır. Hizmetler stoksuz satılır: kasa stok eklemeyi istemez ve miktarlarını göstermez.",
+                "Katalog «Xizmatlar» bo'limida ochiladi. Xizmatlar qoldiqsiz sotiladi: kassa omborni to'ldirishni so'ramaydi va ularning sonini ko'rsatmaydi."),
+            _ => Tr.T(
+                "Обычная касса магазина, как было.",
+                "Дүкөндүн кадимки кассасы, мурункудай.",
+                "A regular store POS, as before.",
+                "Her zamanki mağaza kasası.",
+                "Oddiy do'kon kassasi, avvalgidek."),
+        };
+    }
+
+    private void Sphere_Click(object? sender, RoutedEventArgs e)
+    {
+        var sphere = SphereClothingRadio.IsChecked == true ? MarketSpheres.Clothing
+            : SphereServicesRadio.IsChecked == true ? MarketSpheres.Services
+            : MarketSpheres.Grocery;
+        MarketSpheres.Set(sphere);
+        RefreshSphereUi();
+    }
+
     public void LoadBankQrSettings()
     {
+        RefreshSphereUi();
         _bankSettings = new ObservableCollection<BankQrSetting>();
         var prefs = UserPreferences.Instance;
 

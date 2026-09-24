@@ -27,6 +27,14 @@ public sealed class OfflineSaleEntry
 
     public string? CashboxId { get; set; }
 
+    /// <summary>Консультант продажи (см. PosCheckoutRequest.ConsultantId) — чтобы продажа,
+    /// пробитая без связи, не потеряла его при выгрузке.</summary>
+    public string? ConsultantId { get; set; }
+
+    public bool ConsultantCommissionEnabled { get; set; }
+
+    public string? ConsultantCommissionPercent { get; set; }
+
     public string CartJson { get; set; } = "{}";
 
     public DateTimeOffset? LastAttemptAt { get; set; }

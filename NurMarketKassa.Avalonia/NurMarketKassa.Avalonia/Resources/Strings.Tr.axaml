@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Personel çizelgesi</x:String>
   <x:String x:Key="csh.menu.return">İade</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Sorunlu fişler</x:String>
+  <x:String x:Key="csh.menu.salary">Maaş</x:String>
   <x:String x:Key="csh.menu.finance">Finans</x:String>
   <x:String x:Key="csh.menu.sales">Satışlar</x:String>
   <x:String x:Key="csh.menu.abc">ABC analizi</x:String>

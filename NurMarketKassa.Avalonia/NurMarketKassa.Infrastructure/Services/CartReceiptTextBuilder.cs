@@ -53,6 +53,12 @@ public static class CartReceiptTextBuilder
             if (!string.IsNullOrWhiteSpace(cashierName))
                 Line($"Кассир - {cashierName.Trim()}");
 
+            // Консультант продажи (сфера «Одежда») — PosCheckoutService кладёт его имя в снимок.
+            if (root.TryGetProperty("consultant_display", out var consultant)
+                && consultant.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(consultant.GetString()))
+                Line($"Консультант - {consultant.GetString()!.Trim()}");
+
             var receiptNo = TryReceiptNumber(root);
             if (prefs.ShowReceiptNumber && !string.IsNullOrEmpty(receiptNo))
                 Line($"Чек №: {PrettyReceiptNumber(receiptNo)}");

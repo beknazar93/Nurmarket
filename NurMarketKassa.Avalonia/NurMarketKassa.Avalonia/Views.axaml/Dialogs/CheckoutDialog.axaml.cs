@@ -36,6 +36,8 @@ public partial class CheckoutDialog : Window
     {
         _viewModel = viewModel;
         _dialogService = dialogService;
+        // Блок «Консультант» (сфера «Одежда»): сотрудники и их процент — с сервера, с кэшем.
+        _viewModel.ConfigureConsultants(ConsultantDirectory.ListAsync, ConsultantDirectory.DefaultPercentAsync);
         InitializeComponent();
         DataContext = _viewModel;
         AttachCloseHandler();

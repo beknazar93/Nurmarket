@@ -18,6 +18,8 @@ namespace NurMarketKassa.ViewModels.Main;
 public sealed class CatalogPanelViewModel : ViewModelBase
 {
     private const int PageSize = 50;
+    /// <summary>Вкладка «Услуги» в <see cref="Tabs"/>.</summary>
+    public const int ServicesTabIndex = 5;
     private const int MaxVisiblePagerButtons = 9;
 
     private readonly ICatalogCacheService _catalogCache;
@@ -383,7 +385,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
 
     private static int TabIndexFor(CatalogProductTileVm product)
     {
-        if (product.IsService) return 5;
+        if (product.IsService) return ServicesTabIndex;
         if (product.IsBundle) return 4;
         if (product.HasPieceOption) return 3;
         if (product.MustWeigh) return 1;

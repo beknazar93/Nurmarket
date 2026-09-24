@@ -76,6 +76,13 @@ public static class SaleReceiptTextBuilder
         if (!string.IsNullOrWhiteSpace(cashier))
             Line($"Кассир - {cashier.Trim()}");
 
+        // Консультант продажи — сервер отдаёт его имя в consultant_display.
+        if (sale.ValueKind == JsonValueKind.Object
+            && sale.TryGetProperty("consultant_display", out var consultant)
+            && consultant.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(consultant.GetString()))
+            Line($"Консультант - {consultant.GetString()!.Trim()}");
+
         if (!string.IsNullOrWhiteSpace(receiptNumber))
             Line($"Чек №: {receiptNumber.Trim()}");
 

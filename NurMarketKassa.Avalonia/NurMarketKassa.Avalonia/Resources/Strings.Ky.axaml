@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Кызматкерлер табели</x:String>
   <x:String x:Key="csh.menu.return">Кайтаруу</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Туура эмес чектер</x:String>
+  <x:String x:Key="csh.menu.salary">Эмгек акы</x:String>
   <x:String x:Key="csh.menu.finance">Каржы</x:String>
   <x:String x:Key="csh.menu.sales">Сатуулар</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>

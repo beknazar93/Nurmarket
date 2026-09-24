@@ -71,7 +71,7 @@ namespace NurMarketKassa.ViewModels
         }
     }
 
-    public class CheckoutViewModel : INotifyPropertyChanged
+    public partial class CheckoutViewModel : INotifyPropertyChanged
     {
         private readonly double _subtotal;
         private readonly double _lineDiscounts;
@@ -873,6 +873,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(HasCashSuggestion1));
             OnPropertyChanged(nameof(HasCashSuggestion2));
             OnPropertyChanged(nameof(HasCashSuggestion3));
+            OnPropertyChanged(nameof(ConsultantCommissionPreview));
             (PayCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (ApplyCashSuggestion1Command as RelayCommand)?.RaiseCanExecuteChanged();
             (ApplyCashSuggestion2Command as RelayCommand)?.RaiseCanExecuteChanged();
@@ -1011,6 +1012,13 @@ namespace NurMarketKassa.ViewModels
                         "Naqd pulsiz to'lov uchun bankni tanlang.");
                     return;
                 }
+            }
+
+            var consultantError = ValidateConsultant();
+            if (consultantError != null)
+            {
+                ErrorMessage = consultantError;
+                return;
             }
 
             RequestClose?.Invoke(true);

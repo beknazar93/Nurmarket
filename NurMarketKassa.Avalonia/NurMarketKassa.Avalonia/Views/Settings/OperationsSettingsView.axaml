@@ -35,6 +35,21 @@
           </StackPanel>
         </Border>
 
+        <!-- Сфера магазина (2026-09-25): продуктовый — как было, одежда — консультант при оплате,
+             услуги — каталог открывается на услугах. Тексты — в коде (RefreshSphereUi). -->
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="SphereTitle" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="SphereHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <WrapPanel Orientation="Horizontal">
+              <RadioButton x:Name="SphereGroceryRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
+              <RadioButton x:Name="SphereClothingRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
+              <RadioButton x:Name="SphereServicesRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
+            </WrapPanel>
+            <TextBlock x:Name="SphereDescription" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+          </StackPanel>
+        </Border>
+
         <!-- Телеграм-бот владельца -->
         <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">

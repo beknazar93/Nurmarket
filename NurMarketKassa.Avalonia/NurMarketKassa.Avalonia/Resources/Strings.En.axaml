@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Staff timesheet</x:String>
   <x:String x:Key="csh.menu.return">Return</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Irregular receipts</x:String>
+  <x:String x:Key="csh.menu.salary">Salary</x:String>
   <x:String x:Key="csh.menu.finance">Finance</x:String>
   <x:String x:Key="csh.menu.sales">Sales</x:String>
   <x:String x:Key="csh.menu.abc">ABC analysis</x:String>

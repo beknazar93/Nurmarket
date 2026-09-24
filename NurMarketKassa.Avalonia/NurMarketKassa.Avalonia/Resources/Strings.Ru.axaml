@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Табель сотрудников</x:String>
   <x:String x:Key="csh.menu.return">Возврат</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Некорректные чеки</x:String>
+  <x:String x:Key="csh.menu.salary">Зарплата</x:String>
   <x:String x:Key="csh.menu.finance">Финансы</x:String>
   <x:String x:Key="csh.menu.sales">Продажи</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>

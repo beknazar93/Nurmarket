@@ -122,6 +122,8 @@ public partial class MainWindow : Window
         CatalogColumn.PropertyChanged += OnCatalogColumnPropertyChanged;
         CartColumn.PropertyChanged += OnCartColumnPropertyChanged;
         RestoreApplicationState();
+        ApplyMarketSphereToCatalog(fromSettings: false);
+        MarketSpheres.Changed += OnMarketSphereChanged;
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
@@ -1248,6 +1250,14 @@ public partial class MainWindow : Window
 
     internal void NavigateFinance() => ShowModuleWindow<FinanceWindow>();
 
+    internal void NavigateSalary()
+    {
+        if (!Authorize(PosPermissions.ViewSettings))
+            return;
+        _viewModel.CloseSideMenu();
+        SalaryWindow.Open(this);
+    }
+
     internal void NavigateSales()
     {
         if (Authorize(PosPermissions.ViewSales))
@@ -1571,6 +1581,7 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         _applicationStateService.CancelPendingSave();
+        MarketSpheres.Changed -= OnMarketSphereChanged;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         _voiceControl.CommandRecognized -= OnVoiceCommandRecognized;
@@ -1601,6 +1612,20 @@ public partial class MainWindow : Window
         _viewModel.CloseSideMenu();
     private void OnViewModelStateChanged(object? sender, EventArgs e) =>
         ScheduleApplicationStateSave();
+
+    private void OnMarketSphereChanged() =>
+        Dispatcher.UIThread.Post(() => ApplyMarketSphereToCatalog(fromSettings: true));
+
+    /// <summary>Сфера «Услуги» (Настройки → Операции): каталог открывается на вкладке «Услуги» —
+    /// при запуске и сразу после переключения. Уход из этой сферы возвращает на «Все товары».</summary>
+    private void ApplyMarketSphereToCatalog(bool fromSettings)
+    {
+        var catalog = _viewModel.Catalog;
+        if (MarketSpheres.IsServices)
+            catalog.SelectedTabIndex = CatalogPanelViewModel.ServicesTabIndex;
+        else if (fromSettings && catalog.SelectedTabIndex == CatalogPanelViewModel.ServicesTabIndex)
+            catalog.SelectedTabIndex = 0;
+    }
 
     private void RestoreApplicationState()
     {

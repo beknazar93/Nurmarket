@@ -120,4 +120,25 @@ public interface ISalesApiService
     /// из-за чего оплата (PosPayDebtAsync, которой обязательно нужен installment_id) не находила
     /// взносов и продолжала падать с "Максимум: <копейки>" даже после починки самого pay/.</summary>
     Task<JsonElement> ClientDealGetAsync(string clientId, string dealId, CancellationToken ct = default);
+
+    /// <summary>Сотрудники для выбора консультанта при оплате (2026-09-25) — тот же список, что
+    /// у сайта: GET api/users/employees/?page_size=200, отсортирован по имени.</summary>
+    Task<IReadOnlyList<(string Id, string Name)>> ListConsultantsAsync(CancellationToken ct = default);
+
+    /// <summary>Процент консультанта по умолчанию — из его профиля выплат
+    /// (api/main/market-sale-employee-pay-profiles/?user=…); null — профиля или процента нет.</summary>
+    Task<double?> ConsultantDefaultPercentAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>Зарплата сотрудников за период — сервер считает сам, как на сайте:
+    /// GET api/main/analytics/market/?tab=salary&amp;period_start&amp;period_end.</summary>
+    Task<JsonElement> MarketSalaryReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
+    /// <summary>Профили выплат сотрудника (схема зарплаты) — то же, что окно сайта «Зарплата по
+    /// продажам»: GET api/main/market-sale-employee-pay-profiles/?user=….</summary>
+    Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>Создаёт профиль выплат (<paramref name="profileId"/> == null, POST) или меняет его
+    /// (PATCH …/{id}/). Поля как у сайта: user, pay_scheme, monthly_base_salary, sales_percent.</summary>
+    Task<JsonElement> SavePayProfileAsync(string? profileId, string userId, string payScheme,
+        string monthlyBaseSalary, string salesPercent, CancellationToken ct = default);
 }

@@ -389,6 +389,7 @@
                                                         </StackPanel>
 
                                                         <TextBlock Text="{Binding StockInfo}"
+                                                                   IsVisible="{Binding !IsService}"
                                                                    FontSize="{DynamicResource CatalogTileStockSize}"
                                                                    HorizontalAlignment="Center"
                                                                    Classes.stock-low="{Binding IsLowStock}"
@@ -521,6 +522,7 @@
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
                                                         <TextBlock Grid.Column="3" Text="{Binding StockInfo}" FontSize="13"
+                                                                   IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Foreground="{DynamicResource BrushCatalogStock}"
                                                                    VerticalAlignment="Center"

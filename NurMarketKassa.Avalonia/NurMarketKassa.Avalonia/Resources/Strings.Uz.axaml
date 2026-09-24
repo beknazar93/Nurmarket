@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Xodimlar tabeli</x:String>
   <x:String x:Key="csh.menu.return">Qaytarish</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Noto'g'ri cheklar</x:String>
+  <x:String x:Key="csh.menu.salary">Ish haqi</x:String>
   <x:String x:Key="csh.menu.finance">Moliya</x:String>
   <x:String x:Key="csh.menu.sales">Sotuvlar</x:String>
   <x:String x:Key="csh.menu.abc">ABC tahlili</x:String>

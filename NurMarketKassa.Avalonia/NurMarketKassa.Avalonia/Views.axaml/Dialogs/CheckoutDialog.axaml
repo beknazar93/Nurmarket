@@ -418,6 +418,76 @@
                         </StackPanel>
                     </StackPanel>
 
+                    <!-- Консультант (2026-09-25, сфера «Одежда» в Настройки → Операции) — как блок
+                         «КОНСУЛЬТАНТ» на сайте: кто помог покупателю и процент ему с продажи. -->
+                    <StackPanel IsVisible="{Binding ShowConsultantSection}" Spacing="10" Margin="0,4,0,0">
+                        <TextBlock Text="{Binding ConsultantTitleText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
+                        <CheckBox Classes="Switch"
+                                  Content="{Binding ConsultantToggleText}"
+                                  IsChecked="{Binding IsConsultantEnabled}"/>
+                        <StackPanel IsVisible="{Binding IsConsultantEnabled}" Spacing="8">
+                            <TextBlock Text="{Binding ConsultantHintText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <!-- Выбранный сотрудник -->
+                            <Border Background="{DynamicResource BrushAccentSoft}"
+                                    BorderBrush="{DynamicResource BrushAccent}"
+                                    BorderThickness="1" CornerRadius="8" Padding="10,8"
+                                    IsVisible="{Binding HasSelectedConsultant}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding SelectedConsultant.Name, FallbackValue=''}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="{Binding ConsultantChangeText}"
+                                            Command="{Binding ChangeConsultantCommand}"
+                                            Padding="8,4" FontSize="12" Background="Transparent"
+                                            Foreground="{DynamicResource BrushAccentStrong}" BorderThickness="0" Cursor="Hand"/>
+                                </Grid>
+                            </Border>
+                            <!-- Поиск и список сотрудников -->
+                            <StackPanel IsVisible="{Binding ShowConsultantPicker}" Spacing="6">
+                                <TextBox Text="{Binding ConsultantSearch}"
+                                         Watermark="{Binding ConsultantSearchWatermark}"
+                                         Height="40" Padding="10,6" CornerRadius="8"
+                                         VerticalContentAlignment="Center"/>
+                                <TextBlock Text="{Binding ConsultantListStatus}" FontSize="12"
+                                           Foreground="{DynamicResource BrushTextSoft}"
+                                           IsVisible="{Binding HasConsultantListStatus}"/>
+                                <ListBox ItemsSource="{Binding ConsultantMatches}"
+                                         SelectedItem="{Binding SelectedConsultant, Mode=TwoWay}"
+                                         MaxHeight="180"
+                                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8"
+                                         Background="{DynamicResource BrushPanel}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ConsultantOption">
+                                            <TextBlock Text="{Binding Name}" Padding="2,4" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource BrushText}"/>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                            <CheckBox Classes="Switch"
+                                      Content="{Binding ConsultantCommissionToggleText}"
+                                      IsChecked="{Binding IsConsultantCommissionEnabled}"
+                                      IsEnabled="{Binding HasSelectedConsultant}"/>
+                            <Grid ColumnDefinitions="140,12,*" IsVisible="{Binding IsConsultantCommissionEnabled}">
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="{Binding ConsultantPercentLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                                    <TextBox Text="{Binding ConsultantPercentInput}"
+                                             Watermark="{Binding ConsultantPercentWatermark}"
+                                             IsEnabled="{Binding HasSelectedConsultant}"
+                                             Height="40" Padding="10,6" CornerRadius="8" FontWeight="Bold"
+                                             VerticalContentAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="{Binding ConsultantCommissionPreview}"
+                                           FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushUiStatusOk}"
+                                           VerticalAlignment="Bottom" Margin="0,0,0,9" TextWrapping="Wrap"/>
+                            </Grid>
+                            <TextBlock Text="{Binding ConsultantNoCommissionText}" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       IsVisible="{Binding ShowConsultantNoCommissionNote}"/>
+                        </StackPanel>
+                    </StackPanel>
                     <CheckBox Classes="Switch"
                               Content="{DynamicResource csh.checkout.printReceipt}"
                               IsChecked="{Binding IsPrintReceiptEnabled}"

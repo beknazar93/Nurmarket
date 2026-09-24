@@ -865,4 +865,114 @@ public sealed class SalesApiService : ISalesApiService
         var s = q.ToString("0.####", CultureInfo.InvariantCulture);
         return string.IsNullOrEmpty(s) ? "0" : s;
     }
+
+    public async Task<IReadOnlyList<(string Id, string Name)>> ListConsultantsAsync(CancellationToken ct = default)
+    {
+        var result = new List<(string Id, string Name)>();
+        for (var page = 1; page <= 30; page++)
+        {
+            var qs = new Dictionary<string, string>
+            {
+                ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                ["page_size"] = "200",
+                ["ordering"] = "last_name,first_name",
+            };
+            var data = await _client.RequestAsync(HttpMethod.Get, "api/users/employees/", null, qs, ct).ConfigureAwait(false);
+            var rows = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) ? r : data;
+            if (rows.ValueKind != JsonValueKind.Array)
+                break;
+
+            foreach (var item in rows.EnumerateArray())
+            {
+                // Как на сайте (marketSaleConsultant): id — user_id, user или id; имя — полное,
+                // иначе «Фамилия Имя», иначе почта.
+                var id = Str(item, "user_id") ?? Str(item, "user") ?? Str(item, "id");
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+                var first = Str(item, "first_name");
+                var last = Str(item, "last_name");
+                var name = Str(item, "full_name")
+                    ?? (first == null && last == null ? Str(item, "name") : null)
+                    ?? string.Join(" ", new[] { last, first }.Where(p => !string.IsNullOrWhiteSpace(p)));
+                if (string.IsNullOrWhiteSpace(name))
+                    name = Str(item, "email") ?? Str(item, "username") ?? "—";
+                result.Add((id!, name.Trim()));
+            }
+
+            var hasNext = data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String;
+            if (!hasNext)
+                break;
+        }
+
+        return result
+            .GroupBy(e => e.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderBy(e => e.Name, StringComparer.Create(CultureInfo.GetCultureInfo("ru-RU"), true))
+            .ToList();
+
+        static string? Str(JsonElement obj, string key) =>
+            obj.TryGetProperty(key, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number
+                ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText()) is { Length: > 0 } s ? s : null
+                : null;
+    }
+
+    public async Task<double?> ConsultantDefaultPercentAsync(string userId, CancellationToken ct = default)
+    {
+        var qs = new Dictionary<string, string> { ["user"] = userId.Trim() };
+        var data = await _client.RequestAsync(HttpMethod.Get, "api/main/market-sale-employee-pay-profiles/", null, qs, ct)
+            .ConfigureAwait(false);
+        var rows = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) ? r : data;
+        if (rows.ValueKind != JsonValueKind.Array)
+            return null;
+
+        // Как на сайте: профиль со схемой «процент» или «оклад + процент», иначе первый.
+        JsonElement? chosen = null;
+        foreach (var item in rows.EnumerateArray())
+        {
+            chosen ??= item;
+            var scheme = item.TryGetProperty("pay_scheme", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString() : null;
+            if (scheme is "percent" or "salary_plus_percent")
+            {
+                chosen = item;
+                break;
+            }
+        }
+
+        if (chosen is not { } profile || !profile.TryGetProperty("sales_percent", out var pct))
+            return null;
+        var text = pct.ValueKind == JsonValueKind.String ? pct.GetString() : pct.GetRawText();
+        return double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && value > 0 ? value : null;
+    }
+
+    public Task<JsonElement> MarketSalaryReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var qs = new Dictionary<string, string>
+        {
+            ["tab"] = "salary",
+            ["period_start"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["period_end"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        };
+        return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
+    }
+
+    public Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Get, "api/main/market-sale-employee-pay-profiles/", null,
+            new Dictionary<string, string> { ["user"] = userId.Trim() }, ct);
+
+    public Task<JsonElement> SavePayProfileAsync(string? profileId, string userId, string payScheme,
+        string monthlyBaseSalary, string salesPercent, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["user"] = userId.Trim(),
+            ["pay_scheme"] = payScheme,
+            ["monthly_base_salary"] = monthlyBaseSalary,
+            ["sales_percent"] = salesPercent,
+        };
+        return string.IsNullOrWhiteSpace(profileId)
+            ? _client.RequestAsync(HttpMethod.Post, "api/main/market-sale-employee-pay-profiles/", body, null, ct)
+            : _client.RequestAsync(HttpMethod.Patch,
+                $"api/main/market-sale-employee-pay-profiles/{Uri.EscapeDataString(profileId.Trim())}/", body, null, ct);
+    }
 }

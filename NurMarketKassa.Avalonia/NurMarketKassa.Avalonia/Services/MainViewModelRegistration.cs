@@ -108,7 +108,8 @@ internal static class MainViewModelRegistration
                 switchCashier: () => bridge.Window?.SwitchCashierAsync() ?? Task.CompletedTask,
                 logout: () => bridge.Window?.LogoutAsync() ?? Task.CompletedTask,
                 exitApplication: () => bridge.Window?.ExitApplication(),
-                permissions: sp.GetService<IPermissionService>());
+                permissions: sp.GetService<IPermissionService>(),
+                navigateSalary: () => bridge.Window?.NavigateSalary());
 
             main = new MainWindowViewModel(
                 toolbar, catalog, basket, sideMenu, session,

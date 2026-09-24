@@ -648,6 +648,9 @@ public sealed class PosCheckoutService : IPosCheckoutService
             BranchId = PosApp.AuthApi.ActiveBranchId,
             CashboxId = PosApp.PosCashboxId,
             IsAutonomous = isAutonomous,
+            ConsultantId = request.ConsultantId,
+            ConsultantCommissionEnabled = request.ConsultantCommissionEnabled,
+            ConsultantCommissionPercent = request.ConsultantCommissionPercent,
         };
 
         OfflinePendingSalesStore.Append(entry);
@@ -658,7 +661,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
         ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
 
         var printed = request.PrintReceipt && await TryPrintReceiptAsync(
-            cartJsonSnapshot,
+            WithConsultantForReceipt(cartJsonSnapshot, request),
             request.PaymentMethod,
             request.CashReceived,
             offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)").ConfigureAwait(false);
@@ -699,13 +702,15 @@ public sealed class PosCheckoutService : IPosCheckoutService
 
         var body = BuildCheckoutRequestBody(
             request.PaymentMethod, request.CashReceived, request.PrintReceipt, request.ClientId, request.NonCashReceived);
+        AddConsultant(body, request.ConsultantId, request.ConsultantCommissionEnabled, request.ConsultantCommissionPercent);
         var checkoutIds = CartDisplayHelper.CollectCheckoutTargetIds(_cart.Root, cartId);
 
         PosLogger.Log(
             $"Checkout API: ids=[{string.Join(", ", checkoutIds)}], method={body.GetValueOrDefault("payment_method")}, " +
             $"cash={body.GetValueOrDefault("cash_received")}, transfer={body.GetValueOrDefault("transfer_received")}, " +
             $"shift={body.GetValueOrDefault("shift_id")}, " +
-            $"cashbox={body.GetValueOrDefault("cashbox_id")}, client={body.GetValueOrDefault("client_id")}",
+            $"cashbox={body.GetValueOrDefault("cashbox_id")}, client={body.GetValueOrDefault("client_id")}, " +
+            $"consultant={body.GetValueOrDefault("consultant_id")} {body.GetValueOrDefault("consultant_commission_percent")}",
             "PAYMENT");
 
         JsonElement checkoutResponse;
@@ -778,6 +783,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
             enrichedCart["sale_id"] = saleId;
             cartJsonSnapshot = enrichedCart.ToJsonString();
         }
+        cartJsonSnapshot = WithConsultantForReceipt(cartJsonSnapshot, request);
 
         var cartSnapshot = _cart.Root.Clone();
         try
@@ -1022,6 +1028,30 @@ public sealed class PosCheckoutService : IPosCheckoutService
             await _mediator.Publish(new SaleFinalizedNotification(saleId, saleLines), CancellationToken.None)
                 .ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Имя консультанта в снимок корзины — чек печатается из снимка
+    /// (CartReceiptTextBuilder), а сайт печатает строку «Консультант» в чеке.</summary>
+    private static string WithConsultantForReceipt(string cartJson, PosCheckoutRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ConsultantId) || string.IsNullOrWhiteSpace(request.ConsultantName))
+            return cartJson;
+        var cart = CartJsonHelper.ParseObjectOrEmpty(cartJson);
+        cart["consultant_display"] = request.ConsultantName.Trim();
+        return cart.ToJsonString();
+    }
+
+    /// <summary>Консультант продажи — те же поля, что отправляет сайт (CashierPage, marketSaleConsultant):
+    /// consultant_id, consultant_commission_enabled, consultant_commission_percent («0.00» без процента).</summary>
+    internal static void AddConsultant(Dictionary<string, string> body, string? consultantId, bool commissionEnabled, string? commissionPercent)
+    {
+        if (string.IsNullOrWhiteSpace(consultantId))
+            return;
+        body["consultant_id"] = consultantId.Trim();
+        body["consultant_commission_enabled"] = commissionEnabled ? "true" : "false";
+        body["consultant_commission_percent"] = commissionEnabled && !string.IsNullOrWhiteSpace(commissionPercent)
+            ? commissionPercent.Trim()
+            : "0.00";
     }
 
     private static Dictionary<string, string> BuildCheckoutRequestBody(

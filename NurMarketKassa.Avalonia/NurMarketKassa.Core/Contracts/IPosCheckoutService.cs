@@ -29,6 +29,14 @@ public sealed class PosCheckoutRequest
     public string? ClientId { get; init; }
     /// <summary>Безналичная часть смешанной оплаты (PaymentMethod == "mixed") — CashReceived тогда несёт наличную часть.</summary>
     public string? NonCashReceived { get; init; }
+    /// <summary>Консультант продажи (сфера «Одежда», 2026-09-25) — id пользователя-сотрудника;
+    /// null — без консультанта. Поля те же, что отправляет сайт.</summary>
+    public string? ConsultantId { get; init; }
+    public bool ConsultantCommissionEnabled { get; init; }
+    /// <summary>Процент консультанта строкой «0.00» (0–100).</summary>
+    public string? ConsultantCommissionPercent { get; init; }
+    /// <summary>Имя консультанта — только для строки «Консультант» в печатном чеке.</summary>
+    public string? ConsultantName { get; init; }
 }
 
 /// <summary>Результат оплаты для UI.</summary>

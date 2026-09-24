@@ -1,0 +1,210 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.SalaryWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="Зарплата"
+        Height="820"
+        Width="1260"
+        MinWidth="980"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushWindow}"
+        Loaded="Window_Loaded">
+
+    <Window.Styles>
+        <Style Selector="Button.period">
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.period.accent, Button.period.active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter, Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+        <Style Selector="TextBlock.cardLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.cardValue">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style Selector="TextBlock.th">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style Selector="TextBlock.td">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+        <Style Selector="TextBlock.sub">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,2,8,0"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
+        <!-- Полоска загрузки, пока расчёт идёт с сервера. -->
+        <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="SubtitleText" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Как считается зарплата — те же три пункта, что на сайте. -->
+        <Border Grid.Row="1" Background="{DynamicResource BrushAccentSoft}" CornerRadius="10" Padding="14,10" Margin="0,0,0,10">
+            <StackPanel Spacing="3">
+                <TextBlock x:Name="GuideTitle" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="GuideStep1" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
+                <TextBlock x:Name="GuideStep2" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
+                <TextBlock x:Name="GuideStep3" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextMuted}"/>
+            </StackPanel>
+        </Border>
+
+        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="ThisMonthButton" Classes="period" Click="ThisMonth_Click"/>
+            <Button x:Name="LastMonthButton" Classes="period" Click="LastMonth_Click"/>
+            <Button x:Name="Last7Button" Classes="period" Click="Last7_Click"/>
+            <CalendarDatePicker x:Name="FromPicker" Width="160" Margin="8,0,0,0" SelectedDateChanged="Period_Changed"/>
+            <TextBlock Text="—" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+            <CalendarDatePicker x:Name="ToPicker" Width="160" SelectedDateChanged="Period_Changed"/>
+            <TextBlock x:Name="PeriodText" VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+        </WrapPanel>
+
+        <!-- Итоги за период -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,*,*,*,*" Margin="0,0,-10,12">
+            <Border Grid.Column="0" Classes="card">
+                <StackPanel>
+                    <TextBlock x:Name="CardPayrollLabel" Classes="cardLabel"/>
+                    <TextBlock x:Name="CardPayrollValue" Classes="cardValue" Foreground="{DynamicResource BrushAccentStrong}"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="card">
+                <StackPanel>
+                    <TextBlock x:Name="CardBaseLabel" Classes="cardLabel"/>
+                    <TextBlock x:Name="CardBaseValue" Classes="cardValue"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="card">
+                <StackPanel>
+                    <TextBlock x:Name="CardBonusLabel" Classes="cardLabel"/>
+                    <TextBlock x:Name="CardBonusValue" Classes="cardValue"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="3" Classes="card">
+                <StackPanel>
+                    <TextBlock x:Name="CardSalesLabel" Classes="cardLabel"/>
+                    <TextBlock x:Name="CardSalesValue" Classes="cardValue"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="4" Classes="card">
+                <StackPanel>
+                    <TextBlock x:Name="CardEmployeesLabel" Classes="cardLabel"/>
+                    <TextBlock x:Name="CardEmployeesValue" Classes="cardValue"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Шапка таблицы: колонки те же, что у строк ниже. -->
+        <Border Grid.Row="4" Padding="12,0,12,6" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,210,110,125,125,105,115,125,140">
+                <TextBlock Grid.Column="0" x:Name="HeadEmployee" Classes="th"/>
+                <TextBlock Grid.Column="1" x:Name="HeadScheme" Classes="th"/>
+                <TextBlock Grid.Column="2" x:Name="HeadBase" Classes="th"/>
+                <TextBlock Grid.Column="3" x:Name="HeadCashier" Classes="th"/>
+                <TextBlock Grid.Column="4" x:Name="HeadConsultant" Classes="th"/>
+                <TextBlock Grid.Column="5" x:Name="HeadCommission" Classes="th"/>
+                <TextBlock Grid.Column="6" x:Name="HeadBonus" Classes="th"/>
+                <TextBlock Grid.Column="7" x:Name="HeadTotal" Classes="th"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="5">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="RowsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12,10" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="*,210,110,125,125,105,115,125,140">
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" Classes="td" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding ProfileNote}" Classes="sub" IsVisible="{Binding HasProfileNote}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SchemeLabel}" Classes="td" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SchemeDetails}" Classes="sub"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding BaseText}" Classes="td"/>
+                                        <TextBlock Text="{Binding DaysText}" Classes="sub"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding CashierSalesText}" Classes="td"/>
+                                        <TextBlock Text="{Binding CashierCountText}" Classes="sub"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ConsultantSalesText}" Classes="td"/>
+                                        <TextBlock Text="{Binding ConsultantCountText}" Classes="sub"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="5" Text="{Binding CommissionText}" Classes="td"/>
+                                    <TextBlock Grid.Column="6" Text="{Binding BonusText}" Classes="td"/>
+                                    <TextBlock Grid.Column="7" Text="{Binding TotalText}" Classes="td" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushAccentStrong}"/>
+                                    <Button Grid.Column="8" Content="{Binding EditText}" Click="EditScheme_Click"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Padding="8,6" CornerRadius="8" FontSize="12"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <TextBlock x:Name="EmptyText" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       TextAlignment="Center" TextWrapping="Wrap" MaxWidth="520" FontSize="14"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+        </Grid>
+
+        <Border Grid.Row="6" Margin="0,10,0,0" Padding="10"
+                Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                IsVisible="False" x:Name="ErrorBox">
+            <TextBlock x:Name="ErrorText" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"/>
+        </Border>
+    </Grid>
+</Window>
