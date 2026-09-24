@@ -51,7 +51,7 @@
   <x:String x:Key="csh.menu.newBadge">Yeni</x:String>
 
   <!-- Katalog -->
-  <x:String x:Key="csh.catalog.searchWatermark">Ürün ara...</x:String>
+  <x:String x:Key="csh.catalog.searchWatermark">Ürün ara…</x:String>
   <x:String x:Key="csh.catalog.viewTooltip">Ürün görünümü</x:String>
   <x:String x:Key="csh.catalog.viewTitle">Katalog görünümü</x:String>
   <x:String x:Key="csh.catalog.cardView">Kart görünümü</x:String>
@@ -60,7 +60,7 @@
   <x:String x:Key="csh.catalog.filter">Filtre</x:String>
   <x:String x:Key="csh.catalog.refreshTooltip">Kataloğu yenile</x:String>
   <x:String x:Key="csh.catalog.offlineBanner">Çevrimdışı çalışılıyor (yerel veritabanından)</x:String>
-  <x:String x:Key="csh.catalog.emptyLoading">Burası henüz boş.&#x0a;Katalog veritabanından veya sunucudan yükleniyor...</x:String>
+  <x:String x:Key="csh.catalog.emptyLoading">Burası henüz boş.&#x0a;Katalog veritabanından veya sunucudan yükleniyor…</x:String>
   <x:String x:Key="csh.catalog.emptyError">Burası henüz boş.&#x0a;Bağlantıyı kontrol edin ve kataloğu yenileyin.</x:String>
   <x:String x:Key="csh.catalog.refreshButton">Kataloğu yenile</x:String>
   <x:String x:Key="csh.catalog.addProductButton">+ Ürün ekle</x:String>
@@ -71,6 +71,7 @@
   <x:String x:Key="csh.catalog.tabPiece">Adetli</x:String>
   <x:String x:Key="csh.catalog.tabPieceOption">Adet adet satış</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Paketler</x:String>
+  <x:String x:Key="csh.catalog.tabServices">Hizmetler</x:String>
   <x:String x:Key="csh.catalog.colName">Ürün</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Barkod</x:String>
   <x:String x:Key="csh.catalog.colStock">Stok</x:String>
@@ -88,7 +89,7 @@
   <x:String x:Key="csh.cart.increaseTooltip">Artır</x:String>
   <x:String x:Key="csh.cart.typeQuantityTooltip">Miktarı elle gir</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Fişten çıkar</x:String>
-  <x:String x:Key="csh.cart.barcodeWatermark">Ürün kodu veya adı girin...</x:String>
+  <x:String x:Key="csh.cart.barcodeWatermark">Ürün kodu veya adı girin…</x:String>
   <x:String x:Key="csh.cart.add">Ekle</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Fişi beklet</x:String>
   <x:String x:Key="csh.cart.defer">Fişi beklet</x:String>
@@ -104,6 +105,7 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Müşteri ekranını kontrol et</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Ekran klavyesi</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Kısayol tuşları</x:String>
+  <x:String x:Key="hotkeyGroup.title">Kısayol</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Ekran</x:String>
   <x:String x:Key="header.labelTheme">Tema</x:String>
   <x:String x:Key="header.labelKeyboard">Klavye</x:String>
@@ -132,6 +134,11 @@
   <x:String x:Key="updates.checkButton">Güncellemeleri kontrol et</x:String>
   <x:String x:Key="updates.installButton">Güncelle</x:String>
   <x:String x:Key="updates.rollbackTitle">Önceki sürüme geri dön</x:String>
+  <x:String x:Key="updates.testerTitle">Test sürümleri</x:String>
+  <x:String x:Key="updates.testerDesc">Yeni sürüm önce test edilir ve müşterilere ancak test bittikten sonra gelir. Test eden kişi kodu buraya girer, kasa sürümü hemen alır.</x:String>
+  <x:String x:Key="updates.testerCodeWatermark">Test kodu</x:String>
+  <x:String x:Key="updates.testerActivate">Aç</x:String>
+  <x:String x:Key="updates.testerOff">Test kanalını kapat</x:String>
   <x:String x:Key="updates.rollbackDesc">Yeni güncelleme öncekinden kötü çalışıyorsa, buradan daha önce yayınlanan herhangi bir sürüme dönebilirsiniz.</x:String>
   <x:String x:Key="updates.showVersionsButton">Sürümleri göster</x:String>
   <x:String x:Key="settings.chooseImageButton">Görsel seç</x:String>
@@ -267,7 +274,7 @@
   <x:String x:Key="bulkImport.title">Toplu Ürün Yükleme</x:String>
   <x:String x:Key="bulkImport.description">CSV dosyasından (örneğin bir tedarikçi listesinden) tek seferde birçok ürünü ekler veya günceller. Eşleştirme barkoda göre yapılır: bu barkodla bir ürün zaten varsa güncellenir, yoksa yenisi oluşturulur.</x:String>
   <x:String x:Key="bulkImport.downloadTemplate">CSV şablonunu indir</x:String>
-  <x:String x:Key="bulkImport.pickFile">Dosya seç...</x:String>
+  <x:String x:Key="bulkImport.pickFile">Dosya seç…</x:String>
   <x:String x:Key="bulkImport.colName">Ad</x:String>
   <x:String x:Key="bulkImport.colQty">Adet</x:String>
   <x:String x:Key="bulkImport.colStatus">Durum</x:String>
@@ -509,11 +516,11 @@
   <x:String x:Key="common.printAction">Yazdır</x:String>
   <x:String x:Key="returnReason.title">İade sebebi</x:String>
   <x:String x:Key="returnReason.header">İade sebebini girin</x:String>
-  <x:String x:Key="returnReason.watermark">Sebep girin...</x:String>
+  <x:String x:Key="returnReason.watermark">Sebep girin…</x:String>
   <x:String x:Key="saleSuccess.title">Ödeme tamamlandı</x:String>
 
   <!-- Satış iade penceresi / vardiya detayları -->
-  <x:String x:Key="common.searchWatermark">Ara...</x:String>
+  <x:String x:Key="common.searchWatermark">Ara…</x:String>
   <x:String x:Key="common.refresh">Yenile</x:String>
   <x:String x:Key="common.select">Seç</x:String>
   <x:String x:Key="common.all">Tümü</x:String>
@@ -532,7 +539,7 @@
   <x:String x:Key="returnSale.returnSelected">Seçilenleri iade et</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Tüm fişi iade et</x:String>
   <x:String x:Key="returnSale.manualIdHeader">Satış ID'sini elle gir</x:String>
-  <x:String x:Key="returnSale.saleIdWatermark">Fiş ID'si...</x:String>
+  <x:String x:Key="returnSale.saleIdWatermark">Fiş ID'si…</x:String>
   <x:String x:Key="returnSale.loadReceipt">Fişi yükle</x:String>
   <x:String x:Key="shiftDetails.title">Vardiyayı görüntüle</x:String>
   <x:String x:Key="shiftDetails.subtitle">Mevcut veya kapatılmış vardiya ayrıntıları</x:String>
@@ -555,7 +562,7 @@
   <x:String x:Key="payDebt.colAmountDue">Ödenecek tutar</x:String>
   <x:String x:Key="payDebt.colPaid">Ödenen</x:String>
   <x:String x:Key="payDebt.changeClientButton">Değiştir</x:String>
-  <x:String x:Key="payDebt.clientSearchWatermark">İsim veya telefon ile ara...</x:String>
+  <x:String x:Key="payDebt.clientSearchWatermark">İsim veya telefon ile ara…</x:String>
 
   <!-- Ekran klavyesi (harf olmayan tuşlar) -->
   <x:String x:Key="keyboard.title">Klavye</x:String>
@@ -581,7 +588,7 @@
   <x:String x:Key="login.autonomous.createAccountButton">Oluştur ve giriş yap</x:String>
   <x:String x:Key="login.autonomous.loginTitle">Çevrimdışı giriş</x:String>
   <x:String x:Key="login.autonomous.loginHint">İnternetsiz çalışır — giriş doğrudan bu bilgisayarda kontrol edilir.</x:String>
-  <x:String x:Key="splash.checkingSession">Kayıtlı oturum kontrol ediliyor...</x:String>
+  <x:String x:Key="splash.checkingSession">Kayıtlı oturum kontrol ediliyor…</x:String>
 
   <!-- Yan menü -->
   <x:String x:Key="sideMenu.shiftLabel">Vardiya</x:String>
@@ -599,7 +606,7 @@
   <x:String x:Key="crmWebView.openInBrowser">nurcrm.kg'yi tarayıcıda aç</x:String>
   <x:String x:Key="shiftHistory.title">Vardiya geçmişi</x:String>
   <x:String x:Key="shiftHistory.summaryTab">Genel bakış</x:String>
-  <x:String x:Key="common.loadingDots">Yükleniyor...</x:String>
+  <x:String x:Key="common.loadingDots">Yükleniyor…</x:String>
 
   <!-- Kasa ayarları penceresi -->
   <x:String x:Key="posSettings.title">Kasa ayarları</x:String>
@@ -626,6 +633,14 @@
   <x:String x:Key="account.subtitle">Plan, abonelik süresi ve bağlı ek hizmetler</x:String>
   <x:String x:Key="account.refresh">Yenile</x:String>
   <x:String x:Key="account.companyLabel">Şirket</x:String>
+  <x:String x:Key="account.loginCard">Kasaya giriş</x:String>
+  <x:String x:Key="account.loginLabel">Kullanıcı adı</x:String>
+  <x:String x:Key="account.cashierLabel">Kasiyer</x:String>
+  <x:String x:Key="account.roleLabel">Rol</x:String>
+  <x:String x:Key="account.cashboxLabel">Kasa</x:String>
+  <x:String x:Key="account.shiftLabel">Vardiya</x:String>
+  <x:String x:Key="account.passwordLabel">Şifre</x:String>
+  <x:String x:Key="account.passwordHint">Kasa şifreyi saklamaz, aksi halde kasadaki herkes görebilirdi. Şifreyi NurCRM sitesinden değiştirip kurtarabilirsiniz.</x:String>
   <x:String x:Key="account.planLabel">Tarife planı</x:String>
   <x:String x:Key="account.expiryLabel">Geçerlilik süresi</x:String>
   <x:String x:Key="account.servicesLabel">Bağlı ek hizmetler</x:String>
@@ -729,6 +744,8 @@
   <x:String x:Key="posSettings.screen.languagePackHint">İngilizce, Türkçe ve Özbekçe ücretli Dil paketidir: Marketplace → Ek özellikler</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Ölçek</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kasa ekranındaki tüm öğelerin boyutu — %50 ile %200 arasında. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
+  <x:String x:Key="posSettings.screen.tileSize">Ürün kartı boyutu</x:String>
+  <x:String x:Key="posSettings.screen.tileSizeDesc">Büyük kartlar dokunmatik ekranda kolay seçilir, küçükler ekrana daha çok ürün sığdırır. Başlık ve fiş değişmez.</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Ana ekran düzeni</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Standart — katalog ve sepet yan yana, boyutu ayarlanabilir. 1C-stili — büyük ürün kutucukları, sabit sağ sütunda fiş, miktar için tuş takımı. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Standart</x:String>
@@ -920,9 +937,10 @@
   <x:String x:Key="product.articleWatermark">Ürün kodunu girin</x:String>
   <x:String x:Key="product.generateBarcode">Oluştur</x:String>
   <x:String x:Key="product.barcodeScanWatermark">Barkodu tarayın veya girin</x:String>
-  <x:String x:Key="product.barcodeScanWatermarkShort">Tarayın...</x:String>
+  <x:String x:Key="product.barcodeScanWatermarkShort">Tarayın…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Kategori, marka ve ek barkodlar</x:String>
   <x:String x:Key="product.sectionMore">Diğer (toptan fiyat, indirim, kısayol, özellikler)</x:String>
+  <x:String x:Key="product.sectionPurchaseHistory">Alım geçmişi</x:String>
   <x:String x:Key="product.altBarcodesLabel">Ek barkodlar</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Barkod, ad ve paket başına miktar — web sitesindeki gibi. Yeni bir ürün oluşturulmaz: bu barkod kasada okutulduğunda adı aynı ürünün adıyla birleşir (örn. "Asu su" + "Çilekli").</x:String>
   <x:String x:Key="product.variantBarcodeWatermark">Ek barkod</x:String>
@@ -1057,6 +1075,20 @@
   <x:String x:Key="warehouse.deleteButton">Sil</x:String>
   <x:String x:Key="warehouse.photoButton">Fotoğraf</x:String>
   <x:String x:Key="warehouse.tabRevision">Sayım (Envanter)</x:String>
+  <x:String x:Key="warehouse.tabReceiving">Mal kabul</x:String>
+  <x:String x:Key="warehouse.receivingHint">İrsaliyedeki ürünleri sıradan bir okuyucuyla okutun. Depodaki ürün kendi fiyatlarıyla, CRM tabanındaki ürün adıyla, bilinmeyen barkod yeni satır olarak gelir — adını yazın. Miktar, alış ve satış fiyatı tabloda düzeltilebilir. «Stoğa al» yeni ürünleri oluşturur, stoğu artırır ve fiyatları alım geçmişine yazar.</x:String>
+  <x:String x:Key="warehouse.receivingScanHint">Barkodu okutun veya yazın…</x:String>
+  <x:String x:Key="warehouse.receivingWas">Vardı</x:String>
+  <x:String x:Key="warehouse.receivingTaken">Alındı</x:String>
+  <x:String x:Key="warehouse.receivingCommit">Giriş yap</x:String>
+  <x:String x:Key="warehouse.receivingSupplier">Tedarikçi</x:String>
+  <x:String x:Key="warehouse.receivingPaidNow">Hemen ödendi</x:String>
+  <x:String x:Key="warehouse.receivingOnDebt">Tedarikçiye borç</x:String>
+  <x:String x:Key="warehouse.receivingSource">Kaynak</x:String>
+  <x:String x:Key="warehouse.receivingUnit">Birim</x:String>
+  <x:String x:Key="warehouse.receivingPurchasePrice">Alış fiyatı</x:String>
+  <x:String x:Key="warehouse.receivingSalePrice">Satış fiyatı</x:String>
+  <x:String x:Key="warehouse.receivingLineTotal">Tutar</x:String>
   <x:String x:Key="warehouse.revisionSearchWatermark">Sayıma eklemek için ürün adına göre ara…</x:String>
   <x:String x:Key="warehouse.colBarcodeHyphen">Barkod</x:String>
   <x:String x:Key="warehouse.colProductName">Ürün adı</x:String>
@@ -1067,6 +1099,34 @@
   <x:String x:Key="warehouse.tabWriteOff">Düşüm</x:String>
   <x:String x:Key="warehouse.tabAnalytics">Analiz</x:String>
   <x:String x:Key="warehouse.tabMovements">Hareketler</x:String>
+  <x:String x:Key="warehouse.transfersDocs">Belgeler</x:String>
+  <x:String x:Key="warehouse.transfersFlow">Stok hareketi</x:String>
+  <x:String x:Key="warehouse.transferCreate">+ Yeni transfer</x:String>
+  <x:String x:Key="warehouse.transferNumber">Numara</x:String>
+  <x:String x:Key="warehouse.transferRoute">Güzergah</x:String>
+  <x:String x:Key="warehouse.transferStatus">Durum</x:String>
+  <x:String x:Key="warehouse.transferItems">Kalem</x:String>
+  <x:String x:Key="warehouse.transferResponsible">Sorumlu</x:String>
+  <x:String x:Key="warehouse.transferCardTitle">Stok transferi</x:String>
+  <x:String x:Key="warehouse.transferFrom">Nereden</x:String>
+  <x:String x:Key="warehouse.transferTo">Nereye</x:String>
+  <x:String x:Key="warehouse.transferCarrier">Taşıyıcı</x:String>
+  <x:String x:Key="warehouse.transferTracking">Takip numarası</x:String>
+  <x:String x:Key="warehouse.transferWeight">Parti ağırlığı</x:String>
+  <x:String x:Key="warehouse.transferContent">İçerik</x:String>
+  <x:String x:Key="warehouse.transferHistory">Geçmiş</x:String>
+  <x:String x:Key="warehouse.transferFiles">Belgeler</x:String>
+  <x:String x:Key="warehouse.transferAddHint">Barkod veya ürün adı</x:String>
+  <x:String x:Key="warehouse.transferAddItem">+ Ekle</x:String>
+  <x:String x:Key="warehouse.transferPickFromList">Listeden seç</x:String>
+  <x:String x:Key="warehouse.transferRemoveItem">Kaldır</x:String>
+  <x:String x:Key="warehouse.transferEmployee">Çalışan</x:String>
+  <x:String x:Key="warehouse.transferAttach">Ekle</x:String>
+  <x:String x:Key="warehouse.transferOpenFile">Aç</x:String>
+  <x:String x:Key="warehouse.transferFileKind">Belge türü</x:String>
+  <x:String x:Key="warehouse.transferShip">Gönder</x:String>
+  <x:String x:Key="warehouse.transferDeliver">Teslim al</x:String>
+  <x:String x:Key="warehouse.transferCancel">İptal</x:String>
   <x:String x:Key="warehouse.movementsSearchHint">Ürün adına göre ara…</x:String>
   <x:String x:Key="warehouse.movementsWeek">Hafta</x:String>
   <x:String x:Key="warehouse.movementsMonth">Ay</x:String>
@@ -1093,15 +1153,17 @@
   <x:String x:Key="warehouse.writeOffTitle">Düşüm formu</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Düşüm geçmişi</x:String>
   <x:String x:Key="warehouse.writeOffHistoryExpandButton">Tamamını aç ⤢</x:String>
-  <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Ürün, sebep veya kasiyere göre ara...</x:String>
+  <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Ürün, sebep veya kasiyere göre ara…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Henüz düşüm yapılmadı.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Ada göre ürün bul</x:String>
   <x:String x:Key="warehouse.startTypingWatermark">Ürün adını yazmaya başlayın…</x:String>
   <x:String x:Key="warehouse.selectedProductLabel">Seçilen ürün</x:String>
   <x:String x:Key="warehouse.qtyForWriteOffLabel">Düşülecek miktar</x:String>
   <x:String x:Key="warehouse.writeOffReasonLabel">Düşüm sebebi</x:String>
+  <x:String x:Key="warehouse.writeOffUnitCost">Birim maliyet</x:String>
+  <x:String x:Key="warehouse.writeOffLineTotal">Tutar</x:String>
   <x:String x:Key="warehouse.confirmWriteOffButton">Düşümü onayla</x:String>
-  <x:String x:Key="warehouse.savingData">Veri kaydediliyor...</x:String>
+  <x:String x:Key="warehouse.savingData">Veri kaydediliyor…</x:String>
 
   <!-- Finans penceresi -->
   <x:String x:Key="common.exit">Çıkış</x:String>
@@ -1126,7 +1188,7 @@
   <x:String x:Key="finance.unpopularProductsSubtitle">Seçilen dönemde satışı olmayan, stoğa göre sıralanmış ürünler — en uzun süre bekleyenler.</x:String>
   <x:String x:Key="finance.allProductsTitle">Tüm ürünler</x:String>
   <x:String x:Key="finance.allProductsSubtitle">Depodaki tam ürün listesi, her ürünün toplam stoktaki payıyla birlikte.</x:String>
-  <x:String x:Key="finance.allProductsSearchWatermark">Ada veya koda göre ara...</x:String>
+  <x:String x:Key="finance.allProductsSearchWatermark">Ada veya koda göre ara…</x:String>
   <x:String x:Key="finance.allProductsPieNote">Grafik, her ürünün depodaki toplam miktar/ağırlıktaki payını gösterir (ilk 9 ürün + "Diğerleri"). Adetli ve tartılı ürünler doğrudan toplandığı için pay yaklaşıktır.</x:String>
   <x:String x:Key="product.articleLabel">Ürün kodu</x:String>
   <x:String x:Key="finance.paymentMethodsTitle">Ödeme yöntemleri</x:String>

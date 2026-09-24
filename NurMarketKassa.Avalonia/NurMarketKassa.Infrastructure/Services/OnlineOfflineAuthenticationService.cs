@@ -217,8 +217,15 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             : _api.UserPayload);
 
         var userId = ReadString(user, "id", "pk", "uuid", "user_id") ?? fallback?.UserId ?? "";
-        var displayName = ReadString(user, "full_name", "name", "username", "email")
-            ?? fallback?.DisplayName
+        // 2026-09-24, живой случай: в меню «Кассир —». Сервер отдаёт имя в first_name/last_name
+        // («Кассир Тест»), а их здесь не читали; при неудачной загрузке профиля имя бралось из
+        // прошлой сессии, и пустая строка оттуда перекрывала запасной вариант — логин.
+        var firstLast = string.Join(" ", new[] { ReadString(user, "first_name"), ReadString(user, "last_name") }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
+        var displayName = ReadString(user, "full_name", "name")
+            ?? (firstLast.Length > 0 ? firstLast : null)
+            ?? ReadString(user, "username", "email")
+            ?? (string.IsNullOrWhiteSpace(fallback?.DisplayName) ? null : fallback!.DisplayName)
             ?? login;
         var role = ReadString(user, "role", "user_role", "position") ?? fallback?.Role ?? "";
         var expiresAt = ReadExpiration(loginPayload)

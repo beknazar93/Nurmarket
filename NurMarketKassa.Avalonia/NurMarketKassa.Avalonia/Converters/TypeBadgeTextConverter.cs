@@ -21,6 +21,8 @@ public sealed class TypeBadgeTextConverter : IValueConverter
         if (value is not CatalogProductTileVm vm)
             return "";
 
+        if (vm.IsService)
+            return Tr.T("Услуга", "Кызмат", "Service", "Hizmet", "Xizmat");
         if (vm.IsBundle)
             return Tr.T("Комплект", "Комплект", "Kit", "Set", "To'plam");
         if (vm.IsWeighted)

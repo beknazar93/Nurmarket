@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 namespace NurMarketKassa.Models;
 
@@ -24,6 +24,8 @@ public sealed class LocalProductRecord
     public string? HotkeyGroup { get; set; }
     /// <summary>Комплект/набор из нескольких разных товаров (поле "kind"="bundle" в NurCRM).</summary>
     public bool IsBundle { get; set; }
+    /// <summary>Вид товара сайта: product / service / bundle (null — старая запись).</summary>
+    public string? Kind { get; set; }
     /// <summary>Компактный JSON состава комплекта (List&lt;BundleComponent&gt;) или null.</summary>
     public string? BundleItemsJson { get; set; }
     /// <summary>Дополнительные штрихкоды — по одному в строке или через запятую (как их вводит

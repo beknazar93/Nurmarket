@@ -511,6 +511,81 @@ public sealed class CatalogApiService : ICatalogApiService
         _client.RequestAsync(
             HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/", BuildProductBody(request), null, ct);
 
+    public async Task<JsonElement?> FindWarehouseProductByBarcodeAsync(string barcode, CancellationToken ct = default)
+    {
+        try
+        {
+            var data = await _client.RequestAsync(
+                    HttpMethod.Get, $"api/main/products/warehouse-barcode/{Uri.EscapeDataString(barcode.Trim())}/", null, null, ct)
+                .ConfigureAwait(false);
+            // Ответ — {"product": {...}}; на всякий случай принимаем и голый объект товара.
+            if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("product", out var product)
+                && product.ValueKind == JsonValueKind.Object)
+                return product.Clone();
+            return data.ValueKind == JsonValueKind.Object ? data.Clone() : null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+    }
+
+    public async Task<JsonElement?> FindGlobalProductByBarcodeAsync(string barcode, CancellationToken ct = default)
+    {
+        try
+        {
+            var data = await _client.RequestAsync(
+                    HttpMethod.Get, $"api/main/products/global-barcode/{Uri.EscapeDataString(barcode.Trim())}/", null, null, ct)
+                .ConfigureAwait(false);
+            return data.ValueKind == JsonValueKind.Object ? data.Clone() : null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+    }
+
+    public Task<JsonElement> CreateProductFromGlobalBarcodeAsync(string barcode, string name, double price, CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Post,
+            "api/main/products/create-by-barcode/",
+            new Dictionary<string, object?>
+            {
+                ["barcode"] = barcode.Trim(),
+                ["name"] = name.Trim(),
+                ["price"] = price.ToString("0.##", CultureInfo.InvariantCulture),
+            },
+            null,
+            ct);
+
+    public Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/", fields, null, ct);
+
+    public Task<JsonElement> ListSuppliersAsync(CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Get,
+            "api/main/clients/",
+            null,
+            new Dictionary<string, string> { ["type"] = "suppliers", ["page_size"] = "500" },
+            ct);
+
+    public Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Post, $"api/main/suppliers/{Uri.EscapeDataString(supplierId.Trim())}/receipt/", body, null, ct);
+
+    public Task<JsonElement> ListSupplierReceiptsAsync(int page, int limit, CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Get,
+            "api/main/suppliers/receipts/",
+            null,
+            new Dictionary<string, string>
+            {
+                ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                ["limit"] = limit.ToString(CultureInfo.InvariantCulture),
+            },
+            ct);
+
     /// <summary>Доп. штрихкоды — сервер теперь (2026-09-21, подтверждено живым запросом к API)
     /// ожидает массив объектов {"barcode","name","quantity"}, а не голые строки, как раньше:
     /// голая строка в этом поле, скорее всего, отклоняется DRF ("Expected a dictionary, but got

@@ -87,6 +87,7 @@
                 <TabItem Header="{DynamicResource csh.catalog.tabPiece}"/>
                 <TabItem Header="{DynamicResource csh.catalog.tabPieceOption}"/>
                 <TabItem Header="{DynamicResource csh.catalog.tabBundle}"/>
+                <TabItem Header="{DynamicResource csh.catalog.tabServices}"/>
             </TabControl>
 
             <Grid Grid.Row="1"

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -188,6 +188,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
         InitializeComponent();
         DataContext = this;
+        SetupPurchaseHistory();
         BuildHotkeyOptions();
         BuildCategoryOptions();
         BuildBrandOptions();
@@ -229,7 +230,122 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             Barcode = barcode;
             BarcodeBox.Focus();
             BarcodeBox.CaretIndex = BarcodeBox.Text?.Length ?? 0;
+            _ = FillNameFromGlobalBaseAsync(barcode);
         });
+    }
+
+    private void BarcodeBox_LostFocus(object? sender, RoutedEventArgs e) =>
+        _ = FillNameFromGlobalBaseAsync(Barcode);
+
+    /// <summary>Название нового товара из общей базы товаров NurCRM — как на сайте при
+    /// добавлении товара (2026-09-24). Только для нового товара и только если название ещё
+    /// пустое: вписанное руками не перетираем. Если такой штрихкод уже есть на складе —
+    /// говорим об этом сразу, а не после «Сохранить».</summary>
+    private async Task FillNameFromGlobalBaseAsync(string? barcode)
+    {
+        var code = barcode?.Trim() ?? "";
+        if (_existing is not null || _catalogApi is null || code.Length < 8 || !string.IsNullOrWhiteSpace(ProductName))
+            return;
+
+        try
+        {
+            if (await _catalogApi.FindWarehouseProductByBarcodeAsync(code).ConfigureAwait(true) is { } own)
+            {
+                var ownName = own.TryGetProperty("name", out var n) ? n.GetString() : null;
+                ErrorMessage = Tr.T($"Товар с этим штрихкодом уже есть на складе: {ownName}.",
+                    $"Бул штрихкоддогу товар кампада бар: {ownName}.",
+                    $"A product with this barcode is already in stock: {ownName}.",
+                    $"Bu barkodlu ürün zaten depoda var: {ownName}.",
+                    $"Bu shtrix-kodli mahsulot omborda bor: {ownName}.");
+                return;
+            }
+
+            if (await _catalogApi.FindGlobalProductByBarcodeAsync(code).ConfigureAwait(true) is { } global
+                && global.TryGetProperty("name", out var gn) && !string.IsNullOrWhiteSpace(gn.GetString())
+                && string.IsNullOrWhiteSpace(ProductName)
+                && string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
+            {
+                ProductName = gn.GetString()!.Trim();
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Карточка товара: общая база по штрихкоду {code} недоступна: {ex.Message}", "DEBUG");
+        }
+    }
+
+    /// <summary>Строка истории закупок в карточке.</summary>
+    private sealed class PurchaseHistoryRow
+    {
+        public string WhenText { get; init; } = "";
+        public string MainText { get; init; } = "";
+        public string DetailText { get; init; } = "";
+        public string TotalText { get; init; } = "";
+    }
+
+    private bool _purchaseHistoryLoaded;
+
+    private void SetupPurchaseHistory()
+    {
+        // Только у существующего товара: у нового истории ещё нет.
+        if (_existing is null || IsQuickAddMode || string.IsNullOrWhiteSpace(_existing.Id))
+            return;
+
+        PurchaseHistoryExpander.IsVisible = true;
+        PurchaseHistoryExpander.PropertyChanged += async (_, e) =>
+        {
+            if (e.Property == Expander.IsExpandedProperty && PurchaseHistoryExpander.IsExpanded && !_purchaseHistoryLoaded)
+                await LoadPurchaseHistoryAsync();
+        };
+    }
+
+    private async Task LoadPurchaseHistoryAsync()
+    {
+        _purchaseHistoryLoaded = true;
+        PurchaseHistoryStatus.Text = Tr.T("Загружаю историю закупок…", "Сатып алуулар тарыхы жүктөлүүдө…",
+            "Loading purchase history…", "Alım geçmişi yükleniyor…", "Xaridlar tarixi yuklanmoqda…");
+
+        List<PurchaseReceivingService.HistoryEntry> history;
+        try
+        {
+            history = await PurchaseReceivingService.Instance.LoadHistoryAsync(_existing!.Id).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _purchaseHistoryLoaded = false;
+            PurchaseHistoryStatus.Text = Tr.T("История закупок не загрузилась: ", "Тарых жүктөлгөн жок: ",
+                "Purchase history failed to load: ", "Alım geçmişi yüklenemedi: ", "Xaridlar tarixi yuklanmadi: ") + ex.Message;
+            return;
+        }
+
+        var som = Tr.T("сом", "сом", "som", "som", "so'm");
+        PurchaseHistoryList.ItemsSource = history.Select(h =>
+        {
+            var unit = string.IsNullOrWhiteSpace(h.Unit) ? "шт" : h.Unit;
+            var details = new List<string>();
+            if (h.SalePrice is { } sale && sale > 0)
+                details.Add(Tr.T("продажа", "сатуу", "sale", "satış", "sotuv") + $" {sale:0.##} {som}");
+            if (!string.IsNullOrWhiteSpace(h.SupplierName))
+                details.Add(Tr.T("поставщик", "жеткирүүчү", "supplier", "tedarikçi", "yetkazib beruvchi") + " " + h.SupplierName);
+            if (!string.IsNullOrWhiteSpace(h.Employee))
+                details.Add(Tr.T("принял", "кабыл алган", "received by", "teslim alan", "qabul qildi") + " " + h.Employee);
+            details.Add(h.Source);
+
+            return new PurchaseHistoryRow
+            {
+                WhenText = h.At == default ? "—" : h.At.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+                MainText = $"{h.Quantity:0.###} {unit} × {h.PurchasePrice:0.##} {som}",
+                DetailText = string.Join("  ·  ", details),
+                TotalText = $"{h.Quantity * h.PurchasePrice:0.##} {som}",
+            };
+        }).ToList();
+
+        PurchaseHistoryStatus.Text = history.Count == 0
+            ? Tr.T("Закупок этого товара пока не было.", "Бул товар азырынча сатылып алынган эмес.",
+                "No purchases of this product yet.", "Bu ürün henüz alınmadı.", "Bu mahsulot hali xarid qilinmagan.")
+            : Tr.T("Последняя цена закупки", "Акыркы сатып алуу баасы", "Last purchase price", "Son alış fiyatı", "Oxirgi xarid narxi")
+              + $": {history[0].PurchasePrice:0.##} {som}  ·  "
+              + Tr.T("закупок", "сатып алуулар", "purchases", "alım", "xaridlar") + $": {history.Count}";
     }
 
     /// <summary>Parameterless ctor required by Avalonia XAML previewer/designer only.</summary>

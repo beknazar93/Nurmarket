@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -77,10 +78,381 @@ public partial class WarehouseWindow : Window
     /// на каждое открытие окна склада.</summary>
     private void WarehouseTabs_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (WarehouseTabs.SelectedIndex == 3)
-            RefreshMovements();
-        else if (WarehouseTabs.SelectedIndex == 4)
+        // Сравниваем с самими вкладками, а не с их номерами: номера уже один раз поехали,
+        // когда между «Товарами» и «Ревизией» встала «Приёмка», и аналитика начала считаться
+        // при открытии перемещений.
+        if (ReferenceEquals(WarehouseTabs.SelectedItem, MovementsTabItem))
+            MovementsSection_Changed(this, new RoutedEventArgs());
+        else if (ReferenceEquals(WarehouseTabs.SelectedItem, AnalyticsTabItem))
             RefreshAnalytics();
+    }
+
+    /// <summary>Живой поиск в приёмке. С двух букв: с одной в каталоге совпадает почти всё.
+    /// Сканер пишет в это же поле, но заканчивает переводом строки — подсказки мелькнут и
+    /// уступят место обычному добавлению по Enter.</summary>
+    private void ReceivingScan_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        var query = ReceivingScanBox.Text?.Trim() ?? "";
+        if (query.Length < 2)
+        {
+            ReceivingSuggestionsBox.IsVisible = false;
+            ReceivingSuggestionsPanel.ItemsSource = null;
+            return;
+        }
+
+        var matches = CatalogCacheService.Products
+            .Where(p => p.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                        || (p.Barcode ?? "").Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || (p.Article ?? "").Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+            .Take(6)
+            .ToList();
+
+        ReceivingSuggestionsPanel.ItemsSource = matches;
+        ReceivingSuggestionsBox.IsVisible = matches.Count > 0;
+    }
+
+    private void ReceivingSuggestion_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: CatalogProductTileVm product })
+            return;
+
+        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+            quantity = 1;
+
+        _viewModel.AddReceivingProduct(product, quantity);
+
+        ReceivingScanBox.Text = "";
+        ReceivingQuantityBox.Text = "1";
+        ReceivingSuggestionsBox.IsVisible = false;
+        ReceivingSuggestionsPanel.ItemsSource = null;
+        RefreshReceivingSummary();
+    }
+
+    private async void ReceivingScan_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+
+        var code = ReceivingScanBox.Text?.Trim() ?? "";
+        if (code.Length == 0)
+            return;
+
+        // Если поиск что-то нашёл, Enter берёт первое совпадение: набранное руками название
+        // иначе ушло бы в список как неизвестный штрихкод и не привязалось бы к товару.
+        if (ReceivingSuggestionsBox.IsVisible
+            && ReceivingSuggestionsPanel.ItemsSource is IEnumerable<CatalogProductTileVm> found
+            && found.FirstOrDefault() is { } first)
+        {
+            ReceivingSuggestion_Click(new Button { Tag = first }, new RoutedEventArgs());
+            return;
+        }
+
+        ReceivingScanBox.Text = "";
+        await ScanIntoReceivingAsync(code);
+    }
+
+    /// <summary>Скан в приёмку — и из поля ввода, и со сканера, когда фокус не в поле.
+    /// Количество берётся из поля рядом: коробку можно принять одним сканом.</summary>
+    private async Task ScanIntoReceivingAsync(string code)
+    {
+        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+            quantity = 1;
+
+        try
+        {
+            await _viewModel.HandleReceivingScanAsync(code, quantity);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: скан {code} не обработан: {ex.Message}", "WARNING");
+        }
+
+        ReceivingQuantityBox.Text = "1";
+        RefreshReceivingSummary();
+    }
+
+    private void ReceivingPayment_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_viewModel is not null && ReceivingPaymentBox is not null)
+            _viewModel.ReceivingPaidNow = ReceivingPaymentBox.SelectedIndex != 1;
+    }
+
+    /// <summary>Название и единицу правят только у нового товара: у существующего они живут в
+    /// карточке склада, и правка здесь молча никуда бы не ушла.</summary>
+    private void ReceivingGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (e.Row.DataContext is not NurMarketKassa.Models.ReceivingLineVm line || line.IsNew)
+            return;
+
+        // Колонки 1 и 3 — «Название» и «Ед.», см. разметку ReceivingGrid.
+        if (ReferenceEquals(e.Column, ReceivingGrid.Columns[1]) || ReferenceEquals(e.Column, ReceivingGrid.Columns[3]))
+            e.Cancel = true;
+    }
+
+    private void ReceivingGrid_CellEditEnded(object? sender, DataGridCellEditEndedEventArgs e) =>
+        RefreshReceivingSummary();
+
+    private async void ReceivingPickFromList_Click(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new BundleItemPickerDialog(CatalogCacheService.Products, []);
+        var confirmed = await dialog.ShowDialog<bool?>(this);
+        if (confirmed != true || dialog.Result.Count == 0)
+            return;
+
+        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+            quantity = 1;
+
+        foreach (var product in dialog.Result)
+            _viewModel.AddReceivingProduct(product, quantity);
+
+        ReceivingQuantityBox.Text = "1";
+        RefreshReceivingSummary();
+    }
+
+    private void ReceivingRemove_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ReceivingGrid.SelectedItem is NurMarketKassa.Models.ReceivingLineVm line)
+        {
+            _viewModel.ReceivingLines.Remove(line);
+            RefreshReceivingSummary();
+        }
+    }
+
+    /// <summary>Итог под накладной: позиции, единицы, сумма закупки и сколько товаров будет
+    /// создано. Нужен до проведения — после него правки уже не отменить.</summary>
+    private void RefreshReceivingSummary()
+    {
+        var lines = _viewModel.ReceivingLines;
+        var created = lines.Count(l => l.IsNew);
+
+        var text = Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiya") + $": {lines.Count}"
+            + "   ·   " + Tr.T("единиц", "бирдик", "units", "adet", "birlik")
+            + $": {lines.Sum(l => l.Quantity):0.###}"
+            + "   ·   " + Tr.T("на сумму", "суммасы", "total", "tutar", "summa")
+            + $": {lines.Sum(l => l.LineTotal):0.##} " + Tr.T("сом", "сом", "som", "som", "so'm");
+
+        if (created > 0)
+            text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulot")
+                + $": {created}";
+
+        ReceivingSummaryText.Text = text;
+    }
+
+    /// <summary>Строка журнала документов перемещения. Отдельный тип, потому что DataGrid
+    /// привязывается к именам свойств, а показать нужно не то, что лежит в базе, а собранный
+    /// текст: маршрут одной строкой, статус словами, количество позиций с единицами.</summary>
+    private sealed class TransferRow
+    {
+        public string Id { get; init; } = "";
+        public string Number { get; init; } = "";
+        public string WhenText { get; init; } = "";
+        public string RouteText { get; init; } = "";
+        public string StatusText { get; init; } = "";
+        public string ItemsText { get; init; } = "";
+        public string ResponsibleText { get; init; } = "";
+        public bool IsInTransit { get; init; }
+        public bool IsDelivered { get; init; }
+        public bool IsCancelled { get; init; }
+    }
+
+    private static string TransferStatusText(string status) => status switch
+    {
+        StockTransferService.StatusInTransit => Tr.T("В пути", "Жолдо", "In transit", "Yolda", "Yo'lda"),
+        StockTransferService.StatusDelivered => Tr.T("Доставлено", "Жеткирилди", "Delivered", "Teslim edildi", "Yetkazildi"),
+        StockTransferService.StatusCancelled => Tr.T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"),
+        _ => Tr.T("Создано", "Түзүлдү", "Created", "Oluşturuldu", "Yaratildi"),
+    };
+
+    /// <summary>Журнал документов перемещения: поиск идёт и по самому документу, и по товарам
+    /// внутри него — кладовщик ищет «где та коробка», а не номер бумаги.</summary>
+    private void RefreshTransfers()
+    {
+        if (TransfersGrid is null)
+            return;
+
+        var search = MovementsSearchBox?.Text?.Trim() ?? "";
+        var status = (TransferStatusFilter?.SelectedItem as ComboBoxItem)?.Tag as string;
+
+        var rows = StockTransferService.Instance.LoadTransfers(search, status)
+            .Select(t => new TransferRow
+            {
+                Id = t.Id,
+                Number = t.Number,
+                WhenText = t.CreatedAt.ToString("dd.MM.yyyy HH:mm"),
+                RouteText = BuildRouteText(t),
+                StatusText = TransferStatusText(t.Status),
+                ItemsText = t.ItemCount == 0
+                    ? "—"
+                    : $"{t.ItemCount} · {t.TotalQuantity:0.###}",
+                ResponsibleText = string.IsNullOrWhiteSpace(t.Responsible) ? "—" : t.Responsible!,
+                IsInTransit = t.Status == StockTransferService.StatusInTransit,
+                IsDelivered = t.Status == StockTransferService.StatusDelivered,
+                IsCancelled = t.Status == StockTransferService.StatusCancelled,
+            })
+            .ToList();
+
+        TransfersGrid.ItemsSource = rows;
+
+        MovementsSummaryText.Text = rows.Count == 0
+            ? Tr.T("Перемещений пока нет. Создайте первое — кнопка справа.",
+                   "Жылышуулар азырынча жок. Биринчисин түзүңүз — оң жактагы баскыч.",
+                   "No transfers yet. Create the first one with the button on the right.",
+                   "Henüz transfer yok. İlkini sağdaki düğmeyle oluşturun.",
+                   "Hozircha ko'chirishlar yo'q. Birinchisini o'ngdagi tugma bilan yarating.")
+            : Tr.T("Документов", "Документтер", "Documents", "Belgeler", "Hujjatlar") + $": {rows.Count}";
+    }
+
+    private static string BuildRouteText(StockTransferService.Transfer t)
+    {
+        var from = string.IsNullOrWhiteSpace(t.FromPlaceName)
+            ? Tr.T("склад не указан", "кампа көрсөтүлгөн эмес", "source not set", "kaynak yok", "manba ko'rsatilmagan")
+            : t.FromPlaceName;
+        var to = string.IsNullOrWhiteSpace(t.ToPlaceName)
+            ? Tr.T("получатель не указан", "алуучу көрсөтүлгөн эмес", "destination not set", "hedef yok", "qabul qiluvchi ko'rsatilmagan")
+            : t.ToPlaceName;
+
+        var route = from + "  →  " + to;
+        if (!string.IsNullOrWhiteSpace(t.Carrier))
+            route += "   ·   " + t.Carrier;
+        if (!string.IsNullOrWhiteSpace(t.TrackingNumber))
+            route += " " + t.TrackingNumber;
+        return route;
+    }
+
+    /// <summary>Переключение «Документы / Движение товара». Фильтр по периоду относится только к
+    /// движению, фильтр по статусу и кнопка создания — только к документам, поэтому лишние
+    /// элементы прячутся, а не стоят неактивными.</summary>
+    private void MovementsSection_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (TransfersGrid is null || MovementsGrid is null)
+            return;
+
+        var docs = TransfersDocsRadio.IsChecked == true;
+        TransfersGrid.IsVisible = docs;
+        MovementsGrid.IsVisible = !docs;
+
+        TransferStatusFilter.IsVisible = docs;
+        CreateTransferButton.IsVisible = docs;
+        TransfersExcelButton.IsVisible = docs;
+        TransfersWordButton.IsVisible = docs;
+        MovementsWeekRadio.IsVisible = !docs;
+        MovementsMonthRadio.IsVisible = !docs;
+        MovementsQuarterRadio.IsVisible = !docs;
+
+        if (docs)
+        {
+            InitializeTransferStatusFilter();
+            RefreshTransfers();
+        }
+        else
+            RefreshMovements();
+    }
+
+    private void TransferStatusFilter_Changed(object? sender, SelectionChangedEventArgs e) => RefreshTransfers();
+
+    /// <summary>Заполняет фильтр статусов. Собирается в коде, а не в разметке: подписи переводятся
+    /// на язык интерфейса, а он меняется на ходу.</summary>
+    private void InitializeTransferStatusFilter()
+    {
+        // Заполняется один раз, при первом открытии вкладки. Раньше вызов стоял в загрузке
+        // окна, после ожидания каталога: стоило загрузке затянуться или упасть — и список
+        // статусов оставался пустым, хотя сама вкладка работала.
+        if (TransferStatusFilter.Items.Count > 0)
+            return;
+
+        TransferStatusFilter.Items.Clear();
+        TransferStatusFilter.Items.Add(new ComboBoxItem
+        {
+            Content = Tr.T("Все статусы", "Бардык абалдар", "All statuses", "Tüm durumlar", "Barcha holatlar"),
+            Tag = null,
+        });
+        foreach (var status in new[]
+                 {
+                     StockTransferService.StatusCreated,
+                     StockTransferService.StatusInTransit,
+                     StockTransferService.StatusDelivered,
+                     StockTransferService.StatusCancelled,
+                 })
+        {
+            TransferStatusFilter.Items.Add(new ComboBoxItem { Content = TransferStatusText(status), Tag = status });
+        }
+        TransferStatusFilter.SelectedIndex = 0;
+    }
+
+    private void CreateTransfer_Click(object? sender, RoutedEventArgs e)
+    {
+        var id = StockTransferService.Instance.CreateTransfer(
+            fromPlaceId: null, toPlaceId: null,
+            responsible: App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName,
+            carrier: null, trackingNumber: null, note: null,
+            employee: App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName);
+
+        RefreshTransfers();
+        OpenTransferCard(id);
+    }
+
+    private async void ExportTransfersExcel_Click(object? sender, RoutedEventArgs e) => await ExportTransfersAsync(toWord: false);
+
+    private async void ExportTransfersWord_Click(object? sender, RoutedEventArgs e) => await ExportTransfersAsync(toWord: true);
+
+    /// <summary>Выгрузка журнала перемещений. Берётся то, что сейчас отобрано фильтрами: если
+    /// кладовщик ищет отгрузки одного склада, в файл должны попасть они, а не всё подряд.</summary>
+    private async Task ExportTransfersAsync(bool toWord)
+    {
+        var extension = toWord ? "docx" : "xlsx";
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = toWord
+                ? Tr.T("Сохранить журнал в Word", "Журналды Word форматында сактоо", "Save the journal to Word", "Günlüğü Word olarak kaydet", "Jurnalni Word formatida saqlash")
+                : Tr.T("Сохранить журнал в Excel", "Журналды Excel форматында сактоо", "Save the journal to Excel", "Günlüğü Excel olarak kaydet", "Jurnalni Excel formatida saqlash"),
+            SuggestedFileName = $"transfers-{DateTime.Now:yyyy-MM-dd}.{extension}",
+            FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
+        });
+
+        var path = file?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        try
+        {
+            var search = MovementsSearchBox?.Text?.Trim() ?? "";
+            var status = (TransferStatusFilter?.SelectedItem as ComboBoxItem)?.Tag as string;
+            var transfers = StockTransferService.Instance.LoadTransfers(search, status);
+            var shop = UserPreferences.Instance.StoreName;
+
+            await Task.Run(() =>
+            {
+                if (toWord)
+                    StockTransferExportService.ExportJournalToWord(path!, transfers, TransferStatusText, shop);
+                else
+                    StockTransferExportService.ExportJournalToExcel(path!, transfers, TransferStatusText, shop);
+            }).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Выгрузка журнала перемещений не удалась: {ex}", "WARNING");
+        }
+    }
+
+    private void TransferRow_Opened(object? sender, TappedEventArgs e)
+    {
+        if (TransfersGrid?.SelectedItem is TransferRow row)
+            OpenTransferCard(row.Id);
+    }
+
+    private void OpenTransferCard(string transferId)
+    {
+        var owner = this;
+        var dialog = new StockTransferDialog(transferId);
+        _ = dialog.ShowDialog(owner);
+        dialog.Closed += (_, _) => RefreshTransfers();
     }
 
     /// <summary>Строка журнала перемещений. Отдельный тип, а не кортеж: DataGrid привязывается
@@ -266,6 +638,11 @@ public partial class WarehouseWindow : Window
         {
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             RefreshWarehouseTotals();
+            _viewModel.ReceivingLines.CollectionChanged += (_, _) => RefreshReceivingSummary();
+            _viewModel.ReceivingLineAdded += _ => RefreshReceivingSummary();
+            RefreshReceivingSummary();
+            ReceivingPaymentBox.SelectedIndex = 0;
+            _ = _viewModel.LoadReceivingSuppliersAsync();
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
                 _viewModel.HandleBarcodeScan(InitialBarcode.Trim(), isRevisionTab: true);
         }
@@ -339,18 +716,29 @@ public partial class WarehouseWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            // Tab order: 0 = Товары, 1 = Ревизия, 2 = Списание. This used to check index 0,
-            // which was the Revision tab back when the Товары list didn't exist yet — after it
-            // was added as the new first tab, scanning while browsing Товары was silently
-            // routed into HandleBarcodeScan(isRevisionTab: true), injecting a stray revision line.
-            var selectedIndex = WarehouseTabs.SelectedIndex;
-            if (selectedIndex == 0)
+            // Вкладку узнаём по ней самой, а не по номеру. Раньше здесь стояли номера
+            // (1 = Ревизия, остальное — Списание), и с появлением «Приёмки» и «Перемещения»
+            // скан в приёмке уходил строкой ревизии, а скан в ревизии — в списание.
+            var selected = WarehouseTabs.SelectedItem;
+            if (ReferenceEquals(selected, ReceivingTabItem))
+            {
+                // Поле приёмки само ловит скан по Enter — второй раз его не добавляем.
+                if (!ReceivingScanBox.IsFocused)
+                    _ = ScanIntoReceivingAsync(barcode);
                 return;
+            }
 
-            var isRevisionTab = selectedIndex == 1;
-            _viewModel.HandleBarcodeScan(barcode, isRevisionTab);
-            if (!isRevisionTab)
+            if (ReferenceEquals(selected, RevisionTabItem))
+            {
+                _viewModel.HandleBarcodeScan(barcode, isRevisionTab: true);
+                return;
+            }
+
+            if (ReferenceEquals(selected, WriteOffTabItem))
+            {
+                _viewModel.HandleBarcodeScan(barcode, isRevisionTab: false);
                 WriteOffQuantityBox?.Focus();
+            }
         });
     }
 

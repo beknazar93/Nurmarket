@@ -1,0 +1,106 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.HotkeyGroupDialog"
+        x:CompileBindings="False"
+        Title="{DynamicResource hotkeyGroup.title}"
+        Width="880" Height="640"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Border Margin="14" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="22,18">
+    <Grid RowDefinitions="Auto,Auto,*">
+
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+        <Border Grid.Column="0" CornerRadius="8" Padding="12,5" VerticalAlignment="Center"
+                Background="{DynamicResource BrushAccentSoft}">
+          <TextBlock x:Name="GroupKeyText" FontSize="17" FontWeight="Bold"
+                     Foreground="{DynamicResource BrushAccentStrong}"/>
+        </Border>
+        <TextBlock Grid.Column="1" x:Name="TitleText" Margin="12,0,0,0"
+                   FontSize="19" FontWeight="Bold" VerticalAlignment="Center"
+                   Foreground="{DynamicResource BrushText}"/>
+        <Button Grid.Column="2" Classes="SecondaryButton"
+                Content="{DynamicResource common.close}" Click="Close_Click"/>
+      </Grid>
+
+      <TextBlock Grid.Row="1" x:Name="HintText" Margin="0,0,0,12"
+                 FontSize="12" TextWrapping="Wrap"
+                 Foreground="{DynamicResource BrushTextSoft}"/>
+
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl x:Name="ProductsPanel">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <!-- Плитка такая же, как в каталоге кассы: фото сверху, название в середине,
+                   цена и остаток внизу. Продавец узнаёт товар тем же взглядом, что и слева
+                   на экране, — иначе модальное окно пришлось бы «читать» заново. -->
+              <Button Width="{DynamicResource CatalogTileWidth}"
+                      Height="{DynamicResource CatalogTileHeight}"
+                      Margin="6" Padding="12,10"
+                      Cursor="Hand"
+                      Background="{DynamicResource BrushCatalogTileBg}"
+                      BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                      BorderThickness="1"
+                      CornerRadius="{DynamicResource SettingsCardRadius}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch"
+                      Tag="{Binding}"
+                      Click="Product_Click">
+                <Grid RowDefinitions="Auto,*,Auto">
+                  <Border Grid.Row="0"
+                          Height="{DynamicResource CatalogTilePhotoHeight}"
+                          MaxWidth="140"
+                          Margin="0,0,0,8"
+                          CornerRadius="10"
+                          ClipToBounds="True"
+                          HorizontalAlignment="Center"
+                          IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
+                    <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
+                           Stretch="UniformToFill"/>
+                  </Border>
+
+                  <TextBlock Grid.Row="1"
+                             Text="{Binding Title}"
+                             FontSize="{DynamicResource CatalogTileNameSize}"
+                             FontWeight="SemiBold"
+                             TextAlignment="Center"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             TextWrapping="Wrap"
+                             MaxLines="2"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource BrushText}"/>
+
+                  <StackPanel Grid.Row="2" Spacing="2" HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding PriceLine}"
+                               FontSize="{DynamicResource CatalogTilePriceSize}"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource BrushCatalogPrice}"/>
+                    <TextBlock Text="{Binding StockInfo}"
+                               FontSize="{DynamicResource CatalogTileStockSize}"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource BrushCatalogStock}"/>
+                  </StackPanel>
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</Window>

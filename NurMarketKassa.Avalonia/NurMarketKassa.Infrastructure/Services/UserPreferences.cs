@@ -179,6 +179,14 @@ public sealed class UserPreferences
     /// корректно пересчитывает координаты кликов/попаданий курсором под новым масштабом.</summary>
     public double UiScalePercent { get; set; } = 100;
 
+    /// <summary>Код тестировщика обновлений (см. UpdateChannel). Пусто — обычный канал.</summary>
+    public string UpdateTesterCode { get; set; } = "";
+
+    /// <summary>Размер карточек каталога кассы (Настройки → Экран), 70–160%, 100 — как задумано
+    /// темой. Отдельно от общего масштаба: крупные плитки нужны сенсорному экрану, мелкие —
+    /// большому каталогу, а шапку и чек при этом менять незачем.</summary>
+    public double CatalogTileScalePercent { get; set; } = 100;
+
     /// <summary>Ручной оверрайд скруглённости кнопок (px) поверх значения активной темы —
     /// null означает "как задано в теме" (см. AccentThemeService.Apply).</summary>
     public double? CustomButtonRadius { get; set; }
@@ -795,6 +803,10 @@ public sealed class UserPreferences
                 p.ApplyBackgroundToCashierScreen = fromFile.ApplyBackgroundToCashierScreen.Value;
             if (fromFile.UiScalePercent is not null)
                 p.UiScalePercent = Math.Clamp(fromFile.UiScalePercent.Value, 50, 200);
+            if (fromFile.UpdateTesterCode is not null)
+                p.UpdateTesterCode = fromFile.UpdateTesterCode;
+            if (fromFile.CatalogTileScalePercent is not null)
+                p.CatalogTileScalePercent = Math.Clamp(fromFile.CatalogTileScalePercent.Value, 70, 160);
             if (fromFile.CustomerDisplay is not null)
             {
                 fromFile.CustomerDisplay.Normalize();
@@ -983,6 +995,8 @@ public sealed class UserPreferences
                 BackgroundBlurPercent = BackgroundBlurPercent,
                 ApplyBackgroundToCashierScreen = ApplyBackgroundToCashierScreen,
                 UiScalePercent = UiScalePercent,
+                CatalogTileScalePercent = CatalogTileScalePercent,
+                UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
@@ -1177,6 +1191,8 @@ public sealed class UserPreferences
         public double? BackgroundBlurPercent { get; set; }
         public bool? ApplyBackgroundToCashierScreen { get; set; }
         public double? UiScalePercent { get; set; }
+        public double? CatalogTileScalePercent { get; set; }
+        public string? UpdateTesterCode { get; set; }
         public double? BackgroundOpacity { get; set; }
         public CustomerDisplaySettings? CustomerDisplay { get; set; }
     }

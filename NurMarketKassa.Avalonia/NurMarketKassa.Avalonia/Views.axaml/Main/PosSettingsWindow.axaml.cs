@@ -648,7 +648,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         ? $"Не удалось проверить обновления: {result.ErrorMessage}"
                         : result.IsUpdateAvailable
                             ? $"Доступна новая версия {result.LatestVersion}."
-                            : "У вас установлена последняя версия.";
+                            : result.TestingVersion is { } testing
+                                ? $"Версия {testing} сейчас находится в тестировании. По его завершении можно будет обновиться."
+                                : "У вас установлена последняя версия.";
 
                 UpdateNowButton.IsVisible = result.IsUpdateAvailable;
             }
@@ -792,9 +794,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ShowVersionsButton.IsEnabled = true;
             }
 
+            // Вопрос — первым: описание версии бывает длинным, и раньше вопрос с кнопками
+            // оказывался где-то под ним (2026-09-24, «не видна кнопка»).
             var message = string.IsNullOrWhiteSpace(notes)
                 ? $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится."
-                : $"Что было в версии {version.Version}:\n\n{notes}\n\nУстановить эту версию вместо текущей? Касса скачает пакет и перезапустится.";
+                : $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится."
+                  + $"\n\nЧто было в версии {version.Version}:\n\n{notes}";
 
             var confirmed = PosMessageBox.Show(
                 this,

@@ -12,6 +12,15 @@
         FontFamily="Segoe UI"
         Background="{DynamicResource BrushPanel}">
 
+    <Window.Styles>
+        <Style Selector="Button.ClientRow:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.ClientRow:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+    </Window.Styles>
+
     <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
             Background="{DynamicResource BrushPanel}"
             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
@@ -29,69 +38,93 @@
                         Cursor="Hand" Click="Close_Click"/>
             </Grid>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="10">
-                    <TextBox Text="{Binding ClientSearchText}"
-                             Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
-                             Height="44" FontSize="15"/>
+            <!-- 2026-09-24, редизайн по просьбе владельца: вместо плашек с переносом — обычный
+                 список. Слева кружок с инициалами, имя крупно, телефон под ним; поиск прижат
+                 сверху, «Новый клиент» раскрывается отдельно внизу и не отнимает место у списка. -->
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
+                <TextBox Grid.Row="0" Text="{Binding ClientSearchText}"
+                         Watermark="{DynamicResource csh.checkout.clientSearchWatermark}"
+                         Height="44" FontSize="15" Margin="0,0,0,10"/>
 
-                    <ItemsControl ItemsSource="{Binding ClientSearchResults}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Button Margin="0,0,6,6" Padding="10,6"
-                                        CornerRadius="8"
-                                        Background="{DynamicResource BrushPanelSoft}"
-                                        Foreground="{DynamicResource BrushText}"
-                                        BorderBrush="{DynamicResource BrushBorder}"
-                                        BorderThickness="1"
-                                        Cursor="Hand"
-                                        Content="{ReflectionBinding DisplayName}"
-                                        Command="{Binding DataContext.SelectClientCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.loadingClients}"
+                           IsVisible="{Binding IsLoadingClients}"
+                           FontSize="12" Margin="2,0,0,8"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
 
-                    <TextBlock Text="{DynamicResource csh.checkout.loadingClients}"
-                               IsVisible="{Binding IsLoadingClients}"
-                               FontSize="12"
-                               Foreground="{DynamicResource BrushTextSoft}"/>
+                <Border Grid.Row="2" CornerRadius="10"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                        ClipToBounds="True">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding ClientSearchResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Classes="ClientRow"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Stretch"
+                                            Padding="12,9"
+                                            CornerRadius="0"
+                                            Background="Transparent"
+                                            BorderBrush="{DynamicResource BrushBorder}"
+                                            BorderThickness="0,0,0,1"
+                                            Cursor="Hand"
+                                            Command="{Binding DataContext.SelectClientCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Border Grid.Column="0" Width="38" Height="38" CornerRadius="19"
+                                                    Background="{DynamicResource BrushAccentSoft}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{ReflectionBinding Initials}"
+                                                           FontSize="14" FontWeight="Bold"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushAccentStrong}"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{ReflectionBinding Name}"
+                                                           FontSize="14.5" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource BrushText}"/>
+                                                <TextBlock Text="{ReflectionBinding Phone}"
+                                                           IsVisible="{ReflectionBinding HasPhone}"
+                                                           FontSize="12.5"
+                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="›" FontSize="20"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextMuted}"/>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
 
-                    <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,8,0,0">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{DynamicResource csh.checkout.newClient}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBox Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
-                            <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
-                            <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
-                                 должника может не отвечать. -->
-                            <TextBox Text="{Binding NewClientAddress}" Watermark="{DynamicResource clients.addressOptionalWatermark}" Height="40"/>
-                            <Button Content="{DynamicResource csh.checkout.addClient}"
-                                    Command="{Binding AddClientCommand}"
-                                    IsEnabled="{Binding !IsAddingClient}"
-                                    HorizontalAlignment="Left"
-                                    Padding="14,8"
-                                    Background="{DynamicResource BrushPanelSoft}"
-                                    Foreground="{DynamicResource BrushText}"
-                                    BorderBrush="{DynamicResource BrushBorder}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Cursor="Hand"/>
-                        </StackPanel>
-                    </Border>
+                <Expander Grid.Row="3" Margin="0,12,0,0"
+                          Header="{DynamicResource csh.checkout.newClient}"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <StackPanel Spacing="8" Margin="0,8,0,0">
+                        <TextBox Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
+                        <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
+                        <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
+                             должника может не отвечать. -->
+                        <TextBox Text="{Binding NewClientAddress}" Watermark="{DynamicResource clients.addressOptionalWatermark}" Height="40"/>
+                        <Button Classes="PrimaryButton"
+                                Content="{DynamicResource csh.checkout.addClient}"
+                                Command="{Binding AddClientCommand}"
+                                IsEnabled="{Binding !IsAddingClient}"
+                                HorizontalAlignment="Left"
+                                Padding="16,9"/>
+                    </StackPanel>
+                </Expander>
 
-                    <TextBlock Text="{Binding ErrorMessage}"
-                               Foreground="{DynamicResource BrushDanger}"
-                               FontSize="13"
-                               FontWeight="Medium"
-                               TextWrapping="Wrap"
-                               IsVisible="{Binding !!ErrorMessage}"/>
-                </StackPanel>
-            </ScrollViewer>
+                <TextBlock Grid.Row="4" Text="{Binding ErrorMessage}"
+                           Foreground="{DynamicResource BrushDanger}"
+                           FontSize="13"
+                           FontWeight="Medium"
+                           TextWrapping="Wrap"
+                           Margin="0,8,0,0"
+                           IsVisible="{Binding !!ErrorMessage}"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>

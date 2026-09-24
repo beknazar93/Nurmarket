@@ -157,7 +157,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             /// PosApp.ActiveShiftId/ShiftService.IsShiftOpen, от которых зависит чек/корзина.
             /// Отсюда можно управлять только сменами ДРУГИХ касс компании.</summary>
             public bool IsCurrentCashbox { get; set; }
-            public bool CanOpen => !IsCurrentCashbox && !IsOpen;
+
+            // «Открыть смену» у закрытых карточек убрана (2026-09-24, «почему закрытые смены
+            // можно открыть?»): кнопка открывала НОВУЮ смену той кассы, но стояла на каждой
+            // старой смене и читалась как «открыть закрытую». Новую смену открывают в кассе.
             public bool CanClose => !IsCurrentCashbox && IsOpen;
         }
 
@@ -432,35 +435,46 @@ namespace NurMarketKassa.AvaloniaHost.Views
             return null;
         }
 
-        /// <summary>Открытие смены ДРУГОЙ (не текущего терминала) кассы компании прямо из
-        /// списка "Финансы → Смены" — по просьбе пользователя ("несколько касс на одну смену",
-        /// "как в вебе"). В отличие от MainWindow.OpenShiftAsync здесь напрямую вызывается
-        /// IShiftApiService (обходя CashShiftService), потому что CashShiftService жёстко
-        /// привязан к ОДНОЙ кассе этого терминала (PosApp.PosCashboxId/ActiveShiftId) — вызов
-        /// его отсюда для чужой кассы испортил бы локальное состояние текущей смены/чека.
-        /// Своя касса терминала в списке не получает эту кнопку (см. ShiftCardVm.CanOpen).</summary>
-        private async void OpenShiftForCashbox_Click(object? sender, RoutedEventArgs e)
+        /// <summary>Нажатие на смену — её отчёт: то же окно «Детали смены», что в «Истории смен»
+        /// и после закрытия смены (итоги по оплатам, возвраты, расходы, печать Z-отчёта), плюс
+        /// товары, проданные за смену. Долг уточняется тем же расчётом, что при закрытии.</summary>
+        private async void ShiftCard_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (sender is not Button { Tag: ShiftCardVm row })
+            // Кнопка «Закрыть смену» внутри карточки сама обрабатывает нажатие.
+            if (e.Handled || e.InitialPressMouseButton != Avalonia.Input.MouseButton.Left)
+                return;
+            if (sender is not Control { Tag: ShiftCardVm row } || string.IsNullOrEmpty(row.ShiftId))
                 return;
 
-            var dlg = App.GetRequiredService<OpenShiftDialog>();
-            if (await dlg.ShowDialog<bool?>(this).ConfigureAwait(true) != true)
+            var entry = (await ShiftHistoryService.LoadAsync().ConfigureAwait(true))
+                .FirstOrDefault(s => string.Equals(s.ShiftNumber, row.ShiftId, StringComparison.OrdinalIgnoreCase));
+            if (entry is null)
+            {
+                PosMessageBox.Show(this, "Не удалось загрузить отчёт смены — нет связи с сервером.", "Смена",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
 
+            var shift = ShiftModel.FromEntry(entry);
+            var dialog = new ShiftDetailsDialog(shift);
+            var dialogTask = PosDialogHost.ShowAsync(dialog, this);
             try
             {
-                await App.ShiftApi.ConstructionShiftOpenAsync(
-                    row.CashboxId, dlg.OpeningCash.ToString("0.00", CultureInfo.InvariantCulture), CancellationToken.None)
+                var resolvedDebt = await App.GetRequiredService<NurMarketKassa.Core.Contracts.ICashShiftService>()
+                    .ResolveShiftDebtTotalAsync(shift.Id, shift.SalesCount)
                     .ConfigureAwait(true);
-                await LoadShiftsAsync().ConfigureAwait(true);
+                if (resolvedDebt is { } debt && dialog.IsVisible)
+                {
+                    shift.DebtSales = debt;
+                    dialog.RefreshDebtDisplay(debt);
+                }
             }
             catch (Exception ex)
             {
-                PosLogger.Log($"Open shift for other cashbox failed: {ex}", "SHIFT");
-                PosMessageBox.Show(this, "Не удалось открыть смену: " + ex.Message, "Ошибка",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                PosLogger.Log($"Finance: resolve shift debt failed for {shift.Id}: {ex.GetType().Name}", "SHIFT");
             }
+
+            await dialogTask.ConfigureAwait(true);
         }
 
         private async void CloseShiftForCashbox_Click(object? sender, RoutedEventArgs e)

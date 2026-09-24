@@ -210,6 +210,33 @@
         </StackPanel>
       </Border>
 
+      <!-- Товары за смену (2026-09-24): что и на сколько продали, по локальной истории продаж
+           кассы — та же, что у ABC и «Финансов». Считается по времени смены. -->
+      <Border x:Name="ShiftProductsPanel" IsVisible="False"
+              Background="{DynamicResource BrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+              CornerRadius="12" Padding="12">
+        <StackPanel Spacing="6">
+          <TextBlock x:Name="ShiftProductsTitle" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+          <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="ShiftProductsList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
+                    <TextBlock Grid.Column="0" Text="{ReflectionBinding Name}" FontSize="13"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Grid.Column="1" Text="{ReflectionBinding QuantityText}" FontSize="13" Margin="12,0"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock Grid.Column="2" Text="{ReflectionBinding RevenueText}" FontSize="13" FontWeight="SemiBold"
+                               MinWidth="90" TextAlignment="Right" Foreground="{DynamicResource BrushText}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </StackPanel>
+      </Border>
+
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
         <Button x:Name="PrintButton" Content="{DynamicResource shiftDetails.print}"
                 Classes="btn-secondary"

@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.WriteOffHistoryWindow"
         x:CompileBindings="False"
@@ -62,7 +62,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <!-- Заголовок -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
@@ -95,7 +95,9 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{DynamicResource common.dateTime}" Width="170" Binding="{Binding DateText}"/>
                     <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{Binding ProductName}"/>
-                    <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="120" Binding="{Binding QuantityText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="110" Binding="{Binding QuantityText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffUnitCost}" Width="130" Binding="{Binding UnitCostText}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.writeOffLineTotal}" Width="140" Binding="{Binding TotalText}"/>
                     <DataGridTextColumn Header="{DynamicResource warehouse.writeOffReasonLabel}" Width="1.3*" Binding="{Binding Reason}"/>
                     <DataGridTextColumn Header="{DynamicResource common.cashier}" Width="2*" Binding="{Binding CashierName}"/>
                 </DataGrid.Columns>
@@ -105,5 +107,18 @@
                        IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
         </Grid>
+
+        <!-- Итог отчёта (2026-09-24): сколько и на сколько списано — по тому, что сейчас в
+             таблице, то есть с учётом поиска. Рядом разбивка по причинам. -->
+        <Border Grid.Row="4" Margin="0,12,0,0" Padding="16,12" CornerRadius="10"
+                Background="{DynamicResource BrushPanelSoft}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" x:Name="ReasonsText" FontSize="12.5" TextWrapping="Wrap"
+                           VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Grid.Column="1" x:Name="TotalText" FontSize="16" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{DynamicResource BrushText}"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

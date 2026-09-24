@@ -26,6 +26,49 @@ namespace NurMarketKassa.ViewModels
     {
         public string Id { get; init; } = "";
         public string DisplayName { get; init; } = "";
+
+        /// <summary>Имя и телефон по отдельности — для строки списка клиентов (2026-09-24).
+        /// Если их не задали, берутся из DisplayName вида «Имя · телефон».</summary>
+        public string Name
+        {
+            get => string.IsNullOrWhiteSpace(_name) ? SplitDisplay().Name : _name!;
+            init => _name = value;
+        }
+
+        public string Phone
+        {
+            get => string.IsNullOrWhiteSpace(_phone) ? SplitDisplay().Phone : _phone!;
+            init => _phone = value;
+        }
+
+        public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
+
+        /// <summary>Одна-две буквы для кружка слева: «Кайрат» → «К», «Нур Тест» → «НТ».</summary>
+        public string Initials
+        {
+            get
+            {
+                var parts = Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => p.TrimStart('|', '-', '.', '"'))
+                    .Where(p => p.Length > 0)
+                    .ToList();
+                if (parts.Count == 0)
+                    return "?";
+                var letters = parts.Count == 1
+                    ? parts[0][..1]
+                    : string.Concat(parts[0][0], parts[1][0]);
+                return letters.ToUpperInvariant();
+            }
+        }
+
+        private readonly string? _name;
+        private readonly string? _phone;
+
+        private (string Name, string Phone) SplitDisplay()
+        {
+            var i = DisplayName.LastIndexOf(" · ", StringComparison.Ordinal);
+            return i < 0 ? (DisplayName.Trim(), "") : (DisplayName[..i].Trim(), DisplayName[(i + 3)..].Trim());
+        }
     }
 
     public class CheckoutViewModel : INotifyPropertyChanged
@@ -1245,7 +1288,7 @@ namespace NurMarketKassa.ViewModels
             var name = TryGetString(element, "full_name") ?? "";
             var phone = TryGetString(element, "phone") ?? "";
             var display = string.IsNullOrWhiteSpace(phone) ? name : $"{name} · {phone}";
-            return new ClientOption { Id = id, DisplayName = display };
+            return new ClientOption { Id = id, DisplayName = display, Name = name, Phone = phone };
         }
 
         private static string? TryGetString(JsonElement element, string property)

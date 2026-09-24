@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.Data.Sqlite;
 
 namespace NurMarketKassa.Services;
@@ -228,7 +228,6 @@ public sealed class StockTransferService
             command.Parameters.AddWithValue("$weight", weight);
             command.ExecuteNonQuery();
         });
-        RecalculateWeight(transferId);
     }
 
     public void RemoveItem(long itemId, string transferId)
@@ -240,7 +239,6 @@ public sealed class StockTransferService
             command.Parameters.AddWithValue("$id", itemId);
             command.ExecuteNonQuery();
         });
-        RecalculateWeight(transferId);
     }
 
     public List<TransferItem> LoadItems(string transferId)
@@ -265,19 +263,6 @@ public sealed class StockTransferService
                     reader.GetDouble(8)));
         });
         return list;
-    }
-
-    private void RecalculateWeight(string transferId)
-    {
-        DatabaseService.Instance.WithConnection(connection =>
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE StockTransfers SET total_weight = "
-                + "(SELECT IFNULL(SUM(weight * quantity), 0) FROM StockTransferItems WHERE transfer_id = $id) "
-                + "WHERE id = $id;";
-            command.Parameters.AddWithValue("$id", transferId);
-            command.ExecuteNonQuery();
-        });
     }
 
     // ------------------------------------------------------------------ статусы и хронология

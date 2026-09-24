@@ -1,4 +1,4 @@
-using NurMarketKassa.Models;
+﻿using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using System;
 using System.Globalization;
@@ -160,6 +160,7 @@ namespace NurMarketKassa.Services
                 ? kindEl.GetString()
                 : null;
             vm.IsBundle = string.Equals(kind, "bundle", StringComparison.OrdinalIgnoreCase);
+            vm.Kind = kind;
             if (!vm.IsBundle
                 && p.TryGetProperty("packages", out var pkgArr) && pkgArr.ValueKind == JsonValueKind.Array)
             {

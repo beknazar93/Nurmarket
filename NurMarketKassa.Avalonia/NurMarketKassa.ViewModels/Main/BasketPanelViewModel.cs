@@ -1910,6 +1910,20 @@ public sealed class BasketPanelViewModel : ViewModelBase
         _cart.ResetForNewReceipt();
     }
 
+    /// <summary>Единица штучной строки чека — из карточки товара. 2026-09-24: раньше всегда
+    /// «шт», и кабель, проданный метрами, печатался как «1 шт».</summary>
+    private string LineUnit(string? productId, string? barcode)
+    {
+        var tile = string.IsNullOrWhiteSpace(productId)
+            ? null
+            : LocalProductRepository.Instance.TryGetTileById(productId);
+        if (tile is null && !string.IsNullOrWhiteSpace(barcode))
+            tile = _catalogLookup?.Invoke(barcode);
+
+        var unit = tile?.Unit?.Trim();
+        return string.IsNullOrEmpty(unit) || unit is "кг" or "kg" ? "шт" : unit;
+    }
+
     private void SyncLinesFromCart()
     {
         _suppressTabRebuild = true;
@@ -1932,7 +1946,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                         ? ""
                         : _catalogLookup?.Invoke(item.Barcode)?.Article ?? "",
                     Title = item.Name,
-                    Unit = item.MustWeigh ? "кг" : "шт",
+                    Unit = item.MustWeigh ? "кг" : LineUnit(item.ProductId, item.Barcode),
                     UnitPrice = (double)item.UnitPrice,
                     IsWeight = item.MustWeigh,
                     SalePackageId = item.SalePackageId,

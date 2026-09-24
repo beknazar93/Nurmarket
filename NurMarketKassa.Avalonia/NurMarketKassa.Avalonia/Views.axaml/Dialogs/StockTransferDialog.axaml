@@ -1,0 +1,200 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.StockTransferDialog"
+        x:CompileBindings="False"
+        Title="{DynamicResource warehouse.transferCardTitle}"
+        Width="980" Height="720"
+        MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.field">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Margin" Value="0,0,0,3"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="Border.status">
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="10,4"/>
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="14" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="22,18">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+      <!-- Шапка документа -->
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock x:Name="NumberText" FontSize="20" FontWeight="Bold"
+                     Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+          <Border Classes="status" VerticalAlignment="Center">
+            <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"
+                       Foreground="{DynamicResource BrushAccentStrong}"/>
+          </Border>
+          <TextBlock x:Name="CreatedText" FontSize="12" VerticalAlignment="Center"
+                     Foreground="{DynamicResource BrushTextSoft}"/>
+        </StackPanel>
+        <Button Grid.Column="1" Classes="SecondaryButton"
+                Content="{DynamicResource common.close}" Click="Close_Click"/>
+      </Grid>
+
+      <!-- Маршрут и сопровождение -->
+      <Border Grid.Row="1" Padding="14" Margin="0,0,0,12"
+              Background="{DynamicResource BrushPanelSoft}"
+              CornerRadius="{DynamicResource SettingsCardRadius}">
+        <Grid ColumnDefinitions="*,12,*,12,*" RowDefinitions="Auto,Auto">
+          <StackPanel Grid.Row="0" Grid.Column="0">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferFrom}"/>
+            <TextBox x:Name="FromBox" LostFocus="Field_Changed"/>
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="2">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferTo}"/>
+            <TextBox x:Name="ToBox" LostFocus="Field_Changed"/>
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="4">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferResponsible}"/>
+            <TextBox x:Name="ResponsibleBox" LostFocus="Field_Changed"/>
+          </StackPanel>
+
+          <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferCarrier}"/>
+            <TextBox x:Name="CarrierBox" LostFocus="Field_Changed"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferTracking}"/>
+            <TextBox x:Name="TrackingBox" LostFocus="Field_Changed"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,10,0,0">
+            <TextBlock Classes="field" Text="{DynamicResource warehouse.transferWeight}"/>
+            <!-- Вес вписывают руками, с весов или из накладной перевозчика: вес каждой строки
+                 в карточке товара почти никогда не заполнен, и автоподсчёт давал ноль. -->
+            <TextBox x:Name="WeightBox" LostFocus="Field_Changed" Watermark="0, кг"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Состав, хронология и документы -->
+      <TabControl Grid.Row="2">
+        <TabItem Header="{DynamicResource warehouse.transferContent}">
+          <Grid RowDefinitions="Auto,Auto,*" Margin="0,10,0,0">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+              <!-- Три пути добавить товар, и все нужны: отсканировать (поле принимает скан как
+                   обычный ввод и срабатывает по Enter), набрать пару букв названия и выбрать из
+                   подсказок, либо открыть весь каталог списком. -->
+              <TextBox x:Name="ItemSearchBox" Width="320"
+                       Watermark="{DynamicResource warehouse.transferAddHint}"
+                       TextChanged="ItemSearch_TextChanged"
+                       KeyDown="ItemSearch_KeyDown"/>
+              <TextBox x:Name="ItemQuantityBox" Width="90" Text="1"/>
+              <Button Classes="PrimaryButton" Content="{DynamicResource warehouse.transferAddItem}"
+                      Click="AddItem_Click"/>
+              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferPickFromList}"
+                      Click="PickFromList_Click"/>
+              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferRemoveItem}"
+                      Click="RemoveItem_Click"/>
+            </StackPanel>
+
+            <!-- Подсказки живого поиска. Показываются только пока в поле что-то набрано:
+                 постоянный список занимал бы место у самого состава партии. -->
+            <Border Grid.Row="1" x:Name="SuggestionsBox" IsVisible="False"
+                    Margin="0,0,0,8" Padding="4"
+                    Background="{DynamicResource BrushPanelSoft}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                    CornerRadius="8">
+              <ItemsControl x:Name="SuggestionsPanel">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Classes="SecondaryButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Margin="0,1"
+                            Padding="10,6"
+                            Tag="{Binding}"
+                            Click="Suggestion_Click">
+                      <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Barcode}" Margin="12,0"
+                                   VerticalAlignment="Center" FontSize="11.5"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StockInfo}"
+                                   VerticalAlignment="Center" FontSize="11.5"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+
+            <DataGrid Grid.Row="2" x:Name="ItemsGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*" Binding="{ReflectionBinding ProductName}"/>
+                <DataGridTextColumn Header="{DynamicResource warehouse.colCode}" Width="110" Binding="{ReflectionBinding Article}"/>
+                <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="160" Binding="{ReflectionBinding Barcode}"/>
+                <DataGridTextColumn Header="{DynamicResource warehouse.movementsQuantity}" Width="130" Binding="{ReflectionBinding QuantityText}"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="{DynamicResource warehouse.transferHistory}">
+          <DataGrid x:Name="LogGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" Margin="0,10,0,0">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="{DynamicResource warehouse.movementsWhen}" Width="170" Binding="{ReflectionBinding WhenText}"/>
+              <DataGridTextColumn Header="{DynamicResource warehouse.transferStatus}" Width="180" Binding="{ReflectionBinding StatusText}"/>
+              <DataGridTextColumn Header="{DynamicResource warehouse.transferEmployee}" Width="220" Binding="{ReflectionBinding EmployeeText}"/>
+              <DataGridTextColumn Header="{DynamicResource warehouse.movementsNote}" Width="*" Binding="{ReflectionBinding Note}"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </TabItem>
+
+        <TabItem Header="{DynamicResource warehouse.transferFiles}">
+          <Grid RowDefinitions="Auto,*" Margin="0,10,0,0">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+              <ComboBox x:Name="FileKindBox" Width="220"/>
+              <Button Classes="PrimaryButton" Content="{DynamicResource warehouse.transferAttach}"
+                      Click="Attach_Click"/>
+              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferOpenFile}"
+                      Click="OpenFile_Click"/>
+            </StackPanel>
+            <DataGrid Grid.Row="1" x:Name="FilesGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*" Binding="{ReflectionBinding FileName}"/>
+                <DataGridTextColumn Header="{DynamicResource warehouse.transferFileKind}" Width="220" Binding="{ReflectionBinding KindText}"/>
+                <DataGridTextColumn Header="{DynamicResource warehouse.movementsWhen}" Width="170" Binding="{ReflectionBinding WhenText}"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </Grid>
+        </TabItem>
+      </TabControl>
+
+      <!-- Статусы и выгрузка -->
+      <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+          <Button x:Name="ShipButton" Classes="PrimaryButton"
+                  Content="{DynamicResource warehouse.transferShip}" Click="Ship_Click"/>
+          <Button x:Name="DeliverButton" Classes="PrimaryButton"
+                  Content="{DynamicResource warehouse.transferDeliver}" Click="Deliver_Click"/>
+          <Button x:Name="CancelTransferButton" Classes="SecondaryButton"
+                  Content="{DynamicResource warehouse.transferCancel}" Click="CancelTransfer_Click"/>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+          <Button Classes="SecondaryButton" Content="Excel" Click="ExportExcel_Click"/>
+          <Button Classes="SecondaryButton" Content="Word" Click="ExportWord_Click"/>
+          <Button Classes="SecondaryButton" Content="CSV" Click="ExportCsv_Click"/>
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

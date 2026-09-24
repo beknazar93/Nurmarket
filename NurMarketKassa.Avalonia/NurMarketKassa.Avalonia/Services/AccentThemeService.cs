@@ -367,6 +367,28 @@ public static class AccentThemeService
     ];
 
     /// <summary>Применяет тему поверх выбранного светлого/тёмного варианта.</summary>
+    private static Skin? _lastSkin;
+
+    /// <summary>Размер плиток каталога: размеры темы, умноженные на настройку «Размер карточек»
+    /// (UserPreferences.CatalogTileScalePercent). Вызывается и из ползунка настроек — чтобы
+    /// плитки менялись сразу, без повторного применения всей темы.</summary>
+    public static void ApplyCatalogTileSize()
+    {
+        if (Application.Current is not { } app || _lastSkin is not { } skin)
+            return;
+
+        var k = Math.Clamp(UserPreferences.Instance.CatalogTileScalePercent, 70, 160) / 100.0;
+        app.Resources["CatalogTileWidth"] = Math.Round(skin.TileWidth * k);
+        app.Resources["CatalogTileHeight"] = Math.Round(skin.TileHeight * k);
+        app.Resources["CatalogTilePhotoHeight"] = Math.Round(skin.TilePhotoHeight * k);
+        // Шрифт растёт медленнее плитки: иначе на мелких плитках название не читается, а на
+        // крупных не помещается в две строки.
+        var font = 1 + (k - 1) * 0.6;
+        app.Resources["CatalogTileNameSize"] = Math.Round(skin.TileNameSize * font, 1);
+        app.Resources["CatalogTilePriceSize"] = Math.Round(skin.TilePriceSize * font, 1);
+        app.Resources["CatalogTileStockSize"] = Math.Round(skin.TileStockSize * font, 1);
+    }
+
     public static void Apply(string? themeId, bool dark)
     {
         if (Application.Current is not { } app)
@@ -425,12 +447,8 @@ public static class AccentThemeService
         app.Resources["SettingsCardRadius"] = new CornerRadius(skin.CardRadius);
 
         // Раскладка каталога и элементов управления — см. комментарий к Skin.
-        app.Resources["CatalogTileWidth"] = skin.TileWidth;
-        app.Resources["CatalogTileHeight"] = skin.TileHeight;
-        app.Resources["CatalogTilePhotoHeight"] = skin.TilePhotoHeight;
-        app.Resources["CatalogTileNameSize"] = skin.TileNameSize;
-        app.Resources["CatalogTilePriceSize"] = skin.TilePriceSize;
-        app.Resources["CatalogTileStockSize"] = skin.TileStockSize;
+        _lastSkin = skin;
+        ApplyCatalogTileSize();
         app.Resources["AppControlHeight"] = skin.ControlHeight;
         app.Resources["AppBorderThickness"] = new Thickness(skin.BorderThickness);
 

@@ -325,6 +325,7 @@ public sealed class DatabaseService
 
             AddSoldLineItemsCompanyColumn(connection);
             AddWriteOffsCompanyColumn(connection);
+            AddWriteOffsUnitCostColumn(connection);
             AddSoldLineItemsSaleIdColumn(connection);
             AddCompanyHistoryIndexes(connection);
             MigrateLegacyCatalogDb(connection);
@@ -909,7 +910,8 @@ public sealed class DatabaseService
     /// <summary>Записывает акт списания — API ревизии/списания (IInventoryApiService) не даёт
     /// прочитать историю обратно (только Create/Apply), поэтому касса ведёт свой локальный
     /// журнал (AI-фичи 2026-09-04).</summary>
-    public void AppendWriteOffHistory(string productId, string productName, double quantity, string reason, string? cashierName)
+    public void AppendWriteOffHistory(string productId, string productName, double quantity, string reason, string? cashierName,
+        double? unitCost = null)
     {
         _dbLock.EnterWriteLock();
         try
@@ -917,9 +919,10 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO WriteOffHistory (product_id, product_name, quantity, reason, cashier_name, created_at, company_id)
-                VALUES ($productId, $productName, $quantity, $reason, $cashierName, $createdAt, $companyId);
+                INSERT INTO WriteOffHistory (product_id, product_name, quantity, reason, cashier_name, created_at, company_id, unit_cost)
+                VALUES ($productId, $productName, $quantity, $reason, $cashierName, $createdAt, $companyId, $unitCost);
                 """;
+            command.Parameters.AddWithValue("$unitCost", (object?)unitCost ?? DBNull.Value);
             command.Parameters.AddWithValue("$productId", productId);
             command.Parameters.AddWithValue("$productName", productName);
             command.Parameters.AddWithValue("$quantity", quantity);
@@ -1054,6 +1057,42 @@ public sealed class DatabaseService
             }
 
             return list.OrderByDescending(x => x.Item5).Take(limit).ToList();
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>Строки отчёта по списаниям — с товаром и себестоимостью (null у записей до 2026-09-24).</summary>
+    public List<(string ProductId, string ProductName, double Quantity, string Reason, string? CashierName, DateTime CreatedAt, double? UnitCost)>
+        LoadWriteOffReport(int limit)
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            var list = new List<(string, string, double, string, string?, DateTime, double?)>();
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT product_id, product_name, quantity, reason, cashier_name, created_at, unit_cost FROM WriteOffHistory WHERE 1=1"
+                + OwnRowsClause() + " ORDER BY created_at DESC LIMIT $limit;";
+            command.Parameters.AddWithValue("$limit", limit);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var createdAt = DateTime.TryParse(reader.GetString(5), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                    ? parsed
+                    : DateTime.MinValue;
+                list.Add((
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetDouble(2),
+                    reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4),
+                    createdAt,
+                    reader.IsDBNull(6) ? null : reader.GetDouble(6)));
+            }
+            return list;
         }
         finally
         {
@@ -1745,6 +1784,22 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>Себестоимость единицы на момент списания — для отчёта «на сколько списали»
+    /// (2026-09-24). У старых записей её нет: отчёт берёт текущую цену закупки товара.</summary>
+    private static void AddWriteOffsUnitCostColumn(SqliteConnection connection)
+    {
+        try
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE WriteOffHistory ADD COLUMN unit_cost REAL;";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже есть.
+        }
+    }
+
     /// <summary>То же, что у истории продаж: списания тоже относятся к конкретной компании,
     /// и записи, сделанные до разделения аккаунтов, владельца не имеют.</summary>
     private static void AddWriteOffsCompanyColumn(SqliteConnection connection)
@@ -1899,6 +1954,65 @@ public sealed class DatabaseService
 
     /// <summary>Есть ли уже строки этой продажи. Нужно бэкфиллу: продажу, сделанную на этой
     /// же кассе, второй раз писать нельзя.</summary>
+    /// <summary>Номера продаж локальной истории, проданных в промежутке [sinceUtc, untilUtc).</summary>
+    public HashSet<string> LoadKnownSaleIdsBetween(DateTime sinceUtc, DateTime untilUtc)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT DISTINCT sale_id FROM SoldLineItems WHERE sale_id IS NOT NULL AND sale_id <> '' "
+                + "AND sold_at >= $since AND sold_at < $until" + OwnRowsClause() + ";";
+            command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
+            command.Parameters.AddWithValue("$until", untilUtc.ToString("O"));
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                result.Add(reader.GetString(0));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Список продаж за период не прочитан: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
+    }
+
+    /// <summary>Убрать из истории строки перечисленных продаж. Возвращает число удалённых строк.</summary>
+    public int DeleteSoldLineItemsBySaleIds(IReadOnlyCollection<string> saleIds)
+    {
+        if (saleIds.Count == 0)
+            return 0;
+
+        _dbLock.EnterWriteLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            var removed = 0;
+            foreach (var saleId in saleIds)
+            {
+                using var command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = "DELETE FROM SoldLineItems WHERE sale_id = $id" + OwnRowsClause() + ";";
+                command.Parameters.AddWithValue("$id", saleId);
+                removed += command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return removed;
+        }
+        finally
+        {
+            _dbLock.ExitWriteLock();
+        }
+    }
+
     public HashSet<string> LoadKnownSaleIds()
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

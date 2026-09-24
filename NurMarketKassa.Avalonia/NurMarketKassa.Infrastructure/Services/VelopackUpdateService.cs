@@ -33,8 +33,19 @@ public sealed class VelopackUpdateService : IAppUpdateService
     private readonly UpdateSettings _settings;
     private UpdateManager? _manager;
     private IUpdateSource? _source;
+
+    /// <summary>Для какого канала создан <see cref="_manager"/>: код тестировщика могли ввести
+    /// или снять, пока касса работает, — тогда менеджер пересоздаётся.</summary>
+    private bool _managerForTester;
     private UpdateInfo? _pendingUpdate;
-    private VelopackAsset[]? _availableAssets;
+
+    /// <summary>Чем качать и ставить <see cref="_pendingUpdate"/>. Для обычного обновления это
+    /// общий менеджер по всем релизам, для отката — менеджер одного-единственного релиза
+    /// нужной версии (см. <see cref="ListVersionsAsync"/>).</summary>
+    private UpdateManager? _pendingManager;
+
+    private readonly Dictionary<string, (UpdateManager Manager, VelopackAsset Asset)> _rollbackTargets =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public VelopackUpdateService(AppSettings appSettings) => _settings = appSettings.Updates;
 
@@ -63,9 +74,11 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
         try
         {
+            _pendingManager = null;
             _pendingUpdate = await manager.CheckForUpdatesAsync().ConfigureAwait(false);
             if (_pendingUpdate is null)
-                return new AppUpdateCheckResult(true, false, currentVersion, null, null);
+                return new AppUpdateCheckResult(true, false, currentVersion, null, null,
+                    await FindNewerTestVersionAsync(cancellationToken).ConfigureAwait(false));
 
             var latestVersion = _pendingUpdate.TargetFullRelease.Version.ToString();
 
@@ -91,7 +104,8 @@ public sealed class VelopackUpdateService : IAppUpdateService
                 && runningVersion >= latestParsed)
             {
                 _pendingUpdate = null;
-                return new AppUpdateCheckResult(true, false, currentVersion, null, null);
+                return new AppUpdateCheckResult(true, false, currentVersion, null, null,
+                    await FindNewerTestVersionAsync(cancellationToken).ConfigureAwait(false));
             }
 
             return new AppUpdateCheckResult(true, true, currentVersion, latestVersion, null);
@@ -105,7 +119,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
     public async Task DownloadAsync(Action<int> onProgress, CancellationToken cancellationToken = default)
     {
-        var manager = GetOrCreateManager()
+        var manager = _pendingManager ?? GetOrCreateManager()
             ?? throw new InvalidOperationException("Обновление не настроено (нет адреса манифеста).");
         if (!manager.IsInstalled)
             throw new InvalidOperationException(
@@ -119,7 +133,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
     public void ApplyUpdateAndRestart()
     {
-        var manager = GetOrCreateManager()
+        var manager = _pendingManager ?? GetOrCreateManager()
             ?? throw new InvalidOperationException("Обновление не настроено (нет адреса манифеста).");
         var update = _pendingUpdate
             ?? throw new InvalidOperationException("Сначала нужно скачать обновление.");
@@ -128,32 +142,67 @@ public sealed class VelopackUpdateService : IAppUpdateService
         manager.ApplyUpdatesAndRestart(update.TargetFullRelease, restartArgs: []);
     }
 
+    /// <summary>Версии для отката — только те, чей релиз на GitHub действительно существует и
+    /// содержит полный пакет.
+    ///
+    /// 2026-09-24, живой баг: «откат на прошлую версию не работает», и в списке 1.17.10 стояла
+    /// дважды. Раньше список брался из общего фида Velopack, склеенного из releases.win.json всех
+    /// релизов, а каждый такой файл перечислял всю историю версий. Отсюда дубли, а заодно версии
+    /// вроде 1.17.9, чьих релизов на GitHub уже нет. При откате Velopack качает пакет из того
+    /// релиза, в чьём файле нашлась запись: для 1.17.10 это был релиз 1.17.11, где пакета 1.17.10
+    /// нет, и скачивание падало. Теперь каждая версия читается из собственного релиза и оттуда же
+    /// скачивается.</summary>
     public async Task<IReadOnlyList<AppReleaseVersion>> ListVersionsAsync(CancellationToken cancellationToken = default)
     {
         var manager = GetOrCreateManager();
-        if (manager is null || _source is null)
+        var repo = ExtractGithubOwnerRepo(_settings.ManifestUrl);
+        if (manager is null || repo is null)
             return Array.Empty<AppReleaseVersion>();
 
+        _rollbackTargets.Clear();
         try
         {
-            var feed = await _source.GetReleaseFeed(
-                    new NullVelopackLogger(), manager.AppId, channel: null, stagingId: null, latestLocalRelease: null)
+            var tags = await ListReleaseTagsWithFullPackageAsync(repo.Value, manager.AppId, cancellationToken)
                 .ConfigureAwait(false);
-
-            _availableAssets = feed.Assets
-                .Where(a => a.Type == VelopackAssetType.Full)
-                .OrderByDescending(a => a.Version)
-                .Take(MaxVersionsToList)
-                .ToArray();
             var currentVersion = manager.CurrentVersion?.ToString();
+            var result = new List<AppReleaseVersion>();
 
-            return _availableAssets
-                .OrderByDescending(a => a.Version)
-                .Select(a => new AppReleaseVersion(
-                    a.Version.ToString(),
-                    a.NotesMarkdown,
-                    string.Equals(a.Version.ToString(), currentVersion, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
+            foreach (var (tag, version) in tags)
+            {
+                if (result.Count >= MaxVersionsToList)
+                    break;
+
+                var releaseSource = new SimpleWebSource(
+                    $"https://github.com/{repo.Value.Owner}/{repo.Value.Repo}/releases/download/{tag}/");
+                VelopackAsset? asset;
+                try
+                {
+                    var feed = await releaseSource.GetReleaseFeed(
+                            new NullVelopackLogger(), manager.AppId, channel: null, stagingId: null, latestLocalRelease: null)
+                        .ConfigureAwait(false);
+                    asset = feed.Assets.FirstOrDefault(a =>
+                        a.Type == VelopackAssetType.Full
+                        && string.Equals(a.Version.ToString(), version, StringComparison.OrdinalIgnoreCase));
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Релиз {tag}: список пакетов не прочитан ({ex.GetType().Name}: {ex.Message}) — версия пропущена.", "WARNING");
+                    continue;
+                }
+
+                if (asset is null)
+                    continue;
+
+                var releaseManager = new UpdateManager(
+                    releaseSource, options: new UpdateOptions { AllowVersionDowngrade = true }, locator: null!);
+                _rollbackTargets[version] = (releaseManager, asset);
+                result.Add(new AppReleaseVersion(
+                    version,
+                    asset.NotesMarkdown,
+                    string.Equals(version, currentVersion, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -162,16 +211,58 @@ public sealed class VelopackUpdateService : IAppUpdateService
         }
     }
 
+    /// <summary>Релизы GitHub, в которых лежит полный пакет своей версии, от новых к старым.
+    /// Черновики и пре-релизы не берём: касса ставит только опубликованное.</summary>
+    private static async Task<List<(string Tag, string Version)>> ListReleaseTagsWithFullPackageAsync(
+        (string Owner, string Repo) repo, string appId, CancellationToken cancellationToken)
+    {
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
+        var url = $"https://api.github.com/repos/{repo.Owner}/{repo.Repo}/releases?per_page=30";
+        using var response = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        var found = new List<(string Tag, string Version, System.Version Parsed)>();
+        foreach (var release in doc.RootElement.EnumerateArray())
+        {
+            if (release.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True)
+                continue;
+            if (release.TryGetProperty("prerelease", out var pre) && pre.ValueKind == JsonValueKind.True)
+                continue;
+
+            var tag = release.TryGetProperty("tag_name", out var t) ? t.GetString() : null;
+            var version = tag?.TrimStart('v', 'V');
+            if (string.IsNullOrWhiteSpace(tag) || !System.Version.TryParse(version, out var parsed))
+                continue;
+
+            var fullName = $"{appId}-{version}-full.nupkg";
+            var hasPackage = release.TryGetProperty("assets", out var assets)
+                && assets.EnumerateArray().Any(a =>
+                    a.TryGetProperty("name", out var n)
+                    && string.Equals(n.GetString(), fullName, StringComparison.OrdinalIgnoreCase));
+            if (hasPackage && found.All(f => f.Parsed != parsed))
+                found.Add((tag!, version!, parsed));
+        }
+
+        return found
+            .OrderByDescending(f => f.Parsed)
+            .Select(f => (f.Tag, f.Version))
+            .ToList();
+    }
+
     public bool PrepareRollback(string version)
     {
-        var asset = _availableAssets?.FirstOrDefault(
-            a => string.Equals(a.Version.ToString(), version, StringComparison.OrdinalIgnoreCase));
-        if (asset is null)
+        if (!_rollbackTargets.TryGetValue(version, out var target))
             return false;
 
         // isDowngrade: true — тот же UpdateInfo, что ждут DownloadAsync/ApplyUpdateAndRestart,
         // только собранный вручную для выбранной прошлой версии, а не для "самой новой".
-        _pendingUpdate = new UpdateInfo(asset, isDowngrade: true, deltaBaseRelease: null!, deltasToTarget: []);
+        // Качается он менеджером именно своего релиза — см. ListVersionsAsync.
+        _pendingManager = target.Manager;
+        _pendingUpdate = new UpdateInfo(target.Asset, isDowngrade: true, deltaBaseRelease: null!, deltasToTarget: []);
         return true;
     }
 
@@ -207,14 +298,19 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
     private UpdateManager? GetOrCreateManager()
     {
-        if (_manager != null)
+        var tester = UpdateChannel.IsTester;
+        if (_manager != null && _managerForTester == tester)
             return _manager;
 
         var repoUrl = ExtractGithubRepoUrl(_settings.ManifestUrl);
         if (repoUrl is null)
             return null;
 
-        _source = new GithubSource(repoUrl, accessToken: null, prerelease: false);
+        // Тестовый канал видит и pre-release, обычный — только выпущенные версии.
+        _managerForTester = tester;
+        _pendingUpdate = null;
+        _pendingManager = null;
+        _source = new GithubSource(repoUrl, accessToken: null, prerelease: tester);
         _manager = new UpdateManager(_source, options: new UpdateOptions { AllowVersionDowngrade = true }, locator: null!);
         return _manager;
     }
@@ -227,6 +323,49 @@ public sealed class VelopackUpdateService : IAppUpdateService
     {
         var repo = ExtractGithubOwnerRepo(manifestUrl);
         return repo is null ? null : $"https://github.com/{repo.Value.Owner}/{repo.Value.Repo}";
+    }
+
+    /// <summary>Есть ли версия новее запущенной, которая пока в тестировании. Только для
+    /// обычного канала — тестировщик и так её получит как обновление. Любая ошибка — null:
+    /// это подсказка, а не условие обновления.</summary>
+    private async Task<string?> FindNewerTestVersionAsync(CancellationToken cancellationToken)
+    {
+        if (UpdateChannel.IsTester)
+            return null;
+
+        var repo = ExtractGithubOwnerRepo(_settings.ManifestUrl);
+        var running = (System.Reflection.Assembly.GetEntryAssembly()
+            ?? System.Reflection.Assembly.GetExecutingAssembly()).GetName().Version;
+        if (repo is null || running is null)
+            return null;
+
+        try
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
+            using var response = await http
+                .GetAsync($"https://api.github.com/repos/{repo.Value.Owner}/{repo.Value.Repo}/releases?per_page=10", cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            foreach (var release in doc.RootElement.EnumerateArray())
+            {
+                var isPre = release.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True;
+                var isDraft = release.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True;
+                var tag = release.TryGetProperty("tag_name", out var t) ? t.GetString()?.TrimStart('v', 'V') : null;
+                if (isPre && !isDraft && System.Version.TryParse(tag, out var version) && version > running)
+                    return tag;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Проверка тестовой версии не удалась: {ex.Message}", "DEBUG");
+        }
+
+        return null;
     }
 
     private static (string Owner, string Repo)? ExtractGithubOwnerRepo(string? manifestUrl)

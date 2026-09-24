@@ -217,6 +217,21 @@
         <Style Selector="Border.writeoff TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
         </Style>
+
+        <!-- Статус перемещения: в пути — предупреждающим цветом, доставлено — зелёным,
+             отменено — красным (класс writeoff), создано — акцентом по умолчанию. -->
+        <Style Selector="Border.transit">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.transit TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Border.done">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        </Style>
+        <Style Selector="Border.done TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
         <!-- Кнопки-иконки в строке таблицы товаров (2026-09-07): векторные PathIcon вместо эмодзи —
              эмодзи-карандаш в Segoe UI не отрисовывался, остальные выходили обрезанными. -->
         <Style Selector="Button.RowIcon">
@@ -644,6 +659,132 @@
             </TabItem>
 
             <!-- Вкладка 2: Ревизия -->
+            <!-- Вкладка: приёмка товара. Кладовщик пробивает накладную обычным сканером, и
+                 принятое сразу уходит на склад. До этого прибавить остаток можно было только
+                 через ревизию, вручную пересчитав и вписав новое количество целиком. -->
+            <TabItem x:Name="ReceivingTabItem" Header="{DynamicResource warehouse.tabReceiving}">
+                <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Margin="2,0,0,10"
+                                   Text="{DynamicResource warehouse.receivingHint}"
+                                   FontSize="12.5" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+
+                        <!-- Поставщик и оплата. С поставщиком приход проводится документом
+                             «Закупки» сайта, без него — пишется прямо в товар. -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10"
+                                    x:CompileBindings="False">
+                            <TextBlock Text="{DynamicResource warehouse.receivingSupplier}" VerticalAlignment="Center"
+                                       FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <ComboBox x:Name="ReceivingSupplierBox" Width="280"
+                                      ItemsSource="{Binding ReceivingSuppliers}"
+                                      SelectedItem="{Binding ReceivingSupplier}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{ReflectionBinding Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ComboBox x:Name="ReceivingPaymentBox" Width="220"
+                                      IsVisible="{Binding HasReceivingSupplier}"
+                                      SelectionChanged="ReceivingPayment_Changed">
+                                <ComboBoxItem Content="{DynamicResource warehouse.receivingPaidNow}"/>
+                                <ComboBoxItem Content="{DynamicResource warehouse.receivingOnDebt}"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                            <!-- Поле принимает и скан (сканер дописывает перевод строки, срабатывает
+                                 Enter), и набор названия руками — тогда под полем появляются
+                                 подсказки, см. ReceivingScan_TextChanged. -->
+                            <TextBox x:Name="ReceivingScanBox" Width="320"
+                                     Watermark="{DynamicResource warehouse.receivingScanHint}"
+                                     TextChanged="ReceivingScan_TextChanged"
+                                     KeyDown="ReceivingScan_KeyDown"/>
+                            <TextBox x:Name="ReceivingQuantityBox" Width="90" Text="1"/>
+                            <Button Classes="SecondaryButton"
+                                    Content="{DynamicResource warehouse.transferPickFromList}"
+                                    Click="ReceivingPickFromList_Click"/>
+                            <Button Classes="SecondaryButton"
+                                    Content="{DynamicResource warehouse.transferRemoveItem}"
+                                    Click="ReceivingRemove_Click"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="3" x:Name="ReceivingSuggestionsBox" IsVisible="False"
+                                Margin="0,0,0,8" Padding="4"
+                                Background="{DynamicResource BrushPanelSoft}"
+                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                CornerRadius="8">
+                            <ItemsControl x:Name="ReceivingSuggestionsPanel" x:CompileBindings="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Classes="SecondaryButton"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left"
+                                                Margin="0,1" Padding="10,6"
+                                                Tag="{Binding}"
+                                                Click="ReceivingSuggestion_Click">
+                                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                                <TextBlock Grid.Column="0" Text="{ReflectionBinding Title}"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" Text="{ReflectionBinding Barcode}" Margin="12,0"
+                                                           VerticalAlignment="Center" FontSize="11.5"
+                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                                <TextBlock Grid.Column="2" Text="{ReflectionBinding StockInfo}"
+                                                           VerticalAlignment="Center" FontSize="11.5"
+                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <!-- Количество и обе цены правятся прямо в таблице: со сканера приходит
+                             по одной единице, а в накладной обычно коробка. Название и единицу
+                             можно вписать только у нового товара — у существующего они живут в
+                             карточке склада (см. ReceivingGrid_BeginningEdit). -->
+                        <DataGrid Grid.Row="4" x:Name="ReceivingGrid"
+                                  x:CompileBindings="False"
+                                  ItemsSource="{Binding ReceivingLines}"
+                                  AutoGenerateColumns="False"
+                                  BeginningEdit="ReceivingGrid_BeginningEdit"
+                                  CellEditEnded="ReceivingGrid_CellEditEnded"
+                                  RowHeight="44">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingSource}" Width="120"
+                                                    Binding="{ReflectionBinding SourceText}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*"
+                                                    Binding="{ReflectionBinding ProductName}"/>
+                                <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140"
+                                                    Binding="{ReflectionBinding Barcode}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="76"
+                                                    Binding="{ReflectionBinding Unit}"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingWas}" Width="90"
+                                                    Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingTaken}" Width="112"
+                                                    Binding="{ReflectionBinding Quantity}"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingPurchasePrice}" Width="140"
+                                                    Binding="{ReflectionBinding PurchasePrice}"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingSalePrice}" Width="140"
+                                                    Binding="{ReflectionBinding SalePrice}"/>
+                                <DataGridTextColumn Header="{DynamicResource warehouse.receivingLineTotal}" Width="120"
+                                                    Binding="{ReflectionBinding LineTotal, StringFormat=\{0:0.##\}}" IsReadOnly="True"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                            <TextBlock Grid.Column="0" x:Name="ReceivingSummaryText"
+                                       VerticalAlignment="Center" FontSize="12.5"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <Button Grid.Column="1" Classes="PrimaryButton"
+                                    Content="{DynamicResource warehouse.receivingCommit}"
+                                    Command="{Binding CommitReceivingCommand}"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
             <TabItem x:Name="RevisionTabItem" Header="{DynamicResource warehouse.tabRevision}">
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <Grid RowDefinitions="Auto,*,Auto">
@@ -833,7 +974,16 @@
                 <Border Background="{DynamicResource BrushPanel}" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
                     <Grid RowDefinitions="Auto,Auto,*">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
-                            <TextBox x:Name="MovementsSearchBox" Width="320"
+                            <!-- Два разных вопроса в одном разделе: «какие отгрузки идут между
+                                 складами» и «что вообще уходило со склада». Первый — документы с
+                                 маршрутом и статусом, второй — сплошной журнал расхода. -->
+                            <RadioButton x:Name="TransfersDocsRadio" GroupName="MovementsSection" Classes="SaleUnitPill" IsChecked="True"
+                                         Content="{DynamicResource warehouse.transfersDocs}" Click="MovementsSection_Changed"/>
+                            <RadioButton x:Name="TransfersFlowRadio" GroupName="MovementsSection" Classes="SaleUnitPill"
+                                         Content="{DynamicResource warehouse.transfersFlow}" Click="MovementsSection_Changed"/>
+                            <Border Width="1" Margin="6,2,6,2" Background="{DynamicResource BrushBorder}"/>
+
+                            <TextBox x:Name="MovementsSearchBox" Width="280"
                                      Watermark="{DynamicResource warehouse.movementsSearchHint}"
                                      TextChanged="MovementsFilter_Changed"/>
                             <RadioButton x:Name="MovementsWeekRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill" IsChecked="True"
@@ -842,12 +992,113 @@
                                          Content="{DynamicResource warehouse.movementsMonth}" Click="MovementsFilter_Changed"/>
                             <RadioButton x:Name="MovementsQuarterRadio" GroupName="MovementsPeriod" Classes="SaleUnitPill"
                                          Content="{DynamicResource warehouse.movementsQuarter}" Click="MovementsFilter_Changed"/>
+
+                            <ComboBox x:Name="TransferStatusFilter" Width="170" IsVisible="False"
+                                      SelectionChanged="TransferStatusFilter_Changed"/>
+                            <Button x:Name="CreateTransferButton" Classes="PrimaryButton" IsVisible="False"
+                                    Content="{DynamicResource warehouse.transferCreate}"
+                                    Click="CreateTransfer_Click"/>
+                            <!-- Выгрузка всего журнала: для инвентаризации и разбора нужен список
+                                 документов целиком, а не по одному открытому. -->
+                            <Button x:Name="TransfersExcelButton" Classes="SecondaryButton" IsVisible="False"
+                                    Content="Excel" Click="ExportTransfersExcel_Click"/>
+                            <Button x:Name="TransfersWordButton" Classes="SecondaryButton" IsVisible="False"
+                                    Content="Word" Click="ExportTransfersWord_Click"/>
                         </StackPanel>
 
                         <TextBlock Grid.Row="1" x:Name="MovementsSummaryText" Margin="2,0,0,10"
                                    FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
 
-                        <DataGrid Grid.Row="2" x:Name="MovementsGrid"
+                        <DataGrid Grid.Row="2" x:Name="TransfersGrid"
+                                  x:CompileBindings="False"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  RowHeight="46"
+                                  DoubleTapped="TransferRow_Opened">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="120">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.transferNumber}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding Number}" VerticalAlignment="Center"
+                                                       FontWeight="Bold"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="156">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.movementsWhen}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding WhenText}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="*" MinWidth="220">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.transferRoute}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding RouteText}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{ReflectionBinding RouteText}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="160">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.transferStatus}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border CornerRadius="6" Padding="9,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{DynamicResource BrushAccentSoft}"
+                                                    Classes.transit="{ReflectionBinding IsInTransit}"
+                                                    Classes.done="{ReflectionBinding IsDelivered}"
+                                                    Classes.writeoff="{ReflectionBinding IsCancelled}">
+                                                <TextBlock Text="{ReflectionBinding StatusText}" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushAccentStrong}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="120">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.transferItems}" TextAlignment="Right"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding ItemsText}" VerticalAlignment="Center"
+                                                       HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Width="200">
+                                    <DataGridTemplateColumn.Header>
+                                        <TextBlock Text="{DynamicResource warehouse.transferResponsible}"/>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding ResponsibleText}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource BrushTextSoft}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid Grid.Row="2" x:Name="MovementsGrid" IsVisible="False"
                                   x:CompileBindings="False"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"

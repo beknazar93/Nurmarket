@@ -39,7 +39,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _filteredProductCount;
-    private readonly int[] _tabPages = [1, 1, 1, 1, 1];
+    private readonly int[] _tabPages = [1, 1, 1, 1, 1, 1];
     private CatalogFilterCriteria? _advancedFilter;
     private CatalogViewMode _viewMode = UserPreferences.Instance.CatalogViewMode;
     private string? _hotkeyGroupFilter;
@@ -99,6 +99,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         new CatalogTabVm("Штучные","\uE7B8"),
         new CatalogTabVm("Поштучно", ""),
         new CatalogTabVm("Комплекты", ""),
+        // Отдельная кнопка для услуг (2026-09-24): «Аренда», «Распил», «Доставка» терялись среди
+        // штучного товара, хотя продаются иначе — без остатка.
+        new CatalogTabVm("Услуги", ""),
     ];
 
     public event EventHandler? StateChanged;
@@ -380,6 +383,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
 
     private static int TabIndexFor(CatalogProductTileVm product)
     {
+        if (product.IsService) return 5;
         if (product.IsBundle) return 4;
         if (product.HasPieceOption) return 3;
         if (product.MustWeigh) return 1;
@@ -735,6 +739,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         2 => !product.MustWeigh,
         3 => product.HasPieceOption,
         4 => product.IsBundle,
+        5 => product.IsService,
         _ => true,
     };
 

@@ -19,10 +19,15 @@
                  FontSize="18" FontWeight="Bold"
                  Foreground="{DynamicResource BrushText}"
                  Margin="0,0,0,12"/>
-      <TextBlock x:Name="MessageText"
-                 FontSize="14" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"
-                 Margin="0,0,0,22"/>
+      <!-- Длинный текст прокручивается, а кнопки остаются на виду. 2026-09-24, живой случай:
+           при откате сюда подставляется описание версии целиком, и окно уходило за край экрана
+           вместе с кнопками «Да / Нет». -->
+      <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto" Margin="0,0,0,22">
+        <TextBlock x:Name="MessageText"
+                   FontSize="14" TextWrapping="Wrap"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
+      </ScrollViewer>
       <Grid ColumnDefinitions="*,12,*">
         <Button x:Name="CancelButton"
                 Grid.Column="0"

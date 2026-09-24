@@ -76,6 +76,8 @@ public static class SalesHistoryBackfill
                 break;
         }
 
+        await PruneRemovedSalesAsync(raw, ct).ConfigureAwait(false);
+
         // Пропускаем только те чеки, которые в локальной истории уже есть — по номеру
         // продажи. Старая проверка «всё, что новее самой старой локальной записи, уже учтено»
         // верна лишь для одной кассы: на второй она отсекала как раз чужие чеки.
@@ -95,6 +97,12 @@ public static class SalesHistoryBackfill
 
             var saleId = idProp.ToString() ?? "";
             if (string.IsNullOrWhiteSpace(saleId) || known.Contains(saleId))
+                continue;
+
+            // Отменённая продажа — не продажа: в ABC и выручку её тянуть нельзя (2026-09-24,
+            // раньше тянулась, а новая сверка тут же убирала её обратно — по кругу).
+            if (sale.TryGetProperty("status", out var statusProp)
+                && string.Equals(statusProp.GetString(), "canceled", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             if (!sale.TryGetProperty("created_at", out var dateProp) ||
@@ -174,5 +182,86 @@ public static class SalesHistoryBackfill
             PosLogger.Log($"История продаж: с сервера добрано {added} строк(и).", "SYNC");
 
         return added;
+    }
+
+    /// <summary>Сколько подозрительных продаж проверяем за проход — каждая это отдельный запрос.</summary>
+    private const int MaxPruneChecksPerPass = 30;
+
+    /// <summary>Убирает из локальной истории продажи, которых на сервере больше нет или которые
+    /// там отменены. 2026-09-24, найдено сверкой аналитики: «Кир машина» за 20 000 в долг
+    /// удалили на сайте, а касса продолжала считать её в ABC, «Финансах» и прогнозах —
+    /// история только дописывалась и ни разу не сверялась обратно.
+    ///
+    /// Продажу убираем, только когда сервер ПРЯМО ответил про неё самой: «нет такой» (404) или
+    /// статус «отменена». По одному лишь её отсутствию в списке судить нельзя: первая версия
+    /// так и делала, решила, что список полный (сервер отдаёт по 100 продаж на страницу, а не
+    /// по 200), и убрала 39 живых продаж — их пришлось возвращать из копии базы.
+    /// Список служит только фильтром — кого проверить. Свежие продажи и строки без номера
+    /// (офлайн-чеки, ещё не выгруженные на сервер) не трогаем.</summary>
+    private static async Task PruneRemovedSalesAsync(List<JsonElement> raw, CancellationToken ct)
+    {
+        if (raw.Count == 0)
+            return;
+
+        try
+        {
+            var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var oldest = DateTime.MaxValue;
+            foreach (var sale in raw)
+            {
+                if (!sale.TryGetProperty("id", out var idProp))
+                    continue;
+                var status = sale.TryGetProperty("status", out var st) ? st.GetString() : null;
+                // Отменённую из списка не считаем «живой» — пусть пройдёт прямую проверку ниже.
+                if (!string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase))
+                    listed.Add(idProp.ToString());
+                if (sale.TryGetProperty("created_at", out var dateProp)
+                    && DateTime.TryParse(dateProp.GetString(), out var createdAt)
+                    && createdAt.ToUniversalTime() < oldest)
+                    oldest = createdAt.ToUniversalTime();
+            }
+
+            // Пробитая, пока скачивался список, в нём ещё не появилась — свежие не проверяем.
+            var until = DateTime.UtcNow.AddMinutes(-10);
+            if (oldest == DateTime.MaxValue || oldest >= until)
+                return;
+
+            var suspects = SoldLineItemsStore.KnownSaleIdsBetween(oldest, until)
+                .Where(id => !listed.Contains(id))
+                .Take(MaxPruneChecksPerPass)
+                .ToList();
+
+            var gone = new List<string>();
+            foreach (var saleId in suspects)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var sale = await App.SalesApi.PosSaleGetAsync(saleId, ct).ConfigureAwait(false);
+                    var status = sale.TryGetProperty("status", out var st) ? st.GetString() : null;
+                    if (string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase))
+                        gone.Add(saleId);
+                }
+                catch (ApiException ex) when (ex.StatusCode == 404)
+                {
+                    gone.Add(saleId);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Нет связи или сервер ответил чем-то другим — ничего не решаем.
+                    PosLogger.Log($"История продаж: продажа {saleId} не проверена: {ex.Message}", "DEBUG");
+                }
+            }
+
+            if (gone.Count == 0)
+                return;
+
+            var removed = SoldLineItemsStore.RemoveSales(gone);
+            PosLogger.Log($"История продаж: убрано {gone.Count} продаж(и), удалённых или отменённых на сервере ({removed} строк).", "SYNC");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"История продаж: сверка удалённых продаж пропущена: {ex.Message}", "WARNING");
+        }
     }
 }

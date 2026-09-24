@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -64,11 +64,13 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         _inventoryApi = inventoryApi;
         _prompts = prompts;
         CommitRevisionCommand = new AsyncRelayCommand(CommitRevisionAsync, () => !IsBusy && RevisionLines.Count > 0);
+        CommitReceivingCommand = new AsyncRelayCommand(CommitReceivingAsync, () => !IsBusy && ReceivingLines.Count > 0);
         WriteOffCommand = new AsyncRelayCommand(
             WriteOffAsync,
             () => !IsBusy && !string.IsNullOrWhiteSpace(_writeOffProductId) && WriteOffQuantity > 0);
         WriteOffReasonOptions = new ObservableCollection<string>(WriteOffReasons);
         RevisionLines.CollectionChanged += (_, _) => (CommitRevisionCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        ReceivingLines.CollectionChanged += (_, _) => (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         RevisionPickCommand = new RelayCommand<CatalogProductTileVm>(PickRevisionProduct);
         WriteOffPickCommand = new RelayCommand<CatalogProductTileVm>(PickWriteOffProduct);
         PreviousProductPageCommand = new RelayCommand(() => GoToProductPage(_currentPage - 1), () => CanGoToPreviousProductPage);
@@ -310,6 +312,64 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             TaskScheduler.Default);
     }
 
+    /// <summary>Строки приёмки: сколько привезли и почём (см. PurchaseReceivingService).</summary>
+    public ObservableCollection<ReceivingLineVm> ReceivingLines { get; } = new();
+
+    /// <summary>Поставщики для приёмки. Первая строка — «без поставщика»: тогда приход пишется
+    /// прямо в товар, как у сайта без выбранного поставщика.</summary>
+    public ObservableCollection<PurchaseReceivingService.Supplier> ReceivingSuppliers { get; } = new();
+
+    private PurchaseReceivingService.Supplier? _receivingSupplier;
+    public PurchaseReceivingService.Supplier? ReceivingSupplier
+    {
+        get => _receivingSupplier;
+        set
+        {
+            if (_receivingSupplier == value)
+                return;
+            _receivingSupplier = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasReceivingSupplier));
+        }
+    }
+
+    public bool HasReceivingSupplier => _receivingSupplier is not null && !string.IsNullOrEmpty(_receivingSupplier.Id);
+
+    private bool _receivingPaidNow = true;
+    /// <summary>С поставщиком: true — оплачено сразу, false — в долг поставщику.</summary>
+    public bool ReceivingPaidNow
+    {
+        get => _receivingPaidNow;
+        set
+        {
+            if (_receivingPaidNow == value)
+                return;
+            _receivingPaidNow = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public async Task LoadReceivingSuppliersAsync()
+    {
+        if (ReceivingSuppliers.Count > 0)
+            return;
+
+        ReceivingSuppliers.Add(new PurchaseReceivingService.Supplier("",
+            Tr.T("Без поставщика", "Жеткирүүчүсүз", "No supplier", "Tedarikçisiz", "Yetkazib beruvchisiz")));
+        ReceivingSupplier = ReceivingSuppliers[0];
+        try
+        {
+            foreach (var supplier in await PurchaseReceivingService.Instance.LoadSuppliersAsync().ConfigureAwait(true))
+                ReceivingSuppliers.Add(supplier);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: список поставщиков не загружен: {ex.Message}", "WARNING");
+        }
+    }
+
+    public ICommand CommitReceivingCommand { get; }
+
     public ICommand CommitRevisionCommand { get; }
     public ICommand WriteOffCommand { get; }
 
@@ -361,6 +421,60 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     {
         ApplyProductFilter();
         return Task.CompletedTask;
+    }
+
+    /// <summary>Скан в приёмке. Повторный скан того же товара не плодит строки, а прибавляет
+    /// единицу: коробку с накладной обычно пробивают подряд, а не пересчитывают в уме. Новый
+    /// штрихкод ищется по складу, по общей базе CRM и только потом считается неизвестным.</summary>
+    public async Task HandleReceivingScanAsync(string barcode, double quantity = 1)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+            return;
+
+        var trimmed = barcode.Trim();
+        var existing = ReceivingLines.FirstOrDefault(l =>
+            string.Equals(l.Barcode, trimmed, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            existing.Quantity += quantity;
+            ReceivingLineAdded?.Invoke(existing);
+            return;
+        }
+
+        var line = await PurchaseReceivingService.Instance.LookupAsync(trimmed, quantity).ConfigureAwait(true);
+
+        // Пока шёл запрос, тот же товар могли отсканировать ещё раз.
+        var raced = ReceivingLines.FirstOrDefault(l =>
+            string.Equals(l.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(line.ProductId)
+                && string.Equals(l.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)));
+        if (raced is not null)
+        {
+            raced.Quantity += quantity;
+            ReceivingLineAdded?.Invoke(raced);
+            return;
+        }
+
+        ReceivingLines.Add(line);
+        ReceivingLineAdded?.Invoke(line);
+    }
+
+    public event Action<ReceivingLineVm>? ReceivingLineAdded;
+
+    /// <summary>Добавить товар в приёмку из списка, а не сканом.</summary>
+    public void AddReceivingProduct(CatalogProductTileVm product, double quantity)
+    {
+        var existing = ReceivingLines.FirstOrDefault(l =>
+            string.Equals(l.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            existing.Quantity += quantity;
+            return;
+        }
+
+        ReceivingLines.Add(PurchaseReceivingService.FromTile(product, quantity));
     }
 
     public void HandleBarcodeScan(string barcode, bool isRevisionTab)
@@ -415,6 +529,89 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         WriteOffBarcode = product.Barcode ?? "";
         WriteOffProductName = product.Title;
         (WriteOffCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>Провести приёмку: новые товары создаются, остаток прибавляется, цены пишутся,
+    /// каждая строка уходит в историю закупок товара (см. PurchaseReceivingService.PostAsync).</summary>
+    private async Task CommitReceivingAsync()
+    {
+        var lines = ReceivingLines.ToList();
+        var problems = PurchaseReceivingService.Validate(lines);
+        if (problems.Count > 0)
+        {
+            var shown = problems.Take(8).ToList();
+            if (problems.Count > shown.Count)
+                shown.Add(Tr.T($"…и ещё {problems.Count - shown.Count}", $"…жана дагы {problems.Count - shown.Count}",
+                    $"…and {problems.Count - shown.Count} more", $"…ve {problems.Count - shown.Count} tane daha",
+                    $"…va yana {problems.Count - shown.Count}"));
+            _prompts?.ShowWarning(Tr.T("Приёмку нельзя провести:", "Кабыл алууну өткөрүүгө болбойт:",
+                "The receiving cannot be posted:", "Mal kabul yapılamıyor:", "Qabul qilishni o'tkazib bo'lmaydi:")
+                + "\n\n" + string.Join("\n", shown));
+            return;
+        }
+
+        IsBusy = true;
+        (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        try
+        {
+            var supplier = HasReceivingSupplier ? ReceivingSupplier : null;
+            var employee = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId;
+            var result = await PurchaseReceivingService.Instance
+                .PostAsync(lines, supplier, ReceivingPaidNow, employee)
+                .ConfigureAwait(true);
+
+            // Остаток в каталоге правим сразу, как после ревизии: кассир тут же пойдёт
+            // продавать принятое, а синхронизация каталога придёт только через пару минут.
+            foreach (var line in result.PostedLines.Where(l => !l.IsNew))
+                ApplyCountedStock(line.ProductId!, line.StockBefore + line.Quantity);
+
+            // Принятые строки уходят из списка, непринятые остаются: их можно поправить и
+            // провести ещё раз, не сканируя накладную заново.
+            foreach (var line in result.PostedLines)
+                ReceivingLines.Remove(line);
+
+            // Созданные товары появятся в каталоге кассы только после синхронизации — просим её
+            // сразу, а не ждём плановую через пару минут.
+            if (result.Created > 0)
+            {
+                try
+                {
+                    await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Приёмка: каталог после создания товаров не обновлён: {ex.Message}", "WARNING");
+                }
+
+                await EnsureCatalogLoadedAsync().ConfigureAwait(true);
+            }
+
+            var summary = Tr.T($"Принято позиций: {result.PostedLines.Count} на {result.TotalAmount:0.##} сом.",
+                $"Кабыл алынды: {result.PostedLines.Count} позиция, {result.TotalAmount:0.##} сом.",
+                $"Received: {result.PostedLines.Count} items for {result.TotalAmount:0.##} som.",
+                $"Kabul edildi: {result.PostedLines.Count} kalem, {result.TotalAmount:0.##} som.",
+                $"Qabul qilindi: {result.PostedLines.Count} ta, {result.TotalAmount:0.##} som.");
+            if (result.Created > 0)
+                summary += " " + Tr.T($"Новых товаров создано: {result.Created}.", $"Жаңы товар түзүлдү: {result.Created}.",
+                    $"New products created: {result.Created}.", $"Oluşturulan yeni ürün: {result.Created}.",
+                    $"Yangi mahsulotlar: {result.Created}.");
+
+            if (result.Errors.Count == 0)
+                _prompts?.ShowToast(summary);
+            else
+                _prompts?.ShowWarning(summary + "\n\n" + string.Join("\n", result.Errors.Take(10)));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка не проведена: {ex}", "WARNING");
+            _prompts?.ShowError(Tr.T("Не удалось провести приёмку: ", "Кабыл алуу өткөрүлгөн жок: ",
+                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabul qilish amalga oshmadi: ") + ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+            (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        }
     }
 
     private async Task CommitRevisionAsync()
@@ -568,19 +765,23 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             try
             {
-                WriteOffHistoryStore.Append(_writeOffProductId, WriteOffProductName, WriteOffQuantity, WriteOffReason, PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId);
-                LoadWriteOffHistory();
-
                 // 2026-09-23. Строка «Списания» в Z-отчёте, Telegram-сводке и выгрузке всегда
                 // показывала ноль: ShiftEventsStore.KindWriteOff читался в четырёх местах и не
-                // писался нигде. Журнал списаний хранит только количество, поэтому сумму берём
-                // из каталога — по ЗАКУПОЧНОЙ цене: списание это потеря того, что товар стоил
-                // магазину, а не недополученная выручка.
+                // писался нигде. Сумму берём из каталога — по ЗАКУПОЧНОЙ цене: списание это
+                // потеря того, что товар стоил магазину, а не недополученная выручка.
                 var card = CatalogCacheService.Products
                     .FirstOrDefault(x => string.Equals(x.Id, _writeOffProductId, StringComparison.OrdinalIgnoreCase));
                 var unitCost = card is { PurchasePrice: > 0 }
                     ? card.PurchasePrice
-                    : LocalCartService.ParsePrice(card?.PriceLine);
+                    : LocalCartService.ParsePrice(card?.PriceLine ?? "");
+
+                // 2026-09-24: та же себестоимость пишется и в журнал — на момент списания, потому
+                // что закупочная цена потом может поменяться, а отчёт «на сколько списали» должен
+                // считаться по той, что была.
+                WriteOffHistoryStore.Append(_writeOffProductId, WriteOffProductName, WriteOffQuantity, WriteOffReason,
+                    PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId, unitCost > 0 ? unitCost : null);
+                LoadWriteOffHistory();
+
                 if (unitCost > 0)
                 {
                     ShiftEventsStore.Record(

@@ -48,6 +48,19 @@ public static class ProductUnitNormalizer
     public static string DisplayUnit(ProductUnitKind kind) =>
         kind == ProductUnitKind.Kilogram ? "кг" : "шт";
 
+    /// <summary>Единица, которую кладём в локальную базу. «кг»/«шт» и их латинские варианты
+    /// приводятся к виду кассы, а всё остальное с сервера — «м», «л», «оп», «уп» — сохраняется
+    /// как есть. 2026-09-24, живой баг: «1м пишет как 1шт» — плитка каталога показывала
+    /// единицу сервера, но в базу уходило DisplayUnit(kind), то есть «шт», и после первого же
+    /// перечитывания базы метры превращались в штуки.</summary>
+    public static string StorageUnit(string? rawUnit, ProductUnitKind kind)
+    {
+        var unit = (rawUnit ?? string.Empty).Trim();
+        if (kind == ProductUnitKind.Kilogram || unit.Length == 0 || IsPerfectUnit(unit))
+            return DisplayUnit(kind);
+        return unit;
+    }
+
     /// <summary>Строгая классификация: только «кг»/kg и «шт»/sht; мусорные значения отклоняются.</summary>
     public static bool TryClassifyStrict(string? rawUnit, bool apiMustWeigh, out ProductUnitKind kind)
     {

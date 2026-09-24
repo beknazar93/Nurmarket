@@ -682,6 +682,14 @@ public static class CartDisplayHelper
                 ?? TryDouble(it, "line_discount")
                 ?? TryDouble(it, "discount")
                 ?? 0;
+
+        // Скидка в процентах лежит в строке как discount_percent, а сервер при добавлении
+        // строки принимает только сумму. 2026-09-24, живой баг: «Оплата не прошла — касса
+        // показала 36,00, сервер посчитал 40,00» — скидка 10% на строку молча терялась при
+        // переносе чека на сервер, и оплата останавливалась на сверке суммы.
+        if (d <= 1e-6 && TryDouble(it, "discount_percent") is { } percent && percent > 1e-6)
+            d = Math.Round(LineQuantity(it) * UnitPrice(it) * Math.Min(percent, 100) / 100.0, 2);
+
         return d > 1e-6 ? FormatMoney(d) : null;
     }
 

@@ -263,10 +263,17 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     /// перестала что-либо различать — цвет, который есть у всех, не несёт информации, только
     /// шумит. Плашка остаётся там, где тип МЕНЯЕТ ПОВЕДЕНИЕ кассы: весовой (спросит вес),
     /// комплект (разложится на составляющие), поштучный из пачки (спросит, целая или штука).</summary>
-    public bool ShowTypeBadge => IsWeighted || IsBundle || HasPieceOption;
+    public bool ShowTypeBadge => IsWeighted || IsBundle || HasPieceOption || IsService;
 
     /// <summary>Комплект/набор из нескольких разных товаров (поле "kind"="bundle" в NurCRM).</summary>
     public bool IsBundle { get; set; }
+
+    /// <summary>Вид товара сайта: product / service / bundle.</summary>
+    public string? Kind { get; set; }
+
+    /// <summary>Услуга: у неё нет остатка, и касса не проверяет его при продаже (2026-09-24,
+    /// «в услуге требует количество» — «Тест услуги» с нулевым остатком не пробивалась).</summary>
+    public bool IsService => string.Equals(Kind, "service", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Состав комплекта (только когда IsBundle) — какие товары и в каком количестве
     /// входят в набор. Для товаров, синхронизированных с сервера, сервер сам списывает остатки

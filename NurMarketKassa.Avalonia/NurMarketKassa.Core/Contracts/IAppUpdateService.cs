@@ -1,4 +1,4 @@
-namespace NurMarketKassa.Core.Contracts;
+﻿namespace NurMarketKassa.Core.Contracts;
 
 /// <summary>
 /// Настоящее скачивание и установка обновления (в отличие от <see cref="IUpdateCheckService"/>,
@@ -38,11 +38,14 @@ public interface IAppUpdateService
     Task<string?> GetReleaseNotesAsync(string version, CancellationToken cancellationToken = default);
 }
 
+/// <param name="TestingVersion">Более новая версия, которая пока в тестировании (pre-release на
+/// GitHub): клиенту её не ставим, а говорим, что она в тесте (см. UpdateChannel).</param>
 public sealed record AppUpdateCheckResult(
     bool IsConfigured,
     bool IsUpdateAvailable,
     string? CurrentVersion,
     string? LatestVersion,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    string? TestingVersion = null);
 
 public sealed record AppReleaseVersion(string Version, string? Notes, bool IsCurrent);

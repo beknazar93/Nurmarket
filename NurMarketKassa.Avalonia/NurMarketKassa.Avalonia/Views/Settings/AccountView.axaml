@@ -63,6 +63,44 @@
         </Border>
 
         <!-- Компания -->
+        <!-- Кто вошёл в кассу (2026-09-24, просьба владельца: «какой аккаунт, логин»). Пароль
+             касса не хранит намеренно — его видел бы любой за кассой, см. PurgeLegacySavedPasswords. -->
+        <Border Classes="SettingsCard" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{DynamicResource account.loginCard}" Classes="SettingsCardTitle" FontSize="14"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+              <Grid.Styles>
+                <Style Selector="TextBlock.k">
+                  <Setter Property="FontSize" Value="12.5"/>
+                  <Setter Property="Margin" Value="0,3,18,3"/>
+                  <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+                </Style>
+                <Style Selector="TextBlock.v">
+                  <Setter Property="FontSize" Value="13.5"/>
+                  <Setter Property="FontWeight" Value="SemiBold"/>
+                  <Setter Property="Margin" Value="0,3"/>
+                  <Setter Property="TextWrapping" Value="Wrap"/>
+                  <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                </Style>
+              </Grid.Styles>
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="k" Text="{DynamicResource account.loginLabel}"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="v" x:Name="LoginText"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashierLabel}"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="v" x:Name="CashierNameText"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="k" Text="{DynamicResource account.roleLabel}"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="v" x:Name="RoleText"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="k" Text="{DynamicResource account.cashboxLabel}"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="v" x:Name="CashboxText"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="k" Text="{DynamicResource account.shiftLabel}"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="v" x:Name="ShiftText"/>
+              <TextBlock Grid.Row="5" Grid.Column="0" Classes="k" Text="{DynamicResource account.passwordLabel}"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Classes="v" FontWeight="Normal" FontSize="12.5"
+                         Foreground="{DynamicResource BrushTextSoft}"
+                         Text="{DynamicResource account.passwordHint}"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+
         <Border Classes="SettingsCard" Padding="18">
           <StackPanel Spacing="6">
             <TextBlock Text="{DynamicResource account.companyLabel}" Classes="SettingsCardTitle" FontSize="14"/>

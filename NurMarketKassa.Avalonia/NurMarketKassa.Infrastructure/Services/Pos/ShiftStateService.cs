@@ -58,6 +58,23 @@ public sealed class ShiftStateService : IShiftStateService
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
             var list = await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
             var openId = ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId);
+            if (string.IsNullOrEmpty(openId)
+                && ShiftHelper.FindCashierShiftOnOtherCashbox(list, PosApp.CurrentUserId) is { } own
+                && CanFollowCashbox(own.CashboxId))
+            {
+                // Своя смена этого кассира, но под другой кассой — переходим на ту кассу целиком,
+                // а не только на смену: иначе продажа уйдёт в одну кассу, а шапка, «Продажи» и
+                // итоги смены будут смотреть в другую (см. ShiftHelper.PickOpenShiftId).
+                PosLogger.Log(
+                    $"Открытая смена кассира найдена на другой кассе: {own.CashboxName ?? own.CashboxId} "
+                    + $"(была {PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId}) — касса переключена на неё.",
+                    "SHIFT");
+                PosApp.PosCashboxId = own.CashboxId;
+                if (!string.IsNullOrWhiteSpace(own.CashboxName))
+                    PosApp.PosCashboxDisplayName = own.CashboxName;
+                openId = own.ShiftId;
+            }
+
             PosApp.ActiveShiftId = string.IsNullOrEmpty(openId) ? null : openId;
             balance = ShiftBalanceHelper.FindOpenShiftBalance(list, PosApp.PosCashboxId);
             if (balance is { } apiBalance)
@@ -86,5 +103,14 @@ public sealed class ShiftStateService : IShiftStateService
             ActiveShiftId = PosApp.ActiveShiftId,
             CashBalance = balance,
         });
+    }
+
+    /// <summary>Кассу, которую кассир сам закрепил в настройках, смена с другой кассы не
+    /// перебивает: он прямо сказал, какая это касса.</summary>
+    private static bool CanFollowCashbox(string cashboxId)
+    {
+        var pinned = UserPreferences.Instance.PreferredCashboxId;
+        return string.IsNullOrWhiteSpace(pinned)
+            || string.Equals(pinned, cashboxId, StringComparison.OrdinalIgnoreCase);
     }
 }

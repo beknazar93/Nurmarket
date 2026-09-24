@@ -1,4 +1,4 @@
-using NurMarketKassa.Core.Contracts;
+﻿using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models.Pos;
 
 namespace NurMarketKassa.Services;
@@ -76,6 +76,12 @@ public static class StockAvailabilityService
         return Math.Max(0, warehouse - reserved - Math.Max(0, additionalReserved) - inCart);
     }
 
+    /// <summary>Услуга продаётся без остатка: «Аренда», «Распил», «Доставка» не лежат на полке.
+    /// 2026-09-24, живой случай: «Тест услуги» с нулевым остатком не пробивалась — касса
+    /// требовала остаток, как у товара.</summary>
+    public static bool IsService(string productId) =>
+        !string.IsNullOrWhiteSpace(productId) && ResolveTile(productId)?.IsService == true;
+
     public static bool CanAddQuantity(
         string productId,
         double qtyToAdd,
@@ -83,7 +89,7 @@ public static class StockAvailabilityService
         string? excludeDeferredEntryId = null,
         double additionalReserved = 0)
     {
-        if (qtyToAdd <= 0)
+        if (qtyToAdd <= 0 || IsService(productId))
             return true;
 
         var available = GetAvailableToAdd(productId, cart, excludeDeferredEntryId, additionalReserved);
@@ -124,7 +130,7 @@ public static class StockAvailabilityService
         foreach (var it in CartDisplayHelper.EnumerateItems(cart.Root))
         {
             var productId = CartDisplayHelper.TryProductId(it);
-            if (string.IsNullOrEmpty(productId))
+            if (string.IsNullOrEmpty(productId) || IsService(productId))
                 continue;
 
             var qty = CartDisplayHelper.LineQuantityInStockUnits(it, ResolveTile(productId));

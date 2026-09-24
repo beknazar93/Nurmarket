@@ -287,6 +287,19 @@ public sealed class LocalProductRepository
 
         try
         {
+            // 2026-09-24: вид товара сайта (product/service/bundle). Нужен услугам: у них нет
+            // остатка, и касса не должна требовать его при продаже.
+            using var alterKind = connection.CreateCommand();
+            alterKind.CommandText = "ALTER TABLE Products ADD COLUMN kind TEXT;";
+            alterKind.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже существует.
+        }
+
+        try
+        {
             // Дата, когда у товара впервые появился остаток > 0 (см. UpdateStock/SyncReplaceAllWithDiff) —
             // используется как "дата поступления" для срока годности (AI-фичи 2026-09-03, п.5).
             // Срок годности НЕ хранится отдельной колонкой — считается на лету из этой даты
@@ -371,7 +384,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code
+                       alternate_barcode_variants, product_code, kind
                 FROM Products WHERE {column} = $value COLLATE NOCASE LIMIT 1;
                 """;
             var parameter = command.CreateParameter();
@@ -433,7 +446,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code
+                       alternate_barcode_variants, product_code, kind
                 FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
                 """;
             var parameter = command.CreateParameter();
@@ -886,7 +899,14 @@ public sealed class LocalProductRepository
         command.CommandText = """
             UPDATE Products
             SET stock = @stock,
-                unit = @unit,
+                -- Единицу трогаем, только когда товар стал весовым или своей единицы у него не
+                -- было: «м», «л», «оп» с сервера не должны превращаться в «шт» (см.
+                -- ProductUnitNormalizer.StorageUnit).
+                unit = CASE
+                    WHEN @must_weigh = 1 THEN @unit
+                    WHEN unit IS NULL OR TRIM(unit) = '' OR LOWER(TRIM(unit)) IN ('кг', 'kg') THEN @unit
+                    ELSE unit
+                END,
                 must_weigh = @must_weigh,
                 intake_date = CASE WHEN intake_date IS NULL AND @stock > 0 THEN @today ELSE intake_date END
             WHERE id = @id;
@@ -1060,7 +1080,8 @@ public sealed class LocalProductRepository
             r.BundleItemsJson ?? "",
             r.AlternateBarcodesRaw ?? "",
             r.AlternateBarcodeVariantsJson ?? "",
-            r.ProductCode ?? "");
+            r.ProductCode ?? "",
+            r.Kind ?? "");
 
     public int CountProducts()
     {
@@ -1352,7 +1373,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind
             FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
@@ -1381,7 +1402,8 @@ public sealed class LocalProductRepository
                 BundleItemsJson = reader.IsDBNull(17) ? null : reader.GetString(17),
                 AlternateBarcodesRaw = reader.IsDBNull(18) ? null : reader.GetString(18),
                 AlternateBarcodeVariantsJson = reader.IsDBNull(19) ? null : reader.GetString(19),
-                ProductCode = reader.IsDBNull(20) ? null : reader.GetString(20)
+                ProductCode = reader.IsDBNull(20) ? null : reader.GetString(20),
+                Kind = reader.IsDBNull(21) ? null : reader.GetString(21)
             });
         }
 
@@ -1403,12 +1425,12 @@ public sealed class LocalProductRepository
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
                 bundle_items_json, alternate_barcodes, alternate_barcode_variants,
-                intake_date, product_code
+                intake_date, product_code, kind
             ) VALUES (
                 @id, @name, @price, @barcode, @stock, @unit, @is_favorite, @must_weigh,
                 @image_url, @category, @brand, @purchase_price, @piece_option_json, @plu, @hotkey_group, @is_bundle, @article,
                 @bundle_items_json, @alternate_barcodes, @alternate_barcode_variants,
-                @intake_date, @product_code
+                @intake_date, @product_code, @kind
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1431,6 +1453,7 @@ public sealed class LocalProductRepository
                 alternate_barcodes = excluded.alternate_barcodes,
                 alternate_barcode_variants = excluded.alternate_barcode_variants,
                 product_code = excluded.product_code,
+                kind = excluded.kind,
                 intake_date = CASE
                     WHEN Products.intake_date IS NULL AND excluded.stock > 0 THEN @today
                     ELSE Products.intake_date
@@ -1457,6 +1480,7 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@alternate_barcodes", DBNull.Value);
         command.Parameters.AddWithValue("@alternate_barcode_variants", DBNull.Value);
         command.Parameters.AddWithValue("@product_code", DBNull.Value);
+        command.Parameters.AddWithValue("@kind", DBNull.Value);
         command.Parameters.AddWithValue("@intake_date", DBNull.Value);
         command.Parameters.AddWithValue("@today", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
@@ -1485,6 +1509,7 @@ public sealed class LocalProductRepository
         command.Parameters["@alternate_barcodes"].Value = (object?)record.AlternateBarcodesRaw ?? DBNull.Value;
         command.Parameters["@alternate_barcode_variants"].Value = (object?)record.AlternateBarcodeVariantsJson ?? DBNull.Value;
         command.Parameters["@product_code"].Value = (object?)record.ProductCode ?? DBNull.Value;
+        command.Parameters["@kind"].Value = (object?)record.Kind ?? DBNull.Value;
         // Только для ветки INSERT (совсем новый товар) — для уже существующих строк
         // реальное решение принимает CASE в ON CONFLICT DO UPDATE (см. CreateUpsertCommand).
         command.Parameters["@intake_date"].Value = record.Stock > 0
@@ -1510,6 +1535,17 @@ public sealed class LocalProductRepository
             PurchasePrice = reader.GetDouble(11),
             PieceOptionJson = reader.IsDBNull(12) ? null : reader.GetString(12),
             Plu = reader.IsDBNull(13) ? null : reader.GetInt32(13),
+            // Выборки по одному товару и «избранного» просят все колонки, а до 2026-09-24 здесь
+            // читались только первые 14: такой товар терял горячую клавишу, комплект, артикул
+            // и вид. Хвост читаем, только если он есть в выборке.
+            HotkeyGroup = reader.FieldCount > 14 && !reader.IsDBNull(14) ? reader.GetString(14) : null,
+            IsBundle = reader.FieldCount > 15 && !reader.IsDBNull(15) && reader.GetInt64(15) == 1,
+            Article = reader.FieldCount > 16 && !reader.IsDBNull(16) ? reader.GetString(16) : null,
+            BundleItemsJson = reader.FieldCount > 17 && !reader.IsDBNull(17) ? reader.GetString(17) : null,
+            AlternateBarcodesRaw = reader.FieldCount > 18 && !reader.IsDBNull(18) ? reader.GetString(18) : null,
+            AlternateBarcodeVariantsJson = reader.FieldCount > 19 && !reader.IsDBNull(19) ? reader.GetString(19) : null,
+            ProductCode = reader.FieldCount > 20 && !reader.IsDBNull(20) ? reader.GetString(20) : null,
+            Kind = reader.FieldCount > 21 && !reader.IsDBNull(21) ? reader.GetString(21) : null,
         };
 
     private static Product ToProduct(LocalProductRecord record) =>
@@ -1545,6 +1581,7 @@ public sealed class LocalProductRepository
             Plu = record.Plu,
             HotkeyGroup = record.HotkeyGroup,
             IsBundle = record.IsBundle,
+            Kind = record.Kind,
             Article = record.Article,
             ProductCode = record.ProductCode,
             BundleItems = DeserializeBundleItems(record.BundleItemsJson),
@@ -1607,7 +1644,7 @@ public sealed class LocalProductRepository
             Price = ParsePrice(vm.PriceLine),
             Barcode = vm.Barcode,
             Stock = vm.Quantity,
-            Unit = ProductUnitNormalizer.DisplayUnit(kind),
+            Unit = ProductUnitNormalizer.StorageUnit(vm.Unit, kind),
             IsFavorite = vm.IsFavorite,
             MustWeigh = kind == ProductUnitKind.Kilogram,
             ImageUrl = vm.ImageUrl,
@@ -1618,6 +1655,7 @@ public sealed class LocalProductRepository
             Plu = vm.Plu,
             HotkeyGroup = vm.HotkeyGroup,
             IsBundle = vm.IsBundle,
+            Kind = vm.Kind,
             Article = vm.Article,
             ProductCode = vm.ProductCode,
             BundleItemsJson = vm.BundleItems is null or { Count: 0 } ? null : JsonSerializer.Serialize(vm.BundleItems),

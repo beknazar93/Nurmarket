@@ -23,16 +23,82 @@ public static class ShiftHelper
         if (candidates.Count == 0)
             return null;
 
-        if (!string.IsNullOrWhiteSpace(cashboxId))
+        // Касса ещё не выбрана (первый вход) — сверять не с чем.
+        if (string.IsNullOrWhiteSpace(cashboxId))
+            return candidates[0].Id;
+
+        foreach (var (row, rid) in candidates)
         {
-            foreach (var (row, rid) in candidates)
-            {
-                if (RowMatchesCashbox(row, cashboxId))
-                    return rid;
-            }
+            if (RowMatchesCashbox(row, cashboxId))
+                return rid;
         }
 
-        return candidates[0].Id;
+        // 2026-09-24, живой баг: своей смены нет — и раньше здесь возвращалась первая открытая
+        // смена компании, чья угодно. Касса «Основная» тихо садилась на смену «Касса 2»
+        // (открытую на сайте или другой кассой): продажи уходили в чужую кассу и не появлялись
+        // ни в «Продажах», ни в итогах этой кассы, а когда чужая смена закрывалась или сервер
+        // отказывал, оплата падала и товар оставался в чеке. Смену того же кассира на другой
+        // кассе подхватывает ShiftStateService — вместе с самой кассой, см.
+        // FindCashierShiftOnOtherCashbox.
+        return null;
+    }
+
+    /// <summary>Открытая смена этого же кассира, но на другой кассе. Касса могла сменить
+    /// свою кассу между запусками (автовыбор «Основной» после переустановки, см.
+    /// MainWindow.RefreshShiftStateAsync), и тогда своя смена лежит под прежней кассой. Такую
+    /// смену подхватываем целиком, вместе с её кассой, а смену другого кассира — никогда:
+    /// это чужое рабочее место.</summary>
+    public static (string ShiftId, string CashboxId, string? CashboxName)? FindCashierShiftOnOtherCashbox(
+        JsonElement shiftsPayload, string? cashierId)
+    {
+        if (string.IsNullOrWhiteSpace(cashierId))
+            return null;
+
+        foreach (var row in EnumerateList(shiftsPayload))
+        {
+            if (row.ValueKind != JsonValueKind.Object || !RowLooksLikeOpenShift(row))
+                continue;
+            if (!string.Equals(ReadCashierId(row), cashierId.Trim(), StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var shiftId = CartDisplayHelper.TryCartId(row);
+            var cashboxId = ReadCashboxId(row);
+            if (string.IsNullOrEmpty(shiftId) || string.IsNullOrEmpty(cashboxId))
+                continue;
+
+            var name = row.TryGetProperty("cashbox_name", out var n) ? JsonScalar(n) : null;
+            return (shiftId, cashboxId, name);
+        }
+
+        return null;
+    }
+
+    private static string? ReadCashierId(JsonElement row)
+    {
+        foreach (var key in new[] { "cashier", "cashier_id", "user", "opened_by" })
+        {
+            if (!row.TryGetProperty(key, out var v))
+                continue;
+            if (v.ValueKind == JsonValueKind.Object && v.TryGetProperty("id", out var id))
+                return JsonScalar(id);
+            if (JsonScalar(v) is { } s)
+                return s;
+        }
+
+        return null;
+    }
+
+    private static string? ReadCashboxId(JsonElement row)
+    {
+        if (row.TryGetProperty("cashbox", out var cb))
+        {
+            if (cb.ValueKind == JsonValueKind.Object && cb.TryGetProperty("id", out var cid))
+                return JsonScalar(cid);
+            if (JsonScalar(cb) is { } s)
+                return s;
+        }
+
+        return row.TryGetProperty("cashbox_id", out var cbi) ? JsonScalar(cbi) : null;
     }
 
     private static bool RowMatchesCashbox(JsonElement row, string cashboxId)

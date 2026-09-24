@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog"
         Title="{Binding HeaderText}"
@@ -153,6 +153,7 @@
                             <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colBarcode}"/>
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBox x:Name="BarcodeBox" Grid.Column="0" Text="{Binding Barcode}"
+                                         LostFocus="BarcodeBox_LostFocus"
                                          Watermark="{DynamicResource product.barcodeScanWatermarkShort}"
                                          ToolTip.Tip="{DynamicResource product.barcodeScanWatermark}"/>
                                 <Button Grid.Column="1" Classes="SecondaryButton" Margin="6,0,0,0"
@@ -465,6 +466,44 @@
                                     <TextBox Text="{Binding Description}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
+                         Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
+                         первом раскрытии: это запрос к серверу, а карточку открывают часто. -->
+                    <Expander x:Name="PurchaseHistoryExpander"
+                              Header="{DynamicResource product.sectionPurchaseHistory}" IsExpanded="False"
+                              FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              IsVisible="False">
+                        <StackPanel Spacing="6" Margin="0,12,0,0">
+                            <TextBlock x:Name="PurchaseHistoryStatus" FontWeight="Normal" FontSize="12.5"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <ItemsControl x:Name="PurchaseHistoryList" x:CompileBindings="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="12,8" Margin="0,2" CornerRadius="8"
+                                                Background="{DynamicResource BrushPanelSoft}">
+                                            <Grid ColumnDefinitions="120,*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{ReflectionBinding WhenText}"
+                                                           FontWeight="Normal" FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                                <StackPanel Grid.Column="1" Spacing="2" Margin="8,0">
+                                                    <TextBlock Text="{ReflectionBinding MainText}" FontWeight="SemiBold"
+                                                               FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                                    <TextBlock Text="{ReflectionBinding DetailText}" FontWeight="Normal"
+                                                               FontSize="11.5" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource BrushTextSoft}"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{ReflectionBinding TotalText}"
+                                                           FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource BrushText}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </Expander>
 

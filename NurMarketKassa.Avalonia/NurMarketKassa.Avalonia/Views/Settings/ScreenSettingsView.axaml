@@ -238,6 +238,22 @@
 
               <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
 
+              <!-- Размер карточек каталога (2026-09-24): отдельно от общего масштаба. -->
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{DynamicResource posSettings.screen.tileSize}" Classes="SettingsCardTitle" FontSize="14"/>
+                  <TextBlock x:Name="TileSizeValueText" Grid.Column="1" FontSize="13" FontWeight="Bold"
+                             Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="{DynamicResource posSettings.screen.tileSizeDesc}"
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                <Slider x:Name="TileSizeSlider" Minimum="70" Maximum="160"
+                        TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
+                        ValueChanged="TileSizeSlider_ValueChanged"/>
+              </StackPanel>
+
+              <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
+
               <!-- Макет главного экрана (2026-09-06) -->
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="FieldLabel"/>

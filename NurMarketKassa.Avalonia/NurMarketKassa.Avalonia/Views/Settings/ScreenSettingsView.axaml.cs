@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -37,6 +37,8 @@ public partial class ScreenSettingsView : UserControl
         _suppressUiScaleChange = true;
         UiScaleSlider.Value = UserPreferences.Instance.UiScalePercent;
         UpdateUiScaleValueText(UserPreferences.Instance.UiScalePercent);
+        TileSizeSlider.Value = UserPreferences.Instance.CatalogTileScalePercent;
+        TileSizeValueText.Text = $"{UserPreferences.Instance.CatalogTileScalePercent:F0}%";
         _suppressUiScaleChange = false;
     }
 
@@ -65,6 +67,18 @@ public partial class ScreenSettingsView : UserControl
         UserPreferences.Instance.UiScalePercent = e.NewValue;
         App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
         UiScaleChanged?.Invoke(this, EventArgs.Empty);
+        ScheduleUiScaleSaveDebounce();
+    }
+
+    /// <summary>Размер карточек применяется сразу, пока тянут ползунок, — как и масштаб.</summary>
+    private void TileSizeSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        TileSizeValueText.Text = $"{e.NewValue:F0}%";
+        if (_suppressUiScaleChange)
+            return;
+
+        UserPreferences.Instance.CatalogTileScalePercent = e.NewValue;
+        AccentThemeService.ApplyCatalogTileSize();
         ScheduleUiScaleSaveDebounce();
     }
 

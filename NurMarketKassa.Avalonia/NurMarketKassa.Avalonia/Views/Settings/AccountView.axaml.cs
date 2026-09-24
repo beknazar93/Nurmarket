@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -60,8 +60,41 @@ public partial class AccountView : UserControl
             await mainWindow.LogoutAsync().ConfigureAwait(true);
     }
 
+    /// <summary>Карточка «Вход в кассу» — из того, что касса уже знает: ответ сервера на вход
+    /// (логин, имя, роль) и текущая сессия (касса, смена). Сеть не нужна.</summary>
+    private void RenderLogin()
+    {
+        var session = App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>();
+        var user = App.GetRequiredService<NurMarketApiClient>().UserPayload;
+
+        string? Read(string name) =>
+            user.ValueKind == System.Text.Json.JsonValueKind.Object
+            && user.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(v.GetString())
+                ? v.GetString()!.Trim()
+                : null;
+
+        var lastLogin = UserPreferences.Instance.LastLoginEmail;
+        LoginText.Text = Read("email") ?? (string.IsNullOrWhiteSpace(lastLogin) ? "—" : lastLogin);
+        CashierNameText.Text = string.IsNullOrWhiteSpace(session.CurrentUserDisplayName) ? "—" : session.CurrentUserDisplayName;
+        RoleText.Text = Read("role_display") ?? Read("role") ?? "—";
+        CashboxText.Text = string.IsNullOrWhiteSpace(session.PosCashboxDisplayName) ? "—" : session.PosCashboxDisplayName;
+        ShiftText.Text = string.IsNullOrWhiteSpace(session.ActiveShiftId)
+            ? Tr.T("не открыта", "ачылган эмес", "not open", "açık değil", "ochilmagan")
+            : Tr.T("открыта", "ачык", "open", "açık", "ochiq") + " · №" + session.ActiveShiftId![..Math.Min(8, session.ActiveShiftId.Length)].ToUpperInvariant();
+    }
+
     private async Task LoadAsync()
     {
+        try
+        {
+            RenderLogin();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"AccountView login card failed: {ex.Message}", "WARNING");
+        }
+
         RefreshButton.IsEnabled = false;
         LoadingOrErrorText.IsVisible = true;
         LoadingOrErrorText.Text = Tr.T("Загрузка...", "Жүктөлүүдө...", "Loading...", "Yükleniyor...", "Yuklanmoqda...");

@@ -44,6 +44,36 @@ public interface ICatalogApiService
     /// Остальные ошибки API пробрасываются как ApiException.</summary>
     Task<bool> DeleteProductAsync(string productId, CancellationToken ct = default);
 
+    /// <summary>Приёмка, 2026-09-24 — те же запросы, что шлёт «Массовое сканирование» сайта
+    /// (подсмотрены в его сетевых запросах).
+    /// Товар своего склада по штрихкоду: GET products/warehouse-barcode/{код}/ — объект товара
+    /// целиком (остаток, цены, единица) или null, если на складе такого нет (404).</summary>
+    Task<JsonElement?> FindWarehouseProductByBarcodeAsync(string barcode, CancellationToken ct = default);
+
+    /// <summary>Товар общей базы CRM по штрихкоду: GET products/global-barcode/{код}/ —
+    /// {id, name, barcode} или null (404: такого штрихкода в общей базе нет).</summary>
+    Task<JsonElement?> FindGlobalProductByBarcodeAsync(string barcode, CancellationToken ct = default);
+
+    /// <summary>Завести товар из общей базы на свой склад: POST products/create-by-barcode/
+    /// {barcode, name, price}. Для штрихкода, которого нет в общей базе, сервер отвечает 404 —
+    /// такой товар создаётся обычной карточкой (<see cref="CreateProductAsync"/>).</summary>
+    Task<JsonElement> CreateProductFromGlobalBarcodeAsync(string barcode, string name, double price, CancellationToken ct = default);
+
+    /// <summary>PATCH только перечисленных полей товара. Общий <see cref="UpdateProductAsync"/>
+    /// отправляет карточку целиком и перетёр бы на сервере всё, чего касса не знает.</summary>
+    Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default);
+
+    /// <summary>Поставщики компании: GET clients/?type=suppliers.</summary>
+    Task<JsonElement> ListSuppliersAsync(CancellationToken ct = default);
+
+    /// <summary>Приход от поставщика: POST suppliers/{id}/receipt/ — документ «Закупки» сайта.
+    /// Остаток товаров прибавляет сам сервер.</summary>
+    Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default);
+
+    /// <summary>Страница приходов от поставщиков: GET suppliers/receipts/?page=&amp;limit= (строки
+    /// приходят сразу внутри документа).</summary>
+    Task<JsonElement> ListSupplierReceiptsAsync(int page, int limit, CancellationToken ct = default);
+
     /// <summary>Справочники категорий/брендов компании (GET /api/main/categories/ и /api/main/brands/,
     /// 2026-09-07 — выпадающие списки в карточке товара, как на сайте). Все страницы, только имена
     /// (карточка отправляет category_name/brand_name, а не id), отсортированы по алфавиту.</summary>

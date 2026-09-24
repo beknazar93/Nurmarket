@@ -134,7 +134,8 @@ internal static class MainViewModelRegistration
         var product = LocalProductRepository.Instance.TryGetTileBySku(productId)
             ?? CatalogCacheService.Products.FirstOrDefault(item =>
                 string.Equals(item.Id, productId, StringComparison.OrdinalIgnoreCase));
-        if (product is null)
+        // Услуге остаток не нужен — «+» в строке чека не упирается в ноль на складе.
+        if (product is null || product.IsService)
             return null;
 
         var reserved = StockAvailabilityService.CalculateReservedQuantity(productId)

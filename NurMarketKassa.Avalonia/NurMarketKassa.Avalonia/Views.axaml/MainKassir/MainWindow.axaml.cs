@@ -677,7 +677,7 @@ public partial class MainWindow : Window
         if (e.KeyModifiers == KeyModifiers.None && TryGetHotkeyGroup(e.Key, out var group))
         {
             e.Handled = true;
-            _viewModel.Catalog.ToggleHotkeyGroupFilter(group);
+            OpenHotkeyGroup(group);
             return;
         }
 
@@ -747,6 +747,25 @@ public partial class MainWindow : Window
 
     /// <summary>F1-F12 без модификаторов — группы быстрых товаров (как в веб-версии NurCRM),
     /// не конфликтуют с действиями кассы: те переведены на Ctrl+... в PosHotkeyService.</summary>
+    /// <summary>Товары горячей клавиши — отдельным окном, а не фильтром каталога.
+    ///
+    /// Фильтр менял список слева и держался, пока его не снимут тем же нажатием: продавец
+    /// терял из виду остальной каталог и не всегда понимал, почему товаров стало мало. Окно
+    /// живёт ровно один выбор: нажал товар — он в чеке, окно закрылось, каталог не тронут.</summary>
+    private void OpenHotkeyGroup(string group)
+    {
+        var products = LocalProductRepository.Instance.LoadAllTiles()
+            // Именно HotkeyGroup: в модели есть ещё похожее HotkeyGroupName, но из базы
+            // заполняется это поле — по второму список всегда выходил пустым.
+            .Where(p => string.Equals(p.HotkeyGroup, group, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        var chosen = HotkeyGroupDialog.Show(this, group, products);
+        if (chosen != null)
+            _viewModel.Catalog.SelectProductCommand.Execute(chosen);
+    }
+
     private static bool TryGetHotkeyGroup(Key key, out string group)
     {
         if (key is >= Key.F1 and <= Key.F12)
@@ -1717,6 +1736,9 @@ public partial class MainWindow : Window
 
             await _shiftStateService.RefreshAsync(cancellationToken).ConfigureAwait(true);
             NurMarketKassa.App.SyncToSession(_session);
+            // Обновление смены могло перевести кассу на кассу найденной смены кассира (см.
+            // ShiftStateService.RefreshAsync) — итоги ниже должны смотреть туда же.
+            App.PosCashboxId = NurMarketKassa.App.PosCashboxId;
 
             // 2026-09-12: тот же баг, что уже поправлен в ShiftStateService.RefreshAsync (см. её
             // комментарий) — здесь была ВТОРАЯ, отдельная копия того же неверного условия,

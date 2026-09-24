@@ -51,7 +51,7 @@
   <x:String x:Key="csh.menu.newBadge">New</x:String>
 
   <!-- Catalog -->
-  <x:String x:Key="csh.catalog.searchWatermark">Поиск товара...</x:String>
+  <x:String x:Key="csh.catalog.searchWatermark">Поиск товара…</x:String>
   <x:String x:Key="csh.catalog.viewTooltip">Вид товаров</x:String>
   <x:String x:Key="csh.catalog.viewTitle">Вид каталога</x:String>
   <x:String x:Key="csh.catalog.cardView">Карточный вид</x:String>
@@ -60,7 +60,7 @@
   <x:String x:Key="csh.catalog.filter">Фильтр</x:String>
   <x:String x:Key="csh.catalog.refreshTooltip">Обновить каталог</x:String>
   <x:String x:Key="csh.catalog.offlineBanner">Работа в автономном режиме (из локальной БД)</x:String>
-  <x:String x:Key="csh.catalog.emptyLoading">Тут пока пусто.&#x0a;Идёт загрузка каталога из базы данных или с сервера...</x:String>
+  <x:String x:Key="csh.catalog.emptyLoading">Тут пока пусто.&#x0a;Идёт загрузка каталога из базы данных или с сервера…</x:String>
   <x:String x:Key="csh.catalog.emptyError">Тут пока пусто.&#x0a;Проверьте подключение и обновите каталог.</x:String>
   <x:String x:Key="csh.catalog.refreshButton">Обновить каталог</x:String>
   <x:String x:Key="csh.catalog.addProductButton">+ Добавить товар</x:String>
@@ -71,6 +71,7 @@
   <x:String x:Key="csh.catalog.tabPiece">Штучные</x:String>
   <x:String x:Key="csh.catalog.tabPieceOption">Поштучно</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Комплекты</x:String>
+  <x:String x:Key="csh.catalog.tabServices">Услуги</x:String>
   <x:String x:Key="csh.catalog.colName">Товар</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Штрихкод</x:String>
   <x:String x:Key="csh.catalog.colStock">Остаток</x:String>
@@ -88,7 +89,7 @@
   <x:String x:Key="csh.cart.increaseTooltip">Увеличить</x:String>
   <x:String x:Key="csh.cart.typeQuantityTooltip">Ввести количество вручную</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Убрать из чека</x:String>
-  <x:String x:Key="csh.cart.barcodeWatermark">Введите код товара или название...</x:String>
+  <x:String x:Key="csh.cart.barcodeWatermark">Введите код товара или название…</x:String>
   <x:String x:Key="csh.cart.add">Добавить</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Отложить чек</x:String>
   <x:String x:Key="csh.cart.defer">Отложить чек</x:String>
@@ -104,6 +105,7 @@
   <x:String x:Key="mainWindow.checkCustomerDisplayTooltip">Проверить экран покупателя</x:String>
   <x:String x:Key="mainWindow.onScreenKeyboardTooltip">Экранная клавиатура</x:String>
   <x:String x:Key="mainWindow.hotkeysTooltip">Горячие клавиши</x:String>
+  <x:String x:Key="hotkeyGroup.title">Горячая клавиша</x:String>
   <x:String x:Key="header.labelCustomerDisplay">Экран</x:String>
   <x:String x:Key="header.labelTheme">Тема</x:String>
   <x:String x:Key="header.labelKeyboard">Клавиши</x:String>
@@ -132,6 +134,11 @@
   <x:String x:Key="updates.checkButton">Проверить обновления</x:String>
   <x:String x:Key="updates.installButton">Обновить</x:String>
   <x:String x:Key="updates.rollbackTitle">Откат на прошлую версию</x:String>
+  <x:String x:Key="updates.testerTitle">Тестовые версии</x:String>
+  <x:String x:Key="updates.testerDesc">Новая версия сначала проходит тестирование, и клиентам она приходит только после его завершения. Тестировщик вводит здесь код — и касса получает версию сразу.</x:String>
+  <x:String x:Key="updates.testerCodeWatermark">Код тестировщика</x:String>
+  <x:String x:Key="updates.testerActivate">Включить</x:String>
+  <x:String x:Key="updates.testerOff">Выключить тестовый канал</x:String>
   <x:String x:Key="updates.rollbackDesc">Если новое обновление работает хуже прошлого, отсюда можно вернуться на любую из ранее выпущенных версий.</x:String>
   <x:String x:Key="updates.showVersionsButton">Показать версии</x:String>
   <x:String x:Key="settings.chooseImageButton">Выбрать изображение</x:String>
@@ -267,7 +274,7 @@
   <x:String x:Key="bulkImport.title">Массовая загрузка товаров</x:String>
   <x:String x:Key="bulkImport.description">Добавляет или обновляет много товаров сразу из CSV-файла (например, списка от поставщика). Совпадение — по штрихкоду: если товар с таким штрихкодом уже есть, он обновится, иначе создастся новый.</x:String>
   <x:String x:Key="bulkImport.downloadTemplate">Скачать шаблон CSV</x:String>
-  <x:String x:Key="bulkImport.pickFile">Выбрать файл...</x:String>
+  <x:String x:Key="bulkImport.pickFile">Выбрать файл…</x:String>
   <x:String x:Key="bulkImport.colName">Название</x:String>
   <x:String x:Key="bulkImport.colQty">Кол-во</x:String>
   <x:String x:Key="bulkImport.colStatus">Статус</x:String>
@@ -509,11 +516,11 @@
   <x:String x:Key="common.printAction">Напечатать</x:String>
   <x:String x:Key="returnReason.title">Причина возврата</x:String>
   <x:String x:Key="returnReason.header">Укажите причину возврата</x:String>
-  <x:String x:Key="returnReason.watermark">Введите причину...</x:String>
+  <x:String x:Key="returnReason.watermark">Введите причину…</x:String>
   <x:String x:Key="saleSuccess.title">Оплата выполнена</x:String>
 
   <!-- Return sale dialog / shift details -->
-  <x:String x:Key="common.searchWatermark">Поиск...</x:String>
+  <x:String x:Key="common.searchWatermark">Поиск…</x:String>
   <x:String x:Key="common.refresh">Обновить</x:String>
   <x:String x:Key="common.select">Выбрать</x:String>
   <x:String x:Key="common.all">Все</x:String>
@@ -532,7 +539,7 @@
   <x:String x:Key="returnSale.returnSelected">Вернуть выбранные</x:String>
   <x:String x:Key="returnSale.returnWholeReceipt">Вернуть весь чек</x:String>
   <x:String x:Key="returnSale.manualIdHeader">Ввести ID продажи вручную</x:String>
-  <x:String x:Key="returnSale.saleIdWatermark">ID чека...</x:String>
+  <x:String x:Key="returnSale.saleIdWatermark">ID чека…</x:String>
   <x:String x:Key="returnSale.loadReceipt">Загрузить чек</x:String>
   <x:String x:Key="shiftDetails.title">Просмотр смены</x:String>
   <x:String x:Key="shiftDetails.subtitle">Детали текущей или закрытой смены</x:String>
@@ -555,7 +562,7 @@
   <x:String x:Key="payDebt.colAmountDue">К оплате</x:String>
   <x:String x:Key="payDebt.colPaid">Оплачено</x:String>
   <x:String x:Key="payDebt.changeClientButton">Сменить</x:String>
-  <x:String x:Key="payDebt.clientSearchWatermark">Поиск по имени или телефону...</x:String>
+  <x:String x:Key="payDebt.clientSearchWatermark">Поиск по имени или телефону…</x:String>
 
   <!-- On-screen keyboard (non-letter keys) -->
   <x:String x:Key="keyboard.title">Клавиатура</x:String>
@@ -581,7 +588,7 @@
   <x:String x:Key="login.autonomous.createAccountButton">Создать и войти</x:String>
   <x:String x:Key="login.autonomous.loginTitle">Автономный вход</x:String>
   <x:String x:Key="login.autonomous.loginHint">Работает без интернета — вход проверяется прямо на этом компьютере.</x:String>
-  <x:String x:Key="splash.checkingSession">Проверка сохранённой сессии...</x:String>
+  <x:String x:Key="splash.checkingSession">Проверка сохранённой сессии…</x:String>
 
   <!-- Side menu -->
   <x:String x:Key="sideMenu.shiftLabel">Кассовая смена</x:String>
@@ -599,7 +606,7 @@
   <x:String x:Key="crmWebView.openInBrowser">Открыть nurcrm.kg в браузере</x:String>
   <x:String x:Key="shiftHistory.title">История смен</x:String>
   <x:String x:Key="shiftHistory.summaryTab">Общий план</x:String>
-  <x:String x:Key="common.loadingDots">Загрузка...</x:String>
+  <x:String x:Key="common.loadingDots">Загрузка…</x:String>
 
   <!-- POS settings window -->
   <x:String x:Key="posSettings.title">Настройки кассы</x:String>
@@ -626,6 +633,14 @@
   <x:String x:Key="account.subtitle">Тариф, срок действия подписки и подключённые доп. услуги</x:String>
   <x:String x:Key="account.refresh">Обновить</x:String>
   <x:String x:Key="account.companyLabel">Компания</x:String>
+  <x:String x:Key="account.loginCard">Вход в кассу</x:String>
+  <x:String x:Key="account.loginLabel">Логин</x:String>
+  <x:String x:Key="account.cashierLabel">Кассир</x:String>
+  <x:String x:Key="account.roleLabel">Роль</x:String>
+  <x:String x:Key="account.cashboxLabel">Касса</x:String>
+  <x:String x:Key="account.shiftLabel">Смена</x:String>
+  <x:String x:Key="account.passwordLabel">Пароль</x:String>
+  <x:String x:Key="account.passwordHint">Касса пароль не хранит — иначе его увидел бы любой, кто сидит за кассой. Сменить или восстановить пароль можно на сайте NurCRM.</x:String>
   <x:String x:Key="account.planLabel">Тарифный план</x:String>
   <x:String x:Key="account.expiryLabel">Срок действия</x:String>
   <x:String x:Key="account.servicesLabel">Подключённые доп. услуги</x:String>
@@ -729,6 +744,8 @@
   <x:String x:Key="posSettings.screen.languagePackHint">Английский, турецкий и узбекский — платный «Языковой пакет»: Маркетплейс → Доп. функции</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Масштаб</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Размер всех элементов на экране кассы — от 50% до 200%. Применяется сразу, без перезапуска.</x:String>
+  <x:String x:Key="posSettings.screen.tileSize">Размер карточек товара</x:String>
+  <x:String x:Key="posSettings.screen.tileSizeDesc">Крупнее — удобнее пальцем на сенсорном экране, мельче — больше товаров помещается на экран. Шапку и чек не меняет.</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Макет главного экрана</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Обычный — каталог и корзина рядом, с изменяемой шириной. 1С-стиль — крупные плитки товаров, чек фиксированной колонкой справа, клавиатура для количества. Применяется сразу, без перезапуска.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Обычный</x:String>
@@ -920,9 +937,10 @@
   <x:String x:Key="product.articleWatermark">Введите артикул</x:String>
   <x:String x:Key="product.generateBarcode">Сгенерировать</x:String>
   <x:String x:Key="product.barcodeScanWatermark">Отсканируйте или введите штрихкод</x:String>
-  <x:String x:Key="product.barcodeScanWatermarkShort">Сканируйте...</x:String>
+  <x:String x:Key="product.barcodeScanWatermarkShort">Сканируйте…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Категория, бренд и доп. штрихкоды</x:String>
   <x:String x:Key="product.sectionMore">Дополнительно (опт.цена, скидка, горячая клавиша, характеристики)</x:String>
+  <x:String x:Key="product.sectionPurchaseHistory">История закупок</x:String>
   <x:String x:Key="product.altBarcodesLabel">Дополнительные штрихкоды</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Штрихкод, название и кол-во в упаковке — как на сайте. Новый товар НЕ создаётся: при сканировании такого штрихкода в чек название комбинируется с названием этого же товара (например, «Асу вода» + «Клубничный»).</x:String>
   <x:String x:Key="product.variantBarcodeWatermark">Доп. штрихкод</x:String>
@@ -1057,6 +1075,20 @@
   <x:String x:Key="warehouse.deleteButton">Удалить</x:String>
   <x:String x:Key="warehouse.photoButton">Фото</x:String>
   <x:String x:Key="warehouse.tabRevision">Ревизия (Инвентаризация)</x:String>
+  <x:String x:Key="warehouse.tabReceiving">Приёмка</x:String>
+  <x:String x:Key="warehouse.receivingHint">Сканируйте товары накладной обычным сканером. Товар со склада встанет с его ценами, товар из общей базы CRM — с названием, неизвестный штрихкод — новой строкой: впишите название. Количество, цену закупки и цену продажи можно поправить прямо в таблице. «Оприходовать» создаст новые товары, прибавит остаток и запишет цены в историю закупок.</x:String>
+  <x:String x:Key="warehouse.receivingScanHint">Отсканируйте или введите штрихкод…</x:String>
+  <x:String x:Key="warehouse.receivingWas">Было</x:String>
+  <x:String x:Key="warehouse.receivingTaken">Принято</x:String>
+  <x:String x:Key="warehouse.receivingCommit">Оприходовать</x:String>
+  <x:String x:Key="warehouse.receivingSupplier">Поставщик</x:String>
+  <x:String x:Key="warehouse.receivingPaidNow">Оплачено сразу</x:String>
+  <x:String x:Key="warehouse.receivingOnDebt">В долг поставщику</x:String>
+  <x:String x:Key="warehouse.receivingSource">Источник</x:String>
+  <x:String x:Key="warehouse.receivingUnit">Ед.</x:String>
+  <x:String x:Key="warehouse.receivingPurchasePrice">Цена закупки</x:String>
+  <x:String x:Key="warehouse.receivingSalePrice">Цена продажи</x:String>
+  <x:String x:Key="warehouse.receivingLineTotal">Сумма</x:String>
   <x:String x:Key="warehouse.revisionSearchWatermark">Поиск товара по названию для добавления в ревизию…</x:String>
   <x:String x:Key="warehouse.colBarcodeHyphen">Штрих-код</x:String>
   <x:String x:Key="warehouse.colProductName">Наименование товара</x:String>
@@ -1067,6 +1099,34 @@
   <x:String x:Key="warehouse.tabWriteOff">Списание товара</x:String>
   <x:String x:Key="warehouse.tabAnalytics">Аналитика</x:String>
   <x:String x:Key="warehouse.tabMovements">Перемещение</x:String>
+  <x:String x:Key="warehouse.transfersDocs">Документы</x:String>
+  <x:String x:Key="warehouse.transfersFlow">Движение товара</x:String>
+  <x:String x:Key="warehouse.transferCreate">+ Создать перемещение</x:String>
+  <x:String x:Key="warehouse.transferNumber">Номер</x:String>
+  <x:String x:Key="warehouse.transferRoute">Маршрут</x:String>
+  <x:String x:Key="warehouse.transferStatus">Статус</x:String>
+  <x:String x:Key="warehouse.transferItems">Позиций</x:String>
+  <x:String x:Key="warehouse.transferResponsible">Ответственный</x:String>
+  <x:String x:Key="warehouse.transferCardTitle">Перемещение товара</x:String>
+  <x:String x:Key="warehouse.transferFrom">Откуда</x:String>
+  <x:String x:Key="warehouse.transferTo">Куда</x:String>
+  <x:String x:Key="warehouse.transferCarrier">Перевозчик</x:String>
+  <x:String x:Key="warehouse.transferTracking">Трек-номер</x:String>
+  <x:String x:Key="warehouse.transferWeight">Вес партии</x:String>
+  <x:String x:Key="warehouse.transferContent">Состав</x:String>
+  <x:String x:Key="warehouse.transferHistory">История</x:String>
+  <x:String x:Key="warehouse.transferFiles">Документы</x:String>
+  <x:String x:Key="warehouse.transferAddHint">Штрихкод или название товара</x:String>
+  <x:String x:Key="warehouse.transferAddItem">+ Добавить</x:String>
+  <x:String x:Key="warehouse.transferPickFromList">Выбрать из списка</x:String>
+  <x:String x:Key="warehouse.transferRemoveItem">Убрать</x:String>
+  <x:String x:Key="warehouse.transferEmployee">Сотрудник</x:String>
+  <x:String x:Key="warehouse.transferAttach">Прикрепить</x:String>
+  <x:String x:Key="warehouse.transferOpenFile">Открыть</x:String>
+  <x:String x:Key="warehouse.transferFileKind">Вид документа</x:String>
+  <x:String x:Key="warehouse.transferShip">Отправить</x:String>
+  <x:String x:Key="warehouse.transferDeliver">Принять</x:String>
+  <x:String x:Key="warehouse.transferCancel">Отменить</x:String>
   <x:String x:Key="warehouse.movementsSearchHint">Поиск по названию товара…</x:String>
   <x:String x:Key="warehouse.movementsWeek">Неделя</x:String>
   <x:String x:Key="warehouse.movementsMonth">Месяц</x:String>
@@ -1093,15 +1153,17 @@
   <x:String x:Key="warehouse.writeOffTitle">Оформление акта списания</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">История списаний</x:String>
   <x:String x:Key="warehouse.writeOffHistoryExpandButton">Открыть полностью ⤢</x:String>
-  <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Поиск по товару, причине или кассиру...</x:String>
+  <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Поиск по товару, причине или кассиру…</x:String>
   <x:String x:Key="warehouse.writeOffHistoryEmpty">Списаний пока не было.</x:String>
   <x:String x:Key="warehouse.findProductLabel">Найти товар по названию</x:String>
   <x:String x:Key="warehouse.startTypingWatermark">Начните вводить название товара…</x:String>
   <x:String x:Key="warehouse.selectedProductLabel">Выбранный товар</x:String>
   <x:String x:Key="warehouse.qtyForWriteOffLabel">Количество для списания</x:String>
   <x:String x:Key="warehouse.writeOffReasonLabel">Причина списания</x:String>
+  <x:String x:Key="warehouse.writeOffUnitCost">Себестоимость</x:String>
+  <x:String x:Key="warehouse.writeOffLineTotal">Сумма</x:String>
   <x:String x:Key="warehouse.confirmWriteOffButton">Подтвердить списание</x:String>
-  <x:String x:Key="warehouse.savingData">Сохранение данных...</x:String>
+  <x:String x:Key="warehouse.savingData">Сохранение данных…</x:String>
 
   <!-- Finance window -->
   <x:String x:Key="common.exit">Выйти</x:String>
@@ -1126,7 +1188,7 @@
   <x:String x:Key="finance.unpopularProductsSubtitle">Товары без продаж за выбранный период, отсортированы по остатку — что дольше всего лежит на складе.</x:String>
   <x:String x:Key="finance.allProductsTitle">Все товары</x:String>
   <x:String x:Key="finance.allProductsSubtitle">Полный список товаров на складе с долей каждого товара в общем остатке.</x:String>
-  <x:String x:Key="finance.allProductsSearchWatermark">Поиск по названию или артикулу...</x:String>
+  <x:String x:Key="finance.allProductsSearchWatermark">Поиск по названию или артикулу…</x:String>
   <x:String x:Key="finance.allProductsPieNote">Диаграмма показывает долю каждого товара в общем количестве/весе остатков на складе (топ-9 товаров + "Остальные"). Товары со штучным и весовым учётом складываются напрямую, поэтому доля приблизительная.</x:String>
   <x:String x:Key="product.articleLabel">Артикул</x:String>
   <x:String x:Key="finance.paymentMethodsTitle">Способы оплаты</x:String>

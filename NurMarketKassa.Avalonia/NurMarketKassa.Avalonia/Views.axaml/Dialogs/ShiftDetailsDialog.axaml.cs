@@ -25,9 +25,42 @@ public partial class ShiftDetailsDialog : Window
 
     public ShiftDetailsDialog(ShiftModel shift) : this() => BindShift(shift);
 
+    private sealed record ShiftProductRow(string Name, string QuantityText, string RevenueText);
+
+    /// <summary>Товары за время смены — из локальной истории продаж, по убыванию выручки.</summary>
+    private void BindShiftProducts(ShiftModel shift)
+    {
+        if (shift.OpenedAt is not { } opened)
+            return;
+
+        try
+        {
+            var until = (shift.ClosedAt ?? DateTime.Now).ToUniversalTime();
+            var rows = NurMarketKassa.Services.SoldLineItemsStore
+                .LoadWithPriceSince(opened.ToUniversalTime(), until)
+                .GroupBy(l => string.IsNullOrWhiteSpace(l.ProductId) ? l.ProductName : l.ProductId)
+                .Select(g => (Name: g.First().ProductName, Qty: g.Sum(l => l.Quantity), Revenue: g.Sum(l => l.Quantity * l.UnitPrice)))
+                .OrderByDescending(r => r.Revenue)
+                .ToList();
+            if (rows.Count == 0)
+                return;
+
+            ShiftProductsTitle.Text = $"Товары за смену: {rows.Count} поз., {rows.Sum(r => r.Qty):0.###} ед.";
+            ShiftProductsList.ItemsSource = rows
+                .Select(r => new ShiftProductRow(r.Name, $"{r.Qty:0.###}", $"{r.Revenue:N2} сом"))
+                .ToList();
+            ShiftProductsPanel.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Shift details: products list skipped: {ex.Message}", "SHIFTS");
+        }
+    }
+
     private void BindShift(ShiftModel shift)
     {
         _shift = shift;
+        BindShiftProducts(shift);
         // 2026-09-15, по просьбе пользователя ("номер смены исправь") — сырой GUID нечитаем на
         // экране (36 символов). Тот же приём, что уже проверен в FinanceWindow.ParseShiftRow:
         // первые 8 символов заглавными как короткий номер смены.

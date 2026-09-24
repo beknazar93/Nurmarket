@@ -29,6 +29,19 @@ public static class SoldLineItemsStore
     /// <summary>Продажи, которые уже есть в локальной истории.</summary>
     public static HashSet<string> KnownSaleIds() => Db.LoadKnownSaleIds();
 
+    /// <summary>Продажи локальной истории за промежуток.</summary>
+    public static HashSet<string> KnownSaleIdsBetween(DateTime sinceUtc, DateTime untilUtc) =>
+        Db.LoadKnownSaleIdsBetween(sinceUtc, untilUtc);
+
+    /// <summary>Убрать продажи, которых на сервере больше нет (удалены или отменены).</summary>
+    public static int RemoveSales(IReadOnlyCollection<string> saleIds)
+    {
+        var removed = Db.DeleteSoldLineItemsBySaleIds(saleIds);
+        if (removed > 0)
+            PosDataEvents.RaiseSalesChanged();
+        return removed;
+    }
+
     public static List<(string ProductId, string ProductName, double Quantity, DateTime SoldAt)> LoadSince(DateTime sinceUtc) =>
         Db.LoadSoldLineItemsSince(sinceUtc);
 
