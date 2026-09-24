@@ -426,9 +426,18 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .ToList();
         }
 
+        /// <summary>Отменённые на сервере чеки последней загрузки (см. FetchSalesPageAsync).</summary>
+        private readonly HashSet<string> _canceledSaleIds = new(StringComparer.OrdinalIgnoreCase);
+
         private async Task<List<SaleItem>> FetchSalesPageAsync(
             int page, int pageSize, DateTime from, DateTime to, CancellationToken token)
         {
+            if (page == 1)
+            {
+                lock (_canceledSaleIds)
+                    _canceledSaleIds.Clear();
+            }
+
             // date_to на сервере НЕ включает свой день, поэтому передаём следующий.
             var raw = await App.SalesApi.PosSalesListAsync(
                 page, pageSize, null, token,
@@ -440,9 +449,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 var item = new SaleItem();
                 if (el.TryGetProperty("id", out var idProp)) item.Id = idProp.ToString() ?? "";
+                // 2026-09-25: полностью возвращённый чек сервер помечает «canceled», но оставляет в
+                // списке с прежней суммой. В выручку, наличные и число чеков он не входит.
+                if (el.TryGetProperty("status", out var statusProp)
+                    && string.Equals(statusProp.GetString(), "canceled", StringComparison.OrdinalIgnoreCase))
+                {
+                    lock (_canceledSaleIds)
+                        _canceledSaleIds.Add(item.Id);
+                    continue;
+                }
                 if (el.TryGetProperty("created_at", out var dateProp) && DateTime.TryParse(dateProp.GetString(), out var dt)) item.CreatedAt = dt;
                 item.ReceiptNumber = TryReceiptNumber(el) ?? "";
                 if (el.TryGetProperty("total", out var totalProp)) item.TotalAmount = ParseDecimal(totalProp);
+                if (el.TryGetProperty("discount_total", out var discProp)) item.DiscountTotal = ParseDecimal(discProp);
                 if (el.TryGetProperty("payment_method", out var pmProp)) item.PaymentMethod = pmProp.GetString() ?? "";
                 if (el.TryGetProperty("is_refund", out var rfProp) && ParseBool(rfProp)) item.IsRefund = true;
                 if (el.TryGetProperty("refund_reason", out var rrProp)) item.RefundReason = rrProp.GetString();
@@ -672,6 +691,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 3. «Чеков» считалось как продажи ПЛЮС записи журнала удалений, из-за чего средний
             //    чек делился на завышенное число.
             var realReturns = 0m;
+            var returnsInRevenue = 0m;
             try
             {
                 var events = ShiftEventsStore.TotalsBetween(
@@ -679,15 +699,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     _historyTo.Date.AddDays(1).ToUniversalTime());
                 if (events.TryGetValue(ShiftEventsStore.KindReturn, out var returned))
                     realReturns = (decimal)returned;
+                // Из выручки вычитаются только частичные возвраты: полностью возвращённый чек
+                // сервер уже отменил, и он в выручку не вошёл (2026-09-25).
+                HashSet<string> canceled;
+                lock (_canceledSaleIds)
+                    canceled = new HashSet<string>(_canceledSaleIds, StringComparer.OrdinalIgnoreCase);
+                returnsInRevenue = (decimal)ShiftEventsStore.ReturnsBetweenExcluding(
+                    _historyFrom.Date.ToUniversalTime(),
+                    _historyTo.Date.AddDays(1).ToUniversalTime(),
+                    canceled);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Возвраты для показателей не прочитаны: {ex.Message}", "WARNING");
             }
 
-            decimal nonCash = totalSales - cashSales;
+            // 2026-09-25: продажи в долг — не безналичные. Раньше «Безнал» считался как «всё, что не
+            // наличные», и долг клиента попадал туда же.
+            decimal debtSales = sales
+                .Where(s => string.Equals(s.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
+                .Sum(s => s.TotalAmount);
+            decimal nonCash = totalSales - cashSales - debtSales;
             int totalCount = sales.Count;
-            decimal net = totalSales - realReturns;
+            decimal net = totalSales - returnsInRevenue;
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
             TotalSalesText.Text = $"{net:N2} сом";
@@ -705,7 +739,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var adjustments = ClientLoyaltyStore.AdjustmentsBetween(
                     _historyFrom.Date.ToUniversalTime(),
                     _historyTo.Date.AddDays(1).ToUniversalTime());
-                DiscountsText.Text = $"{adjustments.Discounts:N2} сом";
+                // 2026-09-25: скидки — из discount_total самих чеков (там и скидки на строку, и на
+                // весь чек, и чеки других касс), за вычетом оплаты бонусами: сервер пишет её в ту же
+                // сумму. Локальная таблица знает только скидки на весь чек этой кассы, поэтому плитка
+                // показывала 0,00, когда скидка была на строку.
+                var serverDiscounts = sales.Sum(s => s.DiscountTotal);
+                var discounts = Math.Max(0d, (double)serverDiscounts - adjustments.PointsRedeemed);
+                DiscountsText.Text = $"{discounts:N2} сом";
                 PointsRedeemedText.Text = $"{adjustments.PointsRedeemed:N2} сом";
             }
             catch (Exception ex)
@@ -1076,8 +1116,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             public string Id { get; set; } = "";
             public DateTime CreatedAt { get; set; }
+            // 2026-09-25: дата и время строкой, а не StringFormat=HH:mm в разметке — в «Истории»
+            // все чеки показывали 00:00, хотя время с сервера приходило верное.
+            public string DateText => CreatedAt.ToString("dd.MM", System.Globalization.CultureInfo.InvariantCulture);
+            public string TimeText => CreatedAt.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
             public string ReceiptNumber { get; set; } = "";
             public decimal TotalAmount { get; set; }
+            public decimal DiscountTotal { get; set; }
             public string PaymentMethod { get; set; } = "";
             public string PaymentMethodDisplay => NormalizePaymentMethodLabel(PaymentMethod);
             public bool IsRefund { get; set; }

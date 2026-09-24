@@ -1104,8 +1104,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// страницей вместо девяти, а окно перестало зависеть от возраста магазина.
         /// date_to у сервера НЕ включает свой день, поэтому передаётся следующий (см.
         /// SalesApiService.PosSalesListAsync).</summary>
+        /// <summary>Отменённые на сервере чеки последней загрузки (см. FetchSalesPageAsync).</summary>
+        private readonly HashSet<string> _canceledSaleIds = new(StringComparer.OrdinalIgnoreCase);
+
         private async Task<List<SaleItem>> FetchAllSalesAsync(DateTime from, DateTime to, CancellationToken token)
         {
+            lock (_canceledSaleIds)
+                _canceledSaleIds.Clear();
             const int pageSize = 80;
             const int maxPages = 60;
             var result = new List<SaleItem>();
@@ -1158,6 +1163,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var item = new SaleItem();
                 if (el.TryGetProperty("id", out var idProp))
                     item.Id = idProp.ToString() ?? "";
+                // 2026-09-25: полностью возвращённый чек сервер помечает «canceled», но оставляет в
+                // списке с прежней суммой. В выручку, наличные и число чеков он не входит.
+                if (el.TryGetProperty("status", out var statusProp)
+                    && string.Equals(statusProp.GetString(), "canceled", StringComparison.OrdinalIgnoreCase))
+                {
+                    lock (_canceledSaleIds)
+                        _canceledSaleIds.Add(item.Id);
+                    continue;
+                }
                 if (el.TryGetProperty("created_at", out var dateProp) &&
                     DateTime.TryParse(dateProp.GetString(), out var dt))
                     item.CreatedAt = dt;
@@ -1380,6 +1394,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 3. «Чеков» считалось как продажи ПЛЮС записи журнала удалений, из-за чего средний
             //    чек делился на завышенное число.
             var realReturns = 0m;
+            var returnsInRevenue = 0m;
             try
             {
                 var events = ShiftEventsStore.TotalsBetween(
@@ -1387,15 +1402,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     _historyTo.Date.AddDays(1).ToUniversalTime());
                 if (events.TryGetValue(ShiftEventsStore.KindReturn, out var returned))
                     realReturns = (decimal)returned;
+                // Из выручки вычитаются только частичные возвраты: полностью возвращённый чек
+                // сервер уже отменил, и он в выручку не вошёл (2026-09-25).
+                HashSet<string> canceled;
+                lock (_canceledSaleIds)
+                    canceled = new HashSet<string>(_canceledSaleIds, StringComparer.OrdinalIgnoreCase);
+                returnsInRevenue = (decimal)ShiftEventsStore.ReturnsBetweenExcluding(
+                    _historyFrom.Date.ToUniversalTime(),
+                    _historyTo.Date.AddDays(1).ToUniversalTime(),
+                    canceled);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Возвраты для показателей не прочитаны: {ex.Message}", "WARNING");
             }
 
-            decimal nonCash = totalSales - cashSales;
+            // 2026-09-25: продажи в долг — не безналичные. Раньше «Безнал» считался как «всё, что не
+            // наличные», и долг клиента попадал туда же.
+            decimal debtSales = sales
+                .Where(s => string.Equals(s.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
+                .Sum(s => s.TotalAmount);
+            decimal nonCash = totalSales - cashSales - debtSales;
             int totalCount = sales.Count;
-            decimal net = totalSales - realReturns;
+            decimal net = totalSales - returnsInRevenue;
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
             // ── Базовые показатели ──
@@ -1593,8 +1622,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DailySummaryText.Text = sb.ToString();
         }
 
+        // Тот же порядок цветов, что у круговой диаграммы (BarChartRenderer.Palette): раньше в полосе
+        // «Долг» был зелёным, а в круге рядом — синим (2026-09-25).
         private static readonly string[] PaymentPalette =
-            { "#F59E0B", "#22C55E", "#3B82F6", "#A855F7", "#EF4444", "#14B8A6", "#EC4899", "#64748B" };
+            { "#F59E0B", "#3B82F6", "#22C55E", "#A855F7", "#EF4444", "#14B8A6", "#EC4899", "#64748B" };
 
         private void UpdateCharts(List<SaleItem> sales)
         {
@@ -1612,6 +1643,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .Select(g => (Label: g.Key, Value: (double)g.Sum(s => s.TotalAmount), ValueText: $"{g.Sum(s => s.TotalAmount):N0} сом"))
                 .Where(x => x.Value > 0)
                 .OrderByDescending(x => x.Value)
+                .ThenBy(x => x.Label, StringComparer.Ordinal)
                 .ToList();
             BarChartRenderer.RenderPie(PaymentSplitPie, byMethod);
         }
@@ -1677,6 +1709,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .Select(g => new { Label = g.Key, Total = g.Sum(s => s.TotalAmount) })
                 .Where(x => x.Total > 0)
                 .OrderByDescending(x => x.Total)
+                .ThenBy(x => x.Label, StringComparer.Ordinal)
                 .ToList();
 
             if (total <= 0 || byMethod.Count == 0)
@@ -1714,7 +1747,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 legendItem.Children.Add(new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(2), Background = Brush.Parse(color) });
                 legendItem.Children.Add(new TextBlock
                 {
-                    Text = $"{entry.Label}: {entry.Total:N0} сом ({pct:N0}%)",
+                    Text = $"{entry.Label}: {entry.Total:N0} сом ({pct:N1}%)",
                     FontSize = 12,
                     Foreground = Brushes.Gray,
                 });
@@ -2046,6 +2079,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             public string Id { get; set; } = "";
             public DateTime CreatedAt { get; set; }
+            // 2026-09-25: дата и время строкой, а не StringFormat=HH:mm в разметке — в «Истории»
+            // все чеки показывали 00:00, хотя время с сервера приходило верное.
+            public string DateText => CreatedAt.ToString("dd.MM", System.Globalization.CultureInfo.InvariantCulture);
+            public string TimeText => CreatedAt.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
             public string ReceiptNumber { get; set; } = "";
             public decimal TotalAmount { get; set; }
             public string PaymentMethod { get; set; } = "";
@@ -2076,6 +2113,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             public string Id { get; set; } = "";
             public DateTime CreatedAt { get; set; }
+            // 2026-09-25: дата и время строкой, а не StringFormat=HH:mm в разметке — в «Истории»
+            // все чеки показывали 00:00, хотя время с сервера приходило верное.
+            public string DateText => CreatedAt.ToString("dd.MM", System.Globalization.CultureInfo.InvariantCulture);
+            public string TimeText => CreatedAt.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
             public string Type { get; set; } = "";
             public string ReceiptNumber { get; set; } = "";
             public decimal TotalAmount { get; set; }

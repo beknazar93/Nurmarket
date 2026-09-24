@@ -1241,6 +1241,9 @@ public partial class MainWindow : Window
         _viewModel.CloseSideMenu();
         var dlg = App.GetRequiredService<ReturnSaleDialog>();
         PosDialogHost.Show(dlg, this);
+        // Возврат меняет остаток смены так же, как продажа — подтягиваем его с сервера (2026-09-25:
+        // после возврата в шапке оставалась сумма до возврата).
+        OnCheckoutSucceeded(this, EventArgs.Empty);
     }
 
     internal void NavigateFinance() => ShowModuleWindow<FinanceWindow>();

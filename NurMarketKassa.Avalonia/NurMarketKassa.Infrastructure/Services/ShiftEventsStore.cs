@@ -74,6 +74,11 @@ public static class ShiftEventsStore
             : Db.ListShiftEvents(shiftId!, kind);
 
     /// <summary>Суммы по видам событий за период (UTC) — для аналитики продаж.</summary>
+    /// <summary>Возвраты за период без возвратов по отменённым на сервере чекам: такой чек целиком
+    /// выпадает из выручки сам, и его возврат иначе вычелся бы второй раз.</summary>
+    public static double ReturnsBetweenExcluding(DateTime fromUtc, DateTime toUtc, IReadOnlySet<string> canceledSaleIds) =>
+        Db.SumShiftEventsBetweenExcluding(KindReturn, fromUtc, toUtc, canceledSaleIds);
+
     public static Dictionary<string, double> TotalsBetween(DateTime fromUtc, DateTime toUtc) =>
         Db.GetShiftEventTotalsBetween(fromUtc, toUtc);
 }

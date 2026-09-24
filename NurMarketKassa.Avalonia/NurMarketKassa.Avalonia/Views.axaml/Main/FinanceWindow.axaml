@@ -567,8 +567,8 @@
                                             DoubleTapped="SalesGrid_MouseDoubleClick"
                                             ItemsSource="{Binding SalesView}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding DateText}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding TimeText}" />
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="*" Binding="{ReflectionBinding ReceiptNumber}">
                                             </DataGridTextColumn>
                                             <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}">
@@ -747,8 +747,8 @@
                       DoubleTapped="HistoryGrid_MouseDoubleClick"
                       ItemsSource="{Binding HistoryView}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="55" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="55" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="55" Binding="{ReflectionBinding DateText}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="55" Binding="{ReflectionBinding TimeText}" />
                                             <DataGridTextColumn Header="{DynamicResource common.type}" Width="1*" Binding="{ReflectionBinding Type}" />
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="3*" Binding="{ReflectionBinding ReceiptNumber}" />
                                             <DataGridTextColumn Header="{DynamicResource common.amount}" MinWidth="110" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />

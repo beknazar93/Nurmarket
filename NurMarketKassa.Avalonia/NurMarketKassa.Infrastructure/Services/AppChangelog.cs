@@ -41,6 +41,9 @@ public static class AppChangelog
         "Пока загружаются «Финансы», «Продажи», «Клиенты», ABC-анализ и отчёт смены, видна полоска загрузки",
         "Чеки возврата и изъятия, а также повторная печать чека печатаются в фоне: медленный принтер больше не подвешивает кассу",
         "Модуль голосового замка снова скачивается. В окне ошибки длинная надпись на кнопке больше не обрезается",
+        "Аналитика сверена с сервером до копейки. «Безнал» больше не включает продажи в долг. Полностью возвращённый чек не считается ни в выручке, ни в наличных, ни в числе чеков. «Скидки» в «Продажах» учитывают и скидки на строку. Время чеков в «Финансах» и «Истории» больше не показывается как 00:00",
+        "ABC-анализ: товар, который сам пересекает границу 80 %, остаётся в группе A. Раньше товар с четвертью выручки мог попасть в группу C. Цвета способов оплаты в полосе и в круговой диаграмме теперь совпадают",
+        "Остаток кассы обновляется и после возврата. Окно «Просмотр смены» стало шире: крупные суммы не обрезаются",
     ];
 
     public static readonly string[] LatestKy =
@@ -73,6 +76,9 @@ public static class AppChangelog
         "«Финансы», «Сатуулар», «Кардарлар», ABC-анализ жана смена отчёту жүктөлүп жатканда жүктөө тилкеси көрүнөт",
         "Кайтаруу жана алып чыгуу чектери, ошондой эле чекти кайра басып чыгаруу фондо жүрөт: жай принтер кассаны токтотпойт",
         "Үн кулпусунун модулу кайра жүктөлөт. Ката терезесиндеги баскычтын узун жазуусу кесилбейт",
+        "Аналитика сервер менен тыйынына чейин салыштырылды. «Накталай эмес» карызга сатууларды камтыбайт. Толук кайтарылган чек түшүмгө да, накталайга да, чектердин санына да кирбейт. «Сатуулардагы» «Арзандатуулар» сап боюнча арзандатууну да эсептейт. «Финансы» жана «Тарых» бөлүмүндө чектердин убактысы 00:00 болуп көрүнбөйт",
+        "ABC-анализ: 80 % чегин өзү кесип өткөн товар A тобунда калат. Мурун түшүмдүн төрттөн бирин берген товар C тобуна түшүп калчу. Тилкедеги жана тегерек диаграммадагы төлөм ыкмаларынын түстөрү дал келет",
+        "Кассанын калдыгы кайтаруудан кийин да жаңыланат. «Сменаны көрүү» терезеси кеңейди: чоң суммалар кесилбейт",
     ];
 
     public static readonly string[] LatestEn =
@@ -105,6 +111,9 @@ public static class AppChangelog
         "A loading bar is shown while Finance, Sales, Clients, ABC analysis and the shift report are loading",
         "Return and withdrawal receipts and receipt reprints are printed in the background, so a slow printer no longer freezes the POS",
         "The voice lock module downloads again. A long button label in the error window is no longer cut off",
+        "Analytics reconciled with the server to the cent. Non-cash no longer includes debt sales. A fully returned receipt is not counted in revenue, cash or the receipt count. Discounts in Sales now include line discounts. Receipt times in Finance and History no longer show as 00:00",
+        "ABC analysis: an item that itself crosses the 80% line stays in group A. Previously an item with a quarter of revenue could land in group C. Payment method colors in the bar and the pie chart now match",
+        "The cash balance also updates after a return. The shift view window is wider, so large sums are no longer cut off",
     ];
 
     public static readonly string[] LatestTr =
@@ -137,6 +146,9 @@ public static class AppChangelog
         "Finans, Satışlar, Müşteriler, ABC analizi ve vardiya raporu yüklenirken yükleme çubuğu görünür",
         "İade ve çekim fişleri ile fişin yeniden yazdırılması arka planda yapılır: yavaş yazıcı artık kasayı dondurmaz",
         "Ses kilidi modülü yeniden indiriliyor. Hata penceresindeki uzun düğme yazısı artık kesilmiyor",
+        "Analitik sunucuyla kuruşu kuruşuna karşılaştırıldı. Nakit dışı artık borçlu satışları içermiyor. Tamamen iade edilen fiş ciroya, nakde ve fiş sayısına girmiyor. Satışlar'daki İndirimler satır indirimlerini de kapsıyor. Finans ve Geçmiş'te fiş saatleri artık 00:00 görünmüyor",
+        "ABC analizi: %80 sınırını kendisi geçen ürün A grubunda kalır. Önceden cironun dörtte birini getiren bir ürün C grubuna düşebiliyordu. Çubuk ve pasta grafikteki ödeme yöntemi renkleri artık aynı",
+        "Kasa bakiyesi iadeden sonra da güncellenir. Vardiya görüntüleme penceresi genişledi, büyük tutarlar kesilmiyor",
     ];
 
     public static readonly string[] LatestUz =
@@ -169,6 +181,9 @@ public static class AppChangelog
         "Moliya, Sotuvlar, Mijozlar, ABC tahlili va smena hisoboti yuklanayotganda yuklash chizig'i ko'rinadi",
         "Qaytarish va chiqim cheklari hamda chekni qayta chop etish fonda bajariladi: sekin printer endi kassani qotirmaydi",
         "Ovozli qulf moduli yana yuklab olinadi. Xato oynasidagi uzun tugma yozuvi endi kesilmaydi",
+        "Tahlil server bilan tiyinigacha solishtirildi. Naqdsiz endi qarzga sotuvlarni o'z ichiga olmaydi. To'liq qaytarilgan chek tushumga ham, naqdga ham, cheklar soniga ham kirmaydi. Sotuvlardagi Chegirmalar qator chegirmalarini ham hisobga oladi. Moliya va Tarixda cheklar vaqti endi 00:00 ko'rinmaydi",
+        "ABC tahlili: 80 % chegarasini o'zi kesib o'tgan mahsulot A guruhida qoladi. Avval tushumning chorak qismini bergan mahsulot C guruhiga tushib qolishi mumkin edi. Chiziq va doiraviy diagrammadagi to'lov usullari ranglari endi bir xil",
+        "Kassa qoldig'i qaytarishdan keyin ham yangilanadi. Smenani ko'rish oynasi kengaydi: katta summalar kesilmaydi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

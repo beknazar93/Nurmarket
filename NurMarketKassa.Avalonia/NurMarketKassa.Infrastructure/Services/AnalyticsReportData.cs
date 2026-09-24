@@ -426,8 +426,12 @@ public sealed class AnalyticsReportData
         foreach (var item in items)
         {
             var share = item.Value / total * 100;
+            // Группа — по доле ДО этой позиции (2026-09-25): позиция, которая сама пересекает
+            // границу 80 %, остаётся в A. Раньше считалось по доле ПОСЛЕ неё, и товар с 27,7 %
+            // выручки, стоявший вторым после товара с 69,3 %, попадал в C — «самые мелкие».
+            var before = running;
             running += share;
-            var group = running <= 80.0 ? "A" : running <= 95.0 ? "B" : "C";
+            var group = before < 80.0 ? "A" : before < 95.0 ? "B" : "C";
             rows.Add(new AbcRow(item.Name, item.Quantity, item.Value, share, running, group));
         }
 

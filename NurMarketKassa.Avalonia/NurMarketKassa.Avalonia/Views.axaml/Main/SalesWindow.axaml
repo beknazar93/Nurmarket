@@ -246,8 +246,8 @@
                       DoubleTapped="SalesGrid_MouseDoubleClick"
                       ItemsSource="{Binding SalesView}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
-                    <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding CreatedAt, StringFormat=HH:mm}" />
+                    <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding DateText}" />
+                    <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding TimeText}" />
                     <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="*" Binding="{ReflectionBinding ReceiptNumber}" />
                     <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />
                     <DataGridTextColumn Header="{DynamicResource common.payment}" Width="100" Binding="{ReflectionBinding PaymentMethodDisplay}" />

@@ -1500,6 +1500,43 @@ public sealed class DatabaseService
     public Dictionary<string, double> GetShiftEventTotals(string shiftId) =>
         QueryShiftEventTotals("WHERE shift_id = $shift", ("$shift", shiftId));
 
+    /// <summary>Сумма событий одного вида за период без событий по указанным чекам. Источник
+    /// события — «номер чека:время» (ShiftEventsStore.OperationKey), по нему и отсекаем.</summary>
+    public double SumShiftEventsBetweenExcluding(string kind, DateTime fromUtc, DateTime toUtc, IReadOnlySet<string> excludedSaleIds)
+    {
+        var sum = 0.0;
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT source_id, amount FROM ShiftEvents WHERE kind = $kind AND created_at >= $from AND created_at < $to;";
+            command.Parameters.AddWithValue("$kind", kind);
+            command.Parameters.AddWithValue("$from", fromUtc.ToString("O"));
+            command.Parameters.AddWithValue("$to", toUtc.ToString("O"));
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var source = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                var colon = source.IndexOf(':');
+                var saleId = colon > 0 ? source[..colon] : source;
+                if (excludedSaleIds.Contains(saleId))
+                    continue;
+                sum += reader.GetDouble(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ShiftEvents sum read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return sum;
+    }
+
     public Dictionary<string, double> GetShiftEventTotalsBetween(DateTime fromUtc, DateTime toUtc) =>
         QueryShiftEventTotals(
             "WHERE created_at >= $from AND created_at < $to",
