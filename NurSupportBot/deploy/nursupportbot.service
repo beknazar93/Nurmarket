@@ -1,0 +1,17 @@
+[Unit]
+Description=NurCRM support Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nurbot
+WorkingDirectory=/opt/nursupportbot
+ExecStart=/opt/nursupportbot/NurSupportBot
+Restart=always
+RestartSec=5
+Environment=DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
+# Токен и администраторы — в /opt/nursupportbot/appsettings.json (права 600, владелец nurbot).
+
+[Install]
+WantedBy=multi-user.target

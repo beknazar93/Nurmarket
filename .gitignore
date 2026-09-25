@@ -76,3 +76,8 @@ desktop.ini
 publish/
 # Готовые пакеты Velopack: сотни мегабайт, пересоздаются командой vpk pack.
 releases/
+
+# ---- Бот поддержки: токен и данные не коммитить ----
+NurSupportBot/appsettings.json
+NurSupportBot/data/
+NurSupportBot/out-linux/
