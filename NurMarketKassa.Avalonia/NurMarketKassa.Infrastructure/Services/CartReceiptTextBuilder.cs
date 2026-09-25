@@ -138,7 +138,19 @@ public static class CartReceiptTextBuilder
                 Line(paymentMethodLine);
 
             var cash = ParseMoneyOrNull(cashReceived);
-            if (pm.Length > 0 && cash.HasValue)
+            if (pm is "mixed" && cash.HasValue)
+            {
+                // 2026-09-25: у смешанной оплаты cashReceived — только наличная часть; раньше она
+                // печаталась как «ВНЕСЕНО», и по чеку нельзя было понять, где безнал.
+                AppendStackedAmountLine(sb, "НАЛИЧНЫМИ:", FormatMoney(cash.Value));
+                AppendStackedAmountLine(sb, "БЕЗНАЛИЧНЫМИ:", FormatMoney(Math.Max(0, totals.TotalDue - cash.Value)));
+            }
+            else if (pm is "debt" && cash.HasValue)
+            {
+                AppendStackedAmountLine(sb, "ВНЕСЕНО:", FormatMoney(cash.Value));
+                AppendStackedAmountLine(sb, "В ДОЛГ:", FormatMoney(Math.Max(0, totals.TotalDue - cash.Value)));
+            }
+            else if (pm.Length > 0 && cash.HasValue)
             {
                 AppendStackedAmountLine(sb, "ВНЕСЕНО:", FormatMoney(cash.Value));
                 if (pm is "cash")
@@ -175,11 +187,15 @@ public static class CartReceiptTextBuilder
         }
     }
 
-    private static string? FormatPaymentMethodLine(string paymentMethodKey) =>
+    /// <summary>Строка «Способ оплаты» — общая для чека при продаже и чека из «Продаж».
+    /// 2026-09-25: смешанная и «в долг» строки не получали вовсе.</summary>
+    internal static string? FormatPaymentMethodLine(string paymentMethodKey) =>
         paymentMethodKey switch
         {
             "cash" => "Способ оплаты: Наличными",
-            "transfer" or "card" => "Способ оплаты: Безналичными",
+            "transfer" or "card" or "mbank" or "bakai" => "Способ оплаты: Безналичными",
+            "mixed" => "Способ оплаты: Смешанная",
+            "debt" => "Способ оплаты: В долг",
             _ => null,
         };
 

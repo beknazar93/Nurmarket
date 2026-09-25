@@ -86,6 +86,19 @@ public static class SaleReceiptTextBuilder
         if (!string.IsNullOrWhiteSpace(receiptNumber))
             Line($"Чек №: {receiptNumber.Trim()}");
 
+        // 2026-09-25: дата, время, способ оплаты, «Внесено/Сдача» и долг — как в чеке, который
+        // печатается сразу при продаже (CartReceiptTextBuilder). Раньше в предпросмотре и
+        // повторной печати их не было, и один и тот же чек на бумаге выглядел по-разному.
+        if (prefs.ShowDate && Str(sale, "created_at") is { } createdText
+            && DateTime.TryParse(createdText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var created))
+        {
+            Line($"Дата - {created:dd.MM.yyyy}");
+            Line($"Время - {created:HH:mm}");
+        }
+
+        if (Str(sale, "client_name") is { } client)
+            Line($"Клиент - {client}");
+
         Dash();
 
         // Позиции. Сумму строки берём ту же, что показывает список: пересчёт qty × price заново
@@ -150,6 +163,24 @@ public static class SaleReceiptTextBuilder
             }
         }
 
+        var method = (Str(sale, "payment_method") ?? "").ToLowerInvariant();
+        if (CartReceiptTextBuilder.FormatPaymentMethodLine(method) is { } methodLine)
+            Line(methodLine);
+        var received = Money(sale, "cash_received");
+        if (method == "cash" && received is > 0)
+        {
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                "Внесено", ReceiptLineLayout.WithSom(received.Value.ToString("N2", CultureInfo.CurrentCulture)), w));
+            var change = Money(sale, "change") ?? Math.Max(0, received.Value - due);
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                "Сдача", ReceiptLineLayout.WithSom(change.ToString("N2", CultureInfo.CurrentCulture)), w));
+        }
+        if (method == "debt" && Money(sale, "remaining_debt") is { } remaining)
+        {
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                "Остаток долга", ReceiptLineLayout.WithSom(remaining.ToString("N2", CultureInfo.CurrentCulture)), w));
+        }
+
         Line(ReceiptLineLayout.FormatLabelAmount(
             "ИТОГО", ReceiptLineLayout.WithSom(due.ToString("N2", CultureInfo.CurrentCulture)), w));
 
@@ -160,5 +191,24 @@ public static class SaleReceiptTextBuilder
         }
 
         return sb.ToString().TrimEnd('\n');
+    }
+
+    private static string? Str(JsonElement obj, string key) =>
+        obj.ValueKind == JsonValueKind.Object && obj.TryGetProperty(key, out var v)
+            && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString())
+            ? v.GetString()!.Trim()
+            : null;
+
+    private static decimal? Money(JsonElement obj, string key)
+    {
+        if (obj.ValueKind != JsonValueKind.Object || !obj.TryGetProperty(key, out var v))
+            return null;
+        var text = v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Number => v.GetRawText(),
+            _ => null,
+        };
+        return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
     }
 }
