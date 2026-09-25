@@ -210,6 +210,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var refunds = await FetchCartItemDeletionsAsync(from, to, token);
 
                 UpdateCollections(sales, refunds);
+                // Возвраты и прибыль — цифры сайта (см. ServerSalesSummary); null — считаем сами.
+                _serverSummary = await ServerSalesSummary.FetchAsync(from, to, token);
                 UpdateStats(sales, refunds);
                 await LoadTopItemsAsync(sales, token);
             }
@@ -269,6 +271,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             token.ThrowIfCancellationRequested();
 
             UpdateCollections(sales, new List<RefundItem>());
+            _serverSummary = null;
             UpdateStats(sales, new List<RefundItem>());
 
             // Топ товаров тоже из локальных строк — на сервер за ним ходить незачем.
@@ -399,8 +402,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             for (var page = 1; page <= maxPages; page++)
             {
                 token.ThrowIfCancellationRequested();
-                var pageItems = await FetchSalesPageAsync(page, pageSize, from, to, token);
-                if (pageItems.Count == 0)
+                // RawCount — сколько строк реально пришло с сервера. Отменённые чеки отсеиваются
+                // внутри FetchSalesPageAsync, и по оставшимся «последняя страница» определялась
+                // неверно: 79 из 80 выглядело как конец списка, и всё, что старше первой страницы,
+                // не загружалось (2026-09-25: за вчера не хватало двух чеков, 89 сом).
+                var (pageItems, rawCount) = await FetchSalesPageAsync(page, pageSize, from, to, token);
+                if (rawCount == 0)
                     break;
 
                 // Защита от сервера, который проигнорировал бы "page": без неё цикл отработал бы
@@ -415,7 +422,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     }
                 }
 
-                if (added == 0 || pageItems.Count < pageSize)
+                var canceledOnPage = rawCount - pageItems.Count;
+                if ((added == 0 && canceledOnPage == 0) || rawCount < pageSize)
                     break;
             }
 
@@ -429,7 +437,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Отменённые на сервере чеки последней загрузки (см. FetchSalesPageAsync).</summary>
         private readonly HashSet<string> _canceledSaleIds = new(StringComparer.OrdinalIgnoreCase);
 
-        private async Task<List<SaleItem>> FetchSalesPageAsync(
+        private async Task<(List<SaleItem> Items, int RawCount)> FetchSalesPageAsync(
             int page, int pageSize, DateTime from, DateTime to, CancellationToken token)
         {
             if (page == 1)
@@ -458,6 +466,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         _canceledSaleIds.Add(item.Id);
                     continue;
                 }
+                if (el.TryGetProperty("status", out var saleStatus) && saleStatus.ValueKind == JsonValueKind.String)
+                    item.Status = saleStatus.GetString() ?? "";
                 if (el.TryGetProperty("created_at", out var dateProp) && DateTime.TryParse(dateProp.GetString(), out var dt)) item.CreatedAt = dt;
                 item.ReceiptNumber = TryReceiptNumber(el) ?? "";
                 if (el.TryGetProperty("total", out var totalProp)) item.TotalAmount = ParseDecimal(totalProp);
@@ -469,7 +479,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // AssignFallbackReceiptNumbers подставит читаемый порядковый номер вместо «сырого» GUID.
                 result.Add(item);
             }
-            return result;
+            return (result, raw.Count);
         }
 
         /// <summary>
@@ -674,8 +684,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void UpdateStats(List<SaleItem> sales, List<RefundItem> refunds)
+        /// <summary>Сводка периода с сервера (возвраты, прибыль — как на сайте); null — нет связи.</summary>
+        private ServerSalesSummary? _serverSummary;
+
+        private void UpdateStats(List<SaleItem> allSales, List<RefundItem> refunds)
         {
+            // 2026-09-25, сверка с сайтом: выручка — только оплаченные чеки (см. SaleItem.CountsAsRevenue).
+            var sales = allSales.Where(s => s.CountsAsRevenue).ToList();
             decimal totalSales = sales.Sum(s => s.TotalAmount);
             decimal totalRefunds = refunds.Sum(r => Math.Abs(r.TotalAmount));
             decimal cashSales = sales.Where(s => (s.PaymentMethod?.ToUpper() == "CASH") || (s.PaymentMethod?.ToLower().Contains("нал") ?? false)).Sum(s => s.TotalAmount);
@@ -691,7 +706,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // 3. «Чеков» считалось как продажи ПЛЮС записи журнала удалений, из-за чего средний
             //    чек делился на завышенное число.
             var realReturns = 0m;
-            var returnsInRevenue = 0m;
             try
             {
                 var events = ShiftEventsStore.TotalsBetween(
@@ -699,15 +713,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     _historyTo.Date.AddDays(1).ToUniversalTime());
                 if (events.TryGetValue(ShiftEventsStore.KindReturn, out var returned))
                     realReturns = (decimal)returned;
-                // Из выручки вычитаются только частичные возвраты: полностью возвращённый чек
-                // сервер уже отменил, и он в выручку не вошёл (2026-09-25).
-                HashSet<string> canceled;
-                lock (_canceledSaleIds)
-                    canceled = new HashSet<string>(_canceledSaleIds, StringComparer.OrdinalIgnoreCase);
-                returnsInRevenue = (decimal)ShiftEventsStore.ReturnsBetweenExcluding(
-                    _historyFrom.Date.ToUniversalTime(),
-                    _historyTo.Date.AddDays(1).ToUniversalTime(),
-                    canceled);
             }
             catch (Exception ex)
             {
@@ -721,11 +726,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .Sum(s => s.TotalAmount);
             decimal nonCash = totalSales - cashSales - debtSales;
             int totalCount = sales.Count;
-            decimal net = totalSales - returnsInRevenue;
+            // Выручка — как у сайта: сумма входящих в выручку чеков без вычета частичных возвратов
+            // (сайт берёт частично возвращённый чек полной суммой, сверено 2026-09-25 за день,
+            // неделю и месяц). Полностью возвращённые чеки сервер отменяет — их здесь нет.
+            decimal net = totalSales;
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
             TotalSalesText.Text = $"{net:N2} сом";
-            TotalRefundsText.Text = $"{realReturns:N2} сом";
+            TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} сом";
             CashText.Text = $"{cashSales:N2} сом";
             NonCashText.Text = $"{nonCash:N2} сом";
             AvgReceiptText.Text = $"{avg:N2} сом";
@@ -792,7 +800,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 try
                 {
                     token.ThrowIfCancellationRequested();
-                    var json = await SaleDetailCache.GetAsync(sale.Id, token);
+                    var json = await SaleDetailCache.GetWithRetryAsync(sale.Id, token);
                     var lines = new List<(string, decimal, int)>();
                     decimal revenue = 0m, cost = 0m;
                     if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
@@ -825,7 +833,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
                 catch (Exception ex)
                 {
-                    PosLogger.Log($"Sales receipt aggregation skipped: {ex.GetType().Name}", "WARNING");
+                    PosLogger.Log($"Sales receipt aggregation skipped ({sale.Id}): {SaleDetailCache.Describe(ex)}", "WARNING");
                     return (0m, 0m, new List<(string, decimal, int)>());
                 }
                 finally
@@ -834,7 +842,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
             }
 
-            var results = await Task.WhenAll(sales.Select(FetchOneAsync));
+            // Прибыль и топ товаров — по тем же чекам, что и выручка (без продаж в долг), как у сайта.
+            var results = await Task.WhenAll(sales.Where(s => s.CountsAsRevenue).Select(FetchOneAsync));
             token.ThrowIfCancellationRequested();
 
             var dict = new Dictionary<string, (decimal revenue, int qty)>();
@@ -857,7 +866,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             foreach (var kv in top10)
                 TopItems.Add(new TopItem { ProductName = kv.Key, Revenue = kv.Value.revenue, Quantity = kv.Value.qty });
 
-            if (totalRevenueFromItems > 0)
+            if (_serverSummary is { GrossProfit: { } serverProfit, MarginPercent: { } serverMargin })
+            {
+                // Как у сайта — «Валовая прибыль» и маржа сервера (см. ServerSalesSummary).
+                NetProfitText.Text = $"{serverProfit:N2} сом";
+                MarginPercentText.Text = $"{serverMargin:F1}%";
+            }
+            else if (totalRevenueFromItems > 0)
             {
                 var netProfit = totalRevenueFromItems - totalCostFromItems;
                 NetProfitText.Text = $"{netProfit:N2} сом";
@@ -1125,6 +1140,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public decimal DiscountTotal { get; set; }
             public string PaymentMethod { get; set; } = "";
             public string PaymentMethodDisplay => NormalizePaymentMethodLabel(PaymentMethod);
+            /// <summary>Статус продажи на сервере: paid, debt (в долг, ещё не оплачена) и т.д.</summary>
+            public string Status { get; set; } = "";
+            /// <summary>Входит ли чек в выручку. Как у сайта (аналитика, «Документы → Продажа»):
+            /// оплаченные и частично возвращённые (полной суммой). Продажа в долг до оплаты в выручку не идёт — она видна в списке
+            /// и в «Долгах», но плитки «Выручка», «Чеки», «Средний чек» и прибыль её не считают.</summary>
+            public bool CountsAsRevenue => Status.Length == 0
+                || string.Equals(Status, "paid", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Status, "partially_returned", StringComparison.OrdinalIgnoreCase);
             public bool IsRefund { get; set; }
             public string RefundReason { get; set; }
         }

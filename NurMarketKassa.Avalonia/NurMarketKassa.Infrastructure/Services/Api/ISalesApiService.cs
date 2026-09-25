@@ -133,6 +133,10 @@ public interface ISalesApiService
     /// GET api/main/analytics/market/?tab=salary&amp;period_start&amp;period_end.</summary>
     Task<JsonElement> MarketSalaryReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
 
+    /// <summary>Аналитика продаж сайта за дни [from; to]: GET api/main/analytics/market/?tab=sales
+    /// — выручка, чеки, способы оплаты и «Документы» (в т.ч. «Возврат продажи»).</summary>
+    Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
     /// <summary>Профили выплат сотрудника (схема зарплаты) — то же, что окно сайта «Зарплата по
     /// продажам»: GET api/main/market-sale-employee-pay-profiles/?user=….</summary>
     Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default);

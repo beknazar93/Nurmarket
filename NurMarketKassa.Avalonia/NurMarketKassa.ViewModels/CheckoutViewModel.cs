@@ -457,6 +457,7 @@ namespace NurMarketKassa.ViewModels
                 _mixedCashAmount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MixedRemainingText));
+                OnPropertyChanged(nameof(MixedAmountsMatch));
                 ErrorMessage = "";
                 RaiseCommandsCanExecuteChanged();
                 SyncMixedAmount(fromCash: true);
@@ -473,6 +474,7 @@ namespace NurMarketKassa.ViewModels
                 _mixedNonCashAmount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MixedRemainingText));
+                OnPropertyChanged(nameof(MixedAmountsMatch));
                 ErrorMessage = "";
                 RaiseCommandsCanExecuteChanged();
                 SyncMixedAmount(fromCash: false);

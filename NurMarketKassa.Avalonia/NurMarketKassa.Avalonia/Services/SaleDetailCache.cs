@@ -40,6 +40,32 @@ public static class SaleDetailCache
     }
 
     /// <summary>Чек изменился (возврат по нему) — следующий отчёт возьмёт его с сервера.</summary>
+    /// <summary>То же, что <see cref="GetAsync"/>, но с повтором при временной ошибке (нет ответа,
+    /// 5xx, 429). 2026-09-25: при сверке «Финансов» за месяц с сайтом 81 чек из 461 не дочитался,
+    /// и их себестоимость выпала из прибыли — прибыль вышла завышенной (41 % против 30,5 %).
+    /// Ошибки «нет доступа/не найден» не повторяются.</summary>
+    public static async Task<JsonElement> GetWithRetryAsync(string saleId, CancellationToken ct = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await GetAsync(saleId, ct).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (attempt < 3 && (ex.StatusCode is null or 429 or >= 500))
+            {
+                var pause = ApiThrottle.RemainingBlock;
+                if (pause < TimeSpan.FromSeconds(attempt))
+                    pause = TimeSpan.FromSeconds(attempt);
+                await Task.Delay(pause, ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>Коротко для журнала: код ответа и текст, а не только тип исключения.</summary>
+    public static string Describe(Exception ex) =>
+        ex is ApiException api ? $"ApiException {api.StatusCode?.ToString() ?? "—"}: {api.Message}" : $"{ex.GetType().Name}: {ex.Message}";
+
     public static void Forget(string? saleId)
     {
         if (!string.IsNullOrWhiteSpace(saleId))

@@ -956,6 +956,17 @@ public sealed class SalesApiService : ISalesApiService
         return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
     }
 
+    public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    {
+        var qs = new Dictionary<string, string>
+        {
+            ["tab"] = "sales",
+            ["period_start"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["period_end"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        };
+        return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
+    }
+
     public Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default) =>
         _client.RequestAsync(HttpMethod.Get, "api/main/market-sale-employee-pay-profiles/", null,
             new Dictionary<string, string> { ["user"] = userId.Trim() }, ct);
