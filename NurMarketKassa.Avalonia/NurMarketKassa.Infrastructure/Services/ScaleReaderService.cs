@@ -12,6 +12,7 @@ public sealed class ScaleReaderService : IDisposable
     private Thread? _thread;
     private volatile bool _stop;
     private double? _lastWeight;
+    private long _weightChangedAtMs;
     private string _lastRaw = "";
     private string _status = "—";
     private readonly ScaleSettings _cfg;
@@ -32,6 +33,17 @@ public sealed class ScaleReaderService : IDisposable
         {
             lock (_lock)
                 return _lastWeight;
+        }
+    }
+
+    /// <summary>Когда вес последний раз изменился (Environment.TickCount64) — по нему среди
+    /// нескольких весов выбираются те, на которые только что положили товар.</summary>
+    public long WeightChangedAtMs
+    {
+        get
+        {
+            lock (_lock)
+                return _weightChangedAtMs;
         }
     }
 
@@ -348,7 +360,11 @@ public sealed class ScaleReaderService : IDisposable
         if (w is not null)
         {
             lock (_lock)
+            {
+                if (_lastWeight != w)
+                    _weightChangedAtMs = MonotonicMs();
                 _lastWeight = w;
+            }
             PosLogger.Log($"COM разбор веса: {w.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} кг", "DEBUG");
             SetStatus($"OK {HardwarePortHelper.NormalizeComPort(_cfg.ComPort)} {_cfg.BaudRate}");
         }

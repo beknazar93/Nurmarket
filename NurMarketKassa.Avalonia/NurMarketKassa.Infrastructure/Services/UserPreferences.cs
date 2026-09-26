@@ -53,6 +53,15 @@ public sealed class UserPreferences
     public string ScaleComPort { get; set; } = "COM2";
     public int ScaleBaudRate { get; set; } = 9600;
     public bool ScaleEnabled { get; set; }
+
+    // Дополнительные весы (2026-09-26, «подключение одновременно 2–3 весов»): свой COM-порт и
+    // скорость, протокол (запрос веса, интервал опроса) — как у основных весов.
+    public bool Scale2Enabled { get; set; }
+    public string Scale2ComPort { get; set; } = "";
+    public int Scale2BaudRate { get; set; } = 9600;
+    public bool Scale3Enabled { get; set; }
+    public string Scale3ComPort { get; set; } = "";
+    public int Scale3BaudRate { get; set; } = 9600;
     public string? ScaleRequestHex { get; set; }
     public int ScalePollMs { get; set; }
 
@@ -544,6 +553,14 @@ public sealed class UserPreferences
             if (fromFile.ScaleBaudRate is > 0)
                 p.ScaleBaudRate = fromFile.ScaleBaudRate.Value;
             p.ScaleEnabled = fromFile.ScaleEnabled ?? p.ScaleEnabled;
+            p.Scale2Enabled = fromFile.Scale2Enabled ?? false;
+            p.Scale2ComPort = fromFile.Scale2ComPort ?? "";
+            if (fromFile.Scale2BaudRate is > 0)
+                p.Scale2BaudRate = fromFile.Scale2BaudRate.Value;
+            p.Scale3Enabled = fromFile.Scale3Enabled ?? false;
+            p.Scale3ComPort = fromFile.Scale3ComPort ?? "";
+            if (fromFile.Scale3BaudRate is > 0)
+                p.Scale3BaudRate = fromFile.Scale3BaudRate.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.PoleDisplayComPort))
                 p.PoleDisplayComPort = HardwarePortHelper.NormalizeComPort(fromFile.PoleDisplayComPort, p.PoleDisplayComPort);
             if (fromFile.PoleDisplayBaudRate is > 0)
@@ -889,6 +906,12 @@ public sealed class UserPreferences
                 ScaleComPort = ScaleComPort,
                 ScaleBaudRate = ScaleBaudRate,
                 ScaleEnabled = ScaleEnabled,
+                Scale2Enabled = Scale2Enabled,
+                Scale2ComPort = Scale2ComPort,
+                Scale2BaudRate = Scale2BaudRate,
+                Scale3Enabled = Scale3Enabled,
+                Scale3ComPort = Scale3ComPort,
+                Scale3BaudRate = Scale3BaudRate,
                 PoleDisplayComPort = PoleDisplayComPort,
                 PoleDisplayBaudRate = PoleDisplayBaudRate,
                 PoleDisplayEnabled = PoleDisplayEnabled,
@@ -1040,6 +1063,18 @@ public sealed class UserPreferences
         }
     }
 
+    /// <summary>Настройки дополнительных весов (2 или 3): свой порт и скорость, остальное — как у
+    /// основных весов.</summary>
+    public ScaleSettings ToExtraScaleSettings(int number) =>
+        new()
+        {
+            Enabled = number == 2 ? Scale2Enabled : Scale3Enabled,
+            ComPort = HardwarePortHelper.NormalizeComPort(number == 2 ? Scale2ComPort : Scale3ComPort, ""),
+            BaudRate = number == 2 ? Scale2BaudRate : Scale3BaudRate,
+            RequestHex = ScaleRequestHex,
+            PollMs = ScalePollMs,
+        };
+
     public ScaleSettings ToScaleSettings() =>
         new()
         {
@@ -1088,6 +1123,12 @@ public sealed class UserPreferences
         public string? ScaleComPort { get; set; }
         public int? ScaleBaudRate { get; set; }
         public bool? ScaleEnabled { get; set; }
+        public bool? Scale2Enabled { get; set; }
+        public string? Scale2ComPort { get; set; }
+        public int? Scale2BaudRate { get; set; }
+        public bool? Scale3Enabled { get; set; }
+        public string? Scale3ComPort { get; set; }
+        public int? Scale3BaudRate { get; set; }
         public string? PoleDisplayComPort { get; set; }
         public int? PoleDisplayBaudRate { get; set; }
         public bool? PoleDisplayEnabled { get; set; }

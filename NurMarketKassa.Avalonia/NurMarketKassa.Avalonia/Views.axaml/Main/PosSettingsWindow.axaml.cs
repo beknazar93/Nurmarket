@@ -44,6 +44,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // --- Scale ---
         private CheckBox ScaleEnabledCheck => _scaleView.ScaleEnabledCheck;
         private ComboBox ScaleComCombo => _scaleView.ScaleComCombo;
+        private ComboBox Scale2ComCombo => _scaleView.Scale2ComCombo;
+        private ComboBox Scale3ComCombo => _scaleView.Scale3ComCombo;
         private TextBlock StatusScalePortText => _scaleView.StatusScalePortText;
         private TextBox ScaleBaudBox => _scaleView.ScaleBaudBox;
         private TextBox ScaleHexBox => _scaleView.ScaleHexBox;
@@ -266,6 +268,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
             ScaleComCombo.ItemsSource = ports;
             SelectScaleComPort(prefs.ScaleComPort);
             RefreshScalePortStatus();
+
+            // Дополнительные весы (2026-09-26): тот же список COM-портов, свой выбор у каждых.
+            _scaleView.ExtraScalesTitle.Text = Tr.T("Дополнительные весы", "Кошумча таразалар", "Additional scales", "Ek teraziler", "Qo'shimcha tarozilar");
+            _scaleView.ExtraScalesDesc.Text = Tr.T(
+                "До трёх весов одновременно. Касса берёт вес с тех весов, на которых лежит товар. Запрос веса и интервал — как у основных весов.",
+                "Бир убакта үч таразага чейин. Касса товар турган таразадан салмакты алат. Салмак суроосу жана аралык — негизги таразадагыдай.",
+                "Up to three scales at once. The register takes the weight from the scale the goods are on. Weight request and interval are the same as for the main scale.",
+                "Aynı anda üç teraziye kadar. Kasa, ürünün bulunduğu teraziden ağırlığı alır. Ağırlık isteği ve aralık ana terazi ile aynıdır.",
+                "Bir vaqtda uchtagacha tarozi. Kassa mahsulot turgan tarozidan og'irlikni oladi. Og'irlik so'rovi va oraliq — asosiy tarozidagidek.");
+            _scaleView.Scale2Label.Text = Tr.T("Весы 2", "Тараза 2", "Scale 2", "Terazi 2", "Tarozi 2");
+            _scaleView.Scale3Label.Text = Tr.T("Весы 3", "Тараза 3", "Scale 3", "Terazi 3", "Tarozi 3");
+            FillExtraScale(Scale2ComCombo, _scaleView.Scale2EnabledCheck, _scaleView.Scale2BaudBox, prefs.Scale2Enabled, prefs.Scale2ComPort, prefs.Scale2BaudRate);
+            FillExtraScale(Scale3ComCombo, _scaleView.Scale3EnabledCheck, _scaleView.Scale3BaudBox, prefs.Scale3Enabled, prefs.Scale3ComPort, prefs.Scale3BaudRate);
 
             // Полный список подключения (спулер здесь не участвует, но WinUSB/LPT/COM/raw-USB —
             // да), а не только COM-порты: у пользователя дисплей цены оказался USB-устройством,
@@ -944,6 +959,35 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return false;
             }
 
+            var scale2 = ReadExtraScale(Scale2ComCombo, _scaleView.Scale2EnabledCheck, _scaleView.Scale2BaudBox);
+            var scale3 = ReadExtraScale(Scale3ComCombo, _scaleView.Scale3EnabledCheck, _scaleView.Scale3BaudBox);
+            var usedPorts = new List<string>();
+            if (prefs.ScaleEnabled)
+                usedPorts.Add(prefs.ScaleComPort);
+            var extras = new[]
+            {
+                (Name: Tr.T("Весы 2", "Тараза 2", "Scale 2", "Terazi 2", "Tarozi 2"), Scale: scale2),
+                (Name: Tr.T("Весы 3", "Тараза 3", "Scale 3", "Terazi 3", "Tarozi 3"), Scale: scale3),
+            };
+            foreach (var (name, extra) in extras)
+            {
+                if (!extra.Enabled)
+                    continue;
+                if (extra.Port.Length == 0 || usedPorts.Contains(extra.Port, StringComparer.OrdinalIgnoreCase))
+                {
+                    _scaleView.SaveStatusText.Text = "Настройки не сохранены.";
+                    PosMessageBox.Show(extra.Port.Length == 0
+                            ? $"{name}: выберите COM-порт."
+                            : $"{name}: порт {extra.Port} уже занят другими весами — у каждых весов свой порт.",
+                        "Настройки весов", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    return false;
+                }
+                usedPorts.Add(extra.Port);
+            }
+
+            (prefs.Scale2Enabled, prefs.Scale2ComPort, prefs.Scale2BaudRate) = scale2;
+            (prefs.Scale3Enabled, prefs.Scale3ComPort, prefs.Scale3BaudRate) = scale3;
+
             prefs.PoleDisplayEnabled = PoleDisplayEnabledCheck.IsChecked == true;
             prefs.PoleDisplayComPort = GetSelectedPoleDisplayComPort();
             int.TryParse(PoleDisplayBaudBox.Text?.Trim(), out int poleDisplayBaud);
@@ -1256,6 +1300,25 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private string GetSelectedPoleDisplayComPort() =>
             PoleDisplayComCombo.SelectedItem is DiscoveredPrinter selected ? selected.DevicePath : "";
+
+        private static void FillExtraScale(ComboBox combo, CheckBox enabled, TextBox baudBox, bool isEnabled, string? savedPort, int baud)
+        {
+            var ports = ScaleReaderService.GetAvailablePorts().ToList();
+            var port = HardwarePortHelper.NormalizeComPort(savedPort, "");
+            if (port.Length > 0 && !ports.Contains(port, StringComparer.OrdinalIgnoreCase))
+                ports.Insert(0, port);
+            combo.ItemsSource = ports;
+            combo.SelectedItem = ports.FirstOrDefault(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase));
+            enabled.IsChecked = isEnabled;
+            baudBox.Text = (baud > 0 ? baud : 9600).ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static (bool Enabled, string Port, int Baud) ReadExtraScale(ComboBox combo, CheckBox enabled, TextBox baudBox)
+        {
+            var port = combo.SelectedItem is string selected ? HardwarePortHelper.NormalizeComPort(selected, "") : "";
+            int.TryParse(baudBox.Text?.Trim(), out var baud);
+            return (enabled.IsChecked == true, port, baud > 0 ? baud : 9600);
+        }
 
         private string GetSelectedScaleComPort()
         {

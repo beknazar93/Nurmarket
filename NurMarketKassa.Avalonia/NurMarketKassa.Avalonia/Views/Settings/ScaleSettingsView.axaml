@@ -192,6 +192,40 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Дополнительные весы (2026-09-26): до трёх весов одновременно. Вес берётся с тех,
+                     на которых лежит товар (ComWeightScaleService). Протокол — как у основных. -->
+                <Border Classes="SettingsCard" Padding="14">
+                    <StackPanel Spacing="12">
+                        <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="Дополнительные весы"
+                                   FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="ExtraScalesDesc" x:FieldModifier="public" FontSize="11"
+                                   Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="Auto,10,80,*,16,120" RowDefinitions="Auto,10,Auto">
+                            <CheckBox Grid.Row="0" Grid.Column="0" x:Name="Scale2EnabledCheck" x:FieldModifier="public"
+                                      Classes="ToggleSwitch" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" x:Name="Scale2Label" x:FieldModifier="public" Text="Весы 2"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                            <ComboBox Grid.Row="0" Grid.Column="3" x:Name="Scale2ComCombo" x:FieldModifier="public"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      IsEnabled="{Binding IsChecked, ElementName=Scale2EnabledCheck}"/>
+                            <TextBox Grid.Row="0" Grid.Column="5" x:Name="Scale2BaudBox" x:FieldModifier="public"
+                                     Text="9600" Classes="ModernTextBox" Height="36"
+                                     IsEnabled="{Binding IsChecked, ElementName=Scale2EnabledCheck}"/>
+
+                            <CheckBox Grid.Row="2" Grid.Column="0" x:Name="Scale3EnabledCheck" x:FieldModifier="public"
+                                      Classes="ToggleSwitch" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" x:Name="Scale3Label" x:FieldModifier="public" Text="Весы 3"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                            <ComboBox Grid.Row="2" Grid.Column="3" x:Name="Scale3ComCombo" x:FieldModifier="public"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      IsEnabled="{Binding IsChecked, ElementName=Scale3EnabledCheck}"/>
+                            <TextBox Grid.Row="2" Grid.Column="5" x:Name="Scale3BaudBox" x:FieldModifier="public"
+                                     Text="9600" Classes="ModernTextBox" Height="36"
+                                     IsEnabled="{Binding IsChecked, ElementName=Scale3EnabledCheck}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <!-- Дисплей цены покупателя — отдельная COM-коробочка с LED/VFD-табло,
                      не второй монитор (см. PoleDisplayService, 2026-09-04). -->
                 <Border Classes="SettingsCard" Padding="14">
