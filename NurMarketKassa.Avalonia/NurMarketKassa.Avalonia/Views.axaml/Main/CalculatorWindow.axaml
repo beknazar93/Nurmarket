@@ -1,0 +1,445 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.CalculatorWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="Калькуляция"
+        Height="820"
+        Width="1180"
+        MinWidth="980"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushWindow}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <!-- «Помощник: калькуляция» программы владельца (2026-09-26). Как у Эвотора/Контур.Маркета
+         (цена по наценке с округлением), МойСклада (себестоимость партии с доп. расходами),
+         Loyverse (оценка склада) и калькуляторов безубыточности. Всё считается на месте, на
+         сервер ничего не пишет: цены меняются в «Складе». -->
+    <Window.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="20,18"/>
+            <Setter Property="BoxShadow" Value="0 1 3 0 #0F000000"/>
+        </Style>
+        <Style Selector="TextBlock.h">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="Border.segment">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Padding" Value="3"/>
+        </Style>
+        <Style Selector="Button.seg">
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.seg:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.chip">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.chip.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Padding" Value="16,9"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ghost">
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.result">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+        <Style Selector="Border.result.main">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.rLabel">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.rValue">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.caption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E81123"/>
+        </Style>
+        <Style Selector="Path.capIcon">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.caption.close:pointerover Path.capIcon">
+            <Setter Property="Stroke" Value="White"/>
+        </Style>
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="RootGrid" RowDefinitions="Auto,Auto,*">
+        <!-- Шапка -->
+        <Grid Grid.Row="0" Margin="24,12,10,6" ColumnDefinitions="*,Auto" Background="Transparent"
+              PointerPressed="DragArea_PointerPressed">
+            <StackPanel Margin="0,6,0,0" Spacing="2">
+                <TextBlock x:Name="TitleText" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="SubtitleText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Spacing="2">
+                <Button Classes="caption" Click="Minimize_Click"><Path Classes="capIcon" Data="M0,5 H10"/></Button>
+                <Button Classes="caption close" Click="Close_Click"><Path Classes="capIcon" Data="M0,0 L10,10 M10,0 L0,10"/></Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Вкладки -->
+        <Border Grid.Row="1" Classes="segment" HorizontalAlignment="Left" Margin="24,6,24,12">
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button x:Name="TabPriceButton" Classes="seg active" Tag="price" Click="Tab_Click"/>
+                <Button x:Name="TabBatchButton" Classes="seg" Tag="batch" Click="Tab_Click"/>
+                <Button x:Name="TabAuditButton" Classes="seg" Tag="audit" Click="Tab_Click"/>
+                <Button x:Name="TabBreakEvenButton" Classes="seg" Tag="breakeven" Click="Tab_Click"/>
+                <Button x:Name="TabPromoButton" Classes="seg" Tag="promo" Click="Tab_Click"/>
+            </StackPanel>
+        </Border>
+
+        <Panel Grid.Row="2" Margin="24,0,24,24">
+
+            <!-- ================= 1. Цена и наценка ================= -->
+            <ScrollViewer x:Name="PricePage" VerticalScrollBarVisibility="Auto">
+                <Grid ColumnDefinitions="*,16,*">
+                    <Border Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="14">
+                            <TextBlock x:Name="PriceInputsTitle" Classes="h"/>
+                            <StackPanel>
+                                <TextBlock x:Name="ProductSearchLabel" Classes="label"/>
+                                <TextBox x:Name="ProductSearchBox" TextChanged="ProductSearch_TextChanged"/>
+                                <ListBox x:Name="ProductMatches" MaxHeight="190" Margin="0,4,0,0" IsVisible="False"
+                                         SelectionChanged="ProductMatches_SelectionChanged"
+                                         Background="{DynamicResource BrushPanel}"
+                                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10"/>
+                                <TextBlock x:Name="SelectedProductText" Classes="hint" Margin="2,6,0,0" IsVisible="False"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="CostLabel" Classes="label"/>
+                                <TextBox x:Name="CostBox" Text="0" TextChanged="PriceInputs_Changed"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="ModeLabel" Classes="label"/>
+                                <Border Classes="segment" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                        <Button x:Name="ModeMarkupButton" Classes="seg active" Tag="markup" Click="Mode_Click"/>
+                                        <Button x:Name="ModeMarginButton" Classes="seg" Tag="margin" Click="Mode_Click"/>
+                                        <Button x:Name="ModePriceButton" Classes="seg" Tag="price" Click="Mode_Click"/>
+                                    </StackPanel>
+                                </Border>
+                                <TextBox x:Name="ModeValueBox" Text="30" Margin="0,8,0,0" TextChanged="PriceInputs_Changed"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="TaxLabel" Classes="label"/>
+                                <WrapPanel x:Name="TaxChips"/>
+                                <TextBox x:Name="TaxBox" Text="0" TextChanged="PriceInputs_Changed"/>
+                                <TextBlock x:Name="TaxHint" Classes="hint" Margin="2,6,0,0"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock x:Name="RoundLabel" Classes="label"/>
+                                <WrapPanel x:Name="RoundChips"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="PriceResultTitle" Classes="h"/>
+                            <Border Classes="result main">
+                                <StackPanel>
+                                    <TextBlock x:Name="ResPriceLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="ResPriceValue" Classes="rValue" FontSize="30" Text="—"/>
+                                    <TextBlock x:Name="ResExactPriceText" Classes="rLabel" IsVisible="False" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Grid ColumnDefinitions="*,10,*">
+                                <Border Classes="result"><StackPanel><TextBlock x:Name="ResProfitLabel" Classes="rLabel"/><TextBlock x:Name="ResProfitValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                                <Border Grid.Column="2" Classes="result"><StackPanel><TextBlock x:Name="ResTaxLabel" Classes="rLabel"/><TextBlock x:Name="ResTaxValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,10,*">
+                                <Border Classes="result"><StackPanel><TextBlock x:Name="ResMarkupLabel" Classes="rLabel"/><TextBlock x:Name="ResMarkupValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                                <Border Grid.Column="2" Classes="result"><StackPanel><TextBlock x:Name="ResMarginLabel" Classes="rLabel"/><TextBlock x:Name="ResMarginValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                            </Grid>
+                            <TextBlock x:Name="ResWarning" Classes="hint" Foreground="{DynamicResource BrushDanger}" IsVisible="False"/>
+                            <Border x:Name="CurrentPriceBox" Classes="result" IsVisible="False">
+                                <TextBlock x:Name="CurrentPriceText" Classes="hint" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                            </Border>
+                            <TextBlock x:Name="FormulaHint" Classes="hint"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- ================= 2. Себестоимость партии ================= -->
+            <Grid x:Name="BatchPage" IsVisible="False" RowDefinitions="Auto,*,Auto">
+                <Border Classes="card" Margin="0,0,0,12">
+                    <Grid ColumnDefinitions="*,12,*,12,*,12,Auto">
+                        <StackPanel>
+                            <TextBlock x:Name="ExtraCostsLabel" Classes="label"/>
+                            <TextBox x:Name="ExtraCostsBox" Text="0" TextChanged="Batch_Changed"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock x:Name="RateLabel" Classes="label"/>
+                            <TextBox x:Name="RateBox" Text="1" TextChanged="Batch_Changed"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock x:Name="BatchMarkupLabel" Classes="label"/>
+                            <TextBox x:Name="BatchMarkupBox" Text="30" TextChanged="Batch_Changed"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="6">
+                            <TextBlock x:Name="SplitLabel" Classes="label"/>
+                            <Border Classes="segment">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <Button x:Name="SplitSumButton" Classes="seg active" Tag="sum" Click="Split_Click"/>
+                                    <Button x:Name="SplitQtyButton" Classes="seg" Tag="qty" Click="Split_Click"/>
+                                    <Button x:Name="SplitWeightButton" Classes="seg" Tag="weight" Click="Split_Click"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Border Grid.Row="1" Classes="card" Padding="10">
+                    <DataGrid x:Name="BatchGrid" AutoGenerateColumns="False" CanUserSortColumns="False"
+                              CellEditEnded="BatchGrid_CellEditEnded" RowHeight="40">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="2*" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding QuantityText}"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding PriceText}"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding WeightText}"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding ShareText}" IsReadOnly="True"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding UnitCostText}" IsReadOnly="True"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding SuggestedPriceText}" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+                <Grid Grid.Row="2" Margin="0,12,0,0" ColumnDefinitions="Auto,Auto,*">
+                    <Button x:Name="AddRowButton" Classes="primary" Click="AddBatchRow_Click"/>
+                    <Button Grid.Column="1" x:Name="RemoveRowButton" Classes="ghost" Margin="8,0,0,0" Click="RemoveBatchRow_Click"/>
+                    <TextBlock Grid.Column="2" x:Name="BatchTotalsText" Classes="hint" FontSize="13.5"
+                               Foreground="{DynamicResource BrushText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+            </Grid>
+
+            <!-- ================= 3. Проверка цен ================= -->
+            <Grid x:Name="AuditPage" IsVisible="False" RowDefinitions="Auto,Auto,*">
+                <Grid ColumnDefinitions="*,12,*,12,*,12,*" Margin="0,0,0,12">
+                    <Border Classes="card"><StackPanel><TextBlock x:Name="StockCostLabel" Classes="rLabel"/><TextBlock x:Name="StockCostValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                    <Border Grid.Column="2" Classes="card"><StackPanel><TextBlock x:Name="StockRetailLabel" Classes="rLabel"/><TextBlock x:Name="StockRetailValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                    <Border Grid.Column="4" Classes="card"><StackPanel><TextBlock x:Name="StockProfitLabel" Classes="rLabel"/><TextBlock x:Name="StockProfitValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                    <Border Grid.Column="6" Classes="card"><StackPanel><TextBlock x:Name="StockMarginLabel" Classes="rLabel"/><TextBlock x:Name="StockMarginValue" Classes="rValue" Text="—"/></StackPanel></Border>
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+                    <WrapPanel x:Name="AuditFilters" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0">
+                        <TextBlock x:Name="ThresholdLabel" Classes="hint" VerticalAlignment="Center"/>
+                        <TextBox x:Name="ThresholdBox" Text="15" Width="70" TextChanged="Audit_Changed"/>
+                    </StackPanel>
+                    <TextBox Grid.Column="2" x:Name="AuditSearchBox" Width="260" TextChanged="Audit_Changed"/>
+                </Grid>
+                <Border Grid.Row="2" Classes="card" Padding="10">
+                    <DataGrid x:Name="AuditGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="38">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Width="2.4*" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding CostText}" SortMemberPath="Cost"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding PriceText}" SortMemberPath="Price"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding MarkupText}" SortMemberPath="Markup"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding MarginText}" SortMemberPath="Margin"/>
+                            <DataGridTextColumn Width="*" Binding="{Binding StockText}" SortMemberPath="Stock"/>
+                            <DataGridTextColumn Width="1.2*" Binding="{Binding StockProfitText}" SortMemberPath="StockProfit"/>
+                            <DataGridTextColumn Width="1.4*" Binding="{Binding Flag}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </Grid>
+
+            <!-- ================= 4. Безубыточность и цель ================= -->
+            <ScrollViewer x:Name="BreakEvenPage" IsVisible="False" VerticalScrollBarVisibility="Auto">
+                <Grid ColumnDefinitions="*,16,*">
+                    <Border Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="CostsTitle" Classes="h"/>
+                            <Grid ColumnDefinitions="*,12,*">
+                                <StackPanel><TextBlock x:Name="RentLabel" Classes="label"/><TextBox x:Name="RentBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock x:Name="SalaryCostLabel" Classes="label"/><TextBox x:Name="SalaryBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,12,*">
+                                <StackPanel><TextBlock x:Name="UtilitiesLabel" Classes="label"/><TextBox x:Name="UtilitiesBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock x:Name="OtherCostsLabel" Classes="label"/><TextBox x:Name="OtherBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                            </Grid>
+                            <Border Height="1" Background="{DynamicResource BrushBorder}" Margin="0,4"/>
+                            <Grid ColumnDefinitions="*,12,*">
+                                <StackPanel><TextBlock x:Name="AvgMarginLabel" Classes="label"/><TextBox x:Name="AvgMarginBox" Text="25" TextChanged="BreakEven_Changed"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock x:Name="BeTaxLabel" Classes="label"/><TextBox x:Name="BeTaxBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,12,*">
+                                <StackPanel><TextBlock x:Name="AvgCheckLabel" Classes="label"/><TextBox x:Name="AvgCheckBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock x:Name="WorkDaysLabel" Classes="label"/><TextBox x:Name="WorkDaysBox" Text="30" TextChanged="BreakEven_Changed"/></StackPanel>
+                            </Grid>
+                            <StackPanel><TextBlock x:Name="GoalLabel" Classes="label"/><TextBox x:Name="GoalBox" Text="0" TextChanged="BreakEven_Changed"/></StackPanel>
+                            <Button x:Name="FillFromSalesButton" Classes="ghost" Click="FillFromSales_Click"/>
+                            <TextBlock x:Name="FillFromSalesHint" Classes="hint"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="BeResultTitle" Classes="h"/>
+                            <Border Classes="result main">
+                                <StackPanel>
+                                    <TextBlock x:Name="BeMonthLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="BeMonthValue" Classes="rValue" FontSize="28" Text="—"/>
+                                    <TextBlock x:Name="BeDayText" Classes="hint" FontSize="13" Margin="0,4,0,0" Foreground="{DynamicResource BrushText}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="result">
+                                <StackPanel>
+                                    <TextBlock x:Name="GoalMonthLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="GoalMonthValue" Classes="rValue" Text="—"/>
+                                    <TextBlock x:Name="GoalDayText" Classes="hint" FontSize="13" Margin="0,4,0,0" Foreground="{DynamicResource BrushText}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="result">
+                                <StackPanel Spacing="6">
+                                    <TextBlock x:Name="FactLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="FactValue" Classes="rValue" Text="—"/>
+                                    <Border Height="10" CornerRadius="5" ClipToBounds="True" Background="{DynamicResource BrushPanel}">
+                                        <Grid x:Name="FactBar"/>
+                                    </Border>
+                                    <TextBlock x:Name="FactText" Classes="hint" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock x:Name="BeWarning" Classes="hint" Foreground="{DynamicResource BrushDanger}" IsVisible="False"/>
+                            <TextBlock x:Name="BeFormulaHint" Classes="hint"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- ================= 5. Скидка и акция ================= -->
+            <ScrollViewer x:Name="PromoPage" IsVisible="False" VerticalScrollBarVisibility="Auto">
+                <Grid ColumnDefinitions="*,16,*">
+                    <Border Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="PromoTitle" Classes="h"/>
+                            <StackPanel><TextBlock x:Name="PromoMarginLabel" Classes="label"/><TextBox x:Name="PromoMarginBox" Text="25" TextChanged="Promo_Changed"/></StackPanel>
+                            <StackPanel><TextBlock x:Name="PromoDiscountLabel" Classes="label"/><TextBox x:Name="PromoDiscountBox" Text="10" TextChanged="Promo_Changed"/></StackPanel>
+                            <TextBlock x:Name="PromoHint" Classes="hint"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="card" VerticalAlignment="Top">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="PromoResultTitle" Classes="h"/>
+                            <Border Classes="result main">
+                                <StackPanel>
+                                    <TextBlock x:Name="PromoVolumeLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="PromoVolumeValue" Classes="rValue" FontSize="30" Text="—"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="result">
+                                <StackPanel>
+                                    <TextBlock x:Name="PromoNewMarginLabel" Classes="rLabel"/>
+                                    <TextBlock x:Name="PromoNewMarginValue" Classes="rValue" Text="—"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock x:Name="PromoExplain" Classes="hint" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+        </Panel>
+    </Grid>
+</Window>

@@ -16,6 +16,14 @@ public static class AppMode
 
     public static bool IsOwner { get; private set; }
 
+    /// <summary>Старый отдельный пакет NurMarketOwner (файл owner.mode рядом с exe). С 1.17.16
+    /// программа владельца ставится вместе с кассой и запускается ярлыком с ключом --owner:
+    /// пакет и канал обновлений у неё те же, что у кассы.</summary>
+    public static bool IsSeparateOwnerPackage { get; private set; }
+
+    /// <summary>Канал обновлений Velopack: свой («owner») только у отдельного пакета владельца.</summary>
+    public static string? UpdateChannel => IsSeparateOwnerPackage ? "owner" : null;
+
     /// <summary>Папка данных в %AppData% / %LocalAppData% / %Temp%. У программы владельца своя:
     /// на одном компьютере с кассой они иначе перезаписывали бы друг другу файл настроек (кто
     /// сохранил последним, тот и прав — касса теряла бы, например, настройки принтера), делили
@@ -32,11 +40,17 @@ public static class AppMode
     /// NurCRM не работает, и кроме кассы вести склад там негде. Выставляет MainWindow при входе.</summary>
     public static bool OwnerSectionsInKassa { get; set; }
 
+    /// <summary>Итог для меню кассы: разделы владельца в кассе остаются в автономном режиме и на
+    /// тарифе «Старт» — решение владельца 2026-09-26: кассу урезаем только со «Стандарта»
+    /// (на «Старте» программа владельца тоже ставится, но касса остаётся прежней).</summary>
+    public static bool ShowOwnerSectionsInKassa => OwnerSectionsInKassa || TariffGate.IsStartTariff;
+
     /// <summary>Вызывается первой строкой запуска, до любых путей к данным.</summary>
     public static void Initialize(string[] args)
     {
+        IsSeparateOwnerPackage = File.Exists(Path.Combine(AppContext.BaseDirectory, OwnerMarkerFile));
         IsOwner = args.Any(a => string.Equals(a, "--owner", StringComparison.OrdinalIgnoreCase))
-                  || File.Exists(Path.Combine(AppContext.BaseDirectory, OwnerMarkerFile))
+                  || IsSeparateOwnerPackage
                   || string.Equals(Environment.GetEnvironmentVariable("NURMARKET_MODE"), "owner", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -160,6 +160,26 @@ public sealed class SyncService : IDisposable
         PosLogger.Log("Связь с сервером восстановлена — касса вышла из офлайн-режима.", "OFFLINE");
     }
 
+    /// <summary>Смена аккаунта: каталог нового нужен сразу, а не через интервал, отсчитанный от
+    /// последней загрузки каталога прежнего аккаунта (в логе — 80 с пустого склада).</summary>
+    public void RequestCatalogSyncNow()
+    {
+        _lastCatalogSyncUtc = DateTime.MinValue;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ProbeNowAsync().ConfigureAwait(false);
+                if (IsOnline)
+                    await SyncPendingAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Каталог после смены аккаунта не загружен сразу: {ex.Message}", "CATALOG");
+            }
+        });
+    }
+
     public async Task TriggerSyncNowAsync(CancellationToken ct = default)
     {
         if (_disposed || ct.IsCancellationRequested)

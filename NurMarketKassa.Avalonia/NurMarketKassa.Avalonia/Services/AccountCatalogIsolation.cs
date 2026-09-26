@@ -28,6 +28,25 @@ public static class AccountCatalogIsolation
         UserPreferences.Instance.LastCatalogUserKey = key;
         UserPreferences.Instance.SaveToDisk();
         RequireForcedCatalogSync = true;
+        ResetCatalogCachesAndReload();
+    }
+
+    /// <summary>Списки товаров в памяти — пустые, загрузка прежнего аккаунта отброшена, каталог
+    /// нового аккаунта качается сразу (см. AvaloniaCatalogCacheService.ResetForAccountChange).</summary>
+    public static void ResetCatalogCachesAndReload()
+    {
+        try
+        {
+            CatalogCacheService.ClearInMemory();
+            if (NurMarketKassa.AvaloniaHost.App.GetRequiredService<NurMarketKassa.Core.Contracts.ICatalogCacheService>()
+                is NurMarketKassa.AvaloniaHost.Services.AvaloniaCatalogCacheService cache)
+                cache.ResetForAccountChange();
+            NurMarketKassa.AvaloniaHost.App.GetRequiredService<SyncService>().RequestCatalogSyncNow();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CATALOG reset after account change failed: {ex.Message}", "CATALOG");
+        }
     }
 
     public static void ClearForcedCatalogSyncFlag() => RequireForcedCatalogSync = false;

@@ -13,67 +13,67 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Исправлено: оплата не проходила с ошибкой «Смена не открыта», хотя смена была открыта — касса садилась на чужую смену или на смену этого кассира на другой кассе. Теперь касса работает только в своей смене; если ваша смена открыта на другой кассе, касса переходит на неё или прямо говорит, где её закрыть",
-        "Исправлено: касса иногда переставала печатать чеки до перезапуска — когда принтер «зависал» (кончилась бумага, открыта крышка, уснул), печать ждала бесконечно. Теперь ожидание ограничено, следующий чек печатается сразу",
-        "Печать через принтер Windows: касса проверяет, что чек действительно ушёл на принтер. Если принтер выключен или без бумаги, кассир сразу видит «чек не напечатан», а чек не выйдет сам через час. Режим «Работать автономно» и пауза очереди снимаются автоматически",
-        "Внесение и изъятие денег — отдельная кнопка в меню под сменой; операции уходят на сервер и видны в итогах смены",
-        "Приёмка на складе: товары можно сканировать подряд без паузы, прямо в таблице править название, количество и цены; сканер работает, даже когда курсор стоит в поле",
-        "Быстрое сканирование в чек: товары, отсканированные подряд, больше не теряются",
-        "Продажи: чек открывается одним нажатием, в списке видны товары каждого чека",
-        "Массовая загрузка товаров из файла: каждая колонка проверяется до загрузки, при перегрузке сервера загрузка повторяется сама, без дублей",
-        "Продажи без интернета надёжнее досылаются на сервер — без повторов и потерь; весовой товар защищён от случайного ввода огромного веса или суммы",
+        "Программа «NurMarket Владелец» ставится вместе с кассой: ярлык на рабочем столе и в «Пуске», обновляется вместе с кассой. На тарифе «Стандарт» и выше склад, продажи, финансы, зарплата, ABC, клиенты и пополнение переехали в программу владельца — в кассе остаётся продажа. На тарифе «Старт» касса прежняя",
+        "Программа владельца: раздел открывается в том же окне, меню сворачивается до иконок, новый помощник «Калькуляция» — цена и наценка, себестоимость партии, проверка цен, безубыточность, скидки",
+        "Цифровое табло покупателя «0.00» (например, на моноблоках CY25) показывает сумму чека. В настройках весов — тип табло и кнопка «Найти табло», которая сама подбирает порт и скорость",
+        "Экран покупателя: если задний экран повторяет экран кассы (режим Windows «Дублировать»), касса предложит переключить его в «Расширить», чтобы покупатель видел цену",
+        "Смена: если сервер ответил «Смена не открыта», касса сама сверяется с сервером и перед оплатой предлагает открыть смену — ошибка больше не повторяется при каждой оплате",
+        "Печать: старый зависший чек в очереди Windows больше не мешает печатать новые — касса убирает его сама",
+        "Вход в другой аккаунт: товары прежнего аккаунта сразу исчезают и не находятся сканером, каталог нового аккаунта загружается сразу",
+        "После «Сменить кассира» касса запоминает вход нового кассира и при следующем запуске не просит войти снова",
+        "Журнал ошибок стал чище: отменённая загрузка чеков в «Продажах» больше не пишется как предупреждение",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Оңдолду: смена ачык турса да төлөм «Смена ачылган эмес» деген ката менен өтпөй калчу — касса башка кассирдин сменасына же ушул кассирдин башка кассадагы сменасына отуруп калчу. Эми касса өз сменаңызда гана иштейт; сменаңыз башка кассада ачык болсо, касса ага өтөт же аны кайда жабуу керектигин ачык айтат",
-        "Оңдолду: касса кээде кайра күйгүзгөнгө чейин чек чыгарбай калчу — принтер «катып» калганда (кагаз бүтсө, капкагы ачык калса, уктап калса) басып чыгаруу чексиз күтчү. Эми күтүү чектелген, кийинки чек дароо басылат",
-        "Windows принтери аркылуу басуу: касса чек чындап принтерге жеткенин текшерет. Принтер өчүк же кагазы жок болсо, кассир дароо «чек басылган жок» деп көрөт, чек бир сааттан кийин өзү чыгып калбайт. «Автономдуу иштөө» режими жана кезектин тындыруусу автоматтык түрдө алынат",
-        "Акча салуу жана алуу — менюда сменанын астында өзүнчө баскыч; операциялар серверге жөнөтүлүп, сменанын жыйынтыгында көрүнөт",
-        "Кампага кабыл алуу: товарларды тыныгуусуз удаа сканерлесе болот, таблицанын ичинде аталышын, санын жана бааларын оңдосо болот; курсор талаада турса да сканер иштейт",
-        "Чекке тез сканерлөө: удаа сканерленген товарлар мындан ары жоголбойт",
-        "Сатуулар: чек бир басуу менен ачылат, тизмеде ар бир чектин товарлары көрүнөт",
-        "Товарларды файлдан массалык жүктөө: жүктөөдөн мурун ар бир мамыча текшерилет, сервер ашыкча жүктөлсө жүктөө өзү кайталанат, кайталанган товарларсыз",
-        "Интернетсиз сатуулар серверге ишенимдүүрөөк жөнөтүлөт — кайталоосуз жана жоготуусуз; салмактуу товар кокустан өтө чоң салмак же сумма киргизүүдөн корголгон",
+        "«NurMarket Ээси» программасы касса менен бирге орнотулат: иш столунда жана «Пуск» менюсунда белги пайда болот, касса менен бирге жаңырат. «Стандарт» жана андан жогорку тарифтерде кампа, сатуулар, каржы, эмгек акы, ABC, кардарлар жана толуктоо ээсинин программасына көчтү — кассада сатуу калат. «Старт» тарифинде касса мурдагыдай",
+        "Ээсинин программасы: бөлүм ошол эле терезеде ачылат, меню сүрөтчөлөргө чейин жыйналат, жаңы «Калькуляция» жардамчысы — баа жана үстөк, партиянын өздүк наркы, бааларды текшерүү, зыянсыздык, арзандатуулар",
+        "Сатып алуучунун «0.00» сандык таблосу (мисалы, CY25 моноблокторунда) чектин суммасын көрсөтөт. Таразанын жөндөөлөрүндө — табло түрү жана портту, ылдамдыкты өзү тандаган «Таблону табуу» баскычы",
+        "Сатып алуучунун экраны: арткы экран кассанын экранын кайталаса (Windows «Кайталоо» режими), касса аны «Кеңейтүү» режимине которууну сунуштайт — сатып алуучу бааны көрөт",
+        "Смена: сервер «Смена ачылган эмес» деп жооп берсе, касса сервер менен өзү салыштырат жана төлөмдүн алдында сменаны ачууну сунуштайт — ката ар бир төлөмдө кайталанбайт",
+        "Басуу: Windows кезегиндеги эски катып калган чек жаңыларды басууга тоскоол болбойт — касса аны өзү алып салат",
+        "Башка аккаунтка кирүү: мурунку аккаунттун товарлары дароо жоголот жана сканер менен табылбайт, жаңы аккаунттун каталогу дароо жүктөлөт",
+        "«Кассирди алмаштыруу» кийин касса жаңы кассирдин киришин эстеп калат жана кийинки ишке киргизүүдө кайра кирүүнү сурабайт",
+        "Каталар журналы тазараак: «Сатууларда» токтотулган чектерди жүктөө эскертүү катары жазылбайт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Fixed: payment failed with “Shift is not open” even though the shift was open — the register attached itself to another cashier's shift or to this cashier's shift on another register. Now the register works only in your own shift; if your shift is open on another register, it switches to it or tells you exactly where to close it",
-        "Fixed: the register sometimes stopped printing receipts until restart — when the printer froze (out of paper, cover open, asleep), printing waited forever. Now the wait is limited and the next receipt prints right away",
-        "Printing through a Windows printer: the register checks that the receipt really reached the printer. If the printer is off or out of paper, the cashier immediately sees “receipt not printed”, and the receipt will not come out on its own an hour later. “Use printer offline” and a paused queue are cleared automatically",
-        "Cash in and cash out — a separate button in the menu under the shift; operations are sent to the server and appear in the shift totals",
-        "Warehouse receiving: scan items one after another without pauses and edit name, quantity and prices right in the table; the scanner works even when the cursor is in a field",
-        "Fast scanning into the receipt: items scanned in a row are no longer lost",
-        "Sales: a receipt opens with one tap, and the list shows the items of each receipt",
-        "Bulk product import from a file: every column is checked before upload, upload retries on its own when the server is overloaded, no duplicates",
-        "Sales made without internet are sent to the server more reliably — no duplicates or losses; weighed items are protected from accidentally entering a huge weight or amount",
+        "The “NurMarket Owner” program is installed together with the register: shortcuts on the desktop and in Start, updated together with the register. On the Standard plan and above, warehouse, sales, finance, salary, ABC, customers and restock moved to the owner program — the register is for selling. On the Start plan the register stays as before",
+        "Owner program: a section opens in the same window, the menu collapses to icons, new “Pricing calculator” helper — price and markup, batch landed cost, price check, break-even, discounts",
+        "The numeric customer display “0.00” (e.g. on CY25 all-in-one terminals) now shows the receipt total. Scale settings have a display type and a “Find display” button that picks the port and speed automatically",
+        "Customer screen: if the rear screen mirrors the cashier screen (Windows “Duplicate” mode), the register offers to switch it to “Extend” so the customer sees the price",
+        "Shift: if the server replies “Shift is not open”, the register re-checks with the server and offers to open a shift before payment — the error no longer repeats on every payment",
+        "Printing: an old stuck receipt in the Windows queue no longer blocks new ones — the register removes it itself",
+        "Signing in to another account: the previous account's products disappear at once and can't be found by the scanner; the new catalog loads right away",
+        "After “Switch cashier” the register remembers the new cashier's sign-in and doesn't ask to sign in again on the next start",
+        "Cleaner error log: cancelled receipt loading in “Sales” is no longer logged as a warning",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Düzeltildi: vardiya açık olmasına rağmen ödeme “Vardiya açık değil” hatasıyla geçmiyordu — kasa başka bir kasiyerin vardiyasına ya da bu kasiyerin başka kasadaki vardiyasına bağlanıyordu. Artık kasa yalnızca kendi vardiyanızda çalışır; vardiyanız başka bir kasada açıksa ona geçer ya da nerede kapatacağınızı açıkça söyler",
-        "Düzeltildi: kasa bazen yeniden başlatılana kadar fiş yazdırmayı bırakıyordu — yazıcı takıldığında (kağıt bitti, kapak açık, uyku modu) yazdırma sonsuza kadar bekliyordu. Artık bekleme sınırlı, sonraki fiş hemen yazdırılır",
-        "Windows yazıcısıyla yazdırma: kasa fişin gerçekten yazıcıya ulaştığını kontrol eder. Yazıcı kapalıysa veya kağıdı yoksa kasiyer hemen “fiş yazdırılmadı” uyarısını görür ve fiş bir saat sonra kendiliğinden çıkmaz. “Yazıcıyı çevrimdışı kullan” modu ve duraklatılmış kuyruk otomatik kaldırılır",
-        "Para girişi ve çıkışı — menüde vardiyanın altında ayrı bir düğme; işlemler sunucuya gönderilir ve vardiya toplamlarında görünür",
-        "Depo mal kabulü: ürünleri ara vermeden art arda okutabilir, adı, miktarı ve fiyatları doğrudan tabloda düzeltebilirsiniz; imleç bir alandayken de barkod okuyucu çalışır",
-        "Fişe hızlı okutma: art arda okutulan ürünler artık kaybolmuyor",
-        "Satışlar: fiş tek dokunuşla açılır, listede her fişin ürünleri görünür",
-        "Dosyadan toplu ürün yükleme: yüklemeden önce her sütun kontrol edilir, sunucu yoğunsa yükleme kendiliğinden tekrarlanır, mükerrer kayıt olmaz",
-        "İnternetsiz yapılan satışlar sunucuya daha güvenilir şekilde gönderilir — tekrar ve kayıp olmadan; tartılı ürünlerde yanlışlıkla çok büyük ağırlık veya tutar girilmesine karşı koruma var",
+        "“NurMarket Sahibi” programı kasa ile birlikte kurulur: masaüstünde ve Başlat menüsünde kısayol, kasa ile birlikte güncellenir. Standart ve üstü tarifelerde depo, satışlar, finans, maaş, ABC, müşteriler ve stok tamamlama sahip programına taşındı — kasada satış kalır. Start tarifesinde kasa eskisi gibi",
+        "Sahip programı: bölüm aynı pencerede açılır, menü simgelere daraltılır, yeni “Hesaplama” yardımcısı — fiyat ve kâr oranı, parti maliyeti, fiyat kontrolü, başabaş, indirimler",
+        "“0.00” sayısal müşteri ekranı (örneğin CY25 hepsi bir arada cihazlarda) fiş tutarını gösterir. Terazi ayarlarında ekran türü ve portu, hızı kendisi bulan “Ekranı bul” düğmesi var",
+        "Müşteri ekranı: arka ekran kasiyer ekranını kopyalıyorsa (Windows “Çoğalt” modu), kasa onu “Genişlet” moduna almayı önerir — müşteri fiyatı görür",
+        "Vardiya: sunucu “Vardiya açık değil” derse kasa sunucuyla kendisi karşılaştırır ve ödemeden önce vardiya açmayı önerir — hata her ödemede tekrarlanmaz",
+        "Yazdırma: Windows kuyruğunda takılı kalan eski fiş yenilerin yazdırılmasını engellemez — kasa onu kendisi kaldırır",
+        "Başka hesaba giriş: önceki hesabın ürünleri hemen kaybolur ve barkodla bulunmaz, yeni hesabın kataloğu hemen yüklenir",
+        "“Kasiyer değiştir” sonrasında kasa yeni kasiyerin girişini hatırlar ve bir sonraki açılışta tekrar giriş istemez",
+        "Daha temiz hata günlüğü: “Satışlar”da iptal edilen fiş yüklemesi artık uyarı olarak yazılmıyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Tuzatildi: smena ochiq bo'lsa ham to'lov «Smena ochilmagan» xatosi bilan o'tmayotgan edi — kassa boshqa kassirning smenasiga yoki shu kassirning boshqa kassadagi smenasiga ulanib qolardi. Endi kassa faqat o'z smenangizda ishlaydi; smenangiz boshqa kassada ochiq bo'lsa, kassa unga o'tadi yoki uni qayerda yopish kerakligini aniq aytadi",
-        "Tuzatildi: kassa ba'zan qayta ishga tushirilguncha chek chop etmay qo'yardi — printer qotib qolganda (qog'oz tugasa, qopqog'i ochiq qolsa, uyqu rejimida) chop etish cheksiz kutardi. Endi kutish cheklangan, keyingi chek darhol chop etiladi",
-        "Windows printeri orqali chop etish: kassa chek haqiqatan printerga yetganini tekshiradi. Printer o'chiq yoki qog'ozi yo'q bo'lsa, kassir darhol «chek chop etilmadi» xabarini ko'radi, chek bir soatdan keyin o'zi chiqib qolmaydi. «Printerdan avtonom foydalanish» rejimi va navbat pauzasi avtomatik olib tashlanadi",
-        "Pul kiritish va olish — menyuda smena ostida alohida tugma; amallar serverga yuboriladi va smena yakunlarida ko'rinadi",
-        "Omborga qabul qilish: mahsulotlarni to'xtovsiz ketma-ket skanerlash, nomi, soni va narxlarini to'g'ridan-to'g'ri jadvalda tuzatish mumkin; kursor maydonda turganda ham skaner ishlaydi",
-        "Chekka tez skanerlash: ketma-ket skanerlangan mahsulotlar endi yo'qolmaydi",
-        "Sotuvlar: chek bir bosishda ochiladi, ro'yxatda har bir chekdagi mahsulotlar ko'rinadi",
-        "Fayldan mahsulotlarni ommaviy yuklash: yuklashdan oldin har bir ustun tekshiriladi, server band bo'lsa yuklash o'zi qayta urinadi, takrorlarsiz",
-        "Internetsiz qilingan sotuvlar serverga ishonchliroq yuboriladi — takror va yo'qotishlarsiz; tortiladigan mahsulot tasodifan juda katta og'irlik yoki summa kiritishdan himoyalangan",
+        "“NurMarket Egasi” dasturi kassa bilan birga o'rnatiladi: ish stolida va “Pusk” menyusida yorliq, kassa bilan birga yangilanadi. “Standart” va undan yuqori tariflarda ombor, sotuvlar, moliya, ish haqi, ABC, mijozlar va to'ldirish ega dasturiga ko'chdi — kassada sotuv qoladi. “Start” tarifida kassa avvalgidek",
+        "Ega dasturi: bo'lim o'sha oynada ochiladi, menyu belgilargacha yig'iladi, yangi “Kalkulyatsiya” yordamchisi — narx va ustama, partiya tannarxi, narxlarni tekshirish, zararsizlik, chegirmalar",
+        "Xaridorning “0.00” raqamli tablosi (masalan, CY25 monobloklarida) chek summasini ko'rsatadi. Tarozi sozlamalarida — tablo turi va port hamda tezlikni o'zi tanlaydigan “Tabloni topish” tugmasi",
+        "Xaridor ekrani: orqa ekran kassir ekranini takrorlasa (Windows “Takrorlash” rejimi), kassa uni “Kengaytirish” rejimiga o'tkazishni taklif qiladi — xaridor narxni ko'radi",
+        "Smena: server “Smena ochilmagan” deb javob bersa, kassa server bilan o'zi solishtiradi va to'lovdan oldin smenani ochishni taklif qiladi — xato har bir to'lovda takrorlanmaydi",
+        "Chop etish: Windows navbatida qotib qolgan eski chek yangilarini chop etishga xalaqit bermaydi — kassa uni o'zi olib tashlaydi",
+        "Boshqa akkauntga kirish: oldingi akkaunt mahsulotlari darhol yo'qoladi va skaner bilan topilmaydi, yangi akkaunt katalogi darhol yuklanadi",
+        "“Kassirni almashtirish”dan keyin kassa yangi kassir kirishini eslab qoladi va keyingi ishga tushishda qayta kirishni so'ramaydi",
+        "Xatolar jurnali tozaroq: “Sotuvlar”da bekor qilingan cheklarni yuklash endi ogohlantirish sifatida yozilmaydi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

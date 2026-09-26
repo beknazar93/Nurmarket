@@ -78,6 +78,9 @@ public static class PrinterPortService
     // Теперь и ожидание порта, и сама запись ограничены по времени.
     private static readonly TimeSpan PortWaitLimit = TimeSpan.FromSeconds(15);
 
+    /// <summary>Не чек, а служебная команда принтеру (ESC @, импульс ящика ESC p — 2–5 байт).</summary>
+    private const int ServiceCommandMaxBytes = 16;
+
     /// <summary>Сколько даётся одной отправке: 8 с плюс время на большой (графический) чек из
     /// расчёта 40 КБ/с — медленнее реальной печати любого термопринтера.</summary>
     internal static TimeSpan WriteTimeout(int payloadLength) =>
@@ -271,9 +274,12 @@ public static class PrinterPortService
             return;
         }
 
-        if (isKeepAlive)
+        // Короткие служебные команды (keep-alive, импульс денежного ящика) подтверждения печати не
+        // ждут: при выключенном принтере ожидание ящика держало порт и задерживало чек на 4 с.
+        if (isKeepAlive || payload.Length <= ServiceCommandMaxBytes)
         {
-            if (!RawPrinterHelper.SendBytesToPrinter(port, payload, out var keepAliveError, RawPrinterHelper.KeepAliveDocumentName))
+            var documentName = isKeepAlive ? RawPrinterHelper.KeepAliveDocumentName : "NurMarket drawer";
+            if (!RawPrinterHelper.SendBytesToPrinter(port, payload, out var keepAliveError, documentName))
                 throw new IOException($"Очередь Windows «{port}» не приняла данные (Win32: {keepAliveError}).");
             return;
         }

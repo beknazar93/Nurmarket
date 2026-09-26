@@ -838,6 +838,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Dispatcher.UIThread.Post(() => sale.ItemsSummary = text);
                     return (revenue, cost, lines);
                 }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    // Загрузку отменили (окно закрыто, период сменён, пришла новая продажа) — это не
+                    // ошибка; раньше каждый недогруженный чек попадал в «Журнал ошибок».
+                    return (0m, 0m, new List<(string, decimal, int)>());
+                }
                 catch (Exception ex)
                 {
                     PosLogger.Log($"Sales receipt aggregation skipped ({sale.Id}): {SaleDetailCache.Describe(ex)}", "WARNING");

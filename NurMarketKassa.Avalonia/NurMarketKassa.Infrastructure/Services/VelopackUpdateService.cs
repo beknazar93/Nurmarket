@@ -138,8 +138,46 @@ public sealed class VelopackUpdateService : IAppUpdateService
         var update = _pendingUpdate
             ?? throw new InvalidOperationException("Сначала нужно скачать обновление.");
 
+        // Установщик обновления закрывает все процессы из папки программы, а касса и программа
+        // владельца, поставленные вместе, — один exe: обновление из программы владельца закрыло бы
+        // кассу на этом компьютере посреди продажи.
+        if (AppMode.IsOwner && !AppMode.IsSeparateOwnerPackage && OtherCopyOfThisExeRunning())
+            throw new InvalidOperationException(
+                "На этом компьютере открыта касса — обновление закрыло бы её. Обновите программу из кассы " +
+                "(программа владельца обновится вместе с ней) или закройте кассу и повторите.");
+
         // Не возвращает управление — Velopack сам завершает процесс и запускает новую версию.
-        manager.ApplyUpdatesAndRestart(update.TargetFullRelease, restartArgs: []);
+        // Программа владельца из общей установки после обновления должна открыться снова владельцем.
+        string[] restartArgs = AppMode.IsOwner && !AppMode.IsSeparateOwnerPackage ? ["--owner"] : [];
+        manager.ApplyUpdatesAndRestart(update.TargetFullRelease, restartArgs: restartArgs);
+    }
+
+    private static bool OtherCopyOfThisExeRunning()
+    {
+        var self = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(self))
+            return false;
+
+        using var current = System.Diagnostics.Process.GetCurrentProcess();
+        foreach (var process in System.Diagnostics.Process.GetProcessesByName(current.ProcessName))
+        {
+            using (process)
+            {
+                if (process.Id == current.Id)
+                    continue;
+                try
+                {
+                    if (string.Equals(process.MainModule?.FileName, self, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                catch
+                {
+                    // Процесс уже завершился или нет доступа — не наш случай.
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Версии для отката — только те, чей релиз на GitHub действительно существует и
@@ -178,7 +216,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
                 try
                 {
                     var feed = await releaseSource.GetReleaseFeed(
-                            new NullVelopackLogger(), manager.AppId, channel: AppMode.IsOwner ? "owner" : null, stagingId: null, latestLocalRelease: null)
+                            new NullVelopackLogger(), manager.AppId, channel: AppMode.UpdateChannel, stagingId: null, latestLocalRelease: null)
                         .ConfigureAwait(false);
                     asset = feed.Assets.FirstOrDefault(a =>
                         a.Type == VelopackAssetType.Full
@@ -195,7 +233,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
                 var releaseManager = new UpdateManager(
                     releaseSource,
-                    options: new UpdateOptions { AllowVersionDowngrade = true, ExplicitChannel = AppMode.IsOwner ? "owner" : null },
+                    options: new UpdateOptions { AllowVersionDowngrade = true, ExplicitChannel = AppMode.UpdateChannel },
                     locator: null!);
                 _rollbackTargets[version] = (releaseManager, asset);
                 result.Add(new AppReleaseVersion(
@@ -313,12 +351,13 @@ public sealed class VelopackUpdateService : IAppUpdateService
         _pendingUpdate = null;
         _pendingManager = null;
         _source = new GithubSource(repoUrl, accessToken: null, prerelease: tester);
-        // У программы владельца свой канал обновлений («owner»): её пакеты лежат в тех же релизах
-        // GitHub рядом с кассой, и без канала она бы скачала кассу вместо себя.
+        // Свой канал («owner») только у старого отдельного пакета владельца: его пакеты лежат в тех
+        // же релизах GitHub рядом с кассой. Программа владельца, поставленная вместе с кассой, —
+        // это тот же пакет, что и касса (AppMode.UpdateChannel).
         _manager = new UpdateManager(_source, options: new UpdateOptions
         {
             AllowVersionDowngrade = true,
-            ExplicitChannel = AppMode.IsOwner ? "owner" : null,
+            ExplicitChannel = AppMode.UpdateChannel,
         }, locator: null!);
         return _manager;
     }

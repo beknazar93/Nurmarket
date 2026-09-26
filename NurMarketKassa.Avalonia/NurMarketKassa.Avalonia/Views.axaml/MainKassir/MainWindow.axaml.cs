@@ -127,6 +127,7 @@ public partial class MainWindow : Window
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
+        _viewModel.Basket.EnsureShiftBeforePayment = EnsureShiftBeforePaymentAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
 
         Loaded += OnLoaded;
@@ -169,10 +170,11 @@ public partial class MainWindow : Window
         if (_appInitialized)
             return true;
 
-        // Разделы владельца в кассе — только в автономном режиме (см. AppMode.OwnerSectionsInKassa).
-        // 1.17.15: программа владельца клиентам ещё не выпущена — пока разделы владельца остаются
-        // в кассе у всех. Когда она выйдет, вернуть: = IsCurrentSessionAutonomous.
-        NurMarketKassa.Services.AppMode.OwnerSectionsInKassa = true;
+        // Разделы владельца в кассе — в автономном режиме и на тарифе «Старт» (см.
+        // AppMode.ShowOwnerSectionsInKassa). С «Стандарта» они в программе «NurMarket Владелец»,
+        // которая ставится вместе с кассой (ярлык создаёт OwnerShortcuts при установке и обновлении).
+        NurMarketKassa.Services.AppMode.OwnerSectionsInKassa =
+            App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous;
         _viewModel.SideMenu.RefreshEntitlements();
 
         progress?.Report("Загрузка кассы...");
@@ -1207,6 +1209,25 @@ public partial class MainWindow : Window
     /// Закрытие смены очищает корзину и вкладки чеков (ClearAfterShiftClose),
     /// поэтому набранный, но не проведённый чек нужно подтвердить к потере.
     /// </summary>
+    /// <summary>Экран покупателя включён, а задний экран у Windows в режиме «Дублировать» —
+    /// предлагаем один раз за запуск переключить в «Расширить». После переключения Windows сообщит
+    /// о новом экране, и OnCashierScreensChanged откроет экран покупателя сам.</summary>
+    private async Task OfferExtendClonedDisplayAsync()
+    {
+        if (_extendDisplayOffered || !AvaloniaCustomerDisplayService.IsWindowsDisplayCloned())
+            return;
+        _extendDisplayOffered = true;
+
+        var ok = await _prompts.ConfirmAsync(
+            "Задний экран сейчас повторяет экран кассы, поэтому покупатель не видит цену.\n\n" +
+            "Переключить экраны Windows в режим «Расширить», чтобы на заднем экране показывался экран покупателя?")
+            .ConfigureAwait(true);
+        if (ok)
+            AvaloniaCustomerDisplayService.TryExtendWindowsDisplays();
+    }
+
+    private bool _extendDisplayOffered;
+
     private async Task<bool> ConfirmDiscardUnfinishedReceiptAsync()
     {
         var cart = ResolveCartService();
@@ -1229,7 +1250,7 @@ public partial class MainWindow : Window
     /// (например, «Добавить товар» при пустом каталоге) — там кассир получает подсказку.</summary>
     private bool OwnerSectionAvailable()
     {
-        if (NurMarketKassa.Services.AppMode.OwnerSectionsInKassa)
+        if (NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa)
             return true;
 
         _viewModel.CloseSideMenu();
@@ -1433,7 +1454,10 @@ public partial class MainWindow : Window
             if (result.IsSuccess)
                 Dispatcher.UIThread.Post(Activate, DispatcherPriority.Background);
             else
+            {
                 PosLogger.Log(result.Message, "CUSTOMER_DISPLAY");
+                _ = OfferExtendClonedDisplayAsync();
+            }
         }
 
         if (!_subscriptionMonitorStarted)
@@ -2101,14 +2125,25 @@ public partial class MainWindow : Window
     /// сразу после того, как кассир заново откроет смену.</summary>
     private void OnShiftDesyncDetected(object? sender, EventArgs e)
     {
+        // Событие приходит из потока оплаты, а ниже — окно и тулбар.
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnShiftDesyncDetected(sender, e));
+            return;
+        }
+
         if (!_session.IsShiftOpen)
             return;
 
         PosLogger.Log("Shift desync detected after failed payment — resetting local shift state.", "PAYMENT");
 
+        var rejectedShiftId = NurMarketKassa.PosApp.ActiveShiftId;
         NurMarketKassa.PosApp.ActiveShiftId = null;
         ShiftService.IsShiftOpen = false;
         NurMarketKassa.App.SyncToSession(_session);
+        // 2026-09-26: и на диске — иначе при медленном ответе сервера ShiftStateService.RefreshAsync
+        // откатывается на сохранённое состояние и возвращает ту же закрытую смену.
+        OfflinePosStateStore.SaveFromApp(OfflinePosStateStore.ReadShiftCashBalance());
 
         _shiftCashBalance = 0m;
         UpdateShiftBalanceUi();
@@ -2116,6 +2151,57 @@ public partial class MainWindow : Window
         _viewModel.SideMenu.ShiftBalanceText = "Смена не открыта";
         _viewModel.Catalog.StatusText = "Смена закрыта на сервере — откройте смену заново.";
         _customerDisplay.CloseForSession();
+
+        _ = ResyncShiftAfterDesyncAsync(rejectedShiftId);
+    }
+
+    /// <summary>Сразу после отказа сервера сверяемся с ним: касса могла держать устаревший номер,
+    /// а своя смена открыта — тогда следующее «Оплатить» пройдёт. Если своей смены нет, её
+    /// предложит открыть EnsureShiftBeforePaymentAsync.</summary>
+    private async Task ResyncShiftAfterDesyncAsync(string? rejectedShiftId)
+    {
+        try
+        {
+            await RefreshShiftStateAsync(_windowCts.Token).ConfigureAwait(true);
+            if (!_session.IsShiftOpen)
+                PosLogger.Log("Сверка после отказа: своей открытой смены на сервере нет — при оплате касса предложит открыть смену.", "SHIFT");
+            else if (string.Equals(_session.ActiveShiftId, rejectedShiftId, StringComparison.OrdinalIgnoreCase))
+                PosLogger.Log($"Сверка после отказа: сервер отказал в продаже по смене {rejectedShiftId}, но в списке смен она открыта (касса {App.PosCashboxId}).", "SHIFT");
+            else
+                PosLogger.Log($"Сверка после отказа: найдена своя открытая смена {_session.ActiveShiftId} — касса перешла на неё.", "SHIFT");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сверка смены после отказа сервера не удалась: {ex.Message}", "SHIFT");
+        }
+    }
+
+    /// <summary>См. BasketPanelViewModel.EnsureShiftBeforePayment: без смены сначала сверка с
+    /// сервером (своя смена могла открыться на сайте или остаться с прошлого запуска), а если
+    /// своей смены нет — окно «Открыть смену», как при добавлении первого товара.</summary>
+    private async Task<bool> EnsureShiftBeforePaymentAsync()
+    {
+        if (_session.IsShiftOpen)
+            return true;
+
+        PosLogger.Log("PAY: смена не открыта — сверка с сервером перед оплатой.", "SHIFT");
+        try
+        {
+            await RefreshShiftStateAsync(_windowCts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+
+        if (_session.IsShiftOpen)
+            return true;
+
+        await OpenShiftAsync().ConfigureAwait(true);
+        return _session.IsShiftOpen;
     }
 
     private void UpdateShiftBalanceUi()

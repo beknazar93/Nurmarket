@@ -76,7 +76,7 @@ public static class AccountDataIsolation
             Restore(key);
             Remember(key);
             DatabaseService.Instance.ReopenAfterAccountSwitch();
-            CatalogCacheService.ClearInMemory();
+            AccountCatalogIsolation.ResetCatalogCachesAndReload();
             PosLogger.Log($"Смена аккаунта: данные «{previous}» отложены, подняты данные «{key}».", "AUTH");
             return true;
         }

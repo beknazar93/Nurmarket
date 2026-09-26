@@ -42,6 +42,7 @@
         <StreamGeometry x:Key="ReceiptIcon">M6,3 H18 V21 L15,19 L12,21 L9,19 L6,21 Z M9,8 H15 M9,12 H15 M9,16 H12</StreamGeometry>
         <StreamGeometry x:Key="ScaleIcon">M12,3 V21 M7,21 H17 M5,7 H19 M5,7 L2,14 A3,3 0 0 0 8,14 Z M19,7 L16,14 A3,3 0 0 0 22,14 Z</StreamGeometry>
         <StreamGeometry x:Key="ReturnIcon">M9,7 L4,12 L9,17 M5,12 H14 A6,6 0 0 1 20,18</StreamGeometry>
+        <StreamGeometry x:Key="CalculatorIcon">M6,3 H18 V21 H6 Z M8.5,6 H15.5 V9.5 H8.5 Z M9,13 V13.01 M12,13 V13.01 M15,13 V13.01 M9,16 V16.01 M12,16 V16.01 M15,16 V16.01 M9,19 V19.01 M12,19 V19.01 M15,19 V19.01</StreamGeometry>
         <StreamGeometry x:Key="ChevronRightIcon">M9,5 L16,12 L9,19</StreamGeometry>
     </Window.Resources>
 
@@ -153,7 +154,7 @@
         <Style Selector="Path.capIcon">
             <Setter Property="Width" Value="10"/>
             <Setter Property="Height" Value="10"/>
-            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="Stretch" Value="None"/>
             <Setter Property="StrokeThickness" Value="1.2"/>
             <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
         </Style>
@@ -300,22 +301,26 @@
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- Логотип -->
-                <Grid DockPanel.Dock="Top" Margin="18,18,18,14" ColumnDefinitions="Auto,*"
+                <Grid DockPanel.Dock="Top" x:Name="LogoGrid" Margin="18,18,12,14" ColumnDefinitions="Auto,*,Auto"
                       Background="Transparent" PointerPressed="DragArea_PointerPressed">
-                    <Border Width="40" Height="40" CornerRadius="11" ClipToBounds="True">
+                    <Border x:Name="LogoImage" Width="40" Height="40" CornerRadius="11" ClipToBounds="True">
                         <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="UniformToFill"/>
                     </Border>
-                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
+                    <StackPanel Grid.Column="1" x:Name="LogoTextPanel" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
                         <TextBlock Text="NurMarket" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <Border HorizontalAlignment="Left" Background="{DynamicResource BrushAccent}" CornerRadius="6" Padding="7,1,7,2">
                             <TextBlock x:Name="OwnerBadgeText" FontSize="11" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushAccentForeground}"/>
                         </Border>
                     </StackPanel>
+                    <!-- Бургер: меню сворачивается до иконок (2026-09-26, просьба владельца). -->
+                    <Button Grid.Column="2" x:Name="CollapseButton" Classes="iconBtn" Click="Collapse_Click" VerticalAlignment="Center">
+                        <Path Classes="btnIcon" Data="M4,7 H20 M4,12 H20 M4,17 H20"/>
+                    </Button>
                 </Grid>
 
                 <!-- Компания -->
-                <Border DockPanel.Dock="Top" Margin="14,0,14,4" Padding="12,10" CornerRadius="12"
+                <Border DockPanel.Dock="Top" x:Name="CompanyCard" Margin="14,0,14,4" Padding="12,10" CornerRadius="12"
                         Background="{DynamicResource BrushInputAlt}"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                     <Grid ColumnDefinitions="Auto,*">
@@ -333,7 +338,7 @@
                 </Border>
 
                 <!-- Пользователь: тема и выход всегда видны -->
-                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
+                <Border DockPanel.Dock="Bottom" x:Name="UserFooter" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
                         Padding="14,12">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                         <Border Width="38" Height="38" CornerRadius="19" Background="{DynamicResource BrushAccent}">
@@ -341,7 +346,7 @@
                                        Foreground="{DynamicResource BrushAccentForeground}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center" Spacing="1">
+                        <StackPanel Grid.Column="1" x:Name="UserInfoPanel" Margin="10,0,6,0" VerticalAlignment="Center" Spacing="1">
                             <TextBlock x:Name="UserNameText" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
                             <TextBlock x:Name="UserRoleText" FontSize="11.5"
@@ -366,15 +371,18 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,*">
 
             <!-- Шапка: за неё окно перетаскивается, двойной щелчок разворачивает -->
-            <Grid Grid.Row="0" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
+            <Grid Grid.Row="0" x:Name="HeaderGrid" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
                   Background="Transparent"
                   PointerPressed="DragArea_PointerPressed">
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,6,0,0" Spacing="2">
+                <!-- В разделе шапка становится узкой полосой: название раздела и кнопки окна. -->
+                <TextBlock Grid.Column="0" x:Name="SectionTitleText" IsVisible="False" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                <StackPanel Grid.Column="0" x:Name="TitlePanel" VerticalAlignment="Center" Margin="0,6,0,0" Spacing="2">
                     <TextBlock x:Name="DashboardTitle" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                     <TextBlock x:Name="DateText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                <StackPanel Grid.Column="1" x:Name="OverviewTools" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
                             Margin="0,6,18,0">
                     <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                         <Ellipse x:Name="LiveDot" Width="8" Height="8" Fill="{DynamicResource BrushSuccess}"
@@ -407,7 +415,14 @@
                 </StackPanel>
             </Grid>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <!-- Место раздела: окно раздела без рамки лежит ровно поверх этой области и двигается
+                 вместе с окном программы (см. OwnerShellWindow.SyncSectionBounds). -->
+            <Border Grid.Row="1" x:Name="SectionHost" IsVisible="False" Margin="0,0,0,0"
+                    Background="{DynamicResource BrushWindow}">
+                <TextBlock x:Name="SectionLoadingText" Classes="empty"/>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" x:Name="OverviewScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="28,12,28,28" Spacing="16">
 
                     <!-- Показатели -->

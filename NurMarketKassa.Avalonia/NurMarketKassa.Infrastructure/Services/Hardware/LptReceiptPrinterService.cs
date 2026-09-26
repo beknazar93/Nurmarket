@@ -46,6 +46,11 @@ public sealed class LptReceiptPrinterService : IReceiptPrinterService
         if (finished != printTask)
         {
             PosLogger.Log("Печать LPT: тайм-аут — принтер не отвечает 8 секунд, продажа уже проведена, чек не распечатан.", "PRINTER");
+            // Задача печати дорабатывает сама и может упасть позже (принтер так и не ответил) —
+            // забираем её ошибку, иначе она всплывает в журнале как «Unobserved task exception».
+            _ = printTask.ContinueWith(
+                t => PosLogger.Log($"Печать LPT: чек после тайм-аута так и не напечатан: {t.Exception?.GetBaseException().Message}", "PRINTER"),
+                TaskContinuationOptions.OnlyOnFaulted);
             return false;
         }
 

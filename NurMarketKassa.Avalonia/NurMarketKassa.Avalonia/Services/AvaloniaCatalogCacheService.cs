@@ -61,6 +61,26 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     private Task<CatalogSyncResult>? _inFlightSync;
     private DateTime _lastSuccessfulSyncUtc = DateTime.MinValue;
     private CatalogSyncResult? _lastSuccessfulResult;
+    private int _accountGeneration;
+
+    /// <summary>Смена аккаунта (2026-09-26, «очищай старую базу товаров другого аккаунта»): база
+    /// очищается в AccountCatalogIsolation, но этот список в памяти жил дальше — касса показывала и
+    /// находила по штрихкоду товары прежнего аккаунта, пока не пройдёт синхронизация. Заодно
+    /// забываем «свежую» синхронизацию прежнего аккаунта и отбрасываем ту, что ещё идёт.</summary>
+    public void ResetForAccountChange()
+    {
+        lock (_syncGate)
+        {
+            _accountGeneration++;
+            _inFlightSync = null;
+            _lastSuccessfulResult = null;
+            _lastSuccessfulSyncUtc = DateTime.MinValue;
+        }
+
+        _products = [];
+        SyncInMemoryCatalog();
+        CatalogCacheService.NotifyCatalogChanged();
+    }
 
     public Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
     {
@@ -85,6 +105,10 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     {
         if (OfflineModeHelper.UseLocalOperations)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+
+        int generation;
+        lock (_syncGate)
+            generation = _accountGeneration;
 
         try
         {
@@ -114,6 +138,13 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             {
                 if (string.IsNullOrWhiteSpace(vm.StockInfo))
                     StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
+            }
+
+            // Пока товары качались, сменился аккаунт — это каталог прежнего, в базу нового его не пишем.
+            if (generation != Volatile.Read(ref _accountGeneration))
+            {
+                PosLogger.Log("CATALOG sync: аккаунт сменился во время загрузки — каталог прежнего аккаунта отброшен.", "CATALOG");
+                return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
             }
 
             var (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);

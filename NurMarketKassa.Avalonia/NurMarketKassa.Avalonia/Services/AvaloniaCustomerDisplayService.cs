@@ -100,6 +100,67 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         return Task.CompletedTask;
     }
 
+    /// <summary>2026-09-26, «у стартов исправить отображение цены на заднем экране»: в магазине
+    /// касса писала «Второй монитор не найден». У POS-моноблоков с задним экраном Windows часто
+    /// стоит в режиме «Дублировать» — тогда экран для Windows один, и покупатель видит копию экрана
+    /// кассира. Это видно по текущей схеме экранов Windows (topology = clone).</summary>
+    public static bool IsWindowsDisplayCloned()
+    {
+        if (!OperatingSystem.IsWindows())
+            return false;
+
+        try
+        {
+            const uint QdcDatabaseCurrent = 0x00000004;
+            const int TopologyClone = 0x00000002;
+            if (GetDisplayConfigBufferSizes(QdcDatabaseCurrent, out var paths, out var modes) != 0)
+                return false;
+
+            // DISPLAYCONFIG_PATH_INFO — 72 байта, DISPLAYCONFIG_MODE_INFO — 64; с запасом.
+            var pathBuffer = System.Runtime.InteropServices.Marshal.AllocHGlobal((int)Math.Max(1, paths) * 128);
+            var modeBuffer = System.Runtime.InteropServices.Marshal.AllocHGlobal((int)Math.Max(1, modes) * 128);
+            try
+            {
+                return QueryDisplayConfig(QdcDatabaseCurrent, ref paths, pathBuffer, ref modes, modeBuffer, out var topology) == 0
+                       && topology == TopologyClone;
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(pathBuffer);
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(modeBuffer);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Проверка режима экранов Windows не удалась: {ex.Message}", "CUSTOMER_DISPLAY");
+            return false;
+        }
+    }
+
+    /// <summary>Переключает Windows в «Расширить эти экраны» (как Win+P → «Расширить»).</summary>
+    public static bool TryExtendWindowsDisplays()
+    {
+        try
+        {
+            var exe = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "DisplaySwitch.exe");
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, "/extend") { UseShellExecute = false })?.Dispose();
+            PosLogger.Log("Экраны Windows переключены в режим «Расширить» по согласию кассира.", "CUSTOMER_DISPLAY");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Не удалось переключить экраны в «Расширить»: {ex.Message}", "CUSTOMER_DISPLAY");
+            return false;
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetDisplayConfigBufferSizes(uint flags, out uint numPathArrayElements, out uint numModeInfoArrayElements);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int QueryDisplayConfig(uint flags, ref uint numPathArrayElements, IntPtr pathArray,
+        ref uint numModeInfoArrayElements, IntPtr modeInfoArray, out int currentTopologyId);
+
     public CustomerDisplayOpenResult OpenForSession(Window owner) =>
         OpenOnSecondaryScreen(owner, respectEnabledSetting: true);
 
@@ -122,7 +183,9 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
                 _window.Hide();
             return new CustomerDisplayOpenResult(
                 false,
-                "Второй монитор не найден. Экран покупателя не открыт поверх кассы.");
+                IsWindowsDisplayCloned()
+                    ? "Задний экран повторяет экран кассы (Windows: «Дублировать эти экраны») — покупатель видит экран кассира, а не цену. Нужен режим «Расширить эти экраны»."
+                    : "Второй монитор не найден. Экран покупателя не открыт поверх кассы.");
         }
 
         var settings = preferences.CustomerDisplay.Clone();

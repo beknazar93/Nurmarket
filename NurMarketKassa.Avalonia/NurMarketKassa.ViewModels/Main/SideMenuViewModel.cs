@@ -154,7 +154,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     /// два пункта меню, которые остаются доступны на любом тарифе.
     /// </summary>
     public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProcurement) ?? true)
-                                    && NurMarketKassa.Services.AppMode.OwnerSectionsInKassa;
+                                    && NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
     public bool CanViewSettings => _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
 
     /// <summary>2026-09-07: остальные пункты меню (кроме Склада/Настроек — см. CanViewWarehouse
@@ -280,7 +280,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
         // (см. AppMode.OwnerSectionsInKassa).
-        var owner = NurMarketKassa.Services.AppMode.OwnerSectionsInKassa;
+        var owner = NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
         OnPropertyChanged(nameof(CanViewWarehouse));
         CanViewStaffTimesheet = NurMarketKassa.Services.UserPreferences.Instance.StaffTimesheetUnlocked;
         CanViewReturn = (_permissions?.HasPermission(PosPermissions.EmployeeReturn) ?? true) && !isStart;

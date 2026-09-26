@@ -206,6 +206,13 @@
 
                         <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
 
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="PoleDisplayProtocolLabel" x:FieldModifier="public" Text="Тип табло" Classes="FieldLabel"/>
+                            <ComboBox x:Name="PoleDisplayProtocolCombo" x:FieldModifier="public"
+                                      Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36"
+                                      IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
+                        </StackPanel>
+
                         <Grid ColumnDefinitions="*,16,*">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayPort}" Classes="FieldLabel"/>
@@ -216,21 +223,35 @@
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="{DynamicResource posSettings.scale.baudRate}" Classes="FieldLabel"/>
                                 <TextBox x:Name="PoleDisplayBaudBox" x:FieldModifier="public"
-                                         Text="9600" Classes="ModernTextBox" Height="36"
+                                         Text="2400" Classes="ModernTextBox" Height="36"
                                          IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
                             </StackPanel>
                         </Grid>
 
                         <StackPanel Spacing="8" Margin="0,4,0,0">
-                            <Button x:Name="TestPoleDisplayButton"
-                                    x:FieldModifier="public"
-                                    Content="{DynamicResource posSettings.scale.poleDisplayTest}"
-                                    Classes="ScaleGoldButton"
-                                    IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Center"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button x:Name="TestPoleDisplayButton"
+                                        x:FieldModifier="public"
+                                        Content="{DynamicResource posSettings.scale.poleDisplayTest}"
+                                        Classes="ScaleGoldButton"
+                                        IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"/>
+                                <!-- 2026-09-26: перебор COM-портов и скоростей для цифрового табло
+                                     (см. PoleDisplayService.ProbeLedAsync). -->
+                                <Button x:Name="FindPoleDisplayButton"
+                                        x:FieldModifier="public"
+                                        Content="Найти табло"
+                                        Classes="ScaleGoldButton"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"/>
+                            </StackPanel>
+
+                            <WrapPanel x:Name="PoleDisplayProbePanel" x:FieldModifier="public" IsVisible="False" Orientation="Horizontal"/>
 
                             <Border x:Name="PoleDisplayAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
                                 <TextBlock x:Name="PoleDisplayAlertText" x:FieldModifier="public"

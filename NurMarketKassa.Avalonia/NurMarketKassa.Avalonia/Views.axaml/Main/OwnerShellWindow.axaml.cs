@@ -17,6 +17,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
@@ -26,7 +27,8 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 
 /// <summary>Главное окно программы владельца «NurMarket Владелец» (2026-09-26, разделение программ,
 /// см. <see cref="AppMode"/>). Разделы слева — те же окна, что раньше открывались из меню кассы
-/// (склад, продажи, финансы, зарплата, ABC, клиенты, CRM…), с теми же проверками прав и тарифа.
+/// (склад, продажи, финансы, зарплата, ABC, клиенты, CRM…), с теми же проверками прав и тарифа;
+/// раздел занимает правую часть этого окна (см. «разделы в окне» ниже).
 /// Справа — сводка за день/неделю/месяц с сервера NurCRM: показатели со сравнением с прошлым
 /// периодом, выручка по дням, способы оплаты, последние продажи и лучшие товары. Обновляется
 /// каждые 20 секунд: продажа, пробитая на кассе, появляется здесь без отдельной синхронизации.</summary>
@@ -79,6 +81,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         };
         Tr.LanguageChanged += OnLanguageChanged;
         UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
+
+        Closing += (_, _) => CloseAllSections();
+        PositionChanged += (_, _) => SyncSectionBounds();
+        SectionHost.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                SyncSectionBounds();
+        };
+
         ApplyTexts();
     }
 
@@ -175,9 +186,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         ToolTip.SetTip(ThemeButton, Tr.T("Светлая / тёмная тема", "Жарык / караңгы тема", "Light / dark theme", "Açık / koyu tema", "Yorug' / qorong'i mavzu"));
         ToolTip.SetTip(LogoutButton, Tr.T("Выйти из учётной записи", "Эсептик жазуудан чыгуу", "Sign out", "Oturumu kapat", "Hisobdan chiqish"));
         ToolTip.SetTip(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
+        ToolTip.SetTip(CollapseButton, Tr.T("Свернуть / развернуть меню", "Менюну жыйноо / ачуу", "Collapse / expand menu", "Menüyü daralt / genişlet", "Menyuni yig'ish / yoyish"));
         UpdateThemeIcon();
 
         DashboardTitle.Text = Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish");
+        SectionLoadingText.Text = Tr.T("Открываем раздел…", "Бөлүм ачылууда…", "Opening…", "Açılıyor…", "Ochilmoqda…");
         var culture = UiCulture;
         var today = DateTime.Today.ToString("dddd, d MMMM yyyy", culture);
         DateText.Text = today.Length > 0 ? char.ToUpper(today[0], culture) + today[1..] : today;
@@ -204,6 +217,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         TopEmptyText.Text = Tr.T("Пока нечего показать", "Азырынча көрсөтө турган эч нерсе жок", "Nothing to show yet", "Henüz gösterilecek bir şey yok", "Hozircha ko'rsatadigan narsa yo'q");
 
         BuildNavigation();
+        if (_activeSection != null)
+            SectionTitleText.Text = TitleFor(_activeSection);
     }
 
     private static string Initials(string name)
@@ -219,19 +234,27 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void BuildNavigation()
     {
         NavPanel.Children.Clear();
+        _navButtons.Clear();
         var isStart = TariffGate.IsStartTariff;
         var pendingGroup = (string?)null;
 
+        var collapsed = UserPreferences.Instance.OwnerSidebarCollapsed;
+        ApplySidebarLayout(collapsed);
+
         void Group(string title) => pendingGroup = title;
 
-        void Add(string iconKey, string text, bool visible, Action open, bool active = false)
+        void Add(string key, string iconKey, string text, bool visible, Action open)
         {
+            _navTitles[key] = text;
             if (!visible)
                 return;
 
             if (pendingGroup != null)
             {
-                NavPanel.Children.Add(new TextBlock { Text = pendingGroup.ToUpper(UiCulture), Classes = { "navGroup" } });
+                // В свёрнутом меню вместо подписи группы — тонкая черта.
+                NavPanel.Children.Add(collapsed
+                    ? new Border { Height = 1, Margin = new Thickness(8, 10), Background = Brushes.Transparent, Classes = { "navGroupLine" } }
+                    : new TextBlock { Text = pendingGroup.ToUpper(UiCulture), Classes = { "navGroup" } });
                 pendingGroup = null;
             }
 
@@ -249,8 +272,14 @@ public partial class OwnerShellWindow : Window, IMainShell
             content.Children.Add(label);
 
             var button = new Button { Content = content, Classes = { "nav" } };
-            if (active)
-                button.Classes.Add("active");
+            ToolTip.SetTip(button, text);
+            if (collapsed)
+            {
+                label.IsVisible = false;
+                button.Padding = new Thickness(0);
+                button.HorizontalContentAlignment = HorizontalAlignment.Center;
+            }
+            _navButtons[key] = button;
             button.Click += (_, _) =>
             {
                 try
@@ -266,42 +295,269 @@ public partial class OwnerShellWindow : Window, IMainShell
             NavPanel.Children.Add(button);
         }
 
-        Add("HomeIcon", Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish"), true,
-            () => _ = RefreshAsync(), active: true);
+        Add("overview", "HomeIcon", Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish"), true,
+            () => ShowSection(null));
 
         Group(Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
-        Add("WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
-            () => { if (Authorize(PosPermissions.ViewProcurement)) Show<WarehouseWindow>(); });
-        Add("RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok ve SKT", "To'ldirish va muddatlar"), !isStart,
-            Show<RestockSuggestionsWindow>);
+        Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
+            () => { if (Authorize(PosPermissions.ViewProcurement)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
+        Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
+            () => OpenSection("calculator", () => new CalculatorWindow()));
+        Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok ve SKT", "To'ldirish va muddatlar"), !isStart,
+            () => OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()));
 
         Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuv va pul"));
-        Add("SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), !isStart,
-            () => { if (Authorize(PosPermissions.ViewSales)) Show<SalesWindow>(); });
-        Add("FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart, Show<FinanceWindow>);
-        Add("AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
-            () => { if (Authorize(PosPermissions.ViewSales)) Show<AbcAnalysisWindow>(); });
+        Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), !isStart,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
+        Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart,
+            () => OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()));
+        Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
 
         Group(Tr.T("Люди", "Адамдар", "People", "Kişiler", "Odamlar"));
-        Add("ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
-            () => { if (Authorize(PosPermissions.ViewSales)) Show<ClientsWindow>(); });
-        Add("SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
-            () => { if (Authorize(PosPermissions.ViewSettings)) SalaryWindow.Open(this); });
+        Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
+        Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 
         Group(Tr.T("Сервис", "Кызмат", "Service", "Hizmet", "Xizmat"));
-        Add("CrmIcon", "NurCRM", !isStart, Show<CrmWebViewWindow>);
-        Add("MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
-            () => { if (Authorize(PosPermissions.ViewSettings)) MarketplaceWindow.Open(this); });
-        Add("SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
-            () => { if (Authorize(PosPermissions.ViewSettings)) Show<PosSettingsWindow>(); });
+        Add("crm", "CrmIcon", "NurCRM", !isStart,
+            () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
+        Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow()); });
+        Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 
         Group(Tr.T("Помощь", "Жардам", "Help", "Yardım", "Yordam"));
-        Add("KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), !isStart, Show<KnowledgeBaseWindow>);
-        Add("RemoteSupportIcon", Tr.T("Тех. поддержка", "Техколдоо", "Support", "Destek", "Texnik yordam"), !isStart, Show<RemoteSupportWindow>);
-        Add("ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), !isStart, Show<LogsAndErrorsWindow>);
+        Add("kb", "KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), !isStart,
+            () => OpenSection("kb", () => App.GetRequiredService<KnowledgeBaseWindow>()));
+        Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Техколдоо", "Support", "Destek", "Texnik yordam"), !isStart,
+            () => OpenSection("support", () => App.GetRequiredService<RemoteSupportWindow>()));
+        Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), !isStart,
+            () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
+
+        UpdateNavHighlight();
     }
 
-    private void Show<T>() where T : Window => App.GetRequiredService<T>().Show(this);
+    // ------------------------------------------------------------------ свёрнутое меню
+
+    private void Collapse_Click(object? sender, RoutedEventArgs e)
+    {
+        var prefs = UserPreferences.Instance;
+        prefs.OwnerSidebarCollapsed = !prefs.OwnerSidebarCollapsed;
+        prefs.SaveToDisk();
+        BuildNavigation();
+    }
+
+    /// <summary>Свёрнутое меню — только иконки (подпись всплывает подсказкой), без карточки
+    /// компании и имени пользователя; правая часть окна и открытый раздел занимают освободившееся
+    /// место (SectionHost меняет размер — SyncSectionBounds двигает раздел).</summary>
+    private void ApplySidebarLayout(bool collapsed)
+    {
+        RootGrid.ColumnDefinitions[0].Width = new GridLength(collapsed ? 72 : 252);
+        LogoImage.IsVisible = !collapsed;
+        LogoTextPanel.IsVisible = !collapsed;
+        LogoGrid.Margin = collapsed ? new Thickness(0, 18, 0, 14) : new Thickness(18, 18, 12, 14);
+        LogoGrid.HorizontalAlignment = collapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        CompanyCard.IsVisible = !collapsed;
+        UserInfoPanel.IsVisible = !collapsed;
+        ThemeButton.IsVisible = !collapsed;
+        LogoutButton.IsVisible = !collapsed;
+        UserFooter.Padding = collapsed ? new Thickness(16, 12) : new Thickness(14, 12);
+        ToolTip.SetTip(AvatarText, collapsed ? UserNameText.Text : null);
+    }
+
+    // ------------------------------------------------------------------ разделы в окне
+
+    // 2026-09-26, просьба владельца: разделы не отдельными окнами поверх, а «целое окно меняется»
+    // при выборе пункта меню. Разделы — большие окна кассы (склад, финансы…) со своими диалогами,
+    // сканером, Esc и загрузкой при открытии; переписывать их в панели — большой риск для кассы,
+    // где они тоже работают. Поэтому окно раздела остаётся окном, но без рамки и принадлежит этому
+    // окну: оно лежит ровно поверх правой части, двигается и меняет размер вместе с ним. Слева
+    // остаётся меню, сверху — узкая полоса с названием раздела и кнопками окна. Раздел, открытый
+    // раньше, при переходе прячется, а не закрывается: вернуться в него можно сразу, как было.
+
+    private sealed class Section
+    {
+        public required string Key { get; init; }
+        public required Window Window { get; init; }
+    }
+
+    private readonly List<Section> _sections = new();
+    private readonly Dictionary<string, Button> _navButtons = new();
+    private readonly Dictionary<string, string> _navTitles = new();
+    private Section? _activeSection;
+    private bool _positioningSection;
+    private bool _closingAllSections;
+
+    private string TitleFor(Section section) =>
+        _navTitles.TryGetValue(section.Key, out var title) ? title : section.Window.Title ?? section.Key;
+
+    private void OpenSection(string key, Func<Window> create)
+    {
+        var existing = _sections.FirstOrDefault(s => s.Key == key);
+        if (existing != null)
+        {
+            ShowSection(existing);
+            return;
+        }
+
+        var window = create();
+        PrepareEmbeddedWindow(window);
+        var section = new Section { Key = key, Window = window };
+        window.Closed += (_, _) => OnSectionClosed(section);
+        _sections.Add(section);
+        PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» открыт.", "UI");
+        ShowSection(section);
+    }
+
+    /// <summary>Окно раздела без рамки, значка в панели задач и ограничений размера — его место
+    /// и размер задаёт SyncSectionBounds. Свои кнопки «свернуть/развернуть» у разделов с
+    /// нарисованной шапкой прячем: окно сворачивается и разворачивается целиком, кнопками сверху.</summary>
+    private void PrepareEmbeddedWindow(Window window)
+    {
+        window.SystemDecorations = SystemDecorations.None;
+        window.ExtendClientAreaToDecorationsHint = false;
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.SizeToContent = SizeToContent.Manual;
+        window.CanResize = false;
+        window.ShowInTaskbar = false;
+        window.Topmost = false;
+        window.MinWidth = 0;
+        window.MinHeight = 0;
+        window.MaxWidth = double.PositiveInfinity;
+        window.MaxHeight = double.PositiveInfinity;
+        window.WindowState = WindowState.Normal;
+
+        window.Opened += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            foreach (var button in window.GetVisualDescendants().OfType<Button>())
+            {
+                var classes = button.Classes;
+                if ((classes.Contains("WindowControlButton") && !classes.Contains("WindowCloseButton"))
+                    || (classes.Contains("caption") && !classes.Contains("close")))
+                    button.IsVisible = false;
+            }
+
+            SyncSectionBounds();
+        }, DispatcherPriority.Loaded);
+
+        // Раздел сам себя не двигает и не разворачивает: перетаскивание за его шапку или двойной
+        // щелчок возвращаем на место.
+        window.PositionChanged += (_, _) =>
+        {
+            if (!_positioningSection && ReferenceEquals(_activeSection?.Window, window))
+                Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Background);
+        };
+        window.PropertyChanged += (_, e) =>
+        {
+            if (e.Property != WindowStateProperty || _positioningSection || window.WindowState == WindowState.Normal)
+                return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (WindowState != WindowState.Minimized && ReferenceEquals(_activeSection?.Window, window))
+                {
+                    window.WindowState = WindowState.Normal;
+                    SyncSectionBounds();
+                }
+            }, DispatcherPriority.Background);
+        };
+    }
+
+    /// <summary>null — сводка. Иначе раздел занимает правую часть окна, шапка сжимается до
+    /// полосы с названием раздела и кнопками окна.</summary>
+    private void ShowSection(Section? section)
+    {
+        _activeSection = section;
+        foreach (var other in _sections)
+        {
+            if (!ReferenceEquals(other, section) && other.Window.IsVisible)
+                other.Window.Hide();
+        }
+
+        var overview = section == null;
+        OverviewScroll.IsVisible = overview;
+        OverviewTools.IsVisible = overview;
+        TitlePanel.IsVisible = overview;
+        SectionTitleText.IsVisible = !overview;
+        SectionHost.IsVisible = !overview;
+        HeaderGrid.Margin = overview ? new Thickness(28, 12, 10, 4) : new Thickness(24, 4, 10, 4);
+        if (section != null)
+            SectionTitleText.Text = TitleFor(section);
+        UpdateNavHighlight();
+        if (section == null)
+            return;
+
+        // Область раздела только что стала видимой — размеры у неё появятся после разметки.
+        UpdateLayout();
+        SyncSectionBounds();
+        if (!section.Window.IsVisible)
+            section.Window.Show(this);
+        section.Window.Activate();
+        Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
+    }
+
+    private void UpdateNavHighlight()
+    {
+        var activeKey = _activeSection?.Key ?? "overview";
+        foreach (var (key, button) in _navButtons)
+            button.Classes.Set("active", key == activeKey);
+    }
+
+    /// <summary>Кладёт окно открытого раздела ровно на правую часть окна.</summary>
+    private void SyncSectionBounds()
+    {
+        var section = _activeSection;
+        if (section == null || !IsVisible || WindowState == WindowState.Minimized || !SectionHost.IsVisible)
+            return;
+
+        var size = SectionHost.Bounds.Size;
+        if (size.Width < 50 || size.Height < 50)
+            return;
+
+        var topLeft = SectionHost.PointToScreen(new Point(0, 0));
+        var window = section.Window;
+        _positioningSection = true;
+        try
+        {
+            if (window.WindowState != WindowState.Normal)
+                window.WindowState = WindowState.Normal;
+            if (window.Position != topLeft)
+                window.Position = topLeft;
+            if (Math.Abs(window.Width - size.Width) > 0.5)
+                window.Width = size.Width;
+            if (Math.Abs(window.Height - size.Height) > 0.5)
+                window.Height = size.Height;
+        }
+        finally
+        {
+            _positioningSection = false;
+        }
+    }
+
+    /// <summary>Раздел закрылся сам (своя кнопка «закрыть», Esc) — возвращаемся к сводке.</summary>
+    private void OnSectionClosed(Section section)
+    {
+        if (!_sections.Remove(section) || _closingAllSections || !ReferenceEquals(_activeSection, section))
+            return;
+        ShowSection(null);
+    }
+
+    private void CloseAllSections()
+    {
+        _closingAllSections = true;
+        foreach (var section in _sections.ToList())
+        {
+            try
+            {
+                section.Window.Close();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Owner app: section close failed: {ex.Message}", "WARNING");
+            }
+        }
+    }
 
     private bool Authorize(string permission)
     {
@@ -921,7 +1177,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         base.OnPropertyChanged(change);
         if (change.Property == WindowStateProperty || change.Property == OffScreenMarginProperty)
+        {
             UpdateWindowChrome();
+            Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
+        }
     }
 
     /// <summary>Развёрнутое окно без системной рамки Windows сдвигает за край экрана на ширину
@@ -953,7 +1212,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void AllSales_Click(object? sender, RoutedEventArgs e)
     {
         if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewSales))
-            Show<SalesWindow>();
+            OpenSection("sales", () => App.GetRequiredService<SalesWindow>());
     }
 
     private void Theme_Click(object? sender, RoutedEventArgs e)
@@ -989,6 +1248,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             PosLogger.Log($"Owner app: logout cleanup failed: {ex.Message}", "WARNING");
         }
 
+        CloseAllSections();
         var login = App.GetRequiredService<LoginWindow>();
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             desktop.MainWindow = login;

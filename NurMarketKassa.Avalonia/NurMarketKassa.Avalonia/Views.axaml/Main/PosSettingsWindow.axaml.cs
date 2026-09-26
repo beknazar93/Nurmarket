@@ -58,6 +58,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private Button TestPoleDisplayButton => _scaleView.TestPoleDisplayButton;
         private Border PoleDisplayAlert => _scaleView.PoleDisplayAlert;
         private TextBlock PoleDisplayAlertText => _scaleView.PoleDisplayAlertText;
+        private ComboBox PoleDisplayProtocolCombo => _scaleView.PoleDisplayProtocolCombo;
+        private Button FindPoleDisplayButton => _scaleView.FindPoleDisplayButton;
+        private WrapPanel PoleDisplayProbePanel => _scaleView.PoleDisplayProbePanel;
 
         // --- Print ---
         private CheckBox ReceiptEnabledCheck => _printView.ReceiptEnabledCheck;
@@ -194,6 +197,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             PoleDisplayEnabledCheck.IsChecked = prefs.PoleDisplayEnabled;
             PoleDisplayBaudBox.Text = prefs.PoleDisplayBaudRate.ToString();
+            _scaleView.PoleDisplayProtocolLabel.Text = Tr.T("Тип табло", "Табло түрү", "Display type", "Ekran türü", "Tablo turi");
+            FindPoleDisplayButton.Content = Tr.T("Найти табло", "Таблону табуу", "Find display", "Ekranı bul", "Tabloni topish");
+            PoleDisplayProtocolCombo.ItemsSource = new[]
+            {
+                new ComboBoxItem
+                {
+                    Tag = PoleDisplayService.ProtocolLed,
+                    Content = Tr.T("Цифровое табло «0.00» (8 цифр, LED)", "Сандык табло «0.00» (8 сан, LED)",
+                        "Numeric display “0.00” (8 digits, LED)", "Sayısal ekran “0.00” (8 hane, LED)", "Raqamli tablo «0.00» (8 raqam, LED)"),
+                },
+                new ComboBoxItem
+                {
+                    Tag = PoleDisplayService.ProtocolText,
+                    Content = Tr.T("Текстовый дисплей, 2 строки (CD5220)", "Тексттик дисплей, 2 сап (CD5220)",
+                        "Text display, 2 lines (CD5220)", "Metin ekranı, 2 satır (CD5220)", "Matnli displey, 2 qator (CD5220)"),
+                },
+            };
+            SelectComboByTag(PoleDisplayProtocolCombo, PoleDisplayService.NormalizeProtocol(prefs.PoleDisplayProtocol));
 
             ReceiptEnabledCheck.IsChecked = prefs.ReceiptEnabled;
             ReceiptLptBox.Text = prefs.ReceiptDevicePath;
@@ -333,6 +354,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _scaleView.CheckScaleButton.Click += CheckScale_Click;
             _scaleView.SaveRequested += ScaleSaveRequested;
             TestPoleDisplayButton.Click += TestPoleDisplay_Click;
+            FindPoleDisplayButton.Click += FindPoleDisplay_Click;
 
             ReceiptLptBox.TextChanged += ReceiptLptBox_TextChanged;
             BtnFindPrinters.Click += FindPrinters_Click;
@@ -925,7 +947,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.PoleDisplayEnabled = PoleDisplayEnabledCheck.IsChecked == true;
             prefs.PoleDisplayComPort = GetSelectedPoleDisplayComPort();
             int.TryParse(PoleDisplayBaudBox.Text?.Trim(), out int poleDisplayBaud);
-            prefs.PoleDisplayBaudRate = poleDisplayBaud > 0 ? poleDisplayBaud : 9600;
+            prefs.PoleDisplayBaudRate = poleDisplayBaud > 0 ? poleDisplayBaud : 2400;
+            prefs.PoleDisplayProtocol = PoleDisplayService.NormalizeProtocol(
+                (PoleDisplayProtocolCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString());
 
             prefs.SaveToDisk();
 
@@ -1318,12 +1342,108 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
             }
 
-            var sent = display.ShowTest();
-            ShowPoleDisplayAlert(
-                sent
-                    ? "Тестовая строка отправлена. Проверьте, показалось ли что-то на экране устройства — если нет, протокол этой модели отличается от CD5220."
-                    : $"Не удалось отправить: {display.Status}.",
-                !sent);
+            var (sent, message) = display.ShowTest();
+            ShowPoleDisplayAlert(sent ? message : $"Не удалось отправить: {message}", !sent);
+        }
+
+        private CancellationTokenSource? _poleProbeCts;
+
+        /// <summary>«Найти табло» (2026-09-26): на каждый COM-порт уходит число-метка порт.скорость
+        /// (3.2400 = COM3, 2400 бод). Табло принимает только свой вариант — его номер и остаётся на
+        /// экране; кассир нажимает кнопку с этим номером, и порт со скоростью подставляются сами.</summary>
+        private async void FindPoleDisplay_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_poleProbeCts != null)
+            {
+                _poleProbeCts.Cancel();
+                return;
+            }
+
+            var prefs = UserPreferences.Instance;
+            var skip = new List<string>();
+            if (prefs.ScaleEnabled)
+                skip.Add(HardwarePortHelper.NormalizeComPort(prefs.ScaleComPort, ""));
+            if (prefs.ReceiptEnabled)
+                skip.Add(prefs.ReceiptDevicePath);
+
+            // На время перебора отпускаем порт табло, чтобы запись из корзины не мешала.
+            PoleDisplayService.Instance.Stop();
+            _poleProbeCts = new CancellationTokenSource();
+            FindPoleDisplayButton.Content = Tr.T("Остановить", "Токтотуу", "Stop", "Durdur", "To'xtatish");
+            PoleDisplayProbePanel.Children.Clear();
+            PoleDisplayProbePanel.IsVisible = false;
+            try
+            {
+                var probes = await PoleDisplayService.ProbeLedAsync(skip,
+                    status => Dispatcher.UIThread.Post(() => ShowPoleDisplayAlert("Идёт поиск: " + status, false)),
+                    _poleProbeCts.Token).ConfigureAwait(true);
+
+                var reachable = probes.Where(p => p.Error == null).ToList();
+                if (reachable.Count == 0)
+                {
+                    ShowPoleDisplayAlert(probes.Count == 0
+                        ? "COM-портов не найдено (кроме портов принтера и весов). Табло подключено по USB? Выберите его в списке «Устройство»."
+                        : "Ни один COM-порт не открылся: " + string.Join("; ", probes.Select(p => $"{p.Port}: {p.Error}").Distinct()), true);
+                    return;
+                }
+
+                ShowPoleDisplayAlert(
+                    "Посмотрите на табло: на нём осталось число подошедшего варианта (например, 3.2400 — это COM3, 2400 бод). " +
+                    "Нажмите кнопку с этим числом, затем «Сохранить». Если табло так и показывает 0.00 — выберите «Текстовый дисплей» и попробуйте «Тест».",
+                    false);
+                foreach (var probe in reachable)
+                {
+                    var button = new Button
+                    {
+                        Content = $"{probe.Label}  ({probe.Port}, {probe.BaudRate})",
+                        Margin = new Thickness(0, 0, 8, 8),
+                    };
+                    var chosen = probe;
+                    button.Click += (_, _) => ApplyPoleDisplayProbe(chosen);
+                    PoleDisplayProbePanel.Children.Add(button);
+                }
+
+                PoleDisplayProbePanel.IsVisible = true;
+            }
+            catch (OperationCanceledException)
+            {
+                ShowPoleDisplayAlert("Поиск остановлен.", false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Дисплей цены: поиск не удался: {ex}", "POLE_DISPLAY");
+                ShowPoleDisplayAlert("Поиск не удался: " + ex.Message, true);
+            }
+            finally
+            {
+                _poleProbeCts.Dispose();
+                _poleProbeCts = null;
+                FindPoleDisplayButton.Content = Tr.T("Найти табло", "Таблону табуу", "Find display", "Ekranı bul", "Tabloni topish");
+                PoleDisplayService.Instance.Start();
+            }
+        }
+
+        private void ApplyPoleDisplayProbe(PoleDisplayProbe probe)
+        {
+            PoleDisplayEnabledCheck.IsChecked = true;
+            SelectComboByTag(PoleDisplayProtocolCombo, PoleDisplayService.ProtocolLed);
+            PoleDisplayBaudBox.Text = probe.BaudRate.ToString(CultureInfo.InvariantCulture);
+
+            if (PoleDisplayComCombo.ItemsSource is IEnumerable<DiscoveredPrinter> items)
+            {
+                var list = items.ToList();
+                var match = list.FirstOrDefault(p => string.Equals(p.DevicePath, probe.Port, StringComparison.OrdinalIgnoreCase));
+                if (match == null)
+                {
+                    match = new DiscoveredPrinter($"🔌 {probe.Port}", probe.Port);
+                    list.Insert(0, match);
+                    PoleDisplayComCombo.ItemsSource = list;
+                }
+
+                PoleDisplayComCombo.SelectedItem = match;
+            }
+
+            ShowPoleDisplayAlert($"Выбрано: {probe.Port}, {probe.BaudRate} бод, цифровое табло. Нажмите «Сохранить».", false);
         }
 
         private void ShowPoleDisplayAlert(string message, bool isError)

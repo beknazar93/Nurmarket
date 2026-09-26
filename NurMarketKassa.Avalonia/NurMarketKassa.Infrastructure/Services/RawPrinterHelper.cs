@@ -338,6 +338,52 @@ public static class RawPrinterHelper
         }
     }
 
+    private static readonly TimeSpan OwnStaleJobAge = TimeSpan.FromSeconds(30);
+
+    /// <summary>2026-09-26, фото из магазина: в очереди POS58 висел чек «Receipt» в состоянии
+    /// «Печать, Ошибка». Такой чек уже не нужен — продажа проведена, кассиру сказали «не напечатан»
+    /// (или его оставила старая версия кассы). Но он стоит первым, и очередь за ним не двигается:
+    /// WaitForJob снимал каждый НОВЫЙ чек как застрявший, а старый оставался — печать не
+    /// возвращалась даже после починки принтера. Перед новым чеком убираем свои старые задания
+    /// (только наши имена документов — чужие не трогаем).</summary>
+    private static void PurgeOwnStaleJobs(IntPtr hPrinter)
+    {
+        EnumJobs(hPrinter, 0, 64, 1, IntPtr.Zero, 0, out var needed, out _);
+        if (needed == 0)
+            return;
+
+        var buffer = Marshal.AllocHGlobal((int)needed);
+        try
+        {
+            if (!EnumJobs(hPrinter, 0, 64, 1, buffer, needed, out _, out var returned))
+                return;
+
+            var size = Marshal.SizeOf<JOB_INFO_1>();
+            for (var i = 0; i < returned; i++)
+            {
+                var job = Marshal.PtrToStructure<JOB_INFO_1>(buffer + i * size);
+                var document = job.pDocument == IntPtr.Zero ? null : Marshal.PtrToStringUni(job.pDocument);
+                if (document is not ("Receipt" or KeepAliveDocumentName or "NurMarket drawer"))
+                    continue;
+                if (job.Submitted.ToUtc() is not { } submitted || DateTime.UtcNow - submitted < OwnStaleJobAge)
+                    continue;
+
+                var ok = SetJob(hPrinter, job.JobId, 0, IntPtr.Zero, JobControlDelete);
+                PosLogger.Log(ok
+                    ? $"Принтер: из очереди убран старый чек «{document}» (задание {job.JobId}, стоял {(DateTime.UtcNow - submitted).TotalMinutes:0} мин) — он держал очередь."
+                    : $"Принтер: старый чек «{document}» (задание {job.JobId}) убрать не удалось (Win32 {Marshal.GetLastWin32Error()}).", "PRINTER");
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Принтер: проверка старых заданий не удалась: {ex.Message}", "PRINTER");
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
     /// <summary>Сколько стоит в очереди самое старое задание, кроме нашего (null — таких нет).</summary>
     private static TimeSpan? OldestOtherJobAge(IntPtr hPrinter, uint ourJobId)
     {
@@ -418,6 +464,7 @@ public static class RawPrinterHelper
         {
             var hPrinter = printer.DangerousGetHandle();
             WakeUpIfSleepingOrPaused(printerName, hPrinter);
+            PurgeOwnStaleJobs(hPrinter);
 
             var jobId = WriteDocument(hPrinter, bytes, "Receipt", out win32Error);
             if (jobId == 0)

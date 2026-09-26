@@ -78,8 +78,11 @@ public sealed class UserPreferences
     // Дисплей цены покупателя (отдельная COM-коробочка, не второй монитор — см.
     // PoleDisplayService, 2026-09-04)
     public string PoleDisplayComPort { get; set; } = "COM3";
-    public int PoleDisplayBaudRate { get; set; } = 9600;
+    public int PoleDisplayBaudRate { get; set; } = 2400;
     public bool PoleDisplayEnabled { get; set; }
+    /// <summary>«led» — цифровое табло на 8 цифр (LED8N, как на корпусе CY25), «text» — текстовый
+    /// дисплей 2×20 (CD5220). См. PoleDisplayService.</summary>
+    public string PoleDisplayProtocol { get; set; } = "led";
 
     // Принтер – общие настройки
     public string ReceiptDevicePath { get; set; } = "LPT1";
@@ -454,6 +457,8 @@ public sealed class UserPreferences
     public bool LastFilterOnlyPiece { get; set; }
     public bool LastFilterOnlyInStock { get; set; }
     public bool LastFilterOnlyFavorite { get; set; }
+    /// <summary>Программа владельца: левое меню свёрнуто до иконок (бургер-кнопка).</summary>
+    public bool OwnerSidebarCollapsed { get; set; }
     public string? LastFilterSearchQuery { get; set; }
     public string LastFilterCatalogKind { get; set; } = "Все";
     public double? LastFilterPriceMin { get; set; }
@@ -544,6 +549,19 @@ public sealed class UserPreferences
             if (fromFile.PoleDisplayBaudRate is > 0)
                 p.PoleDisplayBaudRate = fromFile.PoleDisplayBaudRate.Value;
             p.PoleDisplayEnabled = fromFile.PoleDisplayEnabled ?? p.PoleDisplayEnabled;
+            if (fromFile.PoleDisplayProtocol is null)
+            {
+                // Настройки до 1.17.16: касса умела только текст CD5220 и писала в порт на 9600 при
+                // любой скорости в поле, так что сохранённые 9600 — просто прежнее значение по
+                // умолчанию. Цифровые табло (LED8N) по умолчанию работают на 2400.
+                p.PoleDisplayProtocol = "led";
+                if (p.PoleDisplayBaudRate == 9600)
+                    p.PoleDisplayBaudRate = 2400;
+            }
+            else
+            {
+                p.PoleDisplayProtocol = fromFile.PoleDisplayProtocol;
+            }
             p.ScaleRequestHex = fromFile.ScaleRequestHex ?? p.ScaleRequestHex;
             if (fromFile.ScalePollMs is >= 0)
                 p.ScalePollMs = fromFile.ScalePollMs.Value;
@@ -796,6 +814,7 @@ public sealed class UserPreferences
             if (fromFile.LastFilterOnlyPiece.HasValue) p.LastFilterOnlyPiece = fromFile.LastFilterOnlyPiece.Value;
             if (fromFile.LastFilterOnlyInStock.HasValue) p.LastFilterOnlyInStock = fromFile.LastFilterOnlyInStock.Value;
             if (fromFile.LastFilterOnlyFavorite.HasValue) p.LastFilterOnlyFavorite = fromFile.LastFilterOnlyFavorite.Value;
+            if (fromFile.OwnerSidebarCollapsed.HasValue) p.OwnerSidebarCollapsed = fromFile.OwnerSidebarCollapsed.Value;
             if (fromFile.LastFilterSearchQuery is not null) p.LastFilterSearchQuery = fromFile.LastFilterSearchQuery;
             if (!string.IsNullOrWhiteSpace(fromFile.LastFilterCatalogKind)) p.LastFilterCatalogKind = fromFile.LastFilterCatalogKind;
             if (fromFile.LastFilterPriceMin.HasValue) p.LastFilterPriceMin = fromFile.LastFilterPriceMin;
@@ -873,6 +892,7 @@ public sealed class UserPreferences
                 PoleDisplayComPort = PoleDisplayComPort,
                 PoleDisplayBaudRate = PoleDisplayBaudRate,
                 PoleDisplayEnabled = PoleDisplayEnabled,
+                PoleDisplayProtocol = PoleDisplayProtocol,
                 ScaleRequestHex = ScaleRequestHex,
                 ScalePollMs = ScalePollMs,
                 ReceiptDevicePath = ReceiptDevicePath,
@@ -979,6 +999,7 @@ public sealed class UserPreferences
                 LastFilterOnlyPiece = LastFilterOnlyPiece,
                 LastFilterOnlyInStock = LastFilterOnlyInStock,
                 LastFilterOnlyFavorite = LastFilterOnlyFavorite,
+                OwnerSidebarCollapsed = OwnerSidebarCollapsed,
                 LastFilterSearchQuery = LastFilterSearchQuery,
                 LastFilterCatalogKind = LastFilterCatalogKind,
                 LastFilterPriceMin = LastFilterPriceMin,
@@ -1070,6 +1091,7 @@ public sealed class UserPreferences
         public string? PoleDisplayComPort { get; set; }
         public int? PoleDisplayBaudRate { get; set; }
         public bool? PoleDisplayEnabled { get; set; }
+        public string? PoleDisplayProtocol { get; set; }
         public string? ScaleRequestHex { get; set; }
         public int? ScalePollMs { get; set; }
         public string? ReceiptDevicePath { get; set; }
@@ -1177,6 +1199,7 @@ public sealed class UserPreferences
         public bool? LastFilterOnlyPiece { get; set; }
         public bool? LastFilterOnlyInStock { get; set; }
         public bool? LastFilterOnlyFavorite { get; set; }
+        public bool? OwnerSidebarCollapsed { get; set; }
         public string? LastFilterSearchQuery { get; set; }
         public string? LastFilterCatalogKind { get; set; }
         public double? LastFilterPriceMin { get; set; }

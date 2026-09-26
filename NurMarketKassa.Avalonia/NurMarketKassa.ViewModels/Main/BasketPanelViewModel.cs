@@ -194,6 +194,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// поправляет локальное состояние/тулбар той же логикой, что и обычное закрытие смены.</summary>
     public event EventHandler? ShiftDesyncDetected;
 
+    /// <summary>Вызывается перед оплатой (на UI-потоке). Если смены нет — окно кассы сверяется с
+    /// сервером и при необходимости открывает смену; false — платить нельзя.</summary>
+    public Func<Task<bool>>? EnsureShiftBeforePayment { get; set; }
+
     /// <summary>Оплата прошла (на UI-потоке). Окно кассы по нему подтягивает остаток смены.</summary>
     public event EventHandler? CheckoutSucceeded;
 
@@ -904,6 +908,16 @@ public sealed class BasketPanelViewModel : ViewModelBase
         }
 
         PosLogger.Log("PAY start", "PAYMENT");
+
+        // 2026-09-26, лог магазина: после ответа «Смена не открыта» касса сбрасывала смену, но
+        // следующее «Оплатить» снова шло без смены — и так раз за разом, пока кассир сам не
+        // нажмёт «Открыть смену» или не отсканирует новый товар. Теперь без смены оплата сначала
+        // сверяется с сервером и при необходимости предлагает открыть смену.
+        if (EnsureShiftBeforePayment is { } ensureShift && !await ensureShift().ConfigureAwait(true))
+        {
+            PosLogger.Log("PAY aborted: shift not open", "PAYMENT");
+            return;
+        }
 
         // Захватываем ID сессии ДО сетевого запроса оплаты: пока он в полёте (может занять
         // секунду и больше), UI-поток свободен, и кассир вполне может успеть переключиться на

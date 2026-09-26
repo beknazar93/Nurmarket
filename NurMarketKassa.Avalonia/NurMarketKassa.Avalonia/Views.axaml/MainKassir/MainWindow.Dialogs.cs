@@ -1105,6 +1105,34 @@ public partial class MainWindow
         };
 
         var auth = App.GetRequiredService<IOnlineOfflineAuthenticationService>();
+        // 2026-09-26: LoginAsync с rememberMe: false СТИРАЕТ сохранённый вход кассы — после любой
+        // смены кассира следующий запуск кассы открывался на окне входа (живой случай). Запоминаем
+        // сохранённый вход и в конце кладём на место нужный: нового кассира или прежний.
+        var sessionStore = App.GetRequiredService<IAuthSessionManager>();
+        UserSession? savedBefore = null;
+        try
+        {
+            savedBefore = await sessionStore.LoadSessionAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Смена кассира: сохранённый вход не прочитан: {ex.Message}", "AUTH");
+        }
+
+        async Task RestoreSavedLoginAsync()
+        {
+            if (savedBefore == null)
+                return;
+            try
+            {
+                await sessionStore.SaveSessionAsync(savedBefore).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена кассира: прежний сохранённый вход не восстановлен: {ex.Message}", "AUTH");
+            }
+        }
+
         AuthenticationResult result;
         try
         {
@@ -1113,6 +1141,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            await RestoreSavedLoginAsync().ConfigureAwait(true);
             api.RestoreOfflineSession(oldSnapshot);
             return (SwitchCashierOutcome.InvalidCredentials,
                 Tr.T($"Не удалось выполнить вход: {ex.Message}", $"Кирүү мүмкүн болгон жок: {ex.Message}",
@@ -1124,6 +1153,7 @@ public partial class MainWindow
             // На всякий случай восстанавливаем снимок даже при "мягких" отказах (сеть/сервер) —
             // LoginAsync их не трогает, но явное восстановление здесь безопаснее, чем полагаться
             // на то, что реализация никогда не изменится.
+            await RestoreSavedLoginAsync().ConfigureAwait(true);
             api.RestoreOfflineSession(oldSnapshot);
             return (SwitchCashierOutcome.InvalidCredentials, result.ErrorMessage);
         }
@@ -1152,12 +1182,25 @@ public partial class MainWindow
             {
                 // Кассир отменил закрытие смены (или не подтвердил потерю незавершённого чека) —
                 // остаёмся под старым кассиром, ничего больше не трогаем.
+                await RestoreSavedLoginAsync().ConfigureAwait(true);
                 return (SwitchCashierOutcome.Cancelled, null);
             }
         }
 
         // Смена закрыта (или её не было) — переключаемся на нового кассира.
         api.RestoreOfflineSession(newSnapshot);
+        // Касса запоминала вход до смены кассира — теперь запоминает нового кассира.
+        if (savedBefore != null)
+        {
+            try
+            {
+                await sessionStore.SaveSessionAsync(newSession).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена кассира: вход нового кассира не сохранён: {ex.Message}", "AUTH");
+            }
+        }
         _session.CurrentUserId = newSession.UserId;
         _session.CurrentUserDisplayName = newSession.DisplayName;
         _session.PosCashboxDisplayName = newSession.DisplayName;

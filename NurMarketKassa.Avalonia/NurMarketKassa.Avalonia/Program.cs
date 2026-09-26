@@ -23,7 +23,13 @@ internal static class Program
         // Must run first, before any other startup logic: on install/update/uninstall,
         // Velopack relaunches the exe with special flags to create/remove shortcuts etc.,
         // and this handles + exits on those without ever reaching the Avalonia UI.
-        VelopackApp.Build().Run();
+        // Программа владельца ставится вместе с кассой (тот же exe с ключом --owner): её ярлык
+        // появляется при установке и при обновлении, уходит при удалении (см. OwnerShortcuts).
+        VelopackApp.Build()
+            .OnAfterInstallFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureCreated(evenIfCreatedBefore: true))
+            .OnAfterUpdateFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureCreated(evenIfCreatedBefore: false))
+            .OnBeforeUninstallFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.Remove())
+            .Run();
 
         // Касса или программа владельца — до любых путей к данным и общесистемных имён (AppMode).
         NurMarketKassa.Services.AppMode.Initialize(args);
