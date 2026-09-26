@@ -146,6 +146,7 @@ public static class RawPrinterHelper
     private const uint JobControlDelete = 5;
     private const uint JobStatusPaused = 0x0001;
     private const uint JobStatusError = 0x0002;
+    private const uint JobStatusDeleting = 0x0004;
     private const uint JobStatusOffline = 0x0020;
     private const uint JobStatusPaperOut = 0x0040;
     private const uint JobStatusPrinted = 0x0080;
@@ -346,8 +347,13 @@ public static class RawPrinterHelper
     /// WaitForJob снимал каждый НОВЫЙ чек как застрявший, а старый оставался — печать не
     /// возвращалась даже после починки принтера. Перед новым чеком убираем свои старые задания
     /// (только наши имена документов — чужие не трогаем).</summary>
-    private static void PurgeOwnStaleJobs(IntPtr hPrinter)
+    private static void PurgeOwnStaleJobs(string printerName)
     {
+        if (!TryOpen(printerName, out var printer, out _))
+            return;
+
+        using var purgeHandle = printer;
+        var hPrinter = printer.DangerousGetHandle();
         EnumJobs(hPrinter, 0, 64, 1, IntPtr.Zero, 0, out var needed, out _);
         if (needed == 0)
             return;
@@ -364,6 +370,9 @@ public static class RawPrinterHelper
                 var job = Marshal.PtrToStructure<JOB_INFO_1>(buffer + i * size);
                 var document = job.pDocument == IntPtr.Zero ? null : Marshal.PtrToStringUni(job.pDocument);
                 if (document is not ("Receipt" or KeepAliveDocumentName or "NurMarket drawer"))
+                    continue;
+                // Уже удаляется (Windows доудалит, когда отпустит порт) — второй раз не трогаем.
+                if ((job.Status & JobStatusDeleting) != 0)
                     continue;
                 if (job.Submitted.ToUtc() is not { } submitted || DateTime.UtcNow - submitted < OwnStaleJobAge)
                     continue;
@@ -460,11 +469,14 @@ public static class RawPrinterHelper
         if (!TryOpen(printerName, out var printer, out win32Error))
             return JobOutcome.NotAccepted;
 
+        // Чистка — своим открытием принтера: после SetJob(удалить) на том же дескрипторе Windows
+        // отказывала в записи нового чека (Win32 63, «задание отменено») — проверено стендом.
+        PurgeOwnStaleJobs(printerName);
+
         using (printer)
         {
             var hPrinter = printer.DangerousGetHandle();
             WakeUpIfSleepingOrPaused(printerName, hPrinter);
-            PurgeOwnStaleJobs(hPrinter);
 
             var jobId = WriteDocument(hPrinter, bytes, "Receipt", out win32Error);
             if (jobId == 0)

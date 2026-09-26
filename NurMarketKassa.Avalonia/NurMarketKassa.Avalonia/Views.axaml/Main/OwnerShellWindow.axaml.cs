@@ -339,6 +339,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), !isStart,
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
 
+        // Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).
+        Group(Tr.T("Система", "Система", "System", "Sistem", "Tizim"));
+        Add("exit", "PowerIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
+            () =>
+            {
+                App.ExitWithoutLoginRedirect = true;
+                Close();
+            });
+
         UpdateNavHighlight();
     }
 
