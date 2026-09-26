@@ -84,10 +84,13 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         Closing += (_, _) => CloseAllSections();
         PositionChanged += (_, _) => SyncSectionBounds();
+        // Не сразу, а после разметки: размер области раздела меняется раньше, чем её родитель
+        // встаёт на новое место (Avalonia ставит Bounds родителю после детей), и при сворачивании
+        // меню раздел ложился по старому краю — поверх меню (скриншот владельца 2026-09-26).
         SectionHost.PropertyChanged += (_, e) =>
         {
             if (e.Property == BoundsProperty)
-                SyncSectionBounds();
+                Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
         };
 
         ApplyTexts();
@@ -347,6 +350,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         prefs.OwnerSidebarCollapsed = !prefs.OwnerSidebarCollapsed;
         prefs.SaveToDisk();
         BuildNavigation();
+        Dispatcher.UIThread.Post(SyncSectionBounds, DispatcherPriority.Loaded);
     }
 
     /// <summary>Свёрнутое меню — только иконки (подпись всплывает подсказкой), без карточки
