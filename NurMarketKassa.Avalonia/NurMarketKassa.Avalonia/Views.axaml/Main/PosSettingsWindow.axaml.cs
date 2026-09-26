@@ -200,6 +200,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             PoleDisplayEnabledCheck.IsChecked = prefs.PoleDisplayEnabled;
             PoleDisplayBaudBox.Text = prefs.PoleDisplayBaudRate.ToString();
             _scaleView.PoleDisplayProtocolLabel.Text = Tr.T("Тип табло", "Табло түрү", "Display type", "Ekran türü", "Tablo turi");
+            _scaleView.PoleDisplayDescText.Text = Tr.T(
+                "Табло цены для покупателя на COM-порту (не второй монитор). Цифровое табло «0.00» (как на моноблоках CY25) обычно работает на 2400 бод; если не знаете порт — нажмите «Найти табло».",
+                "COM-порттогу сатып алуучу үчүн баа таблосу (экинчи монитор эмес). «0.00» сандык таблосу (CY25 моноблокторундагыдай) адатта 2400 бод менен иштейт; портту билбесеңиз — «Таблону табуу» баскычын басыңыз.",
+                "Customer price display on a COM port (not a second monitor). A numeric “0.00” display (as on CY25 terminals) usually runs at 2400 baud; if you don't know the port, press “Find display”.",
+                "COM portundaki müşteri fiyat ekranı (ikinci monitör değil). “0.00” sayısal ekran (CY25 cihazlarındaki gibi) genellikle 2400 baud ile çalışır; portu bilmiyorsanız “Ekranı bul”a basın.",
+                "COM portdagi xaridor narx tablosi (ikkinchi monitor emas). «0.00» raqamli tablo (CY25 monobloklaridagidek) odatda 2400 bod tezlikda ishlaydi; portni bilmasangiz — «Tabloni topish»ni bosing.");
             FindPoleDisplayButton.Content = Tr.T("Найти табло", "Таблону табуу", "Find display", "Ekranı bul", "Tabloni topish");
             PoleDisplayProtocolCombo.ItemsSource = new[]
             {

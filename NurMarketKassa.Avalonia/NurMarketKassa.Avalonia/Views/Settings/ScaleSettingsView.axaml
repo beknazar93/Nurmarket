@@ -235,7 +235,7 @@
                             <CheckBox x:Name="PoleDisplayEnabledCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
                             <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayTitle}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                         </StackPanel>
-                        <TextBlock Text="{DynamicResource posSettings.scale.poleDisplayDesc}"
+                        <TextBlock x:Name="PoleDisplayDescText" x:FieldModifier="public" Text="{DynamicResource posSettings.scale.poleDisplayDesc}"
                                    FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
 
                         <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
