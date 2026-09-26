@@ -121,7 +121,7 @@ public partial class LogsAndErrorsWindow : Window
 
     private static string LogDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "NurMarketKassa",
+        NurMarketKassa.Services.AppMode.DataFolderName,
         "Logs");
 
     private void LoadRows()

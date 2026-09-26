@@ -64,11 +64,25 @@ public static class ShiftBalanceHelper
     /// строку целиком — показать реальные цифры лучше, чем молча показать ноль.</summary>
     private static JsonElement? FindOpenShiftRow(JsonElement shiftsPayload, string? cashboxId)
     {
+        // 2026-09-26: на одной кассе могут быть открыты смены разных кассиров (см.
+        // ShiftHelper.PickOpenShiftId) — остаток показываем своей смены: сначала по её ID,
+        // чужие смены не берём вовсе.
+        var activeShiftId = PosApp.ActiveShiftId;
+        if (!string.IsNullOrWhiteSpace(activeShiftId))
+        {
+            foreach (var row in EnumerateRows(shiftsPayload))
+            {
+                if (RowLooksOpen(row)
+                    && string.Equals(CartDisplayHelper.TryCartId(row), activeShiftId, StringComparison.OrdinalIgnoreCase))
+                    return row;
+            }
+        }
+
         JsonElement? firstOpenAnyCashbox = null;
         var openCount = 0;
         foreach (var row in EnumerateRows(shiftsPayload))
         {
-            if (!RowLooksOpen(row))
+            if (!RowLooksOpen(row) || ShiftHelper.IsOtherCashiersShift(row, PosApp.CurrentUserId))
                 continue;
             openCount++;
             firstOpenAnyCashbox ??= row;
@@ -134,8 +148,18 @@ public static class ShiftBalanceHelper
             // как на вебке") — "sales_count" того же ответа, подтверждено рабочим кодом
             // FinanceWindow.ParseShiftRow.
             SalesCount = TryReadInt(shiftRow, "sales_count"),
+            OpenedAt = TryReadLocalTime(shiftRow, "opened_at"),
         };
     }
+
+    private static DateTime? TryReadLocalTime(JsonElement obj, string prop) =>
+        obj.ValueKind == JsonValueKind.Object
+        && obj.TryGetProperty(prop, out var v)
+        && v.ValueKind == JsonValueKind.String
+        && DateTimeOffset.TryParse(v.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dto)
+            ? dto.LocalDateTime
+            : null;
 
     private static int? TryReadInt(JsonElement obj, string prop)
     {
@@ -178,6 +202,8 @@ public static class ShiftBalanceHelper
         public decimal? ExpenseTotal { get; init; }
         public decimal? IncomeTotal { get; init; }
         public decimal? CashDiff { get; init; }
+        /// <summary>Когда смена открыта (opened_at) — для строки «Открыта» в отчёте закрытия.</summary>
+        public DateTime? OpenedAt { get; init; }
     }
 
     private static IEnumerable<JsonElement> EnumerateRows(JsonElement data)

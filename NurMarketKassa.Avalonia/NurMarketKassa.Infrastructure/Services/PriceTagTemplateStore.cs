@@ -11,7 +11,7 @@ public static class PriceTagTemplateStore
 {
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa", "price-tag-template.json");
+        NurMarketKassa.Services.AppMode.DataFolderName, "price-tag-template.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

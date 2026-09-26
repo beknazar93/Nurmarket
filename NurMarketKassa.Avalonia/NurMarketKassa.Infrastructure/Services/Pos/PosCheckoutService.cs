@@ -320,7 +320,11 @@ public sealed class PosCheckoutService : IPosCheckoutService
             }
 
             using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            prepareCts.CancelAfter(TimeSpan.FromSeconds(25));
+            // Перенос позиций на сервер идёт по одной, ~0,2 с на позицию. 2026-09-26, стресс-тест:
+            // чек на 144 позиции не успевал за прежние фиксированные 25 с и уходил в офлайн-очередь
+            // при живой связи. Даём время по размеру чека: 25 с + 0,35 с на позицию, не больше 3 мин.
+            var prepareLines = _cart.HasCart ? CartDisplayHelper.EnumerateItems(_cart.Root).Count() : 0;
+            prepareCts.CancelAfter(TimeSpan.FromSeconds(Math.Min(180, 25 + 0.35 * prepareLines)));
             try
             {
                 // Корзина уже на сервере (например, это повтор после неудачной попытки) —
@@ -528,23 +532,11 @@ public sealed class PosCheckoutService : IPosCheckoutService
         if (string.IsNullOrWhiteSpace(cartId))
             return false;
 
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var sale = await _salesApi.PosSaleGetAsync(cartId, cts.Token).ConfigureAwait(false);
-            if (sale.ValueKind != JsonValueKind.Object || !sale.TryGetProperty("status", out var statusEl)
-                || statusEl.ValueKind != JsonValueKind.String)
-                return false;
-
-            var alreadyApplied = !string.Equals(statusEl.GetString(), "new", StringComparison.OrdinalIgnoreCase);
-            PosLogger.Log($"Checkout reconciliation for {cartId}: status={statusEl.GetString()}, alreadyApplied={alreadyApplied}", "PAYMENT");
-            return alreadyApplied;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Checkout reconciliation check failed for {cartId}: {ex}", "PAYMENT");
-            return false;
-        }
+        // Статус корзины, а не продажи — см. CartSaleSessionHelper.GetCheckoutStateAsync: прежний
+        // запрос sales/{cartId} всегда давал 404, и оплата после тайм-аута считалась непрошедшей.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var state = await CartSaleSessionHelper.GetCheckoutStateAsync(_salesApi, cartId, cts.Token).ConfigureAwait(false);
+        return state == CartSaleSessionHelper.CartCheckoutState.Paid;
     }
 
     /// <summary>Sale уже проведена на сервере (см. WasCheckoutAlreadyAppliedAsync) — НЕ трогаем
@@ -940,6 +932,23 @@ public sealed class PosCheckoutService : IPosCheckoutService
                 try
                 {
                     var deal = await _salesApi.ClientDealGetAsync(clientId, dealId, cancellationToken).ConfigureAwait(false);
+
+                    // 2026-09-26, найдено при стресс-тесте: сервер сам записывает предоплату из
+                    // checkout (cash_received) в сделку — «prepayment: 23, debt_amount: 128» при
+                    // сумме 151 — и уже не считает её долгом. Второй платёж той же суммы зачёл бы
+                    // клиенту предоплату дважды. До сих пор этого не случалось только потому, что
+                    // сервер отклонял сумму больше одного взноса («Максимум: 4.26»); при предоплате
+                    // меньше взноса деньги ушли бы. Сервер без поля prepayment — прежний путь.
+                    if (deal.ValueKind == JsonValueKind.Object
+                        && TryReadDecimal(deal, "prepayment", out var recorded)
+                        && (double)recorded >= amount - 0.005)
+                    {
+                        PosLogger.Log(
+                            $"Initial debt payment skipped: server already recorded prepayment {recorded:0.00} for sale {saleId}.",
+                            "PAYMENT");
+                        return true;
+                    }
+
                     var installmentId = TryFindPayableInstallmentId(deal);
                     await _salesApi.PosPayDebtAsync(clientId, dealId, installmentId, amount, cancellationToken).ConfigureAwait(false);
                     PosLogger.Log(

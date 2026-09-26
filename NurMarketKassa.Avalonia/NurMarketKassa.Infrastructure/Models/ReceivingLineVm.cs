@@ -19,6 +19,7 @@ public enum ReceivingSource
 public sealed class ReceivingLineVm : INotifyPropertyChanged
 {
     private string? _productId;
+    private string _barcode = "";
     private string _productName = "";
     private string _unit = "шт";
     private ReceivingSource _source;
@@ -32,7 +33,13 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         set => Set(ref _productId, value);
     }
 
-    public string Barcode { get; init; } = "";
+    /// <summary>У отсканированной строки — код со сканера. Вписать руками можно только у нового
+    /// товара, добавленного кнопкой «+ Новый товар» (2026-09-26).</summary>
+    public string Barcode
+    {
+        get => _barcode;
+        set => Set(ref _barcode, (value ?? "").Trim());
+    }
 
     public string ProductName
     {
@@ -68,7 +75,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         set
         {
             if (Set(ref _quantity, value))
+            {
                 OnPropertyChanged(nameof(LineTotal));
+                OnPropertyChanged(nameof(QuantityText));
+            }
         }
     }
 
@@ -78,15 +88,61 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         set
         {
             if (Set(ref _purchasePrice, value))
+            {
                 OnPropertyChanged(nameof(LineTotal));
+                OnPropertyChanged(nameof(PurchasePriceText));
+            }
         }
     }
 
     public double SalePrice
     {
         get => _salePrice;
-        set => Set(ref _salePrice, value);
+        set
+        {
+            if (Set(ref _salePrice, value))
+                OnPropertyChanged(nameof(SalePriceText));
+        }
     }
+
+    // Ячейки таблицы правятся текстом (2026-09-26, «разрешить редактирование»): прямая привязка
+    // к double разбирала число без учёта запятой — «2,5» или «1 234,50» молча откатывались к
+    // прежнему значению, и казалось, что таблица не редактируется. Непонятное число оставляет
+    // прежнее значение.
+    public string QuantityText
+    {
+        get => Quantity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => Quantity = v, nameof(QuantityText));
+    }
+
+    public string PurchasePriceText
+    {
+        get => PurchasePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => PurchasePrice = v, nameof(PurchasePriceText));
+    }
+
+    public string SalePriceText
+    {
+        get => SalePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => SalePrice = v, nameof(SalePriceText));
+    }
+
+    private void SetFromText(string? text, Action<double> apply, string name)
+    {
+        if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text ?? "", out var value) && value >= 0)
+            apply(value);
+        OnPropertyChanged(name);
+    }
+
+    /// <summary>Название и единица товара со склада на момент сканирования: если их поправили в
+    /// приёмке, при проведении они уходят в карточку товара.</summary>
+    public string OriginalName { get; init; } = "";
+    public string OriginalUnit { get; init; } = "";
+
+    public bool NameOrUnitChanged =>
+        !IsNew
+        && ((OriginalName.Length > 0 && !string.Equals(ProductName.Trim(), OriginalName.Trim(), StringComparison.Ordinal))
+            || (OriginalUnit.Length > 0 && !string.Equals(Unit, OriginalUnit, StringComparison.Ordinal)));
 
     /// <summary>Цены товара на момент сканирования: по ним видно, менял ли кладовщик цену, и
     /// только тогда она уходит на сервер.</summary>

@@ -30,11 +30,15 @@ public partial class BulkImportWindow : Window
 {
     private List<PreviewRowVm> _rows = [];
     private ICatalogApiService? _catalogApi;
+    private bool _closed;
 
     public BulkImportWindow()
     {
         InitializeComponent();
         _catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
+        // Окно закрыли посреди загрузки — остальные строки не отправляем: иначе товары
+        // продолжали бы создаваться невидимо, без итога и без возможности остановить.
+        Closed += (_, _) => _closed = true;
     }
 
     public static void Open(Window? owner)
@@ -93,6 +97,10 @@ public partial class BulkImportWindow : Window
 
         var parsed = ProductCsvImporter.Parse(text);
         var products = CatalogCacheService.Products;
+        // Штрихкод, уже встретившийся выше в этом же файле (2026-09-26, стресс-тест массовой
+        // загрузки): обе строки считались «новыми», и на сервере появлялись два товара с одним
+        // штрихкодом. Берём первую, повтор показываем и пропускаем.
+        var firstRowByBarcode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         _rows = parsed.Select(row =>
         {
@@ -111,6 +119,19 @@ public partial class BulkImportWindow : Window
                 vm.StatusText = $"❌ {row.ParseError}";
                 return vm;
             }
+
+            if (firstRowByBarcode.TryGetValue(row.Barcode, out var firstRow))
+            {
+                vm.DuplicateOfRow = firstRow;
+                vm.StatusText = "❌ " + Tr.T(
+                    $"штрихкод уже есть в строке {firstRow} — строка пропускается",
+                    $"штрихкод {firstRow}-сапта бар — сап өткөрүлөт",
+                    $"barcode already in row {firstRow} — row skipped",
+                    $"barkod {firstRow}. satırda zaten var — satır atlanıyor",
+                    $"shtrix-kod {firstRow}-qatorda bor — qator o'tkazib yuboriladi");
+                return vm;
+            }
+            firstRowByBarcode[row.Barcode] = row.RowNumber;
 
             var existing = products.FirstOrDefault(p => string.Equals(p.Barcode, row.Barcode, StringComparison.OrdinalIgnoreCase));
             if (existing != null)
@@ -148,7 +169,7 @@ public partial class BulkImportWindow : Window
         }).ToList();
 
         PreviewGrid.ItemsSource = _rows;
-        var validCount = _rows.Count(r => r.Source.IsValid);
+        var validCount = _rows.Count(r => r.CanImport);
         SummaryText.Text = Tr.T($"Строк: {_rows.Count}, из них корректных: {validCount}.",
             $"Саптар: {_rows.Count}, туурасы: {validCount}.",
             $"Rows: {_rows.Count}, valid: {validCount}.",
@@ -170,7 +191,19 @@ public partial class BulkImportWindow : Window
 
         foreach (var row in _rows)
         {
-            if (!row.Source.IsValid)
+            if (_closed)
+            {
+                PosLogger.Log($"Массовая загрузка остановлена: окно закрыто (создано {created}, обновлено {updated}).", "WAREHOUSE");
+                return;
+            }
+
+            // Уже загруженные строки при повторном запуске не трогаем (2026-09-26): кнопка после
+            // загрузки снова активна, и раньше второе нажатие создавало все новые товары ещё раз.
+            // Теперь повторный запуск дозагружает только строки с ошибкой.
+            if (row.Done)
+                continue;
+
+            if (!row.CanImport)
             {
                 failed++;
                 continue;
@@ -210,16 +243,17 @@ public partial class BulkImportWindow : Window
             {
                 if (row.ExistingProductId is { } id)
                 {
-                    await _catalogApi.UpdateProductAsync(id, request).ConfigureAwait(true);
+                    await SendWithThrottleRetryAsync(row, () => _catalogApi.UpdateProductAsync(id, request), createdBarcode: null).ConfigureAwait(true);
                     row.StatusText = "✅ " + Tr.T("Обновлён", "Жаңыртылды", "Updated", "Güncellendi", "Yangilandi");
                     updated++;
                 }
                 else
                 {
-                    await _catalogApi.CreateProductAsync(request).ConfigureAwait(true);
+                    await SendWithThrottleRetryAsync(row, () => _catalogApi.CreateProductAsync(request), createdBarcode: row.Source.Barcode).ConfigureAwait(true);
                     row.StatusText = "✅ " + Tr.T("Создан", "Түзүлдү", "Created", "Oluşturuldu", "Yaratildi");
                     created++;
                 }
+                row.Done = true;
             }
             catch (Exception ex)
             {
@@ -241,6 +275,59 @@ public partial class BulkImportWindow : Window
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
     }
 
+    /// <summary>Сервер NurCRM на частые запросы отвечает 429 «Запрос был проигнорирован» —
+    /// запрос при этом не выполнен, повторить его безопасно. Сотни строк подряд упираются в этот
+    /// предел, и без паузы часть товаров просто не загружалась бы с ошибкой.
+    ///
+    /// <para>Обрыв соединения (2026-09-26, стресс-тест: 4 строки из 307 — «Удалённый хост
+    /// принудительно разорвал подключение») тоже повторяем. Изменение товара повторять безопасно:
+    /// тело абсолютное. Создание — только убедившись, что товара с этим штрихкодом на сервере
+    /// нет: соединение могло оборваться уже после записи, и повтор дал бы дубль.</para></summary>
+    private async Task SendWithThrottleRetryAsync(PreviewRowVm row, Func<Task> send, string? createdBarcode)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await send().ConfigureAwait(true);
+                return;
+            }
+            catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or TaskCanceledException
+                                       && attempt < 4 && !_closed && _catalogApi != null)
+            {
+                PosLogger.Log($"Массовая загрузка: строка {row.RowNumber} — обрыв связи ({ex.Message}), повтор {attempt}.", "WAREHOUSE");
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt)).ConfigureAwait(true);
+                if (createdBarcode is not null)
+                {
+                    try
+                    {
+                        if (await _catalogApi.FindWarehouseProductByBarcodeAsync(createdBarcode).ConfigureAwait(true) is not null)
+                        {
+                            PosLogger.Log($"Массовая загрузка: строка {row.RowNumber} — товар уже создан до обрыва, повтор не нужен.", "WAREHOUSE");
+                            return;
+                        }
+                    }
+                    catch (Exception checkEx) when (checkEx is System.Net.Http.HttpRequestException or TaskCanceledException)
+                    {
+                        // Проверить не удалось — связь всё ещё рвётся; следующая попытка разберётся.
+                    }
+                }
+            }
+            catch (ApiException ex) when (ex.StatusCode == 429 && attempt < 4 && !_closed)
+            {
+                var wait = TimeSpan.FromSeconds(15 * attempt);
+                row.StatusText = "⏸ " + Tr.T(
+                    $"сервер просит паузу, повтор через {wait.TotalSeconds:0} с",
+                    $"сервер тыныгуу сурайт, {wait.TotalSeconds:0} с кийин кайталанат",
+                    $"server asked to slow down, retrying in {wait.TotalSeconds:0} s",
+                    $"sunucu bekleme istedi, {wait.TotalSeconds:0} sn sonra tekrar",
+                    $"server pauza so'radi, {wait.TotalSeconds:0} s dan keyin qayta");
+                PosLogger.Log($"Массовая загрузка: строка {row.RowNumber} — 429, повтор через {wait.TotalSeconds:0} с.", "WAREHOUSE");
+                await Task.Delay(wait).ConfigureAwait(true);
+            }
+        }
+    }
+
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 
     private sealed class PreviewRowVm : INotifyPropertyChanged
@@ -252,6 +339,11 @@ public partial class BulkImportWindow : Window
         public string PriceText { get; init; } = "";
         public ProductCsvImporter.ImportRow Source { get; init; } = null!;
         public string? ExistingProductId { get; set; }
+        /// <summary>Номер строки файла с тем же штрихкодом выше — эта строка пропускается.</summary>
+        public int? DuplicateOfRow { get; set; }
+        /// <summary>Строка уже записана на сервер в этом окне.</summary>
+        public bool Done { get; set; }
+        public bool CanImport => Source.IsValid && DuplicateOfRow is null;
 
         private string _statusText = "";
         public string StatusText

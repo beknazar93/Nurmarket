@@ -18,6 +18,7 @@ public sealed class PrinterKeepAliveService
 
     private readonly object _lock = new();
     private Timer? _timer;
+    private int _busy;
 
     private PrinterKeepAliveService()
     {
@@ -28,7 +29,7 @@ public sealed class PrinterKeepAliveService
         lock (_lock)
         {
             _timer?.Dispose();
-            _timer = new Timer(_ => SendHeartbeat(), null, Interval, Interval);
+            _timer = new Timer(_ => Tick(), null, Interval, Interval);
         }
     }
 
@@ -38,6 +39,22 @@ public sealed class PrinterKeepAliveService
         {
             _timer?.Dispose();
             _timer = null;
+        }
+    }
+
+    /// <summary>Тики не накладываются: пока предыдущий не закончил (порт медленный), следующий
+    /// пропускается, а не встаёт в очередь отдельным потоком.</summary>
+    private void Tick()
+    {
+        if (Interlocked.Exchange(ref _busy, 1) == 1)
+            return;
+        try
+        {
+            SendHeartbeat();
+        }
+        finally
+        {
+            Volatile.Write(ref _busy, 0);
         }
     }
 
@@ -56,10 +73,9 @@ public sealed class PrinterKeepAliveService
             if (string.IsNullOrWhiteSpace(port) || HardwareModeHelper.IsNonePort(port))
                 return;
 
-            // retries: 1 — это фоновый keep-alive, а не настоящая печать: если порт сейчас
-            // занят (кассир как раз печатает чек), пробовать заново нет смысла, следующий тик
-            // таймера всё равно придёт через Interval.
-            PrinterPortService.SendRawBytes(port, NoOpPayload, retries: 1);
+            // Только если порт свободен: keep-alive не должен ни ждать чек, ни задерживать его
+            // (2026-09-26 — раньше при зависшем принтере тики копились в очереди к порту).
+            PrinterPortService.TrySendKeepAlive(port, NoOpPayload);
         }
         catch (Exception ex)
         {

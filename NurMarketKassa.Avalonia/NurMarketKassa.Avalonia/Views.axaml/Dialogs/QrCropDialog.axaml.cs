@@ -152,7 +152,7 @@ public partial class QrCropDialog : Window
     public static string GetManagedQrDirectory() =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "BankQr");
 
     protected override void OnClosed(EventArgs e)

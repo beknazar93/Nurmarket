@@ -52,7 +52,8 @@ public sealed class SideMenuViewModel : ViewModelBase
         Func<Task>? logout = null,
         Action? exitApplication = null,
         IPermissionService? permissions = null,
-        Action? navigateSalary = null)
+        Action? navigateSalary = null,
+        Func<Task>? openCashOperation = null)
     {
         _session = session;
         _permissions = permissions;
@@ -65,6 +66,12 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateDeferredReceiptsCommand = new RelayCommand(() => { navigateDeferredReceipts?.Invoke(); closeMenu(); });
         NavigateFinanceCommand = new RelayCommand(() => { navigateFinance?.Invoke(); closeMenu(); });
         NavigateSalaryCommand = new RelayCommand(() => { navigateSalary?.Invoke(); closeMenu(); });
+        OpenCashOperationCommand = new AsyncRelayCommand(async () =>
+        {
+            closeMenu();
+            if (openCashOperation != null)
+                await openCashOperation().ConfigureAwait(true);
+        });
         NavigateSalesCommand = new RelayCommand(() => { navigateSales?.Invoke(); closeMenu(); });
         NavigateClientsCommand = new RelayCommand(() => { navigateClients?.Invoke(); closeMenu(); });
         NavigateAbcCommand = new RelayCommand(() => { navigateAbc?.Invoke(); closeMenu(); });
@@ -146,7 +153,8 @@ public sealed class SideMenuViewModel : ViewModelBase
     /// явное указание пользователя: "убери в старте всё кроме настройки и склада") — единственные
     /// два пункта меню, которые остаются доступны на любом тарифе.
     /// </summary>
-    public bool CanViewWarehouse => _permissions?.HasPermission(PosPermissions.ViewProcurement) ?? true;
+    public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProcurement) ?? true)
+                                    && NurMarketKassa.Services.AppMode.OwnerSectionsInKassa;
     public bool CanViewSettings => _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
 
     /// <summary>2026-09-07: остальные пункты меню (кроме Склада/Настроек — см. CanViewWarehouse
@@ -269,16 +277,21 @@ public sealed class SideMenuViewModel : ViewModelBase
     public void RefreshEntitlements()
     {
         var isStart = NurMarketKassa.Services.TariffGate.IsStartTariff;
+        // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
+        // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
+        // (см. AppMode.OwnerSectionsInKassa).
+        var owner = NurMarketKassa.Services.AppMode.OwnerSectionsInKassa;
+        OnPropertyChanged(nameof(CanViewWarehouse));
         CanViewStaffTimesheet = NurMarketKassa.Services.UserPreferences.Instance.StaffTimesheetUnlocked;
         CanViewReturn = (_permissions?.HasPermission(PosPermissions.EmployeeReturn) ?? true) && !isStart;
         CanViewDeferredReceipts = !isStart;
-        CanViewRestock = !isStart;
-        CanViewFinance = !isStart;
-        CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && !isStart;
-        CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
-        CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients;
+        CanViewRestock = !isStart && owner;
+        CanViewFinance = !isStart && owner;
+        CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && !isStart && owner;
+        CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart && owner;
+        CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
         CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
-        CanViewCrm = !isStart;
+        CanViewCrm = !isStart && owner;
         CanViewErrorLogs = !isStart;
         CanViewRemoteSupport = !isStart;
         CanViewKnowledgeBase = !isStart;
@@ -316,6 +329,9 @@ public sealed class SideMenuViewModel : ViewModelBase
     public ICommand NavigateDeferredReceiptsCommand { get; }
     public ICommand NavigateFinanceCommand { get; }
     public ICommand NavigateSalaryCommand { get; }
+
+    /// <summary>«Внесение / изъятие» — под карточкой смены, видно только при открытой смене.</summary>
+    public ICommand OpenCashOperationCommand { get; }
     public ICommand NavigateSalesCommand { get; }
 
     /// <summary>Раздел ABC-анализа. Видимость привязана к тому же праву, что и «Продажи»:

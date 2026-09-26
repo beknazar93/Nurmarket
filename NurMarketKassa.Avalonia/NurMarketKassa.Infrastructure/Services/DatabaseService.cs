@@ -18,7 +18,7 @@ public sealed class DatabaseService
     // независимо от того, в какую папку Velopack развернул текущую версию.
     private static readonly string DataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa", "data");
+        NurMarketKassa.Services.AppMode.DataFolderName, "data");
     private static readonly string DbPath = Path.Combine(DataDirectory, "pos_local.db");
     private static readonly string LegacyCatalogDbPath = Path.Combine(DataDirectory, "catalog.db");
     private static readonly string LegacyOfflineDbPath = Path.Combine(DataDirectory, "offline.db");
@@ -2396,7 +2396,7 @@ public sealed class DatabaseService
 
         var legacyPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "offline_sales_pending.json");
         if (!File.Exists(legacyPath))
             return;

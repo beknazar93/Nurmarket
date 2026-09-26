@@ -26,7 +26,11 @@ public partial class NewOperationDialog : Window
         DepositTab.IsCheckedChanged += OnOpTypeChanged;
         WithdrawTab.IsCheckedChanged += OnOpTypeChanged;
         DateBox.SelectedDate = DateTime.Today;
-        var cashier = App.CurrentUserId ?? "Кассир 1";
+        // В списке — имя кассира, а не его внутренний ID (раньше показывался GUID
+        // «6e39345d-ba15-…»). В саму операцию по-прежнему пишется ID, см. Save_Click.
+        var cashier = !string.IsNullOrWhiteSpace(NurMarketKassa.PosApp.CurrentUserDisplayName)
+            ? NurMarketKassa.PosApp.CurrentUserDisplayName!
+            : App.CurrentUserId ?? "Кассир 1";
         CashierBox.Items.Clear();
         CashierBox.Items.Add(cashier);
         CashierBox.SelectedIndex = 0;
@@ -48,15 +52,17 @@ public partial class NewOperationDialog : Window
         var raw = (AmountBox.Text ?? "").Replace(',', '.').Trim();
         if (!decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
         {
-            PosMessageBox.Show(this, "Укажите корректную сумму.", "Новая операция",
+            PosMessageBox.Show(this,
+                Tr.T("Укажите корректную сумму.", "Туура сумманы көрсөтүңүз.", "Enter a valid amount.",
+                    "Geçerli bir tutar girin.", "To'g'ri summani kiriting."),
+                Tr.T("Новая операция", "Жаңы операция", "New operation", "Yeni işlem", "Yangi operatsiya"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var type = _isDeposit ? "Внесение" : "Изъятие";
-        var selectedDate = DateBox.SelectedDate?.Date ?? DateTime.Today;
-        var createdAt = selectedDate.Add(DateTime.Now.TimeOfDay);
-        var cashier = CashierBox.SelectedItem?.ToString() ?? App.CurrentUserId ?? "—";
+        var createdAt = DateTime.Now;
+        var cashier = App.CurrentUserId ?? CashierBox.SelectedItem?.ToString() ?? "—";
         var reason = (ReasonBox.Text ?? "").Trim();
         var comment = (CommentBox.Text ?? "").Trim();
         var note = string.IsNullOrWhiteSpace(comment) ? reason : comment;

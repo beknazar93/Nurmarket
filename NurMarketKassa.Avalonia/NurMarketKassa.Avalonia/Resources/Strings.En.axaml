@@ -13,6 +13,7 @@
   <x:String x:Key="csh.menu.return">Return</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Irregular receipts</x:String>
   <x:String x:Key="csh.menu.salary">Salary</x:String>
+  <x:String x:Key="csh.menu.cashOperation">Cash in / cash out</x:String>
   <x:String x:Key="csh.menu.finance">Finance</x:String>
   <x:String x:Key="csh.menu.sales">Sales</x:String>
   <x:String x:Key="csh.menu.abc">ABC analysis</x:String>
@@ -1082,6 +1083,7 @@
   <x:String x:Key="warehouse.receivingWas">Was</x:String>
   <x:String x:Key="warehouse.receivingTaken">Received</x:String>
   <x:String x:Key="warehouse.receivingCommit">Receive</x:String>
+  <x:String x:Key="warehouse.receivingAddNew">+ New product</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Supplier</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Paid now</x:String>
   <x:String x:Key="warehouse.receivingOnDebt">Owed to supplier</x:String>
@@ -1140,7 +1142,7 @@
   <x:String x:Key="warehouse.movementsWriteOff">Write-off</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Label editor</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Label editor</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Position the barcode, name, price, SKU, unit and store name on the label — drag and configure each element. Free.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Position the barcode, name, price, SKU, unit and store name on the label — drag and configure each element. Paid feature: unlocked with a serial number.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Open editor</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Total products (SKU)</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Out of stock</x:String>

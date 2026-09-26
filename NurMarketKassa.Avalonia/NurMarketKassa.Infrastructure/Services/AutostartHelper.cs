@@ -5,7 +5,7 @@ namespace NurMarketKassa.Services;
 public static class AutostartHelper
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "NurMarketKassa";
+    private static string ValueName => NurMarketKassa.Services.AppMode.IsOwner ? "NurMarketOwner" : "NurMarketKassa";
 
     public static bool IsEnabled()
     {

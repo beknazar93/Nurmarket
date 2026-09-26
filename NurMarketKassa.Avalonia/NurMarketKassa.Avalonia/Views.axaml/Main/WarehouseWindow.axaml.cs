@@ -52,6 +52,8 @@ public partial class WarehouseWindow : Window
         _viewModel = viewModel;
         _barcodeInputService = barcodeInputService;
         InitializeComponent();
+        // Сканер ловим на ТУННЕЛЬНОЙ фазе (раньше любых элементов окна) — см. Window_KeyDown.
+        AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         this.FitToScreen();
         DataContext = _viewModel;
         // Esc закрывает склад, но не молча выбрасывает набранные строки приёмки и ревизии:
@@ -132,6 +134,9 @@ public partial class WarehouseWindow : Window
         ReceivingSuggestionsBox.IsVisible = false;
         ReceivingSuggestionsPanel.ItemsSource = null;
         RefreshReceivingSummary();
+        // Сразу к следующему товару: фокус обратно в поле скана (после клика по подсказке он
+        // оставался на кнопке, и следующий скан уходил мимо).
+        ReceivingScanBox.Focus();
     }
 
     private async void ReceivingScan_KeyDown(object? sender, KeyEventArgs e)
@@ -145,7 +150,11 @@ public partial class WarehouseWindow : Window
 
         // Если поиск что-то нашёл, Enter берёт первое совпадение: набранное руками название
         // иначе ушло бы в список как неизвестный штрихкод и не привязалось бы к товару.
-        if (ReceivingSuggestionsBox.IsVisible
+        // Но не для штрихкода (одни цифры): подсказки ищут вхождение и в названиях, и в артикулах,
+        // и первым по алфавиту мог встать чужой товар, в чьём коде эти цифры просто встречаются.
+        var looksLikeBarcode = code.Length >= 6 && code.All(char.IsDigit);
+        if (!looksLikeBarcode
+            && ReceivingSuggestionsBox.IsVisible
             && ReceivingSuggestionsPanel.ItemsSource is IEnumerable<CatalogProductTileVm> found
             && found.FirstOrDefault() is { } first)
         {
@@ -154,7 +163,18 @@ public partial class WarehouseWindow : Window
         }
 
         ReceivingScanBox.Text = "";
+        ReceivingSuggestionsBox.IsVisible = false;
+        ReceivingSuggestionsPanel.ItemsSource = null;
         await ScanIntoReceivingAsync(code);
+    }
+
+    /// <summary>Enter в поле количества — сразу к скану: количество задали, дальше сканер.</summary>
+    private void ReceivingQuantity_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+            return;
+        e.Handled = true;
+        ReceivingScanBox.Focus();
     }
 
     /// <summary>Скан в приёмку — и из поля ввода, и со сканера, когда фокус не в поле.
@@ -204,16 +224,62 @@ public partial class WarehouseWindow : Window
         ReceivingSupplierPanel.IsVisible = false;
     }
 
-    /// <summary>Название и единицу правят только у нового товара: у существующего они живут в
-    /// карточке склада, и правка здесь молча никуда бы не ушла.</summary>
+    /// <summary>2026-09-26, «разрешить редактирование»: название и единицу теперь правят и у товара
+    /// со склада — при проведении они уходят в его карточку (PurchaseReceivingService.AddNameAndUnit).
+    /// Штрихкод вписывают только у нового товара, заведённого кнопкой «+ Новый товар»: у
+    /// отсканированного он и есть то, по чему товар нашёлся.</summary>
     private void ReceivingGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
     {
-        if (e.Row.DataContext is not NurMarketKassa.Models.ReceivingLineVm line || line.IsNew)
+        if (e.Row.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
             return;
 
-        // Колонки 1 и 3 — «Название» и «Ед.», см. разметку ReceivingGrid.
-        if (ReferenceEquals(e.Column, ReceivingGrid.Columns[1]) || ReferenceEquals(e.Column, ReceivingGrid.Columns[3]))
+        // Колонка 2 — «Штрихкод», см. разметку ReceivingGrid.
+        if (ReferenceEquals(e.Column, ReceivingGrid.Columns[2]) && line.Source != NurMarketKassa.Models.ReceivingSource.Unknown)
             e.Cancel = true;
+    }
+
+    /// <summary>Правка с одного нажатия. DataGrid входит в правку только по второму нажатию на уже
+    /// выбранную ячейку — на сенсорном экране казалось, что таблица не редактируется вовсе.</summary>
+    private void ReceivingGrid_CellPointerPressed(object? sender, DataGridCellPointerPressedEventArgs e)
+    {
+        if (e.Column is null || e.Column.IsReadOnly || e.Row?.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
+            return;
+
+        var column = e.Column;
+        Dispatcher.UIThread.Post(() =>
+        {
+            ReceivingGrid.SelectedItem = line;
+            ReceivingGrid.CurrentColumn = column;
+            ReceivingGrid.BeginEdit();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>«+ Новый товар»: пустая строка нового товара, сразу в правке названия. Кнопку можно
+    /// нажимать подряд — каждая строка станет отдельным товаром при проведении.</summary>
+    private void ReceivingAddNew_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!double.TryParse(ReceivingQuantityBox.Text?.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+            quantity = 1;
+
+        var line = new NurMarketKassa.Models.ReceivingLineVm
+        {
+            Source = NurMarketKassa.Models.ReceivingSource.Unknown,
+            Unit = "шт",
+            Quantity = quantity,
+        };
+        _viewModel.ReceivingLines.Add(line);
+        ReceivingQuantityBox.Text = "1";
+        RefreshReceivingSummary();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            ReceivingGrid.SelectedItem = line;
+            ReceivingGrid.ScrollIntoView(line, ReceivingGrid.Columns[1]);
+            ReceivingGrid.CurrentColumn = ReceivingGrid.Columns[1];
+            ReceivingGrid.BeginEdit();
+        }, DispatcherPriority.Background);
     }
 
     private void ReceivingGrid_CellEditEnded(object? sender, DataGridCellEditEndedEventArgs e) =>
@@ -236,6 +302,7 @@ public partial class WarehouseWindow : Window
 
         ReceivingQuantityBox.Text = "1";
         RefreshReceivingSummary();
+        ReceivingScanBox.Focus();
     }
 
     private void ReceivingRemove_Click(object? sender, RoutedEventArgs e)
@@ -322,13 +389,23 @@ public partial class WarehouseWindow : Window
 
         TransfersGrid.ItemsSource = rows;
 
-        MovementsSummaryText.Text = rows.Count == 0
+        MovementsSummaryText.Text = (rows.Count == 0
             ? Tr.T("Перемещений пока нет. Создайте первое — кнопка справа.",
                    "Жылышуулар азырынча жок. Биринчисин түзүңүз — оң жактагы баскыч.",
                    "No transfers yet. Create the first one with the button on the right.",
                    "Henüz transfer yok. İlkini sağdaki düğmeyle oluşturun.",
                    "Hozircha ko'chirishlar yo'q. Birinchisini o'ngdagi tugma bilan yarating.")
-            : Tr.T("Документов", "Документтер", "Documents", "Belgeler", "Hujjatlar") + $": {rows.Count}";
+            : Tr.T("Документов", "Документтер", "Documents", "Belgeler", "Hujjatlar") + $": {rows.Count}")
+            // 2026-09-25, по замечанию владельца: перемещение выглядело так, будто двигает остатки.
+            // У товара магазина в NurCRM один остаток на весь магазин (поле quantity, без
+            // разбивки по складам), перемещать его на сервере не между чем — документ только
+            // фиксирует перенос между своими складами/зонами/ячейками и хранится на этой кассе.
+            + "   ·   " + Tr.T(
+                "Документ о переносе между вашими местами хранения: общий остаток товара в NurCRM он не меняет, журнал хранится на этой кассе.",
+                "Сактоо жайларыңыздын ортосундагы жылыштыруу документи: NurCRMдеги товардын жалпы калдыгын өзгөртпөйт, журнал ушул кассада сакталат.",
+                "A record of moving goods between your storage places: it does not change the product's total stock in NurCRM, and the log is kept on this register.",
+                "Depolama yerleriniz arasındaki taşıma belgesi: NurCRM'deki toplam stoğu değiştirmez, kayıt bu kasada tutulur.",
+                "Saqlash joylaringiz o'rtasidagi ko'chirish hujjati: NurCRMdagi umumiy qoldiqni o'zgartirmaydi, jurnal shu kassada saqlanadi.");
     }
 
     private static string BuildRouteText(StockTransferService.Transfer t)
@@ -674,7 +751,12 @@ public partial class WarehouseWindow : Window
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             RefreshWarehouseTotals();
             _viewModel.ReceivingLines.CollectionChanged += (_, _) => RefreshReceivingSummary();
-            _viewModel.ReceivingLineAdded += _ => RefreshReceivingSummary();
+            _viewModel.ReceivingLineAdded += line =>
+            {
+                RefreshReceivingSummary();
+                // Длинная накладная: принятая строка должна быть видна, а не уходить за край.
+                ReceivingGrid.ScrollIntoView(line, null);
+            };
             RefreshReceivingSummary();
             ReceivingPaidRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = true;
@@ -736,16 +818,126 @@ public partial class WarehouseWindow : Window
         _viewModel.SetSaleUnitFilter(filter);
     }
 
+    /// <summary>Сканер в окне склада (2026-09-26, жалоба «невозможно сразу сканировать следующий
+    /// товар» в приёмке). Раньше обработчик стоял на обычной (всплывающей) фазе и молчал, пока фокус
+    /// в любом текстовом поле. Отсюда два тупика:
+    /// • фокус на строке таблицы — Enter сканера съедала сама таблица (переход на строку ниже), скан
+    ///   не завершался;
+    /// • фокус в поле количества или в ячейке таблицы — штрихкод печатался прямо туда
+    ///   («12» превращалось в «122990000…»).
+    /// Теперь обработчик туннельный — видит клавиши раньше таблицы. Вне текстового поля работает
+    /// общий сервис сканера. Внутри поля — строгая проверка: скан это только очень быстрый набор
+    /// (символы чаще раза в 40 мс), человек так не печатает, поэтому обычный ввод названия и цен не
+    /// страдает (ср. живую ошибку 2026-09-16 в AvaloniaKeyboardWedgeBarcodeService). Когда скан
+    /// распознан, поле возвращается к тексту, который был в нём до скана.</summary>
     private void Window_KeyDown(object? sender, KeyEventArgs e)
     {
-        // Same guard MainWindow's scanner handler uses: without it, every keystroke typed
-        // into a search/quantity box here (e.g. the Revision/Write-off name search added
-        // alongside barcode scanning) also feeds the barcode buffer, which can intercept
-        // and garble normal typing instead of leaving it to the focused TextBox.
-        if (FocusManager?.GetFocusedElement() is TextBox)
+        var focused = FocusManager?.GetFocusedElement();
+        if (focused is not TextBox box)
+        {
+            _barcodeInputService.ProcessKeyDown(e);
+            return;
+        }
+
+        // Внутри полей скан перехватываем только в приёмке. На других вкладках скан в поле поиска —
+        // обычный способ найти товар по штрихкоду, его не трогаем. Поле скана приёмки ловит скан
+        // само: Enter, подсказки по названию.
+        if (!ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem) || ReferenceEquals(box, ReceivingScanBox))
             return;
 
-        _barcodeInputService.ProcessKeyDown(e);
+        HandleScanInsideField(box, e);
+    }
+
+    // Порог между символами скана. Меряется по обработке на UI-потоке, а не по самому сканеру:
+    // окно может подтормозить, поэтому с запасом — 50 мс (человек так быстро три клавиши подряд
+    // не нажимает). Enter после уже опознанного скана ждём дольше — до 150 мс: в первой проверке
+    // 2026-09-26 скан не распознался именно из-за паузы перед Enter.
+    private const int FieldScanIntervalMs = 50;
+    private const int FieldScanEnterMs = 150;
+    private long _fieldScanLastTick;
+    private string _fieldScanBuffer = "";
+    private int _fieldScanFastRun;
+    private TextBox? _fieldScanBox;
+    private string? _fieldScanSnapshot;
+
+    private void HandleScanInsideField(TextBox box, KeyEventArgs e)
+    {
+        var mods = e.KeyModifiers;
+        if (mods.HasFlag(KeyModifiers.Control) || mods.HasFlag(KeyModifiers.Alt) || mods.HasFlag(KeyModifiers.Meta))
+            return;
+
+        var now = Environment.TickCount64;
+        var sinceLast = now - _fieldScanLastTick;
+        var sameBurst = _fieldScanBuffer.Length > 0 && ReferenceEquals(box, _fieldScanBox);
+        var fast = sameBurst && sinceLast is >= 0 and <= FieldScanIntervalMs;
+        _fieldScanLastTick = now;
+
+        if (e.Key == Key.Enter)
+        {
+            if (sameBurst && sinceLast is >= 0 and <= FieldScanEnterMs
+                && _fieldScanBuffer.Length >= 4 && _fieldScanFastRun >= 2)
+            {
+                e.Handled = true;
+                var code = _fieldScanBuffer;
+                // Первые символы скана успели напечататься в поле — возвращаем его как было.
+                box.Text = _fieldScanSnapshot;
+                ResetFieldScan();
+                OnBarcodeScanned(code);
+                return;
+            }
+
+            ResetFieldScan();
+            return;
+        }
+
+        var ch = ScanChar(e.Key, mods.HasFlag(KeyModifiers.Shift));
+        if (ch is null)
+        {
+            ResetFieldScan();
+            return;
+        }
+
+        if (fast)
+        {
+            _fieldScanFastRun++;
+        }
+        else
+        {
+            _fieldScanBuffer = "";
+            _fieldScanFastRun = 0;
+            _fieldScanBox = box;
+            _fieldScanSnapshot = box.Text;
+        }
+
+        _fieldScanBuffer += ch;
+        if (_fieldScanFastRun >= 2)
+            e.Handled = true;
+    }
+
+    private void ResetFieldScan()
+    {
+        _fieldScanBuffer = "";
+        _fieldScanFastRun = 0;
+        _fieldScanBox = null;
+        _fieldScanSnapshot = null;
+    }
+
+    private static string? ScanChar(Key key, bool shift)
+    {
+        if (key is >= Key.D0 and <= Key.D9)
+            return ((char)('0' + (key - Key.D0))).ToString();
+        if (key is >= Key.NumPad0 and <= Key.NumPad9)
+            return ((char)('0' + (key - Key.NumPad0))).ToString();
+        if (key is >= Key.A and <= Key.Z)
+        {
+            var c = (char)('a' + (key - Key.A));
+            return shift ? char.ToUpperInvariant(c).ToString() : c.ToString();
+        }
+        if (key is Key.OemMinus or Key.Subtract)
+            return "-";
+        if (key is Key.OemPeriod or Key.Decimal)
+            return ".";
+        return null;
     }
 
     private void OnBarcodeScanned(string barcode)

@@ -169,6 +169,12 @@ public partial class MainWindow : Window
         if (_appInitialized)
             return true;
 
+        // Разделы владельца в кассе — только в автономном режиме (см. AppMode.OwnerSectionsInKassa).
+        // 1.17.15: программа владельца клиентам ещё не выпущена — пока разделы владельца остаются
+        // в кассе у всех. Когда она выйдет, вернуть: = IsCurrentSessionAutonomous.
+        NurMarketKassa.Services.AppMode.OwnerSectionsInKassa = true;
+        _viewModel.SideMenu.RefreshEntitlements();
+
         progress?.Report("Загрузка кассы...");
 
         if (AccountCatalogIsolation.RequireForcedCatalogSync)
@@ -883,11 +889,9 @@ public partial class MainWindow : Window
         if (!IsActive)
             return;
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            _viewModel.Basket.BarcodeInput = barcode;
-            ExecuteCommand(_viewModel.Basket.AddByBarcodeCommand);
-        });
+        // В очередь сканов, а не «положить в поле и нажать команду»: пока касса добавляла
+        // предыдущий товар, команда была занята и быстрый второй скан терялся (2026-09-26).
+        Dispatcher.UIThread.Post(() => _viewModel.Basket.EnqueueBarcode(barcode));
     }
 
     /// <summary>Срабатывает из фонового аудио-потока NAudio (не UI-поток) — тот же приём,
@@ -1093,6 +1097,10 @@ public partial class MainWindow : Window
             || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
             return;
 
+        // Внесения/изъятия, ещё не записанные на сервер (не было сети), — до запроса остатка:
+        // иначе остаток пришёл бы без них. Повтор идёт после каждой продажи.
+        await ShiftCashFlowSync.PushPendingAsync(_session.ActiveShiftId).ConfigureAwait(true);
+
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
@@ -1181,6 +1189,8 @@ public partial class MainWindow : Window
             // таймаут (тот же "протухший" эффект, что чинили для входа), из-за чего разбивка в
             // закрытии смены никогда не успевала дойти. Здесь это уже фон — диалог показан и
             // кассир может печатать сумму, ничего не блокируется, поэтому можно подождать дольше.
+            // Смена закрывается по серверным итогам — незаписанное внесение/изъятие отправляем до них.
+            await ShiftCashFlowSync.PushPendingAsync(_session.ActiveShiftId).ConfigureAwait(true);
             await RefreshShiftStateAsync(CancellationToken.None, balanceTimeout: TimeSpan.FromSeconds(20)).ConfigureAwait(true);
             dlg.UpdateSystemBalance(EffectiveShiftCashBalance ?? 0m);
             dlg.UpdateTotals(_shiftTotals);
@@ -1210,8 +1220,26 @@ public partial class MainWindow : Window
 
     internal void NavigateWarehouse()
     {
-        if (Authorize(PosPermissions.ViewProcurement))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewProcurement))
             ShowModuleWindow<WarehouseWindow>();
+    }
+
+    /// <summary>Раздел владельца из кассы (2026-09-26, разделение программ): при входе через NurCRM
+    /// он в программе «NurMarket Владелец». Пункты меню скрыты, но в раздел ведут и другие пути
+    /// (например, «Добавить товар» при пустом каталоге) — там кассир получает подсказку.</summary>
+    private bool OwnerSectionAvailable()
+    {
+        if (NurMarketKassa.Services.AppMode.OwnerSectionsInKassa)
+            return true;
+
+        _viewModel.CloseSideMenu();
+        _prompts.ShowToast(Tr.T(
+            "Этот раздел — в программе «NurMarket Владелец».",
+            "Бул бөлүм «NurMarket Ээси» программасында.",
+            "This section is in the «NurMarket Owner» program.",
+            "Bu bölüm «NurMarket Sahibi» programında.",
+            "Bu bo'lim «NurMarket Egasi» dasturida."), isWarning: true);
+        return false;
     }
 
     /// <summary>Открывает "Табель сотрудников" напрямую из главного меню (2026-09-05: раньше
@@ -1248,11 +1276,15 @@ public partial class MainWindow : Window
         OnCheckoutSucceeded(this, EventArgs.Empty);
     }
 
-    internal void NavigateFinance() => ShowModuleWindow<FinanceWindow>();
+    internal void NavigateFinance()
+    {
+        if (OwnerSectionAvailable())
+            ShowModuleWindow<FinanceWindow>();
+    }
 
     internal void NavigateSalary()
     {
-        if (!Authorize(PosPermissions.ViewSettings))
+        if (!OwnerSectionAvailable() || !Authorize(PosPermissions.ViewSettings))
             return;
         _viewModel.CloseSideMenu();
         SalaryWindow.Open(this);
@@ -1260,13 +1292,13 @@ public partial class MainWindow : Window
 
     internal void NavigateSales()
     {
-        if (Authorize(PosPermissions.ViewSales))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewSales))
             ShowModuleWindow<SalesWindow>();
     }
 
     internal void NavigateAbc()
     {
-        if (Authorize(PosPermissions.ViewSales))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewSales))
             ShowModuleWindow<AbcAnalysisWindow>();
     }
 
@@ -1280,7 +1312,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (Authorize(PosPermissions.ViewSales))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewSales))
             ShowModuleWindow<ClientsWindow>();
     }
 
@@ -1310,7 +1342,11 @@ public partial class MainWindow : Window
         window.Show(this);
     }
 
-    internal void NavigateCrm() => ShowModuleWindow<CrmWebViewWindow>();
+    internal void NavigateCrm()
+    {
+        if (OwnerSectionAvailable())
+            ShowModuleWindow<CrmWebViewWindow>();
+    }
 
     internal void NavigateDeferredReceipts() => ShowModuleWindow<IrregularReceiptsWindow>();
 
@@ -1318,7 +1354,11 @@ public partial class MainWindow : Window
 
     internal void NavigateRemoteSupport() => ShowModuleWindow<RemoteSupportWindow>();
 
-    internal void NavigateRestock() => ShowModuleWindow<RestockSuggestionsWindow>();
+    internal void NavigateRestock()
+    {
+        if (OwnerSectionAvailable())
+            ShowModuleWindow<RestockSuggestionsWindow>();
+    }
 
     internal void NavigateKnowledgeBase() => ShowModuleWindow<KnowledgeBaseWindow>();
 
@@ -1894,6 +1934,11 @@ public partial class MainWindow : Window
 
             if (_session.IsShiftOpen)
                 _viewModel.Catalog.StatusText = "Смена открыта";
+
+            // Остались внесения/изъятия, не дошедшие до сервера в прошлый раз (касса была без
+            // сети или её закрыли раньше) — дошлём в фоне.
+            if (_session.IsShiftOpen && ShiftCashOperationsStore.PendingForShift(_session.ActiveShiftId).Count > 0)
+                _ = RefreshShiftBalanceQuietAsync();
         }
         catch (OperationCanceledException)
         {
@@ -1991,6 +2036,8 @@ public partial class MainWindow : Window
             {
                 Id = shiftId ?? "",
                 ShiftNumber = shiftId ?? "",
+                // Раньше не заполнялось — в отчёте закрытия стояло «Открыта: —» (стресс-тест 2026-09-26).
+                OpenedAt = before?.OpenedAt,
                 ClosedAt = DateTime.Now,
                 Cashier = NurMarketKassa.PosApp.CurrentUserDisplayName ?? "—",
                 Status = "Закрыта",

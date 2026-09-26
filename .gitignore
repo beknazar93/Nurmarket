@@ -19,6 +19,10 @@ publish-out/
 publish-out-*/
 release-*-out/
 installer-out/
+# Локальные сборки для проверки и пакет программы владельца (NurMarketOwner).
+dev-out/
+owner-out/
+owner-releases/
 scratch_release_check/
 *.user
 *.suo

@@ -433,7 +433,7 @@ public partial class ScalesPluWindow : Window
 
             var workingTxpPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "NurMarketKassa", "Rongta", "products.txp");
+                NurMarketKassa.Services.AppMode.DataFolderName, "Rongta", "products.txp");
 
             StatusText.Text = Tr.T("Запуск RLS1000…", "RLS1000 иштетилүүдө…", "Starting RLS1000…", "RLS1000 başlatılıyor…", "RLS1000 ishga tushirilmoqda…");
             var result = await RongtaScaleAutomationService.SendPluAsync(txp, workingTxpPath, exePath, CancellationToken.None).ConfigureAwait(true);

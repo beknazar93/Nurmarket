@@ -107,7 +107,10 @@ public static class WinUsbPrinterPort
         }
     }
 
-    public static void SendRawBytes(int vendorId, int productId, byte[] payload)
+    /// <param name="transferTimeoutMs">Тайм-аут одной передачи (PIPE_TRANSFER_TIMEOUT). Без него
+    /// WinUsb_WritePipe на принтере, который перестал забирать данные (кончилась бумага, открыта
+    /// крышка), ждёт вечно — и касса больше не печатала до перезапуска (2026-09-26).</param>
+    public static void SendRawBytes(int vendorId, int productId, byte[] payload, uint transferTimeoutMs = 10_000)
     {
         ArgumentNullException.ThrowIfNull(payload);
         if (payload.Length == 0)
@@ -163,6 +166,9 @@ public static class WinUsbPrinterPort
                 // STALL перед записью — без этого повторные попытки продолжали бы падать
                 // с той же ошибкой независимо от FILE_FLAG_OVERLAPPED-фикса выше.
                 WinUsb_ResetPipe(winUsbHandle, endpointId);
+                var timeout = transferTimeoutMs;
+                if (!WinUsb_SetPipePolicy(winUsbHandle, endpointId, PipeTransferTimeout, sizeof(uint), ref timeout))
+                    PosLogger.Log($"WinUSB 0x{endpointId:X2}: тайм-аут канала не установлен (код {Marshal.GetLastWin32Error()}).", "PRINTER");
 
                 if (TryWriteOnce(winUsbHandle, endpointId, payload, out var written, out var writeErr))
                 {
@@ -180,6 +186,12 @@ public static class WinUsbPrinterPort
                 }
 
                 PosLogger.Log($"WinUSB write via 0x{endpointId:X2} failed: код {writeErr}", "PRINTER");
+
+                // Тайм-аут — принтер жив, но не забирает данные. Другая конечная точка и повтор тут не
+                // помогут, а только растянут ожидание кассира.
+                if (writeErr == ErrorSemTimeout)
+                    throw new PrinterPortService.PrinterStalledException(
+                        $"Принтер VID_{vendorId:X4}&PID_{productId:X4} не принял данные за {transferTimeoutMs / 1000} с — нет бумаги, открыта крышка или завис.");
 
                 // Один раз пробуем снять STALL и повторить запись на ТОЙ ЖЕ точке, прежде
                 // чем переходить к следующей — это именно то, что реально помогает при
@@ -401,6 +413,13 @@ public static class WinUsbPrinterPort
     /// типичный симптом застрявшего bulk-эндпоинта после оборванной записи).</summary>
     [DllImport("winusb.dll", SetLastError = true)]
     private static extern bool WinUsb_ResetPipe(SafeWinUsbHandle interfaceHandle, byte pipeId);
+
+    private const uint PipeTransferTimeout = 0x03; // PIPE_TRANSFER_TIMEOUT, мс
+    private const int ErrorSemTimeout = 121;       // ERROR_SEM_TIMEOUT — передача не уложилась в тайм-аут
+
+    [DllImport("winusb.dll", SetLastError = true)]
+    private static extern bool WinUsb_SetPipePolicy(
+        SafeWinUsbHandle interfaceHandle, byte pipeId, uint policyType, uint valueLength, ref uint value);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct USB_INTERFACE_DESCRIPTOR

@@ -68,6 +68,21 @@ public static class PrinterPortService
 
     private static object GetPortLock(string port) => PortLocks.GetOrAdd(port, static _ => new object());
 
+    // 2026-09-26, живой баг «касса иногда перестаёт печатать чеки до перезапуска»: запись в порт
+    // не была ограничена по времени (WinUSB — без тайм-аута канала, copy /b — ReadToEnd до выхода
+    // процесса, прямой порт — синхронная запись), а блокировка порта выше ждала бесконечно. Принтер,
+    // переставший забирать данные (кончилась бумага, открыта крышка, уснул, завис), навсегда
+    // оставлял первую печать висеть внутри блокировки — и все следующие чеки, keep-alive и
+    // денежный ящик выстраивались за ней до перезапуска кассы. Воспроизведено стендом (канал,
+    // который принимает соединение, но не читает): 1-я печать висит, 2-я ждёт порт вечно.
+    // Теперь и ожидание порта, и сама запись ограничены по времени.
+    private static readonly TimeSpan PortWaitLimit = TimeSpan.FromSeconds(15);
+
+    /// <summary>Сколько даётся одной отправке: 8 с плюс время на большой (графический) чек из
+    /// расчёта 40 КБ/с — медленнее реальной печати любого термопринтера.</summary>
+    internal static TimeSpan WriteTimeout(int payloadLength) =>
+        TimeSpan.FromMilliseconds(Math.Min(60_000, 8_000 + payloadLength / 40));
+
     public static void SendRawBytes(string? rawPort, byte[] payload, int retries = 3)
     {
         ArgumentNullException.ThrowIfNull(payload);
@@ -81,15 +96,31 @@ public static class PrinterPortService
         var attemptCount = Math.Clamp(retries, 1, 8);
         Exception? last = null;
 
-        lock (GetPortLock(port))
+        var portLock = GetPortLock(port);
+        if (!Monitor.TryEnter(portLock, PortWaitLimit))
+        {
+            PosLogger.Log($"Порт {port}: занят предыдущей отправкой дольше {PortWaitLimit.TotalSeconds:0} с.", "PRINTER");
+            throw new PrinterStalledException(
+                $"Принтер на {port} занят: предыдущая печать не завершилась за {PortWaitLimit.TotalSeconds:0} с.");
+        }
+
+        try
         {
             for (var i = 0; i < attemptCount; i++)
             {
                 try
                 {
-                    WritePayload(port, payload);
+                    WritePayloadWithTimeout(port, payload, isKeepAlive: false);
                     PosLogger.Log($"Порт {port}: отправлено {payload.Length} байт", "PRINTER");
                     return;
+                }
+                catch (Exception ex) when (ex is PrinterStalledException or TimeoutException)
+                {
+                    // Принтер не забирает данные: повтор только удвоит ожидание кассира, а если принтер
+                    // «оживёт» посреди повтора — чек выйдет дважды.
+                    last = ex;
+                    PosLogger.Log($"Порт {port}: попытка {i + 1}/{attemptCount} — {Describe(ex)}; повтор не делаю.", "PRINTER");
+                    break;
                 }
                 catch (Exception ex)
                 {
@@ -99,8 +130,88 @@ public static class PrinterPortService
                 }
             }
         }
+        finally
+        {
+            Monitor.Exit(portLock);
+        }
 
+        if (last is PrinterStalledException or TimeoutException)
+            throw new PrinterStalledException(last.Message, last);
         throw new InvalidOperationException($"Не удалось отправить данные на {port}: {last?.Message}", last);
+    }
+
+    /// <summary>Для фоновых отправок (keep-alive): только если порт сейчас свободен. Не ждёт чужую
+    /// печать и не встаёт за ней в очередь — следующий тик всё равно придёт. В очередь Windows не
+    /// добавляет задание, если в ней уже что-то лежит: выключенный принтер иначе копил бы по
+    /// заданию каждые полторы минуты, и чек стоял бы за ними.</summary>
+    public static bool TrySendKeepAlive(string? rawPort, byte[] payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        var port = NormalizePort(rawPort);
+        if (string.IsNullOrWhiteSpace(port) || payload.Length == 0)
+            return false;
+
+        var portLock = GetPortLock(port);
+        if (!Monitor.TryEnter(portLock))
+            return false;
+
+        try
+        {
+            if (IsSpoolerPort(port) && RawPrinterHelper.HasQueuedJobs(port))
+                return false;
+
+            WritePayloadWithTimeout(port, payload, isKeepAlive: true);
+            return true;
+        }
+        finally
+        {
+            Monitor.Exit(portLock);
+        }
+    }
+
+    /// <summary>Имя принтера Windows (очередь печати), а не LPT/COM/WinUSB/сетевой путь —
+    /// та же развилка, что в <see cref="WritePayload"/>.</summary>
+    public static bool IsSpoolerPort(string port) =>
+        !WinUsbPrinterPort.IsWinUsbDevicePath(port)
+        && !HardwarePortHelper.LooksLikeComPort(port)
+        && !HardwarePortHelper.LooksLikeLptPort(port)
+        && !port.StartsWith(@"\\", StringComparison.Ordinal);
+
+    /// <summary>Запись с жёстким лимитом времени. Сами способы записи тоже ограничены (WinUSB —
+    /// тайм-аут канала, copy /b — снятие процесса, COM — WriteTimeout), это страховка на случай,
+    /// если драйвер всё же не вернёт управление: запись идёт в отдельном потоке, при тайм-ауте он
+    /// доживает сам, а порт освобождается для следующих чеков.</summary>
+    private static void WritePayloadWithTimeout(string port, byte[] payload, bool isKeepAlive)
+    {
+        var timeout = WriteTimeout(payload.Length);
+        var write = Task.Factory.StartNew(
+            () => WritePayload(port, payload, isKeepAlive),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+
+        bool finished;
+        try
+        {
+            finished = write.Wait(timeout);
+        }
+        catch (AggregateException)
+        {
+            finished = true;
+        }
+
+        if (!finished)
+        {
+            _ = write.ContinueWith(
+                t => PosLogger.Log(
+                    $"Порт {port}: зависшая отправка завершилась позже {(t.IsFaulted ? "ошибкой — " + t.Exception?.GetBaseException().Message : "успешно")}.",
+                    "PRINTER"),
+                TaskScheduler.Default);
+            throw new PrinterStalledException(
+                $"Принтер на {port} не принял данные за {timeout.TotalSeconds:0} с — нет бумаги, открыта крышка, выключен или завис.");
+        }
+
+        write.GetAwaiter().GetResult();
     }
 
     public static string NormalizePort(string? raw) =>
@@ -134,14 +245,17 @@ public static class PrinterPortService
         }
     }
 
-    private static void WritePayload(string port, byte[] payload)
+    private static void WritePayload(string port, byte[] payload, bool isKeepAlive)
     {
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
             if (!WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid))
                 throw new InvalidOperationException($"Не удалось разобрать адрес WinUSB-устройства «{port}».");
 
-            WinUsbPrinterPort.SendRawBytes(vid, pid, payload);
+            // Тайм-аут канала чуть короче общего лимита записи, чтобы сработал именно он: WinUSB
+            // тогда сам прерывает передачу и отпускает устройство.
+            WinUsbPrinterPort.SendRawBytes(vid, pid, payload,
+                (uint)Math.Max(3_000, WriteTimeout(payload.Length).TotalMilliseconds - 2_000));
             return;
         }
 
@@ -157,8 +271,19 @@ public static class PrinterPortService
             return;
         }
 
-        if (!RawPrinterHelper.SendBytesToPrinter(port, payload, out var win32Error))
+        if (isKeepAlive)
+        {
+            if (!RawPrinterHelper.SendBytesToPrinter(port, payload, out var keepAliveError, RawPrinterHelper.KeepAliveDocumentName))
+                throw new IOException($"Очередь Windows «{port}» не приняла данные (Win32: {keepAliveError}).");
+            return;
+        }
+
+        var outcome = RawPrinterHelper.SendAndConfirm(port, payload, out var win32Error, out var stuckReason);
+        if (outcome == RawPrinterHelper.JobOutcome.NotAccepted)
             throw new IOException($"Очередь Windows «{port}» не приняла данные (Win32: {win32Error}).");
+        if (outcome == RawPrinterHelper.JobOutcome.Stuck)
+            throw new PrinterStalledException(
+                $"Принтер «{port}» не печатает: {stuckReason}. Задание снято из очереди Windows, чтобы чек не вышел позже сам.");
     }
 
     private static void WriteViaSerialPort(string port, byte[] payload)
@@ -322,6 +447,10 @@ public static class PrinterPortService
         try
         {
             File.WriteAllBytes(tempFile, payload);
+            // Лимит на copy /b: на выключенном/зависшем LPT-принтере copy ждёт бесконечно. Раньше
+            // здесь стоял ReadToEnd ДО ожидания выхода — он ждал закрытия потока, то есть того же
+            // бесконечного copy, и держал порт занятым до перезапуска кассы.
+            var copyTimeout = (int)Math.Max(3_000, WriteTimeout(payload.Length).TotalMilliseconds - 2_000);
             using var proc = Process.Start(new ProcessStartInfo
             {
                 FileName = "cmd.exe",
@@ -336,9 +465,25 @@ public static class PrinterPortService
             if (proc == null)
                 throw new InvalidOperationException("Не удалось запустить copy /b.");
 
-            var stdErr = proc.StandardError.ReadToEnd();
-            proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(8000);
+            var stdErrTask = proc.StandardError.ReadToEndAsync();
+            _ = proc.StandardOutput.ReadToEndAsync();
+            if (!proc.WaitForExit(copyTimeout))
+            {
+                try
+                {
+                    proc.Kill(entireProcessTree: true);
+                }
+                catch (Exception killEx)
+                {
+                    PosLogger.Log($"copy /b: не удалось снять зависший процесс: {killEx.Message}", "PRINTER");
+                }
+
+                throw new PrinterStalledException(
+                    $"Принтер на {target} не принял чек за {copyTimeout / 1000} с — нет бумаги, открыта крышка, выключен или завис.");
+            }
+
+            proc.WaitForExit();
+            var stdErr = stdErrTask.Wait(1_000) ? stdErrTask.Result : "";
 
             if (proc.ExitCode != 0)
             {
@@ -350,7 +495,7 @@ public static class PrinterPortService
             Thread.Sleep(80);
             PosLogger.Log($"copy /b OK: {target}, bytes={payload.Length}", "PRINTER");
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidOperationException or PrinterStalledException)
         {
             throw;
         }
@@ -381,6 +526,15 @@ public static class PrinterPortService
             UnauthorizedAccessException => "Отказано в доступе. Запустите кассу от имени администратора или закройте программу, занявшую порт.",
             _ => ex.Message,
         };
+
+    /// <summary>Принтер не забирает данные или не печатает задание (нет бумаги, крышка, выключен,
+    /// завис). Повторять отправку бессмысленно — это не сбой связи, а состояние принтера.</summary>
+    public sealed class PrinterStalledException : IOException
+    {
+        public PrinterStalledException(string message, Exception? inner = null) : base(message, inner)
+        {
+        }
+    }
 
     private const uint NativeGenericWrite = 0x40000000;
     private const uint OpenExisting = 3;

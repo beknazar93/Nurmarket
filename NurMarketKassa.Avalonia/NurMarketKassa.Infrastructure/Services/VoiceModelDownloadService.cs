@@ -48,7 +48,7 @@ public static class VoiceModelDownloadService
     /// место, где уже живёт локальная база (см. DatabaseService), оно переживает обновления.</summary>
     private static string VoiceModelRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa", "VoiceModel");
+        NurMarketKassa.Services.AppMode.DataFolderName, "VoiceModel");
 
     /// <summary>Прежнее расположение — для одноразового переноса уже скачанной модели
     /// у тех, кто успел её поставить до этой правки.</summary>

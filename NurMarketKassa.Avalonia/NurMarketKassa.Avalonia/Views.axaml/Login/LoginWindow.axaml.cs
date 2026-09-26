@@ -136,14 +136,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         : null;
 
                 _viewModel.SetLoadingStatus(Tr.T("Загрузка кассы…", "Касса жүктөлүүдө…", "Loading the POS…", "Kasa yükleniyor…", "Kassa yuklanmoqda…"));
-                var mainWindow = App.GetRequiredService<MainWindow>();
+                var mainWindow = App.ResolveMainShell();
+                var shell = (IMainShell)mainWindow;
                 var progress = new Progress<string>(status =>
                 {
                     if (!string.IsNullOrWhiteSpace(status))
                         _viewModel.SetLoadingStatus(status);
                 });
 
-                var canOpen = await mainWindow.InitializeApplicationAsync(progress, CancellationToken.None)
+                var canOpen = await shell.InitializeApplicationAsync(progress, CancellationToken.None)
                     .ConfigureAwait(true);
                 if (!canOpen)
                 {
@@ -155,7 +156,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
 
                 if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime __desk) __desk.MainWindow = mainWindow;
-                mainWindow.PlaceOnPrimaryScreen();
+                shell.PlaceOnPrimaryScreen();
                 mainWindow.Show();
                 Close();
             }

@@ -17,9 +17,9 @@
          приложении вечно видит "доступна новая версия", даже сразу после обновления (баг,
          живьём пойманный 2026 09 16: exe молча оставался на 1.16.20.0 ещё три релиза подряд,
          1.16.21, 1.16.22, 1.16.23, потому что здесь никто не поднимал версию). -->
-    <Version>1.17.14</Version>
-    <AssemblyVersion>1.17.14</AssemblyVersion>
-    <FileVersion>1.17.14</FileVersion>
+    <Version>1.17.15</Version>
+    <AssemblyVersion>1.17.15</AssemblyVersion>
+    <FileVersion>1.17.15</FileVersion>
     <!-- Меньше JIT-компиляции при старте — заметно на слабых CPU (моноблоки, старые ноутбуки). -->
     <PublishReadyToRun>true</PublishReadyToRun>
     <DefaultItemExcludes>$(DefaultItemExcludes);**\*.bak;**\*.wpfbak;**\*.shellbak;**\*.Thin.cs;**\*.Legacy.cs;**\_wpf_port_backup\**</DefaultItemExcludes>

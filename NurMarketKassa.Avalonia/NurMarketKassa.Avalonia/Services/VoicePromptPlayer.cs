@@ -21,7 +21,7 @@ public static class VoicePromptPlayer
 {
     private static readonly string OverrideDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa",
+        NurMarketKassa.Services.AppMode.DataFolderName,
         "voice_prompts");
 
     /// <summary>При выборе способа продажи товара с упаковкой (PackageChoiceDialog) —

@@ -28,7 +28,7 @@ public sealed class SecureStorageService : IAuthSessionManager
     public SecureStorageService()
         : this(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "auth.dat"))
     {
     }

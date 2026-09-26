@@ -345,6 +345,23 @@ public partial class WeighedProductDialog : Window
             return;
         }
 
+        // 2026-09-26, стресс-тест: пока это окно открыто, сканер следующего товара печатает
+        // штрихкод прямо в поле веса — «2990000000026» кг + Enter. Касса предлагала
+        // «Подтвердить и добавить» такой вес сверх остатка. Столько не весит ни один товар.
+        if (enteredValue >= (_isAmountMode ? 10_000_000m : 10_000m))
+        {
+            WeightBox.Text = "";
+            PosMessageBox.Show(this,
+                Tr.T("Слишком большое число — похоже, в поле попал штрихкод. Введите вес заново.",
+                    "Өтө чоң сан — талаага штрихкод түшүп калган окшойт. Салмакты кайра киргизиңиз.",
+                    "The number is too large — a barcode seems to have landed in the field. Enter the weight again.",
+                    "Sayı çok büyük — alana barkod girilmiş gibi görünüyor. Ağırlığı yeniden girin.",
+                    "Son juda katta — maydonga shtrix-kod tushib qolganga o'xshaydi. Og'irlikni qayta kiriting."),
+                Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         // 2026-09-14: в режиме "По сумме" кассир ввёл деньги, а не кг — переводим в вес по той
         // же цене за кг, что показана в шапке диалога, и дальше всё как в обычном режиме
         // (в чек всегда идёт вес, не сумма).

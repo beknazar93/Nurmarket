@@ -51,7 +51,7 @@ public sealed class ApplicationStateService : IDisposable
     private static string StateFilePath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "state.json");
 
     public ApplicationState Load()

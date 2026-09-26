@@ -92,12 +92,14 @@
         <Button Grid.Column="0"
                 Classes="btn-secondary"
                 Content="{DynamicResource common.cancel}"
+                HorizontalAlignment="Stretch"
                 Height="46"
                 IsCancel="True"
                 Click="Close_Click"/>
         <Button Grid.Column="2"
                 Classes="btn-primary"
                 Content="{DynamicResource common.save}"
+                HorizontalAlignment="Stretch"
                 Height="46"
                 IsDefault="True"
                 Click="Save_Click"/>
@@ -121,7 +123,9 @@
                          Content="{DynamicResource shiftActions.withdraw}"/>
           </Grid>
 
-          <StackPanel Spacing="6">
+          <!-- Дата скрыта (2026-09-25): операция всегда уходит в текущую открытую смену и на
+               сервер с текущим временем — выбранная задним числом дата только путала бы отчёты. -->
+          <StackPanel Spacing="6" IsVisible="False">
             <TextBlock Text="{DynamicResource common.date}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
             <CalendarDatePicker x:Name="DateBox"
                                Height="42"

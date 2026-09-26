@@ -1,0 +1,554 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.OwnerShellWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="NurMarket Владелец"
+        Height="860"
+        Width="1360"
+        MinWidth="1080"
+        MinHeight="660"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="{DynamicResource BrushWindow}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <!-- Программа владельца (2026-09-26, разделение программ): разделы слева, сводка справа.
+         Разделы открываются теми же окнами, что раньше открывались из меню кассы. Сводка и
+         последние продажи берутся с сервера NurCRM и обновляются сами — продажа на кассе
+         появляется здесь через несколько секунд. Оформление — как у кассы: своя шапка вместо
+         системной рамки, иконки меню из SideMenuView, цвета только из темы (светлая и тёмная). -->
+    <Window.Resources>
+        <StreamGeometry x:Key="HomeIcon">M3,11 L12,3 L21,11 V21 H15 V15 H9 V21 H3 Z</StreamGeometry>
+        <StreamGeometry x:Key="WarehouseIcon">M4,7 L12,3 L20,7 V17 L12,21 L4,17 Z M4,7 L12,11 L20,7 M12,11 V21</StreamGeometry>
+        <StreamGeometry x:Key="RestockIcon">M3,17 L9,11 L13,15 L21,7 M21,7 H15 M21,7 V13</StreamGeometry>
+        <StreamGeometry x:Key="SalesIcon">M3,4 H5 L7,15 H18 L21,8 H6 M9,20 A1.5,1.5 0 1 1 8.99,20 M17,20 A1.5,1.5 0 1 1 16.99,20</StreamGeometry>
+        <StreamGeometry x:Key="FinanceIcon">M4,20 V11 M10,20 V5 M16,20 V14 M22,20 V8</StreamGeometry>
+        <StreamGeometry x:Key="AbcIcon">M12,3 A9,9 0 1 0 21,12 H12 Z M15,2.5 A8,8 0 0 1 21.5,9 H15 Z</StreamGeometry>
+        <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
+        <StreamGeometry x:Key="ClientsIcon">M9,11 A4,4 0 1 1 8.99,11 M3,20 A6,6 0 0 1 15,20 M17,11 A3,3 0 1 1 16.99,11 M17,14 A5,5 0 0 1 21,19</StreamGeometry>
+        <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
+        <StreamGeometry x:Key="MarketplaceIcon">M6,8 H18 L19,21 H5 Z M9,8 V6 A3,3 0 0 1 15,6 V8</StreamGeometry>
+        <StreamGeometry x:Key="SettingsIcon">M12,8 A4,4 0 1 1 11.99,8 M19,12 A7,7 0 0 0 18.8,10.4 L21,8 L18,5 L15.6,6.2 A7,7 0 0 0 14,5.5 L13,2 H9 L8,5.5 A7,7 0 0 0 6.4,6.2 L4,5 L1,8 L3.2,10.4 A7,7 0 0 0 3,12 A7,7 0 0 0 3.2,13.6 L1,16 L4,19 L6.4,17.8 A7,7 0 0 0 8,18.5 L9,22 H13 L14,18.5 A7,7 0 0 0 15.6,17.8 L18,19 L21,16 L18.8,13.6 A7,7 0 0 0 19,12</StreamGeometry>
+        <StreamGeometry x:Key="KnowledgeBaseIcon">M4,5 A2,2 0 0 1 6,3 H20 V19 H6 A2,2 0 0 0 4,21 Z M4,5 V19 M8,8 H16 M8,12 H14</StreamGeometry>
+        <StreamGeometry x:Key="RemoteSupportIcon">M3,5 H21 V16 H14 L15,19 H9 L10,16 H3 Z M8,10.5 A4,4 0 1 1 15.99,10.5</StreamGeometry>
+        <StreamGeometry x:Key="ErrorLogIcon">M4,4 H20 V20 H4 Z M8,9 H16 M8,13 H16 M8,17 H12 M12,2 V4 M12,20 V22</StreamGeometry>
+        <StreamGeometry x:Key="LogoutIcon">M13,4 H20 V20 H13 M10,8 L6,12 L10,16 M6,12 H16</StreamGeometry>
+        <StreamGeometry x:Key="StoreIcon">M3,9 L5,4 H19 L21,9 M3,9 H21 M3,9 A3,3 0 0 0 9,9 A3,3 0 0 0 15,9 A3,3 0 0 0 21,9 M5,12 V20 H19 V12 M10,20 V15 H14 V20</StreamGeometry>
+        <StreamGeometry x:Key="MoonIcon">M20,14.5 A8.5,8.5 0 1 1 9.5,4 A6.5,6.5 0 0 0 20,14.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="SunIcon">M12,8 A4,4 0 1 1 11.99,8 M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9</StreamGeometry>
+        <StreamGeometry x:Key="RefreshIcon">M20,11 A8,8 0 1 0 17.7,16.6 M20,4 V11 H13</StreamGeometry>
+        <StreamGeometry x:Key="ReceiptIcon">M6,3 H18 V21 L15,19 L12,21 L9,19 L6,21 Z M9,8 H15 M9,12 H15 M9,16 H12</StreamGeometry>
+        <StreamGeometry x:Key="ScaleIcon">M12,3 V21 M7,21 H17 M5,7 H19 M5,7 L2,14 A3,3 0 0 0 8,14 Z M19,7 L16,14 A3,3 0 0 0 22,14 Z</StreamGeometry>
+        <StreamGeometry x:Key="ReturnIcon">M9,7 L4,12 L9,17 M5,12 H14 A6,6 0 0 1 20,18</StreamGeometry>
+        <StreamGeometry x:Key="ChevronRightIcon">M9,5 L16,12 L9,19</StreamGeometry>
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- Меню -->
+        <Style Selector="Button.nav">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.nav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="Button.nav.active">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.nav Path.navIcon">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.8"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover Path.navIcon, Button.nav.active Path.navIcon">
+            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TextBlock.navGroup">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="12,16,0,6"/>
+        </Style>
+
+        <!-- Кнопки-иконки и кнопки окна -->
+        <Style Selector="Button.iconBtn">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.iconBtn.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Path.btnIcon">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.8"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Button.iconBtn:pointerover Path.btnIcon">
+            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.iconBtn.danger:pointerover Path.btnIcon">
+            <Setter Property="Stroke" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.caption:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.caption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E81123"/>
+        </Style>
+        <Style Selector="Path.capIcon">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.caption.close:pointerover Path.capIcon">
+            <Setter Property="Stroke" Value="White"/>
+        </Style>
+
+        <!-- Период: сегменты -->
+        <Style Selector="Border.segment">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Padding" Value="3"/>
+        </Style>
+        <Style Selector="Button.seg">
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.seg:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Button.seg:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
+        <!-- Карточки -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="20,18"/>
+            <Setter Property="BoxShadow" Value="0 1 3 0 #0F000000"/>
+        </Style>
+        <Style Selector="TextBlock.cardTitle">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.cardHint">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.kpiLabel">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.kpiValue">
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,10,0,8"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="Border.kpiIcon">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="CornerRadius" Value="11"/>
+        </Style>
+        <Style Selector="Border.kpiIcon Path">
+            <Setter Property="Width" Value="19"/>
+            <Setter Property="Height" Value="19"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.9"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.delta">
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="7,2"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.delta TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Border.delta.up">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        </Style>
+        <Style Selector="Border.delta.up TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+        </Style>
+        <Style Selector="Border.delta.down">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.delta.down TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="TextBlock.deltaHint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TextBlock.empty">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,24"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="RootGrid" ColumnDefinitions="252,*">
+
+        <!-- ============================== Меню ============================== -->
+        <Border Grid.Column="0" Background="{DynamicResource BrushPanel}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- Логотип -->
+                <Grid DockPanel.Dock="Top" Margin="18,18,18,14" ColumnDefinitions="Auto,*"
+                      Background="Transparent" PointerPressed="DragArea_PointerPressed">
+                    <Border Width="40" Height="40" CornerRadius="11" ClipToBounds="True">
+                        <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="UniformToFill"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
+                        <TextBlock Text="NurMarket" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <Border HorizontalAlignment="Left" Background="{DynamicResource BrushAccent}" CornerRadius="6" Padding="7,1,7,2">
+                            <TextBlock x:Name="OwnerBadgeText" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushAccentForeground}"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Компания -->
+                <Border DockPanel.Dock="Top" Margin="14,0,14,4" Padding="12,10" CornerRadius="12"
+                        Background="{DynamicResource BrushInputAlt}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="34" Height="34" CornerRadius="9" Background="{DynamicResource BrushPanel}">
+                            <Path Classes="btnIcon" Data="{StaticResource StoreIcon}" Stroke="{DynamicResource BrushText}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock x:Name="CompanyNameText" FontSize="13.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="TariffText" FontSize="11.5"
+                                       Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Пользователь: тема и выход всегда видны -->
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
+                        Padding="14,12">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <Border Width="38" Height="38" CornerRadius="19" Background="{DynamicResource BrushAccent}">
+                            <TextBlock x:Name="AvatarText" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource BrushAccentForeground}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock x:Name="UserNameText" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="UserRoleText" FontSize="11.5"
+                                       Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" x:Name="ThemeButton" Classes="iconBtn" Click="Theme_Click">
+                            <Path x:Name="ThemeIconPath" Classes="btnIcon" Data="{StaticResource MoonIcon}"/>
+                        </Button>
+                        <Button Grid.Column="3" x:Name="LogoutButton" Classes="iconBtn danger" Click="Logout_Click">
+                            <Path Classes="btnIcon" Data="{StaticResource LogoutIcon}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="NavPanel" Margin="12,2,12,12"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================== Сводка ============================== -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+
+            <!-- Шапка: за неё окно перетаскивается, двойной щелчок разворачивает -->
+            <Grid Grid.Row="0" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
+                  Background="Transparent"
+                  PointerPressed="DragArea_PointerPressed">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,6,0,0" Spacing="2">
+                    <TextBlock x:Name="DashboardTitle" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="DateText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                            Margin="0,6,18,0">
+                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                        <Ellipse x:Name="LiveDot" Width="8" Height="8" Fill="{DynamicResource BrushSuccess}"
+                                 VerticalAlignment="Center"/>
+                        <TextBlock x:Name="UpdatedText" FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button x:Name="RefreshButton" Classes="iconBtn" Click="Refresh_Click">
+                        <Path Classes="btnIcon" Data="{StaticResource RefreshIcon}"/>
+                    </Button>
+                    <Border Classes="segment">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <Button x:Name="TodayButton" Classes="seg active" Tag="today" Click="Period_Click"/>
+                            <Button x:Name="WeekButton" Classes="seg" Tag="week" Click="Period_Click"/>
+                            <Button x:Name="MonthButton" Classes="seg" Tag="month" Click="Period_Click"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Spacing="2">
+                    <Button Classes="caption" Click="Minimize_Click">
+                        <Path Classes="capIcon" Data="M0,5 H10"/>
+                    </Button>
+                    <Button Classes="caption" Click="Maximize_Click">
+                        <Path x:Name="MaximizeIconPath" Classes="capIcon" Data="M0.5,0.5 H9.5 V9.5 H0.5 Z"/>
+                    </Button>
+                    <Button Classes="caption close" Click="Close_Click">
+                        <Path Classes="capIcon" Data="M0,0 L10,10 M10,0 L0,10"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="28,12,28,28" Spacing="16">
+
+                    <!-- Показатели -->
+                    <Grid ColumnDefinitions="*,16,*,16,*,16,*">
+                        <Border Grid.Column="0" Classes="card">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="RevenueLabel" Classes="kpiLabel"/>
+                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F3B82F6">
+                                        <Path Data="{StaticResource SalaryIcon}" Stroke="#3B82F6"/>
+                                    </Border>
+                                </Grid>
+                                <TextBlock x:Name="RevenueValue" Classes="kpiValue" Text="—"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border x:Name="RevenueDeltaPill" Classes="delta"><TextBlock x:Name="RevenueDelta" Text="—"/></Border>
+                                    <TextBlock x:Name="RevenueDeltaHint" Classes="deltaHint"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="card">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="ChecksLabel" Classes="kpiLabel"/>
+                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F8B5CF6">
+                                        <Path Data="{StaticResource ReceiptIcon}" Stroke="#8B5CF6"/>
+                                    </Border>
+                                </Grid>
+                                <TextBlock x:Name="ChecksValue" Classes="kpiValue" Text="—"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border x:Name="ChecksDeltaPill" Classes="delta"><TextBlock x:Name="ChecksDelta" Text="—"/></Border>
+                                    <TextBlock x:Name="ChecksDeltaHint" Classes="deltaHint"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="4" Classes="card">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="AvgLabel" Classes="kpiLabel"/>
+                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1FF59E0B">
+                                        <Path Data="{StaticResource ScaleIcon}" Stroke="#F59E0B"/>
+                                    </Border>
+                                </Grid>
+                                <TextBlock x:Name="AvgValue" Classes="kpiValue" Text="—"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border x:Name="AvgDeltaPill" Classes="delta"><TextBlock x:Name="AvgDelta" Text="—"/></Border>
+                                    <TextBlock x:Name="AvgDeltaHint" Classes="deltaHint"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="6" Classes="card">
+                            <StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="ProfitLabel" Classes="kpiLabel"/>
+                                    <Border Grid.Column="1" Classes="kpiIcon" Background="#1F10B981">
+                                        <Path Data="{StaticResource RestockIcon}" Stroke="#10B981"/>
+                                    </Border>
+                                </Grid>
+                                <TextBlock x:Name="ProfitValue" Classes="kpiValue" Text="—"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border x:Name="ProfitDeltaPill" Classes="delta"><TextBlock x:Name="ProfitDelta" Text="—"/></Border>
+                                    <TextBlock x:Name="ProfitDeltaHint" Classes="deltaHint"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Выручка по дням + способы оплаты -->
+                    <Grid ColumnDefinitions="3*,16,2*">
+                        <Border Grid.Column="0" Classes="card">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                                    <TextBlock x:Name="ChartTitle" Classes="cardTitle"/>
+                                    <TextBlock Grid.Column="1" x:Name="ChartTotalText" Classes="cardHint"/>
+                                </Grid>
+                                <Panel Height="210">
+                                    <Grid x:Name="ChartBars"/>
+                                    <TextBlock x:Name="ChartEmptyText" Classes="empty" IsVisible="False"/>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Classes="card">
+                            <StackPanel Spacing="14">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="PaymentsTitle" Classes="cardTitle"/>
+                                    <TextBlock Grid.Column="1" x:Name="PaymentsCountText" Classes="cardHint"/>
+                                </Grid>
+                                <Border Height="12" CornerRadius="6" ClipToBounds="True" Background="{DynamicResource BrushInputAlt}">
+                                    <Grid x:Name="PaymentsBar"/>
+                                </Border>
+                                <StackPanel x:Name="PaymentsLegend" Spacing="11"/>
+                                <TextBlock x:Name="PaymentsEmptyText" Classes="empty" Margin="0,8" IsVisible="False"/>
+                                <Border Height="1" Background="{DynamicResource BrushBorder}"/>
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Width="30" Height="30" CornerRadius="9" Background="{DynamicResource BrushDangerSoft}">
+                                        <Path Classes="btnIcon" Width="15" Height="15" Data="{StaticResource ReturnIcon}"
+                                              Stroke="{DynamicResource BrushDanger}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" x:Name="ReturnsLabel" Margin="10,0,0,0" FontSize="13.5"
+                                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" x:Name="ReturnsValue" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Последние продажи + топ товаров -->
+                    <Grid ColumnDefinitions="3*,16,2*">
+                        <Border Grid.Column="0" Classes="card" Padding="20,16,20,10" VerticalAlignment="Top">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                    <TextBlock x:Name="RecentTitle" Classes="cardTitle"/>
+                                    <Button Grid.Column="1" x:Name="AllSalesButton" Classes="link" Click="AllSales_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock x:Name="AllSalesText" VerticalAlignment="Center"/>
+                                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                                  VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <Panel>
+                                    <StackPanel x:Name="RecentList"/>
+                                    <TextBlock x:Name="RecentEmptyText" Classes="empty" IsVisible="False"/>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,4,0,12"/>
+                                <Panel>
+                                    <StackPanel x:Name="TopList" Spacing="12"/>
+                                    <TextBlock x:Name="TopEmptyText" Classes="empty" IsVisible="False"/>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

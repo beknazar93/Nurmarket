@@ -70,10 +70,47 @@ public sealed class CashShiftService : ICashShiftService
                 .ConfigureAwait(false);
 
             var shiftId = CartDisplayHelper.TryShiftIdFromOpenResponse(response);
+
+            // 2026-09-26: «открыть смену» у сервера — это «дай мою открытую смену»: если у кассира
+            // смена уже открыта на ДРУГОЙ кассе, сервер новую не открывает, а возвращает ту
+            // (проверено на тестовой компании). Принять её как смену этой кассы нельзя — продажа
+            // уйдёт с этой кассой и сервер ответит «Смена не открыта». Переходим на ту кассу, как
+            // ShiftStateService при входе, а если касса закреплена в настройках — объясняем.
+            var openedCashboxId = response.ValueKind == JsonValueKind.Object ? ShiftHelper.ReadCashboxId(response) : null;
+            if (!string.IsNullOrWhiteSpace(openedCashboxId)
+                && !string.Equals(openedCashboxId, cashboxId, StringComparison.OrdinalIgnoreCase))
+            {
+                var openedCashboxName = response.TryGetProperty("cashbox_name", out var cn) && cn.ValueKind == JsonValueKind.String
+                    ? cn.GetString()
+                    : null;
+                var pinned = UserPreferences.Instance.PreferredCashboxId;
+                if (!string.IsNullOrWhiteSpace(pinned)
+                    && !string.Equals(pinned, openedCashboxId, StringComparison.OrdinalIgnoreCase))
+                {
+                    PosLogger.Log($"Открытие смены: у кассира уже открыта смена на другой кассе ({openedCashboxName ?? openedCashboxId}), эта касса закреплена в настройках.", "SHIFT");
+                    var otherName = openedCashboxName ?? openedCashboxId;
+                    return CashShiftOperationResult.Failed(
+                        $"У вас уже открыта смена на кассе «{otherName}». Вторую смену сервер не открывает: " +
+                        $"закройте ту смену (на той кассе или на сайте) либо выберите в настройках кассу «{otherName}».");
+                }
+
+                PosLogger.Log($"Открытие смены: сервер вернул уже открытую смену кассира на кассе {openedCashboxName ?? openedCashboxId} — касса переключена на неё.", "SHIFT");
+                PosApp.PosCashboxId = openedCashboxId;
+                if (!string.IsNullOrWhiteSpace(openedCashboxName))
+                    PosApp.PosCashboxDisplayName = openedCashboxName;
+            }
+
             if (!string.IsNullOrWhiteSpace(shiftId))
                 PosApp.ActiveShiftId = shiftId;
             else
                 await _shiftStateService.RefreshAsync(cancellationToken).ConfigureAwait(false);
+
+            // Какую смену вернул сервер: новую или уже открытую (живой случай 2026-09-26 без этой
+            // строки пришлось восстанавливать по косвенным признакам).
+            PosLogger.Log(
+                $"Смена открыта: id={PosApp.ActiveShiftId}, касса={PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId}, " +
+                $"кассир={PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId}, открыта сервером в {(response.TryGetProperty("opened_at", out var oa) ? oa.ToString() : "?")}",
+                "SHIFT");
 
             ShiftService.IsShiftOpen = true;
             _offlinePosStateStore.SaveFromApp(openingCash);
@@ -592,7 +629,7 @@ public sealed class CashShiftService : ICashShiftService
         try
         {
             var list = await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cancellationToken).ConfigureAwait(false);
-            return ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId);
+            return ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId, PosApp.CurrentUserId);
         }
         catch (Exception ex)
         {

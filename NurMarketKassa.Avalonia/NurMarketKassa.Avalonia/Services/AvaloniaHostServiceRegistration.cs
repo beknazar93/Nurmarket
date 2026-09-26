@@ -181,6 +181,10 @@ internal static class AvaloniaHostServiceRegistration
             PosLogger.Log($"CATALOG warm-up failed: {ex}", "CATALOG");
         }
 
+        // Весы, дисплей цены и принтер держит касса; программе владельца (AppMode) они не нужны.
+        if (NurMarketKassa.Services.AppMode.IsOwner)
+            return;
+
         try
         {
             services.GetRequiredService<IWeightScaleService>().Start();

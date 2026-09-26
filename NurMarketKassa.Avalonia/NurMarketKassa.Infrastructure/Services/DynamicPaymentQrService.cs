@@ -40,7 +40,7 @@ public static class DynamicPaymentQrService
     private static string? _lastGeneratedPath;
     private static string? _lastGeneratedKey;
 
-    private static string OutputDirectory => Path.Combine(Path.GetTempPath(), "NurMarketKassa", "qr");
+    private static string OutputDirectory => Path.Combine(Path.GetTempPath(), NurMarketKassa.Services.AppMode.DataFolderName, "qr");
 
     /// <summary>Достаёт текст из картинки статического QR. null — распознать не удалось.</summary>
     public static string? TryDecodeStaticQr(string imagePath)

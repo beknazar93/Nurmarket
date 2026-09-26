@@ -178,7 +178,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
                 try
                 {
                     var feed = await releaseSource.GetReleaseFeed(
-                            new NullVelopackLogger(), manager.AppId, channel: null, stagingId: null, latestLocalRelease: null)
+                            new NullVelopackLogger(), manager.AppId, channel: AppMode.IsOwner ? "owner" : null, stagingId: null, latestLocalRelease: null)
                         .ConfigureAwait(false);
                     asset = feed.Assets.FirstOrDefault(a =>
                         a.Type == VelopackAssetType.Full
@@ -194,7 +194,9 @@ public sealed class VelopackUpdateService : IAppUpdateService
                     continue;
 
                 var releaseManager = new UpdateManager(
-                    releaseSource, options: new UpdateOptions { AllowVersionDowngrade = true }, locator: null!);
+                    releaseSource,
+                    options: new UpdateOptions { AllowVersionDowngrade = true, ExplicitChannel = AppMode.IsOwner ? "owner" : null },
+                    locator: null!);
                 _rollbackTargets[version] = (releaseManager, asset);
                 result.Add(new AppReleaseVersion(
                     version,
@@ -311,7 +313,13 @@ public sealed class VelopackUpdateService : IAppUpdateService
         _pendingUpdate = null;
         _pendingManager = null;
         _source = new GithubSource(repoUrl, accessToken: null, prerelease: tester);
-        _manager = new UpdateManager(_source, options: new UpdateOptions { AllowVersionDowngrade = true }, locator: null!);
+        // У программы владельца свой канал обновлений («owner»): её пакеты лежат в тех же релизах
+        // GitHub рядом с кассой, и без канала она бы скачала кассу вместо себя.
+        _manager = new UpdateManager(_source, options: new UpdateOptions
+        {
+            AllowVersionDowngrade = true,
+            ExplicitChannel = AppMode.IsOwner ? "owner" : null,
+        }, locator: null!);
         return _manager;
     }
 

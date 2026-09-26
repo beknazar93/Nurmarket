@@ -162,6 +162,29 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Внесение и изъятие денег из ящика (2026-09-25). Рядом с остатком кассы, а не
+                         в свёрнутом разделе: это действие со сменой, и кассир ищет его возле суммы. -->
+                    <Button Classes="sidebar-menu-item"
+                            IsVisible="{Binding IsShiftOpen}"
+                            Command="{Binding OpenCashOperationCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="{StaticResource CashOperationsIcon}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.cashOperation}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+
                     <Button Classes="sidebar-section-header" Command="{Binding ToggleWorkSectionCommand}">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Text="{DynamicResource sideMenu.sectionWork}"

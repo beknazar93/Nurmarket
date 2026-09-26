@@ -81,12 +81,16 @@ public sealed class PurchaseReceivingService
             {
                 var price = Num(p, "price");
                 var purchase = Num(p, "purchase_price");
+                var name = Str(p, "name") ?? code;
+                var unit = Str(p, "unit") ?? "шт";
                 return new ReceivingLineVm
                 {
                     ProductId = Str(p, "id"),
                     Barcode = Str(p, "barcode") ?? code,
-                    ProductName = Str(p, "name") ?? code,
-                    Unit = Str(p, "unit") ?? "шт",
+                    ProductName = name,
+                    Unit = unit,
+                    OriginalName = name,
+                    OriginalUnit = unit,
                     Source = ReceivingSource.Warehouse,
                     StockBefore = Num(p, "quantity"),
                     Quantity = quantity,
@@ -128,12 +132,15 @@ public sealed class PurchaseReceivingService
     public static ReceivingLineVm FromTile(NurMarketKassa.Models.Pos.CatalogProductTileVm tile, double quantity)
     {
         var price = LocalCartService.ParsePrice(tile.PriceLine ?? "");
+        var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "шт" : tile.Unit!;
         return new ReceivingLineVm
         {
             ProductId = tile.Id,
             Barcode = tile.Barcode ?? "",
             ProductName = tile.Title,
-            Unit = string.IsNullOrWhiteSpace(tile.Unit) ? "шт" : tile.Unit!,
+            Unit = unit,
+            OriginalName = tile.Title,
+            OriginalUnit = unit,
             Source = ReceivingSource.Warehouse,
             StockBefore = tile.Quantity,
             Quantity = quantity,
@@ -151,13 +158,36 @@ public sealed class PurchaseReceivingService
     public static List<string> Validate(IReadOnlyList<ReceivingLineVm> lines)
     {
         var problems = new List<string>();
+        var newBarcodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in lines)
         {
-            var name = string.IsNullOrWhiteSpace(line.ProductName) ? line.Barcode : line.ProductName;
+            // Строка «+ Новый товар» может быть без штрихкода — тогда в сообщении нечем её назвать.
+            var label = string.IsNullOrWhiteSpace(line.Barcode)
+                ? Tr.T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot")
+                : line.Barcode;
+            var name = string.IsNullOrWhiteSpace(line.ProductName) ? label : line.ProductName;
             if (string.IsNullOrWhiteSpace(line.ProductName))
-                problems.Add(Tr.T($"{line.Barcode}: впишите название нового товара",
-                    $"{line.Barcode}: жаңы товардын атын жазыңыз", $"{line.Barcode}: enter a name for the new product",
-                    $"{line.Barcode}: yeni ürünün adını girin", $"{line.Barcode}: yangi mahsulot nomini kiriting"));
+                problems.Add(Tr.T($"{label}: впишите название нового товара",
+                    $"{label}: жаңы товардын атын жазыңыз", $"{label}: enter a name for the new product",
+                    $"{label}: yeni ürünün adını girin", $"{label}: yangi mahsulot nomini kiriting"));
+
+            // Штрихкод, вписанный руками у нового товара, не должен совпасть с уже существующим —
+            // иначе на складе появятся два товара с одним кодом (2026-09-26).
+            if (line.IsNew && !string.IsNullOrWhiteSpace(line.Barcode))
+            {
+                if (!newBarcodes.Add(line.Barcode))
+                    problems.Add(Tr.T($"{name}: штрихкод {line.Barcode} встречается в приёмке дважды",
+                        $"{name}: {line.Barcode} штрихкоду эки жолу бар", $"{name}: barcode {line.Barcode} appears twice",
+                        $"{name}: {line.Barcode} barkodu iki kez var", $"{name}: {line.Barcode} shtrix-kodi ikki marta bor"));
+                else if (line.Source == ReceivingSource.Unknown
+                         && CatalogCacheService.Products.FirstOrDefault(p =>
+                             string.Equals(p.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)) is { } owner)
+                    problems.Add(Tr.T($"{name}: штрихкод {line.Barcode} уже есть у товара «{owner.Title}» — отсканируйте его, чтобы принять",
+                        $"{name}: {line.Barcode} штрихкоду «{owner.Title}» товарында бар — аны сканерлеңиз",
+                        $"{name}: barcode {line.Barcode} already belongs to “{owner.Title}” — scan it to receive",
+                        $"{name}: {line.Barcode} barkodu “{owner.Title}” ürününde var — kabul için onu okutun",
+                        $"{name}: {line.Barcode} shtrix-kodi “{owner.Title}” mahsulotida bor — qabul uchun uni skanerlang"));
+            }
             if (line.Quantity <= 0)
                 problems.Add(Tr.T($"{name}: не указано количество", $"{name}: саны көрсөтүлгөн эмес",
                     $"{name}: quantity missing", $"{name}: miktar yok", $"{name}: miqdor ko'rsatilmagan"));
@@ -262,15 +292,17 @@ public sealed class PurchaseReceivingService
             }
 
             // Цена продажи в документ прихода не входит — у сайта она тоже пишется в товар
-            // отдельным запросом, и только если её поменяли.
-            foreach (var line in ready.Where(l => Math.Abs(l.SalePrice - l.OriginalSalePrice) > 0.004))
+            // отдельным запросом, и только если её поменяли. Так же — поправленные в приёмке
+            // название и единица товара со склада.
+            foreach (var line in ready.Where(l => Math.Abs(l.SalePrice - l.OriginalSalePrice) > 0.004 || l.NameOrUnitChanged))
             {
                 try
                 {
-                    await Api.PatchProductFieldsAsync(line.ProductId!, new Dictionary<string, object?>
-                    {
-                        ["price"] = line.SalePrice,
-                    }, ct).ConfigureAwait(false);
+                    var fields = new Dictionary<string, object?>();
+                    if (Math.Abs(line.SalePrice - line.OriginalSalePrice) > 0.004)
+                        fields["price"] = line.SalePrice;
+                    AddNameAndUnit(line, fields);
+                    await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -290,12 +322,14 @@ public sealed class PurchaseReceivingService
                     var current = await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false);
                     var stock = current is { } c ? Num(c, "quantity") : line.StockBefore;
 
-                    await Api.PatchProductFieldsAsync(line.ProductId!, new Dictionary<string, object?>
+                    var fields = new Dictionary<string, object?>
                     {
                         ["quantity"] = Math.Round(stock + line.Quantity, 3),
                         ["purchase_price"] = line.PurchasePrice,
                         ["price"] = line.SalePrice,
-                    }, ct).ConfigureAwait(false);
+                    };
+                    AddNameAndUnit(line, fields);
+                    await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
                     posted.Add(line);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -320,6 +354,16 @@ public sealed class PurchaseReceivingService
         }
 
         return new PostResult(posted, posted.Sum(l => l.LineTotal), created, errors);
+    }
+
+    /// <summary>Название и единица, поправленные в приёмке у товара со склада, — в карточку.</summary>
+    private static void AddNameAndUnit(ReceivingLineVm line, Dictionary<string, object?> fields)
+    {
+        if (!line.NameOrUnitChanged)
+            return;
+        if (!string.IsNullOrWhiteSpace(line.ProductName))
+            fields["name"] = line.ProductName.Trim();
+        fields["unit"] = line.Unit;
     }
 
     // ------------------------------------------------------------------ история закупок

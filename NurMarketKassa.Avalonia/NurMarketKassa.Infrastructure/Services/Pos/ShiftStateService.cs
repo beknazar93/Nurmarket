@@ -57,7 +57,7 @@ public sealed class ShiftStateService : IShiftStateService
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
             var list = await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
-            var openId = ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId);
+            var openId = ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId, PosApp.CurrentUserId);
             if (string.IsNullOrEmpty(openId)
                 && ShiftHelper.FindCashierShiftOnOtherCashbox(list, PosApp.CurrentUserId) is { } own
                 && CanFollowCashbox(own.CashboxId))

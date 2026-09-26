@@ -35,4 +35,11 @@ public interface IShiftApiService
         string? closingCash = null,
         IReadOnlyDictionary<string, string>? extraFields = null,
         CancellationToken ct = default);
+
+    /// <summary>POST /api/construction/cashflows/ — движение денег кассы (внесение/изъятие).
+    /// С полем shift изъятие входит в расход и ожидаемый остаток смены на сервере.</summary>
+    Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default);
+
+    /// <summary>GET /api/construction/cashflows/?shift= — движения денег одной смены (страница page).</summary>
+    Task<JsonElement> ConstructionCashFlowsForShiftAsync(string shiftId, int page = 1, CancellationToken ct = default);
 }

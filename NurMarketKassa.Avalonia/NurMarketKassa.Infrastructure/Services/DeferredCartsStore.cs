@@ -20,7 +20,7 @@ public static class DeferredCartsStore
     private static string FilePath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "deferred_carts.json");
 
     public static List<DeferredCartEntry> LoadAll()

@@ -7,7 +7,7 @@ public static class LabelTemplateStore
 {
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa", "label-template.json");
+        NurMarketKassa.Services.AppMode.DataFolderName, "label-template.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

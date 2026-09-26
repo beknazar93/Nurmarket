@@ -27,7 +27,7 @@ public static class AccountDataIsolation
 {
     private static readonly string Root = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa");
+        NurMarketKassa.Services.AppMode.DataFolderName);
 
     private static readonly string ParkRoot = Path.Combine(Root, "accounts");
 

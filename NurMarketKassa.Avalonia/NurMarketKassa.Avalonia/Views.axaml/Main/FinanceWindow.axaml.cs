@@ -69,7 +69,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private static readonly string CashHistoryFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "cash_history.json");
 
         // ── публичные свойства ──

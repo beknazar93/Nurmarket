@@ -31,7 +31,7 @@ public static class OfflinePosStateStore
     private static string FilePath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "offline_pos_state.json");
 
     public static void SaveFromApp(decimal shiftCashBalance = 0)

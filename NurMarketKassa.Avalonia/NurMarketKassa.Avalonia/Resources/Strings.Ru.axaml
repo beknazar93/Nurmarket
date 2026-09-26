@@ -13,6 +13,7 @@
   <x:String x:Key="csh.menu.return">Возврат</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Некорректные чеки</x:String>
   <x:String x:Key="csh.menu.salary">Зарплата</x:String>
+  <x:String x:Key="csh.menu.cashOperation">Внесение / изъятие</x:String>
   <x:String x:Key="csh.menu.finance">Финансы</x:String>
   <x:String x:Key="csh.menu.sales">Продажи</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
@@ -1082,6 +1083,7 @@
   <x:String x:Key="warehouse.receivingWas">Было</x:String>
   <x:String x:Key="warehouse.receivingTaken">Принято</x:String>
   <x:String x:Key="warehouse.receivingCommit">Оприходовать</x:String>
+  <x:String x:Key="warehouse.receivingAddNew">+ Новый товар</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Поставщик</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Оплачено сразу</x:String>
   <x:String x:Key="warehouse.receivingOnDebt">В долг поставщику</x:String>
@@ -1140,7 +1142,7 @@
   <x:String x:Key="warehouse.movementsWriteOff">Списание</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Редактор этикетки</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Редактор этикетки</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — с перетаскиванием и настройкой каждого элемента. Бесплатно.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — с перетаскиванием и настройкой каждого элемента. Платная функция: открывается серийным номером.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Открыть редактор</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Всего товаров (SKU)</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Нет в наличии</x:String>

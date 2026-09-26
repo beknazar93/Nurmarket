@@ -14,7 +14,7 @@ public static class CrashReportService
 {
     private static readonly string ReportsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "NurMarketKassa", "CrashReports");
+        NurMarketKassa.Services.AppMode.DataFolderName, "CrashReports");
 
     /// <summary>
     /// URL, на который отправлять накопленные отчёты. Заполняется в будущем обновлении —

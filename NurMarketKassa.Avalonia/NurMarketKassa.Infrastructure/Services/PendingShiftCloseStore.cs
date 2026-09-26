@@ -28,7 +28,7 @@ public static class PendingShiftCloseStore
 
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "NurMarketKassa",
+        NurMarketKassa.Services.AppMode.DataFolderName,
         "pending_shift_closes.json");
 
     public sealed class Entry

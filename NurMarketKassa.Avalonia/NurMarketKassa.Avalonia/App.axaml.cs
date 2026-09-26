@@ -361,8 +361,9 @@ public partial class App : Application
                 appSession.CurrentUserId);
             AppHost.Services.GetRequiredService<SyncService>().Start();
 
-            var mainWindow = AppHost.Services.GetRequiredService<MainWindow>();
-            var canOpen = await mainWindow.InitializeApplicationAsync(null, ShutdownCts.Token);
+            var mainWindow = ResolveMainShell();
+            var shell = (IMainShell)mainWindow;
+            var canOpen = await shell.InitializeApplicationAsync(null, ShutdownCts.Token);
             if (!canOpen)
             {
                 splash.Close();
@@ -371,7 +372,7 @@ public partial class App : Application
             }
 
             desktop.MainWindow = mainWindow;
-            mainWindow.PlaceOnPrimaryScreen();
+            shell.PlaceOnPrimaryScreen();
             mainWindow.Show();
             splash.Close();
         }
@@ -399,6 +400,10 @@ public partial class App : Application
         SplashWindow splash,
         IAppSession appSession)
     {
+        // Программа владельца работает только с NurCRM: автономного (локального) входа у неё нет.
+        if (NurMarketKassa.Services.AppMode.IsOwner)
+            return false;
+
         var autonomous = AppHost!.Services.GetRequiredService<IAutonomousAuthService>();
         var (resumed, email, displayName) = autonomous.TryAutoResume();
         if (!resumed)
@@ -456,6 +461,13 @@ public partial class App : Application
         CurrentUserId = authenticated.UserId;
     }
 
+    /// <summary>Главное окно после входа: касса или программа владельца (см. AppMode). Три места
+    /// входа — автовход, автономный вход и окно входа — берут окно только отсюда.</summary>
+    internal static Window ResolveMainShell() =>
+        NurMarketKassa.Services.AppMode.IsOwner
+            ? GetRequiredService<OwnerShellWindow>()
+            : GetRequiredService<MainWindow>();
+
     private static void ShowLoginWindow(
         IClassicDesktopStyleApplicationLifetime desktop,
         SplashWindow splash)
@@ -471,7 +483,7 @@ public partial class App : Application
     {
         var logDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "Logs");
 #if DEBUG
         const LogLevel minimumLogLevel = LogLevel.Debug;
@@ -507,6 +519,7 @@ public partial class App : Application
         // Windows / views
         services.AddTransient<LoginWindow>();
         services.AddTransient<MainWindow>();
+        services.AddTransient<OwnerShellWindow>();
         services.AddTransient<CheckoutDialog>();
         services.AddTransient<AdminSupportWindow>();
         services.AddTransient<WarehouseWindow>();

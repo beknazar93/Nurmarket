@@ -796,6 +796,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             async Task<(decimal revenue, decimal cost, List<(string name, decimal total, int qty)> lines)> FetchOneAsync(SaleItem sale)
             {
+                var summary = new List<string>();
                 await gate.WaitAsync(token);
                 try
                 {
@@ -826,9 +827,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                                 cost += (decimal)product.PurchasePrice * qty;
 
                             lines.Add((name, total, (int)qty));
+                            summary.Add(qty == 1m ? name : $"{name} ×{qty.ToString("0.###", CultureInfo.InvariantCulture)}");
                         }
                     }
 
+                    // 2026-09-26, отзыв «не показывает чеки внутри (Продажи)»: в колонке «Чек» был
+                    // только номер, содержимое — лишь по двойному нажатию. Состав всё равно
+                    // загружается здесь (для топа и прибыли) — показываем его прямо в строке.
+                    var text = string.Join(", ", summary);
+                    Dispatcher.UIThread.Post(() => sale.ItemsSummary = text);
                     return (revenue, cost, lines);
                 }
                 catch (Exception ex)
@@ -842,15 +849,18 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
             }
 
-            // Прибыль и топ товаров — по тем же чекам, что и выручка (без продаж в долг), как у сайта.
-            var results = await Task.WhenAll(sales.Where(s => s.CountsAsRevenue).Select(FetchOneAsync));
+            // Состав грузим по всем чекам списка (он показывается в строке), а прибыль и топ
+            // товаров считаем по тем же чекам, что и выручка (без продаж в долг), как у сайта.
+            var results = await Task.WhenAll(sales.Select(FetchOneAsync));
             token.ThrowIfCancellationRequested();
 
             var dict = new Dictionary<string, (decimal revenue, int qty)>();
             decimal totalRevenueFromItems = 0m;
             decimal totalCostFromItems = 0m;
-            foreach (var r in results)
+            foreach (var (sale, r) in sales.Zip(results))
             {
+                if (!sale.CountsAsRevenue)
+                    continue;
                 totalRevenueFromItems += r.revenue;
                 totalCostFromItems += r.cost;
                 foreach (var (name, total, qty) in r.lines)
@@ -889,7 +899,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void FilterSales(object sender, FilterEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(_searchFilter)) { e.Accepted = true; return; }
-            if (e.Item is SaleItem s) e.Accepted = s.ReceiptNumber?.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) == true;
+            // Поиск и по номеру, и по товарам в чеке.
+            if (e.Item is SaleItem s) e.Accepted = s.ReceiptNumber?.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) == true
+                                                   || s.ItemsSummary.Contains(_searchFilter, StringComparison.CurrentCultureIgnoreCase);
             else e.Accepted = false;
         }
 
@@ -922,9 +934,21 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
+        /// <summary>Чек открывается и одним нажатием на строку (2026-09-26): двойное нажатие на
+        /// сенсорном экране срабатывает через раз, и казалось, что чеки не открываются вовсе.
+        /// Нажатие на заголовок или пустое место таблицы чек не открывает.</summary>
+        private async void SalesGrid_Tapped(object sender, TappedEventArgs e)
+        {
+            var row = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<DataGridRow>(e.Source as Avalonia.Visual, includeSelf: true);
+            if (row?.DataContext is SaleItem item)
+                await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
+        }
+
         private async Task ShowReceiptDetailsByIdAsync(string receiptId, string receiptNumber)
         {
             if (string.IsNullOrEmpty(receiptId)) return;
+            // Одно нажатие уже открыло этот чек — двойное не грузит его второй раз.
+            if (ReceiptDetailsPopup.IsOpen && string.Equals(_currentReceiptNumber, receiptNumber, StringComparison.Ordinal)) return;
             try
             {
                 JsonElement json;
@@ -1127,8 +1151,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public int Quantity { get; set; }
         }
 
-        public class SaleItem
+        public class SaleItem : INotifyPropertyChanged
         {
+            private string _itemsSummary = "";
+
+            /// <summary>Товары чека одной строкой — подгружаются после списка (см. LoadTopItemsAsync).</summary>
+            public string ItemsSummary
+            {
+                get => _itemsSummary;
+                set
+                {
+                    if (_itemsSummary == value)
+                        return;
+                    _itemsSummary = value ?? "";
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ItemsSummary)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ReceiptText)));
+                }
+            }
+
+            /// <summary>Колонка «Чек»: номер и состав.</summary>
+            public string ReceiptText => _itemsSummary.Length == 0 ? ReceiptNumber : $"{ReceiptNumber}   ·   {_itemsSummary}";
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+
             public string Id { get; set; } = "";
             public DateTime CreatedAt { get; set; }
             // 2026-09-25: дата и время строкой, а не StringFormat=HH:mm в разметке — в «Истории»

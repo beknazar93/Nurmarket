@@ -287,7 +287,7 @@ public partial class MainWindow
         return Task.CompletedTask;
     }
 
-    private async void RecordCashWithdrawal(string reason, double amount)
+    private void RecordCashWithdrawal(string reason, double amount)
     {
         if (string.IsNullOrWhiteSpace(NurMarketKassa.PosApp.ActiveShiftId))
         {
@@ -309,32 +309,70 @@ public partial class MainWindow
             Reason = reason,
             Comment = reason,
         };
+        _ = RecordCashOperationAsync(op);
+    }
+
+    /// <summary>«Внесение / изъятие» из бокового меню (2026-09-25, по замечанию владельца: окно
+    /// «Внесение» было в коде, но на экране его нечем было открыть — оно жило только в «Истории
+    /// смен», которой в меню давно нет, а изъять деньги можно было лишь через «Доп. услуга →
+    /// Расход» при пустом чеке).</summary>
+    internal async Task OpenCashOperationDialogAsync()
+    {
+        if (!_session.IsShiftOpen || string.IsNullOrWhiteSpace(NurMarketKassa.PosApp.ActiveShiftId))
+        {
+            _prompts.ShowWarning(Tr.T(
+                "Внесение и изъятие можно оформить только при открытой смене.",
+                "Акча салууну жана алууну ачык смена учурунда гана жасаса болот.",
+                "Cash in and cash out can only be recorded while a shift is open.",
+                "Para girişi ve çıkışı yalnızca vardiya açıkken kaydedilebilir.",
+                "Kirim va chiqim faqat smena ochiq bo'lganda amalga oshirilishi mumkin."));
+            return;
+        }
+
+        var dialog = new NewOperationDialog(isDeposit: true);
+        if (await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true) != true
+            || dialog.ResultOperation is not { } op)
+            return;
+
+        await RecordCashOperationAsync(op).ConfigureAwait(true);
+    }
+
+    /// <summary>Общая запись внесения/изъятия — и из меню, и из «Доп. услуга → Расход»: журнал
+    /// смены, расход в отчёте, остаток в шапке, сервер и приходный/расходный чек. Раньше путь
+    /// через «Доп. услугу» и путь через «Историю смен» записывали операцию по-разному.</summary>
+    private async Task RecordCashOperationAsync(CashOperationModel op)
+    {
+        var isWithdrawal = CashOperationModel.ResolveKind(op.Type) == CashOperationKind.Withdrawal;
         ShiftCashOperationsStore.Append(op);
 
         // 2026-09-23. Изъятие, сделанное отсюда, не попадало в строку «Расход» Z-отчёта: событие
         // смены писал только путь через «Историю смен». Одна и та же операция давала в отчёте
         // разные цифры в зависимости от того, какой кнопкой её сделали.
-        if (CashOperationModel.ResolveKind(op.Type) == CashOperationKind.Withdrawal)
+        if (isWithdrawal)
         {
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindExpense,
                 PosApp.ActiveShiftId,
                 ShiftEventsStore.OperationKey(op.Id),
                 (double)op.Amount,
-                op.Comment);
+                op.Note);
         }
 
-        // Расходный чек обязателен: по нему деньги, вынутые из ящика, сходятся при
-        // пересчёте кассы. Раньше изъятие проходило молча — подтвердить его было нечем.
+        UpdateShiftBalanceUi();
+        // На сервер — в движения денег смены (ShiftCashFlowSync), затем свежий остаток смены.
+        _ = RefreshShiftBalanceQuietAsync();
+
+        // Приходный/расходный чек обязателен: по нему деньги в ящике сходятся при пересчёте
+        // кассы. Раньше изъятие проходило молча — подтвердить его было нечем.
         // Печать — в фоне: медленный принтер не подвешивает кассу (2026-09-25).
         var cashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
         string? printError;
         try
         {
             printError = await Task.Run(() => OperationReceiptPrinter.PrintCashOperation(
-                isWithdrawal: true,
+                isWithdrawal,
                 op.Amount,
-                reason,
+                op.Note,
                 cashier)).ConfigureAwait(true);
         }
         catch (Exception ex)
@@ -348,12 +386,19 @@ public partial class MainWindow
             return;
         }
 
-        _viewModel.Basket.CartMessage = Tr.T(
-            $"Изъятие оформлено: {amount:0.00} сом.",
-            $"Изъятим жасалды: {amount:0.00} сом.",
-            $"Withdrawal recorded: {amount:0.00} som.",
-            $"Çekim kaydedildi: {amount:0.00} som.",
-            $"Chiqim amalga oshirildi: {amount:0.00} som.");
+        _viewModel.Basket.CartMessage = isWithdrawal
+            ? Tr.T(
+                $"Изъятие оформлено: {op.Amount:0.00} сом.",
+                $"Изъятим жасалды: {op.Amount:0.00} сом.",
+                $"Withdrawal recorded: {op.Amount:0.00} som.",
+                $"Çekim kaydedildi: {op.Amount:0.00} som.",
+                $"Chiqim amalga oshirildi: {op.Amount:0.00} som.")
+            : Tr.T(
+                $"Внесение оформлено: {op.Amount:0.00} сом.",
+                $"Акча салынды: {op.Amount:0.00} сом.",
+                $"Cash in recorded: {op.Amount:0.00} som.",
+                $"Para girişi kaydedildi: {op.Amount:0.00} som.",
+                $"Kirim amalga oshirildi: {op.Amount:0.00} som.");
     }
 
     /// <summary>Неизвестный штрих-код при сканировании (2026-09-07, по просьбе владельца): вместо

@@ -300,6 +300,7 @@ public sealed class SyncService : IDisposable
             try
             {
                 var saleId = await ReplayOfflineSaleAsync(entry, ct).ConfigureAwait(false);
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} проведён на сервере, продажа {saleId ?? "—"}.", "OFFLINE");
                 OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
                 OfflinePendingSalesStore.RemoveSynced(entry.Id);
             }
@@ -341,34 +342,6 @@ public sealed class SyncService : IDisposable
         }
     }
 
-    /// <summary>Спрашивает сервер, не провелась ли уже продажа по этой корзине: статус "new"
-    /// держится только пока чек не оплачен, любой другой означает "checkout применился". Та же
-    /// сверка, что в интерактивной оплате (PosCheckoutService.WasCheckoutAlreadyAppliedAsync) —
-    /// в повторе офлайн-чека её не было вовсе.</summary>
-    private async Task<bool?> WasCheckoutAlreadyAppliedAsync(string? cartId, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(cartId))
-            return false;
-
-        try
-        {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(5));
-            var sale = await _sales.PosSaleGetAsync(cartId, cts.Token).ConfigureAwait(false);
-            if (sale.ValueKind != JsonValueKind.Object
-                || !sale.TryGetProperty("status", out var statusEl)
-                || statusEl.ValueKind != JsonValueKind.String)
-                return null;
-
-            return !string.Equals(statusEl.GetString(), "new", StringComparison.OrdinalIgnoreCase);
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"OFFLINE replay: сверка чека {cartId} не удалась: {ex.Message}", "OFFLINE");
-            return null;
-        }
-    }
-
     private async Task<string?> ReplayOfflineSaleAsync(OfflineSaleEntry entry, CancellationToken ct)
     {
         string cartId;
@@ -397,25 +370,46 @@ public sealed class SyncService : IDisposable
 
         if (entry.CheckoutSubmittedAt is not null)
         {
-            var applied = await WasCheckoutAlreadyAppliedAsync(entry.SyncCartId, ct).ConfigureAwait(false);
-            if (applied == true)
+            // Сверка по статусу КОРЗИНЫ (CartSaleSessionHelper.GetCheckoutStateAsync). Прежняя
+            // спрашивала адрес продажи, всегда получала 404 и откладывала повтор навсегда.
+            using var checkCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            checkCts.CancelAfter(TimeSpan.FromSeconds(5));
+            var state = await CartSaleSessionHelper.GetCheckoutStateAsync(_sales, entry.SyncCartId, checkCts.Token)
+                .ConfigureAwait(false);
+            if (state == CartSaleSessionHelper.CartCheckoutState.Paid)
             {
                 PosLogger.Log($"OFFLINE replay: чек {entry.Id} уже проведён на сервере — повтор пропущен.", "OFFLINE");
                 OfflinePendingSalesStore.Update(entry.Id, e => e.CheckoutCompleted = true);
                 return entry.SyncedSaleId;
             }
 
-            if (applied is null)
+            if (state == CartSaleSessionHelper.CartCheckoutState.Unknown)
             {
                 // Связь есть, но ответить "проводилась или нет" сервер не смог. Провести повторно
                 // здесь — значит рискнуть дублем; ждём следующего цикла, чек остаётся в очереди.
                 throw new HttpRequestException("Не удалось проверить, прошла ли оплата — повтор отложен.");
             }
 
-            // Сервер подтвердил: корзина ещё не оплачена. Товары в ней уже лежат — добавлять их
-            // второй раз нельзя, идём сразу к оплате.
-            cartId = entry.SyncCartId!;
-            return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
+            if (state == CartSaleSessionHelper.CartCheckoutState.Open)
+            {
+                // Сервер подтвердил: корзина ещё не оплачена — значит, прошлая оплата отклонена или
+                // не дошла. Её содержимое пересобираем заново (см. RebuildReplayCartAsync): раньше
+                // здесь шли «сразу к оплате» с тем, что лежит в корзине, и если сервер отклонил чек
+                // из-за лишних позиций, повтор отклонялся точно так же — бесконечно.
+                cartId = entry.SyncCartId!;
+                await RebuildReplayCartAsync(entry, cartId, ct).ConfigureAwait(false);
+                return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
+            }
+
+            // Корзины больше нет (сервер убирает незакрытые корзины при закрытии смены, живой
+            // случай — автозакрытие в 01:00). Оплаченной она быть не могла: оплаченные остаются
+            // со статусом checked_out. Начинаем с новой корзины.
+            PosLogger.Log($"OFFLINE replay: чек {entry.Id} — прежней корзины на сервере нет, собираю заново.", "OFFLINE");
+            OfflinePendingSalesStore.Update(entry.Id, e =>
+            {
+                e.SyncCartId = null;
+                e.CheckoutSubmittedAt = null;
+            });
         }
 
         var start = await _sales.PosSalesStartAsync(entry.CashboxId, ct).ConfigureAwait(false);
@@ -423,13 +417,28 @@ public sealed class SyncService : IDisposable
         if (string.IsNullOrEmpty(cartId))
             throw new ApiException("Сервер не вернул cart_id для синхронизации офлайн-чека.", 500);
 
+        await RebuildReplayCartAsync(entry, cartId, ct).ConfigureAwait(false);
+        return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Корзина на сервере = ровно позиции офлайн-чека. 2026-09-26, стресс-тест: оплата
+    /// чека на 144 позиции прервалась по тайм-ауту посреди переноса позиций и ушла в очередь, а
+    /// часть позиций осталась в серверной корзине. Досылка брала ту же корзину (sales/start
+    /// отдаёт основную) и добавляла все 144 поверх — сервер отказал «Сумма, полученная
+    /// наличными, меньше суммы продажи», и чек, за который покупатель уже заплатил, навсегда
+    /// оседал в «Некорректных чеках». Обычная оплата корзину перед переносом очищает
+    /// (StagingCartService, «ensure-empty»), досылка — нет.</summary>
+    private async Task RebuildReplayCartAsync(OfflineSaleEntry entry, string cartId, CancellationToken ct)
+    {
+        var removed = await CartSaleSessionHelper.EnsureServerCartEmptyAsync(_sales, cartId, ct).ConfigureAwait(false);
+        if (removed > 0)
+            PosLogger.Log($"OFFLINE replay: чек {entry.Id} — из серверной корзины убрано {removed} посторонних позиций.", "OFFLINE");
+
         // Общая с обычной оплатой выгрузка снимка (см. StagingCartService): она умеет строки
         // «Доп. услуга» и поштучную продажу из пачки. Прежняя local-копия этого цикла молча
         // пропускала строки без product_id и теряла sale_package_id.
         await StagingCartService.PushItemsFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
         await StagingCartService.ApplyOrderDiscountFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
-
-        return await SubmitReplayCheckoutAsync(entry, cartId, ct).ConfigureAwait(false);
     }
 
     private async Task<string?> SubmitReplayCheckoutAsync(OfflineSaleEntry entry, string cartId, CancellationToken ct)

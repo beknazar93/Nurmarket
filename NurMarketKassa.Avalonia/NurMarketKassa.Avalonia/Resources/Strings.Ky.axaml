@@ -13,6 +13,7 @@
   <x:String x:Key="csh.menu.return">Кайтаруу</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Туура эмес чектер</x:String>
   <x:String x:Key="csh.menu.salary">Эмгек акы</x:String>
+  <x:String x:Key="csh.menu.cashOperation">Акча салуу / алуу</x:String>
   <x:String x:Key="csh.menu.finance">Каржы</x:String>
   <x:String x:Key="csh.menu.sales">Сатуулар</x:String>
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
@@ -1082,6 +1083,7 @@
   <x:String x:Key="warehouse.receivingWas">Болгон</x:String>
   <x:String x:Key="warehouse.receivingTaken">Кабыл алынды</x:String>
   <x:String x:Key="warehouse.receivingCommit">Кирешеге алуу</x:String>
+  <x:String x:Key="warehouse.receivingAddNew">+ Жаңы товар</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Жеткирүүчү</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Дароо төлөндү</x:String>
   <x:String x:Key="warehouse.receivingOnDebt">Жеткирүүчүгө карыз</x:String>
@@ -1140,7 +1142,7 @@
   <x:String x:Key="warehouse.movementsWriteOff">Эсептен чыгаруу</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Этикетка редактору</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Этикетка редактору</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Штрих-коддун, аталыштын, баанын, артикулдун, өлчөм бирдигинин жана дүкөндүн этикеткадагы жайгашуусу — ар бир элементти сүйрөп жана ыңгайлаштырып. Акысыз.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Штрих-коддун, аталыштын, баанын, артикулдун, өлчөм бирдигинин жана дүкөндүн этикеткадагы жайгашуусу — ар бир элементти сүйрөп жана ыңгайлаштырып. Акы төлөнүүчү функция: серия номери менен ачылат.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Редакторду ачуу</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Бардык товарлар (SKU)</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Дүкөндө жок</x:String>

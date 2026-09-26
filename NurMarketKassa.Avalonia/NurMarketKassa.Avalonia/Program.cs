@@ -25,7 +25,12 @@ internal static class Program
         // and this handles + exits on those without ever reaching the Avalonia UI.
         VelopackApp.Build().Run();
 
-        _singleInstanceMutex = new Mutex(initiallyOwned: true, @"Global\NurMarketKassa-SingleInstance", out var createdNew);
+        // Касса или программа владельца — до любых путей к данным и общесистемных имён (AppMode).
+        NurMarketKassa.Services.AppMode.Initialize(args);
+
+        // У программы владельца своё имя: на одном компьютере с кассой они не должны мешать друг другу.
+        _singleInstanceMutex = new Mutex(initiallyOwned: true,
+            @"Global\NurMarketKassa-SingleInstance" + NurMarketKassa.Services.AppMode.InstanceSuffix, out var createdNew);
         if (!createdNew)
         {
             // Касса уже работает. Раньше здесь показывалось «Касса уже запущена, проверьте
@@ -54,7 +59,7 @@ internal static class Program
 
     /// <summary>Имя общесистемного сигнала «покажись». Отдельно от мьютекса: мьютекс отвечает
     /// на вопрос «кто-то уже работает?», а это — способ попросить того, кто работает, показаться.</summary>
-    private const string ShowRequestEventName = @"Global\NurMarketKassa-ShowRequest";
+    private static string ShowRequestEventName => @"Global\NurMarketKassa-ShowRequest" + NurMarketKassa.Services.AppMode.InstanceSuffix;
 
     /// <summary>Просит уже работающую кассу показать окно. false — сигнал передать не удалось
     /// (старая версия без слушателя, либо запрет на именованные объекты), тогда вызывающий
@@ -203,7 +208,7 @@ internal static class Program
         {
             var path = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "NurMarketKassa", "user-settings.json");
+                NurMarketKassa.Services.AppMode.DataFolderName, "user-settings.json");
             if (!File.Exists(path))
                 return false;
 

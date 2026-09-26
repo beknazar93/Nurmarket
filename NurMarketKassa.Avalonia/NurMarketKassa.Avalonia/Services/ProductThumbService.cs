@@ -19,7 +19,7 @@ internal sealed class ProductThumbService
     {
         _cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "product_thumbs");
         try
         {

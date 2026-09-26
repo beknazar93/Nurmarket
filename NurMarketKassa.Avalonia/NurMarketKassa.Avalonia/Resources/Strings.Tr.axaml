@@ -13,6 +13,7 @@
   <x:String x:Key="csh.menu.return">İade</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Sorunlu fişler</x:String>
   <x:String x:Key="csh.menu.salary">Maaş</x:String>
+  <x:String x:Key="csh.menu.cashOperation">Para girişi / çıkışı</x:String>
   <x:String x:Key="csh.menu.finance">Finans</x:String>
   <x:String x:Key="csh.menu.sales">Satışlar</x:String>
   <x:String x:Key="csh.menu.abc">ABC analizi</x:String>
@@ -1082,6 +1083,7 @@
   <x:String x:Key="warehouse.receivingWas">Vardı</x:String>
   <x:String x:Key="warehouse.receivingTaken">Alındı</x:String>
   <x:String x:Key="warehouse.receivingCommit">Giriş yap</x:String>
+  <x:String x:Key="warehouse.receivingAddNew">+ Yeni ürün</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Tedarikçi</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Hemen ödendi</x:String>
   <x:String x:Key="warehouse.receivingOnDebt">Tedarikçiye borç</x:String>
@@ -1140,7 +1142,7 @@
   <x:String x:Key="warehouse.movementsWriteOff">Zayiat</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Etiket editörü</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Etiket editörü</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ücretsiz.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ücretli özellik: seri numarasıyla açılır.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Editörü aç</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Toplam ürün (SKU)</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Stokta yok</x:String>

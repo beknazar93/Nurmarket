@@ -14,7 +14,6 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
-        KeyDown="Window_KeyDown"
         Loaded="Window_Loaded"
         Closed="Window_Closed">
 
@@ -717,13 +716,19 @@
                                      Watermark="{DynamicResource warehouse.receivingScanHint}"
                                      TextChanged="ReceivingScan_TextChanged"
                                      KeyDown="ReceivingScan_KeyDown"/>
-                            <TextBox x:Name="ReceivingQuantityBox" Width="90" Text="1"/>
+                            <TextBox x:Name="ReceivingQuantityBox" Width="90" Text="1"
+                                     KeyDown="ReceivingQuantity_KeyDown"/>
                             <Button Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.transferPickFromList}"
                                     Click="ReceivingPickFromList_Click"/>
                             <Button Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.transferRemoveItem}"
                                     Click="ReceivingRemove_Click"/>
+                            <!-- Товар без скана: пустая строка, название/штрихкод/цены вписываются в
+                                 таблице. Можно добавлять подряд (2026-09-26). -->
+                            <Button Classes="SecondaryButton"
+                                    Content="{DynamicResource warehouse.receivingAddNew}"
+                                    Click="ReceivingAddNew_Click"/>
                         </StackPanel>
 
                         <Border Grid.Row="3" x:Name="ReceivingSuggestionsBox" IsVisible="False"
@@ -766,6 +771,7 @@
                                   AutoGenerateColumns="False"
                                   BeginningEdit="ReceivingGrid_BeginningEdit"
                                   CellEditEnded="ReceivingGrid_CellEditEnded"
+                                  CellPointerPressed="ReceivingGrid_CellPointerPressed"
                                   RowHeight="44">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingSource}" Width="120"
@@ -773,17 +779,17 @@
                                 <DataGridTextColumn Header="{DynamicResource common.name}" Width="*"
                                                     Binding="{ReflectionBinding ProductName}"/>
                                 <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140"
-                                                    Binding="{ReflectionBinding Barcode}" IsReadOnly="True"/>
+                                                    Binding="{ReflectionBinding Barcode}"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="76"
                                                     Binding="{ReflectionBinding Unit}"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingWas}" Width="90"
                                                     Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingTaken}" Width="112"
-                                                    Binding="{ReflectionBinding Quantity}"/>
+                                                    Binding="{ReflectionBinding QuantityText}"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingPurchasePrice}" Width="140"
-                                                    Binding="{ReflectionBinding PurchasePrice}"/>
+                                                    Binding="{ReflectionBinding PurchasePriceText}"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingSalePrice}" Width="140"
-                                                    Binding="{ReflectionBinding SalePrice}"/>
+                                                    Binding="{ReflectionBinding SalePriceText}"/>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingLineTotal}" Width="120"
                                                     Binding="{ReflectionBinding LineTotal, StringFormat=\{0:0.##\}}" IsReadOnly="True"/>
                             </DataGrid.Columns>
@@ -1023,11 +1029,12 @@
                         <!-- Фильтр статусов — кнопками, а не выпадающим списком (2026-09-25, «статусы
                              серые, не нажимаются»): у окна склада своя рамка без системного хрома, и
                              всплывающий список ComboBox в таком окне у Avalonia не открывается. -->
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
-                            <StackPanel x:Name="TransferStatusPills" Orientation="Horizontal" Spacing="6" IsVisible="False"/>
-                            <TextBlock x:Name="MovementsSummaryText" Margin="6,0,0,0" VerticalAlignment="Center"
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                            <StackPanel Grid.Column="0" x:Name="TransferStatusPills" Orientation="Horizontal" Spacing="6" IsVisible="False"/>
+                            <TextBlock Grid.Column="1" x:Name="MovementsSummaryText" Margin="12,0,0,0" VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
                                        FontSize="12.5" Foreground="{DynamicResource BrushTextSoft}"/>
-                        </StackPanel>
+                        </Grid>
 
                         <DataGrid Grid.Row="2" x:Name="TransfersGrid"
                                   x:CompileBindings="False"
@@ -1273,8 +1280,9 @@
                 </Border>
             </TabItem>
 
-            <!-- Вкладка: Редактор этикетки — бесплатная, всегда видна (в отличие от Аналитики
-                 выше). Кнопка открывает тот же LabelTemplateEditorDialog, что и кнопка "Печать"
+            <!-- Вкладка: Редактор этикетки — всегда видна (в отличие от Аналитики выше), но сам
+                 редактор платный с 2026-09-07 (EnsureLabelEditorUnlocked): подпись «Бесплатно»
+                 в описании осталась с тех времён и противоречила запросу серийного номера. Кнопка открывает тот же LabelTemplateEditorDialog, что и кнопка "Печать"
                  на строке товара и карточка в Маркетплейсе (2026-09-06, по просьбе пользователя —
                  отдельный раздел в Складе, а не только через диалог печати одного товара). -->
             <TabItem x:Name="LabelEditorTabItem" Header="{DynamicResource warehouse.tabLabelEditor}">

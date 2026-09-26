@@ -139,7 +139,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         _onBarcodeNotFound = onBarcodeNotFound;
         _replenishStock = replenishStock;
 
-        AddByBarcodeCommand = new AsyncRelayCommand(AddByBarcodeAsync, CanAddByBarcode);
+        AddByBarcodeCommand = new RelayCommand(SubmitBarcodeInput, CanAddByBarcode);
         PayCommand = new AsyncRelayCommand(PayAsync, () => HasItems && !IsBusy);
         DeferCartCommand = new AsyncRelayCommand(DeferCartAsync, () => HasItems && !IsBusy);
         HoldReceiptCommand = DeferCartCommand;
@@ -239,7 +239,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             if (!SetProperty(ref _barcodeInput, value ?? ""))
                 return;
-            (AddByBarcodeCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            (AddByBarcodeCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
@@ -329,7 +329,6 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             if (!SetProperty(ref _isBusy, value))
                 return;
-            (AddByBarcodeCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (PayCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (DeferCartCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (OpenDeferredCartsCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
@@ -664,16 +663,67 @@ public sealed class BasketPanelViewModel : ViewModelBase
         RaiseCartCommands();
     }
 
-    private bool CanAddByBarcode() =>
-        !IsBusy && !string.IsNullOrWhiteSpace(BarcodeInput);
+    /// <summary>2026-09-26, стресс-тест (149 сканов подряд с паузой 150 мс — в чек попал каждый
+    /// второй): пока касса добавляла предыдущий товар, команда была занята (IsBusy и сама
+    /// AsyncRelayCommand не пускают повторный запуск), Enter следующего скана отбрасывался, а
+    /// очистка поля после добавления стирала уже набранный следующий код. Со сканером это то
+    /// же самое: сервис сканера кладёт код в это же поле и зовёт эту же команду. Теперь код
+    /// забирается из поля сразу и встаёт в очередь — сканы обрабатываются по порядку, ни один
+    /// не теряется, и поле свободно для следующего скана.</summary>
+    private readonly Queue<string> _pendingScans = new();
+    private readonly object _scanLock = new();
+    private bool _scanLoopRunning;
 
-    private async Task AddByBarcodeAsync()
+    private bool CanAddByBarcode() => !string.IsNullOrWhiteSpace(BarcodeInput);
+
+    private void SubmitBarcodeInput()
+    {
+        var text = BarcodeInput;
+        BarcodeInput = "";
+        EnqueueBarcode(text);
+    }
+
+    /// <summary>Скан в очередь добавления (поле ввода, «Добавить», сервис сканера).</summary>
+    public void EnqueueBarcode(string? barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+            return;
+
+        lock (_scanLock)
+        {
+            _pendingScans.Enqueue(barcode.Trim());
+            if (_scanLoopRunning)
+                return;
+            _scanLoopRunning = true;
+        }
+
+        _ = ProcessScanQueueAsync();
+    }
+
+    private async Task ProcessScanQueueAsync()
+    {
+        while (true)
+        {
+            string next;
+            lock (_scanLock)
+            {
+                if (_pendingScans.Count == 0)
+                {
+                    _scanLoopRunning = false;
+                    return;
+                }
+                next = _pendingScans.Dequeue();
+            }
+
+            await AddByBarcodeAsync(next).ConfigureAwait(true);
+        }
+    }
+
+    private async Task AddByBarcodeAsync(string barcode)
     {
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
-            var barcode = BarcodeInput.Trim();
-
             // 2026-09-15, диагностика живой жалобы ("штрих-М не читает") — снять после того как
             // разберёмся с реальным примером кода весов Штрих-М: без этой строки не видно, что
             // именно пришло со сканера и на каком именно шаге код не распознался.
@@ -718,7 +768,6 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 var weightKg = weighted.ResolveWeightKg(LocalCartService.ParsePrice(weighedProduct.PriceLine));
                 if (_addWeighedProductWithKnownWeight != null)
                     await _addWeighedProductWithKnownWeight(weighedProduct, weightKg).ConfigureAwait(true);
-                await RunOnUiThreadAsync(() => BarcodeInput = "").ConfigureAwait(false);
                 return;
             }
 
@@ -738,7 +787,6 @@ public sealed class BasketPanelViewModel : ViewModelBase
             {
                 // Неизвестный штрих-код (2026-09-07): вместо голого предупреждения — предложить
                 // добавить товар на склад (карточка с подставленным кодом) или пропустить.
-                await RunOnUiThreadAsync(() => BarcodeInput = "").ConfigureAwait(false);
                 await _onBarcodeNotFound(barcode).ConfigureAwait(true);
                 return;
             }
@@ -780,8 +828,6 @@ public sealed class BasketPanelViewModel : ViewModelBase
             await _addProductFromCatalog(product, lineNameOverride).ConfigureAwait(true);
         else
             await RunOnUiThreadAsync(() => AddProductFromCatalog(product, lineNameOverride)).ConfigureAwait(false);
-
-        await RunOnUiThreadAsync(() => BarcodeInput = "").ConfigureAwait(false);
     }
 
     /// <summary>2026-09-17: скан не нашёл товар в локальном кэше — прежде чем показать кассиру

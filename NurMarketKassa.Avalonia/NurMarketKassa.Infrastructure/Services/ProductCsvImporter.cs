@@ -87,16 +87,55 @@ public static class ProductCsvImporter
 
             // Числовое поле, которого может не быть в файле. null означает «колонки нет либо
             // ячейка пуста» — такое поле дальше по цепочке вообще не отправляется серверу.
-            double? Optional(int idx) => idx >= 0 ? ParseDouble(Field(idx)) : null;
+            // 2026-09-26, стресс-тест массовой загрузки: ячейка, которую не удалось разобрать
+            // («1 234,50» из Excel, «abc»), тоже давала null — и товар молча создавался с ценой
+            // 0.00. Теперь это ошибка строки, видная в предпросмотре до загрузки.
+            var problems = new List<string>();
+            double? Optional(int idx, string column, double limit, bool allowNegative = false)
+            {
+                if (idx < 0)
+                    return null;
+                var cell = Field(idx);
+                if (string.IsNullOrWhiteSpace(cell))
+                    return null;
+                if (!TryParseNumber(cell, out var value))
+                {
+                    problems.Add($"{column}: не число «{cell}»");
+                    return null;
+                }
+                if (value < 0 && !allowNegative)
+                {
+                    problems.Add($"{column}: отрицательное число");
+                    return null;
+                }
+                if (Math.Abs(value) >= limit)
+                {
+                    problems.Add($"{column}: слишком большое число");
+                    return null;
+                }
+                return value;
+            }
 
             var name = Field(nameIdx);
             var barcode = Field(barcodeIdx);
+            var quantity = Optional(QuantityIdx(), "количество", 1e9);
+            var purchasePrice = Optional(PurchasePriceIdx(), "закупка", 1e8);
+            var markup = Optional(MarkupIdx(), "наценка", 1e6, allowNegative: true);
+            var price = Optional(PriceIdx(), "цена", 1e8);
 
+            // Пределы сервера (OPTIONS api/main/products/create-manual/): название до 255
+            // символов, штрихкод до 64. Длиннее — сервер отвечал 500 без объяснений.
             string? error = null;
             if (string.IsNullOrWhiteSpace(name))
                 error = "нет названия";
             else if (string.IsNullOrWhiteSpace(barcode))
                 error = "нет штрихкода";
+            else if (name.Length > 255)
+                error = $"название длиннее 255 символов ({name.Length})";
+            else if (barcode.Length > 64)
+                error = "штрихкод длиннее 64 символов";
+            else if (problems.Count > 0)
+                error = string.Join("; ", problems);
 
             rows.Add(new ImportRow
             {
@@ -107,10 +146,10 @@ public static class ProductCsvImporter
                 Category = NullIfEmpty(Field(CategoryIdx())),
                 Brand = NullIfEmpty(Field(BrandIdx())),
                 Unit = string.IsNullOrWhiteSpace(Field(UnitIdx())) ? "шт" : Field(UnitIdx()),
-                Quantity = Optional(QuantityIdx()),
-                PurchasePrice = Optional(PurchasePriceIdx()),
-                MarkupPercent = Optional(MarkupIdx()),
-                Price = Optional(PriceIdx()),
+                Quantity = quantity,
+                PurchasePrice = purchasePrice,
+                MarkupPercent = markup,
+                Price = price,
                 IsWeight = ParseBool(Field(WeightIdx())),
                 ParseError = error,
             });
@@ -137,13 +176,25 @@ public static class ProductCsvImporter
 
     private static string? NullIfEmpty(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
-    private static double? ParseDouble(string s)
+    /// <summary>Число из ячейки в любом привычном виде: «1234,50», «1234.50», «1 234,50» (Excel с
+    /// русской локалью ставит пробел или неразрывный пробел между разрядами), «1,234.50».
+    /// Если есть и запятая, и точка, дробная часть — после последнего из них.</summary>
+    internal static bool TryParseNumber(string s, out double value)
     {
-        if (string.IsNullOrWhiteSpace(s))
-            return null;
-        return double.TryParse(s.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var v)
-            ? v
-            : null;
+        value = 0;
+        var text = new string(s.Where(c => !char.IsWhiteSpace(c) && c != '\'').ToArray());
+        if (text.Length == 0)
+            return false;
+
+        var lastComma = text.LastIndexOf(',');
+        var lastDot = text.LastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0)
+            text = lastComma > lastDot ? text.Replace(".", "").Replace(',', '.') : text.Replace(",", "");
+        else
+            text = text.Replace(',', '.');
+
+        return double.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+            CultureInfo.InvariantCulture, out value);
     }
 
     private static bool ParseBool(string s)

@@ -45,13 +45,13 @@ public static class OfflineAuthSessionStore
     private static string FilePath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "offline_auth_session.dat");
 
     private static string LegacyJsonFilePath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
+            NurMarketKassa.Services.AppMode.DataFolderName,
             "offline_auth_session.json");
 
     public static void SaveFromApi(IAuthApiService authApi, string loginEmail)

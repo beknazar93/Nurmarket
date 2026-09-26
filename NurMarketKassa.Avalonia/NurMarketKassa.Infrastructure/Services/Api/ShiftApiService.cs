@@ -112,4 +112,20 @@ public sealed class ShiftApiService : IShiftApiService
             throw last;
         throw new ApiException("Не удалось закрыть смену", 404);
     }
+
+    public Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Post, "api/construction/cashflows/", body, null, ct);
+
+    public Task<JsonElement> ConstructionCashFlowsForShiftAsync(string shiftId, int page = 1, CancellationToken ct = default) =>
+        _client.RequestAsync(
+            HttpMethod.Get,
+            "api/construction/cashflows/",
+            null,
+            new Dictionary<string, string>
+            {
+                ["shift"] = shiftId.Trim(),
+                ["page_size"] = "500",
+                ["page"] = page.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            },
+            ct);
 }

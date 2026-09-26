@@ -13,6 +13,7 @@
   <x:String x:Key="csh.menu.return">Qaytarish</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Noto'g'ri cheklar</x:String>
   <x:String x:Key="csh.menu.salary">Ish haqi</x:String>
+  <x:String x:Key="csh.menu.cashOperation">Kirim / chiqim</x:String>
   <x:String x:Key="csh.menu.finance">Moliya</x:String>
   <x:String x:Key="csh.menu.sales">Sotuvlar</x:String>
   <x:String x:Key="csh.menu.abc">ABC tahlili</x:String>
@@ -1082,6 +1083,7 @@
   <x:String x:Key="warehouse.receivingWas">Bor edi</x:String>
   <x:String x:Key="warehouse.receivingTaken">Qabul qilindi</x:String>
   <x:String x:Key="warehouse.receivingCommit">Kirim qilish</x:String>
+  <x:String x:Key="warehouse.receivingAddNew">+ Yangi mahsulot</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Yetkazib beruvchi</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Darhol to'landi</x:String>
   <x:String x:Key="warehouse.receivingOnDebt">Yetkazib beruvchiga qarz</x:String>
@@ -1140,7 +1142,7 @@
   <x:String x:Key="warehouse.movementsWriteOff">Hisobdan chiqarish</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Yorliq muharriri</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Yorliq muharriri</x:String>
-  <x:String x:Key="warehouse.labelEditorTabDescription">Yorliqda shtrix-kod, nomi, narxi, artikul, o'lchov birligi va do'kon nomining joylashuvi — har bir elementni sudrab va sozlab. Bepul.</x:String>
+  <x:String x:Key="warehouse.labelEditorTabDescription">Yorliqda shtrix-kod, nomi, narxi, artikul, o'lchov birligi va do'kon nomining joylashuvi — har bir elementni sudrab va sozlab. Pullik funksiya: seriya raqami bilan ochiladi.</x:String>
   <x:String x:Key="warehouse.labelEditorTabButton">Muharrirni ochish</x:String>
   <x:String x:Key="warehouse.analyticsSkuCountLabel">Jami mahsulotlar (SKU)</x:String>
   <x:String x:Key="warehouse.analyticsOutOfStockLabel">Qoldiqda yo'q</x:String>

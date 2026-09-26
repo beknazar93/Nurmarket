@@ -478,9 +478,13 @@ public sealed class UserPreferences
 
     public static UserPreferences Instance { get; } = new();
 
-    private const string SettingsAppFolder = "NurMarketKassa";
+    private static string SettingsAppFolder => NurMarketKassa.Services.AppMode.DataFolderName;
 
-    private static readonly string[] SettingsSearchFolders = { "NurMarketKassa", "NurCrmKassa" };
+    // Программа владельца при первом запуске читает настройки кассы (язык, тема), но сохраняет
+    // уже в свою папку — дальше файлы не пересекаются (см. AppMode.DataFolderName).
+    private static string[] SettingsSearchFolders => NurMarketKassa.Services.AppMode.IsOwner
+        ? new[] { "NurMarketOwner", "NurMarketKassa", "NurCrmKassa" }
+        : new[] { "NurMarketKassa", "NurCrmKassa" };
 
     private static string FilePath =>
         Path.Combine(
