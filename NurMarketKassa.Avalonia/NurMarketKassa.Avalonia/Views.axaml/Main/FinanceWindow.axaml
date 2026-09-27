@@ -374,7 +374,7 @@
         <ProgressBar IsVisible="{Binding IsLoading}" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
         <!-- Основной контент (занимает всё окно) -->
         <Grid x:Name="MainContent">
-            <Grid Margin="16" Background="{DynamicResource BrushPanel}">
+            <Grid x:Name="ContentGrid" Margin="16" Background="{DynamicResource BrushPanel}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <!-- 0: заголовок -->
@@ -395,8 +395,8 @@
                     </Grid.RowDefinitions>
 
                     <!-- Заголовок с кнопкой гамбургера -->
-                    <Grid Row="0" Margin="0,0,0,16" RowDefinitions="Auto,Auto">
-                    <Grid Grid.Row="0">
+                    <Grid Row="0" x:Name="HeaderBlock" Margin="0,0,0,16" RowDefinitions="Auto,Auto">
+                    <Grid Grid.Row="0" x:Name="HeaderRow">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition />
                             <ColumnDefinition Width="*" />
@@ -410,21 +410,21 @@
                         Click="HamburgerMenu_Click"
                         ToolTip.Tip="{DynamicResource csh.toolbar.menu}"
                         VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <TextBlock Grid.Column="1"
+                        <TextBlock Grid.Column="1" x:Name="HeaderTitleText"
                            Text="{DynamicResource csh.menu.finance}"
                            FontSize="26" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}"
                            VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <StackPanel Grid.Column="2" x:Name="HeaderActions" Orientation="Horizontal">
                             <Button Content="Excel" Classes="SecondaryActionButton" Margin="0,0,6,0"
                                     Click="ExportExcel_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.excelTip}"/>
                             <Button Content="Word" Classes="SecondaryActionButton" Margin="0,0,6,0"
                                     Click="ExportWord_Click"
                                     ToolTip.Tip="{DynamicResource loc.owner.finance.wordTip}"/>
-                            <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
+                            <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
             Margin="0,0,10,0" Click="Refresh_Click" />
-                            <Button Content="{DynamicResource common.exit}" Classes="SecondaryActionButton"
+                            <Button x:Name="ExitButton" Content="{DynamicResource common.exit}" Classes="SecondaryActionButton"
             Click="Exit_Click" />
                         </StackPanel>
                     </Grid>
@@ -497,7 +497,7 @@
                     </UniformGrid>
 
                     <!-- Панель выбора дат -->
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+                    <StackPanel Grid.Row="2" x:Name="PeriodBar" Orientation="Horizontal" Margin="0,0,0,12">
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                             <RadioButton Content="{DynamicResource common.today}" Classes="DatePill" IsChecked="True" Tag="Today" GroupName="QuickDate" Click="QuickDate_Click" />
                             <RadioButton Content="{DynamicResource sales.yesterday}" Classes="DatePill" Margin="4,0,0,0" Tag="Yesterday" GroupName="QuickDate" Click="QuickDate_Click" />
@@ -515,7 +515,7 @@
                     </StackPanel>
 
                     <!-- Время -->
-                    <Border Grid.Row="3" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,6,10,6">
+                    <Border Grid.Row="3" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,6,10,6">
                         <TextBlock x:Name="CurrentTimeText" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" />
                     </Border>
 
@@ -548,9 +548,9 @@
                     </Popup>
 
                     <!-- Вкладки с таблицами -->
-                    <TabControl Grid.Row="6" Background="#00FFFFFF" BorderThickness="0"
+                    <TabControl Grid.Row="6" x:Name="FinanceTabs" Background="#00FFFFFF" BorderThickness="0"
                          Margin="0,10,0,0">
-                        <TabItem Header="{DynamicResource csh.menu.sales}">
+                        <TabItem x:Name="SalesTab" Header="{DynamicResource csh.menu.sales}">
                             <Border Background="#00FFFFFF" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -579,7 +579,7 @@
                                 </Grid>
                             </Border>
                         </TabItem>
-                        <TabItem Header="{DynamicResource finance.tabAnalytics}">
+                        <TabItem x:Name="AnalyticsTab" Header="{DynamicResource finance.tabAnalytics}">
                             <Border Background="#00FFFFFF" Padding="8">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
@@ -708,10 +708,10 @@
                                 </ScrollViewer>
                             </Border>
                         </TabItem>
-                        <TabItem Header="{DynamicResource csh.menu.abc}">
+                        <TabItem x:Name="AbcTab" Header="{DynamicResource csh.menu.abc}">
                             <analytics:AbcSectionView x:Name="AbcSection" />
                         </TabItem>
-                        <TabItem Header="{DynamicResource sales.returns}">
+                        <TabItem x:Name="ReturnsTab" Header="{DynamicResource sales.returns}">
                             <Border Background="#00FFFFFF" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -735,7 +735,7 @@
                                 </Grid>
                             </Border>
                         </TabItem>
-                        <TabItem Header="{DynamicResource common.history}">
+                        <TabItem x:Name="HistoryTab" Header="{DynamicResource common.history}">
                             <Border Background="#00FFFFFF" Padding="8">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -788,8 +788,8 @@
 
         <!-- Смены (открыты/закрыты) -->
         <Grid x:Name="ShiftsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
-            <Grid Margin="16" RowDefinitions="Auto,Auto,*">
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+            <Grid x:Name="ShiftsContent" Margin="16" RowDefinitions="Auto,Auto,*">
+                <Grid Grid.Row="0" x:Name="ShiftsHeader" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
                     <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ShiftsBack_Click"/>
                     <TextBlock Grid.Column="1" Text="{DynamicResource finance.navShift}" FontSize="20" FontWeight="Bold"
                                Margin="12,0,0,0" VerticalAlignment="Center"/>
@@ -879,8 +879,8 @@
 
         <!-- Товары: популярные / непопулярные (по продажам за выбранный период) -->
         <Grid x:Name="ProductsAnalyticsPanel" IsVisible="False" Panel.ZIndex="100" Background="{DynamicResource BrushPanel}">
-            <Grid Margin="16" RowDefinitions="Auto,*">
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+            <Grid x:Name="ProductsContent" Margin="16" RowDefinitions="Auto,*">
+                <Grid Grid.Row="0" x:Name="ProductsHeader" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
                     <Button Grid.Column="0" Content="←" Classes="SecondaryActionButton" MinWidth="44" Click="ProductsBack_Click"/>
                     <TextBlock Grid.Column="1" Text="{DynamicResource finance.navProducts}" FontSize="20" FontWeight="Bold"
                                Margin="12,0,0,0" VerticalAlignment="Center"/>

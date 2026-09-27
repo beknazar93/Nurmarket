@@ -22,12 +22,63 @@ namespace NurMarketKassa.AvaloniaHost.Views.Analytics;
 /// не разметкой: добавится шестой срез — вкладка появится сама.
 ///
 /// Вкладки создаются один раз, дальше обновляется их содержимое: пересоздание сбрасывало бы
-/// выбранную вкладку на первую при каждом обновлении периода.</summary>
+/// выбранную вкладку на первую при каждом обновлении периода.
+///
+/// 2026-09-27: какие срезы показывать, решает место, где стоит раздел (<see cref="SliceKeys"/>):
+/// в «Финансах» программы владельца — деньги, в «Продажах» — штуки, категории и бренды, на
+/// «Складе» — стоимость остатка, в «Сводке» и окне ABC — всё. По умолчанию — пять срезов продаж и
+/// сезонность, как было до разделения: касса выглядит по-прежнему.</summary>
 public sealed class AbcSectionView : UserControl
 {
+    /// <summary>Срезы по продажам за период — набор по умолчанию (касса).</summary>
+    public static readonly IReadOnlyList<string> SalesSliceKeys =
+    [
+        AnalyticsReportData.KeyRevenue, AnalyticsReportData.KeyProfit, AnalyticsReportData.KeyQuantity,
+        AnalyticsReportData.KeyCategory, AnalyticsReportData.KeyBrand,
+    ];
+
+    /// <summary>Все срезы, включая склад по стоимости остатка.</summary>
+    public static readonly IReadOnlyList<string> AllSliceKeys = [.. SalesSliceKeys, AnalyticsReportData.KeyStock];
+
     private readonly TabControl _tabs = new() { Margin = new Thickness(0) };
     private readonly List<SliceView> _views = [];
     private readonly SeasonalityView _seasonality = new();
+    private IReadOnlyList<string> _sliceKeys = SalesSliceKeys;
+    private bool _showSeasonality = true;
+
+    /// <summary>Раскладка вкладок, построенная в прошлый раз: пока она та же, вкладки не
+    /// пересоздаются и выбранная остаётся выбранной.</summary>
+    private string? _layout;
+
+    /// <summary>Какие срезы показывать (коды <see cref="AnalyticsReportData.AbcSlice.Key"/>).
+    /// Задаётся до первого <see cref="Update"/>; порядок вкладок — порядок срезов в отчёте.</summary>
+    public IReadOnlyList<string> SliceKeys
+    {
+        get => _sliceKeys;
+        set
+        {
+            _sliceKeys = value is { Count: > 0 } ? value : SalesSliceKeys;
+            _layout = null;
+        }
+    }
+
+    /// <summary>Вкладка «Сезонность». В программе владельца она живёт в разделе «Аналитика», и
+    /// там, где её нет, отчёт можно строить без неё (includeSeasonality: false) — это полный
+    /// проход по всей истории продаж.</summary>
+    public bool ShowSeasonality
+    {
+        get => _showSeasonality;
+        set
+        {
+            _showSeasonality = value;
+            _layout = null;
+        }
+    }
+
+    /// <summary>Предел высоты таблицы среза. Таблица внутри прокрутки получает бесконечную высоту
+    /// и рисует все строки разом — на срезе склада это тысячи строк. С пределом она прокручивается
+    /// сама и рисует только видимые. По умолчанию предела нет — как было в кассе.</summary>
+    public double TableMaxHeight { get; set; } = double.PositiveInfinity;
 
     /// <summary>Попросили разбор конкретного товара — нажали на столбец диаграммы Парето или
     /// на строку таблицы. Само окно раздел не открывает: он живёт и во вкладке «Продаж», и в
@@ -43,45 +94,59 @@ public sealed class AbcSectionView : UserControl
     /// выбранная пользователем, остаётся выбранной.</summary>
     public void Update(AnalyticsReportData data)
     {
-        _seasonality.Show(data.Seasonality);
+        if (_showSeasonality)
+            _seasonality.Show(data.Seasonality);
         UpdateSlices(data.AbcSlices);
     }
 
-    private void UpdateSlices(IReadOnlyList<AnalyticsReportData.AbcSlice> slices)
+    private void UpdateSlices(IReadOnlyList<AnalyticsReportData.AbcSlice> allSlices)
     {
-        if (slices.Count == 0)
+        var slices = allSlices.Where(s => _sliceKeys.Contains(s.Key)).ToList();
+
+        // Срезы продаж приходят все пять или ни одного (продаж за период не было). Если здесь
+        // ждут хоть один из них, а пришёл только склад или ничего, — это «продаж нет», и об этом
+        // говорит отдельная вкладка: иначе вкладки продаж просто пропали бы без объяснения.
+        var wantsSales = _sliceKeys.Any(k => k != AnalyticsReportData.KeyStock);
+        var noSales = wantsSales && !slices.Any(s => s.Key != AnalyticsReportData.KeyStock);
+        var message = noSales || slices.Count == 0;
+
+        var layout = (message ? "!" : "") + string.Join("|", slices.Select(s => s.Key)) + (_showSeasonality ? "|~" : "");
+        if (layout != _layout)
         {
+            _layout = layout;
             _tabs.ItemsSource = null;
             _tabs.Items.Clear();
             _views.Clear();
-            _tabs.Items.Add(new TabItem
-            {
-                Header = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
-                Content = new TextBlock
-                {
-                    Text = Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөө үчүн маалымат жок.", "No sales in the selected period — nothing to run ABC analysis on.", "Seçilen dönemde satış yok — ABC analizi yapılamıyor.", "Tanlangan davrda sotuv yo'q — ABC tahlili uchun ma'lumot yo'q."),
-                    Margin = new Thickness(12),
-                    Foreground = Brushes.Gray,
-                },
-            });
-            // Сезонность считается по всей истории, а не за выбранный период, поэтому она
-            // осмысленна даже когда в периоде продаж нет.
-            _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
-            return;
-        }
 
-        if (_views.Count != slices.Count || _tabs.Items.Count != slices.Count + 1)
-        {
-            _tabs.Items.Clear();
-            _views.Clear();
+            if (message)
+            {
+                _tabs.Items.Add(new TabItem
+                {
+                    Header = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
+                    Content = new TextBlock
+                    {
+                        Text = wantsSales
+                            ? Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөө үчүн маалымат жок.", "No sales in the selected period — nothing to run ABC analysis on.", "Seçilen dönemde satış yok — ABC analizi yapılamıyor.", "Tanlangan davrda sotuv yo'q — ABC tahlili uchun ma'lumot yo'q.")
+                            : Tr.T("На складе нет товаров с остатком и закупочной ценой — считать ABC не на чем.", "Кампада калдыгы жана сатып алуу баасы бар товар жок — ABC эсептөө үчүн маалымат жок.", "No products in stock with a purchase price — nothing to run ABC analysis on.", "Depoda stoğu ve alış fiyatı olan ürün yok — ABC analizi yapılamıyor.", "Omborda qoldig'i va xarid narxi bor mahsulot yo'q — ABC tahlili uchun ma'lumot yo'q."),
+                        Margin = new Thickness(12),
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = Brushes.Gray,
+                    },
+                });
+            }
+
             foreach (var slice in slices)
             {
-                var view = new SliceView();
-            view.ProductAnalyticsRequested += name => ProductAnalyticsRequested?.Invoke(name);
+                var view = new SliceView(TableMaxHeight);
+                view.ProductAnalyticsRequested += name => ProductAnalyticsRequested?.Invoke(name);
                 _views.Add(view);
                 _tabs.Items.Add(new TabItem { Header = slice.Title, Content = view });
             }
-            _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
+
+            // Сезонность считается по всей истории, а не за выбранный период, поэтому она
+            // осмысленна даже когда в периоде продаж нет.
+            if (_showSeasonality)
+                _tabs.Items.Add(new TabItem { Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"), Content = _seasonality });
             _tabs.SelectedIndex = 0;
         }
 
@@ -160,8 +225,9 @@ public sealed class AbcSectionView : UserControl
         private readonly DataGridTextColumn _valueColumn;
         private readonly DataGridTextColumn _quantityColumn;
 
-        public SliceView()
+        public SliceView(double tableMaxHeight = double.PositiveInfinity)
         {
+            _grid.MaxHeight = tableMaxHeight;
             // По строке таблицы — тот же разбор, что и по столбцу диаграммы: искать товар
             // глазами на диаграмме из двух десятков столбцов неудобно, а в таблице он есть весь.
             _grid.DoubleTapped += (_, _) =>
@@ -270,9 +336,16 @@ public sealed class AbcSectionView : UserControl
             _hint.Text = slice.Hint;
 
             var money = slice.IsMoney;
-            _valueColumn.Header = money
-                ? Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")
-                : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
+            var stock = slice.Key == AnalyticsReportData.KeyStock;
+            _valueColumn.Header = stock
+                ? Tr.T("Стоимость", "Наркы", "Value", "Değer", "Qiymati")
+                : money
+                    ? Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")
+                    : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
+            // У среза склада «количество» — это остаток на складе, а не проданные штуки.
+            _quantityColumn.Header = stock
+                ? Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")
+                : Tr.T("Кол-во", "Саны", "Qty", "Adet", "Soni");
             // В срезе «по количеству» мера и есть количество — вторая такая же колонка мешала бы.
             _quantityColumn.IsVisible = money;
 
@@ -281,9 +354,11 @@ public sealed class AbcSectionView : UserControl
                 ? Tr.T("Диаграмма Парето — крупнейшие", "Парето диаграммасы — эң ирилери", "Pareto chart — top items", "Pareto grafiği — en büyükler", "Pareto diagrammasi — eng yiriklari") + $": {shown} / {slice.Rows.Count}"
                 : Tr.T("Диаграмма Парето — все", "Парето диаграммасы — баары", "Pareto chart — all items", "Pareto grafiği — tümü", "Pareto diagrammasi — barchasi") + $": {slice.Rows.Count}";
 
-            var rightTitle = slice.IsMoney
-                ? Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum")
-                : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
+            var rightTitle = stock
+                ? Tr.T("Стоимость остатка", "Калдыктын наркы", "Inventory value", "Stok değeri", "Qoldiq qiymati")
+                : slice.IsMoney
+                    ? Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum")
+                    : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
             _pyramidTitle.Text = Tr.T("Доля позиций против доли", "Позициялардын жана көрсөткүчтүн үлүшү", "Item share vs. total share", "Kalem payına karşı pay", "Pozitsiyalar ulushi va natija ulushi") + ": " + rightTitle.ToLowerInvariant();
             BarChartRenderer.RenderAbcPyramid(_pyramid, slice.Summary,
                 Tr.T("Позиции", "Позициялар", "Items", "Kalemler", "Pozitsiyalar"), rightTitle);

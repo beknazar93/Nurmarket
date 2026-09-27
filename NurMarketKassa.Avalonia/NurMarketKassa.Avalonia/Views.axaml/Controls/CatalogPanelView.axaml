@@ -63,11 +63,19 @@
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="12"/>
+            <!-- Курсор рисует рамка ниже; стандартная пунктирная рамка фокуса Fluent легла бы второй. -->
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
         </Style>
         <Style Selector="ListBox.catalog-nav ListBoxItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
-        <Style Selector="ListBox.catalog-nav ListBoxItem:selected">
+        <!-- Рамка — там, где клавиатурный курсор (фокус на плитке, поставленный стрелкой), а не
+             на выделении: выделение переживает Esc и клик мимо, и рамка оставалась бы висеть на
+             товаре, которым кассир уже не управляет. Место курсора при этом запоминается
+             (SelectedProduct), и следующая стрелка возвращает его туда же. Товар под рамкой
+             добавляет Num + (действие «Добавить товар в чек» в Настройки → Клавиши), Enter всегда
+             оплачивает (CatalogPanelView.HasKeyboardCursor, MainWindow.OnPlainHotkeyTunnel). -->
+        <Style Selector="ListBox.catalog-nav ListBoxItem:focus-visible">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
@@ -282,8 +290,7 @@
                         <ListBox x:Name="CardsListBox" Classes="catalog-nav"
                                  ItemsSource="{Binding Products}"
                                  SelectedItem="{Binding SelectedProduct}"
-                                 SelectionMode="Single"
-                                 KeyDown="ProductsList_KeyDown">
+                                 SelectionMode="Single">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel HorizontalAlignment="Left" Orientation="Horizontal"/>
@@ -475,7 +482,6 @@
                                      ItemsSource="{Binding Products}"
                                      SelectedItem="{Binding SelectedProduct}"
                                      SelectionMode="Single"
-                                     KeyDown="ProductsList_KeyDown"
                                      HorizontalAlignment="Stretch">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="pos:CatalogProductTileVm">

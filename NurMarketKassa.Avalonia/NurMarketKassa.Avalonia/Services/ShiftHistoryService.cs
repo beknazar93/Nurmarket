@@ -7,10 +7,22 @@ namespace NurMarketKassa.Services;
 /// <summary>Avalonia-host copy of shift history loading (uses AvaloniaHost.App statics).</summary>
 public static class ShiftHistoryService
 {
-    public static async Task<IReadOnlyList<ShiftHistoryEntry>> LoadAsync(CancellationToken cancellationToken = default)
+    /// <summary>Сколько годится уже скачанный полный список смен (см. <see cref="LoadAsync"/>).</summary>
+    private static readonly TimeSpan RecentListMaxAge = TimeSpan.FromMinutes(5);
+
+    /// <summary>2026-09-27, жалоба владельца «медленно открывает отчёты / Z-отчёт»: нажатие на
+    /// смену в «Финансы → Смены» вызывает этот метод и ищет в ответе одну строку, а полный список
+    /// сервер отдаёт 2,2–3,7 с — всё это время отчёт не открывался. Тот же список окно скачало
+    /// секунды назад, поэтому без <paramref name="fresh"/> берём его снимок (не старше 5 минут,
+    /// тот же вход); цифры в открытом отчёте затем сверяет с сервером сам ShiftDetailsDialog
+    /// (одна смена, ~0,3 с). fresh=true — всегда с сервера, как раньше.</summary>
+    public static async Task<IReadOnlyList<ShiftHistoryEntry>> LoadAsync(CancellationToken cancellationToken = default, bool fresh = false)
     {
         try
         {
+            if (!fresh && NurMarketKassa.AvaloniaHost.App.ShiftApi.TryGetRecentShiftsList(RecentListMaxAge, out var recent))
+                return Parse(recent);
+
             var payload = await NurMarketKassa.AvaloniaHost.App.ShiftApi
                 .ConstructionShiftsListAsync(ct: cancellationToken)
                 .ConfigureAwait(false);
@@ -19,6 +31,29 @@ public static class ShiftHistoryService
         catch
         {
             return Array.Empty<ShiftHistoryEntry>();
+        }
+    }
+
+    /// <summary>Одна смена с сервера — GET api/construction/shifts/{id}/ (0,2–0,5 с вместо 2–3 с
+    /// у полного списка; поля те же). null — нет связи или смена не найдена.</summary>
+    public static async Task<ShiftHistoryEntry?> LoadOneAsync(string? shiftId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return null;
+
+        try
+        {
+            var payload = await NurMarketKassa.AvaloniaHost.App.ShiftApi
+                .ConstructionShiftGetAsync(shiftId, cancellationToken)
+                .ConfigureAwait(false);
+            return Parse(payload)
+                .FirstOrDefault(s => string.Equals(s.ShiftNumber, shiftId, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            if (ex is not OperationCanceledException)
+                PosLogger.Log($"Смена {shiftId} не прочитана с сервера: {ex.Message}", "SHIFTS");
+            return null;
         }
     }
 
@@ -92,6 +127,10 @@ public static class ShiftHistoryService
                     yield break;
                 }
             }
+
+            // Ответ api/construction/shifts/{id}/ — сама смена, а не список.
+            if (payload.TryGetProperty("id", out _))
+                yield return payload;
         }
     }
 

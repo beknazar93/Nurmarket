@@ -1131,6 +1131,11 @@ public partial class MarketplaceView : UserControl
             };
             openButton.Click += (_, _) =>
             {
+                // Программа владельца (2026-09-27): аналитика склада — вкладка «Склад» раздела
+                // «Аналитика». В кассе и на тарифе «Старт» — отдельное окно склада, как было.
+                if (TopLevel.GetTopLevel(this) is Window { Owner: OwnerShellWindow shell } && shell.OpenAnalyticsStock())
+                    return;
+
                 var warehouseWindow = App.GetRequiredService<WarehouseWindow>();
                 warehouseWindow.AnalyticsOnly = true;
                 warehouseWindow.Show(TopLevel.GetTopLevel(this) as Window);

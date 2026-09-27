@@ -35,12 +35,17 @@ public partial class ShiftDrillDownDialog : Window
     private readonly ShiftModel? _shift;
     private readonly string _kind = KindSales;
 
+    /// <summary>Чеки смены, которые окно «Детали смены» уже загружает (или загрузило) — чтобы
+    /// каждая плитка не листала список продаж заново. null — загрузить самим.</summary>
+    private readonly Task<List<ShiftReportData.ShiftSale>>? _saleRows;
+
     public ShiftDrillDownDialog() => InitializeComponent();
 
-    public ShiftDrillDownDialog(ShiftModel shift, string kind) : this()
+    public ShiftDrillDownDialog(ShiftModel shift, string kind, Task<List<ShiftReportData.ShiftSale>>? saleRows = null) : this()
     {
         _shift = shift;
         _kind = kind;
+        _saleRows = saleRows;
         TitleText.Text = TitleFor(kind);
         var number = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
@@ -109,7 +114,7 @@ public partial class ShiftDrillDownDialog : Window
 
     private async Task<(List<Row> Rows, string Summary, double Total)> LoadSalesAsync()
     {
-        var sales = await ShiftReportData.LoadSalesAsync(_shift!.Id, _shift.OpenedAt, _shift.ClosedAt);
+        var sales = await (_saleRows ?? ShiftReportData.LoadSaleRowsAsync(_shift!.Id, _shift.OpenedAt, _shift.ClosedAt));
         sales = sales.Where(s => !string.Equals(s.Status, "canceled", StringComparison.OrdinalIgnoreCase)).ToList();
 
         IEnumerable<ShiftReportData.ShiftSale> picked = _kind switch
@@ -120,7 +125,8 @@ public partial class ShiftDrillDownDialog : Window
             KindDiscounts => sales.Where(s => s.Discount > 0.005),
             _ => sales,
         };
-        var list = picked.ToList();
+        // Товары — только для чеков этой плитки, а не для всех чеков смены.
+        var list = await ShiftReportData.AttachLinesAsync(picked.ToList());
 
         var rows = list.Select(s =>
         {

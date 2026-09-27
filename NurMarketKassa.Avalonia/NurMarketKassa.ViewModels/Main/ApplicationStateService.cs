@@ -29,6 +29,9 @@ public sealed class OpenReceiptSessionState
 {
     public string Id { get; set; } = "";
     public string CartJson { get; set; } = "{}";
+
+    /// <summary>Когда чек отложили кнопкой «Отложить чек» (null — обычная вкладка).</summary>
+    public DateTime? DeferredAt { get; set; }
 }
 
 public sealed class ApplicationStateService : IDisposable

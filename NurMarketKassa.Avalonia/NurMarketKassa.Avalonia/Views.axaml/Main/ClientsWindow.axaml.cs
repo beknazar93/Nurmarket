@@ -20,7 +20,7 @@ using NurMarketKassa.ViewModels;
 namespace NurMarketKassa.AvaloniaHost.Views;
 
 /// <summary>Клиентская база: просмотр, поиск и добавление клиентов (/api/main/clients/).</summary>
-public partial class ClientsWindow : Window, INotifyPropertyChanged
+public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSection
 {
     private readonly IClientsApiService _clientsApi;
     private readonly List<ClientRow> _allClients = new();
@@ -398,6 +398,15 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
     private void MinimizeButton_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): в шапке окна были только
+    /// значок, название «Клиенты» и кнопки «свернуть» / ✕ — всё это уже есть над разделом, поэтому
+    /// шапки нет целиком. ✕ карточки клиента остаётся: это кнопка карточки, а не окна.</summary>
+    public void AsOwnerSection()
+    {
+        WindowHeaderBorder.IsVisible = false;
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {

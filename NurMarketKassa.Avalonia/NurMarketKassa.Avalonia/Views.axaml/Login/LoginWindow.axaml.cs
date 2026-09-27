@@ -125,6 +125,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
                     AccountCatalogIsolation.PrepareForAuthenticatedUser("", userId);
                     App.GetRequiredService<SyncService>().Start();
+                    NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();
                 }
 
                 // 2026-09-09: PosApp.IsOfflineBootstrap управляет OfflineModeHelper.UseLocalOperations,

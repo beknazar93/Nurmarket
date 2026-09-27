@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using NurMarketKassa.Services;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -30,6 +31,115 @@ public partial class OperationsSettingsView : UserControl
     public OperationsSettingsView()
     {
         InitializeComponent();
+        AttachedToVisualTree += Lan_Attached;
+        DetachedFromVisualTree += Lan_Detached;
+    }
+
+    // ── Работа без интернета: обмен продажами по локальной сети ─────────────────────
+
+    private DispatcherTimer? _lanStatusTimer;
+    private bool _lanLoading;
+
+    private void RefreshLanUi()
+    {
+        LanTitle.Text = Tr.T("Работа без интернета: обмен между кассами",
+            "Интернетсиз иштөө: кассалар ортосунда алмашуу",
+            "Working without internet: exchange between tills",
+            "İnternetsiz çalışma: kasalar arası veri paylaşımı",
+            "Internetsiz ishlash: kassalar o'rtasida almashuv");
+        LanDesc.Text = Tr.T(
+            "Если интернет пропал, кассы магазина и программа владельца передают друг другу продажи по локальной сети (Wi-Fi или кабель), а на одном компьютере — внутри него. Остаток уменьшается сразу на всех кассах, владелец видит выручку. На сервер каждый чек отправляет только та касса, где его пробили.",
+            "Интернет жоголсо, дүкөндүн кассалары жана ээсинин программасы сатууларды бири-бирине жергиликтүү тармак (Wi-Fi же кабель) аркылуу, ал эми бир компьютерде — анын ичинде өткөрүп берет. Калдык бардык кассаларда дароо азаят, ээси түшкөн акчаны көрөт. Ар бир чекти серверге аны урган касса гана жөнөтөт.",
+            "If the internet goes down, the store's tills and the owner program pass sales to each other over the local network (Wi-Fi or cable), and on a single computer — within it. Stock goes down on all tills at once and the owner sees the revenue. Each receipt is sent to the server only by the till that rang it up.",
+            "İnternet kesilirse mağazanın kasaları ve sahip programı satışları yerel ağ (Wi-Fi veya kablo) üzerinden, tek bilgisayarda ise kendi içinde birbirine aktarır. Stok tüm kasalarda hemen düşer, mağaza sahibi ciroyu görür. Her fişi sunucuya yalnızca onu kesen kasa gönderir.",
+            "Internet uzilib qolsa, do'kon kassalari va egasining dasturi sotuvlarni bir-biriga mahalliy tarmoq (Wi-Fi yoki kabel) orqali, bitta kompyuterda esa uning ichida uzatadi. Qoldiq barcha kassalarda darhol kamayadi, do'kon egasi tushumni ko'radi. Har bir chekni serverga faqat uni urgan kassa yuboradi.");
+        LanEnabledCheck.Content = Tr.T("Обмен включён", "Алмашуу күйгүзүлгөн", "Exchange is on", "Veri paylaşımı açık", "Almashuv yoqilgan");
+        LanCodeLabel.Text = Tr.T(
+            "Код магазина — одинаковый на всех кассах и в программе владельца этой точки. Пустой — обмен только внутри этого компьютера.",
+            "Дүкөндүн коду — ушул дүкөндүн бардык кассаларында жана ээсинин программасында бирдей. Бош болсо — алмашуу ушул компьютердин ичинде гана.",
+            "Shop code — the same on every till and in the owner program of this store. Empty — exchange only within this computer.",
+            "Mağaza kodu — bu mağazanın tüm kasalarında ve sahip programında aynı olmalı. Boş bırakılırsa paylaşım yalnızca bu bilgisayar içinde yapılır.",
+            "Do'kon kodi — shu do'konning barcha kassalarida va egasining dasturida bir xil. Bo'sh bo'lsa — almashuv faqat shu kompyuter ichida.");
+        LanCodeBox.Watermark = Tr.T("например, NUR-7KQ4MZ", "мисалы, NUR-7KQ4MZ", "e.g. NUR-7KQ4MZ", "örneğin NUR-7KQ4MZ", "masalan, NUR-7KQ4MZ");
+        LanSaveCodeButton.Content = Tr.T("Сохранить код", "Кодду сактоо", "Save code", "Kodu kaydet", "Kodni saqlash");
+        LanNewCodeButton.Content = Tr.T("Придумать код", "Код түзүү", "Generate code", "Kod oluştur", "Kod yaratish");
+        LanFirewallHint.Text = Tr.T(
+            "После сохранения кода Windows может спросить разрешение для сети — нажмите «Разрешить», иначе другие кассы эту не увидят.",
+            "Кодду сактагандан кийин Windows тармакка уруксат сурашы мүмкүн — «Уруксат берүү» дегенди басыңыз, болбосо башка кассалар бул кассаны көрбөйт.",
+            "After you save the code, Windows may ask for network permission — click “Allow”, otherwise other tills won't see this one.",
+            "Kodu kaydettikten sonra Windows ağ izni isteyebilir — «İzin ver»e basın, aksi hâlde diğer kasalar bu kasayı göremez.",
+            "Kodni saqlagandan keyin Windows tarmoq uchun ruxsat so'rashi mumkin — «Ruxsat berish»ni bosing, aks holda boshqa kassalar bu kassani ko'rmaydi.");
+
+        var prefs = UserPreferences.Instance;
+        _lanLoading = true;
+        LanEnabledCheck.IsChecked = prefs.LanSyncEnabled;
+        _lanLoading = false;
+        LanCodeBox.Text = prefs.LanShopCode ?? "";
+        UpdateLanStatus();
+    }
+
+    private void UpdateLanStatus() =>
+        LanStatusText.Text = NurMarketKassa.Services.Lan.LanSyncService.Instance.StatusLine();
+
+    private void OnLanStatusChanged() => Dispatcher.UIThread.Post(UpdateLanStatus);
+
+    private void Lan_Attached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        NurMarketKassa.Services.Lan.LanSyncService.Instance.StatusChanged += OnLanStatusChanged;
+        // Появление и пропажа соседей событием не сообщаются — строку состояния обновляем сами.
+        _lanStatusTimer ??= new DispatcherTimer(TimeSpan.FromSeconds(3), DispatcherPriority.Background, (_, _) => UpdateLanStatus());
+        _lanStatusTimer.Start();
+    }
+
+    private void Lan_Detached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        NurMarketKassa.Services.Lan.LanSyncService.Instance.StatusChanged -= OnLanStatusChanged;
+        _lanStatusTimer?.Stop();
+    }
+
+    private void LanEnabled_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (_lanLoading)
+            return;
+        var prefs = UserPreferences.Instance;
+        var enabled = LanEnabledCheck.IsChecked == true;
+        if (prefs.LanSyncEnabled == enabled)
+            return;
+        prefs.LanSyncEnabled = enabled;
+        prefs.SaveToDisk();
+        if (enabled)
+            NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();
+        else
+            NurMarketKassa.Services.Lan.LanSyncService.Instance.Stop();
+        UpdateLanStatus();
+    }
+
+    private void LanSaveCode_Click(object? sender, RoutedEventArgs e)
+    {
+        var prefs = UserPreferences.Instance;
+        var code = (LanCodeBox.Text ?? "").Trim();
+        LanCodeBox.Text = code;
+        if (string.Equals(prefs.LanShopCode ?? "", code, StringComparison.Ordinal))
+        {
+            UpdateLanStatus();
+            return;
+        }
+
+        prefs.LanShopCode = code;
+        prefs.SaveToDisk();
+        NurMarketKassa.Services.Lan.LanSyncService.Instance.Restart();
+        UpdateLanStatus();
+    }
+
+    /// <summary>Код — общий секрет магазина: по нему кассы узнают своих. Случайный надёжнее
+    /// придуманного вручную («1234» подберёт кто угодно в той же сети).</summary>
+    private void LanNewCode_Click(object? sender, RoutedEventArgs e)
+    {
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var chars = new char[6];
+        for (var i = 0; i < chars.Length; i++)
+            chars[i] = alphabet[System.Security.Cryptography.RandomNumberGenerator.GetInt32(alphabet.Length)];
+        LanCodeBox.Text = "NUR-" + new string(chars);
     }
 
     // ── Сфера магазина ───────────────────────────────────────────────────────────────
@@ -86,6 +196,7 @@ public partial class OperationsSettingsView : UserControl
     public void LoadBankQrSettings()
     {
         RefreshSphereUi();
+        RefreshLanUi();
         _bankSettings = new ObservableCollection<BankQrSetting>();
         var prefs = UserPreferences.Instance;
 

@@ -1,0 +1,77 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.KeyBindingsSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+    <Style Selector="TextBox.KeyCaptureBox">
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList" MaxWidth="860" HorizontalAlignment="Stretch" Margin="0,16">
+
+        <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center">
+              <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{DynamicResource posSettings.navKeys}" Classes="SettingsPageTitle"/>
+              <TextBlock Text="{DynamicResource posSettings.keysSubtitle}" Classes="SettingsPageSubtitle" TextWrapping="Wrap"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{DynamicResource hotkeys.instructions}" FontSize="12.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <ItemsControl x:Name="RowsList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="dialogs:HotkeyRow">
+                  <Grid ColumnDefinitions="*,190" Margin="0,6">
+                    <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Description}" FontSize="12" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+                    <TextBox Grid.Column="1" Classes="KeyCaptureBox" IsReadOnly="True"
+                             Text="{Binding Display, Mode=OneWay}" Tag="{Binding Action}"
+                             Watermark="{DynamicResource hotkeys.pressKeysWatermark}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock x:Name="ErrorText" FontSize="12.5" TextWrapping="Wrap" IsVisible="False"
+                       Foreground="{DynamicResource BrushDanger}"/>
+            <TextBlock x:Name="SavedText" FontSize="12.5" TextWrapping="Wrap" IsVisible="False"
+                       Foreground="{DynamicResource BrushUiStatusOk}"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+              <Button Classes="SettingsFlatButton" Padding="16,0" VerticalContentAlignment="Center"
+                      Content="{DynamicResource hotkeys.resetDefault}" Click="Reset_Click"/>
+              <Button Classes="btn-primary" Content="{DynamicResource common.save}" Click="Save_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

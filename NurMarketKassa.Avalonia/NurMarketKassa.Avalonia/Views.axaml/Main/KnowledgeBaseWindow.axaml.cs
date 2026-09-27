@@ -28,7 +28,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// kb.uz.json (та же структура и те же id, что у kb.json); статья, которой нет в переводе, берётся
 /// по-русски. При смене языка окно перечитывает статьи и остаётся на той же статье.
 /// </summary>
-public partial class KnowledgeBaseWindow : Window
+public partial class KnowledgeBaseWindow : Window, IOwnerSection
 {
     private const string AssetRoot = "avares://NurMarketKassa.Avalonia/Assets/kb/";
     private static readonly Regex StepPattern = new(@"^Шаг\s+(\d+)\.\s*(.*)$", RegexOptions.CultureInvariant);
@@ -419,4 +419,17 @@ public partial class KnowledgeBaseWindow : Window
         this.TryFindResource(key, ActualThemeVariant, out var value) && value is IBrush brush ? brush : Brushes.Gray;
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): значок, название и
+    /// «Закрыть» уже не нужны — название стоит над разделом. Пояснение, что здесь вопросы и обучение
+    /// со снимками, остаётся узкой строкой над поиском и статьёй.</summary>
+    public void AsOwnerSection()
+    {
+        TitleIcon.IsVisible = false;
+        TitleText.IsVisible = false;
+        CloseButton.IsVisible = false;
+        if (SubtitleText.Parent is Control subtitlePanel)
+            subtitlePanel.Margin = new Avalonia.Thickness(0);
+        WindowHeaderBorder.Padding = new Avalonia.Thickness(24, 8);
+    }
 }

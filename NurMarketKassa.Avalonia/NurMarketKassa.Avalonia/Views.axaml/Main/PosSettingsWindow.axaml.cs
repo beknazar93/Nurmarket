@@ -25,7 +25,7 @@ using NurMarketKassa.ViewModels.Settings;
 
 namespace NurMarketKassa.AvaloniaHost.Views
 {
-    public partial class PosSettingsWindow : Window
+    public partial class PosSettingsWindow : Window, IOwnerSection
     {
         public SettingsViewModel SettingsVm { get; }
 
@@ -38,6 +38,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private readonly SettingsView _customizationView = new();
         private readonly AccountView _accountView = new();
         private readonly EmployeesSettingsView _employeesView = new();
+        private readonly KeyBindingsSettingsView _keysView = new();
 
         private Button[] _navButtons = Array.Empty<Button>();
 
@@ -175,7 +176,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             WireChildEvents();
             _operationsView.LoadBankQrSettings();
 
-            _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees };
+            _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys };
+            // Клавиши кассира в программе владельца не нужны: там нет ни чека, ни каталога.
+            NavKeys.IsVisible = !NurMarketKassa.Services.AppMode.IsOwner;
             NavigateTo(0);
 
             FullscreenHelper.Apply(this);
@@ -428,6 +431,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void SidebarClose_Click(object? sender, RoutedEventArgs e) => Close(false);
 
+        /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): «Закрыть» внизу
+        /// списка вкладок закрывала бы раздел — переход в другой раздел и так делается меню слева.</summary>
+        public void AsOwnerSection() => SidebarCloseButton.IsVisible = false;
+
         /// <summary>Открывает окно настроек сразу на странице "Монитор" (этап 7 бэклога
         /// "Доработки" — кнопка "Открыть настройки" на упрощённом окне проверки второго
         /// монитора ведёт прямиком сюда).</summary>
@@ -465,6 +472,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 6 => _customizationView,
                 7 => _accountView,
                 8 => _employeesView,
+                9 => _keysView,
                 _ => _scaleView
             };
 

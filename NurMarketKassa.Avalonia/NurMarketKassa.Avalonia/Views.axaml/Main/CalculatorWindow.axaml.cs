@@ -25,7 +25,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// Формулы: наценка = (Ц − З) / З; маржа = (Ц − З) / Ц; цена от маржи с налогом с выручки t:
 /// Ц = З / (1 − М − t); безубыточность = постоянные расходы / (маржа − t); чтобы скидка d при марже
 /// m принесла ту же прибыль, продавать надо в m / (m − d) раз больше.</summary>
-public partial class CalculatorWindow : Window
+public partial class CalculatorWindow : Window, IOwnerSection
 {
     private static readonly double[] TaxPresets = { 0, 0.5, 1, 2, 4 };
     private static readonly double[] RoundSteps = { 0, 1, 5, 10 };
@@ -768,6 +768,11 @@ public partial class CalculatorWindow : Window
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             BeginMoveDrag(e);
     }
+
+    /// <summary>Калькуляция разделом программы владельца (см. <see cref="IOwnerSection"/>): название
+    /// уже стоит над разделом, а подзаголовок лишь перечислял вкладки, которые видны сразу под ним.
+    /// Шапка с кнопками «свернуть» и ✕ не нужна — раздел начинается с вкладок.</summary>
+    public void AsOwnerSection() => HeaderGrid.IsVisible = false;
 
     private void Minimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 

@@ -28,6 +28,8 @@
             <Setter Property="Padding" Value="16,12"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <!-- Фокус с клавиатуры рисует стиль :focus-visible ниже; рамка Fluent легла бы второй. -->
+            <Setter Property="FocusAdorner" Value="{x:Null}"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}"
@@ -49,6 +51,14 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- Способ оплаты, выбранный стрелками: рамка толще и ярче, чтобы кассир видел, где
+             клавиатура. Отступ меньше ровно на столько, на сколько толще рамка, — кнопка не прыгает. -->
+        <Style Selector="RadioButton.PayTypeOption:focus-visible">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="BorderThickness" Value="2.5"/>
+            <Setter Property="Padding" Value="15,11"/>
         </Style>
 
         <Style Selector="CheckBox.Switch">
@@ -179,13 +189,15 @@
 
                     <!-- Переключение Наличные / Безналичные -->
                     <Grid ColumnDefinitions="*,8,*">
-                        <RadioButton Grid.Column="0"
+                        <RadioButton x:Name="PayCashOption"
+                                     Grid.Column="0"
                                      Content="{DynamicResource csh.checkout.cash}"
                                      GroupName="Pay"
                                      Classes="PayTypeOption"
                                      IsChecked="{Binding IsCash, Mode=TwoWay}"/>
 
-                        <RadioButton Grid.Column="2"
+                        <RadioButton x:Name="PayTransferOption"
+                                     Grid.Column="2"
                                      Content="{DynamicResource csh.checkout.transfer}"
                                      GroupName="Pay"
                                      Classes="PayTypeOption"
@@ -194,13 +206,15 @@
 
                     <!-- Долг / Смешанная — отдельная строка, чтобы не сжимать длинный текст "Накталай эмес" в первой -->
                     <Grid ColumnDefinitions="*,8,*">
-                        <RadioButton Grid.Column="0"
+                        <RadioButton x:Name="PayDebtOption"
+                                     Grid.Column="0"
                                      Content="{DynamicResource csh.checkout.debt}"
                                      GroupName="Pay"
                                      Classes="PayTypeOption"
                                      IsChecked="{Binding IsDebt, Mode=TwoWay}"/>
 
-                        <RadioButton Grid.Column="2"
+                        <RadioButton x:Name="PayMixedOption"
+                                     Grid.Column="2"
                                      Content="{DynamicResource csh.checkout.mixed}"
                                      GroupName="Pay"
                                      Classes="PayTypeOption"
@@ -291,7 +305,8 @@
                                    FontWeight="Medium"
                                    Foreground="{DynamicResource BrushTextMuted}"/>
 
-                        <ComboBox ItemsSource="{Binding Banks}"
+                        <ComboBox x:Name="BankComboBox"
+                                  ItemsSource="{Binding Banks}"
                                   SelectedItem="{Binding SelectedBank, Mode=TwoWay}"
                                   Height="42"
                                   HorizontalAlignment="Stretch">

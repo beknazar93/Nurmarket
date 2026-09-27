@@ -214,7 +214,10 @@ public static class TelegramReportBuilder
         var from = to.AddDays(-(days - 1));
         var data = AnalyticsReportData.Build(from, to, includeSeasonality: false);
 
-        if (data.AbcSlices.Count == 0 || data.AbcSlices[0].Rows.Count == 0)
+        // Срез выручки — по коду, а не первым в списке: срез склада (2026-09-27) есть и без
+        // продаж, и тогда первым оказался бы он.
+        var topSlice = data.Slice(AnalyticsReportData.KeyRevenue);
+        if (topSlice is not { Rows.Count: > 0 })
             return $"<b>ABC-анализ за {days} дн.</b>\n\nПродаж за период нет — считать не на чем.";
 
         var text = new StringBuilder();
@@ -238,7 +241,6 @@ public static class TelegramReportBuilder
         }
 
         // Группа A по выручке — то, что нельзя допускать до пустых полок.
-        var topSlice = data.AbcSlices[0];
         var groupA = topSlice.Rows.Where(r => r.Group == "A").Take(10).ToList();
         if (groupA.Count > 0)
         {
@@ -316,10 +318,10 @@ public static class TelegramReportBuilder
         var text = new StringBuilder();
         text.AppendLine($"<b>Рекомендации за {days} дн.</b>");
 
-        if (data.AbcSlices.Count == 0 || data.AbcSlices[0].Rows.Count == 0)
+        var byRevenue = data.Slice(AnalyticsReportData.KeyRevenue);
+        if (byRevenue is not { Rows.Count: > 0 })
             return text.AppendLine().Append("Продаж за период нет — советовать нечего.").ToString();
 
-        var byRevenue = data.AbcSlices[0];
         var groupA = byRevenue.Rows.Where(r => r.Group == "A")
             .Select(r => r.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

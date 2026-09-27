@@ -117,6 +117,7 @@ public static class CatalogCacheService
 
         try
         {
+            var snapshotStartedUtc = DateTime.UtcNow;
             var remoteVersion = await FetchRemoteVersionAsync(cancellationToken).ConfigureAwait(false);
 
             var rawItems = await PosApp.CatalogApi.ProductsCatalogAsync(
@@ -141,6 +142,8 @@ public static class CatalogCacheService
                     StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
             }
 
+            // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
+            Lan.LanStockAdjuster.AdjustSnapshot(newList, snapshotStartedUtc);
             var (added, changed, deleted) = Repository.SyncReplaceAllWithDiff(newList);
 
             if (remoteVersion != null && !remoteVersion.IsEmpty)

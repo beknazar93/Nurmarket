@@ -15,7 +15,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// каждом — на такое нужно всё окно, иначе всё время приходится скроллить.
 ///
 /// Данные считаются локально (AnalyticsReportData), поэтому раздел работает и без интернета.</summary>
-public partial class AbcAnalysisWindow : Window
+public partial class AbcAnalysisWindow : Window, IOwnerSection
 {
     private DateTime _from = DateTime.Today.AddDays(-30);
     private DateTime _to = DateTime.Today;
@@ -76,6 +76,26 @@ public partial class AbcAnalysisWindow : Window
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): крупное название уже
+    /// стоит над разделом, «Закрыть» не нужна. Пояснение остаётся мелкой строкой слева, кнопки —
+    /// справа в той же строке.
+    ///
+    /// 2026-09-27: здесь — все срезы сразу, включая «Склад по стоимости остатка» (в разделах
+    /// «Финансы», «Продажи» и «Склад» у каждого только свои). Таблица среза — с пределом высоты:
+    /// на срезе склада в ней тысячи строк.</summary>
+    public void AsOwnerSection()
+    {
+        AbcSection.SliceKeys = Analytics.AbcSectionView.AllSliceKeys;
+        AbcSection.TableMaxHeight = 560;
+        TitleText.IsVisible = false;
+        CloseButton.IsVisible = false;
+        RefreshButton.Margin = new Avalonia.Thickness(0);
+        SubtitleText.Margin = new Avalonia.Thickness(0, 0, 16, 0);
+        if (SubtitleText.Parent is Control subtitlePanel)
+            subtitlePanel.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     private async void Today_Click(object? sender, RoutedEventArgs e) => await SetPeriodAsync(DateTime.Today, DateTime.Today);
 

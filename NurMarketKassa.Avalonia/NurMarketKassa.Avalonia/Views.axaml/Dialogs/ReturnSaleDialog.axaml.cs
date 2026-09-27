@@ -37,6 +37,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Чек, который открыть сразу (кнопка «Вернуть…» в «Истории чеков», 2026-09-27):
+    /// кассир уже нашёл его там и не должен искать второй раз.</summary>
+    public string? InitialSaleId { get; set; }
+
+    /// <summary>Номер этого чека, как его видел кассир, — печатается на чеке возврата.</summary>
+    public string? InitialReceiptNumber { get; set; }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -75,6 +82,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         Opened -= OnFirstOpened;
         UpdateWindowStateUI();
         await LoadSalesAsync(true).ConfigureAwait(true);
+
+        if (!string.IsNullOrWhiteSpace(InitialSaleId))
+        {
+            await OpenSaleByIdAsync(InitialSaleId.Trim()).ConfigureAwait(true);
+            if (string.IsNullOrWhiteSpace(_currentReceiptNumber) && !string.IsNullOrEmpty(_currentSaleId))
+                _currentReceiptNumber = InitialReceiptNumber;
+        }
     }
 
     #region Window State Logic (Fullscreen / Dimmer)

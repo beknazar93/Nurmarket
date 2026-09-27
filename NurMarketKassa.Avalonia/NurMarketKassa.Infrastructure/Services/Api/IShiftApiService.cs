@@ -22,6 +22,18 @@ public interface IShiftApiService
     /// а не полная История смен, которой openOnly не подходит.</summary>
     Task<JsonElement> ConstructionShiftsListAsync(bool openOnly = false, CancellationToken ct = default);
 
+    /// <summary>GET /api/construction/shifts/{id}/ — одна смена. 2026-09-27, жалоба владельца
+    /// «медленно открывает отчёты / Z-отчёт»: полный список смен сервер отдаёт за 2,2–3,7 с
+    /// (100 строк, 108 КБ), а одну смену — за 0,2–0,5 с, с теми же полями и теми же значениями
+    /// (сверено запросами к тестовой компании на 6 сменах, расхождений нет).</summary>
+    Task<JsonElement> ConstructionShiftGetAsync(string shiftId, CancellationToken ct = default);
+
+    /// <summary>Последний полный список смен (без openOnly), если он получен не раньше
+    /// <paramref name="maxAge"/> назад и под тем же входом. Нужен отчёту смены: окно «Финансы →
+    /// Смены» только что скачало этот список, а нажатие на смену качало его заново (2–3 с) лишь
+    /// затем, чтобы найти в нём одну строку.</summary>
+    bool TryGetRecentShiftsList(TimeSpan maxAge, out JsonElement payload);
+
     /// <summary>POST открытия смены (перебор URL и вариантов тела).</summary>
     Task<JsonElement> ConstructionShiftOpenAsync(string cashboxId, string openingCash = "0.00", CancellationToken ct = default);
 

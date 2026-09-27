@@ -44,19 +44,8 @@
     <ScrollViewer Classes="SettingsPageScroll">
       <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
 
-        <!-- Хедер -->
-        <Border Classes="SettingsHeaderCard" Padding="12">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Spacing="12">
-            <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource BrushAccentSoft}"
-                    BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
-              <TextBlock Text="🛍️" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            </Border>
-            <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="{DynamicResource posSettings.navMarketplace}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
-              <TextBlock Text="{DynamicResource marketplace.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
-            </StackPanel>
-          </StackPanel>
-        </Border>
+        <!-- Хедер-карточки «Маркетплейс» здесь больше нет (2026-09-27, «дублируется»): название
+             уже есть в шапке окна кассы и в заголовке раздела программы владельца. -->
 
         <!-- Баннер обновления (2026-09-05, по просьбе пользователя: "при нажатии на
              маркетплейс обновлял список, чтобы клиенты видели новые функции и темы") —

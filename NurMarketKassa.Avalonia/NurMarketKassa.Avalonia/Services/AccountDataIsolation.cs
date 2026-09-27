@@ -69,13 +69,19 @@ public static class AccountDataIsolation
             return false;
         }
 
+        // Обмен по локальной сети держит базу и знает компанию — на время переноса выключаем,
+        // потом запускаем уже с новой компанией.
+        var lan = NurMarketKassa.Services.Lan.LanSyncService.Instance;
+        var lanWasRunning = lan.IsRunning;
         try
         {
+            lan.Stop();
             PrepareForSwap();
             Park(previous);
             Restore(key);
             Remember(key);
             DatabaseService.Instance.ReopenAfterAccountSwitch();
+            NurMarketKassa.Services.Lan.LanJournal.ResetSchemaFlag();
             AccountCatalogIsolation.ResetCatalogCachesAndReload();
             PosLogger.Log($"Смена аккаунта: данные «{previous}» отложены, подняты данные «{key}».", "AUTH");
             return true;
@@ -86,6 +92,11 @@ public static class AccountDataIsolation
             // молча смешивать данные двух компаний нельзя.
             PosLogger.Log($"Не удалось разделить данные аккаунтов «{previous}» → «{key}»: {ex}", "ERROR");
             return false;
+        }
+        finally
+        {
+            if (lanWasRunning)
+                lan.Start();
         }
     }
 

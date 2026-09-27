@@ -206,7 +206,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         IsLoading = true;
         try
         {
-            var shifts = await ShiftHistoryService.LoadAsync().ConfigureAwait(true);
+            var shifts = await ShiftHistoryService.LoadAsync(fresh: true).ConfigureAwait(true);
             AllShifts.Clear();
             foreach (var shift in shifts.Select(ShiftModel.FromEntry))
                 AllShifts.Add(shift);

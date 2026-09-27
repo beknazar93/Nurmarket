@@ -401,6 +401,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 {
                     Id = session.Id,
                     CartJson = OpenReceiptSnapshot.CloneCartJson(session.CartJson),
+                    DeferredAt = session.DeferredAt,
                 })
                 .ToList(),
         };
@@ -418,6 +419,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             {
                 Id = savedSession.Id,
                 CartJson = OpenReceiptSnapshot.CloneCartJson(savedSession.CartJson),
+                DeferredAt = savedSession.DeferredAt,
             });
         }
 
@@ -663,12 +665,22 @@ public sealed class BasketPanelViewModel : ViewModelBase
         PersistActiveSessionSnapshot();
         _previousSessionId = _activeSessionId;
         _activeSessionId = target.Id;
+        // Открыли отложенный чек — покупатель вернулся, дальше это обычный чек.
+        var wasHeld = target.DeferredAt != null;
+        if (wasHeld)
+        {
+            target.DeferredAt = null;
+            RenameReceiptSessions();
+        }
         ActiveReceiptTitle = target.BaseName;
         ApplySessionToCart(target);
         SyncLinesFromCart();
         UpdateCartTotals();
-        CartMessage = Tr.T($"Активен «{target.BaseName}».", $"«{target.BaseName}» активдүү.",
-            $"Active: “{target.BaseName}”.", $"Etkin: «{target.BaseName}».", $"Faol: «{target.BaseName}».");
+        CartMessage = wasHeld
+            ? Tr.T("Отложенный чек снова открыт.", "Калтырылган чек кайра ачылды.", "The held receipt is open again.",
+                "Bekleyen fiş yeniden açıldı.", "Kutishdagi chek qayta ochildi.")
+            : Tr.T($"Активен «{target.BaseName}».", $"«{target.BaseName}» активдүү.",
+                $"Active: “{target.BaseName}”.", $"Etkin: «{target.BaseName}».", $"Faol: «{target.BaseName}».");
         RaiseCartCommands();
     }
 
@@ -1370,6 +1382,31 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             PersistActiveSessionSnapshot();
 
+            // 2026-09-27, владелец: «при нажатии "Отложить чек" новый чек же должен выходить» —
+            // раньше чек уходил в скрытый список «Отложенные» (⋮ Ещё), корзина пустела, и казалось,
+            // что чек пропал. Теперь он остаётся вкладкой «Отложен ЧЧ:ММ» рядом, а кассиру
+            // открывается новый пустой чек. Прежний путь — только когда вкладок уже максимум.
+            if (_sessions.Count < MaxOpenReceipts)
+            {
+                await RunOnUiThreadAsync(() =>
+                {
+                    var held = GetActiveSession();
+                    if (held != null)
+                        held.DeferredAt = DateTime.Now;
+                    CreateNewReceipt();
+                    var heldName = held?.BaseName ?? "";
+                    CartMessage = Tr.T($"Чек отложен — он во вкладке «{heldName}». Открыт новый чек.",
+                        $"Чек калтырылды — ал «{heldName}» өтмөгүндө. Жаңы чек ачылды.",
+                        $"Receipt held — it's in the “{heldName}” tab. A new receipt is open.",
+                        $"Fiş beklemeye alındı — «{heldName}» sekmesinde. Yeni fiş açıldı.",
+                        $"Chek kutishga qo'yildi — u «{heldName}» yorlig'ida. Yangi chek ochildi.");
+                    PushCustomerDisplay();
+                    NotifyHeldReceiptsChanged();
+                    RaiseCartCommands();
+                }).ConfigureAwait(false);
+                return;
+            }
+
             var result = await _deferredCart
                 .DeferCurrentCartAsync(startNewSale: false)
                 .ConfigureAwait(false);
@@ -1796,6 +1833,21 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     private void RebuildReceiptTabs()
     {
+        // Отложенный чек без товаров (например, после восстановления состояния) — обычная вкладка.
+        // Активную вкладку не проверяем: отложенный чек перестаёт быть отложенным, когда его
+        // открывают (SelectReceiptTab), а пока кассир переключает вкладки, строки ещё старые.
+        var cleared = false;
+        foreach (var session in _sessions.Where(s => s.DeferredAt != null && s.Id != _activeSessionId))
+        {
+            if (GetSessionSummary(session.CartJson).Lines == 0)
+            {
+                session.DeferredAt = null;
+                cleared = true;
+            }
+        }
+        if (cleared)
+            RenameReceiptSessions();
+
         ReceiptTabs.Clear();
         foreach (var session in _sessions)
         {
@@ -1854,9 +1906,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
     private void RenameReceiptSessions()
     {
         for (var index = 0; index < _sessions.Count; index++)
-            _sessions[index].BaseName = index == 0
-                ? Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek")
-                : Tr.T($"Чек {index + 1}", $"Чек {index + 1}", $"Receipt {index + 1}", $"Fiş {index + 1}", $"Chek {index + 1}");
+            _sessions[index].BaseName = _sessions[index].DeferredAt is { } heldAt
+                ? Tr.T($"Отложен {heldAt:HH:mm}", $"Калтырылган {heldAt:HH:mm}", $"Held {heldAt:HH:mm}", $"Bekleyen {heldAt:HH:mm}", $"Kutishda {heldAt:HH:mm}")
+                : index == 0
+                    ? Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek")
+                    : Tr.T($"Чек {index + 1}", $"Чек {index + 1}", $"Receipt {index + 1}", $"Fiş {index + 1}", $"Chek {index + 1}");
 
         var active = GetActiveSession();
         if (active != null)
@@ -1892,21 +1946,45 @@ public sealed class BasketPanelViewModel : ViewModelBase
             return;
 
         var index = _sessions.FindIndex(s => s.Id == paidId);
-        if (index <= 0)
+        if (index < 0)
             return;
 
         var wasStillActive = _activeSessionId == paidId;
+
+        // 2026-09-27, «отложенный чек не удаляется после оплаты»: кнопка «Отложить чек» оставляет
+        // отложенный чек вкладкой и открывает новую. Правила после оплаты:
+        //  • отложенный чек касса сама не открывает — его покупатель ещё не вернулся;
+        //  • две пустые вкладки ни к чему: если рядом есть пустая обычная вкладка, оплаченная
+        //    убирается (так и для «Основного чека», который оплатили, вернувшись к отложенному);
+        //  • если кроме оплаченной остались только отложенные — оплаченная (уже пустая) остаётся
+        //    новым чеком для следующего покупателя.
+        var emptyOther = _sessions.FirstOrDefault(s => s.Id != paidId && s.DeferredAt == null && IsEmptySession(s));
+        OpenReceiptSession? target;
+        if (index == 0)
+        {
+            if (emptyOther is null || !wasStillActive)
+                return;
+            target = emptyOther;
+        }
+        else
+        {
+            target = (!string.IsNullOrEmpty(previousId) && previousId != paidId
+                ? _sessions.FirstOrDefault(s => s.Id == previousId)
+                : null) ?? _sessions[0];
+            if (target.DeferredAt != null)
+            {
+                target = emptyOther;
+                if (target is null && wasStillActive)
+                    return;
+            }
+        }
 
         _sessions.RemoveAt(index);
         RenameReceiptSessions();
         RebuildReceiptTabs();
 
-        if (!wasStillActive)
+        if (!wasStillActive || target is null)
             return;
-
-        var target = (!string.IsNullOrEmpty(previousId) && previousId != paidId
-            ? _sessions.FirstOrDefault(s => s.Id == previousId)
-            : null) ?? _sessions[0];
 
         _activeSessionId = target.Id;
         ActiveReceiptTitle = target.BaseName;
@@ -1915,6 +1993,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
         UpdateCartTotals();
         RaiseCartCommands();
     }
+
+    private bool IsEmptySession(OpenReceiptSession session) =>
+        session.Id == _activeSessionId ? LineCount == 0 : GetSessionSummary(session.CartJson).Lines == 0;
 
     private void ApplyCartJson(string? cartJson)
     {
@@ -2243,6 +2324,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         public string Id { get; init; } = "";
         public string BaseName { get; set; } = Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek");
         public string CartJson { get; set; } = "{}";
+        public DateTime? DeferredAt { get; set; }
     }
 }
 

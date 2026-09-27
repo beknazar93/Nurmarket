@@ -106,7 +106,7 @@
     <Grid ColumnDefinitions="240,*">
       <!-- Sidebar -->
       <DockPanel Grid.Column="0" Margin="0,8,0,0">
-        <Button IsCancel="True" DockPanel.Dock="Bottom"
+        <Button IsCancel="True" DockPanel.Dock="Bottom" x:Name="SidebarCloseButton"
                 Classes="SidebarCloseButton"
                 Click="SidebarClose_Click">
           <StackPanel Orientation="Horizontal" Spacing="10">
@@ -175,6 +175,12 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
               <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navEmployees}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="NavKeys" Classes="SidebarNavItem" Tag="9" Click="SidebarNav_Click">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="{DynamicResource posSettings.navKeys}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
         </StackPanel>

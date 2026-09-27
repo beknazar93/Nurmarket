@@ -149,7 +149,9 @@ public partial class MainWindow : Window
         // OnMainWindowKeyDown оно уже не доходит. Из-за этого "Оплатить по Enter" не работал,
         // а вместо этого просто прибавлялось количество товара (репорт пользователя). Tunnel
         // гарантированно выполняется раньше любого Bubble-обработчика внутри окна.
-        AddHandler(KeyDownEvent, OnEnterKeyPayTunnel, RoutingStrategies.Tunnel);
+        // 2026-09-27: здесь же — все действия на одиночных клавишах (Настройки → Клавиши):
+        // оплата (Enter), добавить товар (Num +), убавить/убрать (Num −).
+        AddHandler(KeyDownEvent, OnPlainHotkeyTunnel, RoutingStrategies.Tunnel);
         // NOTE: the cart's +/- quantity buttons keeping keyboard focus after a click (so the
         // next scan's Enter re-fires them instead of completing) is now fixed narrowly at the
         // button level (Focusable="False" in BasketPanelView.axaml) instead of here. Two prior
@@ -678,7 +680,9 @@ public partial class MainWindow : Window
 
     private void OnMainWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_hotkeys.TryMatch(e, out var action))
+        // Действия на одиночных клавишах разбирает OnPlainHotkeyTunnel (со своими правилами
+        // фокуса и сканера), здесь — только комбинации с Ctrl/Alt: они работают из любого поля.
+        if (_hotkeys.TryMatch(e, plain: false, out var action))
         {
             e.Handled = true;
             ExecuteHotkey(action);
@@ -715,16 +719,44 @@ public partial class MainWindow : Window
         _barcodeInputService.ProcessKeyDown(e);
     }
 
-    /// <summary>"Оплатить по Enter" (по просьбе пользователя, 2026-09-16) — вынесено в Tunnel,
-    /// чтобы гарантированно сработать раньше локальных Bubble-обработчиков Enter внутри окна
-    /// (например, у списка каталога — см. комментарий у регистрации хендлера). Не перехватывает,
-    /// когда фокус в текстовом поле — там Enter может быть нужен для чего-то своего.</summary>
-    private void OnEnterKeyPayTunnel(object? sender, KeyEventArgs e)
+    /// <summary>Действия на одиночных клавишах без Ctrl/Alt (Настройки → Клавиши): «Оплата»
+    /// (по умолчанию Enter — просьба пользователя 2026-09-16), «Добавить товар в чек» (Num +) и
+    /// «Убавить / убрать товар» (Num −) — 2026-09-27. Вынесено в Tunnel, чтобы гарантированно
+    /// сработать раньше локальных Bubble-обработчиков внутри окна (см. комментарий у регистрации).
+    /// Не перехватывает, когда фокус в текстовом поле — там клавиша нужна для набора.</summary>
+    private void OnPlainHotkeyTunnel(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None)
+        if (!_hotkeys.TryMatch(e, plain: true, out var action))
             return;
         if (FocusManager?.GetFocusedElement() is TextBox)
             return;
+
+        switch (action)
+        {
+            case PosHotkeyAction.Pay:
+                TryPayFromKeyboard(e);
+                return;
+            case PosHotkeyAction.AddCatalogItem:
+                // Num + / Num − сканер не печатает (он шлёт клавиши основной клавиатуры), но
+                // забираем их раньше буфера сканера, иначе Num − ушёл бы туда как «-».
+                e.Handled = true;
+                AddFromCatalogOrIncrease();
+                return;
+            case PosHotkeyAction.DecreaseQuantity:
+                e.Handled = true;
+                DecreaseOrRemoveLine();
+                return;
+            default:
+                if (_barcodeInputService.HasBufferedInput)
+                    return;
+                e.Handled = true;
+                ExecuteHotkey(action);
+                return;
+        }
+    }
+
+    private void TryPayFromKeyboard(KeyEventArgs e)
+    {
         // 2026-09-16, срочный живой баг ("при сканировании сразу идёт на оплатить"): сканер
         // штрихкода эмулирует быстрый набор с клавиатуры и завершает каждый скан символом
         // Enter — если в корзине уже есть хотя бы один товар (после первого скана), этот Enter
@@ -825,7 +857,64 @@ public partial class MainWindow : Window
             case PosHotkeyAction.FocusProductSearch:
                 CatalogPanel.FocusProductSearch();
                 break;
+            case PosHotkeyAction.Pay:
+                ExecuteCommand(_viewModel.Basket.PayCommand);
+                break;
+            case PosHotkeyAction.AddCatalogItem:
+                AddFromCatalogOrIncrease();
+                break;
+            case PosHotkeyAction.DecreaseQuantity:
+                DecreaseOrRemoveLine();
+                break;
         }
+    }
+
+    /// <summary>«Добавить товар в чек»: товар под рамкой каталога (её двигают стрелками), а если
+    /// рамки нет — ещё одна единица последней строки чека (строки идут новыми сверху).</summary>
+    private void AddFromCatalogOrIncrease()
+    {
+        if (CatalogPanel.TryAddHighlightedProduct())
+            return;
+
+        var basket = _viewModel.Basket;
+        var line = basket.Lines.FirstOrDefault();
+        if (line is null)
+        {
+            basket.CartMessage = Tr.T("Выберите товар стрелками в каталоге или отсканируйте штрихкод.",
+                "Каталогдон товарды жебелер менен тандаңыз же штрихкодду сканерлеңиз.",
+                "Pick a product in the catalog with the arrow keys or scan a barcode.",
+                "Katalogda ok tuşlarıyla bir ürün seçin veya barkodu okutun.",
+                "Katalogdan mahsulotni strelkalar bilan tanlang yoki shtrix-kodni skanerlang.");
+            return;
+        }
+
+        if (basket.IncreaseQuantityCommand.CanExecute(line))
+            basket.IncreaseQuantityCommand.Execute(line);
+    }
+
+    /// <summary>«Убавить / убрать товар»: строка товара под рамкой каталога (самая новая, если
+    /// строк у товара несколько), а без рамки — последняя строка чека. Больше одной штуки —
+    /// минус одна, одна — строка убирается той же командой, что корзина у строки: с проверкой
+    /// права на удаление и кода сотрудника.</summary>
+    private void DecreaseOrRemoveLine()
+    {
+        var basket = _viewModel.Basket;
+        var product = CatalogPanel.HighlightedProduct;
+        var line = product is null
+            ? basket.Lines.FirstOrDefault()
+            : basket.Lines.FirstOrDefault(l => string.Equals(l.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
+        if (line is null)
+        {
+            if (product is not null)
+                basket.CartMessage = Tr.T($"«{product.Title}» нет в чеке.", $"«{product.Title}» чекте жок.",
+                    $"“{product.Title}” is not in the receipt.", $"«{product.Title}» fişte yok.", $"«{product.Title}» chekda yo'q.");
+            return;
+        }
+
+        if (basket.DecreaseQuantityCommand.CanExecute(line))
+            basket.DecreaseQuantityCommand.Execute(line);
+        else if (basket.RemoveLineCommand.CanExecute(line))
+            basket.RemoveLineCommand.Execute(line);
     }
 
     private void ToggleCustomerDisplay()
@@ -1295,6 +1384,27 @@ public partial class MainWindow : Window
         // Возврат меняет остаток смены так же, как продажа — подтягиваем его с сервера (2026-09-25:
         // после возврата в шапке оставалась сумма до возврата).
         OnCheckoutSucceeded(this, EventArgs.Empty);
+    }
+
+    /// <summary>«История чеков» (2026-09-27): чеки этой кассы и печать копии. Без проверки прав
+    /// и тарифа — нужна любому кассиру; «Вернуть…» внутри окна проверяет право на возврат сам.</summary>
+    internal async void NavigateReceiptHistory()
+    {
+        try
+        {
+            _viewModel.CloseSideMenu();
+            var window = new ReceiptHistoryWindow();
+            await PosDialogHost.ShowAsync(window, this).ConfigureAwait(true);
+
+            // Возврат из истории меняет остаток смены так же, как из меню «Возврат».
+            if (window.ReturnWasOpened)
+                OnCheckoutSucceeded(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков не открылась: {ex}", "WARNING");
+            _prompts.ShowWarning(Tr.T("Не удалось открыть историю чеков: ", "Чектердин тарыхын ачуу мүмкүн болгон жок: ", "Could not open the receipt history: ", "Fiş geçmişi açılamadı: ", "Cheklar tarixini ochib bo'lmadi: ") + ex.Message);
+        }
     }
 
     internal void NavigateFinance()
@@ -2080,12 +2190,38 @@ public partial class MainWindow : Window
                 // посчитаны до того, как кассир ввёл фактическую сумму. Здесь их считает
                 // сам отчёт по опорным цифрам, которые уже серверные.
             };
-            SendShiftSummaryToTelegram(shift, shiftId);
-            PosDialogHost.Show(new ShiftDetailsDialog(shift), this);
+            // Отчёт собран из ответа самого закрытия — сверять его с сервером незачем.
+            var dialog = new ShiftDetailsDialog(shift) { RefreshFromServer = false };
+            if (fresh?.PendingDebtSales is { } pendingDebt)
+            {
+                // 2026-09-27: отчёт больше не ждёт расчёта долга — открывается сразу, долг
+                // подставляется, когда посчитается (итог тот же: посчитанный, иначе из снимка
+                // «до закрытия»). Сводка в Telegram уходит после этого — с долгом, как раньше.
+                var debtApplied = dialog.ApplyDebtWhenResolvedAsync(pendingDebt, before?.DebtSales);
+                _ = SendShiftSummaryWhenDebtKnownAsync(debtApplied, shift, shiftId);
+            }
+            else
+            {
+                SendShiftSummaryToTelegram(shift, shiftId);
+            }
+            PosDialogHost.Show(dialog, this);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"ShowShiftClosedReport failed: {ex.Message}", "SHIFT");
+        }
+    }
+
+    private static async Task SendShiftSummaryWhenDebtKnownAsync(Task debtApplied, ShiftModel shift, string? shiftId)
+    {
+        try
+        {
+            await debtApplied.ConfigureAwait(true);
+            SendShiftSummaryToTelegram(shift, shiftId);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сводка смены в Telegram не отправлена: {ex.Message}", "SHIFT");
         }
     }
 

@@ -451,7 +451,7 @@
   <x:String x:Key="hotkeys.title">Горячие клавиши</x:String>
   <x:String x:Key="hotkeys.subtitle">Настройка горячих клавиш</x:String>
   <x:String x:Key="hotkeys.header">Горячие клавиши кассы</x:String>
-  <x:String x:Key="hotkeys.instructions">Нажмите нужную комбинацию прямо в поле. Изменения сохраняются для текущего пользователя.</x:String>
+  <x:String x:Key="hotkeys.instructions">Нажмите нужную клавишу или комбинацию прямо в поле. Delete или Backspace — снять назначение. F1–F12 заняты группами быстрых товаров.</x:String>
   <x:String x:Key="hotkeys.cheatsheet">Шпаргалка кассира</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Нажмите клавиши</x:String>
   <x:String x:Key="hotkeys.resetDefault">По умолчанию</x:String>
@@ -621,6 +621,8 @@
   <x:String x:Key="posSettings.navMarketplace">Маркетплейс</x:String>
   <x:String x:Key="posSettings.navAccount">Аккаунт</x:String>
   <x:String x:Key="posSettings.navEmployees">Сотрудники</x:String>
+  <x:String x:Key="posSettings.navKeys">Клавиши</x:String>
+  <x:String x:Key="posSettings.keysSubtitle">Какая клавиша что делает на кассе</x:String>
   <x:String x:Key="employees.subtitle">Личные коды доступа для удаления из корзины, удаления, редактирования и добавления товара — без кода эти действия недоступны сотрудникам (владелец/админ действует без кода)</x:String>
   <x:String x:Key="employees.addButton">+ Добавить сотрудника</x:String>
   <x:String x:Key="employees.loadFromWeb">Загрузить с сайта</x:String>
@@ -1363,4 +1365,19 @@
     <x:String x:Key="loc.settings.scaleConn.password4">Пароль (4 цифры)</x:String>
     <x:String x:Key="loc.settings.scaleConn.hint">Порт обычно 1111, пароль — 0030. При неверном пароле весы блокируют доступ после нескольких попыток: тогда выключите и включите их и введите правильный пароль.</x:String>
     <x:String x:Key="loc.settings.scaleConn.test">Проверить связь</x:String>
+  <!-- История чеков и печать копии (2026-09-27) -->
+  <x:String x:Key="csh.menu.receiptHistory">История чеков</x:String>
+  <x:String x:Key="receiptHistory.subtitle">Чеки этой кассы. Нажмите на чек — справа появится его состав, оттуда же можно напечатать копию.</x:String>
+  <x:String x:Key="receiptHistory.periodShift">Эта смена</x:String>
+  <x:String x:Key="receiptHistory.searchWatermark">Номер чека или товар…</x:String>
+  <x:String x:Key="receiptHistory.empty">За этот период чеков нет.</x:String>
+  <x:String x:Key="receiptHistory.noMatch">По запросу ничего не найдено.</x:String>
+  <x:String x:Key="receiptHistory.selectHint">Выберите чек в списке слева — здесь появится его состав.</x:String>
+  <x:String x:Key="receiptHistory.itemsHeader">Состав чека</x:String>
+  <x:String x:Key="receiptHistory.printCopy">Печать копии</x:String>
+  <x:String x:Key="receiptHistory.return">Вернуть…</x:String>
+  <x:String x:Key="csh.cart.printLastReceipt">Печать последнего чека</x:String>
+  <x:String x:Key="csh.cart.writeOff">Списание</x:String>
+  <x:String x:Key="csh.cart.writeOffTooltip">Списать испорченный, просроченный или взятый для себя товар со склада</x:String>
+  <x:String x:Key="csh.cart.printLastReceiptTooltip">Напечатать копию последнего чека этой смены</x:String>
 </ResourceDictionary>

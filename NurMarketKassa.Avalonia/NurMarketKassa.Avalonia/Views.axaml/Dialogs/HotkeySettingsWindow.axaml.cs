@@ -27,6 +27,9 @@ public partial class HotkeySettingsWindow : Window, INotifyPropertyChanged
                     _hotkeys.GetGesture(definition.Action))));
         InitializeComponent();
         DataContext = this;
+        // Tunnel: поле ввода само забирает Delete/Backspace, Ctrl+A и т.п. раньше обычного
+        // обработчика — перехватываем нажатие до него.
+        AddHandler(KeyDownEvent, OnGestureKeyDown, RoutingStrategies.Tunnel);
     }
 
     public ObservableCollection<HotkeyRow> Rows { get; }
@@ -57,12 +60,20 @@ public partial class HotkeySettingsWindow : Window, INotifyPropertyChanged
 
     private void OnGestureKeyDown(object? sender, KeyEventArgs e)
     {
-        e.Handled = true;
-        if (PosHotkeyService.IsModifierKey(e.Key) || sender is not TextBox { Tag: PosHotkeyAction action })
+        if (FocusManager?.GetFocusedElement() is not TextBox { Tag: PosHotkeyAction action })
+            return;
+        // Tab — к следующему полю, Esc — закрыть окно, Delete/Backspace — снять назначение.
+        if (!PosHotkeyService.TryCapture(e, out var gesture, out var error))
             return;
 
-        var row = Rows.First(x => x.Action == action);
-        row.Gesture = PosHotkeyService.Format(e.Key, e.KeyModifiers);
+        e.Handled = true;
+        if (error is not null)
+        {
+            ErrorText = error;
+            return;
+        }
+
+        Rows.First(x => x.Action == action).Gesture = gesture ?? "";
         ErrorText = "";
     }
 
@@ -111,8 +122,12 @@ public sealed class HotkeyRow : INotifyPropertyChanged
             if (_gesture == value) return;
             _gesture = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Gesture)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Display)));
         }
     }
+
+    /// <summary>Как комбинацию видит кассир: «Num +», «Ctrl + Enter», «не назначено».</summary>
+    public string Display => PosHotkeyService.Display(_gesture);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }

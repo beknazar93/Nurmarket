@@ -26,6 +26,8 @@
         <StreamGeometry x:Key="SalesIcon">M3,4 H5 L7,15 H18 L21,8 H6 M9,20 A1.5,1.5 0 1 1 8.99,20 M17,20 A1.5,1.5 0 1 1 16.99,20</StreamGeometry>
         <StreamGeometry x:Key="FinanceIcon">M4,20 V11 M10,20 V5 M16,20 V14 M22,20 V8</StreamGeometry>
         <StreamGeometry x:Key="AbcIcon">M12,3 A9,9 0 1 0 21,12 H12 Z M15,2.5 A8,8 0 0 1 21.5,9 H15 Z</StreamGeometry>
+        <!-- «Аналитика»: оси и линия тренда с точками (2026-09-27). -->
+        <StreamGeometry x:Key="AnalyticsIcon">M4,4 V20 H20 M7.5,15.5 L11,11.5 L14,14 L19,8 M11,11.5 V11.51 M14,14 V14.01 M19,8 V8.01</StreamGeometry>
         <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
         <StreamGeometry x:Key="ClientsIcon">M9,11 A4,4 0 1 1 8.99,11 M3,20 A6,6 0 0 1 15,20 M17,11 A3,3 0 1 1 16.99,11 M17,14 A5,5 0 0 1 21,19</StreamGeometry>
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
@@ -292,6 +294,23 @@
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,24"/>
+        </Style>
+
+        <!-- Вкладки срезов ABC в сводке — как вкладки разделов (Финансы, Склад), а не крупные
+             вкладки Fluent по умолчанию: шесть срезов помещаются в одну строку. -->
+        <Style Selector="Border#AbcCard TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+        <Style Selector="Border#AbcCard TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Border#AbcCard TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
     </Window.Styles>
 
@@ -563,6 +582,32 @@
                             </DockPanel>
                         </Border>
                     </Grid>
+
+                    <!-- ABC-анализ по всем срезам (2026-09-27, владелец: «ABC анализ должен быть в сводке
+                         и он должен быть по всем»). Считается локально, за тот же период, что и сводка;
+                         пересчёт — при смене периода и после новых продаж, а не каждые 20 секунд.
+                         Высота блока — почти экран: внутри свои вкладки и прокрутка, а колесо на краю
+                         прокрутки блока передаётся сводке. -->
+                    <Border x:Name="AbcCard" Classes="card" Padding="20,16,20,14" IsVisible="False">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                                <StackPanel Spacing="3">
+                                    <TextBlock x:Name="AbcTitle" Classes="cardTitle"/>
+                                    <TextBlock x:Name="AbcHint" Classes="cardHint" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" x:Name="AbcOpenButton" Classes="link" VerticalAlignment="Top" Click="AbcOpen_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock x:Name="AbcOpenText" VerticalAlignment="Center"/>
+                                        <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                              VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <Panel x:Name="AbcHost" Height="640">
+                                <TextBlock x:Name="AbcLoadingText" Classes="empty" VerticalAlignment="Top"/>
+                            </Panel>
+                        </DockPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

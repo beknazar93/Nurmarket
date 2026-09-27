@@ -28,15 +28,64 @@ public sealed class ShiftApiService : IShiftApiService
 
     public Task<JsonElement> ConstructionShiftsListAsync(bool openOnly = false, CancellationToken ct = default)
     {
-        var query = openOnly ? new Dictionary<string, string> { ["status"] = "open" } : null;
+        if (!openOnly)
+            return FetchFullShiftsListAsync(ct);
+
+        var query = new Dictionary<string, string> { ["status"] = "open" };
         return _client.RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, query, ct);
     }
+
+    // Снимок последнего полного списка смен (см. TryGetRecentShiftsList). Сам список каждый раз
+    // по-прежнему идёт с сервера — снимок только запоминается.
+    private readonly object _recentListSync = new();
+    private JsonElement _recentList;
+    private DateTime _recentListAtUtc = DateTime.MinValue;
+    private string? _recentListToken;
+
+    private async Task<JsonElement> FetchFullShiftsListAsync(CancellationToken ct)
+    {
+        var payload = await _client.RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, null, ct).ConfigureAwait(false);
+        lock (_recentListSync)
+        {
+            _recentList = payload;
+            _recentListAtUtc = DateTime.UtcNow;
+            // Вход, под которым список получен (после возможного обновления токена в самом запросе).
+            _recentListToken = _client.AccessToken;
+        }
+
+        return payload;
+    }
+
+    public bool TryGetRecentShiftsList(TimeSpan maxAge, out JsonElement payload)
+    {
+        lock (_recentListSync)
+        {
+            // Снимок другого входа (смена кассира, другая компания) не годится: сервер отдаёт
+            // каждому пользователю свой набор смен.
+            var fresh = _recentListAtUtc != DateTime.MinValue
+                && DateTime.UtcNow - _recentListAtUtc <= maxAge
+                && !string.IsNullOrEmpty(_recentListToken)
+                && string.Equals(_recentListToken, _client.AccessToken, StringComparison.Ordinal);
+            payload = fresh ? _recentList : default;
+            return fresh;
+        }
+    }
+
+    private void ForgetRecentShiftsList()
+    {
+        lock (_recentListSync)
+            _recentListAtUtc = DateTime.MinValue;
+    }
+
+    public Task<JsonElement> ConstructionShiftGetAsync(string shiftId, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Get, $"api/construction/shifts/{Uri.EscapeDataString(shiftId.Trim())}/", null, null, ct);
 
     public async Task<JsonElement> ConstructionShiftOpenAsync(
         string cashboxId,
         string openingCash = "0.00",
         CancellationToken ct = default)
     {
+        ForgetRecentShiftsList();
         var paths = new[] { "api/construction/shifts/open/", "api/construction/shift/open/" };
         var payloads = new[]
         {
@@ -76,6 +125,7 @@ public sealed class ShiftApiService : IShiftApiService
         IReadOnlyDictionary<string, string>? extraFields = null,
         CancellationToken ct = default)
     {
+        ForgetRecentShiftsList();
         var sid = Uri.EscapeDataString(shiftId.Trim());
         var paths = new[]
         {

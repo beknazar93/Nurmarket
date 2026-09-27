@@ -58,7 +58,7 @@ public partial class StaffTimesheetWindow : Window
         StatusText.Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
         try
         {
-            var shifts = await ShiftHistoryService.LoadAsync().ConfigureAwait(true);
+            var shifts = await ShiftHistoryService.LoadAsync(fresh: true).ConfigureAwait(true);
             var from = FromDatePicker.SelectedDate;
             var to = ToDatePicker.SelectedDate;
             var rows = StaffTimesheetService.Aggregate(shifts, from, to);

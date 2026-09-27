@@ -58,6 +58,18 @@ public sealed class AnalyticsReportData
     /// <summary>Все срезы ABC в порядке показа.</summary>
     public IReadOnlyList<AbcSlice> AbcSlices { get; init; } = [];
 
+    /// <summary>Коды срезов (<see cref="AbcSlice.Key"/>). Первые пять считаются по продажам за
+    /// период; «stock» — по складу на сейчас и от периода не зависит (2026-09-27).</summary>
+    public const string KeyRevenue = "revenue";
+    public const string KeyProfit = "profit";
+    public const string KeyQuantity = "quantity";
+    public const string KeyCategory = "category";
+    public const string KeyBrand = "brand";
+    public const string KeyStock = "stock";
+
+    /// <summary>Срез по коду или null, если его в отчёте нет (например, продаж за период не было).</summary>
+    public AbcSlice? Slice(string key) => AbcSlices.FirstOrDefault(s => s.Key == key);
+
     /// <summary>Сводка по группам — сколько позиций и сколько денег в каждой.</summary>
     public IReadOnlyList<(string Group, int Count, double Sum, double Share)> AbcSummary { get; init; } = [];
 
@@ -141,7 +153,10 @@ public sealed class AnalyticsReportData
             .ToList();
 
         var slices = BuildAbcSlices(lines);
-        var abc = slices.Count > 0 ? slices[0].Rows : (IReadOnlyList<AbcRow>)[];
+        // Срез склада считается и без продаж за период, поэтому первым в списке может оказаться
+        // он — сводку «по выручке» берём по коду, а не по номеру.
+        var revenueSlice = slices.FirstOrDefault(s => s.Key == KeyRevenue);
+        var abc = revenueSlice?.Rows ?? (IReadOnlyList<AbcRow>)[];
 
         return new AnalyticsReportData
         {
@@ -159,7 +174,7 @@ public sealed class AnalyticsReportData
             ByDay = byDay,
             TopProducts = top,
             Abc = abc,
-            AbcSummary = slices.Count > 0 ? slices[0].Summary : [],
+            AbcSummary = revenueSlice?.Summary ?? [],
             AbcSlices = slices,
             Restock = BuildRestock(lines),
             Seasonality = includeSeasonality ? BuildSeasonality() : EmptySeasonality,
@@ -321,6 +336,65 @@ public sealed class AnalyticsReportData
     private static List<AbcSlice> BuildAbcSlices(
         IReadOnlyList<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines)
     {
+        var slices = BuildSalesAbcSlices(lines);
+        // Склад — последним: срезы продаж идут первыми, как и до его появления.
+        if (BuildStockSlice() is { } stock)
+            slices.Add(stock);
+        return slices;
+    }
+
+    /// <summary>Срез «Склад по стоимости остатка» (2026-09-27): в каких товарах сейчас лежат
+    /// деньги магазина. Стоимость позиции — остаток × закупочная цена.
+    ///
+    /// Товары без закупочной цены в срез не входят — по той же причине, что и в срезе «по
+    /// прибыли»: подставить вместо неё цену продажи значило бы завысить их стоимость на всю
+    /// наценку, и они встали бы выше товаров, у которых закупка указана честно. Сколько позиций
+    /// так выпало, написано в пояснении среза: владелец должен видеть, что картина неполная.
+    /// Услуги и комплекты тоже не считаются: у услуги нет остатка, а остаток комплекта — это
+    /// остатки его составляющих, которые уже посчитаны каждая сама по себе.
+    ///
+    /// От периода срез не зависит — это снимок склада на сейчас. null — считать не из чего
+    /// (на складе нет ни одной позиции с остатком и закупочной ценой).</summary>
+    public static AbcSlice? BuildStockSlice()
+    {
+        // Копия массивом, а не перебор: каталог обновляется в UI-потоке, а расчёт идёт в фоне, и
+        // перебор живого списка падал бы на «коллекция изменена».
+        var inStock = CatalogCacheService.Products.ToArray()
+            .Where(p => p is { Quantity: > 0, IsService: false, IsBundle: false })
+            .ToList();
+        var priced = inStock.Where(p => p.PurchasePrice > 0).ToList();
+        var skipped = inStock.Count - priced.Count;
+
+        var hint = Tr.T(
+            "Остаток × закупочная цена: в каких товарах сейчас заморожены деньги магазина. Группа A — товары, в которых лежит 80 % стоимости склада. Это снимок склада на сейчас — от выбранного периода он не зависит.",
+            "Калдык × сатып алуу баасы: дүкөндүн акчасы азыр кайсы товарларда байланып турат. A тобу — кампанын наркынын 80 %ын түзгөн товарлар. Бул кампанын азыркы абалы — тандалган мезгилге көз каранды эмес.",
+            "Stock × purchase price: which products the shop's money is tied up in right now. Group A holds 80% of the inventory value. This is a snapshot of the stock right now and does not depend on the selected period.",
+            "Stok × alış fiyatı: mağazanın parası şu anda hangi ürünlere bağlı. A grubu, depo değerinin %80'ini oluşturan ürünlerdir. Bu, deponun şu anki durumudur; seçilen döneme bağlı değildir.",
+            "Qoldiq × xarid narxi: do'kon pullari hozir qaysi mahsulotlarda turib qolgan. A guruhi — ombor qiymatining 80 % ini tashkil etuvchi mahsulotlar. Bu omborning hozirgi holati — tanlangan davrga bog'liq emas.");
+        if (skipped > 0)
+        {
+            hint += " " + Tr.T(
+                $"Без закупочной цены — {skipped} поз., в расчёт они не вошли.",
+                $"Сатып алуу баасы жок {skipped} позиция эсепке кирген жок.",
+                $"{skipped} items without a purchase price were left out.",
+                $"Alış fiyatı girilmemiş {skipped} kalem hesaba katılmadı.",
+                $"Xarid narxi ko'rsatilmagan {skipped} ta pozitsiya hisobga kiritilmadi.");
+        }
+
+        var slice = BuildSlice(
+            KeyStock,
+            Tr.T("Склад по стоимости остатка", "Калдыктын наркы боюнча кампа", "Stock by inventory value", "Stok değerine göre depo", "Qoldiq qiymati bo'yicha ombor"),
+            Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
+            hint,
+            priced.Select(p => (Name: p.Title, Quantity: p.Quantity, Value: p.Quantity * p.PurchasePrice)));
+
+        return slice.Rows.Count > 0 ? slice : null;
+    }
+
+    /// <summary>Пять срезов по продажам за период. Пусто, если продаж не было.</summary>
+    private static List<AbcSlice> BuildSalesAbcSlices(
+        IReadOnlyList<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines)
+    {
         if (lines.Count == 0)
             return [];
 
@@ -337,7 +411,7 @@ public sealed class AnalyticsReportData
         return
         [
             BuildSlice(
-                "revenue",
+                KeyRevenue,
                 Tr.T("Товары по выручке", "Түшүм боюнча товарлар", "Products by revenue", "Ciroya göre ürünler", "Tushum bo'yicha mahsulotlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Классический ABC: где сосредоточены деньги магазина.", "Классикалык ABC: дүкөндүн акчасы кайда топтолгон.", "Classic ABC: where the shop's money is concentrated.", "Klasik ABC: mağazanın parası nerede toplanıyor.", "Klassik ABC: do'kon pullari qayerda jamlangan."),
@@ -348,7 +422,7 @@ public sealed class AnalyticsReportData
                         Value: g.Sum(x => x.Quantity * x.UnitPrice)))),
 
             BuildSlice(
-                "profit",
+                KeyProfit,
                 Tr.T("Товары по прибыли", "Пайда боюнча товарлар", "Products by profit", "Kâra göre ürünler", "Foyda bo'yicha mahsulotlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Выручка минус закупочная цена. Товар из группы A по выручке легко оказывается в C по прибыли.", "Түшүм минус сатып алуу баасы. Түшүм боюнча A тобундагы товар пайда боюнча оңой эле C тобуна түшүп калышы мүмкүн.", "Revenue minus the purchase price. A product in group A by revenue can easily end up in group C by profit.", "Ciro eksi alış fiyatı. Ciroda A grubundaki bir ürün, kârda kolayca C grubuna düşebilir.", "Tushum minus xarid narxi. Tushum bo'yicha A guruhidagi mahsulot foyda bo'yicha osongina C guruhiga tushib qolishi mumkin."),
@@ -364,7 +438,7 @@ public sealed class AnalyticsReportData
                     })),
 
             BuildSlice(
-                "quantity",
+                KeyQuantity,
                 Tr.T("Товары по количеству", "Саны боюнча товарлар", "Products by quantity", "Adede göre ürünler", "Miqdor bo'yicha mahsulotlar"),
                 Tr.T("шт.", "даана", "pcs", "adet", "dona"), isMoney: false,
                 Tr.T("ABC по штукам, а не по деньгам: показывает товары, которые держат поток покупателей.", "Акча эмес, даана боюнча ABC: сатып алуучулардын агымын кармаган товарларды көрсөтөт.", "ABC by units rather than money: shows the products that keep customers coming.", "Para yerine adede göre ABC: müşteri akışını sağlayan ürünleri gösterir.", "Pul emas, dona bo'yicha ABC: xaridorlar oqimini ushlab turadigan mahsulotlarni ko'rsatadi."),
@@ -375,7 +449,7 @@ public sealed class AnalyticsReportData
                         Value: g.Sum(x => x.Quantity)))),
 
             BuildSlice(
-                "category",
+                KeyCategory,
                 Tr.T("Категории", "Категориялар", "Categories", "Kategoriler", "Kategoriyalar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Те же 80/15/5, но по категориям каталога — что нельзя допускать до пустых полок.", "Ошол эле 80/15/5, бирок каталогдун категориялары боюнча — кайсы категориялардын текчелери бош калбашы керек.", "The same 80/15/5, but by catalog category — what must never run out on the shelf.", "Aynı 80/15/5, ama katalog kategorilerine göre — hangi kategorilerin rafta tükenmemesi gerektiğini gösterir.", "Xuddi shu 80/15/5, lekin katalog kategoriyalari bo'yicha: qaysi kategoriyalarni javonda tugatib qo'ymaslik kerak."),
@@ -388,7 +462,7 @@ public sealed class AnalyticsReportData
                         Value: g.Sum(x => x.Quantity * x.UnitPrice)))),
 
             BuildSlice(
-                "brand",
+                KeyBrand,
                 Tr.T("Бренды", "Бренддер", "Brands", "Markalar", "Brendlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Кто из поставщиков-брендов реально делает выручку.", "Кайсы бренддер чындыгында түшүм алып келет.", "Which brands actually bring in the revenue.", "Hangi markalar gerçekten ciro getiriyor.", "Qaysi brend-yetkazib beruvchilar haqiqatan tushum keltiradi."),

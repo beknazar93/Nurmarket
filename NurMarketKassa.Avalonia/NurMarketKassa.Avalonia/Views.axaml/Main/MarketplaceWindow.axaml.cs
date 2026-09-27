@@ -31,5 +31,13 @@ public partial class MarketplaceWindow : Window
     /// и т.п.), а не просто посмотреть маркетплейс.</summary>
     public void ShowExtrasTab() => MarketplaceContent.ShowExtrasTab();
 
+    /// <summary>Раздел программы владельца: название уже стоит в её заголовке, а разделы
+    /// переключаются меню — своя шапка с «Закрыть» там только повторяет его (2026-09-27).</summary>
+    public MarketplaceWindow AsSection()
+    {
+        WindowHeader.IsVisible = false;
+        return this;
+    }
+
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 }

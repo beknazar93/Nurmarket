@@ -27,12 +27,15 @@
     </Window.Styles>
 
     <DockPanel>
-        <Border DockPanel.Dock="Top" Padding="16,12" Background="{DynamicResource BrushPanelElevated}"
+        <Border x:Name="WindowHeader" DockPanel.Dock="Top" Padding="16,12" Background="{DynamicResource BrushPanelElevated}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="{DynamicResource posSettings.navMarketplace}"
-                           FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
-                           VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{DynamicResource posSettings.navMarketplace}"
+                               FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock Text="{DynamicResource marketplace.subtitle}" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
                 <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}"
                         Classes="btn-secondary" Click="Close_Click"/>
             </Grid>

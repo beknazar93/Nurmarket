@@ -324,6 +324,8 @@ public sealed class SyncService : IDisposable
                 PosLogger.Log($"OFFLINE replay: чек {entry.Id} проведён на сервере, продажа {saleId ?? "—"}.", "OFFLINE");
                 OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
                 OfflinePendingSalesStore.RemoveSynced(entry.Id);
+                // Соседи перестают вычитать этот чек из остатка, как только увидят его на сервере.
+                Lan.LanJournal.PublishUploaded(entry.Id, saleId);
             }
             catch (HttpRequestException ex)
             {

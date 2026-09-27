@@ -112,6 +112,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
         try
         {
+            var snapshotStartedUtc = DateTime.UtcNow;
             var remoteVersion = await _catalogApi
                 .ProductsCatalogVersionAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -147,6 +148,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
             }
 
+            // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
+            NurMarketKassa.Services.Lan.LanStockAdjuster.AdjustSnapshot(newList, snapshotStartedUtc);
             var (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);
 
             if (remoteVersion != null && !remoteVersion.IsEmpty)

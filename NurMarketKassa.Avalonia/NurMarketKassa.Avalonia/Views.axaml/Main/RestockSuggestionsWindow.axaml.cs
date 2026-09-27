@@ -15,7 +15,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// прогноз пополнения склада по локальной истории продаж (<see cref="SoldLineItemsStore"/>) и
 /// оценка срока годности по категории товара (<see cref="ExpiryEstimator"/>, без реального
 /// интернет-поиска — нужен ИИ/поисковый API-ключ, которого пока нет).</summary>
-public partial class RestockSuggestionsWindow : Window
+public partial class RestockSuggestionsWindow : Window, IOwnerSection
 {
     // По умолчанию — месяц: сглаживает случайные всплески лучше недели для оценки "хватит на N
     // дней". Переключатель Неделя/Месяц — п.11 AI-фич (см. AI features 2026-09-03).
@@ -39,6 +39,16 @@ public partial class RestockSuggestionsWindow : Window
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): название уже над
+    /// разделом, «Закрыть» не нужна. «Подтянуть историю с сервера» и «Обновить» остаются строкой справа.</summary>
+    public void AsOwnerSection()
+    {
+        TitleText.IsVisible = false;
+        CloseButton.IsVisible = false;
+        RefreshButton.Margin = new Avalonia.Thickness(0);
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     private void Lookback_Click(object? sender, RoutedEventArgs e)
     {

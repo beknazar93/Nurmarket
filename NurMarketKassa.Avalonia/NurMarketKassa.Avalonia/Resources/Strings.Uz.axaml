@@ -451,7 +451,7 @@
   <x:String x:Key="hotkeys.title">Tezkor tugmalar</x:String>
   <x:String x:Key="hotkeys.subtitle">Tezkor tugmalarni sozlash</x:String>
   <x:String x:Key="hotkeys.header">Kassaning tezkor tugmalari</x:String>
-  <x:String x:Key="hotkeys.instructions">Kerakli tugmalar kombinatsiyasini to'g'ridan-to'g'ri maydonda bosing. O'zgarishlar joriy foydalanuvchi uchun saqlanadi.</x:String>
+  <x:String x:Key="hotkeys.instructions">Kerakli tugma yoki kombinatsiyani to'g'ridan-to'g'ri maydonda bosing. Delete yoki Backspace — tayinlashni bekor qilish. F1–F12 tezkor mahsulot guruhlariga band qilingan.</x:String>
   <x:String x:Key="hotkeys.cheatsheet">Kassir uchun eslatma</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Tugmalarni bosing</x:String>
   <x:String x:Key="hotkeys.resetDefault">Standart bo'yicha</x:String>
@@ -621,6 +621,8 @@
   <x:String x:Key="posSettings.navMarketplace">Marketpleys</x:String>
   <x:String x:Key="posSettings.navAccount">Hisob</x:String>
   <x:String x:Key="posSettings.navEmployees">Xodimlar</x:String>
+  <x:String x:Key="posSettings.navKeys">Tugmalar</x:String>
+  <x:String x:Key="posSettings.keysSubtitle">Kassada qaysi tugma nima qiladi</x:String>
   <x:String x:Key="employees.subtitle">Savatdan o'chirish, mahsulotni o'chirish, tahrirlash va qo'shish uchun shaxsiy kirish kodlari — kodsiz xodimlar bu amallarni bajara olmaydi (ega/admin kodsiz ishlaydi)</x:String>
   <x:String x:Key="employees.addButton">+ Xodim qo'shish</x:String>
   <x:String x:Key="employees.loadFromWeb">Saytdan yuklash</x:String>
@@ -1363,4 +1365,19 @@
     <x:String x:Key="loc.settings.scaleConn.password4">Parol (4 ta raqam)</x:String>
     <x:String x:Key="loc.settings.scaleConn.hint">Port odatda 1111, parol — 0030. Parol noto'g'ri bo'lsa, tarozi bir necha urinishdan keyin kirishni bloklaydi: unda uni o'chirib-yoqing va to'g'ri parolni kiriting.</x:String>
     <x:String x:Key="loc.settings.scaleConn.test">Aloqani tekshirish</x:String>
+  <!-- История чеков и печать копии (2026-09-27) -->
+  <x:String x:Key="csh.menu.receiptHistory">Cheklar tarixi</x:String>
+  <x:String x:Key="receiptHistory.subtitle">Shu kassaning cheklari. Chekni bosing — o'ng tomonda uning tarkibi chiqadi, nusxasini o'sha yerdan chop etish mumkin.</x:String>
+  <x:String x:Key="receiptHistory.periodShift">Shu smena</x:String>
+  <x:String x:Key="receiptHistory.searchWatermark">Chek raqami yoki mahsulot…</x:String>
+  <x:String x:Key="receiptHistory.empty">Bu davrda cheklar yo'q.</x:String>
+  <x:String x:Key="receiptHistory.noMatch">So'rov bo'yicha hech narsa topilmadi.</x:String>
+  <x:String x:Key="receiptHistory.selectHint">Chap tomondagi ro'yxatdan chekni tanlang — uning tarkibi shu yerda ko'rinadi.</x:String>
+  <x:String x:Key="receiptHistory.itemsHeader">Chek tarkibi</x:String>
+  <x:String x:Key="receiptHistory.printCopy">Nusxasini chop etish</x:String>
+  <x:String x:Key="receiptHistory.return">Qaytarish…</x:String>
+  <x:String x:Key="csh.cart.printLastReceipt">Oxirgi chekni chop etish</x:String>
+  <x:String x:Key="csh.cart.writeOff">Hisobdan chiqarish</x:String>
+  <x:String x:Key="csh.cart.writeOffTooltip">Buzilgan, muddati o'tgan yoki o'z ehtiyoji uchun olingan mahsulotni ombordan hisobdan chiqarish</x:String>
+  <x:String x:Key="csh.cart.printLastReceiptTooltip">Shu smenaning oxirgi cheki nusxasini chop etish</x:String>
 </ResourceDictionary>

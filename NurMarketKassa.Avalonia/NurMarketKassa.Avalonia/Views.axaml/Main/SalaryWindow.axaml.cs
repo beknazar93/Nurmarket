@@ -17,7 +17,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// (api/main/analytics/market/?tab=salary): оклад пропорционально дням периода, процент с
 /// оплаченных чеков, где сотрудник пробил оплату, и комиссия консультанта с чеков, где он указан
 /// в окне оплаты. Касса только показывает его и даёт поменять схему начисления сотрудника.</summary>
-public partial class SalaryWindow : Window
+public partial class SalaryWindow : Window, IOwnerSection
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private DateTime _from;
@@ -106,6 +106,20 @@ public partial class SalaryWindow : Window
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): крупное название уже
+    /// стоит над разделом, «Закрыть» не нужна. Пояснение остаётся мелкой строкой слева, кнопки —
+    /// справа в той же строке.</summary>
+    public void AsOwnerSection()
+    {
+        TitleText.IsVisible = false;
+        CloseButton.IsVisible = false;
+        RefreshButton.Margin = new Avalonia.Thickness(0);
+        SubtitleText.Margin = new Avalonia.Thickness(0, 0, 16, 0);
+        if (SubtitleText.Parent is Control subtitlePanel)
+            subtitlePanel.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     private async void ThisMonth_Click(object? sender, RoutedEventArgs e)
     {

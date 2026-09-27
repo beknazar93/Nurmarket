@@ -451,7 +451,7 @@
   <x:String x:Key="hotkeys.title">Hotkeys</x:String>
   <x:String x:Key="hotkeys.subtitle">Configure hotkeys</x:String>
   <x:String x:Key="hotkeys.header">Till hotkeys</x:String>
-  <x:String x:Key="hotkeys.instructions">Press the key combination right in the field. Changes are saved for the current user.</x:String>
+  <x:String x:Key="hotkeys.instructions">Press the key or combination right in the field. Delete or Backspace clears the assignment. F1–F12 are reserved for quick product groups.</x:String>
   <x:String x:Key="hotkeys.cheatsheet">Cashier cheat sheet</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Press keys</x:String>
   <x:String x:Key="hotkeys.resetDefault">Default</x:String>
@@ -621,6 +621,8 @@
   <x:String x:Key="posSettings.navMarketplace">Marketplace</x:String>
   <x:String x:Key="posSettings.navAccount">Account</x:String>
   <x:String x:Key="posSettings.navEmployees">Employees</x:String>
+  <x:String x:Key="posSettings.navKeys">Keys</x:String>
+  <x:String x:Key="posSettings.keysSubtitle">Which key does what on the till</x:String>
   <x:String x:Key="employees.subtitle">Personal access codes for removing items from the cart and for deleting, editing and adding products. Without a code, employees can't perform these actions (the owner/admin doesn't need a code)</x:String>
   <x:String x:Key="employees.addButton">+ Add employee</x:String>
   <x:String x:Key="employees.loadFromWeb">Load from website</x:String>
@@ -1363,4 +1365,19 @@
     <x:String x:Key="loc.settings.scaleConn.password4">Password (4 digits)</x:String>
     <x:String x:Key="loc.settings.scaleConn.hint">The port is usually 1111 and the password 0030. With a wrong password, the scale blocks access after several attempts: then turn it off and on again and enter the correct password.</x:String>
     <x:String x:Key="loc.settings.scaleConn.test">Test connection</x:String>
+  <!-- История чеков и печать копии (2026-09-27) -->
+  <x:String x:Key="csh.menu.receiptHistory">Receipt history</x:String>
+  <x:String x:Key="receiptHistory.subtitle">Receipts of this till. Tap a receipt to see its items on the right and print a copy from there.</x:String>
+  <x:String x:Key="receiptHistory.periodShift">This shift</x:String>
+  <x:String x:Key="receiptHistory.searchWatermark">Receipt number or product…</x:String>
+  <x:String x:Key="receiptHistory.empty">No receipts for this period.</x:String>
+  <x:String x:Key="receiptHistory.noMatch">Nothing matches your search.</x:String>
+  <x:String x:Key="receiptHistory.selectHint">Select a receipt in the list on the left — its items will appear here.</x:String>
+  <x:String x:Key="receiptHistory.itemsHeader">Receipt items</x:String>
+  <x:String x:Key="receiptHistory.printCopy">Print copy</x:String>
+  <x:String x:Key="receiptHistory.return">Return…</x:String>
+  <x:String x:Key="csh.cart.printLastReceipt">Print last receipt</x:String>
+  <x:String x:Key="csh.cart.writeOff">Write-off</x:String>
+  <x:String x:Key="csh.cart.writeOffTooltip">Write off damaged, expired or personal-use goods from stock</x:String>
+  <x:String x:Key="csh.cart.printLastReceiptTooltip">Print a copy of this shift's last receipt</x:String>
 </ResourceDictionary>

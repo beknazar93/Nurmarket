@@ -334,9 +334,10 @@ public partial class PackageChoiceDialog : Window
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
 
-    /// <summary>На шаге выбора способа продажи стрелки Вверх/Вниз переключают между
-    /// "Целая пачка" и "Поштучно" — сами RadioButton в обычном StackPanel такой навигации
-    /// не поддерживают (в отличие от ListBox/WrapPanel в каталоге). Enter на этом шаге —
+    /// <summary>На шаге выбора способа продажи стрелки переключают между "Целая пачка" и
+    /// "Поштучно" — сами RadioButton в обычном StackPanel такой навигации не поддерживают.
+    /// Вверх/Вниз — по раскладке, Влево/Вправо (2026-09-27) — так же, как в окне оплаты, где
+    /// ими выбирают способ оплаты: кассиру не нужно помнить, в каком окне какие стрелки. Enter на этом шаге —
     /// то же самое, что клик по "Кийинки", и срабатывает независимо от того, что именно
     /// сейчас в фокусе (Tab мог увести фокус на что угодно внутри диалога).</summary>
     private void OnDialogKeyDown(object? sender, KeyEventArgs e)
@@ -344,7 +345,7 @@ public partial class PackageChoiceDialog : Window
         if (!Step1Panel.IsVisible)
             return;
 
-        if (PieceOption.IsVisible && (e.Key == Key.Up || e.Key == Key.Down))
+        if (PieceOption.IsVisible && (e.Key is Key.Up or Key.Down or Key.Left or Key.Right))
         {
             e.Handled = true;
             var target = WholePackOption.IsChecked == true ? PieceOption : WholePackOption;

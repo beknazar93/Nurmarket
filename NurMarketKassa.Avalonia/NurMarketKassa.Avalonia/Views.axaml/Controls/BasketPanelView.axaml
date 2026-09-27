@@ -642,11 +642,45 @@
                             IsEnabled="{Binding HasItems}"/>
                 </Grid>
 
-                <Grid Grid.Row="3" Margin="0,0,0,6" IsVisible="{Binding IsMoreActionsVisible}">
-                    <Button Classes="cart-action"
+                <Grid Grid.Row="3"
+                      ColumnDefinitions="*,8,*,8,*"
+                      Margin="0,0,0,6"
+                      IsVisible="{Binding IsMoreActionsVisible}">
+                    <Button Grid.Column="0"
+                            Classes="cart-action"
                             HorizontalAlignment="Stretch"
                             Content="{DynamicResource csh.cart.payDebt}"
                             Command="{Binding OpenPayDebtCommand}"/>
+                    <!-- Копия последнего чека (2026-09-27): покупатель просит чек ещё раз, а кассе
+                         не нужно искать его в «Истории чеков». Текст переносится на две строки —
+                         по-кыргызски он длинный. -->
+                    <Button Grid.Column="2"
+                            Classes="cart-action"
+                            Padding="8,2"
+                            HorizontalAlignment="Stretch"
+                            ToolTip.Tip="{DynamicResource csh.cart.printLastReceiptTooltip}"
+                            Click="PrintLastReceipt_Click">
+                        <TextBlock Text="{DynamicResource csh.cart.printLastReceipt}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxLines="2"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                    </Button>
+                    <!-- Списание испорченного товара прямо из кассы (2026-09-27, просьба владельца). -->
+                    <Button Grid.Column="4"
+                            Classes="cart-action"
+                            Padding="8,2"
+                            HorizontalAlignment="Stretch"
+                            ToolTip.Tip="{DynamicResource csh.cart.writeOffTooltip}"
+                            Click="WriteOff_Click">
+                        <TextBlock Text="{DynamicResource csh.cart.writeOff}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxLines="2"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                    </Button>
                 </Grid>
 
                 <!-- Сообщения корзины -->

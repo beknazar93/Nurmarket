@@ -17,7 +17,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// который сам генерирует одноразовый адрес подключения — кассир называет его оператору по
 /// телефону/WhatsApp.
 /// </summary>
-public partial class RemoteSupportWindow : Window
+public partial class RemoteSupportWindow : Window, IOwnerSection
 {
     private static readonly string[] KnownAnyDeskPaths =
     {
@@ -109,4 +109,23 @@ public partial class RemoteSupportWindow : Window
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): значок с названием и
+    /// «Закрыть» убраны — название над разделом. Окно рассчитано на 520 px; растянутое на весь
+    /// раздел, оно разнесло бы текст и кнопку по краям экрана, поэтому содержимое остаётся колонкой
+    /// привычной ширины у левого края, как текст остальных разделов.</summary>
+    public void AsOwnerSection()
+    {
+        TitlePanel.IsVisible = false;
+        CloseButton.IsVisible = false;
+        IntroText.Margin = new Avalonia.Thickness(0);
+        LaunchButton.Margin = new Avalonia.Thickness(0, 16, 0, 14);
+        // Без белой подложки: в кассе она заполняла всё маленькое окно, а колонкой посреди
+        // раздела выглядела бы карточкой, прилипшей к тексту.
+        RootGrid.Background = Avalonia.Media.Brushes.Transparent;
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+        RootGrid.MaxWidth = 600;
+        RootGrid.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        RootGrid.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+    }
 }

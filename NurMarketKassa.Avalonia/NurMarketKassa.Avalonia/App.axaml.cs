@@ -169,6 +169,8 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 ShutdownCts.Cancel();
+                try { NurMarketKassa.Services.Lan.LanSyncService.Instance.Stop(); }
+                catch { /* соседи сами перестанут ждать это место через 45 секунд */ }
                 // Сливает WAL в основной файл БД при штатном закрытии — без этого несколько раз
                 // за 2026-09-04 недописанный WAL для редко используемых таблиц приводил к
                 // "database disk image is malformed" при следующем запуске (см.
@@ -360,6 +362,7 @@ public partial class App : Application
                 new { mode = result.Mode.ToString(), userId = appSession.CurrentUserId },
                 appSession.CurrentUserId);
             AppHost.Services.GetRequiredService<SyncService>().Start();
+            NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();
 
             var mainWindow = ResolveMainShell();
             var shell = (IMainShell)mainWindow;

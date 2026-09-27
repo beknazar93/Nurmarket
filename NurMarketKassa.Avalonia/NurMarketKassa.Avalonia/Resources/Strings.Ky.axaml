@@ -451,7 +451,7 @@
   <x:String x:Key="hotkeys.title">Ыкчам баскычтар</x:String>
   <x:String x:Key="hotkeys.subtitle">Ыкчам баскычтарды жөндөө</x:String>
   <x:String x:Key="hotkeys.header">Кассанын ыкчам баскычтары</x:String>
-  <x:String x:Key="hotkeys.instructions">Керектүү айкалышты түз эле ушул талаада басыңыз. Өзгөртүүлөр учурдагы колдонуучу үчүн сакталат.</x:String>
+  <x:String x:Key="hotkeys.instructions">Керектүү баскычты же айкалышты түз эле ушул талаада басыңыз. Delete же Backspace — дайындоону алып салуу. F1–F12 тез товарлардын топторуна берилген.</x:String>
   <x:String x:Key="hotkeys.cheatsheet">Кассирге кыскача көрсөтмө</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Баскычтарды басыңыз</x:String>
   <x:String x:Key="hotkeys.resetDefault">Демейки боюнча</x:String>
@@ -621,6 +621,8 @@
   <x:String x:Key="posSettings.navMarketplace">Маркетплейс</x:String>
   <x:String x:Key="posSettings.navAccount">Аккаунт</x:String>
   <x:String x:Key="posSettings.navEmployees">Кызматкерлер</x:String>
+  <x:String x:Key="posSettings.navKeys">Баскычтар</x:String>
+  <x:String x:Key="posSettings.keysSubtitle">Кассада кайсы баскыч эмне кылат</x:String>
   <x:String x:Key="employees.subtitle">Себеттен өчүрүү, товарды өчүрүү, түзөтүү жана кошуу үчүн жеке кирүү коддору — коду жок кызматкер бул аракеттерди аткара албайт (ээси/админ коду жок эле аткара берет)</x:String>
   <x:String x:Key="employees.addButton">+ Кызматкер кошуу</x:String>
   <x:String x:Key="employees.loadFromWeb">Сайттан жүктөө</x:String>
@@ -1363,4 +1365,19 @@
     <x:String x:Key="loc.settings.scaleConn.password4">Сырсөз (4 цифра)</x:String>
     <x:String x:Key="loc.settings.scaleConn.hint">Порт адатта 1111, сырсөз — 0030. Сырсөз туура эмес болсо, бир нече аракеттен кийин тараза кирүүнү бөгөттөйт: анда аны өчүрүп-күйгүзүп, туура сырсөздү киргизиңиз.</x:String>
     <x:String x:Key="loc.settings.scaleConn.test">Байланышты текшерүү</x:String>
+  <!-- История чеков и печать копии (2026-09-27) -->
+  <x:String x:Key="csh.menu.receiptHistory">Чектердин тарыхы</x:String>
+  <x:String x:Key="receiptHistory.subtitle">Ушул кассанын чектери. Чекти басыңыз — оң жакта анын курамы чыгат, ошол жерден көчүрмөсүн басып чыгарса болот.</x:String>
+  <x:String x:Key="receiptHistory.periodShift">Ушул смена</x:String>
+  <x:String x:Key="receiptHistory.searchWatermark">Чектин номери же товар…</x:String>
+  <x:String x:Key="receiptHistory.empty">Бул мезгилде чектер жок.</x:String>
+  <x:String x:Key="receiptHistory.noMatch">Сурам боюнча эч нерсе табылган жок.</x:String>
+  <x:String x:Key="receiptHistory.selectHint">Сол жактагы тизмеден чекти тандаңыз — анын курамы ушул жерде көрүнөт.</x:String>
+  <x:String x:Key="receiptHistory.itemsHeader">Чектин курамы</x:String>
+  <x:String x:Key="receiptHistory.printCopy">Көчүрмөсүн басып чыгаруу</x:String>
+  <x:String x:Key="receiptHistory.return">Кайтаруу…</x:String>
+  <x:String x:Key="csh.cart.printLastReceipt">Акыркы чекти басып чыгаруу</x:String>
+  <x:String x:Key="csh.cart.writeOff">Эсептен чыгаруу</x:String>
+  <x:String x:Key="csh.cart.writeOffTooltip">Бузулган, мөөнөтү өткөн же өз керегине алынган товарды кампадан эсептен чыгаруу</x:String>
+  <x:String x:Key="csh.cart.printLastReceiptTooltip">Ушул сменанын акыркы чегинин көчүрмөсүн басып чыгаруу</x:String>
 </ResourceDictionary>

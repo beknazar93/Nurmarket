@@ -18,7 +18,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// поэтому кассир вводит логин и пароль на сайте один раз, а дальше сайт сам
 /// узнаёт его при следующих открытиях — как в обычном браузере.
 /// </summary>
-public partial class CrmWebViewWindow : Window
+public partial class CrmWebViewWindow : Window, IOwnerSection
 {
     private const string HomeUrl = "https://nurcrm.kg";
 
@@ -66,6 +66,16 @@ public partial class CrmWebViewWindow : Window
     private void Reload_Click(object? sender, RoutedEventArgs e) => _webView?.Reload();
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): надпись «NurCRM —
+    /// nurcrm.kg» повторяла название раздела «NurCRM», а ✕ закрывала бы раздел. Остаются «назад»,
+    /// «вперёд» и «обновить страницу» — без них сайтом внутри программы не пользоваться.</summary>
+    public void AsOwnerSection()
+    {
+        AddressLabel.IsVisible = false;
+        CloseButton.IsVisible = false;
+        ToolbarBorder.Padding = new Avalonia.Thickness(12, 6);
+    }
 
     private void OpenInBrowser_Click(object? sender, RoutedEventArgs e)
     {

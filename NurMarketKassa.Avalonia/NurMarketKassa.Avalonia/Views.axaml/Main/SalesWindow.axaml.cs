@@ -28,7 +28,7 @@ using Avalonia.Threading;
 
 namespace NurMarketKassa.AvaloniaHost.Views
 {
-    public partial class SalesWindow : Window, INotifyPropertyChanged
+    public partial class SalesWindow : Window, INotifyPropertyChanged, IOwnerSection
     {
         private readonly ObservableCollection<SaleItem> _sales = new();
         private readonly ObservableCollection<RefundItem> _refunds = new();
@@ -109,6 +109,53 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void Back_Click(object sender, RoutedEventArgs e) => Close();
 
+        /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): название уже над
+        /// разделом, «Назад» некуда. Поиск чека, выгрузка и «Обновить» остаются строкой справа.
+        /// Часы — для кассира за прилавком (как и в «Финансах» владельца, их здесь нет).
+        ///
+        /// 2026-09-27, «в продажах ABC продаж; аналитику из других вкладок убери»: вкладка
+        /// «Показатели» (чистая прибыль, маржа, топ-10) ушла в раздел «Аналитика» — там те же
+        /// цифры во вкладке «Выручка и оплаты». Здесь остаётся «ABC» со срезами про сами продажи:
+        /// по количеству, по категориям и по брендам (деньги — в «Финансах», склад — на «Складе»).</summary>
+        public void AsOwnerSection()
+        {
+            TitleText.IsVisible = false;
+            BackButton.IsVisible = false;
+            ClockBadge.IsVisible = false;
+            _clockTimer?.Stop();
+            RootGrid.Margin = OwnerSectionLayout.Margin;
+
+            LowerTabs.Items.Remove(MetricsTab);
+            AbcTab.Header = "ABC";
+            LowerTabs.SelectedItem = AbcTab;
+            LowerTabs.Classes.Add("ownerTabs");
+            // Нижняя часть теперь только ABC — ей половина высоты, а не две пятых: в две пятых
+            // помещались лишь вкладки срезов и легенда.
+            SalesBody.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+            SalesBody.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+            AbcSection.SliceKeys = new[]
+            {
+                AnalyticsReportData.KeyQuantity, AnalyticsReportData.KeyCategory, AnalyticsReportData.KeyBrand,
+            };
+            AbcSection.ShowSeasonality = false;
+            AbcSection.TableMaxHeight = 360;
+            AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
+        }
+
+        /// <summary>Разбор товара по нажатию на столбец или строку ABC — за период, выбранный на
+        /// странице. Окно немодальное: товары сравнивают подряд.</summary>
+        private void ShowProductAnalytics(string productName)
+        {
+            try
+            {
+                new ProductAnalyticsWindow(productName, _historyFrom, _historyTo).Show(this);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Разбор товара не открылся: {ex}", "WARNING");
+            }
+        }
+
         private async void Refresh_Click(object sender, RoutedEventArgs e) =>
             await LoadDataAsync(_historyFrom, _historyTo);
 
@@ -121,7 +168,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             try
             {
-                var data = await Task.Run(() => AnalyticsReportData.Build(from, to), token)
+                // Сезонность читает всю историю продаж — без её вкладки (программа владельца) не считаем.
+                var withSeasonality = AbcSection.ShowSeasonality;
+                var data = await Task.Run(() => AnalyticsReportData.Build(from, to, withSeasonality), token)
                     .ConfigureAwait(true);
                 token.ThrowIfCancellationRequested();
 
@@ -494,7 +543,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Ищет читаемый номер чека среди возможных полей ответа API (сервер использует разные имена
         /// в разных версиях). Числовые значения дополняются нулями до 6 знаков, как на печатном чеке.
         /// </summary>
-        private static string TryReceiptNumber(JsonElement sale)
+        internal static string TryReceiptNumber(JsonElement sale)
         {
             if (sale.ValueKind != JsonValueKind.Object)
                 return null;
@@ -1024,7 +1073,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// печать показывали чек так, будто скидки не было вовсе.
         ///
         /// Теперь складываем обе части: скидку на чек и сумму построчных скидок.</summary>
-        private static decimal ReadSaleDiscount(System.Text.Json.JsonElement json)
+        internal static decimal ReadSaleDiscount(System.Text.Json.JsonElement json)
         {
             var header = 0m;
             foreach (var name in new[] { "discount_total", "order_discount_total" })
@@ -1053,7 +1102,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         }
 
         /// <summary>Итог чека со стороны сервера — то, что покупатель реально заплатил.</summary>
-        private static decimal? ReadSaleTotal(System.Text.Json.JsonElement json) =>
+        internal static decimal? ReadSaleTotal(System.Text.Json.JsonElement json) =>
             ReadDecimalProperty(json, "total");
 
         private static decimal? ReadDecimalProperty(System.Text.Json.JsonElement json, string name)

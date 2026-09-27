@@ -38,23 +38,75 @@ public static class ShiftReportData
     public static async Task<List<ShiftSale>> LoadSalesAsync(
         string shiftId, DateTime? openedAt, DateTime? closedAt, CancellationToken ct = default)
     {
+        var rows = await LoadSaleRowsAsync(shiftId, openedAt, closedAt, ct).ConfigureAwait(false);
+        return await AttachLinesAsync(rows, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Чеки смены без товаров — только список продаж. 2026-09-27 («медленно открывает
+    /// отчёты»): раньше каждая плитка «Деталей смены» заново листала список продаж и дочитывала
+    /// товары ВСЕХ чеков смены, даже если открыли «Долг» с двумя чеками. Теперь список один на
+    /// окно «Детали смены» (см. ShiftDetailsDialog), а товары дочитываются только для чеков
+    /// выбранной плитки (<see cref="AttachLinesAsync"/>). Сами цифры считаются как прежде.</summary>
+    public static async Task<List<ShiftSale>> LoadSaleRowsAsync(
+        string shiftId, DateTime? openedAt, DateTime? closedAt, CancellationToken ct = default)
+    {
         var from = (openedAt ?? DateTime.Now.AddDays(-1)).Date;
         var to = (closedAt ?? DateTime.Now).Date.AddDays(1);
 
         var rows = new List<JsonElement>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var page = 1; page <= MaxPages; page++)
         {
             ct.ThrowIfCancellationRequested();
             var items = await App.SalesApi
                 .PosSalesListAsync(page, PageSize, null, ct, dateFrom: from, dateToExclusive: to)
                 .ConfigureAwait(false);
-            rows.AddRange(items.Where(r => string.Equals(Str(r, "shift"), shiftId, StringComparison.OrdinalIgnoreCase)));
-            if (items.Count < PageSize)
+
+            // Страницу за последней сервер не отвергает, а отдаёт ещё раз последнюю (проверено
+            // 2026-09-27: page=5 при трёх страницах вернул строки третьей). Если продаж за даты
+            // смены ровно кратно 80, цикл шёл до MaxPages и задваивал чеки смены — поэтому
+            // повторы отбрасываем и останавливаемся, когда страница не принесла ничего нового.
+            var added = 0;
+            foreach (var r in items)
+            {
+                var id = Str(r, "id");
+                if (id is not null && !seen.Add(id))
+                    continue;
+                added++;
+                if (string.Equals(Str(r, "shift"), shiftId, StringComparison.OrdinalIgnoreCase))
+                    rows.Add(r);
+            }
+
+            if (items.Count < PageSize || added == 0)
                 break;
         }
 
-        var ids = rows.Select(r => Str(r, "id")).Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
-        var local = SoldLineItemsStore.LinesBySale(ids);
+        return rows
+            .Select(r =>
+            {
+                DateTime.TryParse(Str(r, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at);
+                return new ShiftSale(
+                    Str(r, "id") ?? "",
+                    at,
+                    Str(r, "status") ?? "",
+                    Str(r, "payment_method") ?? "",
+                    Num(r, "total"),
+                    Num(r, "discount_total"),
+                    Num(r, "debt_amount"),
+                    Str(r, "user_display"),
+                    Array.Empty<SaleLine>());
+            })
+            .OrderBy(s => s.CreatedAt)
+            .ToList();
+    }
+
+    /// <summary>Товары чеков: из локальной истории продаж, а чего там нет (чек пробит на другой
+    /// кассе) — из деталей продажи с сервера. Порядок чеков сохраняется.</summary>
+    public static async Task<List<ShiftSale>> AttachLinesAsync(IReadOnlyList<ShiftSale> sales, CancellationToken ct = default)
+    {
+        var ids = sales.Select(s => s.Id).Where(id => !string.IsNullOrEmpty(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Локальная база — не на потоке интерфейса: метод вызывают прямо из окна отчёта.
+        var local = await Task.Run(() => SoldLineItemsStore.LinesBySale(ids), ct).ConfigureAwait(false);
 
         // Чеки, которых нет в локальной истории, дочитываем с сервера — параллельно, порциями.
         var missing = ids.Where(id => !local.ContainsKey(id)).ToList();
@@ -88,26 +140,14 @@ public static class ShiftReportData
             }
         })).ConfigureAwait(false);
 
-        return rows
-            .Select(r =>
+        return sales
+            .Select(s =>
             {
-                var id = Str(r, "id") ?? "";
-                IReadOnlyList<SaleLine> lines = local.TryGetValue(id, out var own)
+                IReadOnlyList<SaleLine> lines = local.TryGetValue(s.Id, out var own)
                     ? own.Select(l => new SaleLine(l.ProductName, l.Quantity, l.UnitPrice)).ToList()
-                    : fetched.TryGetValue(id, out var remote) ? remote : Array.Empty<SaleLine>();
-                DateTime.TryParse(Str(r, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at);
-                return new ShiftSale(
-                    id,
-                    at,
-                    Str(r, "status") ?? "",
-                    Str(r, "payment_method") ?? "",
-                    Num(r, "total"),
-                    Num(r, "discount_total"),
-                    Num(r, "debt_amount"),
-                    Str(r, "user_display"),
-                    lines);
+                    : fetched.TryGetValue(s.Id, out var remote) ? remote : Array.Empty<SaleLine>();
+                return s with { Lines = lines };
             })
-            .OrderBy(s => s.CreatedAt)
             .ToList();
     }
 

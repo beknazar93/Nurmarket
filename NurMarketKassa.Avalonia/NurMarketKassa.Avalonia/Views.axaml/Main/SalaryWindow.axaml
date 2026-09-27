@@ -71,7 +71,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
+    <Grid x:Name="RootGrid" Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
         <!-- Полоска загрузки, пока расчёт идёт с сервера. -->
         <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
 

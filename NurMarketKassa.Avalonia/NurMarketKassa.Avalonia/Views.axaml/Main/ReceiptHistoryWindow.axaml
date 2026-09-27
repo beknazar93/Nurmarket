@@ -1,0 +1,447 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.ReceiptHistoryWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource csh.menu.receiptHistory}"
+        WindowState="Maximized"
+        MinWidth="800" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+  <!-- «История чеков» для кассира (2026-09-27). Оформление — как у окна возврата
+       (ReturnSaleDialog): на весь экран, слева список, справа выбранный чек. -->
+  <Window.Styles>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="Padding" Value="14,6"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Padding" Value="14,6"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+
+    <!-- Период: «Эта смена» / «Сегодня» / «Вчера». -->
+    <Style Selector="RadioButton.period-chip">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Padding" Value="16,0"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="MinHeight" Value="42"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <ControlTemplate TargetType="RadioButton">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1.5"
+                  CornerRadius="{DynamicResource SettingsButtonRadius}"
+                  Padding="{TemplateBinding Padding}"
+                  MinHeight="{TemplateBinding MinHeight}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.period-chip:checked">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style Selector="TextBox.ModernInput">
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="Padding" Value="12,6"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox.ModernInput:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    </Style>
+
+    <!-- Строки списка чеков: крупные, под палец. -->
+    <Style Selector="ListBox#ReceiptsList">
+      <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem">
+      <Setter Property="Padding" Value="14,10"/>
+      <Setter Property="MinHeight" Value="60"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+    <Style Selector="ListBox#ReceiptsList ListBoxItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+    </Style>
+
+    <!-- Плашка статуса чека. -->
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushUiStatusOk}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.badge TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushUiStatusOk}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.badge.warn">
+      <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+    <Style Selector="Border.badge.warn TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+    <Style Selector="Border.badge.danger">
+      <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="Border.badge.danger TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <!-- «В долг»: BrushDiscountPanelBg/Border — пара, различимая в обеих темах (см. ShiftDetailsDialog). -->
+    <Style Selector="Border.badge.info">
+      <Setter Property="Background" Value="{DynamicResource BrushDiscountPanelBg}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushDiscountPanelBorder}"/>
+    </Style>
+    <Style Selector="Border.badge.info TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+
+    <Style Selector="TextBlock.summary-label">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.summary-value">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Margin" Value="12,0,0,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.summary-label.total">
+      <Setter Property="FontSize" Value="17"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.summary-value.total">
+      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushMoney}"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+          Background="{DynamicResource BrushDialogPanel}"
+          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="20">
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+      <!-- 0: шапка -->
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+          <TextBlock Text="{DynamicResource csh.menu.receiptHistory}"
+                     FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+          <TextBlock Text="{DynamicResource receiptHistory.subtitle}"
+                     Margin="0,4,0,0" FontSize="13" TextWrapping="Wrap"
+                     Foreground="{DynamicResource BrushTextSoft}"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                Content="{DynamicResource common.close}"
+                Classes="btn-secondary"
+                VerticalAlignment="Top"
+                MinHeight="42" MinWidth="120"
+                IsCancel="True"
+                Click="Close_Click"/>
+      </Grid>
+
+      <!-- 1: период, поиск, обновить -->
+      <Grid Grid.Row="1" Margin="0,14,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="3*" MaxWidth="480"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="shift" IsChecked="True"
+                       Content="{DynamicResource receiptHistory.periodShift}" Click="Period_Click"/>
+          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="today"
+                       Content="{DynamicResource common.today}" Click="Period_Click"/>
+          <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="yesterday"
+                       Content="{DynamicResource sales.yesterday}" Click="Period_Click"/>
+        </StackPanel>
+        <TextBox x:Name="SearchBox" Grid.Column="1"
+                 Classes="ModernInput"
+                 Margin="12,0"
+                 HorizontalAlignment="Stretch"
+                 Watermark="{DynamicResource receiptHistory.searchWatermark}"
+                 TextChanged="SearchBox_TextChanged"/>
+        <Button Grid.Column="3"
+                Content="{DynamicResource common.refresh}"
+                Classes="btn-secondary"
+                MinHeight="42" MinWidth="110"
+                Click="Refresh_Click"/>
+      </Grid>
+
+      <!-- 2: загрузка и предупреждения (нет связи, смена не открыта) -->
+      <StackPanel Grid.Row="2" Margin="0,10,0,0" Spacing="6">
+        <ProgressBar x:Name="LoadingBar" IsVisible="False" IsIndeterminate="True"
+                     Height="3" MinHeight="3" CornerRadius="2"
+                     Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+        <Border x:Name="NoticeBorder" IsVisible="False"
+                Background="{DynamicResource BrushWarningSoft}"
+                BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1"
+                CornerRadius="8" Padding="12,8">
+          <TextBlock x:Name="NoticeText" TextWrapping="Wrap" FontSize="13"
+                     Foreground="{DynamicResource BrushText}"/>
+        </Border>
+      </StackPanel>
+
+      <!-- 3: список и выбранный чек -->
+      <Grid Grid.Row="3" Margin="0,12,0,0" ColumnDefinitions="3*,16,2*">
+
+        <Border Grid.Column="0"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="10" ClipToBounds="True">
+          <Grid>
+            <ListBox x:Name="ReceiptsList"
+                     SelectionMode="Single"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="ReceiptsList_SelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" MinWidth="92" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding NumberText}" FontSize="15" FontWeight="Bold"
+                                 Foreground="{DynamicResource BrushText}"/>
+                      <TextBlock Text="{Binding TimeText}" FontSize="12" Margin="0,2,0,0"
+                                 Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding SummaryText}" FontSize="14"
+                                 TextTrimming="CharacterEllipsis"
+                                 Foreground="{DynamicResource BrushText}"/>
+                      <TextBlock Text="{Binding SubText}" FontSize="12" Margin="0,2,0,0"
+                                 TextTrimming="CharacterEllipsis"
+                                 Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4">
+                      <TextBlock Text="{Binding TotalText}" FontSize="15" FontWeight="Bold"
+                                 HorizontalAlignment="Right"
+                                 Foreground="{DynamicResource BrushText}"/>
+                      <Border Classes="badge"
+                              Classes.warn="{Binding IsWarn}"
+                              Classes.danger="{Binding IsDanger}"
+                              Classes.info="{Binding IsInfo}"
+                              HorizontalAlignment="Right"
+                              MaxWidth="190">
+                        <TextBlock Text="{Binding StatusText}"/>
+                      </Border>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock x:Name="EmptyText" IsVisible="False"
+                       Text="{DynamicResource receiptHistory.empty}"
+                       Margin="24" FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="NoMatchText" IsVisible="False"
+                       Text="{DynamicResource receiptHistory.noMatch}"
+                       Margin="24" FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="2"
+                Background="{DynamicResource BrushPanelSoft}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                CornerRadius="10" Padding="16">
+          <Grid>
+            <TextBlock x:Name="SelectHintText"
+                       Text="{DynamicResource receiptHistory.selectHint}"
+                       FontSize="14" TextWrapping="Wrap" TextAlignment="Center"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <Grid x:Name="DetailsPanel" IsVisible="False" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+
+              <!-- 0: номер, статус, время, кассир -->
+              <StackPanel Grid.Row="0" Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock x:Name="DetailTitle" Grid.Column="0"
+                             FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
+                             VerticalAlignment="Center"
+                             Foreground="{DynamicResource BrushText}"/>
+                  <Border x:Name="DetailBadge" Grid.Column="1" Classes="badge"
+                          Margin="12,0,0,0" MaxWidth="200">
+                    <TextBlock x:Name="DetailStatusText"/>
+                  </Border>
+                </Grid>
+                <TextBlock x:Name="DetailMeta" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+              </StackPanel>
+
+              <!-- 1: чек не отправлен на сервер / отклонён сервером -->
+              <Border x:Name="DetailNotice" Grid.Row="1" IsVisible="False"
+                      Margin="0,10,0,0" Padding="10,8" CornerRadius="8"
+                      Background="{DynamicResource BrushWarningSoft}"
+                      BorderBrush="{DynamicResource BrushWarning}" BorderThickness="1">
+                <TextBlock x:Name="DetailNoticeText" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushText}"/>
+              </Border>
+
+              <!-- 2: позиции чека -->
+              <DockPanel Grid.Row="2" Margin="0,12,0,0">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="{DynamicResource receiptHistory.itemsHeader}"
+                           FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <ProgressBar x:Name="DetailLoadingBar" DockPanel.Dock="Top" IsVisible="False"
+                             IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2"
+                             Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+                <TextBlock x:Name="DetailErrorText" DockPanel.Dock="Top" IsVisible="False"
+                           FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0"
+                           Foreground="{DynamicResource BrushDanger}"/>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                  <!-- Отступ справа: полоса прокрутки не ложится на суммы строк. -->
+                  <ItemsControl x:Name="DetailLines" Margin="0,0,14,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="0,8">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                              <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                         TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                              <TextBlock Text="{Binding QtyPriceText}" FontSize="12"
+                                         Foreground="{DynamicResource BrushTextSoft}"/>
+                              <TextBlock Text="{Binding DiscountText}" IsVisible="{Binding HasDiscount}"
+                                         FontSize="12" Foreground="{DynamicResource BrushDanger}"/>
+                              <TextBlock Text="{Binding ReturnedText}" IsVisible="{Binding HasReturned}"
+                                         FontSize="12" Foreground="{DynamicResource BrushWarning}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding TotalText}"
+                                       Margin="12,0,0,0" FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Top"
+                                       Foreground="{DynamicResource BrushText}"/>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </DockPanel>
+
+              <!-- 3: скидки, итог, оплата -->
+              <ItemsControl x:Name="SummaryRows" Grid.Row="3" Margin="0,10,0,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <TextBlock Grid.Column="0" Classes="summary-label" Classes.total="{Binding IsTotal}"
+                                 Text="{Binding Label}"/>
+                      <TextBlock Grid.Column="1" Classes="summary-value" Classes.total="{Binding IsTotal}"
+                                 Text="{Binding Value}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- 4: печать копии и возврат. Текст кнопок переносится: по-кыргызски он длинный. -->
+              <Grid Grid.Row="4" Margin="0,14,0,0" ColumnDefinitions="*,10,*">
+                <Button x:Name="PrintCopyButton" Grid.Column="0"
+                        Classes="btn-primary"
+                        MinHeight="48"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="False"
+                        Click="PrintCopy_Click">
+                  <TextBlock Text="{DynamicResource receiptHistory.printCopy}"
+                             TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+                <Button x:Name="ReturnButton" Grid.Column="2"
+                        Classes="btn-secondary"
+                        MinHeight="48"
+                        HorizontalAlignment="Stretch"
+                        Click="Return_Click">
+                  <TextBlock Text="{DynamicResource receiptHistory.return}"
+                             TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+              </Grid>
+
+              <!-- 5: результат печати -->
+              <TextBlock x:Name="ActionMessage" Grid.Row="5" IsVisible="False"
+                         Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold"
+                         TextWrapping="Wrap" TextAlignment="Center"/>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

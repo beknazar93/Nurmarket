@@ -103,6 +103,26 @@
           </StackPanel>
         </Border>
 
+        <!-- Работа без интернета (2026-09-27): обмен продажами между кассами по локальной сети
+             и внутри одного компьютера. Тексты — в коде (RefreshLanUi). -->
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="LanTitle" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="LanDesc" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <CheckBox x:Name="LanEnabledCheck" Classes="ToggleSwitch" IsCheckedChanged="LanEnabled_Changed"/>
+            <TextBlock x:Name="LanCodeLabel" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <TextBox x:Name="LanCodeBox" Grid.Column="0" MaxLength="40"/>
+              <Button x:Name="LanSaveCodeButton" Grid.Column="1" Margin="8,0,0,0" Classes="btn-primary"
+                      Click="LanSaveCode_Click"/>
+              <Button x:Name="LanNewCodeButton" Grid.Column="2" Margin="8,0,0,0"
+                      Click="LanNewCode_Click"/>
+            </Grid>
+            <TextBlock x:Name="LanFirewallHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushWarning}"/>
+            <TextBlock x:Name="LanStatusText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+          </StackPanel>
+        </Border>
+
         <!-- QR с суммой чека -->
         <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="8">

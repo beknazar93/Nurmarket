@@ -279,7 +279,7 @@ public sealed class CashShiftService : ICashShiftService
             // был открыт CloseShiftDialog) — если кассир закрывал смену вскоре после последней
             // продажи, этот снимок мог не успеть учесть её. Ответ САМОГО закрытия — гарантированно
             // свежий, читаем разбивку из него.
-            var totals = await ReadClosingTotalsAsync(response, shiftId, cancellationToken).ConfigureAwait(false);
+            var totals = ReadClosingTotals(response, shiftId, cancellationToken);
             return CashShiftOperationResult.Success(closingCash, totals: totals);
         }
         catch (HttpRequestException ex)
@@ -345,7 +345,7 @@ public sealed class CashShiftService : ICashShiftService
                 ShiftService.IsShiftOpen = false;
                 _offlinePosStateStore.SaveFromApp(0m);
                 _auditDb.LogShift("close", closingCash, freshId);
-                return CashShiftOperationResult.Success(closingCash, totals: await ReadClosingTotalsAsync(retryResponse, freshId, cancellationToken).ConfigureAwait(false));
+                return CashShiftOperationResult.Success(closingCash, totals: ReadClosingTotals(retryResponse, freshId, cancellationToken));
             }
             catch (Exception retryEx)
             {
@@ -496,16 +496,22 @@ public sealed class CashShiftService : ICashShiftService
     /// <summary>См. комментарий у первого вызова Success(..., totals:) в CloseShiftAsync —
     /// переводит ShiftBalanceHelper.ShiftTotals (Infrastructure) в плоский Core-тип, который
     /// умеет пронести CashShiftOperationResult наружу без ссылки Core → Infrastructure.</summary>
-    private async Task<CashShiftClosingTotals?> ReadClosingTotalsAsync(
+    private CashShiftClosingTotals? ReadClosingTotals(
         System.Text.Json.JsonElement response, string? shiftId, CancellationToken cancellationToken)
     {
         if (response.ValueKind != System.Text.Json.JsonValueKind.Object)
             return null;
 
         var t = ShiftBalanceHelper.ReadShiftTotals(response);
-        var debt = t.DebtSales ?? await TryComputeDebtTotalAsync(t.SalesCount, shiftId, cancellationToken).ConfigureAwait(false);
+        // Долг — тот же расчёт с теми же данными, но не ожидаемый здесь: Z-отчёт открывается
+        // сразу после закрытия, а долг подставляется в него, когда посчитается (см. PendingDebtSales).
         return new CashShiftClosingTotals(
-            t.OpeningCash, t.TotalSales, t.CashSales, t.NonCashSales, debt, t.SalesCount);
+            t.OpeningCash, t.TotalSales, t.CashSales, t.NonCashSales, t.DebtSales, t.SalesCount)
+        {
+            PendingDebtSales = t.DebtSales is null
+                ? TryComputeDebtTotalAsync(t.SalesCount, shiftId, cancellationToken)
+                : null,
+        };
     }
 
     /// <inheritdoc/>

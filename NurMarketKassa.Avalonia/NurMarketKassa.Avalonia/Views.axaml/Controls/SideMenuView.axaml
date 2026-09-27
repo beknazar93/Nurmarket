@@ -20,6 +20,7 @@
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
         <StreamGeometry x:Key="LogoutIcon">M13,4 H20 V20 H13 M10,8 L6,12 L10,16 M6,12 H16</StreamGeometry>
         <StreamGeometry x:Key="ExitAppIcon">M12,3 V11 M6.5,5.5 A8,8 0 1 0 17.5,5.5</StreamGeometry>
+        <StreamGeometry x:Key="ReceiptHistoryIcon">M3,12 A9,9 0 1 0 12,3 A9.75,9.75 0 0 0 5.26,5.74 L3,8 M3,3 V8 H8 M12,7 V12 L16,14</StreamGeometry>
         <StreamGeometry x:Key="DeferredReceiptIcon">M6,3 H18 V21 L15,19 L12,21 L9,19 L6,21 Z M9,8 H15 M9,12 H15 M9,16 H12</StreamGeometry>
         <StreamGeometry x:Key="ErrorLogIcon">M4,4 H20 V20 H4 Z M8,9 H16 M8,13 H16 M8,17 H12 M12,2 V4 M12,20 V22</StreamGeometry>
         <StreamGeometry x:Key="RemoteSupportIcon">M3,5 H21 V16 H14 L15,19 H9 L10,16 H3 Z M8,10.5 A4,4 0 1 1 15.99,10.5</StreamGeometry>
@@ -196,6 +197,28 @@
                         </Grid>
                     </Button>
                     <StackPanel Spacing="2" IsVisible="{Binding IsWorkSectionExpanded}">
+                    <!-- «История чеков» (2026-09-27): чеки кассы и печать копии. Без IsVisible —
+                         пункт есть на любом тарифе и у любого кассира. -->
+                    <Button Classes="sidebar-menu-item"
+                            Command="{Binding NavigateReceiptHistoryCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.7"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="{StaticResource ReceiptHistoryIcon}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.receiptHistory}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewWarehouse}"
                             Command="{Binding NavigateWarehouseCommand}">

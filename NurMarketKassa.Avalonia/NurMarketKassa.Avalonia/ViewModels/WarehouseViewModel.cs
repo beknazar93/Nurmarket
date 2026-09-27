@@ -679,24 +679,28 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
     }
 
-    private async Task WriteOffAsync()
+    private Task WriteOffAsync() => RunWriteOffAsync();
+
+    /// <summary>Списание выбранного товара. true — акт проведён. Публичный для окна «Списание»
+    /// в меню «Ещё» кассы (2026-09-27): оно ждёт результат, чтобы закрыться только при успехе.</summary>
+    public async Task<bool> RunWriteOffAsync()
     {
         if (_inventoryApi is null)
         {
             _prompts?.ShowError(Tr.T("Сервис списания недоступен в этом режиме.", "Бул режимде эсептен чыгаруу кызматы жеткиликсиз.", "The write-off service isn't available in this mode.", "Düşüm hizmeti bu modda kullanılamıyor.", "Bu rejimda hisobdan chiqarish xizmati mavjud emas."));
-            return;
+            return false;
         }
 
         if (string.IsNullOrWhiteSpace(_writeOffProductId))
         {
             _prompts?.ShowWarning(Tr.T("Выберите товар для списания.", "Эсептен чыгаруу үчүн товар тандаңыз.", "Select a product to write off.", "Düşülecek ürünü seçin.", "Hisobdan chiqarish uchun mahsulotni tanlang."));
-            return;
+            return false;
         }
 
         if (WriteOffQuantity <= 0)
         {
             _prompts?.ShowWarning(Tr.T("Укажите количество для списания.", "Эсептен чыгарылуучу санды көрсөтүңүз.", "Enter the quantity to write off.", "Düşülecek miktarı girin.", "Hisobdan chiqariladigan miqdorni kiriting."));
-            return;
+            return false;
         }
 
         var product = CatalogCacheService.Products.FirstOrDefault(p =>
@@ -704,7 +708,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         if (product is null)
         {
             _prompts?.ShowError(Tr.T("Товар не найден в каталоге — обновите каталог и попробуйте снова.", "Товар каталогдон табылган жок — каталогду жаңыртып, кайра аракет кылыңыз.", "Product not found in the catalog — refresh the catalog and try again.", "Ürün katalogda bulunamadı — kataloğu güncelleyip tekrar deneyin.", "Mahsulot katalogda topilmadi — katalogni yangilab, qayta urinib ko'ring."));
-            return;
+            return false;
         }
 
         // Остаток перечитываем с сервера прямо сейчас, а не берём из локального кэша: кэш
@@ -721,7 +725,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             if (detail is not { } el)
             {
                 _prompts?.ShowError(Tr.T("Сервер не вернул остаток товара. Списание отменено.", "Сервер товардын калдыгын кайтарган жок. Эсептен чыгаруу жокко чыгарылды.", "The server didn't return the product's stock. Write-off canceled.", "Sunucu ürünün stok miktarını döndürmedi. Düşüm iptal edildi.", "Server mahsulot qoldig'ini qaytarmadi. Hisobdan chiqarish bekor qilindi."));
-                return;
+                return false;
             }
 
             currentQuantity = StockSyncService.ResolveStockQuantity(el, product.MustWeigh);
@@ -733,7 +737,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             // достоверного остатка безопаснее отменить операцию, чем отправить абсолютное
             // значение, посчитанное из устаревших данных.
             _prompts?.ShowError(Tr.T("Нет связи с сервером — актуальный остаток не получен. Списание отменено.", "Сервер менен байланыш жок — учурдагы калдык алынган жок. Эсептен чыгаруу жокко чыгарылды.", "No connection to the server — couldn't get the current stock. Write-off canceled.", "Sunucuyla bağlantı yok — güncel stok alınamadı. Düşüm iptal edildi.", "Server bilan aloqa yo'q — joriy qoldiq olinmadi. Hisobdan chiqarish bekor qilindi."));
-            return;
+            return false;
         }
 
         if (WriteOffQuantity > currentQuantity)
@@ -744,7 +748,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                     $"The write-off quantity ({WriteOffQuantity:0.###}) is greater than the stock ({currentQuantity:0.###}).",
                     $"Düşülecek miktar ({WriteOffQuantity:0.###}) stoktan ({currentQuantity:0.###}) fazla.",
                     $"Hisobdan chiqariladigan miqdor ({WriteOffQuantity:0.###}) qoldiqdan ({currentQuantity:0.###}) ko'p."));
-            return;
+            return false;
         }
 
         var newQuantity = Math.Max(0, currentQuantity - WriteOffQuantity);
@@ -763,7 +767,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             if (string.IsNullOrWhiteSpace(sessionId))
             {
                 _prompts?.ShowError(Tr.T("Не удалось создать акт списания на сервере.", "Серверде эсептен чыгаруу актысын түзүү мүмкүн болгон жок.", "Could not create the write-off document on the server.", "Sunucuda düşüm tutanağı oluşturulamadı.", "Serverda hisobdan chiqarish aktini yaratib bo'lmadi."));
-                return;
+                return false;
             }
 
             await _inventoryApi.ApplySessionAsync(sessionId, allowNegative: false, CancellationToken.None)
@@ -810,6 +814,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             WriteOffProductName = "";
             WriteOffQuantity = 1;
             _prompts?.ShowToast(Tr.T("Списание проведено.", "Эсептен чыгаруу аткарылды.", "Write-off posted.", "Düşüm tamamlandı.", "Hisobdan chiqarish o'tkazildi."));
+            return true;
         }
         catch (ApiException ex)
         {
@@ -824,6 +829,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             IsBusy = false;
             (WriteOffCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         }
+
+        return false;
     }
 
     private static void ApplyCountedStock(string productId, double newQuantity)

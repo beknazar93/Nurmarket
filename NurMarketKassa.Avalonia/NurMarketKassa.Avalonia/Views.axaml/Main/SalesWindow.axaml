@@ -18,6 +18,22 @@
     </Window.Resources>
 
     <Window.Styles>
+        <!-- Программа владельца (класс ставит AsOwnerSection): нижние вкладки и вкладки срезов ABC —
+             как вкладки разделов, а не крупные вкладки Fluent по умолчанию. В кассе класса нет. -->
+        <Style Selector="TabControl.ownerTabs TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+        <Style Selector="TabControl.ownerTabs TabItem:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TabControl.ownerTabs TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="Background" Value="#00FFFFFF" />
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
@@ -115,7 +131,7 @@
     </Window.Styles>
 
     <!-- ОСНОВНАЯ СЕТКА -->
-    <Grid Margin="16" Background="{DynamicResource BrushPanel}">
+    <Grid x:Name="RootGrid" Margin="16" Background="{DynamicResource BrushPanel}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- 0: заголовок -->
             <RowDefinition Height="Auto" /> <!-- 1: KPI -->
@@ -133,7 +149,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{DynamicResource csh.menu.sales}" FontSize="26" FontWeight="Bold"
+            <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource csh.menu.sales}" FontSize="26" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Border Background="{DynamicResource BrushInput}" CornerRadius="8" Padding="4,0"
@@ -150,7 +166,7 @@
                         ToolTip.Tip="{DynamicResource loc.owner.sales.wordTip}"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
                         Margin="10,0,0,0" Click="Refresh_Click" />
-                <Button Content="{DynamicResource common.back}" Classes="SecondaryActionButton"
+                <Button x:Name="BackButton" Content="{DynamicResource common.back}" Classes="SecondaryActionButton"
                         Margin="10,0,0,0" Click="Back_Click" />
             </StackPanel>
         </Grid>
@@ -226,12 +242,12 @@
         </StackPanel>
 
         <!-- 3: Время -->
-        <Border Grid.Row="3" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,12">
+        <Border Grid.Row="3" x:Name="ClockBadge" Classes="TimeBadge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,12">
             <TextBlock x:Name="CurrentTimeText" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" />
         </Border>
 
         <!-- 4: ОСНОВНАЯ ТАБЛИЦА + ДОП. КОНТЕНТ -->
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="4" x:Name="SalesBody">
             <Grid.RowDefinitions>
                 <RowDefinition Height="3*" /> <!-- 3/5 пространства под основную таблицу -->
                 <RowDefinition Height="2*" /> <!-- 2/5 пространства под аналитику/топ-10 -->
@@ -256,8 +272,8 @@
             </DataGrid>
 
             <!-- Дополнительная статистика и Топ-10 (оборонуты в ScrollViewer на случай небольших экранов) -->
-            <TabControl Grid.Row="1" Margin="0,8,0,0">
-                <TabItem Header="{DynamicResource loc.owner.sales.metricsTab}">
+            <TabControl Grid.Row="1" x:Name="LowerTabs" Margin="0,8,0,0">
+                <TabItem x:Name="MetricsTab" Header="{DynamicResource loc.owner.sales.metricsTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="4,8,4,4">
 
@@ -298,7 +314,7 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
-                <TabItem Header="{DynamicResource csh.menu.abc}">
+                <TabItem x:Name="AbcTab" Header="{DynamicResource csh.menu.abc}">
                     <analytics:AbcSectionView x:Name="AbcSection" />
                 </TabItem>
             </TabControl>

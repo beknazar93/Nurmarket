@@ -451,7 +451,7 @@
   <x:String x:Key="hotkeys.title">Kısayol tuşları</x:String>
   <x:String x:Key="hotkeys.subtitle">Kısayol tuşlarını ayarla</x:String>
   <x:String x:Key="hotkeys.header">Kasa kısayol tuşları</x:String>
-  <x:String x:Key="hotkeys.instructions">İstediğiniz tuş kombinasyonuna doğrudan alanda basın. Değişiklikler mevcut kullanıcı için kaydedilir.</x:String>
+  <x:String x:Key="hotkeys.instructions">İstediğiniz tuşa veya tuş kombinasyonuna doğrudan alanda basın. Delete veya Backspace atamayı kaldırır. F1–F12 hızlı ürün gruplarına ayrılmıştır.</x:String>
   <x:String x:Key="hotkeys.cheatsheet">Kasiyer için kısa rehber</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Tuşlara basın</x:String>
   <x:String x:Key="hotkeys.resetDefault">Varsayılan</x:String>
@@ -621,6 +621,8 @@
   <x:String x:Key="posSettings.navMarketplace">Pazaryeri</x:String>
   <x:String x:Key="posSettings.navAccount">Hesap</x:String>
   <x:String x:Key="posSettings.navEmployees">Personel</x:String>
+  <x:String x:Key="posSettings.navKeys">Tuşlar</x:String>
+  <x:String x:Key="posSettings.keysSubtitle">Kasada hangi tuş ne yapar</x:String>
   <x:String x:Key="employees.subtitle">Sepetten silme, ürün silme, düzenleme ve ekleme için kişisel erişim kodları — kodu olmayan personel bu işlemleri yapamaz (sahip/yönetici kodsuz işlem yapar)</x:String>
   <x:String x:Key="employees.addButton">+ Personel ekle</x:String>
   <x:String x:Key="employees.loadFromWeb">Siteden yükle</x:String>
@@ -1363,4 +1365,19 @@
     <x:String x:Key="loc.settings.scaleConn.password4">Şifre (4 hane)</x:String>
     <x:String x:Key="loc.settings.scaleConn.hint">Port genellikle 1111, şifre 0030'dur. Şifre yanlışsa tartı birkaç denemeden sonra erişimi engeller: bu durumda tartıyı kapatıp açın ve doğru şifreyi girin.</x:String>
     <x:String x:Key="loc.settings.scaleConn.test">Bağlantıyı test et</x:String>
+  <!-- История чеков и печать копии (2026-09-27) -->
+  <x:String x:Key="csh.menu.receiptHistory">Fiş geçmişi</x:String>
+  <x:String x:Key="receiptHistory.subtitle">Bu kasanın fişleri. Bir fişe dokunun — içeriği sağda görünür, kopyasını oradan yazdırabilirsiniz.</x:String>
+  <x:String x:Key="receiptHistory.periodShift">Bu vardiya</x:String>
+  <x:String x:Key="receiptHistory.searchWatermark">Fiş numarası veya ürün…</x:String>
+  <x:String x:Key="receiptHistory.empty">Bu dönemde fiş yok.</x:String>
+  <x:String x:Key="receiptHistory.noMatch">Aramanızla eşleşen bir şey yok.</x:String>
+  <x:String x:Key="receiptHistory.selectHint">Soldaki listeden bir fiş seçin — içeriği burada görünecek.</x:String>
+  <x:String x:Key="receiptHistory.itemsHeader">Fiş içeriği</x:String>
+  <x:String x:Key="receiptHistory.printCopy">Kopya yazdır</x:String>
+  <x:String x:Key="receiptHistory.return">İade et…</x:String>
+  <x:String x:Key="csh.cart.printLastReceipt">Son fişi yazdır</x:String>
+  <x:String x:Key="csh.cart.writeOff">Düşüm</x:String>
+  <x:String x:Key="csh.cart.writeOffTooltip">Hasarlı, son kullanma tarihi geçmiş veya kişisel kullanım için alınan ürünü stoktan düş</x:String>
+  <x:String x:Key="csh.cart.printLastReceiptTooltip">Bu vardiyanın son fişinin kopyasını yazdır</x:String>
 </ResourceDictionary>

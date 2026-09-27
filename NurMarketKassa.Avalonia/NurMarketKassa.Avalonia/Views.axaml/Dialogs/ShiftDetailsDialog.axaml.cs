@@ -15,7 +15,23 @@ public partial class ShiftDetailsDialog : Window
     public bool? DialogResult { get; set; }
     private ShiftModel? _shift;
 
-    public ShiftDetailsDialog() => InitializeComponent();
+    /// <summary>2026-09-27, жалоба владельца «медленно открывает отчёты / Z-отчёт на смене».
+    /// Окно показывается сразу с тем, что уже известно, а сервер догружается в фоне:
+    /// цифры смены сверяются одним запросом этой смены (~0,3 с, см. RefreshFromServerAsync),
+    /// чеки смены для плиток начинают грузиться заранее и одни на все плитки.
+    /// false — не сверять: отчёт закрытия смены собран из ответа самого закрытия (MainWindow).</summary>
+    public bool RefreshFromServer { get; init; } = true;
+
+    private readonly CancellationTokenSource _cts = new();
+    private Task<List<ShiftReportData.ShiftSale>>? _saleRows;
+    private Task? _pendingDebt;
+
+    public ShiftDetailsDialog()
+    {
+        InitializeComponent();
+        Opened += (_, _) => OnOpened();
+        Closed += (_, _) => _cts.Cancel();
+    }
 
     public ShiftDetailsDialog(object? model) : this()
     {
@@ -24,6 +40,51 @@ public partial class ShiftDetailsDialog : Window
     }
 
     public ShiftDetailsDialog(ShiftModel shift) : this() => BindShift(shift);
+
+    private void OnOpened()
+    {
+        if (_shift is not { } shift || !IsServerShift(shift.Id))
+            return;
+
+        // Список продаж смены нужен любой плитке «Продажи/Наличные/…» — к нажатию он уже здесь.
+        SaleRows();
+        if (RefreshFromServer)
+            _ = RefreshFromServerAsync(shift.Id);
+    }
+
+    /// <summary>Смена, открытая без связи, на сервере не существует — спрашивать о ней нечего.</summary>
+    private static bool IsServerShift(string? id) =>
+        !string.IsNullOrWhiteSpace(id) && !id.StartsWith("offline-", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Чеки смены без товаров — одни на все плитки этого окна; после ошибки — заново.</summary>
+    private Task<List<ShiftReportData.ShiftSale>> SaleRows()
+    {
+        if (_saleRows is null || _saleRows.IsFaulted || _saleRows.IsCanceled)
+        {
+            _saleRows = ShiftReportData.LoadSaleRowsAsync(_shift!.Id, _shift.OpenedAt, _shift.ClosedAt, _cts.Token);
+            // Ошибку заранее начатой загрузки плитка покажет сама; здесь — только в журнал.
+            _saleRows.ContinueWith(
+                t => PosLogger.Log($"Отчёт смены: чеки смены не загружены: {t.Exception?.GetBaseException().Message}", "SHIFTS"),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        }
+
+        return _saleRows;
+    }
+
+    /// <summary>Сверка цифр с сервером одним запросом этой смены. Окно могло открыться по
+    /// снимку списка смен, скачанному минуты назад (ShiftHistoryService.LoadAsync), а у
+    /// открытой смены за это время могли пройти продажи. Долг сервер не присылает — его
+    /// уточняет код, открывший окно (RefreshDebtDisplay), поэтому он не трогается.</summary>
+    private async Task RefreshFromServerAsync(string shiftId)
+    {
+        var entry = await ShiftHistoryService.LoadOneAsync(shiftId, _cts.Token).ConfigureAwait(true);
+        if (entry is null || _cts.IsCancellationRequested || _shift is not { } shown)
+            return;
+
+        var fresh = ShiftModel.FromEntry(entry);
+        fresh.DebtSales = shown.DebtSales;
+        BindShift(fresh);
+    }
 
     private sealed record ShiftProductRow(string Name, string QuantityText, string RevenueText);
 
@@ -159,7 +220,42 @@ public partial class ShiftDetailsDialog : Window
     /// не то") — первичное значение shift.DebtSales может быть из непроверенного поля сервера;
     /// вызывающий код (ShiftHistoryViewModel) уточняет его асинхронно тем же надёжным способом,
     /// что уже работает для только что закрытой смены, и подставляет сюда, если диалог ещё открыт.</summary>
-    public void RefreshDebtDisplay(decimal debt) => DebtText.Text = $"{debt:N2} {Som}";
+    public void RefreshDebtDisplay(decimal debt)
+    {
+        // Окно могло заменить свою копию смены свежей с сервера — долг нужен и ей (печать).
+        if (_shift is not null)
+            _shift.DebtSales = debt;
+        DebtText.Text = $"{debt:N2} {Som}";
+    }
+
+    /// <summary>2026-09-27: Z-отчёт после закрытия смены ждал расчёта долга (список продаж и
+    /// сделка по каждой долговой продаже — от 0,4 до нескольких секунд) и только потом
+    /// открывался. Теперь он открывается сразу, в плитке «Долг» — «…», а долг подставляется,
+    /// когда посчитается; <paramref name="fallback"/> — если посчитать не удалось (как раньше).
+    /// Печать дожидается долга, чтобы бумажный отчёт был тем же, что и раньше.</summary>
+    public Task ApplyDebtWhenResolvedAsync(Task<decimal?> pending, decimal? fallback)
+    {
+        DebtText.Text = "…";
+        return _pendingDebt = ApplyAsync();
+
+        async Task ApplyAsync()
+        {
+            decimal? debt = null;
+            try
+            {
+                debt = await pending.ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Отчёт смены: долг не посчитан: {ex.Message}", "SHIFT");
+            }
+
+            debt ??= fallback;
+            if (_shift is not null)
+                _shift.DebtSales = debt;
+            DebtText.Text = debt is { } value ? $"{value:N2} {Som}" : "—";
+        }
+    }
 
     /// <summary>Подпись валюты на экране (на печатном отчёте остаётся «сом»).</summary>
     private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
@@ -175,7 +271,7 @@ public partial class ShiftDetailsDialog : Window
         if (_shift is null || sender is not Control { Tag: string kind })
             return;
 
-        PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind), this);
+        PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) ? SaleRows() : null), this);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e)
@@ -191,13 +287,17 @@ public partial class ShiftDetailsDialog : Window
     /// CloseShiftDialog).</summary>
     private async void Print_Click(object? sender, RoutedEventArgs e)
     {
-        if (_shift is not { } shift || PrintButton is null)
+        if (_shift is null || PrintButton is null)
             return;
 
         PrintButton.IsEnabled = false;
         try
         {
-            var report = BuildPrintableReport(shift);
+            // Долг закрытой смены ещё считается — печатаем, когда он придёт (см. ApplyDebtWhenResolvedAsync).
+            if (_pendingDebt is { IsCompleted: false } pendingDebt)
+                await pendingDebt.ConfigureAwait(true);
+
+            var report = BuildPrintableReport(_shift);
             var ok = await App.GetRequiredService<ICashShiftService>().PrintReportAsync(report).ConfigureAwait(true);
             if (!ok)
                 PosMessageBox.Show(this,

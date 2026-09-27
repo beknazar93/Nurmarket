@@ -2,6 +2,7 @@
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs; using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Analytics;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -31,7 +32,7 @@ using Avalonia.Threading;
 
 namespace NurMarketKassa.AvaloniaHost.Views
 {
-    public partial class FinanceWindow : Window, INotifyPropertyChanged
+    public partial class FinanceWindow : Window, INotifyPropertyChanged, IOwnerSection
     {
         // ── внутренние коллекции ──
         private readonly ObservableCollection<SaleItem> _sales = new();
@@ -227,6 +228,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _summaryCts?.Cancel();
             _summaryCts?.Dispose();
             _summaryCts = null;
+            _abcCts?.Cancel();
+            _seasonalityCts?.Cancel();
             base.OnClosed(e);
         }
 
@@ -245,6 +248,343 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void Window_ManipulationBoundaryFeedback(object sender, ManipulationBoundaryFeedbackEventArgs e)
         {
             e.Handled = true;
+        }
+
+        // ── раздел программы владельца ──
+
+        private bool _isOwnerSection;
+        private TabItem _ownerShiftsTab;
+        private TabItem _ownerProductsTab;
+
+        /// <summary>«Финансы» разделом программы владельца (см. <see cref="IOwnerSection"/>;
+        /// 2026-09-27, владелец: «в финансах есть бургер меню, 2 бургер меню — это же не логично»).
+        ///
+        /// В кассе у окна своё меню ☰ — «Продажа / Склад / Смена / Товары / Выход»: это переходы
+        /// кассира, окно открыто поверх продажи. В программе владельца меню уже есть слева, и там эти
+        /// пункты либо повторяются («Продажи», «Склад»), либо не имеют смысла («Продажа» — экран
+        /// кассира, «Выход» — разделу нечего закрывать). Своё содержание есть только у двух: «Смена» —
+        /// смены всех касс (открытые и закрытые, отчёт смены, закрыть забытую смену) и «Товары» — что
+        /// продаётся и что лежит без движения за выбранный период. Они становятся вкладками рядом с
+        /// «Продажами» и «Аналитикой», второго меню нет.
+        ///
+        /// Шапка — одна строка: слева период (раньше он стоял под плитками, хотя плитки считаются
+        /// именно по нему), справа Excel, Word и «Обновить». Карточки «сводка простым языком» со своим
+        /// переключателем День/Неделя/Месяц здесь нет: она повторяет «Сводку» программы владельца и
+        /// давала на одной странице два разных выбора периода (а ради неё ещё и качались строки до
+        /// 200 чеков). Часов тоже нет — они для кассира за прилавком. В кассе окно прежнее.
+        ///
+        /// 2026-09-27, «все аналитики — в отдельную аналитику, в финансах ABC финансы»: вкладки
+        /// «Аналитика» и «Товары» ушли в раздел «Аналитика» (это то же окно, см.
+        /// <see cref="AsAnalyticsSection"/>), а «ABC-анализ» стал вкладкой «ABC» только с денежными
+        /// срезами — по выручке и по прибыли. Остальные срезы — в «Продажах» и на «Складе».</summary>
+        public void AsOwnerSection()
+        {
+            _isOwnerSection = true;
+
+            // Выезжающая панель кассира стоит за левым краем окна; спрятанная целиком, она не
+            // ловит и переход по Tab — её «Продажа» и «Выход» не нажмутся случайно с клавиатуры.
+            HamburgerButton.IsVisible = false;
+            HamburgerPanel.IsVisible = false;
+            HeaderTitleText.IsVisible = false;
+            ExitButton.IsVisible = false;
+            RefreshButton.Margin = new Thickness(0);
+            DailySummaryCard.IsVisible = false;
+            ClockBadge.IsVisible = false;
+            _clockTimer?.Stop();
+
+            // Период — в строку шапки, на место кнопки меню и названия; выгрузка и «Обновить» — справа.
+            // Колонки шапки были тремя равными долями: период в средней трети не поместился бы.
+            HeaderRow.ColumnDefinitions[0].Width = GridLength.Auto;
+            HeaderRow.ColumnDefinitions[2].Width = GridLength.Auto;
+            ContentGrid.Children.Remove(PeriodBar);
+            PeriodBar.Margin = new Thickness(0, 0, 12, 0);
+            PeriodBar.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetRow(PeriodBar, 0);
+            Grid.SetColumn(PeriodBar, 1);
+            HeaderRow.Children.Add(PeriodBar);
+            HeaderActions.VerticalAlignment = VerticalAlignment.Center;
+            HeaderBlock.Margin = new Thickness(0, 0, 0, 14);
+            FinanceTabs.Margin = new Thickness(0);
+            ContentGrid.Margin = OwnerSectionLayout.Margin;
+
+            if (_isAnalyticsSection)
+            {
+                SetUpAnalyticsTabs();
+            }
+            else
+            {
+                FinanceTabs.Items.Remove(AnalyticsTab);
+                AbcTab.Header = "ABC";
+                AbcSection.SliceKeys = new[] { AnalyticsReportData.KeyRevenue, AnalyticsReportData.KeyProfit };
+                AbcSection.ShowSeasonality = false;
+                AbcSection.TableMaxHeight = 520;
+                AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
+                _ownerShiftsTab = MoveIntoOwnerTab(ShiftsPanel, ShiftsContent, ShiftsHeader,
+                    Tr.T("Смены", "Сменалар", "Shifts", "Vardiyalar", "Smenalar"));
+            }
+            FinanceTabs.SelectionChanged += OwnerTabs_SelectionChanged;
+        }
+
+        // ── раздел «Аналитика» программы владельца ──
+
+        private bool _isAnalyticsSection;
+        private TabItem _ownerSeasonalityTab;
+        private TabItem _ownerStockTab;
+        private SeasonalityView _seasonalityView;
+        private bool _seasonalityLoaded;
+        private CancellationTokenSource _seasonalityCts;
+        private Border _stockTabBody;
+        private WarehouseStockAnalyticsView _stockAnalyticsView;
+
+        /// <summary>Это окно — раздел «Аналитика» программы владельца (2026-09-27). Вызывается до
+        /// показа, до <see cref="AsOwnerSection"/>.
+        ///
+        /// Почему то же окно, а не новое: «Аналитика» финансов — это выручка, прибыль, оплаты,
+        /// графики по дням и часам, рекомендации по дням недели и топ товаров, и всё это считается
+        /// из продаж, которые окно «Финансов» уже умеет грузить с сервера (с запасным путём без
+        /// интернета, живым обновлением и выгрузкой). Переписать это второй раз — два расчёта одних
+        /// и тех же цифр, которые рано или поздно разойдутся; а касса, где «Финансы» тоже работают,
+        /// не заметит ничего: без этого вызова окно прежнее.
+        ///
+        /// В разделе остаются плитки и выбор периода, вкладки — «Выручка и оплаты» (бывшая
+        /// «Аналитика»), «Товары», «Сезонность» (раньше пряталась во вкладках ABC) и «Склад»
+        /// (аналитика склада — платная, без покупки вместо неё объяснение и ссылка в Маркетплейс).
+        /// Показатели «Продаж» (чистая прибыль, маржа, топ-10) — те же, что во «Выручке и оплатах»,
+        /// отдельной вкладкой их нет.</summary>
+        public FinanceWindow AsAnalyticsSection()
+        {
+            _isAnalyticsSection = true;
+            Title = Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika");
+            return this;
+        }
+
+        private void SetUpAnalyticsTabs()
+        {
+            foreach (var tab in new[] { SalesTab, AbcTab, ReturnsTab, HistoryTab })
+                FinanceTabs.Items.Remove(tab);
+
+            AnalyticsTab.Header = Tr.T("Выручка и оплаты", "Түшүм жана төлөмдөр", "Revenue & payments", "Ciro ve ödemeler", "Tushum va to'lovlar");
+            _ownerProductsTab = MoveIntoOwnerTab(ProductsAnalyticsPanel, ProductsContent, ProductsHeader,
+                Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
+
+            _seasonalityView = new SeasonalityView();
+            _ownerSeasonalityTab = new TabItem
+            {
+                Header = Tr.T("Сезонность", "Мезгилдүүлүк", "Seasonality", "Mevsimsellik", "Mavsumiylik"),
+                Content = new Border { Padding = new Thickness(8), Child = _seasonalityView },
+            };
+            FinanceTabs.Items.Add(_ownerSeasonalityTab);
+
+            _stockTabBody = new Border { Padding = new Thickness(8) };
+            _ownerStockTab = new TabItem
+            {
+                Header = Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"),
+                Content = _stockTabBody,
+            };
+            FinanceTabs.Items.Add(_ownerStockTab);
+
+            FinanceTabs.SelectedItem = AnalyticsTab;
+
+            // Доп. функцию могли купить в Маркетплейсе и вернуться сюда, не переключая вкладку.
+            Activated += (_, _) =>
+            {
+                if (ReferenceEquals(FinanceTabs.SelectedItem, _ownerStockTab))
+                    RefreshStockTab();
+            };
+        }
+
+        /// <summary>Вкладка «Склад» раздела «Аналитика» — для кнопки «Открыть аналитику склада» в
+        /// Маркетплейсе программы владельца.</summary>
+        public void ShowStockTab()
+        {
+            if (_ownerStockTab == null)
+                return;
+            if (ReferenceEquals(FinanceTabs.SelectedItem, _ownerStockTab))
+                RefreshStockTab();
+            else
+                FinanceTabs.SelectedItem = _ownerStockTab;
+        }
+
+        /// <summary>Сезонность — по всей истории продаж, от периода страницы не зависит. Считается
+        /// в фоне при первом открытии вкладки и заново — после «Обновить» и новых продаж.</summary>
+        private async Task LoadSeasonalityAsync()
+        {
+            if (_seasonalityView == null || _seasonalityLoaded)
+                return;
+
+            _seasonalityCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _seasonalityCts = cts;
+            try
+            {
+                var report = await Task.Run(() => AnalyticsReportData.BuildSeasonality(), cts.Token).ConfigureAwait(true);
+                if (cts.IsCancellationRequested)
+                    return;
+                _seasonalityView.Show(report);
+                _seasonalityLoaded = true;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Сезонность не построена: {ex.Message}", "WARNING");
+            }
+            finally
+            {
+                if (ReferenceEquals(_seasonalityCts, cts))
+                    _seasonalityCts = null;
+                cts.Dispose();
+            }
+        }
+
+        /// <summary>Вкладка «Склад»: аналитика склада — платная доп. функция
+        /// (UserPreferences.WarehouseAnalyticsUnlocked), как и во вкладке склада кассы. Пока она не
+        /// куплена, вместо цифр — что это и где подключить.</summary>
+        private void RefreshStockTab()
+        {
+            if (_stockTabBody == null)
+                return;
+
+            if (!UserPreferences.Instance.WarehouseAnalyticsUnlocked)
+            {
+                _stockAnalyticsView = null;
+                if (_stockTabBody.Child is not StackPanel)
+                    _stockTabBody.Child = BuildStockLockedPanel();
+                return;
+            }
+
+            _stockAnalyticsView ??= new WarehouseStockAnalyticsView();
+            if (!ReferenceEquals(_stockTabBody.Child, _stockAnalyticsView))
+                _stockTabBody.Child = _stockAnalyticsView;
+            _stockAnalyticsView.Refresh();
+        }
+
+        private Control BuildStockLockedPanel()
+        {
+            var panel = new StackPanel
+            {
+                Spacing = 12,
+                MaxWidth = 480,
+                Margin = new Thickness(0, 48, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+
+            var title = new TextBlock
+            {
+                Text = "🔒 " + Tr.T("Аналитика склада — платная доп. функция", "Кампанын аналитикасы — акы төлөнүүчү кошумча функция", "Warehouse analytics is a paid add-on", "Depo analitiği ücretli bir ek özelliktir", "Ombor analitikasi — pullik qo'shimcha funksiya"),
+                FontSize = 16,
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+            };
+            title.Bind(TextBlock.ForegroundProperty, title.GetResourceObservable("BrushText"));
+            panel.Children.Add(title);
+
+            var text = new TextBlock
+            {
+                Text = Tr.T(
+                    "Показатели остатков, самые дорогие остатки и остатки по категориям. Подключить её можно в разделе «Маркетплейс → Доп. функции».",
+                    "Калдыктардын көрсөткүчтөрү, эң кымбат калдыктар жана категориялар боюнча калдыктар. Аны «Маркетплейс → Кошумча функциялар» бөлүмүндө кошсо болот.",
+                    "Stock indicators, the most valuable stock and stock by category. You can enable it under “Marketplace → Extras”.",
+                    "Stok göstergeleri, en değerli stoklar ve kategorilere göre stok. Bu özelliği «Pazar yeri → Ek özellikler» bölümünden etkinleştirebilirsiniz.",
+                    "Qoldiq ko'rsatkichlari, eng qimmat qoldiqlar va kategoriyalar bo'yicha qoldiqlar. Uni «Marketpleys → Qo'shimcha funksiyalar» bo'limida ulash mumkin."),
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+            };
+            text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushTextSoft"));
+            panel.Children.Add(text);
+
+            var open = new Button
+            {
+                Content = Tr.T("Открыть Маркетплейс", "Маркетплейсти ачуу", "Open Marketplace", "Pazar yerini aç", "Marketpleysni ochish"),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                MinWidth = 200,
+            };
+            open.Classes.Add("PrimaryActionButton");
+            open.Click += (_, _) => OpenMarketplaceExtras();
+            panel.Children.Add(open);
+            return panel;
+        }
+
+        /// <summary>Маркетплейс → «Доп. функции». В программе владельца — её разделом (меню слева
+        /// подсветит «Маркетплейс»), иначе — отдельным окном.</summary>
+        private void OpenMarketplaceExtras()
+        {
+            try
+            {
+                if (Owner is OwnerShellWindow shell)
+                    shell.OpenMarketplaceExtras();
+                else
+                    MarketplaceWindow.Open(this).ShowExtrasTab();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Маркетплейс не открылся: {ex.Message}", "WARNING");
+            }
+        }
+
+        /// <summary>Разбор товара по нажатию на столбец или строку ABC — за период страницы.</summary>
+        private void ShowProductAnalytics(string productName)
+        {
+            try
+            {
+                new ProductAnalyticsWindow(productName, _historyFrom, _historyTo).Show(this);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Разбор товара не открылся: {ex}", "WARNING");
+            }
+        }
+
+        /// <summary>Содержимое подраздела (в кассе — панель поверх окна со стрелкой «←») переезжает во
+        /// вкладку; стрелка и заголовок подраздела не нужны — название стоит на ярлыке вкладки.</summary>
+        private TabItem MoveIntoOwnerTab(Panel overlay, Control content, Control header, string title)
+        {
+            overlay.Children.Remove(content);
+            header.IsVisible = false;
+            content.Margin = new Thickness(8);
+            var tab = new TabItem { Header = title, Content = content };
+            FinanceTabs.Items.Add(tab);
+            return tab;
+        }
+
+        /// <summary>Смены грузятся при каждом открытии вкладки, как в кассе при каждом входе в
+        /// «Смену»: за это время на другой кассе могли открыть или закрыть смену.</summary>
+        private async void OwnerTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Выбор строк во вложенных списках тоже всплывает сюда — нужен только выбор вкладки.
+            if (!ReferenceEquals(e.Source, FinanceTabs))
+                return;
+            // Вкладки есть не в каждом режиме (в «Аналитике» нет «Смен», в «Финансах» — «Товаров»),
+            // а пустой выбор при перестройке вкладок совпал бы с отсутствующей.
+            var selected = FinanceTabs.SelectedItem;
+            if (selected == null)
+                return;
+            if (ReferenceEquals(selected, _ownerShiftsTab))
+                await LoadShiftsAsync().ConfigureAwait(true);
+            else if (ReferenceEquals(selected, _ownerProductsTab))
+                RefreshProductsAnalyticsPanel();
+            else if (ReferenceEquals(selected, _ownerSeasonalityTab))
+                await LoadSeasonalityAsync().ConfigureAwait(true);
+            else if (ReferenceEquals(selected, _ownerStockTab))
+                RefreshStockTab();
+        }
+
+        /// <summary>Во вкладке «Товары» период можно сменить, не уходя с неё (в кассе подраздел
+        /// закрывал страницу целиком), — после загрузки пересчитываем её.</summary>
+        private void RefreshOwnerProductsTabIfShown()
+        {
+            if (!_isOwnerSection || FinanceTabs.SelectedItem == null)
+                return;
+            if (ReferenceEquals(FinanceTabs.SelectedItem, _ownerProductsTab))
+                RefreshProductsAnalyticsPanel();
+            else if (ReferenceEquals(FinanceTabs.SelectedItem, _ownerStockTab))
+                RefreshStockTab();
+            else if (ReferenceEquals(FinanceTabs.SelectedItem, _ownerSeasonalityTab))
+                _ = LoadSeasonalityAsync();
         }
 
         private void HamburgerMenu_Click(object sender, RoutedEventArgs e)
@@ -664,19 +1004,49 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// остаётся прочерком, а не выдумывается, и в шапке прямо сказано, что данные локальные.</summary>
 
         /// <summary>Пересчитывает ABC за выбранный период. Считается локально, поэтому работает
-        /// и без интернета — как и остальная аналитика.</summary>
-        private void RefreshAbc()
+        /// и без интернета — как и остальная аналитика.
+        ///
+        /// 2026-09-27: расчёт — в фоне, как в «Продажах». Раньше он шёл прямо в UI-потоке вместе с
+        /// сезонностью (полный проход по всей истории продаж), и на каждом переключении периода
+        /// окно замирало. Новый пересчёт отменяет недосчитанный прошлый.</summary>
+        private CancellationTokenSource _abcCts;
+
+        private void RefreshAbc() => _ = RefreshAbcAsync();
+
+        private async Task RefreshAbcAsync()
         {
+            // В разделе «Аналитика» программы владельца вкладки ABC нет — считать нечего.
+            if (_isAnalyticsSection)
+                return;
+
+            _abcCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _abcCts = cts;
+            var from = _historyFrom;
+            var to = _historyTo;
+            var withSeasonality = AbcSection.ShowSeasonality;
             try
             {
-                var data = AnalyticsReportData.Build(_historyFrom, _historyTo);
+                var data = await Task.Run(() => AnalyticsReportData.Build(from, to, withSeasonality), cts.Token)
+                    .ConfigureAwait(true);
+                if (cts.IsCancellationRequested)
+                    return;
 
                 AbcSection.Update(data);
+            }
+            catch (OperationCanceledException)
+            {
+                // Период сменили, пока считался прошлый, — результат уже не нужен.
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"ABC-анализ не построен: {ex.Message}", "WARNING");
-
+            }
+            finally
+            {
+                if (ReferenceEquals(_abcCts, cts))
+                    _abcCts = null;
+                cts.Dispose();
             }
         }
 
@@ -792,6 +1162,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void OnSalesChangedExternally()
         {
+            // Сезонность раздела «Аналитика» пересчитается после перезагрузки (если вкладка открыта).
+            _seasonalityLoaded = false;
             _liveCts?.Cancel();
             _liveCts?.Dispose();
             var cts = new System.Threading.CancellationTokenSource();
@@ -888,8 +1260,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 UpdateStats(revenueSales, refunds);
                 UpdateCharts(revenueSales);
                 UpdateHistory(sales, refunds);
-                await LoadTopItemsAsync(revenueSales, token);
-                UpdateStats(revenueSales, refunds);
+                // Строки чеков (по запросу на чек) нужны только прибыли, топу товаров и
+                // рекомендациям — вкладкам «Аналитика» и «Товары». В «Финансах» программы
+                // владельца их нет (они в разделе «Аналитика», 2026-09-27) — сервер не нагружаем.
+                if (!_isOwnerSection || _isAnalyticsSection)
+                {
+                    await LoadTopItemsAsync(revenueSales, token);
+                    UpdateStats(revenueSales, refunds);
+                }
 
                 RefreshAbc();
                 _ = RefreshSummaryPanelAsync();
@@ -912,6 +1290,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     _loadCts = null;
                     IsLoading = false;
+                    RefreshOwnerProductsTabIfShown();
                 }
                 currentCts.Dispose();
             }
@@ -1570,6 +1949,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// не переключал фильтр всей остальной страницы.</summary>
         private async Task RefreshSummaryPanelAsync()
         {
+            // В программе владельца этой карточки нет (см. AsOwnerSection).
+            if (_isOwnerSection)
+                return;
+
             var cts = new CancellationTokenSource();
             _summaryCts?.Cancel();
             _summaryCts = cts;
@@ -2151,8 +2534,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private async void Refresh_Click(object sender, RoutedEventArgs e) =>
+        private async void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            _seasonalityLoaded = false;
             await LoadDataAsync(_historyFrom, _historyTo, forceRefresh: true);
+        }
 
         // INotifyPropertyChanged
         public new event PropertyChangedEventHandler PropertyChanged;

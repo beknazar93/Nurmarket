@@ -1,0 +1,107 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WriteOffDialog"
+        x:CompileBindings="False"
+        Width="600" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <Window.Styles>
+        <Style Selector="Button.pick">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="RadioButton.reason">
+            <Setter Property="Margin" Value="0,0,14,6"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="24,20">
+        <StackPanel Spacing="10">
+            <TextBlock x:Name="HeaderText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+            <TextBlock x:Name="HintText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <!-- Товары текущего чека: чаще всего испорченный товар кассир уже отсканировал. -->
+            <StackPanel x:Name="CartPanel" Spacing="6">
+                <TextBlock x:Name="CartLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+                <WrapPanel x:Name="CartItemsPanel"/>
+            </StackPanel>
+
+            <TextBox x:Name="SearchBox" Height="42" Padding="12,9" FontSize="14" CornerRadius="10"
+                     Text="{Binding WriteOffSearchText, Mode=TwoWay}"
+                     KeyDown="SearchBox_KeyDown"/>
+            <ItemsControl x:Name="ResultsList" ItemsSource="{Binding WriteOffSearchResults}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Classes="pick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                Margin="0,0,0,4" Click="Result_Click">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding StockInfo}" Margin="12,0,0,0" FontSize="12"
+                                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Padding="12,10" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="SelectedLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock x:Name="SelectedName" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="SelectedStock" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+            </Border>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="QtyLabel" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"
+                           Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="pick" Width="40" Height="40" Margin="0" HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center" Content="−" FontSize="18" Click="Minus_Click"/>
+                    <TextBox x:Name="QtyBox" Width="90" Height="40" FontSize="15" CornerRadius="8"
+                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Text="1"/>
+                    <Button Classes="pick" Width="40" Height="40" Margin="0" HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center" Content="+" FontSize="18" Click="Plus_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock x:Name="ReasonLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSoft}"/>
+            <WrapPanel x:Name="ReasonsPanel"/>
+
+            <TextBlock x:Name="ErrorText" FontSize="13" TextWrapping="Wrap" IsVisible="False"
+                       Foreground="{DynamicResource BrushDanger}"/>
+
+            <Grid ColumnDefinitions="*,10,*" Margin="0,6,0,0">
+                <Button x:Name="CancelButton" IsCancel="True" Grid.Column="0" MinHeight="44"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushPanel}" Foreground="{DynamicResource BrushText}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
+                        FontWeight="SemiBold" CornerRadius="10" Cursor="Hand" Click="Cancel_Click"/>
+                <Button x:Name="WriteOffButton" Grid.Column="2" MinHeight="44"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="{DynamicResource BrushAccent}" Foreground="{DynamicResource BrushAccentForeground}"
+                        FontWeight="SemiBold" CornerRadius="10" Cursor="Hand" Click="WriteOff_Click"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

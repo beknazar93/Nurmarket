@@ -88,10 +88,9 @@
                       <TextBlock Text="{Binding Description}" FontSize="12"
                                  Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                     </StackPanel>
-                    <TextBox Grid.Column="1" Text="{Binding Gesture}" Tag="{Binding Action}"
+                    <TextBox Grid.Column="1" Text="{Binding Display, Mode=OneWay}" Tag="{Binding Action}"
                              IsReadOnly="True" HorizontalContentAlignment="Center"
-                             FontSize="16" FontWeight="Bold" Watermark="{DynamicResource hotkeys.pressKeysWatermark}"
-                             KeyDown="OnGestureKeyDown"/>
+                             FontSize="16" FontWeight="Bold" Watermark="{DynamicResource hotkeys.pressKeysWatermark}"/>
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

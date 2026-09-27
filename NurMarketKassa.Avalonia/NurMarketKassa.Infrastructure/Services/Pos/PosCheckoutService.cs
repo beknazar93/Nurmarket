@@ -581,6 +581,9 @@ public sealed class PosCheckoutService : IPosCheckoutService
     /// обычный серверный RestartSaleSessionAsync рискует так же зависнуть.</summary>
     private PosCheckoutResult CompleteAlreadyAppliedCheckout(string cartJsonSnapshot, double total)
     {
+        var appliedCartId = _cart.CartId;
+        if (!string.IsNullOrWhiteSpace(appliedCartId))
+            Lan.LanSalePublisher.Publish($"cart:{appliedCartId}", null, uploaded: true, cartJsonSnapshot, total, null);
         LocalCartService.StartNewLocalCart(_cart);
         return PosCheckoutResult.Succeeded(
             total,
@@ -698,6 +701,9 @@ public sealed class PosCheckoutService : IPosCheckoutService
 
         OfflinePendingSalesStore.Append(entry);
         ApplyOfflineStockDecrement(cartJsonSnapshot);
+        // Соседние кассы и программа владельца узнают о чеке по локальной сети, пока он в очереди.
+        if (!isAutonomous)
+            Lan.LanSalePublisher.Publish(entry.Id, null, uploaded: false, cartJsonSnapshot, total, request.PaymentMethod);
 
         // Ящик открывается и в офлайне тоже: наличные кассир берёт независимо от того, дошла ли
         // продажа до сервера. Не завязано на PrintReceipt — ящик нужен и когда чек не печатают.
@@ -884,6 +890,8 @@ public sealed class PosCheckoutService : IPosCheckoutService
         {
             PosLogger.Log($"Checkout audit skipped after successful sale: {ex}", "AUDIT");
         }
+
+        Lan.LanSalePublisher.Publish(saleId, saleId, uploaded: true, cartJsonSnapshot, total, request.PaymentMethod);
 
         ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
 

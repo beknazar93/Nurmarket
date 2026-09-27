@@ -10,11 +10,16 @@ public static class CartReceiptTextBuilder
 {
     private static int W => ReceiptLayout.CharWidth;
 
+    /// <param name="receiptTime">Время продажи для строк «Дата/Время»; null — сейчас (чек при оплате).</param>
+    /// <param name="isReprint">Копия из «Истории чеков» (2026-09-27): внизу отметка
+    /// «(повторная печать)», как у копии из «Продаж» (SaleReceiptTextBuilder).</param>
     public static string BuildSimpleReceipt(
         string cartJson,
         string? offlineNote = null,
         string? paymentMethodKey = null,
-        string? cashReceived = null)
+        string? cashReceived = null,
+        DateTime? receiptTime = null,
+        bool isReprint = false)
     {
         try
         {
@@ -65,7 +70,7 @@ public static class CartReceiptTextBuilder
 
             if (prefs.ShowDate)
             {
-                var now = DateTime.Now;
+                var now = receiptTime ?? DateTime.Now;
                 Line($"Дата - {now:dd.MM.yyyy}");
                 Line($"Время - {now:HH:mm}");
             }
@@ -172,6 +177,12 @@ public static class CartReceiptTextBuilder
             Blank();
             Dash();
             Blank();
+
+            if (isReprint)
+            {
+                Line(ReceiptLineLayout.Center("(повторная печать)", W));
+                Blank();
+            }
 
             // ─── Footer ────────────────────────────────────────────────
             Line(ReceiptLineLayout.Center("Спасибо за покупку! :)", W));

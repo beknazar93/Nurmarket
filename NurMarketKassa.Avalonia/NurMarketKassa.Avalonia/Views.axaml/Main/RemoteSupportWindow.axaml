@@ -58,8 +58,8 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="28" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*,Auto,Auto">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="14">
+    <Grid x:Name="RootGrid" Margin="28" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <StackPanel Grid.Row="0" x:Name="TitlePanel" Orientation="Horizontal" Spacing="14">
             <Border Width="44" Height="44" CornerRadius="12" Background="{DynamicResource BrushAccentSoft}"
                     BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
                 <TextBlock Text="🖥" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -68,7 +68,7 @@
                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="1" Text="{DynamicResource remoteSupport.intro}" FontSize="13"
+        <TextBlock Grid.Row="1" x:Name="IntroText" Text="{DynamicResource remoteSupport.intro}" FontSize="13"
                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" LineHeight="20" Margin="0,20,0,0"/>
 
         <StackPanel Grid.Row="2" VerticalAlignment="Center" Spacing="12" Margin="0,20,0,0">
@@ -82,7 +82,7 @@
         <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
             <Button x:Name="DownloadButton" Content="{DynamicResource remoteSupport.downloadButton}"
                     Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click"/>
-            <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
+            <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
         </StackPanel>
     </Grid>
 </Window>

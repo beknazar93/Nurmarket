@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.ViewModels;
+using NurMarketKassa.AvaloniaHost.Views.Analytics;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Core.Contracts;
@@ -21,7 +22,7 @@ using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
-public partial class WarehouseWindow : Window
+public partial class WarehouseWindow : Window, IOwnerSection
 {
     private readonly IBarcodeInputService _barcodeInputService;
     private readonly WarehouseViewModel _viewModel;
@@ -74,7 +75,11 @@ public partial class WarehouseWindow : Window
     /// маловероятно (Маркетплейс в другом окне), но раз уж эта функция уже есть.</summary>
     private void RefreshPaidFeatureVisibility()
     {
-        AnalyticsTabItem.IsVisible = UserPreferences.Instance.WarehouseAnalyticsUnlocked;
+        // В программе владельца аналитика склада живёт в разделе «Аналитика» (вкладка «Склад»). На
+        // тарифе «Старт» этого раздела нет (как и «ABC-анализа») — там купленная аналитика остаётся
+        // вкладкой склада, иначе её было бы негде открыть.
+        AnalyticsTabItem.IsVisible = (!_isOwnerSection || TariffGate.IsStartTariff)
+                                     && UserPreferences.Instance.WarehouseAnalyticsUnlocked;
         BulkPriceTagButton.IsVisible = UserPreferences.Instance.BulkPriceTagUnlocked;
     }
 
@@ -90,6 +95,8 @@ public partial class WarehouseWindow : Window
             MovementsSection_Changed(this, new RoutedEventArgs());
         else if (ReferenceEquals(WarehouseTabs.SelectedItem, AnalyticsTabItem))
             RefreshAnalytics();
+        else if (_ownerAbcTab != null && ReferenceEquals(WarehouseTabs.SelectedItem, _ownerAbcTab))
+            _ = RefreshStockAbcAsync();
     }
 
     /// <summary>Живой поиск в приёмке. С двух букв: с одной в каталоге совпадает почти всё.
@@ -784,6 +791,7 @@ public partial class WarehouseWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _stockAbcCts?.Cancel();
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         _viewModel.RevisionLineAdded -= OnRevisionLineAdded;
     }
@@ -1317,106 +1325,129 @@ public partial class WarehouseWindow : Window
 
     #region Аналитика склада/товаров
 
+    /// <summary>Плитка итога под таблицей товаров (RefreshWarehouseTotals).</summary>
     private sealed class KpiCardVm
     {
         public string Label { get; init; } = "";
         public string Value { get; init; } = "";
     }
 
-    private sealed class AnalyticsTopValueRow
-    {
-        public string Title { get; init; } = "";
-        public string StockText { get; init; } = "";
-        public string PriceText { get; init; } = "";
-        public string ValueText { get; init; } = "";
-    }
-
-    private sealed class AnalyticsCategoryRow
-    {
-        public string CategoryName { get; init; } = "";
-        public string SkuCountText { get; init; } = "";
-        public string StockText { get; init; } = "";
-        public string ValueText { get; init; } = "";
-    }
-
-    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
-
     private static double ParsePriceValue(string? priceLine) =>
         LocalCartService.ParsePrice(priceLine ?? "");
 
-    /// <summary>Считается локально из уже загруженного каталога (CatalogCacheService.Products) —
-    /// без отдельных запросов к серверу, поэтому мгновенно и без дополнительной нагрузки.</summary>
-    private void RefreshAnalytics()
+    /// <summary>Считается локально из уже загруженного каталога. Сам расчёт и разметка — в
+    /// WarehouseStockAnalyticsView (2026-09-27): тот же блок стоит в разделе «Аналитика»
+    /// программы владельца.</summary>
+    private void RefreshAnalytics() => StockAnalyticsView.Refresh();
+
+    #endregion
+
+    #region ABC склада (программа владельца)
+
+    private bool _isOwnerSection;
+    private TabItem? _ownerAbcTab;
+    private AbcSectionView? _stockAbc;
+    private System.Threading.CancellationTokenSource? _stockAbcCts;
+
+    /// <summary>Вкладка «ABC» склада в программе владельца (2026-09-27, «склад у склада ABC»):
+    /// один срез — «Склад по стоимости остатка». Стоит там, где в кассе стоит «Аналитика»
+    /// (она сама ушла в раздел «Аналитика»). Как и раздел «ABC-анализ», на тарифе «Старт» её нет.</summary>
+    private void AddOwnerAbcTab()
     {
-        var products = CatalogCacheService.Products.ToList();
+        if (TariffGate.IsStartTariff)
+            return;
 
-        var skuCount = products.Count;
-        var outOfStock = products.Count(p => p.Quantity <= 0);
-        var lowStock = products.Count(p => p.IsLowStock && p.Quantity > 0);
-        var purchaseValue = products.Sum(p => p.Quantity * p.PurchasePrice);
-        var saleValue = products.Sum(p => p.Quantity * ParsePriceValue(p.PriceLine));
-
-        AnalyticsKpiPanel.ItemsSource = new List<KpiCardVm>
+        _stockAbc = new AbcSectionView
         {
-            new() { Label = Tr.T("Всего товаров (SKU)", "Бардык товарлар (SKU)", "Total products (SKU)", "Toplam ürün (SKU)", "Jami mahsulotlar (SKU)"), Value = skuCount.ToString() },
-            new() { Label = Tr.T("Нет в наличии", "Калдыкта жок", "Out of stock", "Stokta yok", "Mavjud emas"), Value = outOfStock.ToString() },
-            new() { Label = Tr.T("Низкий остаток", "Аз калды", "Low stock", "Düşük stok", "Kam qoldiq"), Value = lowStock.ToString() },
-            new() { Label = Tr.T("Остаток по закупке", "Сатып алуу баасы боюнча калдык", "Stock at purchase price", "Stok değeri (alış)", "Qoldiq (xarid narxida)"), Value = $"{purchaseValue:N0} {Som}" },
-            new() { Label = Tr.T("Остаток по продаже", "Сатуу баасы боюнча калдык", "Stock at sale price", "Stok değeri (satış)", "Qoldiq (sotuv narxida)"), Value = $"{saleValue:N0} {Som}" },
+            SliceKeys = [AnalyticsReportData.KeyStock],
+            ShowSeasonality = false,
+            TableMaxHeight = 520,
+        };
+        // Разбор товара — за последние 30 дней: у среза склада своего периода нет.
+        _stockAbc.ProductAnalyticsRequested += name =>
+        {
+            try
+            {
+                new ProductAnalyticsWindow(name, DateTime.Today.AddDays(-29), DateTime.Today).Show(this);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Разбор товара не открылся: {ex}", "WARNING");
+            }
         };
 
-        var topValue = products
-            .Select(p => new { Product = p, Value = p.Quantity * ParsePriceValue(p.PriceLine) })
-            .Where(x => x.Value > 0)
-            .OrderByDescending(x => x.Value)
-            .Take(10)
-            .ToList();
+        var body = new Border
+        {
+            CornerRadius = new CornerRadius(0, 14, 14, 14),
+            Padding = new Thickness(16),
+            BoxShadow = Avalonia.Media.BoxShadows.Parse("0 4 12 0 #0D000000"),
+            Child = _stockAbc,
+        };
+        body.Bind(Border.BackgroundProperty, body.GetResourceObservable("BrushPanel"));
 
-        AnalyticsTopValueGrid.ItemsSource = topValue
-            .Select(x => new AnalyticsTopValueRow
-            {
-                Title = x.Product.Title,
-                StockText = x.Product.Quantity.ToString("0.###"),
-                PriceText = $"{ParsePriceValue(x.Product.PriceLine):N2} {Som}",
-                ValueText = $"{x.Value:N2} {Som}",
-            })
-            .ToList();
-        BarChartRenderer.Render(AnalyticsTopValueChart, topValue
-            .Select(x => (x.Product.Title, (double)x.Value, $"{x.Value:N0} {Som}"))
-            .ToList());
+        _ownerAbcTab = new TabItem { Header = "ABC", Content = body };
+        var index = WarehouseTabs.Items.IndexOf(AnalyticsTabItem);
+        WarehouseTabs.Items.Insert(index < 0 ? WarehouseTabs.Items.Count : index, _ownerAbcTab);
+    }
 
-        var byCategory = products
-            .GroupBy(p => string.IsNullOrWhiteSpace(p.Category) ? Tr.T("Без категории", "Категориясыз", "No category", "Kategorisiz", "Kategoriyasiz") : p.Category!.Trim())
-            .Select(g => new
-            {
-                Name = g.Key,
-                SkuCount = g.Count(),
-                Stock = g.Sum(p => p.Quantity),
-                Value = g.Sum(p => p.Quantity * ParsePriceValue(p.PriceLine)),
-            })
-            .OrderByDescending(g => g.Value)
-            .ToList();
+    /// <summary>Считается при каждом открытии вкладки: остатки меняются приёмкой, списанием и
+    /// продажами, а срез — снимок на сейчас. Расчёт в фоне: на большом каталоге это заметно.</summary>
+    private async System.Threading.Tasks.Task RefreshStockAbcAsync()
+    {
+        if (_stockAbc == null)
+            return;
 
-        AnalyticsCategoryGrid.ItemsSource = byCategory
-            .Select(g => new AnalyticsCategoryRow
-            {
-                CategoryName = g.Name,
-                SkuCountText = g.SkuCount.ToString(),
-                StockText = g.Stock.ToString("0.###"),
-                ValueText = $"{g.Value:N2} {Som}",
-            })
-            .ToList();
-        var categoryChartData = byCategory
-            .Take(10)
-            .Select(g => (g.Name, g.Value, $"{g.Value:N0} {Som}"))
-            .ToList();
-        BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData);
-        BarChartRenderer.RenderPie(AnalyticsCategoryPie, categoryChartData);
+        _stockAbcCts?.Cancel();
+        var cts = new System.Threading.CancellationTokenSource();
+        _stockAbcCts = cts;
+        try
+        {
+            var slice = await System.Threading.Tasks.Task.Run(() => AnalyticsReportData.BuildStockSlice(), cts.Token)
+                .ConfigureAwait(true);
+            if (cts.IsCancellationRequested)
+                return;
+            _stockAbc.Update(new AnalyticsReportData { AbcSlices = slice is null ? [] : [slice] });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ABC склада не построен: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            if (ReferenceEquals(_stockAbcCts, cts))
+                _stockAbcCts = null;
+            cts.Dispose();
+        }
     }
 
     #endregion
 
     #region Window Controls & Dragging
+
+    /// <summary>Склад разделом программы владельца (см. <see cref="IOwnerSection"/>): над разделом
+    /// уже написано «Склад», поэтому своя шапка «Управление складом» с кнопками «свернуть» и ✕ не
+    /// нужна. Подсказка про сканер остаётся — узкой строкой справа над вкладками.</summary>
+    public void AsOwnerSection()
+    {
+        // Аналитика склада — в разделе «Аналитика» (вкладка «Склад»), здесь вместо неё «ABC».
+        _isOwnerSection = true;
+        RefreshPaidFeatureVisibility();
+        AddOwnerAbcTab();
+
+        WindowTitlePanel.IsVisible = false;
+        MinimizeWindowButton.IsVisible = false;
+        CloseWindowButton.IsVisible = false;
+
+        WindowHeaderBorder.Background = Avalonia.Media.Brushes.Transparent;
+        WindowHeaderBorder.BoxShadow = default;
+        WindowHeaderBorder.Padding = new Thickness(0);
+        WindowHeaderBorder.Margin = new Thickness(0, 0, 0, 8);
+        ScanHintBorder.Margin = new Thickness(0);
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     private void MinimizeButton_Click(object? sender, RoutedEventArgs e)
     {

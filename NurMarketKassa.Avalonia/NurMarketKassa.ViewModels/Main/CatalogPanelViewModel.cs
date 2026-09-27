@@ -297,8 +297,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
 
     private CatalogProductTileVm? _selectedProduct;
 
-    /// <summary>Товар под клавиатурным "курсором" — двигается стрелками (ListBox +
-    /// WrapPanel умеют это сами), Enter добавляет его в чек так же, как клик мышью.</summary>
+    /// <summary>Товар под клавиатурным "курсором" — двигается стрелками (см.
+    /// CatalogPanelView.ProductsList_ArrowKeyTunnel), Enter добавляет его в чек так же, как клик мышью.</summary>
     public CatalogProductTileVm? SelectedProduct
     {
         get => _selectedProduct;

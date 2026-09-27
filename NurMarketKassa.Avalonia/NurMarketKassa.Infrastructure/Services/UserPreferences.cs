@@ -350,6 +350,18 @@ public sealed class UserPreferences
     /// комментарий в TelegramBotService и разговор с владельцем 2026-09-22.</summary>
     public string? OwnerPhone { get; set; }
 
+    /// <summary>Обмен продажами между кассами и программой владельца, когда нет интернета:
+    /// по локальной сети (нужен одинаковый код магазина) или внутри одного компьютера.
+    /// Включено по умолчанию — внутри одного ПК работает без настроек.</summary>
+    public bool LanSyncEnabled { get; set; } = true;
+
+    /// <summary>Код магазина: одинаковый на всех кассах одной точки. Пустой — обмен только
+    /// внутри этого компьютера (в сеть касса не слушает).</summary>
+    public string? LanShopCode { get; set; }
+
+    /// <summary>Постоянный номер этого рабочего места в обмене (создаётся один раз).</summary>
+    public string? LanDeviceId { get; set; }
+
     /// <summary>Как касса общается с весами Штрих-М: false — через сервер NurCRM (как было
     /// всегда), true — напрямую по витой паре из самой кассы (ShtrikhPrintLanScaleService).
     /// По умолчанию false: серверный путь рабочий и проверенный, прямой — написан по
@@ -791,6 +803,12 @@ public sealed class UserPreferences
                 p.TelegramBotUsername = fromFile.TelegramBotUsername;
             if (!string.IsNullOrWhiteSpace(fromFile.OwnerPhone))
                 p.OwnerPhone = fromFile.OwnerPhone;
+            if (fromFile.LanSyncEnabled is not null)
+                p.LanSyncEnabled = fromFile.LanSyncEnabled.Value;
+            if (fromFile.LanShopCode is not null)
+                p.LanShopCode = fromFile.LanShopCode;
+            if (!string.IsNullOrWhiteSpace(fromFile.LanDeviceId))
+                p.LanDeviceId = fromFile.LanDeviceId;
             if (fromFile.ShtrikhDirectLan is not null)
                 p.ShtrikhDirectLan = fromFile.ShtrikhDirectLan.Value;
             // Порт 4001 и пароль 0000 были УГАДАННЫМИ значениями по умолчанию: протокол порт
@@ -1002,6 +1020,9 @@ public sealed class UserPreferences
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
+                LanSyncEnabled = LanSyncEnabled,
+                LanShopCode = LanShopCode,
+                LanDeviceId = LanDeviceId,
                 ShtrikhDirectLan = ShtrikhDirectLan,
                 ScaleLanPort = ScaleLanPort,
                 ScaleLanPassword = ScaleLanPassword,
@@ -1220,6 +1241,9 @@ public sealed class UserPreferences
         public string? TelegramBotUsername { get; set; }
         public bool? TelegramShiftSummaryEnabled { get; set; }
         public string? OwnerPhone { get; set; }
+        public bool? LanSyncEnabled { get; set; }
+        public string? LanShopCode { get; set; }
+        public string? LanDeviceId { get; set; }
         public bool? ShtrikhDirectLan { get; set; }
         public int? ScaleLanPort { get; set; }
         public string? ScaleLanPassword { get; set; }

@@ -50,7 +50,15 @@ public sealed record CashShiftClosingTotals(
     decimal? CashSales,
     decimal? NonCashSales,
     decimal? DebtSales,
-    int? SalesCount);
+    int? SalesCount)
+{
+    /// <summary>2026-09-27, жалоба владельца «медленно открывает Z-отчёт»: долг смены сервер не
+    /// присылает, касса считает его сама (ResolveShiftDebtTotalAsync — список продаж и сделка по
+    /// каждой долговой продаже, от 0,4 до нескольких секунд), и отчёт закрытия ждал этот расчёт.
+    /// Теперь закрытие запускает тот же расчёт, но не ждёт его: отчёт открывается сразу, а долг
+    /// берётся отсюда, когда посчитается. null — ждать нечего (DebtSales уже известен).</summary>
+    public Task<decimal?>? PendingDebtSales { get; init; }
+}
 
 /// <summary>Текст X/Z-отчёта смены и признак успешной печати на принтере.</summary>
 public sealed record CashShiftReportResult(string ReportText, bool Printed);

@@ -18,7 +18,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// каталога и т.п.) — цель экрана в том, чтобы владелец магазина/поддержка NurMarket быстро
 /// поняли, что пошло не так, а не читали полный технический журнал.
 /// </summary>
-public partial class LogsAndErrorsWindow : Window
+public partial class LogsAndErrorsWindow : Window, IOwnerSection
 {
     private static readonly Regex LineRegex = new(
         @"^\d{4}-\d{2}-\d{2} (?<time>\d{2}:\d{2}:\d{2})\.\d{3} [+\-]\d{2}:\d{2} \[(?<level>\w+)\] (?<rest>.*)$",
@@ -101,6 +101,25 @@ public partial class LogsAndErrorsWindow : Window
     private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadRows();
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): название уже над
+    /// разделом, «Закрыть» не нужна. Пояснение, что попадает в журнал, встаёт на место названия —
+    /// слева в строке с «Обновить» и «Открыть папку», отдельная строка под ним не нужна.</summary>
+    public void AsOwnerSection()
+    {
+        TitleText.IsVisible = false;
+        CloseButton.IsVisible = false;
+        OpenFolderButton.Margin = new Avalonia.Thickness(0);
+
+        RootGrid.Children.Remove(SubtitleText);
+        Grid.SetRow(SubtitleText, 0);
+        Grid.SetColumn(SubtitleText, 0);
+        SubtitleText.Margin = new Avalonia.Thickness(0, 0, 16, 0);
+        SubtitleText.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        HeaderGrid.Children.Add(SubtitleText);
+        HeaderGrid.Margin = new Avalonia.Thickness(0, 0, 0, 12);
+        RootGrid.Margin = OwnerSectionLayout.Margin;
+    }
 
     private void OpenFolder_Click(object? sender, RoutedEventArgs e)
     {

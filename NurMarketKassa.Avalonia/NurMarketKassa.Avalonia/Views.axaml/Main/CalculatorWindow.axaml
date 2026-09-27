@@ -169,7 +169,7 @@
 
     <Grid x:Name="RootGrid" RowDefinitions="Auto,Auto,*">
         <!-- Шапка -->
-        <Grid Grid.Row="0" Margin="24,12,10,6" ColumnDefinitions="*,Auto" Background="Transparent"
+        <Grid Grid.Row="0" x:Name="HeaderGrid" Margin="24,12,10,6" ColumnDefinitions="*,Auto" Background="Transparent"
               PointerPressed="DragArea_PointerPressed">
             <StackPanel Margin="0,6,0,0" Spacing="2">
                 <TextBlock x:Name="TitleText" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>

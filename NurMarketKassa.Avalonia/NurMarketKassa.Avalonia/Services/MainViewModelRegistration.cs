@@ -110,7 +110,8 @@ internal static class MainViewModelRegistration
                 exitApplication: () => bridge.Window?.ExitApplication(),
                 permissions: sp.GetService<IPermissionService>(),
                 navigateSalary: () => bridge.Window?.NavigateSalary(),
-                openCashOperation: () => bridge.Window?.OpenCashOperationDialogAsync() ?? Task.CompletedTask);
+                openCashOperation: () => bridge.Window?.OpenCashOperationDialogAsync() ?? Task.CompletedTask,
+                navigateReceiptHistory: () => bridge.Window?.NavigateReceiptHistory());
 
             main = new MainWindowViewModel(
                 toolbar, catalog, basket, sideMenu, session,

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -19,9 +20,11 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Analytics;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Lan;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -68,18 +71,37 @@ public partial class OwnerShellWindow : Window, IMainShell
         InitializeComponent();
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        _abcDebounce = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        _abcDebounce.Tick += (_, _) =>
+        {
+            _abcDebounce.Stop();
+            RefreshAbcWhenVisible();
+        };
         Opened += async (_, _) =>
         {
+            // ABC — параллельно с загрузкой сводки: он считается локально и сервера не ждёт.
+            _ = RefreshAbcAsync();
             await RefreshAsync().ConfigureAwait(true);
             _timer.Start();
         };
         Closed += (_, _) =>
         {
             _timer.Stop();
+            _abcDebounce.Stop();
+            _abcCts?.Cancel();
             _cts.Cancel();
             Tr.LanguageChanged -= OnLanguageChanged;
+            LanSyncService.Instance.PeerDataChanged -= OnLanPeerData;
+            PosDataEvents.SalesChanged -= OnSalesChangedForAbc;
         };
         Tr.LanguageChanged += OnLanguageChanged;
+        LanSyncService.Instance.PeerDataChanged += OnLanPeerData;
+        PosDataEvents.SalesChanged += OnSalesChangedForAbc;
+        OverviewScroll.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                FitAbcHeight();
+        };
         UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
 
         Closing += (_, _) => CloseAllSections();
@@ -149,6 +171,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         RebuildSectionsForLanguage();
         _compareKey = null;
         _ = RefreshAsync();
+        // Заголовки срезов и колонки ABC собраны кодом на прежнем языке — собираем заново.
+        DropAbcView();
+        _ = RefreshAbcAsync();
     });
 
     // ------------------------------------------------------------------ тексты и разделы
@@ -219,6 +244,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         RecentEmptyText.Text = Tr.T("За этот период продаж нет", "Бул мезгилде сатуу жок", "No sales in this period", "Bu dönemde satış yok", "Bu davrda sotuv yo'q");
         TopTitle.Text = Tr.T("Лучшие товары", "Мыкты товарлар", "Top products", "En çok satanlar", "Eng yaxshi mahsulotlar");
         TopEmptyText.Text = Tr.T("Пока нечего показать", "Азырынча көрсөтө турган эч нерсе жок", "Nothing to show yet", "Henüz gösterilecek bir şey yok", "Hozircha ko'rsatadigan narsa yo'q");
+        AbcTitle.Text = Tr.T("ABC-анализ по всем срезам", "Бардык кесилиштер боюнча ABC-анализ", "ABC analysis — all views", "Tüm kırılımlarda ABC analizi", "Barcha kesimlar bo'yicha ABC tahlili");
+        AbcHint.Text = Tr.T(
+            "За выбранный период: выручка, прибыль, количество, категории и бренды; склад по стоимости остатка — на сейчас. Нажмите на столбец, чтобы посмотреть разбор товара.",
+            "Тандалган мезгил үчүн: түшүм, пайда, саны, категориялар жана бренддер; калдыктын наркы боюнча кампа — азыркы абалы. Товардын талдоосун көрүү үчүн мамыны басыңыз.",
+            "For the selected period: revenue, profit, quantity, categories and brands; stock by inventory value is as of now. Click a bar to see the product breakdown.",
+            "Seçilen dönem için: ciro, kâr, adet, kategoriler ve markalar; stok değerine göre depo ise şu anki durumu gösterir. Ürün ayrıntısını görmek için bir çubuğa tıklayın.",
+            "Tanlangan davr uchun: tushum, foyda, miqdor, kategoriyalar va brendlar; qoldiq qiymati bo'yicha ombor — hozirgi holat. Mahsulot tahlilini ko'rish uchun ustunni bosing.");
+        AbcOpenText.Text = Tr.T("Открыть ABC-анализ", "ABC-анализди ачуу", "Open ABC analysis", "ABC analizini aç", "ABC tahlilini ochish");
+        AbcLoadingText.Text = Tr.T("Считаю ABC-анализ…", "ABC-анализ эсептелүүдө…", "Calculating the ABC analysis…", "ABC analizi hesaplanıyor…", "ABC tahlili hisoblanmoqda…");
 
         BuildNavigation();
         if (_activeSection != null)
@@ -315,6 +349,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
         Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart,
             () => OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()));
+        // Вся аналитика, кроме ABC (2026-09-27): выручка и оплаты, товары, сезонность, склад. Это
+        // окно «Финансов» в режиме аналитики (FinanceWindow.AsAnalyticsSection); из самих
+        // «Финансов», «Продаж» и «Склада» эти вкладки убраны. Права и тариф — как у «ABC-анализа».
+        Add("analytics", "AnalyticsIcon", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika"), !isStart,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection()); });
         Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
 
@@ -328,7 +367,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("crm", "CrmIcon", "NurCRM", !isStart,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
-            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow()); });
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
         Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 
@@ -458,14 +497,27 @@ public partial class OwnerShellWindow : Window, IMainShell
         window.MaxHeight = double.PositiveInfinity;
         window.WindowState = WindowState.Normal;
 
+        // Раздел сам убирает повтор своего названия и свои кнопки окна (2026-09-27, «дублируется»).
+        var ownerSection = window as IOwnerSection;
+        ownerSection?.AsOwnerSection();
+        // Esc закрывал раздел его кнопкой «Закрыть» (IsCancel), а она теперь скрыта — закрываем
+        // напрямую. Разделы со своим обработчиком Esc (Склад, Продажи, Финансы…) срабатывают раньше.
+        if (ownerSection != null)
+            EscapeKey.Attach(window);
+
         window.Opened += (_, _) => Dispatcher.UIThread.Post(() =>
         {
-            foreach (var button in window.GetVisualDescendants().OfType<Button>())
+            // Поиск по классу — только для окон, которые не прячут свои кнопки сами: он задевал и
+            // кнопки внутри окна (✕ карточки клиента тоже WindowControlButton).
+            if (ownerSection == null)
             {
-                var classes = button.Classes;
-                if ((classes.Contains("WindowControlButton") && !classes.Contains("WindowCloseButton"))
-                    || (classes.Contains("caption") && !classes.Contains("close")))
-                    button.IsVisible = false;
+                foreach (var button in window.GetVisualDescendants().OfType<Button>())
+                {
+                    var classes = button.Classes;
+                    if ((classes.Contains("WindowControlButton") && !classes.Contains("WindowCloseButton"))
+                        || (classes.Contains("caption") && !classes.Contains("close")))
+                        button.IsVisible = false;
+                }
             }
 
             SyncSectionBounds();
@@ -515,7 +567,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             SectionTitleText.Text = TitleFor(section);
         UpdateNavHighlight();
         if (section == null)
+        {
+            if (_abcStale)
+                _ = RefreshAbcAsync();
             return;
+        }
 
         // Область раздела только что стала видимой — размеры у неё появятся после разметки.
         UpdateLayout();
@@ -678,6 +734,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             var (from, to) = CurrentRange();
             var ct = _cts.Token;
+            var fetchStartedUtc = DateTime.UtcNow;
 
             var report = await App.SalesApi.MarketSalesReportAsync(from, to, ct).ConfigureAwait(true);
 
@@ -705,16 +762,18 @@ public partial class OwnerShellWindow : Window, IMainShell
             var rows = await App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))
                 .ConfigureAwait(true);
 
-            ApplyCards(report);
-            ApplyChart(chartSource, chartFrom, chartTo);
-            ApplyPayments(report);
-            ApplyTopProducts(report);
-            ApplyRecent(rows);
-
+            // Отчёт сервера запоминается как есть: к нему добавляются чеки касс, которые сервер
+            // ещё не видит (касса без интернета), — и сейчас, и когда связь пропадёт.
+            _lastReport = report.Clone();
+            _lastChart = chartSource.Clone();
+            _lastRows = rows.Select(r => r.Clone()).ToList();
+            _lastReportKey = RangeKey(from, to);
+            _lastFetchStartedUtc = fetchStartedUtc;
             _lastSuccess = DateTime.Now;
+            _offline = false;
+            ApplyLanSales(online: true);
+
             UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
-            UpdatedText.Text = Tr.T($"Обновлено в {DateTime.Now:HH:mm}", $"{DateTime.Now:HH:mm} жаңыртылды", $"Updated at {DateTime.Now:HH:mm}",
-                $"Güncellendi: {DateTime.Now:HH:mm}", $"Yangilandi: {DateTime.Now:HH:mm}");
             ToolTip.SetTip(UpdatedText, Tr.T($"Обновляется само каждые {RefreshInterval.TotalSeconds:0} с",
                 $"Ар {RefreshInterval.TotalSeconds:0} с сайын өзү жаңырат", $"Auto-refreshes every {RefreshInterval.TotalSeconds:0} s",
                 $"Her {RefreshInterval.TotalSeconds:0} saniyede bir otomatik yenilenir", $"Har {RefreshInterval.TotalSeconds:0} soniyada avtomatik yangilanadi"));
@@ -726,16 +785,245 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             PosLogger.Log($"Owner app: overview refresh failed: {ex.Message}", "WARNING");
             UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
-            UpdatedText.Text = _lastSuccess is { } at
-                ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
-                    $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
-                : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+            _offline = true;
+            if (!ApplyLanSales(online: false))
+                UpdatedText.Text = _lastSuccess is { } at
+                    ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
+                        $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
+                    : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
         }
         finally
         {
             _refreshing = false;
             RefreshButton.IsEnabled = true;
         }
+    }
+
+    // ── Без интернета: продажи касс по локальной сети ────────────────────────────────
+
+    // Последний отчёт сервера за текущий период и когда его начали грузить (по своим часам) —
+    // к нему добавляются продажи касс, которых в нём ещё нет.
+    private JsonElement? _lastReport;
+    private JsonElement? _lastChart;
+    private List<JsonElement>? _lastRows;
+    private string? _lastReportKey;
+    private DateTime _lastFetchStartedUtc;
+    private bool _offline;
+
+    private string RangeKey(DateTime from, DateTime to) => $"{_period}:{from:yyyyMMdd}:{to:yyyyMMdd}";
+
+    private (DateTime From, DateTime To) ChartRange(DateTime from, DateTime to) =>
+        _period != "month" ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+
+    private void OnLanPeerData() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_refreshing && !_loggingOut)
+            ApplyLanSales(online: !_offline);
+    });
+
+    /// <summary>
+    /// Отчёт сервера плюс продажи касс из локальной сети, которых в нём нет.
+    /// online — отчёт только что получен: добавляются только чеки, которые кассы ещё не
+    /// отправили на сервер (касса без интернета). Иначе сервер недоступен: продажа уже в
+    /// последнем отчёте, если владелец узнал, что она на сервере, раньше, чем отчёт начали
+    /// грузить; если отчёта за этот период не было — только продажи касс (прибыль и возвраты
+    /// тогда неизвестны). false — показать нечего.
+    /// </summary>
+    private bool ApplyLanSales(bool online)
+    {
+        var (from, to) = CurrentRange();
+        var (chartFrom, chartTo) = ChartRange(from, to);
+        var hasBase = _lastReportKey == RangeKey(from, to) && _lastReport is not null;
+        if (online && !hasBase)
+            return false;
+
+        List<LanPeerSale> peerSales;
+        try
+        {
+            peerSales = LanJournal.ReadPeerSales(chartFrom.AddDays(-1).ToUniversalTime());
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: продажи касс по локальной сети не прочитаны: {ex.Message}", "LAN");
+            peerSales = new List<LanPeerSale>();
+        }
+
+        var fetchStarted = _lastFetchStartedUtc;
+        var extra = online
+            ? peerSales.Where(s => !s.IsOnServer).ToList()
+            : peerSales.Where(s => !(hasBase && s.KnownOnServerSinceUtc is { } known && known <= fetchStarted)).ToList();
+        var inPeriod = extra.Where(s => InDays(s, from, to)).ToList();
+        var inChart = extra.Where(s => InDays(s, chartFrom, chartTo)).ToList();
+        if (!hasBase && inPeriod.Count == 0 && inChart.Count == 0)
+            return false;
+
+        var report = MergeReport(hasBase ? _lastReport : null, inPeriod);
+        var chartBase = hasBase ? (_period == "month" ? _lastReport : _lastChart) : null;
+        var chart = MergeDynamics(chartBase, inChart);
+        var rows = new List<JsonElement>();
+        if (hasBase && _lastRows != null)
+            rows.AddRange(_lastRows);
+        rows.AddRange(inPeriod.Select(LanSaleRow));
+        rows = rows
+            .OrderByDescending(r => DateTimeOffset.TryParse(Str(r, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : DateTimeOffset.MinValue)
+            .Take(RecentRows)
+            .ToList();
+
+        ApplyCards(report);
+        if (!hasBase)
+        {
+            // Себестоимость кассы не передают — без отчёта сервера прибыль неизвестна, а не ноль.
+            ProfitValue.Inlines = null;
+            ProfitValue.Text = "—";
+        }
+        ApplyChart(chart, chartFrom, chartTo);
+        ApplyPayments(report);
+        ApplyTopProducts(report);
+        ApplyRecent(rows);
+
+        var count = inPeriod.Count;
+        if (online)
+        {
+            var now = _lastSuccess ?? DateTime.Now;
+            UpdatedText.Text = Tr.T($"Обновлено в {now:HH:mm}", $"{now:HH:mm} жаңыртылды", $"Updated at {now:HH:mm}",
+                $"Güncellendi: {now:HH:mm}", $"Yangilandi: {now:HH:mm}");
+            if (count > 0)
+                UpdatedText.Text += Tr.T($" · ещё {count} чек. касс без интернета", $" · интернетсиз кассалардан дагы {count} чек",
+                    $" · plus {count} receipts from tills without internet", $" · internetsiz kasalardan {count} fiş daha",
+                    $" · internetsiz kassalardan yana {count} ta chek");
+            return true;
+        }
+
+        UpdatedText.Text = hasBase && _lastSuccess is { } at
+            ? Tr.T($"Нет связи · данные на {at:HH:mm} + {count} чек. с касс по локальной сети",
+                $"Байланыш жок · маалымат {at:HH:mm} боюнча + жергиликтүү тармактагы кассалардан {count} чек",
+                $"Offline · data as of {at:HH:mm} + {count} receipts from tills on the local network",
+                $"Bağlantı yok · veriler {at:HH:mm} itibarıyla + yerel ağdaki kasalardan {count} fiş",
+                $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra + mahalliy tarmoqdagi kassalardan {count} ta chek")
+            : Tr.T($"Нет связи · по данным касс в локальной сети ({count} чек.)",
+                $"Байланыш жок · жергиликтүү тармактагы кассалардын маалыматы боюнча ({count} чек)",
+                $"Offline · from tills on the local network ({count} receipts)",
+                $"Bağlantı yok · yerel ağdaki kasaların verilerine göre ({count} fiş)",
+                $"Aloqa yo'q · mahalliy tarmoqdagi kassalar ma'lumotlari bo'yicha ({count} ta chek)");
+        return true;
+    }
+
+    private static bool InDays(LanPeerSale s, DateTime from, DateTime to)
+    {
+        var day = s.Sale.CreatedAtUtc.ToLocalTime().Date;
+        return day >= from.Date && day <= to.Date;
+    }
+
+    private static double NodeNum(JsonNode? node)
+    {
+        if (node is not JsonValue v)
+            return 0;
+        if (v.TryGetValue<double>(out var d))
+            return d;
+        return v.TryGetValue<string>(out var s) && double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var p) ? p : 0;
+    }
+
+    private static JsonObject Obj(JsonObject parent, string name)
+    {
+        if (parent[name] is JsonObject o)
+            return o;
+        var created = new JsonObject();
+        parent[name] = created;
+        return created;
+    }
+
+    private static JsonArray Arr(JsonObject parent, string name)
+    {
+        if (parent[name] is JsonArray a)
+            return a;
+        var created = new JsonArray();
+        parent[name] = created;
+        return created;
+    }
+
+    /// <summary>Карточки, способы оплаты и топ товаров отчёта + продажи касс.</summary>
+    private static JsonElement MergeReport(JsonElement? baseReport, List<LanPeerSale> sales)
+    {
+        var root = baseReport is { ValueKind: JsonValueKind.Object } b
+            ? JsonNode.Parse(b.GetRawText())!.AsObject()
+            : new JsonObject();
+
+        var cards = Obj(root, "cards");
+        var revenue = NodeNum(cards["revenue"]) + sales.Sum(s => s.Sale.Total);
+        var checks = NodeNum(cards["transactions"]) + sales.Count;
+        cards["revenue"] = revenue;
+        cards["transactions"] = checks;
+        cards["avg_check"] = checks > 0 ? revenue / checks : 0;
+
+        var methods = Arr(Obj(root, "charts"), "payment_methods");
+        foreach (var group in sales.GroupBy(s => string.IsNullOrWhiteSpace(s.Sale.PaymentMethod) ? "cash" : s.Sale.PaymentMethod))
+        {
+            var row = methods.OfType<JsonObject>().FirstOrDefault(m =>
+                string.Equals(m["method"]?.ToString(), group.Key, StringComparison.OrdinalIgnoreCase));
+            if (row == null)
+            {
+                row = new JsonObject { ["method"] = group.Key, ["count"] = 0.0, ["total"] = 0.0 };
+                methods.Add(row);
+            }
+            row["count"] = NodeNum(row["count"]) + group.Count();
+            row["total"] = NodeNum(row["total"]) + group.Sum(s => s.Sale.Total);
+        }
+
+        var top = Arr(Obj(root, "tables"), "top_products");
+        foreach (var group in sales.SelectMany(s => s.Sale.Items).Where(i => !string.IsNullOrWhiteSpace(i.Name)).GroupBy(i => i.Name))
+        {
+            var row = top.OfType<JsonObject>().FirstOrDefault(p => string.Equals(p["name"]?.ToString(), group.Key, StringComparison.Ordinal));
+            if (row == null)
+            {
+                row = new JsonObject { ["name"] = group.Key, ["sold"] = 0.0, ["revenue"] = 0.0 };
+                top.Add(row);
+            }
+            row["sold"] = NodeNum(row["sold"]) + group.Sum(i => i.Qty);
+            row["revenue"] = NodeNum(row["revenue"]) + group.Sum(i => i.LineTotal);
+        }
+
+        return JsonSerializer.SerializeToElement(root);
+    }
+
+    /// <summary>Выручка по дням для графика + продажи касс.</summary>
+    private static JsonElement MergeDynamics(JsonElement? baseReport, List<LanPeerSale> sales)
+    {
+        var root = baseReport is { ValueKind: JsonValueKind.Object } b
+            ? JsonNode.Parse(b.GetRawText())!.AsObject()
+            : new JsonObject();
+        var points = Arr(Obj(root, "charts"), "sales_dynamics");
+        foreach (var group in sales.GroupBy(s => s.Sale.CreatedAtUtc.ToLocalTime().Date))
+        {
+            var date = group.Key.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var point = points.OfType<JsonObject>().FirstOrDefault(p => p["date"]?.ToString() == date);
+            if (point == null)
+            {
+                point = new JsonObject { ["date"] = date, ["value"] = 0.0 };
+                points.Add(point);
+            }
+            point["value"] = NodeNum(point["value"]) + group.Sum(s => s.Sale.Total);
+        }
+
+        return JsonSerializer.SerializeToElement(root);
+    }
+
+    /// <summary>Строка «последних продаж» в том же виде, что приходит с сервера.</summary>
+    private static JsonElement LanSaleRow(LanPeerSale s)
+    {
+        var place = s.Sale.CashboxName is { Length: > 0 } name ? name : s.DeviceName;
+        if (!s.IsOnServer)
+            place += " · " + Tr.T("ещё не на сервере", "серверге али жете элек", "not on the server yet", "henüz sunucuda değil", "hali serverda emas");
+        var row = new JsonObject
+        {
+            ["status"] = "paid",
+            ["payment_method"] = s.Sale.PaymentMethod,
+            ["total"] = s.Sale.Total,
+            ["created_at"] = s.Sale.CreatedAtUtc.ToString("o", CultureInfo.InvariantCulture),
+            ["first_item_name"] = s.Sale.Items.FirstOrDefault()?.Name ?? "",
+            ["user_display"] = s.Sale.CashierName ?? "",
+            ["cashbox_name"] = place,
+        };
+        return JsonSerializer.SerializeToElement(row);
     }
 
     private void ApplyCards(JsonElement report)
@@ -1262,9 +1550,192 @@ public partial class OwnerShellWindow : Window, IMainShell
             b.Classes.Set("active", ReferenceEquals(b, sender));
         ApplyTexts();
         _ = RefreshAsync();
+        _ = RefreshAbcAsync();
     }
 
-    private void Refresh_Click(object? sender, RoutedEventArgs e) => _ = RefreshAsync();
+    private void Refresh_Click(object? sender, RoutedEventArgs e)
+    {
+        _ = RefreshAsync();
+        _ = RefreshAbcAsync();
+    }
+
+    private void AbcOpen_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewSales))
+            OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>());
+    }
+
+    /// <summary>Маркетплейс сразу на вкладке «Доп. функции» — для раздела, который предлагает
+    /// подключить платную функцию (вкладка «Склад» в «Аналитике»). Права — как у пункта меню.</summary>
+    public void OpenMarketplaceExtras()
+    {
+        if (!Authorize(PosPermissions.ViewSettings))
+            return;
+        OpenSection("marketplace", () => new MarketplaceWindow().AsSection());
+        (_sections.FirstOrDefault(s => s.Key == "marketplace")?.Window as MarketplaceWindow)?.ShowExtrasTab();
+    }
+
+    /// <summary>Раздел «Аналитика» на вкладке «Склад» — кнопка «Открыть аналитику склада» в
+    /// Маркетплейсе. false — раздела нет (тариф «Старт»): тогда аналитика склада открывается
+    /// по-старому, вкладкой склада.</summary>
+    public bool OpenAnalyticsStock()
+    {
+        if (TariffGate.IsStartTariff)
+            return false;
+        if (Authorize(PosPermissions.ViewSales))
+        {
+            OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection());
+            (_sections.FirstOrDefault(s => s.Key == "analytics")?.Window as FinanceWindow)?.ShowStockTab();
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------------ ABC в сводке
+
+    // 2026-09-27, владелец: «ABC анализ должен быть в сводке и он должен быть по всем». Все шесть
+    // срезов за период сводки. Считается локально (AnalyticsReportData) в фоне и только когда это
+    // нужно: при открытии, смене периода, «Обновить», смене языка и после новых продаж (с
+    // задержкой, пачкой). Двадцатисекундное обновление сводки его не трогает: оно ходит за цифрами
+    // сервера, а локальные строки продаж меняются только вместе с сигналом SalesChanged.
+
+    private readonly DispatcherTimer _abcDebounce;
+    private AbcSectionView? _abcView;
+    private CancellationTokenSource? _abcCts;
+    private DateTime _abcFrom = DateTime.Today;
+    private DateTime _abcTo = DateTime.Today;
+
+    /// <summary>Продажи изменились, пока сводка была скрыта разделом, — пересчитать при возврате.</summary>
+    private bool _abcStale;
+
+    /// <summary>Как у раздела «ABC-анализ»: не на «Старте» и с правом смотреть продажи.</summary>
+    private static bool AbcAllowed
+    {
+        get
+        {
+            if (TariffGate.IsStartTariff)
+                return false;
+            try
+            {
+                return App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewSales);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>Сигнал приходит из фонового потока и за один чек — несколько раз: собираем пачку
+    /// таймером в UI-потоке.</summary>
+    private void OnSalesChangedForAbc() => Dispatcher.UIThread.Post(() =>
+    {
+        _abcDebounce.Stop();
+        _abcDebounce.Start();
+    });
+
+    private void RefreshAbcWhenVisible()
+    {
+        if (_activeSection != null)
+        {
+            _abcStale = true;
+            return;
+        }
+
+        _ = RefreshAbcAsync();
+    }
+
+    private void DropAbcView()
+    {
+        _abcCts?.Cancel();
+        if (_abcView != null)
+        {
+            _abcView.ProductAnalyticsRequested -= ShowAbcProductAnalytics;
+            AbcHost.Children.Remove(_abcView);
+            _abcView = null;
+        }
+    }
+
+    private async Task RefreshAbcAsync()
+    {
+        var allowed = AbcAllowed;
+        AbcCard.IsVisible = allowed;
+        if (!allowed || _loggingOut || _cts.IsCancellationRequested)
+            return;
+
+        _abcStale = false;
+        _abcCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _abcCts = cts;
+        var (from, to) = CurrentRange();
+        AbcLoadingText.IsVisible = _abcView == null;
+        try
+        {
+            var data = await Task.Run(() => AnalyticsReportData.Build(from, to, includeSeasonality: false), cts.Token)
+                .ConfigureAwait(true);
+            if (cts.IsCancellationRequested)
+                return;
+
+            ShowAbc(data, from, to);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: ABC-анализ сводки не построен: {ex.Message}", "WARNING");
+            AbcLoadingText.Text = Tr.T("Не удалось построить ABC-анализ", "ABC-анализди түзүү мүмкүн болгон жок", "Could not build the ABC analysis", "ABC analizi oluşturulamadı", "ABC tahlilini tuzib bo'lmadi");
+            AbcLoadingText.IsVisible = _abcView == null;
+        }
+        finally
+        {
+            if (ReferenceEquals(_abcCts, cts))
+                _abcCts = null;
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>Показывает готовый отчёт; сам блок собирается при первом показе (и заново после
+    /// смены языка — см. DropAbcView).</summary>
+    private void ShowAbc(AnalyticsReportData data, DateTime from, DateTime to)
+    {
+        if (_abcView == null)
+        {
+            _abcView = new AbcSectionView
+            {
+                SliceKeys = AbcSectionView.AllSliceKeys,
+                ShowSeasonality = false,
+                TableMaxHeight = 360,
+            };
+            _abcView.ProductAnalyticsRequested += ShowAbcProductAnalytics;
+            AbcHost.Children.Add(_abcView);
+        }
+
+        _abcFrom = from;
+        _abcTo = to;
+        _abcView.Update(data);
+        AbcLoadingText.IsVisible = false;
+    }
+
+    /// <summary>Блок ABC — высотой почти в видимую часть сводки: вкладки срезов и таблица целиком
+    /// на одном экране, а сама сводка прокручивается к нему как обычно.</summary>
+    private void FitAbcHeight()
+    {
+        var viewport = OverviewScroll.Bounds.Height;
+        if (viewport > 0)
+            AbcHost.Height = Math.Max(520, viewport - 120);
+    }
+
+    private void ShowAbcProductAnalytics(string productName)
+    {
+        try
+        {
+            new ProductAnalyticsWindow(productName, _abcFrom, _abcTo).Show(this);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Разбор товара не открылся: {ex}", "WARNING");
+        }
+    }
 
     private void AllSales_Click(object? sender, RoutedEventArgs e)
     {

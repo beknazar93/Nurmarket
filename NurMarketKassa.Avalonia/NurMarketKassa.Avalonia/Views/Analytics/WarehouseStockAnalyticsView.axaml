@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Analytics.WarehouseStockAnalyticsView"
+             x:CompileBindings="False">
+
+    <!-- Аналитика склада (платная доп. функция, см. UserPreferences.WarehouseAnalyticsUnlocked).
+         2026-09-27 вынесена из вкладки «Аналитика» окна склада без изменений: в кассе она стоит
+         там же, где стояла, а в программе владельца — во вкладке «Склад» раздела «Аналитика».
+         Стили берутся от окна, в котором она стоит, — поэтому здесь своих нет. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+            <ItemsControl x:Name="AnalyticsKpiPanel">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{DynamicResource BrushPanelSoft}"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                CornerRadius="12" Padding="16,12" Margin="0,0,10,10"
+                                Width="200">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding Label}" FontSize="12"
+                                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Value}" FontSize="20" FontWeight="Bold"
+                                           Foreground="{DynamicResource BrushText}"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="{DynamicResource warehouse.analyticsTopValueTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1" CornerRadius="12" Padding="16">
+                    <StackPanel x:Name="AnalyticsTopValueChart" Spacing="10"/>
+                </Border>
+                <DataGrid x:Name="AnalyticsTopValueGrid"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          Background="{DynamicResource BrushPanel}"
+                          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                          CornerRadius="12" GridLinesVisibility="Horizontal"
+                          MaxHeight="320">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding Title}"/>
+                        <DataGridTextColumn Header="{DynamicResource csh.catalog.colStock}" Width="1*" Binding="{ReflectionBinding StockText}"/>
+                        <DataGridTextColumn Header="{DynamicResource common.amount}" Width="1*" Binding="{ReflectionBinding PriceText}"/>
+                        <DataGridTextColumn Header="{DynamicResource warehouse.analyticsValueColumn}" Width="1*" Binding="{ReflectionBinding ValueText}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="{DynamicResource warehouse.analyticsByCategoryTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1" CornerRadius="12" Padding="16">
+                    <StackPanel x:Name="AnalyticsCategoryPie" Spacing="10"/>
+                </Border>
+                <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1" CornerRadius="12" Padding="16">
+                    <StackPanel x:Name="AnalyticsCategoryChart" Spacing="10"/>
+                </Border>
+                <DataGrid x:Name="AnalyticsCategoryGrid"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          Background="{DynamicResource BrushPanel}"
+                          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                          CornerRadius="12" GridLinesVisibility="Horizontal"
+                          MaxHeight="320">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource product.categoryLabel}" Width="2*" Binding="{ReflectionBinding CategoryName}"/>
+                        <DataGridTextColumn Header="{DynamicResource warehouse.analyticsSkuColumn}" Width="1*" Binding="{ReflectionBinding SkuCountText}"/>
+                        <DataGridTextColumn Header="{DynamicResource csh.catalog.colStock}" Width="1*" Binding="{ReflectionBinding StockText}"/>
+                        <DataGridTextColumn Header="{DynamicResource warehouse.analyticsValueColumn}" Width="1*" Binding="{ReflectionBinding ValueText}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
