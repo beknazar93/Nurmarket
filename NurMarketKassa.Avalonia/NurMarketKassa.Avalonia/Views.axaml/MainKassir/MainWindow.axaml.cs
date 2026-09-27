@@ -1085,7 +1085,10 @@ public partial class MainWindow : Window
 
                 case VoiceIntent.RemoveLastItem:
                 {
-                    var lastLine = basket.Lines.LastOrDefault();
+                    // 2026-09-28: строки чека хранятся новыми сверху (как их показывает чек и
+                    // берёт Num −). LastOrDefault здесь убирал самую старую позицию вместо только
+                    // что добавленной.
+                    var lastLine = basket.Lines.FirstOrDefault();
                     if (lastLine is null)
                     {
                         VoicePromptPlayer.PlayCartEmpty();
@@ -1170,6 +1173,9 @@ public partial class MainWindow : Window
     /// (таймер перезапускается), оплату это не задерживает.</summary>
     private void OnCheckoutSucceeded(object? sender, EventArgs e)
     {
+        // Офлайн-чек мог встать в очередь — значок «В очереди» в шапке обновляем сразу.
+        _viewModel.Toolbar.Status.RefreshQueuedCount();
+
         if (_balanceRefreshTimer == null)
         {
             _balanceRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };

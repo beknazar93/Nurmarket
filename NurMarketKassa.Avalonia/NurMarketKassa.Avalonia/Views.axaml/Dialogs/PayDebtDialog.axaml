@@ -187,6 +187,13 @@
                            FontSize="13"
                            IsVisible="{Binding !!ErrorMessage}"
                            TextWrapping="Wrap"/>
+
+                <!-- 2026-09-28: после «Оплатить» строка просто исчезала — кассир не видел, прошла ли оплата. -->
+                <TextBlock Text="{Binding SuccessMessage}"
+                           Foreground="{DynamicResource BrushUiStatusOk}"
+                           FontSize="13" FontWeight="SemiBold"
+                           IsVisible="{Binding !!SuccessMessage}"
+                           TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 

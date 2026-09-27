@@ -117,6 +117,22 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     /// <summary>Сколько чеков ждут отправки на сервер (см. OfflinePendingSalesStore) —
     /// растёт при сбоях связи с сервером, чтобы кассир видел масштаб проблемы.</summary>
+    /// <summary>2026-09-28: без связи опрос в MonitorConnectivityAsync ждёт таймаута проверки
+    /// сети, и значок «В очереди: 1» в шапке отставал от строки «В очереди: 2» под чеком.
+    /// Касса зовёт это сразу после оплаты, не дожидаясь следующего опроса.</summary>
+    public void RefreshQueuedCount()
+    {
+        try
+        {
+            var queued = OfflinePendingSalesStore.PendingCount;
+            _dispatcher.Post(() => QueuedCount = queued);
+        }
+        catch
+        {
+            // Не критично: следующий опрос обновит счётчик.
+        }
+    }
+
     public int QueuedCount
     {
         get => _queuedCount;

@@ -16,10 +16,12 @@
          внутренняя версия exe отстаёт от версии пакета навсегда, и автообновление в самом
          приложении вечно видит "доступна новая версия", даже сразу после обновления (баг,
          живьём пойманный 2026 09 16: exe молча оставался на 1.16.20.0 ещё три релиза подряд,
-         1.16.21, 1.16.22, 1.16.23, потому что здесь никто не поднимал версию). -->
-    <Version>1.17.20</Version>
-    <AssemblyVersion>1.17.18</AssemblyVersion>
-    <FileVersion>1.17.18</FileVersion>
+         1.16.21, 1.16.22, 1.16.23, потому что здесь никто не поднимал версию).
+         2026-09-28: то же повторилось — 1.17.19 и 1.17.20 вышли с AssemblyVersion 1.17.18
+         (подняли только Version). Теперь обе берутся из Version: поднимать нужно одну строку. -->
+    <Version>1.17.21</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
     <!-- Меньше JIT-компиляции при старте — заметно на слабых CPU (моноблоки, старые ноутбуки). -->
     <PublishReadyToRun>true</PublishReadyToRun>
     <DefaultItemExcludes>$(DefaultItemExcludes);**\*.bak;**\*.wpfbak;**\*.shellbak;**\*.Thin.cs;**\*.Legacy.cs;**\_wpf_port_backup\**</DefaultItemExcludes>

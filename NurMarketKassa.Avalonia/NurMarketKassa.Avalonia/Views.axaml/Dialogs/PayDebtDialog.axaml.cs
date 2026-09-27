@@ -168,6 +168,15 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         private set { _errorMessage = value; OnPropertyChanged(); }
     }
 
+    private string _successMessage = "";
+
+    /// <summary>«Оплачено N сом» после успешной оплаты; сбрасывается при следующем действии.</summary>
+    public string SuccessMessage
+    {
+        get => _successMessage;
+        private set { _successMessage = value; OnPropertyChanged(); }
+    }
+
     public string PayButtonLabel => Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash");
 
     private void SelectClient(ClientOption? client)
@@ -215,6 +224,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     private async Task LoadDebtSalesAsync(string clientId)
     {
         ErrorMessage = "";
+        SuccessMessage = "";
         DebtSales.Clear();
         DebtHistory.Clear();
         OnPropertyChanged(nameof(TotalOwedText));
@@ -307,6 +317,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             return;
 
         ErrorMessage = "";
+        SuccessMessage = "";
 
         var raw = (row.AmountToPayText ?? "").Trim().Replace(',', '.');
         if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
@@ -441,6 +452,10 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             // и статус (может стать "paid") должны отражать серверную истину.
             if (_selectedClient != null)
                 await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
+
+            var paidText = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
+            SuccessMessage = Tr.T($"Оплачено {paidText} сом.", $"{paidText} сом төлөндү.", $"Paid {paidText} som.",
+                $"{paidText} som ödendi.", $"{paidText} so'm to'landi.");
         }
         catch (ApiException ex)
         {
