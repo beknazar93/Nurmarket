@@ -136,8 +136,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
         private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
-        private RadioButton StandardLayoutRadio => _screenView.StandardLayoutRadio;
-        private RadioButton OneCLayoutRadio => _screenView.OneCLayoutRadio;
 
         // --- Updates ---
         private TextBlock AppVersionText => _updatesView.AppVersionText;
@@ -267,9 +265,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
             ResetManualAddQtyCheck.IsChecked = prefs.ResetManualAddQtyAfterAdd;
 
-            var isOneCLayout = string.Equals(prefs.MainLayoutMode, "onec", StringComparison.OrdinalIgnoreCase);
-            StandardLayoutRadio.IsChecked = !isOneCLayout;
-            OneCLayoutRadio.IsChecked = isOneCLayout;
+            // Вид кассы (раскладка) выбирается карточками прямо в ScreenSettingsView
+            // (2026-09-28, шесть раскладок вместо двух радиокнопок) и применяется сразу.
 
             var ports = ScaleReaderService.GetAvailablePorts().ToList();
             if (!ports.Contains(prefs.ScaleComPort, StringComparer.OrdinalIgnoreCase))
@@ -402,8 +399,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DoubleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             SingleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             ResetManualAddQtyCheck.IsCheckedChanged += ClickToCartMode_Changed;
-            StandardLayoutRadio.IsCheckedChanged += MainLayoutMode_Changed;
-            OneCLayoutRadio.IsCheckedChanged += MainLayoutMode_Changed;
             _screenView.SaveRequested += ScreenSaveRequested;
             _screenView.UiScaleChanged += (_, _) => RefreshUiScale();
             VoiceControlOpenMarketplaceButton.Click += (_, _) => NavigateToMarketplaceExtras();
@@ -722,13 +717,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
         }
 
-        /// <summary>Живое применение сразу при выборе макета — тот же трёхшаговый идиом, что
-        /// уже используется для AccentTheme/UiScale (см. App.ApplyMainLayoutMode).</summary>
-        private void MainLayoutMode_Changed(object? sender, RoutedEventArgs e)
-        {
-            App.ApplyMainLayoutMode(OneCLayoutRadio.IsChecked == true ? "onec" : "standard");
-        }
-
         private async void CheckUpdate_Click(object? sender, RoutedEventArgs e)
         {
             if (sender is Button btn) btn.IsEnabled = false;
@@ -919,6 +907,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             try
             {
                 notes = await updateService.GetReleaseNotesAsync(version.Version).ConfigureAwait(true);
+                // Разметка описания на пяти языках → обычный текст на языке программы (2026-09-28).
+                notes = NurMarketKassa.Services.ReleaseNotesText.Plain(notes);
             }
             finally
             {

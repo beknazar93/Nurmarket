@@ -48,6 +48,15 @@
     <Style Selector="Button.SecondaryButton:pointerover">
       <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
     </Style>
+
+    <!-- Карточка выбора вида кассы (BuildLayoutPicker): своё наведение вместо серого Fluent. -->
+    <Style Selector="Button.LayoutCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Button.LayoutCard:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost" Padding="16">
@@ -68,6 +77,19 @@
               <TextBlock Text="{DynamicResource posSettings.screen.title}" Classes="SettingsPageTitle" FontSize="16" FontWeight="Bold" HorizontalAlignment="Left"/>
               <TextBlock Text="{DynamicResource posSettings.screen.subtitle}" Classes="SettingsPageSubtitle" FontSize="12" HorizontalAlignment="Left"/>
             </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Вид кассы (2026-09-28): шесть раскладок карточками с миниатюрами. Отдельной всегда
+             открытой карточкой, а не в свёрнутой группе, — это первое, что хотят поменять.
+             Карточки собираются в коде (BuildLayoutPicker): миниатюра рисуется цветами текущей
+             темы. Выбор применяется сразу, без перезапуска. -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
+                       FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
+            <WrapPanel x:Name="LayoutPickerPanel" Orientation="Horizontal" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
 
@@ -252,22 +274,8 @@
                         ValueChanged="TileSizeSlider_ValueChanged"/>
               </StackPanel>
 
-              <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
-
-              <!-- Макет главного экрана (2026-09-06) -->
-              <StackPanel Spacing="4">
-                <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="FieldLabel"/>
-                <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
-                <Grid ColumnDefinitions="*,8,*">
-                  <RadioButton Grid.Column="0" x:Name="StandardLayoutRadio" x:FieldModifier="public"
-                               Content="{DynamicResource posSettings.screen.layoutStandard}" Classes="ClickPill"
-                               GroupName="MainLayoutMode"/>
-                  <RadioButton Grid.Column="2" x:Name="OneCLayoutRadio" x:FieldModifier="public"
-                               Content="{DynamicResource posSettings.screen.layoutOneC}" Classes="ClickPill"
-                               GroupName="MainLayoutMode"/>
-                </Grid>
-              </StackPanel>
+              <!-- Макет главного экрана (2026-09-06) переехал отдельной карточкой «Вид кассы»
+                   наверх страницы (2026-09-28). -->
 
               <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
 

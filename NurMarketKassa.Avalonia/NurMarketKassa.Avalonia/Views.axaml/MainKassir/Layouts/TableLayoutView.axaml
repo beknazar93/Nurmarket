@@ -1,0 +1,423 @@
+<layouts:KassaLayoutBase xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:layouts="using:NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts"
+                         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+                         xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+                         xmlns:pos="using:NurMarketKassa.Models.Pos"
+                         x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.TableLayoutView"
+                         x:DataType="vm:MainWindowViewModel"
+                         x:CompileBindings="True"
+                         Background="{DynamicResource BrushWindow}">
+
+    <!-- Раскладка «Табличная» (2026-09-28). Образец — кассы розницы Казахстана и Кыргызстана
+         (uMAG и похожие): чек плотной таблицей слева (№ · товар · кол-во · цена · сумма) и крупный
+         итог под ней, сверху поле штрихкода и поиск, справа быстрые товары и крупные цветные
+         кнопки оплаты. Рассчитана на работу с клавиатуры: стрелки — по быстрым товарам, Num + —
+         добавить, Num − — убавить, Enter — оплата, Esc — назад к сканеру. -->
+
+    <layouts:KassaLayoutBase.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/MainKassir/Layouts/LayoutStyles.axaml"/>
+
+        <Style Selector="Border.tb-row">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.tb-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushSurfaceSubtle}"/>
+        </Style>
+        <Style Selector="Border.tb-head">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        <!-- Быстрый товар: компактная кнопка — название в две строки и цена. -->
+        <Style Selector="Border.tb-quick">
+            <Setter Property="Background" Value="{DynamicResource BrushCatalogTileBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushCatalogTileBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Height" Value="72"/>
+        </Style>
+        <Style Selector="Button.receipt-tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.receipt-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.receipt-tab.active">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="Button.receipt-tab.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <!-- Выбранная вкладка «выключена» (её команда не выполняется для уже открытого чека) —
+             без этого правила Fluent красил бы её серым, как недоступную. -->
+        <Style Selector="Button.receipt-tab.active:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+    </layouts:KassaLayoutBase.Styles>
+
+    <Grid RowDefinitions="Auto,*" Margin="16,12,16,16">
+
+        <!-- ======================= строка ввода: штрихкод и поиск ======================= -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,8,Auto,16,0.75*" Margin="0,0,0,12">
+            <Border Grid.Column="0" Classes="lx-field">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <PathIcon Data="{StaticResource IconBarcode}" Margin="0,0,10,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding Basket.BarcodeInput}"
+                             Watermark="{DynamicResource lx.scanWatermark}" FontSize="15">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding Basket.AddByBarcodeCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <Button Grid.Column="2" Classes="lx-ghost" MinHeight="32" Margin="8,0,-4,0"
+                            Content="{DynamicResource csh.cart.add}"
+                            Command="{Binding Basket.AddByBarcodeCommand}"/>
+                </Grid>
+            </Border>
+
+            <!-- Количество для следующего скана -->
+            <Border Grid.Column="2" Classes="lx-field" Padding="4,0">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Classes="lx-step" Command="{Binding Basket.DecreaseManualQuantityCommand}"
+                            ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
+                        <PathIcon Data="{StaticResource IconMinus}"/>
+                    </Button>
+                    <TextBlock Text="{Binding Basket.ManualQuantity}" MinWidth="36" FontSize="15" FontWeight="Bold"
+                               TextAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                    <Button Classes="lx-step" Command="{Binding Basket.IncreaseManualQuantityCommand}"
+                            ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
+                        <PathIcon Data="{StaticResource IconPlus}"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Classes="lx-field">
+                <Grid ColumnDefinitions="Auto,*">
+                    <PathIcon Data="{StaticResource IconSearch}" Margin="0,0,10,0"/>
+                    <TextBox x:Name="ProductSearchBox" Grid.Column="1" Text="{Binding Catalog.SearchText}"
+                             Watermark="{DynamicResource lx.searchWatermark}"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ======================= чек | быстрые товары и оплата ======================= -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="480"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="0.62*" MinWidth="300" MaxWidth="500"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ····· чек таблицей ····· -->
+            <Border Grid.Column="0" Classes="lx-card" ClipToBounds="True">
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+                    <!-- Вкладки чеков -->
+                    <Border Grid.Row="0" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="8,4,8,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Basket.ReceiptTabs}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="2"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ReceiptTabVm">
+                                            <Button Classes="receipt-tab" Classes.active="{Binding IsActive}"
+                                                    Command="{Binding SelectCommand}" CommandParameter="{Binding}">
+                                                <TextBlock Text="{Binding Title}" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <Button Grid.Column="1" Classes="lx-ghost" MinHeight="30" Margin="8,0,0,4"
+                                    Command="{Binding Basket.NewReceiptCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12"/>
+                                    <TextBlock Text="{DynamicResource onecLayout.newReceiptButton}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Шапка таблицы (ширины = колонкам строки ниже) -->
+                    <Border Grid.Row="1" Classes="tb-head">
+                        <Grid ColumnDefinitions="36,*,120,88,104,108">
+                            <TextBlock Grid.Column="0" Classes="lx-colhead" Text="{DynamicResource lx.colNo}"/>
+                            <TextBlock Grid.Column="1" Classes="lx-colhead" Text="{DynamicResource onecLayout.colName}"/>
+                            <TextBlock Grid.Column="2" Classes="lx-colhead" Text="{DynamicResource onecLayout.colQuantity}" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Classes="lx-colhead" Text="{DynamicResource onecLayout.colPrice}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="4" Classes="lx-colhead" Text="{DynamicResource onecLayout.colSum}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Строки чека -->
+                    <Panel Grid.Row="2">
+                        <StackPanel IsVisible="{Binding Basket.IsEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Spacing="8" Margin="24">
+                            <PathIcon Data="{StaticResource IconReceipt}" Width="44" Height="44" HorizontalAlignment="Center"
+                                      Foreground="{DynamicResource BrushTextSoft}" Opacity="0.7"/>
+                            <TextBlock Text="{DynamicResource lx.emptySale}" FontSize="16" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource lx.emptySaleHint}" FontSize="13" TextWrapping="Wrap" MaxWidth="360"
+                                       TextAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+                        <ScrollViewer Classes="lx-scroll" IsVisible="{Binding Basket.HasItems}">
+                            <ItemsControl ItemsSource="{Binding Basket.Lines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:CartLineItemVm">
+                                        <Border Classes="tb-row">
+                                            <Grid ColumnDefinitions="36,*,120,88,104,108" MinHeight="36">
+                                                <TextBlock Grid.Column="0" Text="{Binding ItemNumber}" Classes="lx-muted" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding Code}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+                                                                   IsVisible="{Binding Code, Converter={x:Static conv:NotEmptyConverter.Instance}}"/>
+                                                        <Border Classes="lx-badge-danger" IsVisible="{Binding HasDiscount}">
+                                                            <TextBlock Text="{Binding DiscountDisplayText}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Button Classes="lx-step" Width="28" Height="28"
+                                                            Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
+                                                        <PathIcon Data="{StaticResource IconMinus}"/>
+                                                    </Button>
+                                                    <TextBlock Text="{Binding QuantityDisplay}" MinWidth="48" TextAlignment="Center"
+                                                               FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource BrushText}"/>
+                                                    <Button Classes="lx-step" Width="28" Height="28" IsEnabled="{Binding CanIncrease}"
+                                                            Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
+                                                        <PathIcon Data="{StaticResource IconPlus}"/>
+                                                    </Button>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="3" Classes="lx-money" FontWeight="Normal" FontSize="14"
+                                                           Text="{Binding UnitPrice, Converter={x:Static conv:MoneyConverter.Instance}}"/>
+                                                <TextBlock Grid.Column="4" Classes="lx-money" FontSize="15" FontWeight="Bold"
+                                                           Text="{Binding LineTotal, Converter={x:Static conv:MoneyConverter.Instance}}"/>
+                                                <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2">
+                                                    <Button Classes="lx-ghost" Width="34" Height="34" MinHeight="0" Padding="0"
+                                                            IsVisible="{Binding IsWeight}"
+                                                            Command="{Binding WeighCommand}" CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}">
+                                                        <PathIcon Data="{StaticResource IconScale}" Width="15" Height="15"/>
+                                                    </Button>
+                                                    <Button Classes="lx-ghost" Width="34" Height="34" MinHeight="0" Padding="0"
+                                                            Command="{Binding DiscountCommand}" CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}">
+                                                        <PathIcon Data="{StaticResource IconPercent}" Width="14" Height="14"/>
+                                                    </Button>
+                                                    <Button Classes="lx-ghost" Width="34" Height="34" MinHeight="0" Padding="0"
+                                                            Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}">
+                                                        <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15"
+                                                                  Foreground="{DynamicResource BrushDanger}"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Panel>
+
+                    <!-- Сообщение корзины -->
+                    <TextBlock Grid.Row="3" Text="{Binding Basket.CartMessage}" IsVisible="{Binding Basket.HasCartMessage}"
+                               FontSize="12" TextWrapping="Wrap" Margin="12,8,12,0"
+                               Foreground="{DynamicResource BrushUiStatusOk}"/>
+
+                    <!-- Итог -->
+                    <Border Grid.Row="4" Background="{DynamicResource BrushSurfaceSubtle}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="16,12" Margin="0,8,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel VerticalAlignment="Center" Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                    <TextBlock Classes="lx-muted">
+                                        <Run Text="{DynamicResource lx.positions}"/><Run Text=": "/><Run Text="{Binding Basket.LineCount}" FontWeight="SemiBold"/>
+                                    </TextBlock>
+                                    <TextBlock Classes="lx-muted">
+                                        <Run Text="{DynamicResource onecLayout.discountLabel}"/><Run Text=": "/><Run Text="{Binding Basket.DiscountDisplay}" FontWeight="SemiBold"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <TextBlock Classes="lx-muted" FontSize="11" Text="{DynamicResource lx.keysHint}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="0">
+                                <TextBlock Text="{DynamicResource onecLayout.totalLabel}" Classes="lx-caption" HorizontalAlignment="Right"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                    <TextBlock Classes="num" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}"
+                                               FontSize="40" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}"/>
+                                    <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="16" FontWeight="SemiBold"
+                                               VerticalAlignment="Bottom" Margin="0,0,0,8" Foreground="{DynamicResource BrushTextSoft}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ····· быстрые товары и кнопки ····· -->
+            <Grid Grid.Column="2" RowDefinitions="*,Auto">
+                <Border Classes="lx-card" Padding="12" ClipToBounds="True">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Classes="lx-title" FontSize="14" Text="{DynamicResource csh.cart.quickProducts}" Margin="2,0,0,8"/>
+
+                        <!-- Вкладки каталога -->
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,10">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button Classes="lx-chip" Height="30" Tag="0" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabAll}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=0}"/>
+                                <Button Classes="lx-chip" Height="30" Tag="1" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabWeighted}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=1}"/>
+                                <Button Classes="lx-chip" Height="30" Tag="2" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPiece}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=2}"/>
+                                <Button Classes="lx-chip" Height="30" Tag="3" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPieceOption}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=3}"/>
+                                <Button Classes="lx-chip" Height="30" Tag="4" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabBundle}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=4}"/>
+                                <Button Classes="lx-chip" Height="30" Tag="5" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabServices}"
+                                        Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=5}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <ScrollViewer Grid.Row="2" Classes="lx-scroll">
+                            <ListBox x:Name="QuickProductsList" Classes="lx-tiles"
+                                     ItemsSource="{Binding Catalog.Products}"
+                                     SelectedItem="{Binding Catalog.SelectedProduct}" SelectionMode="Single">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="3"/>
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="pos:CatalogProductTileVm">
+                                        <Button Classes="lx-tile" Margin="3"
+                                                Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).Catalog.SelectProductCommand}"
+                                                CommandParameter="{Binding}" ToolTip.Tip="{Binding Title}">
+                                            <Border Classes="tb-quick lx-tile-face">
+                                                <Grid RowDefinitions="*,Auto">
+                                                    <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                               MaxLines="2" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
+                                                    <TextBlock Grid.Row="1" Classes="lx-price" FontSize="14"
+                                                               Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"/>
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </ScrollViewer>
+
+                        <!-- Листание -->
+                        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+                            <Button Classes="lx-ghost" Width="36" Padding="0" Command="{Binding Catalog.PreviousPageCommand}">
+                                <PathIcon Data="{StaticResource IconChevronLeft}" Width="16" Height="16"/>
+                            </Button>
+                            <TextBlock Grid.Column="1" Text="{Binding Catalog.PageStatusText}" Classes="lx-muted"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" Command="{Binding Catalog.NextPageCommand}">
+                                <PathIcon Data="{StaticResource IconChevronRight}" Width="16" Height="16"/>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Кнопки действий -->
+                <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto,8,Auto,12,Auto">
+                    <Button Grid.Row="0" Grid.Column="0" Classes="lx-soft-success" HorizontalAlignment="Stretch"
+                            IsEnabled="{Binding Basket.HasItems}" Click="PayCash_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconCash}" Width="18" Height="18"/>
+                            <TextBlock Text="{DynamicResource common.cash}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="0" Grid.Column="2" Classes="lx-soft-accent" HorizontalAlignment="Stretch"
+                            IsEnabled="{Binding Basket.HasItems}" Click="PayCashless_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconCard}" Width="18" Height="18"/>
+                            <TextBlock Text="{DynamicResource common.cashless}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="2" Grid.Column="0" Classes="lx-soft-warning" HorizontalAlignment="Stretch"
+                            Command="{Binding Basket.ApplyOrderDiscountCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconTag}" Width="16" Height="16"/>
+                            <TextBlock Text="{DynamicResource onecLayout.discountButton}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="2" Grid.Column="2" Classes="lx-btn" MinHeight="48" HorizontalAlignment="Stretch"
+                            Command="{Binding Basket.DeferCartCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconPauseCircle}" Width="16" Height="16"/>
+                            <TextBlock Text="{DynamicResource onecLayout.holdButton}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="4" Grid.Column="0" Classes="lx-btn" MinHeight="44" HorizontalAlignment="Stretch"
+                            Command="{Binding Basket.AddCustomItemCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconPlusCircle}" Width="16" Height="16"/>
+                            <TextBlock Text="{DynamicResource csh.cart.customService}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Row="4" Grid.Column="2" Classes="lx-btn" MinHeight="44" HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Data="{StaticResource IconMore}" Width="16" Height="16"/>
+                            <TextBlock Text="{DynamicResource csh.cart.more}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="TopEdgeAlignedRight">
+                                <MenuItem Header="{DynamicResource csh.cart.restore}" Command="{Binding Basket.RestoreLastHeldReceiptCommand}"/>
+                                <MenuItem Header="{DynamicResource csh.cart.deferredList}" Command="{Binding Basket.OpenDeferredCartsCommand}"/>
+                                <MenuItem Header="{DynamicResource csh.cart.payDebt}" Command="{Binding Basket.OpenPayDebtCommand}"/>
+                                <MenuItem Header="{DynamicResource csh.cart.printLastReceipt}" Click="PrintLastReceipt_Click"/>
+                                <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
+                                <Separator/>
+                                <MenuItem Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
+                                <MenuItem Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <!-- Главная кнопка: «Оплатить» и сумма, Enter -->
+                    <Button Grid.Row="6" Grid.ColumnSpan="3" Classes="lx-success" MinHeight="60" HorizontalAlignment="Stretch"
+                            Command="{Binding Basket.PayCommand}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" MinWidth="240">
+                            <PathIcon Data="{StaticResource IconCashMultiple}" Width="22" Height="22" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Basket.PayButtonText}" FontSize="18" Margin="10,0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Classes="num" Grid.Column="2" Text="{Binding Basket.Total, Converter={x:Static conv:MoneyConverter.Instance}}"
+                                       FontSize="18" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</layouts:KassaLayoutBase>

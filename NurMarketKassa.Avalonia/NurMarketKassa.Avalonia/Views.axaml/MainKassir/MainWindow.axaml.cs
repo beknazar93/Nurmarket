@@ -16,6 +16,7 @@ using NurMarketKassa.AvaloniaHost.Converters;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
+using NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
@@ -791,22 +792,20 @@ public partial class MainWindow : Window
             return;
 
         var focused = FocusManager?.GetFocusedElement() as Control;
-        if (focused is TextBox || IsWithinCatalogPanel(focused))
+        if (focused is TextBox || ActiveCatalogSurface?.ContainsFocus(focused) == true)
             return;
 
-        if (CatalogPanel.TryEnterCatalogNavigation())
+        if (ActiveCatalogSurface?.TryEnterCatalogNavigation() == true)
             e.Handled = true;
     }
 
-    private bool IsWithinCatalogPanel(Control? control)
-    {
-        for (var c = control; c is not null; c = c.Parent as Control)
-        {
-            if (ReferenceEquals(c, CatalogPanel))
-                return true;
-        }
-        return false;
-    }
+    /// <summary>Каталог, которым сейчас управляет клавиатура (2026-09-28, раскладки кассы):
+    /// в «Классике» — CatalogPanel, как было; в «Табличной», «Карточках», «Минимале», «Профи» —
+    /// сама раскладка; в «1С» плиток нет — null, и клавиши ведут себя как раньше при скрытом каталоге.</summary>
+    private ICatalogKeyboardSurface? ActiveCatalogSurface =>
+        MainContentGrid.IsVisible ? CatalogPanel
+        : AltLayoutHost.IsVisible ? _altLayout as ICatalogKeyboardSurface
+        : null;
 
     /// <summary>F1-F12 без модификаторов — группы быстрых товаров (как в веб-версии NurCRM),
     /// не конфликтуют с действиями кассы: те переведены на Ctrl+... в PosHotkeyService.</summary>
@@ -858,7 +857,7 @@ public partial class MainWindow : Window
                 ExecuteCommand(_viewModel.Basket.ApplyOrderDiscountCommand);
                 break;
             case PosHotkeyAction.FocusProductSearch:
-                CatalogPanel.FocusProductSearch();
+                ActiveCatalogSurface?.FocusProductSearch();
                 break;
             case PosHotkeyAction.Pay:
                 ExecuteCommand(_viewModel.Basket.PayCommand);
@@ -876,7 +875,7 @@ public partial class MainWindow : Window
     /// рамки нет — ещё одна единица последней строки чека (строки идут новыми сверху).</summary>
     private void AddFromCatalogOrIncrease()
     {
-        if (CatalogPanel.TryAddHighlightedProduct())
+        if (ActiveCatalogSurface?.TryAddHighlightedProduct() == true)
             return;
 
         var basket = _viewModel.Basket;
@@ -902,7 +901,7 @@ public partial class MainWindow : Window
     private void DecreaseOrRemoveLine()
     {
         var basket = _viewModel.Basket;
-        var product = CatalogPanel.HighlightedProduct;
+        var product = ActiveCatalogSurface?.HighlightedProduct;
         var line = product is null
             ? basket.Lines.FirstOrDefault()
             : basket.Lines.FirstOrDefault(l => string.Equals(l.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
@@ -1610,10 +1609,44 @@ public partial class MainWindow : Window
     /// ScreenSettingsView сразу при выборе макета — см. App.ApplyMainLayoutMode.</summary>
     internal void RefreshLayoutMode()
     {
-        var isOneC = string.Equals(UserPreferences.Instance.MainLayoutMode, "onec", StringComparison.OrdinalIgnoreCase);
-        MainContentGrid.IsVisible = !isOneC;
+        // 2026-09-28: раскладок стало шесть (см. KassaLayouts). «Классика» и «1С» объявлены в
+        // разметке окна, остальные создаются здесь при выборе и живут, пока выбраны.
+        var mode = KassaLayouts.Normalize(UserPreferences.Instance.MainLayoutMode);
+        var isOneC = mode == KassaLayouts.OneC;
+        var isAlternative = KassaLayouts.IsAlternative(mode);
+
+        if (!isAlternative)
+        {
+            _altLayout = null;
+            _altLayoutId = "";
+        }
+        else if (_altLayout is null || _altLayoutId != mode)
+        {
+            _altLayout = KassaLayouts.CreateView(mode);
+            _altLayoutId = mode;
+            if (_altLayout is not null)
+                _altLayout.DataContext = _viewModel;
+        }
+
+        if (!ReferenceEquals(AltLayoutHost.Content, _altLayout))
+            AltLayoutHost.Content = _altLayout;
+
+        MainContentGrid.IsVisible = !isOneC && !isAlternative;
         OneCLayout.IsVisible = isOneC;
+        AltLayoutHost.IsVisible = isAlternative && _altLayout is not null;
+
+        // Раскладку переключили на ходу — фокус мог остаться в спрятанной, возвращаем его сканеру.
+        // При первом показе окна (и повторном выборе той же раскладки) фокус не трогаем — как раньше.
+        // «1С» ставит фокус в своё поле сканера сама.
+        var switched = _shownLayoutMode is not null && _shownLayoutMode != mode;
+        _shownLayoutMode = mode;
+        if (switched && !isOneC)
+            Dispatcher.UIThread.Post(RestoreScannerFocus, DispatcherPriority.Background);
     }
+
+    private Control? _altLayout;
+    private string _altLayoutId = "";
+    private string? _shownLayoutMode;
 
     /// <summary>Масштаб интерфейса кассы (Настройки → Экран → "Масштаб", 50–200%, см.
     /// UserPreferences.UiScalePercent) — через LayoutTransformControl.LayoutTransform, а НЕ

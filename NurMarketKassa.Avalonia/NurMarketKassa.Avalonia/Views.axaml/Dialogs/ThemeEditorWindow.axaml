@@ -1,0 +1,323 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:pickers="using:NurMarketKassa.AvaloniaHost.Views.Controls"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ThemeEditorWindow"
+        x:CompileBindings="False"
+        Width="1060" Height="720"
+        MinWidth="860" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <!-- Редактор тем (2026-09-28). Своя тема = встроенная тема-основа + девять ключевых цветов
+         (для светлого и тёмного варианта отдельно), скругление и размер шрифта. Все правки сразу
+         видны во всей программе — касса за окном и предпросмотр справа перекрашиваются вживую.
+         Всё окно собрано из кистей темы (DynamicResource), поэтому оно само — часть предпросмотра. -->
+
+    <Window.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/MainKassir/Layouts/LayoutStyles.axaml"/>
+
+        <Style Selector="TextBlock.te-section">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector="Border.te-row">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.te-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushSurfaceSubtle}"/>
+        </Style>
+        <Style Selector="Border.te-row.selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="TextBox.te-hex">
+            <Setter Property="Width" Value="92"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TextBox.te-hex:focus">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="ListBox#ThemeList ListBoxItem">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style Selector="ListBox#ThemeList ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="ListBox#ThemeList ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushSurfaceSubtle}"/>
+        </Style>
+        <Style Selector="ListBox#ThemeList ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="Button.te-variant">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.te-variant:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.te-variant.active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.te-variant.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828">
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- ============ шапка ============ -->
+            <Border Grid.Row="0" Padding="24,18,16,14" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
+                    PointerPressed="Header_PointerPressed" Background="Transparent">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,14,0">
+                        <PathIcon Data="{StaticResource IconPalette}" Width="20" Height="20" Foreground="{DynamicResource BrushText}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="SubtitleText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" VerticalAlignment="Top" Click="Close_Click">
+                        <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ============ содержимое ============ -->
+            <Grid Grid.Row="1" Margin="24,16,24,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="360"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*" MinWidth="240"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Мои темы -->
+                <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
+                    <TextBlock x:Name="MyThemesLabel" Classes="te-section"/>
+                    <ListBox x:Name="ThemeList" Grid.Row="1" Background="Transparent" SelectionMode="Single"
+                             SelectionChanged="ThemeList_SelectionChanged"/>
+                    <StackPanel Grid.Row="2" Spacing="8" Margin="0,10,0,0">
+                        <TextBlock x:Name="NewFromLabel" Classes="te-section" Margin="0"/>
+                        <ComboBox x:Name="BaseCombo" HorizontalAlignment="Stretch"/>
+                        <Button x:Name="CreateButton" Classes="lx-accent" MinHeight="38" HorizontalAlignment="Stretch" Click="Create_Click"/>
+                        <Grid ColumnDefinitions="*,8,*">
+                            <Button x:Name="DuplicateButton" Classes="lx-btn" MinHeight="36" HorizontalAlignment="Stretch" Click="Duplicate_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconContentCopy}" Width="14" Height="14"/>
+                                    <TextBlock x:Name="DuplicateText" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ImportButton" Grid.Column="2" Classes="lx-btn" MinHeight="36" HorizontalAlignment="Stretch" Click="Import_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconImport}" Width="14" Height="14"/>
+                                    <TextBlock x:Name="ImportText" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Выбранная тема -->
+                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="12" Margin="0,0,12,0">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="NameLabel" Classes="te-section" Margin="0"/>
+                            <TextBox x:Name="NameBox" Height="38" Padding="10,0" VerticalContentAlignment="Center" FontSize="14"
+                                     MaxLength="40" TextChanged="NameBox_TextChanged"/>
+                            <TextBlock x:Name="BaseInfoText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,8,*">
+                            <Button x:Name="LightVariantButton" Classes="te-variant" Click="LightVariant_Click"/>
+                            <Button x:Name="DarkVariantButton" Grid.Column="2" Classes="te-variant" Click="DarkVariant_Click"/>
+                        </Grid>
+
+                        <StackPanel>
+                            <TextBlock x:Name="ColorsLabel" Classes="te-section"/>
+                            <StackPanel x:Name="ColorRowsPanel" Spacing="2"/>
+                            <TextBlock x:Name="ContrastText" FontSize="12" TextWrapping="Wrap" Margin="8,6,0,0" IsVisible="False"
+                                       Foreground="{DynamicResource BrushWarning}"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock x:Name="RadiusLabel" Classes="te-section" Margin="0"/>
+                                <TextBlock x:Name="RadiusValueText" Grid.Column="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                            </Grid>
+                            <Slider x:Name="RadiusSlider" Minimum="0" Maximum="24" TickFrequency="2" IsSnapToTickEnabled="True"
+                                    ValueChanged="RadiusSlider_ValueChanged"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="2">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock x:Name="FontLabel" Classes="te-section" Margin="0"/>
+                                <TextBlock x:Name="FontValueText" Grid.Column="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                            </Grid>
+                            <Slider x:Name="FontSlider" Minimum="12" Maximum="18" TickFrequency="0.5" IsSnapToTickEnabled="True"
+                                    ValueChanged="FontSlider_ValueChanged"/>
+                        </StackPanel>
+
+                        <WrapPanel>
+                            <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Reset_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconUndo}" Width="14" Height="14"/>
+                                    <TextBlock x:Name="ResetText" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ExportButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Export_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconExport}" Width="14" Height="14"/>
+                                    <TextBlock x:Name="ExportText" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="DeleteButton" Classes="lx-btn" MinHeight="36" Margin="0,0,8,8" Click="Delete_Click"
+                                    Foreground="{DynamicResource BrushDanger}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14"/>
+                                    <TextBlock x:Name="DeleteText" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </WrapPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Предпросмотр и выбор цвета (прокрутка — для небольших экранов) -->
+                <ScrollViewer Grid.Column="4" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,0,10,0">
+                    <TextBlock x:Name="PreviewLabel" Classes="te-section"/>
+                    <!-- Кусок кассы кистями текущей темы: меняется вместе со всей программой. -->
+                    <Border Grid.Row="1" Background="{DynamicResource BrushWindow}" BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Background="{DynamicResource BrushWindowAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="0,0,0,1" Padding="12,8">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <PathIcon Data="{StaticResource IconMenu}" Width="14" Height="14" Foreground="{DynamicResource BrushText}"/>
+                                    <TextBlock Grid.Column="1" Text="Nur Market" Margin="8,0" FontWeight="SemiBold"
+                                               FontSize="{DynamicResource AppFontSize}" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="8" Height="8" Fill="{DynamicResource BrushUiStatusOk}" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="PreviewOnlineText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="10">
+                                <UniformGrid Columns="2" Margin="0,0,10,0">
+                                    <Border Background="{DynamicResource BrushCatalogTileBg}" BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                            BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" Padding="8" Margin="0,0,6,6">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock x:Name="PreviewProduct1" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="95.00" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                            <TextBlock Text="24 шт" FontSize="10" Foreground="{DynamicResource BrushCatalogStock}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="{DynamicResource BrushCatalogTileBg}" BorderBrush="{DynamicResource BrushCatalogTileBorder}"
+                                            BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" Padding="8" Margin="0,0,6,6">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock x:Name="PreviewProduct2" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="35.00" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushCatalogPrice}"/>
+                                            <TextBlock Text="30 шт" FontSize="10" Foreground="{DynamicResource BrushCatalogStockLow}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Background="{DynamicResource BrushInput}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource SettingsButtonRadius}" Padding="8,6" Margin="0,0,6,0">
+                                        <TextBlock x:Name="PreviewSearchText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </Border>
+                                    <Border Background="{DynamicResource BrushAccentSoft}" BorderBrush="{DynamicResource BrushAccentStrong}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource SettingsButtonRadius}" Padding="8,6" Margin="0,0,6,0">
+                                        <TextBlock x:Name="PreviewChipText" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                                    </Border>
+                                </UniformGrid>
+                                <Border Grid.Column="1" Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}"
+                                        BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" Padding="10">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock x:Name="PreviewLine1" FontSize="11" Foreground="{DynamicResource BrushText}"/>
+                                            <TextBlock Grid.Column="1" Text="190.00" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock x:Name="PreviewLine2" FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
+                                            <TextBlock Grid.Column="1" Text="35.00" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}"/>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Border Background="{DynamicResource BrushSuccessSoft}" CornerRadius="4" Padding="6,1">
+                                                <TextBlock x:Name="PreviewSuccessText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushSuccess}"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="4" Padding="6,1">
+                                                <TextBlock x:Name="PreviewWarningText" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushWarning}"/>
+                                            </Border>
+                                            <Border Background="{DynamicResource BrushDangerSoft}" CornerRadius="4" Padding="6,1">
+                                                <TextBlock Text="-10%" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <Border Height="1" Background="{DynamicResource BrushBorder}"/>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock x:Name="PreviewTotalLabel" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="225.00" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}"/>
+                                        </Grid>
+                                        <Border Background="{DynamicResource BrushAccent}" CornerRadius="{DynamicResource SettingsButtonRadius}" Padding="0,8">
+                                            <TextBlock x:Name="PreviewPayText" HorizontalAlignment="Center" FontSize="13" FontWeight="Bold"
+                                                       Foreground="{DynamicResource BrushAccentForeground}"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock x:Name="PickerLabel" Grid.Row="2" Classes="te-section" Margin="0,14,0,6"/>
+                    <pickers:PhotoshopColorPicker x:Name="ColorPicker" Grid.Row="3" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                </Grid>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ============ низ ============ -->
+            <Border Grid.Row="2" Padding="24,12" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,Auto,8,Auto,8,Auto">
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                    <Button x:Name="CloseButton" Grid.Column="1" Classes="lx-btn" MinWidth="110" Click="Close_Click"/>
+                    <Button x:Name="SaveButton" Grid.Column="3" Classes="lx-btn" MinWidth="120" Click="Save_Click"/>
+                    <Button x:Name="ApplyButton" Grid.Column="5" Classes="lx-accent" MinWidth="170" Click="Apply_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

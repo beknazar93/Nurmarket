@@ -73,6 +73,66 @@
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
 
+    <!-- 2026-09-28, редизайн: состояния наведения/нажатия/недоступности на части шаблона.
+         Правила выше меняют фон самой кнопки, но тема Fluent при наведении красит
+         ContentPresenter шаблона своим серым ButtonBackgroundPointerOver — поверх любого фона.
+         Из-за этого «Фильтр» и другие цветные кнопки при наведении становились серыми, а
+         недоступные — серой плашкой не в цвет темы. Здесь те же цвета задаются самой части
+         шаблона, поэтому наведение везде выглядит одинаково и в цветах темы. -->
+    <Style Selector="Button.main-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.main-ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+    <Style Selector="Button.main-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.main-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+    <Style Selector="Button.main-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.main-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.main-outline:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.main-outline:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+    <Style Selector="Button.main-secondary:disabled, Button.main-primary:disabled, Button.main-ghost:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    <Style Selector="Button.main-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="Button.main-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.main-ghost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <!-- Значки шапки кассы (редизайн 2026-09-28): векторные, одного размера. -->
+    <Style Selector="PathIcon.header-icon">
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+
     <!-- Shift buttons have an explicit disabled appearance independent of theme. -->
     <Style Selector="Button.shift-action:disabled">
         <Setter Property="Background" Value="#2B3240"/>

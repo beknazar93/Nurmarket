@@ -432,10 +432,16 @@ public static class AccentThemeService
         "BrushCatalogTabBg", "BrushCatalogTabBgHover", "BrushCatalogTabBgSelected", "BrushCatalogTabBorderSelected",
         "BrushFocus", "BrushMoney", "BrushSurfaceSubtle",
         "BrushHeader", "BrushHeaderText",
+        // Цвета состояний задаёт только своя тема (редактор тем, 2026-09-28); у встроенных они
+        // из Themes/AppThemeLight/AppThemeDark, поэтому снятие ключа их не трогает.
+        "BrushSuccess", "BrushSuccessSoft", "BrushWarning", "BrushWarningSoft", "BrushDanger", "BrushDangerSoft",
+        "BrushUiStatusOk", "BrushUiStatusWarn",
     ];
 
     /// <summary>Применяет тему поверх выбранного светлого/тёмного варианта.</summary>
     private static Skin? _lastSkin;
+
+    private static readonly FontFeatureCollection TabularNumbers = new() { new FontFeature { Tag = "tnum", Value = 1 } };
 
     /// <summary>Размер плиток каталога: размеры темы, умноженные на настройку «Размер карточек»
     /// (UserPreferences.CatalogTileScalePercent). Вызывается и из ползунка настроек — чтобы
@@ -459,6 +465,23 @@ public static class AccentThemeService
 
     public static void Apply(string? themeId, bool dark)
     {
+        // Своя тема (редактор тем, 2026-09-28) — встроенная база + свои цвета, скругление и шрифт.
+        if (CustomThemeStore.Find(themeId) is { } custom)
+        {
+            ApplyDefinition(custom, dark);
+            return;
+        }
+
+        ApplyCore(Resolve(themeId), dark, null);
+    }
+
+    /// <summary>Применяет свою тему (в том числе ещё не сохранённую — живой предпросмотр в
+    /// редакторе тем). Настройки не пишет.</summary>
+    public static void ApplyDefinition(CustomThemeDefinition definition, bool dark) =>
+        ApplyCore(BuildCustomSkin(definition), dark, definition.ColorsFor(dark));
+
+    private static void ApplyCore(Skin skin, bool dark, CustomThemeColors? custom)
+    {
         if (Application.Current is not { } app)
             return;
 
@@ -470,7 +493,6 @@ public static class AccentThemeService
             new List<WindowTransparencyLevel> { WindowTransparencyLevel.Transparent };
         app.Resources["DialogWindowBackground"] = Brushes.Transparent;
 
-        var skin = Resolve(themeId);
         var p = dark ? skin.Dark : skin.Light;
 
         foreach (var key in ThemeKeys)
@@ -529,18 +551,194 @@ public static class AccentThemeService
             ? new FontFamily($"{KyrgyzSafeFont}, Segoe UI")
             : new FontFamily(skin.FontFamily);
         app.Resources["AppFontSize"] = skin.FontSize;
+        // Цифры одинаковой ширины (OpenType tnum) для сумм и цен: столбцы чисел в чеке не «пляшут»
+        // (стиль TextBlock.num в App.axaml и суммы раскладок).
+        app.Resources["TabularNumbers"] = TabularNumbers;
+
+        if (custom is not null)
+            ApplyStatusColors(app, custom, p);
+    }
+
+    /// <summary>Успех / предупреждение / ошибка своей темы: основной цвет, мягкий фон (тот же цвет,
+    /// разбавленный цветом панели) и точки статуса в шапке.</summary>
+    private static void ApplyStatusColors(Application app, CustomThemeColors c, Palette p)
+    {
+        var dark = Luminance(ParseColor(p.Panel)) < 0.35;
+        void Set(string? hex, string key, string softKey, string? statusKey)
+        {
+            if (hex is null)
+                return;
+            app.Resources[key] = Brush(hex);
+            app.Resources[softKey] = Brush(Mix(hex, p.Panel, dark ? 0.78 : 0.86));
+            if (statusKey is not null)
+                app.Resources[statusKey] = Brush(hex);
+        }
+
+        Set(c.Success, "BrushSuccess", "BrushSuccessSoft", "BrushUiStatusOk");
+        Set(c.Warning, "BrushWarning", "BrushWarningSoft", "BrushUiStatusWarn");
+        Set(c.Danger, "BrushDanger", "BrushDangerSoft", null);
+    }
+
+    // ------------------------------------------------------------------ свои темы
+
+    /// <summary>Цвета состояний встроенных тем (Themes/AppThemeLight.axaml, AppThemeDark.axaml) —
+    /// от них отталкивается редактор, пока своя тема их не переопределила.</summary>
+    private static (string Success, string Warning, string Danger) BaseStatus(bool dark) =>
+        dark ? ("#34D399", "#D7BA7D", "#F14C4C") : ("#047857", "#B45309", "#B91C1C");
+
+    /// <summary>Встроенная тема + свои цвета → полная тема. Из девяти ключевых цветов выводятся
+    /// все остальные оттенки: рамки и мягкие фоны — смешением панели с текстом, «сильный» и
+    /// «мягкий» акцент — смешением акцента с чёрным/белым и панелью, цена на плитке — акцент,
+    /// доведённый до читаемого контраста. Так тема из девяти цветов не распадается на
+    /// разнобой, а каждый выведенный цвет остаётся в согласии с остальными.</summary>
+    private static Skin BuildCustomSkin(CustomThemeDefinition def)
+    {
+        var baseSkin = Resolve(def.BaseThemeId);
+        var radius = def.CornerRadius is { } r ? Math.Clamp(r, 0, 24) : (double?)null;
+        return baseSkin with
+        {
+            Light = BuildCustomPalette(baseSkin.Light, def.Light, dark: false),
+            Dark = BuildCustomPalette(baseSkin.Dark, def.Dark, dark: true),
+            ButtonRadius = radius ?? baseSkin.ButtonRadius,
+            CardRadius = radius is { } rr ? Math.Round(rr * 1.3) : baseSkin.CardRadius,
+            FontSize = def.FontSize is { } f ? Math.Clamp(f, 12, 18) : baseSkin.FontSize,
+        };
+    }
+
+    private static Palette BuildCustomPalette(Palette b, CustomThemeColors o, bool dark)
+    {
+        var window = o.Background ?? b.Window;
+        var panel = o.Panel ?? b.Panel;
+        var text = o.Text ?? b.Text;
+        var p = b with { Window = window };
+
+        if (o.Background is not null)
+            p = p with { SurfaceSubtle = Mix(panel, window, 0.5) };
+
+        if (o.Panel is not null)
+        {
+            p = p with
+            {
+                Panel = panel, WindowAlt = panel, PanelElevated = dark ? Mix(panel, "#FFFFFF", 0.04) : panel,
+                TileBg = panel, Input = panel, InputAlt = Mix(panel, window, 0.5),
+                PanelSoft = Mix(panel, text, 0.08), Border = Mix(panel, text, 0.18), BorderStrong = Mix(panel, text, 0.36),
+                TileBorder = Mix(panel, text, 0.12), TabBg = Mix(panel, text, 0.08), TabBgHover = Mix(panel, text, 0.14),
+                SurfaceSubtle = Mix(panel, window, 0.5),
+            };
+        }
+
+        if (o.Text is not null)
+            p = p with { Text = text, TextMuted = Mix(text, panel, 0.22), Money = text, Stock = Mix(text, panel, 0.3) };
+
+        if (o.TextSoft is not null)
+            p = p with { TextSoft = o.TextSoft, Meta = o.TextSoft };
+
+        if (o.Accent is not null)
+        {
+            var accent = o.Accent;
+            var strong = dark ? Mix(accent, "#FFFFFF", 0.14) : Mix(accent, "#000000", 0.16);
+            p = p with
+            {
+                Accent = accent, AccentStrong = strong, AccentSoft = Mix(accent, panel, dark ? 0.72 : 0.84),
+                TabBgSelected = accent, TabBorderSelected = strong, Focus = accent,
+                Price = Readable(accent, p.TileBg, text, 3.0),
+                AccentForeground = o.AccentText ?? BestTextOn(accent),
+            };
+        }
+
+        if (o.AccentText is not null)
+            p = p with { AccentForeground = o.AccentText };
+
+        return p;
+    }
+
+    /// <summary>Ключевые цвета, как они выглядят сейчас (свои поверх базовых) — для полей редактора.</summary>
+    public static CustomThemeColors GetEffectiveColors(CustomThemeDefinition def, bool dark)
+    {
+        var palette = dark ? BuildCustomSkin(def).Dark : BuildCustomSkin(def).Light;
+        var o = def.ColorsFor(dark);
+        var status = BaseStatus(dark);
+        return new CustomThemeColors
+        {
+            Accent = palette.Accent,
+            AccentText = palette.AccentForeground,
+            Background = palette.Window,
+            Panel = palette.Panel,
+            Text = palette.Text,
+            TextSoft = palette.TextSoft,
+            Success = o.Success ?? status.Success,
+            Warning = o.Warning ?? status.Warning,
+            Danger = o.Danger ?? status.Danger,
+        };
+    }
+
+    /// <summary>Ключевые цвета встроенной темы — «сбросить к базовой» и подсказки редактора.</summary>
+    public static CustomThemeColors GetBaseColors(string baseThemeId, bool dark) =>
+        GetEffectiveColors(new CustomThemeDefinition { BaseThemeId = baseThemeId }, dark);
+
+    public static double GetBaseCornerRadius(string baseThemeId) => Resolve(baseThemeId).ButtonRadius;
+
+    public static double GetBaseFontSize(string baseThemeId) => Resolve(baseThemeId).FontSize;
+
+    /// <summary>Контраст двух цветов по WCAG (1…21).</summary>
+    public static double Contrast(string hexA, string hexB)
+    {
+        var la = Luminance(ParseColor(hexA));
+        var lb = Luminance(ParseColor(hexB));
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
+    private static Color ParseColor(string hex) => Color.TryParse(hex, out var c) ? c : Colors.Magenta;
+
+    private static double Luminance(Color c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+    }
+
+    private static string Mix(string hexA, string hexB, double t)
+    {
+        var a = ParseColor(hexA);
+        var b = ParseColor(hexB);
+        byte M(byte x, byte y) => (byte)Math.Clamp(Math.Round(x + (y - x) * t), 0, 255);
+        return $"#{M(a.R, b.R):X2}{M(a.G, b.G):X2}{M(a.B, b.B):X2}";
+    }
+
+    private static string BestTextOn(string background) =>
+        Contrast(background, "#FFFFFF") >= Contrast(background, "#111111") ? "#FFFFFF" : "#111111";
+
+    /// <summary>Цвет, доведённый смешением с цветом текста до нужного контраста на фоне.</summary>
+    private static string Readable(string color, string background, string text, double minContrast)
+    {
+        for (var t = 0.0; t <= 1.0; t += 0.1)
+        {
+            var candidate = Mix(color, text, t);
+            if (Contrast(candidate, background) >= minContrast)
+                return candidate;
+        }
+        return text;
     }
 
     /// <summary>Цвет-образец для карточки темы в Маркетплейсе.</summary>
-    public static string? GetAccentHex(string themeId) =>
-        Skins.TryGetValue(themeId ?? string.Empty, out var skin) ? skin.Light.Accent : null;
+    public static string? GetAccentHex(string themeId)
+    {
+        if (CustomThemeStore.Find(themeId) is { } custom)
+            return BuildCustomSkin(custom).Light.Accent;
+        return Skins.TryGetValue(themeId ?? string.Empty, out var skin) ? skin.Light.Accent : null;
+    }
 
     /// <summary>Цвета для мини-предпросмотра в галерее тем. Граница плитки идёт отдельно:
     /// у «Контрастной» плитка белая на белом фоне, и без её собственной чёрной рамки
     /// предпросмотр выглядел бы пустым квадратом.</summary>
     public static (string Window, string Tile, string TileBorder, string Accent, string Text)? GetPreview(string themeId, bool dark)
     {
-        if (!Skins.TryGetValue(themeId ?? string.Empty, out var skin))
+        Skin? skin = CustomThemeStore.Find(themeId) is { } custom ? BuildCustomSkin(custom)
+            : Skins.TryGetValue(themeId ?? string.Empty, out var builtIn) ? builtIn : null;
+        if (skin is null)
             return null;
 
         var p = dark ? skin.Dark : skin.Light;
@@ -551,7 +749,9 @@ public static class AccentThemeService
     /// работающих касс остались снятые темы ("gold", "navy", "glass"…) — без приведения в
     /// галерее не подсвечивалась бы ни одна карточка.</summary>
     public static string Normalize(string? themeId) =>
-        !string.IsNullOrWhiteSpace(themeId) && Skins.ContainsKey(themeId) ? themeId : "classic";
+        !string.IsNullOrWhiteSpace(themeId) && (Skins.ContainsKey(themeId) || CustomThemeStore.Find(themeId) is not null)
+            ? themeId
+            : "classic";
 
     private static Skin Resolve(string? themeId) =>
         !string.IsNullOrWhiteSpace(themeId) && Skins.TryGetValue(themeId, out var skin)

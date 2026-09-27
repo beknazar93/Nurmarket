@@ -79,6 +79,57 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
+
+        <!-- Редизайн 2026-09-28. Наведение на плитку — рамка цвета темы вокруг самой карточки;
+             серую подложку Fluent (и фон main-ghost) под плиткой не показываем: у скруглённых тем
+             она торчала бы из углов карточки. -->
+        <Style Selector="ListBox.catalog-nav Button.main-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBox.catalog-nav Button.main-ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBox.catalog-nav Button.main-ghost:pointerover Border.tile-face">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="ListBox.catalog-nav Button.main-ghost:pressed Border.tile-face">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="Button.catalog-pager:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.catalog-pager:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Button.catalog-pager.current:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.catalog-pager.current:disabled">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <!-- Вкладки каталога: шрифт 15 вместо крупного 20 Fluent, выбранная — полоса цвета темы. -->
+        <Style Selector="TabControl.catalog-tabs TabItem">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:pointerover /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TabControl.catalog-tabs TabItem:selected /template/ Border#PART_SelectedPipe">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
     </UserControl.Styles>
 
     <Border Classes="main-panel"
@@ -88,6 +139,7 @@
         <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
               HorizontalAlignment="Stretch">
             <TabControl Grid.Row="0"
+                        Classes="catalog-tabs"
                         SelectedIndex="{Binding SelectedTabIndex}"
                         Margin="0,0,0,10">
                 <TabItem Header="{DynamicResource csh.catalog.tabAll}"/>
@@ -110,12 +162,11 @@
                         CornerRadius="12"
                         Padding="10,0">
                     <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
-                        <TextBlock Classes="mdl2"
-                                   Text="&#xE721;"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource BrushTextSoft}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"/>
+                        <PathIcon Data="{StaticResource IconSearch}"
+                                  Width="16" Height="16"
+                                  Foreground="{DynamicResource BrushTextSoft}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,8,0"/>
                         <TextBox x:Name="ProductSearchBox"
                                  Grid.Column="1"
                                  Text="{Binding SearchText}"
@@ -134,7 +185,7 @@
                         Padding="0"
                         Margin="8,0,0,0"
                         ToolTip.Tip="{DynamicResource csh.catalog.viewTooltip}">
-                    <TextBlock Classes="mdl2" Text="&#xE712;" FontSize="16"/>
+                    <PathIcon Data="{StaticResource IconViewGrid}" Width="16" Height="16"/>
                     <Button.Flyout>
                         <Flyout Placement="BottomEdgeAlignedLeft">
                             <Border Background="{DynamicResource BrushPanelElevated}"
@@ -150,22 +201,22 @@
                                             HorizontalContentAlignment="Left"
                                             Click="CardView_Click">
                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                            <TextBlock Classes="mdl2" Text="&#xE8A5;" FontSize="16" VerticalAlignment="Center"/>
+                                            <PathIcon Data="{StaticResource IconViewGrid}" Width="16" Height="16" VerticalAlignment="Center"/>
                                             <TextBlock Text="{DynamicResource csh.catalog.cardView}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="✓" FontWeight="Bold" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource BrushAccentStrong}"
-                                                       IsVisible="{Binding IsCardView}"/>
+                                            <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" VerticalAlignment="Center"
+                                                      Foreground="{DynamicResource BrushAccentStrong}"
+                                                      IsVisible="{Binding IsCardView}"/>
                                         </StackPanel>
                                     </Button>
                                     <Button Classes="main-ghost"
                                             HorizontalContentAlignment="Left"
                                             Click="TableView_Click">
                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                            <TextBlock Classes="mdl2" Text="&#xE8FD;" FontSize="16" VerticalAlignment="Center"/>
+                                            <PathIcon Data="{StaticResource IconViewList}" Width="16" Height="16" VerticalAlignment="Center"/>
                                             <TextBlock Text="{DynamicResource csh.catalog.tableView}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="✓" FontWeight="Bold" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource BrushAccentStrong}"
-                                                       IsVisible="{Binding IsTableView}"/>
+                                            <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14" VerticalAlignment="Center"
+                                                      Foreground="{DynamicResource BrushAccentStrong}"
+                                                      IsVisible="{Binding IsTableView}"/>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -179,7 +230,7 @@
                         ToolTip.Tip="{DynamicResource csh.catalog.filterTooltip}"
                         Click="OpenFilter_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Classes="mdl2" Text="&#xE71C;" FontSize="15"/>
+                        <PathIcon Data="{StaticResource IconFilter}" Width="15" Height="15"/>
                         <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -190,7 +241,7 @@
                         Margin="8,0,0,0"
                         ToolTip.Tip="{DynamicResource csh.catalog.refreshTooltip}"
                         Command="{Binding RefreshCatalogCommand}">
-                    <TextBlock Classes="mdl2" Text="&#xE72C;" FontSize="15"/>
+                    <PathIcon Data="{StaticResource IconRefresh}" Width="17" Height="17"/>
                 </Button>
             </Grid>
 
@@ -250,10 +301,11 @@
                             VerticalAlignment="Center"
                             IsVisible="{Binding IsCatalogEmpty}">
                         <StackPanel Spacing="12" HorizontalAlignment="Center">
-                            <TextBlock Text="📦"
-                                       FontSize="36"
-                                       HorizontalAlignment="Center"
-                                       Opacity="0.45"/>
+                            <PathIcon Data="{StaticResource IconPackage}"
+                                      Width="40" Height="40"
+                                      HorizontalAlignment="Center"
+                                      Foreground="{DynamicResource BrushTextSoft}"
+                                      Opacity="0.7"/>
                             <TextBlock Text="{DynamicResource csh.catalog.emptyLoading}"
                                        FontSize="14"
                                        Foreground="{DynamicResource BrushTextSoft}"
@@ -319,7 +371,8 @@
                                                 VerticalContentAlignment="Stretch"
                                                 Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).SelectProductCommand}"
                                                 CommandParameter="{Binding}">
-                                            <Border Background="{DynamicResource BrushCatalogTileBg}"
+                                            <Border Classes="tile-face"
+                                                    Background="{DynamicResource BrushCatalogTileBg}"
                                                     BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                                     BorderThickness="1"
                                                     CornerRadius="{DynamicResource SettingsCardRadius}"
@@ -552,12 +605,12 @@
                                                         Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"
                                                         CommandParameter="{Binding}">
                                                     <Panel Width="26" Height="26">
-                                                        <TextBlock Text="☆" FontSize="26"
-                                                                   Foreground="{DynamicResource BrushCatalogFavoriteStroke}"
-                                                                   IsVisible="{Binding !IsFavorite}"/>
-                                                        <TextBlock Text="★" FontSize="26"
-                                                                   Foreground="{DynamicResource BrushCatalogPrice}"
-                                                                   IsVisible="{Binding IsFavorite}"/>
+                                                        <PathIcon Data="{StaticResource IconStarOutline}" Width="24" Height="24"
+                                                                  Foreground="{DynamicResource BrushCatalogFavoriteStroke}"
+                                                                  IsVisible="{Binding !IsFavorite}"/>
+                                                        <PathIcon Data="{StaticResource IconStar}" Width="24" Height="24"
+                                                                  Foreground="{DynamicResource BrushCatalogPrice}"
+                                                                  IsVisible="{Binding IsFavorite}"/>
                                                     </Panel>
                                                 </Button>
                                             </Grid>
