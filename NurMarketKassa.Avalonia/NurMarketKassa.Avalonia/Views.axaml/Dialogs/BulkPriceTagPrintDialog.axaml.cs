@@ -237,11 +237,23 @@ public partial class BulkPriceTagPrintDialog : Window
                 : await Task.Run(() => PriceTagService.PrintBatch(
                     dataList.Select(d => (option.Kind, d, copies)).ToList(), widthMm, heightMm, printer.DevicePath, target)).ConfigureAwait(true);
 
+            // Товары, чей штрих-код напечатан иначе (Code 128 вместо EAN) или не напечатан
+            // (кириллица, не влезает). Раньше один такой товар ронял всю массовую печать.
+            var problemCount = selected.Count(row => (option.Kind == PriceTagKind.Custom
+                ? BarcodeLabelService.DescribeBarcodeProblem(row.Product.Barcode, _customTemplate)
+                : PriceTagService.DescribeBarcodeProblem(option.Kind, row.Product.Barcode, widthMm, heightMm)) is not null);
+            var problemNote = problemCount == 0 ? "" : " " + Tr.T(
+                $"Замечания по штрих-коду у {problemCount} товаров (неверный EAN — напечатан как Code 128, кириллица, слишком длинный или плотный код) — подробности в окне печати ценника этого товара.",
+                $"{problemCount} товардын штрих-кодунда эскертүү бар (туура эмес EAN — Code 128 катары басылды, кирилл тамгалары, өтө узун же тыгыз код) — чоо-жайы ошол товардын баа белгисин басып чыгаруу терезесинде.",
+                $"Barcode notes for {problemCount} products (invalid EAN printed as Code 128, Cyrillic, code too long or too dense) — see details in that product's price tag print window.",
+                $"{problemCount} üründe barkod uyarısı var (geçersiz EAN Code 128 olarak basıldı, Kiril, çok uzun veya çok sık kod) — ayrıntılar o ürünün fiyat etiketi yazdırma penceresinde.",
+                $"{problemCount} ta mahsulotda shtrix-kod bo'yicha eslatma bor (noto'g'ri EAN Code 128 sifatida chop etildi, kirill, juda uzun yoki zich kod) — tafsilotlar shu mahsulotning narx yorlig'ini chop etish oynasida.");
+
             StatusText.Text = result switch
             {
                 LabelPrintResult.Success => Tr.T($"Готово — отправлено на печать {selected.Count} ценников.", $"Даяр — {selected.Count} баа белгиси басып чыгарууга жөнөтүлдү.",
                     $"Done — {selected.Count} price tags sent to the printer.", $"Tamamlandı — {selected.Count} fiyat etiketi yazdırmaya gönderildi.",
-                    $"Tayyor — {selected.Count} ta narx yorlig'i chop etishga yuborildi."),
+                    $"Tayyor — {selected.Count} ta narx yorlig'i chop etishga yuborildi.") + problemNote,
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
             };

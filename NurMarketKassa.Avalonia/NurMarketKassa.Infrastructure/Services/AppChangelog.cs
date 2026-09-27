@@ -19,6 +19,10 @@ public static class AppChangelog
         "Настройки → «Клавиши»: любое действие можно переназначить на свою клавишу, есть значения по умолчанию",
         "Работа без интернета: кассы и программа владельца обмениваются продажами по локальной сети или внутри одного компьютера — остаток и выручка видны сразу",
         "Программа владельца: новый раздел «Аналитика», ABC-анализ в каждом разделе по смыслу и полный ABC в «Сводке», «Финансы» без второго меню, разделы без повторяющихся заголовков, отчёт смены открывается мгновенно",
+        "Выгрузки в Excel и Word — профессиональные отчёты: оглавление, итоги формулами, диаграммы, шапка на каждой странице, печать на A4",
+        "Ценники и этикетки: при печати через драйвер принтера больше не обрезается штрих-код и не меняется размер; неверный код не обрывает печать",
+        "Квадратные экраны: масштаб больше не увеличивается сам до 160% — касса всегда помещается на экран; крестик закрывает кассу без выхода из учётной записи",
+        "История чеков показывает чек как на бумаге, на копии — «ПОВТОРНАЯ ПЕЧАТЬ» и дата; в Z-отчёте видны все скидки смены, отчёт смены у владельца открывается за секунду",
     ];
 
     public static readonly string[] LatestKy =
@@ -29,6 +33,10 @@ public static class AppChangelog
         "Жөндөөлөр → «Баскычтар»: каалаган аракетти өз баскычына кайра дайындаса болот, демейки маанилер бар",
         "Интернетсиз иштөө: кассалар жана ээсинин программасы сатууларды жергиликтүү тармак аркылуу же бир компьютердин ичинде алмашат — калдык жана түшкөн акча дароо көрүнөт",
         "Ээсинин программасы: жаңы «Талдоо» бөлүмү, ар бир бөлүмдө маанисине жараша ABC-талдоо жана «Жыйынтыкта» толук ABC, «Финансы» экинчи менюсуз, бөлүмдөр кайталанган аталышсыз, сменанын отчёту заматта ачылат",
+        "Excel жана Word'го жүктөө — кесипкөй отчёттор: мазмуну, формула менен жыйынтыктар, диаграммалар, ар бир бетте баш сап, A4 басып чыгаруу",
+        "Баа белгилери жана этикеткалар: принтердин драйвери аркылуу басканда штрих-код кесилбейт жана өлчөмү өзгөрбөйт; туура эмес код басып чыгарууну токтотпойт",
+        "Чарчы экрандар: масштаб өзүнөн-өзү 160%га чоңойбойт — касса дайыма экранга батат; айкаш белги кассаны каттоо эсебинен чыкпай жабат",
+        "Чектердин тарыхы чекти кагаздагыдай көрсөтөт, көчүрмөдө — «ПОВТОРНАЯ ПЕЧАТЬ» жана күнү; Z-отчётто сменанын бардык арзандатуулары көрүнөт, ээсинде сменанын отчёту бир секундда ачылат",
     ];
 
     public static readonly string[] LatestEn =
@@ -39,6 +47,10 @@ public static class AppChangelog
         "Settings → “Keys”: any action can be reassigned to your own key, with defaults",
         "Working without internet: tills and the owner program exchange sales over the local network or within one computer — stock and revenue are visible right away",
         "Owner program: new “Analytics” section, ABC analysis in each section by meaning and a full ABC in the “Overview”, “Finance” without a second menu, sections without repeated titles, the shift report opens instantly",
+        "Excel and Word exports are professional reports: table of contents, totals as formulas, charts, a header on every page, A4 printing",
+        "Price tags and labels: printing through a printer driver no longer cuts off the barcode or changes the size; an invalid code no longer stops printing",
+        "Square screens: the scale no longer jumps to 160% by itself — the till always fits the screen; the close button closes the till without signing out",
+        "Receipt history shows the receipt as on paper, the copy says “REPRINT” with the date; the Z-report shows all discounts of the shift, the owner's shift report opens in a second",
     ];
 
     public static readonly string[] LatestTr =
@@ -49,6 +61,10 @@ public static class AppChangelog
         "Ayarlar → «Tuşlar»: her eylem kendi tuşunuza yeniden atanabilir, varsayılan değerler mevcut",
         "İnternetsiz çalışma: kasalar ve sahip programı satışları yerel ağ üzerinden veya tek bilgisayar içinde paylaşır — stok ve ciro hemen görünür",
         "Sahip programı: yeni «Analiz» bölümü, her bölümde anlamına göre ABC analizi ve «Özet»te tam ABC, ikinci menüsüz «Finans», tekrarlanan başlıklar olmadan bölümler, vardiya raporu anında açılır",
+        "Excel ve Word dışa aktarımları profesyonel raporlar: içindekiler, formüllü toplamlar, grafikler, her sayfada başlık, A4 yazdırma",
+        "Etiketler: yazıcı sürücüsüyle yazdırırken barkod artık kesilmiyor ve boyut değişmiyor; hatalı kod yazdırmayı durdurmuyor",
+        "Kare ekranlar: ölçek artık kendiliğinden %160'a çıkmıyor — kasa her zaman ekrana sığar; kapatma düğmesi oturumu kapatmadan kasayı kapatır",
+        "Fiş geçmişi fişi kâğıttaki gibi gösterir, kopyada «ПОВТОРНАЯ ПЕЧАТЬ» ve tarih; Z raporu vardiyanın tüm indirimlerini gösterir, sahibin vardiya raporu bir saniyede açılır",
     ];
 
     public static readonly string[] LatestUz =
@@ -59,6 +75,10 @@ public static class AppChangelog
         "Sozlamalar → «Tugmalar»: istalgan amalni o'z tugmangizga qayta tayinlash mumkin, standart qiymatlar bor",
         "Internetsiz ishlash: kassalar va ega dasturi sotuvlarni mahalliy tarmoq orqali yoki bitta kompyuter ichida almashadi — qoldiq va tushum darhol ko'rinadi",
         "Ega dasturi: yangi «Tahlil» bo'limi, har bir bo'limda ma'nosiga ko'ra ABC tahlili va «Umumiy»da to'liq ABC, ikkinchi menyusiz «Moliya», takrorlanuvchi sarlavhalarsiz bo'limlar, smena hisoboti bir zumda ochiladi",
+        "Excel va Word'ga eksport — professional hisobotlar: mundarija, formulali jamlar, diagrammalar, har sahifada sarlavha, A4 chop etish",
+        "Narx yorliqlari va etiketkalar: printer drayveri orqali chop etilganda shtrix-kod endi kesilmaydi va o'lchami o'zgarmaydi; noto'g'ri kod chop etishni to'xtatmaydi",
+        "Kvadrat ekranlar: masshtab endi o'z-o'zidan 160% gacha kattalashmaydi — kassa doim ekranga sig'adi; yopish tugmasi hisobdan chiqmasdan kassani yopadi",
+        "Cheklar tarixi chekni qog'ozdagidek ko'rsatadi, nusxada — «ПОВТОРНАЯ ПЕЧАТЬ» va sana; Z-hisobotda smenaning barcha chegirmalari ko'rinadi, egadagi smena hisoboti bir soniyada ochiladi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

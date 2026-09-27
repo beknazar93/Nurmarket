@@ -556,11 +556,53 @@ public sealed class CashShiftService : ICashShiftService
         try
         {
             var cashboxId = PosApp.PosCashboxId;
-            var pageSize = Math.Clamp((salesCount ?? 0) + 20, 20, 80);
-            var sales = await _salesApi.PosSalesListAsync(1, pageSize, cashboxId, cancellationToken).ConfigureAwait(false);
+
+            // 2026-09-28, регресс 1.17.19: читалась только первая страница продаж кассы размером
+            // «продаж смены + 20». Для закрытой смены, после которой прошли другие продажи (в
+            // «Финансах» владельца, в «Истории смен»), чеки этой смены на первую страницу не
+            // попадали — «Долг: —» вместо 40 сом. Теперь листаем (новые — первыми), пока не
+            // пройдём чеки этой смены: страница без её чеков после того, как они уже встречались,
+            // значит, смена позади. Не нашли вовсе — останавливаемся на MaxDebtPages.
+            const int DebtPageSize = 80;
+            const int MaxDebtPages = 10;
+            var sales = new List<System.Text.Json.JsonElement>();
+            var seenIds = new HashSet<string>(StringComparer.Ordinal);
+            var sawTargetShift = false;
+            for (var page = 1; page <= MaxDebtPages; page++)
+            {
+                var rows = await _salesApi.PosSalesListAsync(page, DebtPageSize, cashboxId, cancellationToken).ConfigureAwait(false);
+                var added = 0;
+                var pageHasTarget = false;
+                var lastRowIsTarget = false;
+                foreach (var row in rows)
+                {
+                    if (row.ValueKind != System.Text.Json.JsonValueKind.Object)
+                        continue;
+                    // Страницу за последней сервер отдаёт повтором последней — повторы не в счёт.
+                    var rowId = row.TryGetProperty("id", out var idEl) && idEl.ValueKind == System.Text.Json.JsonValueKind.String
+                        ? idEl.GetString()
+                        : null;
+                    if (rowId is not null && !seenIds.Add(rowId))
+                        continue;
+                    added++;
+                    sales.Add(row);
+                    lastRowIsTarget = string.Equals(TryReadShiftId(row), shiftId, StringComparison.Ordinal);
+                    pageHasTarget |= lastRowIsTarget;
+                }
+
+                // Чеки смены начались и уже кончились на этой странице (дальше — более старые
+                // смены этой кассы) или кончились на прошлой — дальше листать незачем.
+                if ((sawTargetShift && !pageHasTarget) || (pageHasTarget && !lastRowIsTarget && cashboxId is not null))
+                    break;
+                sawTargetShift |= pageHasTarget;
+                if (rows.Count < DebtPageSize || added == 0)
+                    break;
+            }
 
             var matchingDebtSales = new List<(string SaleId, string ClientId, decimal FallbackAmount)>();
-            var sawAnyShiftField = false;
+            // Поле смены есть у любой продажи, не только у долговой: если его нет ни у одной
+            // строки, сервер сменил схему — честное «—» (см. комментарий у метода).
+            var sawAnyShiftField = sales.Any(s => TryReadShiftId(s) is not null);
             var loggedSampleRow = false;
             foreach (var sale in sales)
             {
@@ -578,10 +620,7 @@ public sealed class CashShiftService : ICashShiftService
                 }
 
                 var saleShiftId = TryReadShiftId(sale);
-                if (saleShiftId is null)
-                    continue;
-                sawAnyShiftField = true;
-                if (!string.Equals(saleShiftId, shiftId, StringComparison.Ordinal))
+                if (saleShiftId is null || !string.Equals(saleShiftId, shiftId, StringComparison.Ordinal))
                     continue;
 
                 if (!sale.TryGetProperty("id", out var saleIdEl) || saleIdEl.ValueKind != System.Text.Json.JsonValueKind.String

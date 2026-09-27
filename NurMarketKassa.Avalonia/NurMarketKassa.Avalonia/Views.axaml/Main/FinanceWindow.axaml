@@ -761,10 +761,10 @@
                     </TabControl>
 
                     <!-- Сообщение об ошибке -->
-                    <Border Grid.Row="7" Margin="0,8,0,0" Padding="12"
+                    <Border x:Name="NoticeBox" Grid.Row="7" Margin="0,8,0,0" Padding="12"
                     Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
                     IsVisible="{Binding HasError}">
-                        <TextBlock Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+                        <TextBlock x:Name="NoticeText" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
                     </Border>
                 </Grid>
 

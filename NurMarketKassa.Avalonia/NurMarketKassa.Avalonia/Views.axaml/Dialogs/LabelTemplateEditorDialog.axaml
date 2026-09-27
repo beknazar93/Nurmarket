@@ -163,6 +163,9 @@
                             </StackPanel>
                             <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
+                        <!-- Предупреждение о штрих-коде (не тот формат/не помещается/кириллица) -->
+                        <TextBlock x:Name="BarcodeWarningText" FontSize="12" TextWrapping="Wrap" IsVisible="False"
+                                   Foreground="{DynamicResource BrushWarning}"/>
                     </StackPanel>
                 </Border>
             </Grid>

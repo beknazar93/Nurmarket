@@ -180,7 +180,9 @@ public static class CartReceiptTextBuilder
 
             if (isReprint)
             {
-                Line(ReceiptLineLayout.Center("(повторная печать)", W));
+                // Копия отличается от оригинала на бумаге: пометка и когда её напечатали (2026-09-28).
+                Line(ReceiptLineLayout.Center("ПОВТОРНАЯ ПЕЧАТЬ", W));
+                Line(ReceiptLineLayout.Center(DateTime.Now.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture), W));
                 Blank();
             }
 

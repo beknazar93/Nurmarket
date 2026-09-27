@@ -574,6 +574,12 @@ public partial class LabelTemplateEditorDialog : Window
         {
             PosLogger.Log($"Label template preview render failed: {ex}", "WARNING");
         }
+
+        // Штрих-код, который нельзя напечатать как выбрано (не EAN, кириллица, не влезает),
+        // раньше просто молча не печатался или печатался нечитаемым — теперь объясняем почему.
+        var warning = BarcodeLabelService.DescribeBarcodeProblem(_sampleBarcode, _template);
+        BarcodeWarningText.Text = warning ?? "";
+        BarcodeWarningText.IsVisible = warning is not null;
     }
 
     private void ZoomIn_Click(object? sender, RoutedEventArgs e) => ChangeZoom(0.1);

@@ -92,7 +92,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public string ErrorMessage
         {
             get => _errorMessage;
-            set { _errorMessage = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasError)); }
+            set
+            {
+                _errorMessage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasError));
+                // Любое сообщение по умолчанию — ошибка; «Отчёт сохранён» перекрашивает ShowSaved.
+                AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: false);
+            }
         }
 
         public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
@@ -808,8 +815,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (sender is not Control { Tag: ShiftCardVm row } || string.IsNullOrEmpty(row.ShiftId))
                 return;
 
-            var entry = (await ShiftHistoryService.LoadAsync().ConfigureAwait(true))
-                .FirstOrDefault(s => string.Equals(s.ShiftNumber, row.ShiftId, StringComparison.OrdinalIgnoreCase));
+            // 2026-09-28, регресс 1.17.19: отчёт смены открывался ~8 с — перед показом
+            // скачивался весь список смен ради одной. Теперь — запрос этой смены (0,2–0,5 с);
+            // полный список — только если одиночный запрос не удался.
+            var entry = await ShiftHistoryService.LoadOneAsync(row.ShiftId).ConfigureAwait(true)
+                ?? (await ShiftHistoryService.LoadAsync().ConfigureAwait(true))
+                    .FirstOrDefault(s => string.Equals(s.ShiftNumber, row.ShiftId, StringComparison.OrdinalIgnoreCase));
             if (entry is null)
             {
                 PosMessageBox.Show(this, Tr.T("Не удалось загрузить отчёт смены — нет связи с сервером.", "Сменанын отчётун жүктөө мүмкүн болгон жок — сервер менен байланыш жок.", "Could not load the shift report — no connection to the server.", "Vardiya raporu yüklenemedi — sunucuyla bağlantı yok.", "Smena hisobotini yuklab bo'lmadi — server bilan aloqa yo'q."), Tr.T("Смена", "Смена", "Shift", "Vardiya", "Smena"),
@@ -1072,7 +1083,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 Title = toWord
                     ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
                     : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
-                SuggestedFileName = $"analitika-{_historyFrom:yyyy-MM-dd}_{_historyTo:yyyy-MM-dd}.{extension}",
+                SuggestedFileName = AnalyticsExportService.SuggestFileName(AnalyticsExportService.FileTitle,
+                    _historyFrom, _historyTo, UserPreferences.Instance.StoreName, extension),
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
             if (file is null)
@@ -1100,6 +1112,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }).ConfigureAwait(true);
 
                 ErrorMessage = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
+                AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: true);
             }
             catch (Exception ex)
             {

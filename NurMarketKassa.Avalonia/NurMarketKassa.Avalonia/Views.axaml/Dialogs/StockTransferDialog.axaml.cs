@@ -392,7 +392,7 @@ public partial class StockTransferDialog : Window
             Title = toWord
                 ? Tr.T("Сохранить накладную в Word", "Накладнойду Word форматында сактоо", "Save the waybill to Word", "İrsaliyeyi Word olarak kaydet", "Yuk xatini Word formatida saqlash")
                 : Tr.T("Сохранить перемещение в Excel", "Жылышууну Excel форматында сактоо", "Save the transfer to Excel", "Transferi Excel olarak kaydet", "Ko'chirishni Excel formatida saqlash"),
-            SuggestedFileName = $"transfer-{_transfer.Number}.{extension}",
+            SuggestedFileName = StockTransferExportService.SuggestTransferFileName(_transfer, UserPreferences.Instance.StoreName, extension),
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
 
@@ -421,9 +421,11 @@ public partial class StockTransferDialog : Window
         }
     }
 
-    /// <summary>Выгрузка состава партии. Excel-файл — это тот же разделённый табуляцией текст с
-    /// расширением .xls: Excel такой открывает без вопросов, а тянуть ради одной таблицы
-    /// библиотеку для настоящего xlsx не стоит.</summary>
+    /// <summary>Выгрузка состава партии в CSV — для программ, которые понимают только текст.
+    ///
+    /// Разделитель «;» и числа с десятичной ЗАПЯТОЙ, как у выгрузки PLU весов: Excel с русскими
+    /// настройками Windows открывает такой файл сразу по колонкам. Раньше количество писалось с
+    /// точкой («1.5»), и Excel превращал его в дату «01.май».</summary>
     private async System.Threading.Tasks.Task ExportAsync(string format)
     {
         if (_transfer is null)
@@ -432,7 +434,7 @@ public partial class StockTransferDialog : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = Tr.T("Сохранить выгрузку", "Файлды сактоо", "Save export", "Dışa aktarımı kaydet", "Eksportni saqlash"),
-            SuggestedFileName = $"transfer-{_transfer.Number}.{format}",
+            SuggestedFileName = StockTransferExportService.SuggestTransferFileName(_transfer, UserPreferences.Instance.StoreName, format),
         });
 
         var path = file?.TryGetLocalPath();
@@ -453,18 +455,27 @@ public partial class StockTransferDialog : Window
             Tr.T("Название", "Аталышы", "Name", "Ad", "Nomi"),
             Tr.T("Код", "Коду", "Code", "Kod", "Kod"),
             Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"),
-            Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor")));
+            Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
+            Tr.T("Ед. изм.", "Бирдик", "Unit", "Birim", "Birlik")));
 
+        var ru = CultureInfo.GetCultureInfo("ru-RU");
         foreach (var item in StockTransferService.Instance.LoadItems(_transferId))
         {
             text.AppendLine(string.Join(separator,
-                item.ProductName, item.Article ?? "", item.Barcode ?? "",
-                item.Quantity.ToString("0.###", CultureInfo.InvariantCulture)));
+                CsvCell(item.ProductName, separator), CsvCell(item.Article ?? "", separator), CsvCell(item.Barcode ?? "", separator),
+                item.Quantity.ToString("0.###", ru), CsvCell(item.Unit ?? "", separator)));
         }
 
         // UTF-8 с меткой порядка байтов: без неё Excel открывает кириллицу знаками вопроса.
         File.WriteAllText(path, text.ToString(), new UTF8Encoding(true));
     }
+
+    /// <summary>Экранирование ячейки CSV: разделитель, кавычки или перенос строки в названии товара
+    /// иначе сдвинули бы все колонки вправо.</summary>
+    private static string CsvCell(string value, string separator) =>
+        value.Contains(separator, StringComparison.Ordinal) || value.IndexOfAny(['"', '\n', '\r']) >= 0
+            ? "\"" + value.Replace("\"", "\"\"") + "\""
+            : value;
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 }

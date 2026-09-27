@@ -70,16 +70,23 @@ public static class PriceTagService
         _ => (40, 30),
     };
 
-    public static Bitmap GenerateBitmap(PriceTagKind kind, PriceTagData data, double widthMm, double heightMm)
+    public static Bitmap GenerateBitmap(PriceTagKind kind, PriceTagData data, double widthMm, double heightMm) =>
+        GenerateBitmap(kind, data, widthMm, heightMm, BarcodeLabelService.Dpi);
+
+    /// <summary>То же в разрешении конкретного принтера (2026-09-28): раскладка по-прежнему в
+    /// точках 203 dpi (ScaleTransform), штрих-код — точно по точкам устройства.</summary>
+    internal static Bitmap GenerateBitmap(PriceTagKind kind, PriceTagData data, double widthMm, double heightMm, int dpi)
     {
-        var widthPx = Math.Max((int)BarcodeLabelService.MmToPx(widthMm), 10);
-        var heightPx = Math.Max((int)BarcodeLabelService.MmToPx(heightMm), 10);
+        var widthPx = Math.Max((int)(widthMm / 25.4 * dpi), 10);
+        var heightPx = Math.Max((int)(heightMm / 25.4 * dpi), 10);
 
         var bmp = new Bitmap(widthPx, heightPx);
         using var g = Graphics.FromImage(bmp);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.Clear(Color.White);
+        if (dpi != BarcodeLabelService.Dpi)
+            g.ScaleTransform(dpi / (float)BarcodeLabelService.Dpi, dpi / (float)BarcodeLabelService.Dpi);
 
         switch (kind)
         {
@@ -100,9 +107,17 @@ public static class PriceTagService
         DrawText(g, Frac(w, h, 0.05, 0.46, 0.9, 0.48), data.PriceText, "Arial", FontStyle.Bold, Color.Black);
     }
 
+    // Блоки штрих-кода/QR у готовых шаблонов — доли размера ценника (используются и при
+    // отрисовке, и в DescribeBarcodeProblem, чтобы предупреждение считалось по тому же блоку).
+    private static readonly (double X, double Y, double W, double H) WithBarcodeBox = (0.05, 0.03, 0.9, 0.55);
+    private static readonly (double X, double Y, double W, double H) DetailedBox = (0.05, 0.46, 0.9, 0.32);
+    private static readonly (double X, double Y, double W, double H) QrBox = (0.05, 0.05, 0.48, 0.62);
+    private const int PresetQuietModules = 2;
+    private const int PresetQrQuietModules = 1;
+
     private static void DrawWithBarcode(Graphics g, PriceTagData data, double w, double h)
     {
-        DrawBarcode(g, Frac(w, h, 0.05, 0.03, 0.9, 0.55), data.Barcode);
+        DrawBarcode(g, Frac(w, h, WithBarcodeBox.X, WithBarcodeBox.Y, WithBarcodeBox.W, WithBarcodeBox.H), data.Barcode, w, h);
         DrawText(g, Frac(w, h, 0.05, 0.60, 0.9, 0.18), data.ProductName, "Arial", FontStyle.Regular, Color.Black);
         DrawText(g, Frac(w, h, 0.05, 0.80, 0.9, 0.18), data.PriceText, "Arial", FontStyle.Bold, Color.Black);
     }
@@ -153,7 +168,7 @@ public static class PriceTagService
         if (!string.IsNullOrWhiteSpace(data.Category))
             DrawText(g, Frac(w, h, 0.05, 0.33, 0.9, 0.12), data.Category!, "Arial", FontStyle.Italic, Color.DimGray);
 
-        DrawBarcode(g, Frac(w, h, 0.05, 0.46, 0.9, 0.32), data.Barcode);
+        DrawBarcode(g, Frac(w, h, DetailedBox.X, DetailedBox.Y, DetailedBox.W, DetailedBox.H), data.Barcode, w, h);
 
         if (!string.IsNullOrWhiteSpace(data.Unit))
             DrawText(g, Frac(w, h, 0.05, 0.80, 0.35, 0.18), data.Unit!, "Arial", FontStyle.Regular, Color.DimGray);
@@ -163,7 +178,7 @@ public static class PriceTagService
 
     private static void DrawWithQr(Graphics g, PriceTagData data, double w, double h)
     {
-        DrawQr(g, Frac(w, h, 0.05, 0.05, 0.48, 0.62), data.Barcode);
+        DrawQr(g, Frac(w, h, QrBox.X, QrBox.Y, QrBox.W, QrBox.H), data.Barcode);
         DrawText(g, Frac(w, h, 0.58, 0.08, 0.37, 0.50), data.ProductName, "Arial", FontStyle.Regular, Color.Black);
         DrawText(g, Frac(w, h, 0.05, 0.70, 0.9, 0.26), data.PriceText, "Arial", FontStyle.Bold, Color.Black);
     }
@@ -195,44 +210,39 @@ public static class PriceTagService
             rect.Y + Math.Max(0, (rect.Height - size.Height) / 2f));
     }
 
-    private static void DrawBarcode(Graphics g, RectangleF rect, string? code)
+    /// <summary>Штрих-код и цифры под ним. Раньше — готовая картинка ZXing, вписанная в блок со
+    /// сглаживанием (размытые штрихи), а код с неверной контрольной цифрой/кириллицей ронял
+    /// весь ценник исключением. Теперь — BarcodeLabelService.DrawLinearBlock (см. там).</summary>
+    private static void DrawBarcode(Graphics g, RectangleF rect, string? code, double tagWidthMm, double tagHeightMm)
     {
         if (rect.Width < 4 || rect.Height < 4 || string.IsNullOrWhiteSpace(code))
             return;
 
         var codeTextHeight = Math.Min(rect.Height * 0.2f, 14f);
-        var barcodeHeight = Math.Max(rect.Height - codeTextHeight - 2, 8f);
-
-        using var barcodeBitmap = BarcodeLabelService.RenderBarcode(code!, (int)rect.Width, (int)barcodeHeight);
-        var destWidth = Math.Min(barcodeBitmap.Width, rect.Width);
-        var barcodeX = rect.X + (rect.Width - destWidth) / 2f;
-        g.DrawImage(barcodeBitmap, barcodeX, rect.Y, destWidth, barcodeHeight);
-
-        using var codeFont = new Font("Consolas", Math.Clamp(codeTextHeight * 0.7f, 6f, 12f), FontStyle.Regular);
-        var codeSize = g.MeasureString(code, codeFont);
-        var codeText = codeSize.Width <= rect.Width ? code! : BarcodeLabelService.TruncateToWidth(g, code!, codeFont, rect.Width);
-        codeSize = g.MeasureString(codeText, codeFont);
-        g.DrawString(codeText, codeFont, Brushes.Black,
-            rect.X + Math.Max(0, (rect.Width - codeSize.Width) / 2f), rect.Y + barcodeHeight + 1);
+        var tagRect = new RectangleF(0, 0, BarcodeLabelService.MmToPx(tagWidthMm), BarcodeLabelService.MmToPx(tagHeightMm));
+        BarcodeLabelService.DrawLinearBlock(g, rect, tagRect, code, LabelBarcodeFormat.Auto, PresetQuietModules,
+            codeTextHeight, Math.Clamp(codeTextHeight * 0.7f, 6f, 12f));
     }
 
     private static void DrawQr(Graphics g, RectangleF rect, string? code)
     {
-        var payload = string.IsNullOrWhiteSpace(code) ? null : code;
-        if (rect.Width < 4 || rect.Height < 4 || payload is null)
+        if (rect.Width < 4 || rect.Height < 4 || string.IsNullOrWhiteSpace(code))
             return;
-
-        var sizePx = (int)Math.Min(rect.Width, rect.Height);
-        var writer = new BarcodeWriterPixelData
-        {
-            Format = BarcodeFormat.QR_CODE,
-            Options = new EncodingOptions { Width = sizePx, Height = sizePx, Margin = 1 },
-        };
-        using var qrBitmap = BarcodeLabelService.ToBitmap(writer.Write(payload));
-        var x = rect.X + (rect.Width - sizePx) / 2f;
-        var y = rect.Y + (rect.Height - sizePx) / 2f;
-        g.DrawImage(qrBitmap, x, y, sizePx, sizePx);
+        BarcodeLabelService.DrawQrBlock(g, rect, code, PresetQrQuietModules);
     }
+
+    /// <summary>Предупреждение для окна печати ценника (null — штрих-код напечатается и
+    /// прочитается как есть; у шаблонов без штрих-кода — всегда null).</summary>
+    public static string? DescribeBarcodeProblem(PriceTagKind kind, string? barcode, double widthMm, double heightMm) => kind switch
+    {
+        PriceTagKind.WithBarcode => BarcodeLabelService.DescribeBarcodeProblem(barcode, LabelBarcodeFormat.Auto,
+            widthMm * WithBarcodeBox.W, heightMm * WithBarcodeBox.H, widthMm, PresetQuietModules),
+        PriceTagKind.Detailed => BarcodeLabelService.DescribeBarcodeProblem(barcode, LabelBarcodeFormat.Auto,
+            widthMm * DetailedBox.W, heightMm * DetailedBox.H, widthMm, PresetQuietModules),
+        PriceTagKind.WithQr => BarcodeLabelService.DescribeBarcodeProblem(barcode, LabelBarcodeFormat.QrCode,
+            widthMm * QrBox.W, heightMm * QrBox.H, widthMm, PresetQrQuietModules),
+        _ => null,
+    };
 
     /// <summary>Список принтеров — тот же полный список (спулер + WinUSB + raw-USB + LPT + COM),
     /// что и у этикеток; для печати на A4 имеет смысл выбирать только спулерные принтеры,
@@ -275,18 +285,7 @@ public static class PriceTagService
                 return LabelPrintResult.PrinterNotFound;
             }
 
-            using var tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm);
-            var copiesRemaining = Math.Clamp(request.Copies, 1, 99);
-
-            using var doc = new PrintDocument();
-            doc.PrinterSettings.PrinterName = request.PrinterName;
-            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
-            doc.PrintPage += (_, e) =>
-            {
-                e.Graphics!.DrawImage(tag, 0, 0, tag.Width, tag.Height);
-                copiesRemaining--;
-                e.HasMorePages = copiesRemaining > 0;
-            };
+            using var doc = CreateThermalDocument(request);
             doc.Print();
             return LabelPrintResult.Success;
         }
@@ -295,6 +294,36 @@ public static class PriceTagService
             PosLogger.Log($"Price tag print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
+    }
+
+    /// <summary>Документ печати ценника на термопринтер через спулер Windows. Вынесен отдельно,
+    /// чтобы проверочный стенд мог прогнать ровно этот путь в картинку без настоящей печати.</summary>
+    internal static PrintDocument CreateThermalDocument(PriceTagPrintRequest request)
+    {
+        var copiesRemaining = Math.Clamp(request.Copies, 1, 99);
+        Bitmap? tag = null;
+        var tagDpi = 0;
+
+        var doc = new PrintDocument();
+        doc.Disposed += (_, _) => tag?.Dispose();
+        doc.PrinterSettings.PrinterName = request.PrinterName;
+        doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+        doc.PrintPage += (_, e) =>
+        {
+            var g = e.Graphics!;
+            // Раньше: DrawImage(tag, 0, 0, tag.Width, tag.Height) — пиксели 203 dpi как единицы
+            // страницы (1/100 дюйма), ценник 40 мм выходил шириной 81 мм и обрезался. Теперь —
+            // в разрешении принтера и точка-в-точку.
+            if (tag is null)
+            {
+                tagDpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
+                tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm, tagDpi);
+            }
+            BarcodeLabelService.DrawOnPrinterPage(g, tag, 0, 0, tagDpi);
+            copiesRemaining--;
+            e.HasMorePages = copiesRemaining > 0;
+        };
+        return doc;
     }
 
     /// <summary>Печать сеткой ценников на обычном листе A4 через спулер Windows — сводится к
@@ -337,64 +366,11 @@ public static class PriceTagService
             return LabelPrintResult.PrinterNotFound;
         }
 
-        // Материализуем КАЖДУЮ печатаемую копию как отдельный битмап — тиражи и данные у разных
-        // товаров различаются, поэтому нельзя просто повторить один и тот же кадр N раз, как в
-        // одиночной печати.
-        var tags = new List<Bitmap>();
         try
         {
-            foreach (var item in items)
-            {
-                var copies = Math.Clamp(item.Copies, 1, 99);
-                for (var i = 0; i < copies; i++)
-                    tags.Add(GenerateBitmap(item.Kind, item.Data, widthMm, heightMm));
-            }
-
-            if (tags.Count == 0)
+            using var doc = CreateBatchA4Document(items, widthMm, heightMm, printerName);
+            if (doc is null)
                 return LabelPrintResult.Failed;
-
-            const double marginMm = 8;
-            const double gapMm = 3;
-            const double pageWidthMm = 210;
-            const double pageHeightMm = 297;
-
-            var usableWidthMm = pageWidthMm - 2 * marginMm;
-            var usableHeightMm = pageHeightMm - 2 * marginMm;
-            var columns = Math.Max(1, (int)((usableWidthMm + gapMm) / (widthMm + gapMm)));
-            var rows = Math.Max(1, (int)((usableHeightMm + gapMm) / (heightMm + gapMm)));
-            var perPage = columns * rows;
-
-            var index = 0;
-            using var doc = new PrintDocument();
-            doc.PrinterSettings.PrinterName = printerName;
-            doc.DefaultPageSettings.PaperSize = new PaperSize("A4", (int)(pageWidthMm / 25.4 * 100), (int)(pageHeightMm / 25.4 * 100));
-            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
-
-            doc.PrintPage += (_, e) =>
-            {
-                var g = e.Graphics!;
-                var dpiX = g.DpiX;
-                var dpiY = g.DpiY;
-                var tagWPx = (float)(widthMm / 25.4 * dpiX);
-                var tagHPx = (float)(heightMm / 25.4 * dpiY);
-                var marginXPx = (float)(marginMm / 25.4 * dpiX);
-                var marginYPx = (float)(marginMm / 25.4 * dpiY);
-                var gapXPx = (float)(gapMm / 25.4 * dpiX);
-                var gapYPx = (float)(gapMm / 25.4 * dpiY);
-
-                var onThisPage = Math.Min(tags.Count - index, perPage);
-                for (var i = 0; i < onThisPage; i++)
-                {
-                    var col = i % columns;
-                    var row = i / columns;
-                    var x = marginXPx + col * (tagWPx + gapXPx);
-                    var y = marginYPx + row * (tagHPx + gapYPx);
-                    g.DrawImage(tags[index + i], x, y, tagWPx, tagHPx);
-                }
-
-                index += onThisPage;
-                e.HasMorePages = index < tags.Count;
-            };
             doc.Print();
             return LabelPrintResult.Success;
         }
@@ -403,11 +379,66 @@ public static class PriceTagService
             PosLogger.Log($"Price tag batch A4 print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
-        finally
+    }
+
+    internal static PrintDocument? CreateBatchA4Document(
+        IReadOnlyList<(PriceTagKind Kind, PriceTagData Data, int Copies)> items,
+        double widthMm, double heightMm, string printerName)
+    {
+        // Каждая печатаемая копия — отдельный элемент сетки (тиражи и данные у товаров разные).
+        // Картинка рисуется только в момент печати своей страницы и в разрешении принтера:
+        // раньше все ценники заранее лежали в памяти битмапами 203 dpi.
+        var tags = new List<Func<int, Bitmap>>();
+        foreach (var item in items)
         {
-            foreach (var tag in tags)
-                tag.Dispose();
+            var copies = Math.Clamp(item.Copies, 1, 99);
+            var (kind, data) = (item.Kind, item.Data);
+            for (var i = 0; i < copies; i++)
+                tags.Add(dpi => GenerateBitmap(kind, data, widthMm, heightMm, dpi));
         }
+        return tags.Count == 0 ? null : CreateA4GridDocument(tags, widthMm, heightMm, printerName);
+    }
+
+    private static PrintDocument CreateA4GridDocument(List<Func<int, Bitmap>> tags, double widthMm, double heightMm, string printerName)
+    {
+        const double marginMm = 8;
+        const double gapMm = 3;
+        const double pageWidthMm = 210;
+        const double pageHeightMm = 297;
+
+        var usableWidthMm = pageWidthMm - 2 * marginMm;
+        var usableHeightMm = pageHeightMm - 2 * marginMm;
+        var columns = Math.Max(1, (int)((usableWidthMm + gapMm) / (widthMm + gapMm)));
+        var rows = Math.Max(1, (int)((usableHeightMm + gapMm) / (heightMm + gapMm)));
+        var perPage = columns * rows;
+
+        var index = 0;
+        var doc = new PrintDocument();
+        doc.PrinterSettings.PrinterName = printerName;
+        doc.DefaultPageSettings.PaperSize = new PaperSize("A4", (int)(pageWidthMm / 25.4 * 100), (int)(pageHeightMm / 25.4 * 100));
+        doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+
+        doc.PrintPage += (_, e) =>
+        {
+            var g = e.Graphics!;
+            // Раньше координаты считались в точках принтера (g.DpiX, 600 dpi), а страница принтера
+            // меряется в 1/100 дюйма — на A4 ценник выходил в 6 раз крупнее и один занимал лист.
+            // Теперь позиции в мм, картинка — в разрешении принтера, точка-в-точку.
+            var renderDpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
+            var onThisPage = Math.Min(tags.Count - index, perPage);
+            for (var i = 0; i < onThisPage; i++)
+            {
+                var col = i % columns;
+                var row = i / columns;
+                using var tag = tags[index + i](renderDpi);
+                BarcodeLabelService.DrawOnPrinterPage(g, tag,
+                    marginMm + col * (widthMm + gapMm), marginMm + row * (heightMm + gapMm), renderDpi);
+            }
+
+            index += onThisPage;
+            e.HasMorePages = index < tags.Count;
+        };
+        return doc;
     }
 
     /// <summary>Печать пачки ценников по ОДНОМУ пользовательскому шаблону этикетки (LabelTemplate)
@@ -450,66 +481,11 @@ public static class PriceTagService
             return LabelPrintResult.PrinterNotFound;
         }
 
-        var widthMm = template.WidthMm;
-        var heightMm = template.HeightMm;
-
-        var tags = new List<Bitmap>();
         try
         {
-            foreach (var item in items)
-            {
-                var copies = Math.Clamp(item.Copies, 1, 99);
-                for (var i = 0; i < copies; i++)
-                    tags.Add(BarcodeLabelService.GenerateLabelBitmap(
-                        item.Data.ProductName, item.Data.Barcode ?? "", item.Data.PriceText, template,
-                        item.Data.Sku, item.Data.Unit, item.Data.StoreName));
-            }
-
-            if (tags.Count == 0)
+            using var doc = CreateBatchA4CustomTemplateDocument(items, template, printerName);
+            if (doc is null)
                 return LabelPrintResult.Failed;
-
-            const double marginMm = 8;
-            const double gapMm = 3;
-            const double pageWidthMm = 210;
-            const double pageHeightMm = 297;
-
-            var usableWidthMm = pageWidthMm - 2 * marginMm;
-            var usableHeightMm = pageHeightMm - 2 * marginMm;
-            var columns = Math.Max(1, (int)((usableWidthMm + gapMm) / (widthMm + gapMm)));
-            var rows = Math.Max(1, (int)((usableHeightMm + gapMm) / (heightMm + gapMm)));
-            var perPage = columns * rows;
-
-            var index = 0;
-            using var doc = new PrintDocument();
-            doc.PrinterSettings.PrinterName = printerName;
-            doc.DefaultPageSettings.PaperSize = new PaperSize("A4", (int)(pageWidthMm / 25.4 * 100), (int)(pageHeightMm / 25.4 * 100));
-            doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
-
-            doc.PrintPage += (_, e) =>
-            {
-                var g = e.Graphics!;
-                var dpiX = g.DpiX;
-                var dpiY = g.DpiY;
-                var tagWPx = (float)(widthMm / 25.4 * dpiX);
-                var tagHPx = (float)(heightMm / 25.4 * dpiY);
-                var marginXPx = (float)(marginMm / 25.4 * dpiX);
-                var marginYPx = (float)(marginMm / 25.4 * dpiY);
-                var gapXPx = (float)(gapMm / 25.4 * dpiX);
-                var gapYPx = (float)(gapMm / 25.4 * dpiY);
-
-                var onThisPage = Math.Min(tags.Count - index, perPage);
-                for (var i = 0; i < onThisPage; i++)
-                {
-                    var col = i % columns;
-                    var row = i / columns;
-                    var x = marginXPx + col * (tagWPx + gapXPx);
-                    var y = marginYPx + row * (tagHPx + gapYPx);
-                    g.DrawImage(tags[index + i], x, y, tagWPx, tagHPx);
-                }
-
-                index += onThisPage;
-                e.HasMorePages = index < tags.Count;
-            };
             doc.Print();
             return LabelPrintResult.Success;
         }
@@ -518,10 +494,21 @@ public static class PriceTagService
             PosLogger.Log($"Price tag batch A4 (custom template) print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
-        finally
+    }
+
+    internal static PrintDocument? CreateBatchA4CustomTemplateDocument(
+        IReadOnlyList<(PriceTagData Data, int Copies)> items, LabelTemplate template, string printerName)
+    {
+        var tags = new List<Func<int, Bitmap>>();
+        foreach (var item in items)
         {
-            foreach (var tag in tags)
-                tag.Dispose();
+            var copies = Math.Clamp(item.Copies, 1, 99);
+            var data = item.Data;
+            for (var i = 0; i < copies; i++)
+                tags.Add(dpi => BarcodeLabelService.GenerateLabelBitmap(
+                    data.ProductName, data.Barcode ?? "", data.PriceText, template,
+                    data.Sku, data.Unit, data.StoreName, dpi));
         }
+        return tags.Count == 0 ? null : CreateA4GridDocument(tags, template.WidthMm, template.HeightMm, printerName);
     }
 }

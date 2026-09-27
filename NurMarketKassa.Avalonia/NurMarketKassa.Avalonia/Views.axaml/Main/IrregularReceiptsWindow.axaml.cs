@@ -213,7 +213,8 @@ public partial class IrregularReceiptsWindow : Window
 
             lines.Add(new string('-', 24));
             lines.Add($"ИТОГО: {total:N2} сом");
-            lines.Add("(повторная печать)");
+            lines.Add("ПОВТОРНАЯ ПЕЧАТЬ");
+            lines.Add(DateTime.Now.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture));
 
             // В фоне: медленный принтер не подвешивает окно.
             var text = string.Join("\n", lines);

@@ -214,6 +214,7 @@ public partial class ReceiptHistoryWindow : Window
         FillHeader(row);
         DetailLines.ItemsSource = null;
         SummaryRows.ItemsSource = null;
+        DetailReceiptText.Text = "";
         DetailErrorText.IsVisible = false;
         ActionMessage.IsVisible = false;
         PrintCopyButton.IsEnabled = false;
@@ -344,6 +345,17 @@ public partial class ReceiptHistoryWindow : Window
             entry.SearchText += " " + string.Join(" ", names);
 
         SummaryRows.ItemsSource = BuildSummary(entry, detail);
+
+        // Чек так, как он выйдет на бумагу при «Печать копии»: тот же текст, та же пометка.
+        try
+        {
+            DetailReceiptText.Text = ReceiptHistoryService.BuildReprintText(entry, detail).TrimEnd('\n', '\r', ' ');
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: вид чека не построен: {ex.Message}", "WARNING");
+            DetailReceiptText.Text = "";
+        }
     }
 
     private static List<SummaryVm> BuildSummary(ReceiptHistoryEntry entry, JsonElement detail)

@@ -1,13 +1,4 @@
-﻿using System.Globalization;
-using System.Runtime.Versioning;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using A = DocumentFormat.OpenXml.Drawing;
-using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
-using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
-using XDR = DocumentFormat.OpenXml.Drawing.Spreadsheet;
-using W = DocumentFormat.OpenXml.Wordprocessing;
+﻿using System.Runtime.Versioning;
 
 namespace NurMarketKassa.Services;
 
@@ -17,456 +8,429 @@ namespace NurMarketKassa.Services;
 /// Формат пишется напрямую через DocumentFormat.OpenXml (лицензия MIT, библиотека Microsoft) —
 /// без Excel и Word на компьютере: на кассе офиса обычно нет, а файл нужен.
 ///
-/// Графики вставляются картинками (см. AnalyticsChartRenderer, там объяснено почему), а данные
-/// лежат рядом обычными листами и таблицами — их можно пересортировать и посчитать по-своему.
+/// Excel — рабочая книга: на каждом листе шапка отчёта, таблица с закреплённой шапкой,
+/// автофильтром и строкой «Итого» (формулами), рядом — настоящие диаграммы Excel по этим же
+/// ячейкам. Word — документ для чтения и печати: титульный блок, оглавление, разделы с
+/// графиками-картинками (см. AnalyticsChartRenderer) и таблицами.
+///
+/// Подписи — на языке интерфейса (как и названия ABC-срезов, которые уже переводятся в
+/// AnalyticsReportData): отчёт на смеси русского и кыргызского выглядел бы небрежно.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class AnalyticsExportService
 {
-    private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
+    /// <summary>Сколько строк среза ABC попадает в Word: дальше таблица перестаёт читаться на
+    /// бумаге, а полный список всегда есть в Excel-выгрузке.</summary>
+    private const int WordAbcRows = 40;
 
-    private static string Money(double value) => value.ToString("N2", Ru);
+    private static string ReportTitle => Tr.T("Аналитика продаж и склада", "Сатуу жана кампа аналитикасы", "Sales and stock analytics", "Satış ve stok analizi", "Savdo va ombor tahlili");
+
+    /// <summary>Название отчёта для имени файла.</summary>
+    public static string FileTitle => Tr.T("Аналитика продаж", "Сатуу аналитикасы", "Sales analytics", "Satış analizi", "Savdo tahlili");
+
+    /// <summary>Готовое имя файла: «Аналитика продаж 01.09.2026-28.09.2026 Магазин.xlsx».</summary>
+    public static string SuggestFileName(string report, DateTime from, DateTime to, string? shopName, string extension) =>
+        ExportFileName.Build(report, ExportFileName.Period(from, to), shopName, extension);
 
     private static string Period(AnalyticsReportData d) =>
         d.FromLocal.Date == d.ToLocal.Date
-            ? d.FromLocal.ToString("dd.MM.yyyy")
-            : $"{d.FromLocal:dd.MM.yyyy} — {d.ToLocal:dd.MM.yyyy}";
+            ? ReportFormat.Date(d.FromLocal)
+            : $"{ReportFormat.Date(d.FromLocal)} — {ReportFormat.Date(d.ToLocal)}";
+
+    // ------------------------------------------------------------------ подписи
+
+    private static string Currency => ReportLabels.Currency;
+    private static string LRevenue => Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
+    private static string LReceipts => Tr.T("Чеков", "Чектер", "Receipts", "Fiş sayısı", "Cheklar");
+    private static string LAverage => Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek");
+    private static string LDiscounts => Tr.T("Скидки", "Арзандатуулар", "Discounts", "İndirimler", "Chegirmalar");
+    private static string LBonuses => Tr.T("из них бонусами", "анын ичинен бонустар менен", "of which paid with bonuses", "bunun bonusla ödenen kısmı", "shundan bonuslar bilan");
+    private static string LReturns => Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar");
+    private static string LWriteOffs => Tr.T("Списания", "Эсептен чыгаруулар", "Write-offs", "Zayiatlar", "Hisobdan chiqarishlar");
+    private static string LExpenses => Tr.T("Расход", "Чыгым", "Expenses", "Giderler", "Xarajatlar");
+    private static string LDebtPayments => Tr.T("Оплата долгов", "Карыздарды төлөө", "Debt payments", "Borç ödemeleri", "Qarz to'lovlari");
+    private static string LCatalogItems => Tr.T("Позиций в каталоге", "Каталогдогу позициялар", "Catalog items", "Katalogdaki ürünler", "Katalogdagi pozitsiyalar");
+    private static string LStockValue => Tr.T("Склад по ценам продажи", "Кампа сатуу баасы менен", "Stock at selling prices", "Satış fiyatlarıyla stok", "Ombor sotish narxlarida");
+    private static string LIndicator => Tr.T("Показатель", "Көрсөткүч", "Indicator", "Gösterge", "Ko'rsatkich");
+    private static string LValue => Tr.T("Значение", "Мааниси", "Value", "Değer", "Qiymati");
+    private static string LDate => Tr.T("Дата", "Күнү", "Date", "Tarih", "Sana");
+    private static string LProduct => Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot");
+    private static string LQuantity => Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
+    private static string LAmount => Tr.T("Сумма", "Сумма", "Amount", "Tutar", "Summa");
+    private static string LGroup => Tr.T("Группа", "Топ", "Group", "Grup", "Guruh");
+    private static string LName => Tr.T("Название", "Аталышы", "Name", "Ad", "Nomi");
+    private static string LShare => Tr.T("Доля", "Үлүшү", "Share", "Pay", "Ulush");
+    private static string LCumulative => Tr.T("Накопительно", "Топтолгон үлүш", "Cumulative", "Kümülatif", "Jamlangan");
+    private static string LItems => Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar");
+    private static string LSlice => Tr.T("Срез", "Кесим", "Slice", "Kesit", "Kesim");
+    private static string LUnit => Tr.T("Ед.", "Бирдик", "Unit", "Birim", "Birlik");
+    private static string LStock => Tr.T("Остаток", "Калдык", "In stock", "Stok", "Qoldiq");
+    private static string LPerDay => Tr.T("Продаж в день", "Күнүнө сатуу", "Sales per day", "Günlük satış", "Kunlik sotuv");
+    private static string LDaysLeft => Tr.T("Хватит на, дн.", "Канча күнгө жетет", "Days left", "Kalan gün", "Necha kunga yetadi");
+    private static string LItemsShort => Tr.T("поз.", "поз.", "items", "kalem", "poz.");
+
+    private static string SheetSummary => Tr.T("Сводка", "Жыйынтык", "Summary", "Özet", "Xulosa");
+    private static string SheetByDay => Tr.T("По дням", "Күндөр боюнча", "By day", "Günlere göre", "Kunlar bo'yicha");
+    private static string SheetTop => Tr.T("Топ товаров", "Топ товарлар", "Top products", "En çok satanlar", "Top mahsulotlar");
+    private static string SheetAbcSummary => Tr.T("ABC-сводка", "ABC жыйынтыгы", "ABC summary", "ABC özeti", "ABC xulosasi");
+    private static string SheetStock => Tr.T("Склад", "Кампа", "Stock", "Stok", "Ombor");
+
+    private static string TitleByDay => Tr.T("Выручка по дням", "Күндөр боюнча түшүм", "Revenue by day", "Günlük ciro", "Kunlik tushum");
+    private static string TitleTop => Tr.T("Топ товаров по сумме", "Сумма боюнча топ товарлар", "Top products by amount", "Tutara göre en çok satanlar", "Summa bo'yicha top mahsulotlar");
+    private static string TitleStructure => Tr.T("Структура за период", "Мезгилдин түзүмү", "Period structure", "Dönem yapısı", "Davr tuzilmasi");
+    private static string TitleAbcShare => Tr.T("Доля групп в выручке", "Түшүмдөгү топтордун үлүшү", "Group share of revenue", "Grupların ciro payı", "Guruhlarning tushumdagi ulushi");
+    private static string TitleAbcSummary => Tr.T("ABC-анализ: сводка по группам", "ABC-анализ: топтор боюнча жыйынтык", "ABC analysis: group summary", "ABC analizi: grup özeti", "ABC tahlili: guruhlar bo'yicha xulosa");
+    private static string TitleRestock => Tr.T("Что пора заказать", "Эмнени буйрутма кылуу керек", "What to reorder", "Sipariş edilmesi gerekenler", "Nimani buyurtma qilish kerak");
+    private static string TitlePareto => Tr.T("Диаграмма Парето", "Парето диаграммасы", "Pareto chart", "Pareto grafiği", "Pareto diagrammasi");
+    private static string TitleParetoColumns => Tr.T("Парето столбцами", "Парето мамычалар менен", "Pareto columns", "Pareto sütunları", "Pareto ustunlari");
+    private static string TitleGroupShare => Tr.T("доля групп", "топтордун үлүшү", "group shares", "grup payları", "guruh ulushlari");
+
+    private static string AbcExplanation => Tr.T(
+        "Группа A даёт первые 80 % результата, B — следующие 15 %, C — оставшиеся 5 %. Срезы считаются независимо: товар из группы A по выручке легко оказывается в C по прибыли.",
+        "A тобу натыйжанын алгачкы 80 %ын берет, B — кийинки 15 %ын, C — калган 5 %ын. Кесимдер өз-өзүнчө эсептелет: түшүм боюнча A тобундагы товар пайда боюнча оңой эле C тобуна түшүшү мүмкүн.",
+        "Group A delivers the first 80 % of the result, B the next 15 %, C the remaining 5 %. Slices are calculated independently: a product in group A by revenue can easily be in group C by profit.",
+        "A grubu sonucun ilk %80'ini, B sonraki %15'ini, C ise kalan %5'ini sağlar. Kesitler bağımsız hesaplanır: ciroda A grubundaki bir ürün kârda kolayca C grubunda olabilir.",
+        "A guruhi natijaning dastlabki 80 % ini, B — keyingi 15 % ini, C — qolgan 5 % ini beradi. Kesimlar mustaqil hisoblanadi: tushum bo'yicha A guruhidagi mahsulot foyda bo'yicha osongina C guruhida bo'lishi mumkin.");
+
+    private static string RestockNote => Tr.T(
+        "Скорость продаж — с первой известной продажи. Красным — запаса меньше чем на 3 дня, жёлтым — меньше чем на неделю.",
+        "Сатуу ылдамдыгы — биринчи белгилүү сатуудан баштап. Кызыл — запас 3 күнгө жетпейт, сары — бир жумага жетпейт.",
+        "Sales rate is counted from the first known sale. Red — less than 3 days of stock left, yellow — less than a week.",
+        "Satış hızı ilk bilinen satıştan itibaren hesaplanır. Kırmızı — 3 günden az stok, sarı — bir haftadan az.",
+        "Sotuv tezligi birinchi ma'lum sotuvdan hisoblanadi. Qizil — zaxira 3 kundan kam, sariq — bir haftadan kam.");
+
+    private static string TruncatedNote(int shown, int total) => Tr.T(
+        $"Показаны первые {shown} позиций из {total}; полный список — в выгрузке Excel.",
+        $"{total} позициянын алгачкы {shown}и көрсөтүлдү; толук тизме — Excel файлында.",
+        $"Showing the first {shown} of {total} items; the full list is in the Excel export.",
+        $"{total} kalemden ilk {shown} tanesi gösteriliyor; tam liste Excel dosyasında.",
+        $"{total} ta pozitsiyadan dastlabki {shown} tasi ko'rsatildi; to'liq ro'yxat — Excel faylida.");
+
+    /// <summary>Мера среза для заголовка колонки: «Выручка», «Прибыль», «Продано».</summary>
+    private static string SliceMeasure(AnalyticsReportData.AbcSlice slice) => slice.Key switch
+    {
+        "profit" => Tr.T("Прибыль", "Пайда", "Profit", "Kâr", "Foyda"),
+        "quantity" => Tr.T("Продано", "Сатылды", "Sold", "Satılan", "Sotildi"),
+        _ => LRevenue,
+    };
+
+    /// <summary>Что лежит в строке среза: товар, категория или бренд.</summary>
+    private static string SliceSubject(AnalyticsReportData.AbcSlice slice) => slice.Key switch
+    {
+        "category" => Tr.T("Категория", "Категория", "Category", "Kategori", "Kategoriya"),
+        "brand" => Tr.T("Бренд", "Бренд", "Brand", "Marka", "Brend"),
+        _ => LProduct,
+    };
+
+    private static string MeasureHeader(AnalyticsReportData.AbcSlice slice) =>
+        ReportLabels.WithUnit(SliceMeasure(slice), slice.IsMoney ? Currency : slice.Unit);
+
+    /// <summary>Подсветка остатка: меньше трёх дней — красным, меньше недели — жёлтым.</summary>
+    private static ReportTone DaysTone(double daysLeft) =>
+        daysLeft < 3 ? ReportTone.Bad : daysLeft < 7 ? ReportTone.Warn : ReportTone.None;
+
+    private static ReportTone GroupTone(string group) => group switch
+    {
+        "A" => ReportTone.Good,
+        "B" => ReportTone.Warn,
+        _ => ReportTone.Info,
+    };
+
+    private static readonly string[] GroupColors =
+    [
+        ReportPalette.GroupChartColor("A"),
+        ReportPalette.GroupChartColor("B"),
+        ReportPalette.GroupChartColor("C"),
+    ];
 
     // ------------------------------------------------------------------ Excel
 
     public static void ExportToExcel(string path, AnalyticsReportData data, string? shopName)
     {
-        using var document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
-        var workbookPart = document.AddWorkbookPart();
-        workbookPart.Workbook = new Workbook();
-        ExcelWorkbookBuilder.AddStylesheet(workbookPart);
-        var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+        var meta = ReportMeta.Create(ReportTitle, shopName, Period(data));
+        using var book = new ExcelWorkbookBuilder(path, meta);
 
-        uint sheetId = 1;
-        AddSummarySheet(workbookPart, sheets, ref sheetId, data, shopName);
+        var summary = book.AddSheet(SheetSummary, ReportTitle);
+        summary.AddKeyValues(
+        [
+            new XlKeyValue(ReportLabels.WithUnit(LRevenue, Currency), data.Revenue, XlKind.Money),
+            new XlKeyValue(LReceipts, data.ReceiptCount, XlKind.Integer),
+            new XlKeyValue(ReportLabels.WithUnit(LAverage, Currency), data.AverageReceipt, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LDiscounts, Currency), data.Discounts, XlKind.Money),
+            new XlKeyValue("      " + LBonuses, data.PointsRedeemed, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LReturns, Currency), data.Returns, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LWriteOffs, Currency), data.WriteOffs, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LExpenses, Currency), data.Expenses, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LDebtPayments, Currency), data.DebtPayments, XlKind.Money),
+            new XlKeyValue(LCatalogItems, data.StockPositions, XlKind.Integer),
+            new XlKeyValue(ReportLabels.WithUnit(LStockValue, Currency), data.StockValue, XlKind.Money),
+        ], LIndicator, LValue);
 
-        // Числа на этих листах хранятся ЧИСЛАМИ — только по ним Excel умеет строить диаграммы.
-        var byDay = ExcelWorkbookBuilder.AddTableSheet(workbookPart, sheets, ref sheetId, "По дням",
-            new[]
-            {
-                new ExcelWorkbookBuilder.Column("Дата", 14),
-                new ExcelWorkbookBuilder.Column("Выручка", 16, IsMoney: true),
-            },
-            data.ByDay.Select(d => new[]
-            {
-                d.Day.ToString("dd.MM.yyyy"),
-                d.Revenue.ToString("0.####", CultureInfo.InvariantCulture),
-            }).ToList());
+        var linked = new List<(string, XlSheet)>();
 
-        var top = ExcelWorkbookBuilder.AddTableSheet(workbookPart, sheets, ref sheetId, "Топ товаров",
-            new[]
-            {
-                new ExcelWorkbookBuilder.Column("Товар", 42),
-                new ExcelWorkbookBuilder.Column("Количество", 14, IsNumber: true),
-                new ExcelWorkbookBuilder.Column("Сумма", 16, IsMoney: true),
-            },
-            data.TopProducts.Select(x => new[]
-            {
-                x.Name,
-                x.Quantity.ToString("0.####", CultureInfo.InvariantCulture),
-                x.Sum.ToString("0.####", CultureInfo.InvariantCulture),
-            }).ToList());
+        // ---- По дням
+        var byDaySheet = book.AddSheet(SheetByDay, TitleByDay);
+        var periodTotal = data.ByDay.Sum(x => x.Revenue);
+        var byDay = byDaySheet.AddTable(
+        [
+            new XlColumn(LDate, XlKind.Date),
+            new XlColumn(ReportLabels.WithUnit(LRevenue, Currency), XlKind.Money, XlTotal.Sum),
+            new XlColumn(ReportLabels.WithUnit(LShare, "%"), XlKind.Percent, XlTotal.Sum),
+        ],
+        data.ByDay.Select(d => new object?[] { d.Day, d.Revenue, Share(d.Revenue, periodTotal) }));
+        byDaySheet.AddBarChart(TitleByDay, byDay, categoryColumn: 0, valueColumn: 1, maxPoints: 62, categoryFormat: "dd.mm");
+        linked.Add((TitleByDay, byDaySheet));
 
-        // По листу на срез ABC. Имя листа в Excel ограничено 31 символом и не терпит части
-        // знаков, поэтому берём заголовок среза и подрезаем его.
-        foreach (var slice in data.AbcSlices)
+        // ---- Топ товаров
+        var topSheet = book.AddSheet(SheetTop, TitleTop, landscape: true);
+        var top = topSheet.AddTable(
+        [
+            new XlColumn(ReportLabels.Number, XlKind.Index),
+            new XlColumn(LProduct, MaxWidth: 50),
+            new XlColumn(LQuantity, XlKind.Quantity, XlTotal.Sum),
+            new XlColumn(ReportLabels.WithUnit(LAmount, Currency), XlKind.Money, XlTotal.Sum),
+        ],
+        data.TopProducts.Select((p, i) => new object?[] { i + 1, p.Name, p.Quantity, p.Sum }));
+        topSheet.AddBarChart(TitleTop, top, categoryColumn: 1, valueColumn: 3, maxPoints: 10, horizontal: true);
+        linked.Add((TitleTop, topSheet));
+
+        // ---- ABC: сводка по всем срезам (одна таблица — её можно фильтровать по срезу)
+        var abcSlices = data.AbcSlices.Where(s => s.Rows.Count > 0).ToList();
+        if (abcSlices.Count > 0)
         {
-            if (slice.Rows.Count == 0)
-                continue;
-
-            var money = slice.Unit != "шт.";
-            ExcelWorkbookBuilder.AddTableSheet(workbookPart, sheets, ref sheetId,
-                SheetName("ABC " + slice.Title),
-                new[]
+            var abcSheet = book.AddSheet(SheetAbcSummary, TitleAbcSummary, AbcExplanation, landscape: true);
+            var summaryRows = abcSlices
+                .SelectMany(slice => slice.Summary.Select(g => new object?[]
                 {
-                    new ExcelWorkbookBuilder.Column("Группа", 10),
-                    new ExcelWorkbookBuilder.Column("Название", 42),
-                    new ExcelWorkbookBuilder.Column("Количество", 14, IsNumber: true),
-                    new ExcelWorkbookBuilder.Column(money ? "Сумма" : "Штук", 16, IsMoney: money, IsNumber: !money),
-                    new ExcelWorkbookBuilder.Column("Доля, %", 12, IsNumber: true),
-                    new ExcelWorkbookBuilder.Column("Накопительно, %", 18, IsNumber: true),
-                },
-                slice.Rows.Select(r => new[]
+                    slice.Title,
+                    g.Group,
+                    g.Count,
+                    new XlCell(g.Sum, Kind: slice.IsMoney ? XlKind.Money : XlKind.Quantity),
+                    slice.IsMoney ? Currency : slice.Unit,
+                    g.Share,
+                }))
+                .ToList();
+            var abcSummary = abcSheet.AddTable(
+            [
+                new XlColumn(LSlice, MaxWidth: 36),
+                new XlColumn(LGroup, XlKind.Group),
+                new XlColumn(LItems, XlKind.Integer),
+                new XlColumn(LValue, XlKind.Money),
+                new XlColumn(LUnit),
+                new XlColumn(ReportLabels.WithUnit(LShare, "%"), XlKind.Percent),
+            ], summaryRows, totals: false);
+
+            // Круговая — по первому срезу (выручка): его строки идут в таблице первыми.
+            abcSheet.AddPieChart(TitleAbcShare, abcSummary, categoryColumn: 1, valueColumn: 3,
+                points: abcSlices[0].Summary.Count, GroupColors);
+            linked.Add((TitleAbcSummary, abcSheet));
+
+            // ---- По листу на срез
+            foreach (var slice in abcSlices)
+            {
+                var sheet = book.AddSheet("ABC " + slice.Title, "ABC: " + slice.Title, slice.Hint, landscape: true);
+                var columns = new List<XlColumn>
                 {
-                    r.Group, r.Name,
-                    r.Quantity.ToString("0.####", CultureInfo.InvariantCulture),
-                    r.Sum.ToString("0.####", CultureInfo.InvariantCulture),
-                    r.Share.ToString("0.##", CultureInfo.InvariantCulture),
-                    r.Cumulative.ToString("0.##", CultureInfo.InvariantCulture),
-                }).ToList());
+                    new(ReportLabels.Number, XlKind.Index),
+                    new(LGroup, XlKind.Group),
+                    new(SliceSubject(slice), MaxWidth: 50),
+                };
+                if (slice.IsMoney)
+                    columns.Add(new XlColumn(LQuantity, XlKind.Quantity, XlTotal.Sum));
+                columns.Add(new XlColumn(MeasureHeader(slice), slice.IsMoney ? XlKind.Money : XlKind.Quantity, XlTotal.Sum));
+                columns.Add(new XlColumn(ReportLabels.WithUnit(LShare, "%"), XlKind.Percent, XlTotal.Sum));
+                columns.Add(new XlColumn(ReportLabels.WithUnit(LCumulative, "%"), XlKind.Percent));
+
+                var table = sheet.AddTable(columns, slice.Rows.Select((r, i) => slice.IsMoney
+                    ? new object?[] { i + 1, r.Group, r.Name, r.Quantity, r.Sum, r.Share, r.Cumulative }
+                    : new object?[] { i + 1, r.Group, r.Name, r.Sum, r.Share, r.Cumulative }));
+
+                var shareColumn = columns.Count - 2;
+                sheet.AddParetoChart(TitlePareto + ": " + slice.Title, table, categoryColumn: 2, shareColumn: shareColumn,
+                    cumulativeColumn: shareColumn + 1, groupColumn: 1, maxPoints: 20);
+                linked.Add(("ABC: " + slice.Title, sheet));
+            }
         }
 
-        ExcelWorkbookBuilder.AddTableSheet(workbookPart, sheets, ref sheetId, "Склад",
-            new[]
-            {
-                new ExcelWorkbookBuilder.Column("Товар", 42),
-                new ExcelWorkbookBuilder.Column("Остаток", 14, IsNumber: true),
-                new ExcelWorkbookBuilder.Column("Продаж в день", 16, IsNumber: true),
-                new ExcelWorkbookBuilder.Column("Хватит на, дн.", 16, IsNumber: true),
-            },
-            data.Restock.Select(r => new[]
-            {
-                r.Name,
-                r.Stock.ToString("0.####", CultureInfo.InvariantCulture),
-                r.DailyRate.ToString("0.####", CultureInfo.InvariantCulture),
-                r.DaysLeft.ToString("0.##", CultureInfo.InvariantCulture),
-            }).ToList());
-
-        // Диаграммы кладём на те же листы, где лежат их данные: видно, из чего построено, и
-        // Excel пересчитает диаграмму, если поправить число в таблице.
-        if (data.ByDay.Count > 0)
+        // ---- Склад
+        var stockSheet = book.AddSheet(SheetStock, TitleRestock, RestockNote);
+        stockSheet.AddTable(
+        [
+            new XlColumn(ReportLabels.Number, XlKind.Index),
+            new XlColumn(LProduct, MaxWidth: 50),
+            new XlColumn(LStock, XlKind.Quantity),
+            new XlColumn(LPerDay, XlKind.Decimal2),
+            new XlColumn(LDaysLeft, XlKind.Days),
+        ],
+        data.Restock.Select((r, i) => new object?[]
         {
-            ExcelWorkbookBuilder.AddChart(byDay, "По дням", "Выручка по дням",
-                "$A$2:$A$" + (data.ByDay.Count + 1).ToString(CultureInfo.InvariantCulture),
-                "$B$2:$B$" + (data.ByDay.Count + 1).ToString(CultureInfo.InvariantCulture),
-                data.ByDay.Count, pie: false, fromColumn: 3, fromRow: 1);
-        }
+            i + 1, r.Name, r.Stock, r.DailyRate, new XlCell(r.DaysLeft, DaysTone(r.DaysLeft)),
+        }), totals: false);
+        linked.Add((TitleRestock, stockSheet));
 
-        if (data.TopProducts.Count > 0)
-        {
-            var count = Math.Min(data.TopProducts.Count, 10);
-            ExcelWorkbookBuilder.AddChart(top, "Топ товаров", "Топ товаров по сумме",
-                "$A$2:$A$" + (count + 1).ToString(CultureInfo.InvariantCulture),
-                "$C$2:$C$" + (count + 1).ToString(CultureInfo.InvariantCulture),
-                count, pie: false, fromColumn: 4, fromRow: 1);
-        }
+        summary.AddHeading(ReportLabels.Contents);
+        summary.AddLinks(linked);
 
-        if (data.AbcSummary.Count > 0)
-            AddAbcSummaryWithChart(workbookPart, sheets, ref sheetId, data);
-
-        workbookPart.Workbook.Save();
+        book.Save();
     }
 
-    /// <summary>Имя листа Excel: не длиннее 31 символа и без знаков, которые Excel в именах
-    /// листов не принимает.</summary>
-    private static string SheetName(string title)
-    {
-        var cleaned = new string(title.Where(c => c is not (':' or '\\' or '/' or '?' or '*' or '[' or ']')).ToArray());
-        return cleaned.Length <= 31 ? cleaned : cleaned[..31];
-    }
-
-    /// <summary>Лист «Сводка»: заголовок, период и показатели. Суммы — числами, чтобы их можно
-    /// было складывать и сравнивать прямо в Excel.</summary>
-    private static void AddSummarySheet(
-        WorkbookPart workbookPart, Sheets sheets, ref uint sheetId, AnalyticsReportData d, string? shopName)
-    {
-        var part = workbookPart.AddNewPart<WorksheetPart>();
-        var sheetData = new SheetData();
-
-        var columns = new Columns(
-            new DocumentFormat.OpenXml.Spreadsheet.Column { Min = 1, Max = 1, Width = 34, CustomWidth = true },
-            new DocumentFormat.OpenXml.Spreadsheet.Column { Min = 2, Max = 2, Width = 22, CustomWidth = true });
-
-        void TextRow(string a, string b = "")
-        {
-            var row = new Row();
-            row.AppendChild(ExcelWorkbookBuilder.TextCell(a, 0));
-            row.AppendChild(ExcelWorkbookBuilder.TextCell(b, 0));
-            sheetData.AppendChild(row);
-        }
-
-        void MoneyRow(string label, double value)
-        {
-            var row = new Row();
-            row.AppendChild(ExcelWorkbookBuilder.LabelCell(label));
-            row.AppendChild(ExcelWorkbookBuilder.MoneyCell(value));
-            sheetData.AppendChild(row);
-        }
-
-        sheetData.AppendChild(new Row(ExcelWorkbookBuilder.TitleCell("Аналитика продаж и склада")));
-        TextRow("Магазин", shopName ?? "—");
-        TextRow("Период", Period(d));
-        TextRow("Сформирован", DateTime.Now.ToString("dd.MM.yyyy HH:mm"));
-        TextRow("");
-
-        var header = new Row();
-        header.AppendChild(ExcelWorkbookBuilder.TextCell("Показатель", 1));
-        header.AppendChild(ExcelWorkbookBuilder.TextCell("Значение", 1));
-        sheetData.AppendChild(header);
-
-        MoneyRow("Выручка", d.Revenue);
-        MoneyRow("Чеков", d.ReceiptCount);
-        MoneyRow("Средний чек", d.AverageReceipt);
-        MoneyRow("Скидки", d.Discounts);
-        MoneyRow("   из них бонусами", d.PointsRedeemed);
-        MoneyRow("Возвраты", d.Returns);
-        MoneyRow("Списания", d.WriteOffs);
-        MoneyRow("Расход", d.Expenses);
-        MoneyRow("Оплата долгов", d.DebtPayments);
-        TextRow("");
-        MoneyRow("Позиций в каталоге", d.StockPositions);
-        MoneyRow("Склад по ценам продажи", d.StockValue);
-
-        part.Worksheet = new Worksheet(columns, sheetData);
-        part.Worksheet.Save();
-        sheets.AppendChild(new Sheet
-        {
-            Id = workbookPart.GetIdOfPart(part),
-            SheetId = sheetId++,
-            Name = "Сводка",
-        });
-    }
-
-    /// <summary>Отдельный лист со сводкой ABC и круговой диаграммой: на листе с полным списком
-    /// товаров круговая по трём группам потерялась бы среди сотен строк.</summary>
-    private static void AddAbcSummaryWithChart(
-        WorkbookPart workbookPart, Sheets sheets, ref uint sheetId, AnalyticsReportData data)
-    {
-        var part = ExcelWorkbookBuilder.AddTableSheet(workbookPart, sheets, ref sheetId, "ABC-сводка",
-            new[]
-            {
-                new ExcelWorkbookBuilder.Column("Группа", 12),
-                new ExcelWorkbookBuilder.Column("Позиций", 12, IsNumber: true),
-                new ExcelWorkbookBuilder.Column("Сумма", 18, IsMoney: true),
-                new ExcelWorkbookBuilder.Column("Доля, %", 12, IsNumber: true),
-            },
-            data.AbcSummary.Select(g => new[]
-            {
-                "Группа " + g.Group,
-                g.Count.ToString(CultureInfo.InvariantCulture),
-                g.Sum.ToString("0.####", CultureInfo.InvariantCulture),
-                g.Share.ToString("0.##", CultureInfo.InvariantCulture),
-            }).ToList());
-
-        ExcelWorkbookBuilder.AddChart(part, "ABC-сводка", "Доля групп в выручке",
-            "$A$2:$A$" + (data.AbcSummary.Count + 1).ToString(CultureInfo.InvariantCulture),
-            "$C$2:$C$" + (data.AbcSummary.Count + 1).ToString(CultureInfo.InvariantCulture),
-            data.AbcSummary.Count, pie: true, fromColumn: 5, fromRow: 1);
-    }
+    private static double Share(double value, double total) => total > 0 ? value / total * 100 : 0;
 
     // ------------------------------------------------------------------- Word
 
     public static void ExportToWord(string path, AnalyticsReportData data, string? shopName)
     {
-        using var document = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
-        var mainPart = document.AddMainDocumentPart();
-        mainPart.Document = new W.Document(new W.Body());
-        var body = mainPart.Document.Body!;
+        var meta = ReportMeta.Create(ReportTitle, shopName, Period(data));
+        using var doc = new WordReportBuilder(path, meta);
 
-        body.AppendChild(Heading("Аналитика продаж и склада", 28));
-        body.AppendChild(TextLine($"Магазин: {shopName ?? "—"}"));
-        body.AppendChild(TextLine($"Период: {Period(data)}"));
-        body.AppendChild(TextLine($"Сформирован: {DateTime.Now:dd.MM.yyyy HH:mm}"));
-        body.AppendChild(TextLine(""));
+        doc.TitleBlock();
+        doc.ContentsPlaceholder();
+        doc.PageBreak();
 
-        body.AppendChild(Heading("Итоги", 20));
-        body.AppendChild(BuildTable(
-            new[] { "Показатель", "Значение" },
-            new List<string[]>
-            {
-                new[] { "Выручка", Money(data.Revenue) },
-                new[] { "Чеков", data.ReceiptCount.ToString(Ru) },
-                new[] { "Средний чек", Money(data.AverageReceipt) },
-                new[] { "Скидки", Money(data.Discounts) },
-                new[] { "  из них бонусами", Money(data.PointsRedeemed) },
-                new[] { "Возвраты", Money(data.Returns) },
-                new[] { "Списания", Money(data.WriteOffs) },
-                new[] { "Расход", Money(data.Expenses) },
-                new[] { "Оплата долгов", Money(data.DebtPayments) },
-                new[] { "Позиций в каталоге", data.StockPositions.ToString(Ru) },
-                new[] { "Склад по ценам продажи", Money(data.StockValue) },
-            }));
+        // 1. Итоги
+        doc.Heading1("1. " + Tr.T("Итоги периода", "Мезгилдин жыйынтыгы", "Period summary", "Dönem özeti", "Davr yakunlari"));
+        doc.Table(
+            [new WColumn(LIndicator, 3), new WColumn(LValue, 1.4, Numeric: true)],
+            [
+                [ReportLabels.WithUnit(LRevenue, Currency), ReportFormat.Money(data.Revenue)],
+                [LReceipts, ReportFormat.Integer(data.ReceiptCount)],
+                [ReportLabels.WithUnit(LAverage, Currency), ReportFormat.Money(data.AverageReceipt)],
+                [ReportLabels.WithUnit(LDiscounts, Currency), ReportFormat.Money(data.Discounts)],
+                ["      " + LBonuses, ReportFormat.Money(data.PointsRedeemed)],
+                [ReportLabels.WithUnit(LReturns, Currency), ReportFormat.Money(data.Returns)],
+                [ReportLabels.WithUnit(LWriteOffs, Currency), ReportFormat.Money(data.WriteOffs)],
+                [ReportLabels.WithUnit(LExpenses, Currency), ReportFormat.Money(data.Expenses)],
+                [ReportLabels.WithUnit(LDebtPayments, Currency), ReportFormat.Money(data.DebtPayments)],
+                [LCatalogItems, ReportFormat.Integer(data.StockPositions)],
+                [ReportLabels.WithUnit(LStockValue, Currency), ReportFormat.Money(data.StockValue)],
+            ]);
 
-        foreach (var (title, png) in BuildCharts(data))
+        // Круговая строится только по тому, что реально было: нули в легенде только мешают.
+        var structure = new List<(string, double)>
         {
-            body.AppendChild(TextLine(""));
-            body.AppendChild(Heading(title, 20));
-            body.AppendChild(BuildImageParagraph(mainPart, png));
+            (LRevenue, data.Revenue),
+            (LDiscounts, data.Discounts),
+            (LReturns, data.Returns),
+            (LWriteOffs, data.WriteOffs),
+            (LExpenses, data.Expenses),
+        }.Where(x => x.Item2 > 0.005).ToList();
+        doc.Heading2(TitleStructure);
+        // Пустой период — не пустая картинка на полстраницы, а одна строка «нет данных».
+        if (structure.Count > 0)
+            doc.Image(AnalyticsChartRenderer.RenderPie(TitleStructure, structure), TitleStructure);
+        else
+            doc.Note(ReportLabels.NoData);
+
+        // 2. Динамика
+        doc.Heading1("2. " + TitleByDay);
+        if (data.ByDay.Count > 0)
+        {
+            doc.Image(AnalyticsChartRenderer.RenderBars(TitleByDay,
+                data.ByDay.Select(d => (d.Day.ToString("dd.MM"), d.Revenue)).ToList()), TitleByDay);
+        }
+        else
+        {
+            doc.Note(ReportLabels.NoData);
         }
 
-        body.AppendChild(TextLine(""));
-        body.AppendChild(Heading("Топ товаров", 20));
-        body.AppendChild(BuildTable(
-            new[] { "Товар", "Количество", "Сумма" },
-            data.TopProducts.Select(p => new[] { p.Name, p.Quantity.ToString("0.###", Ru), Money(p.Sum) }).ToList()));
+        // 3. Топ товаров
+        doc.Heading1("3. " + SheetTop);
+        if (data.TopProducts.Count > 0)
+        {
+            doc.Image(AnalyticsChartRenderer.RenderBars(TitleTop,
+                data.TopProducts.Take(10).Select(p => (p.Name, p.Sum)).ToList()), TitleTop);
+        }
+        doc.Table(
+            [
+                new WColumn(ReportLabels.Number, 0.5, Center: true),
+                new WColumn(LProduct, 5.5),
+                new WColumn(LQuantity, 1.4, Numeric: true),
+                new WColumn(ReportLabels.WithUnit(LAmount, Currency), 1.8, Numeric: true),
+            ],
+            data.TopProducts.Select((p, i) => new[]
+            {
+                (i + 1).ToString(ReportFormat.Culture), p.Name, ReportFormat.Quantity(p.Quantity), ReportFormat.Money(p.Sum),
+            }).ToList(),
+            ["", ReportLabels.Total, ReportFormat.Quantity(data.TopProducts.Sum(p => p.Quantity)),
+                ReportFormat.Money(data.TopProducts.Sum(p => p.Sum))]);
 
-        body.AppendChild(TextLine(""));
-        body.AppendChild(Heading("ABC-анализ", 20));
-        body.AppendChild(TextLine(
-            "Группа A даёт первые 80 % результата, B — следующие 15 %, C — оставшиеся 5 %. "
-            + "Срезы считаются независимо: товар из группы A по выручке легко оказывается в C по прибыли."));
+        // 4. ABC
+        doc.Heading1("4. " + Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"));
+        doc.Paragraph(AbcExplanation);
 
         foreach (var slice in data.AbcSlices)
         {
             if (slice.Rows.Count == 0)
                 continue;
 
-            var money = slice.Unit != "шт.";
-            string Value(double v) => money ? Money(v) : v.ToString("0.###", Ru) + " шт.";
+            string Value(double v) => slice.IsMoney ? ReportFormat.Money(v) : ReportFormat.Quantity(v);
 
-            body.AppendChild(TextLine(""));
-            body.AppendChild(Heading(slice.Title, 16));
-            body.AppendChild(TextLine(slice.Hint));
-            body.AppendChild(BuildTable(
-                new[] { "Группа", "Позиций", money ? "Сумма" : "Штук", "Доля, %" },
+            doc.Heading2(slice.Title);
+            doc.Note(slice.Hint);
+            doc.Table(
+                [
+                    new WColumn(LGroup, 1, Center: true),
+                    new WColumn(LItems, 1.2, Numeric: true),
+                    new WColumn(MeasureHeader(slice), 2, Numeric: true),
+                    new WColumn(ReportLabels.WithUnit(LShare, "%"), 1.2, Numeric: true),
+                ],
                 slice.Summary.Select(g => new[]
                 {
-                    g.Group, g.Count.ToString(Ru), Value(g.Sum), g.Share.ToString("0.#", Ru),
-                }).ToList()));
+                    g.Group, ReportFormat.Integer(g.Count), Value(g.Sum), ReportFormat.Percent(g.Share),
+                }).ToList(),
+                [ReportLabels.Total, ReportFormat.Integer(slice.Summary.Sum(g => g.Count)), Value(slice.Summary.Sum(g => g.Sum)), ReportFormat.Percent(100)],
+                (row, column) => column == 0 ? GroupTone(slice.Summary[row].Group) : ReportTone.None);
 
-            body.AppendChild(TextLine(""));
-            // Сорок строк на срез: дальше таблица перестаёт читаться на бумаге, а полный
-            // список всегда есть в Excel-выгрузке.
-            body.AppendChild(BuildTable(
-                new[] { "Группа", "Название", money ? "Сумма" : "Штук", "Доля, %", "Накопительно, %" },
-                slice.Rows.Take(40).Select(r => new[]
+            var top = slice.Rows.Take(20).ToList();
+            doc.Image(AnalyticsChartRenderer.RenderPie(
+                $"ABC: {slice.Title} — {TitleGroupShare}",
+                slice.Summary.Select(g => ($"{LGroup} {g.Group} ({g.Count} {LItemsShort})", g.Sum)).ToList()), slice.Title);
+            doc.Image(AnalyticsChartRenderer.RenderParetoClassic(
+                $"{TitlePareto}: {slice.Title}",
+                top.Select(r => (r.Name, r.Share, r.Cumulative, r.Group)).ToList()), TitlePareto + ": " + slice.Title);
+            doc.Image(AnalyticsChartRenderer.RenderPareto(
+                $"{TitleParetoColumns}: {slice.Title}",
+                top.Select(r => (r.Name, r.Sum, r.Cumulative)).ToList(),
+                SliceMeasure(slice)), TitleParetoColumns + ": " + slice.Title);
+
+            var rows = slice.Rows.Take(WordAbcRows).ToList();
+            doc.Table(
+                [
+                    new WColumn(ReportLabels.Number, 0.5, Center: true),
+                    new WColumn(LGroup, 0.8, Center: true),
+                    new WColumn(SliceSubject(slice), 4.5),
+                    new WColumn(MeasureHeader(slice), 1.7, Numeric: true),
+                    new WColumn(ReportLabels.WithUnit(LShare, "%"), 1.1, Numeric: true),
+                    new WColumn(ReportLabels.WithUnit(LCumulative, "%"), 1.4, Numeric: true),
+                ],
+                rows.Select((r, i) => new[]
                 {
-                    r.Group, r.Name, Value(r.Sum),
-                    r.Share.ToString("0.##", Ru), r.Cumulative.ToString("0.##", Ru),
-                }).ToList()));
+                    (i + 1).ToString(ReportFormat.Culture), r.Group, r.Name, Value(r.Sum),
+                    ReportFormat.Percent(r.Share), ReportFormat.Percent(r.Cumulative),
+                }).ToList(),
+                tone: (row, column) => column == 1 ? GroupTone(rows[row].Group) : ReportTone.None);
+            if (slice.Rows.Count > rows.Count)
+                doc.Note(TruncatedNote(rows.Count, slice.Rows.Count));
         }
 
-        body.AppendChild(TextLine(""));
-        body.AppendChild(Heading("Что пора заказать", 20));
-        body.AppendChild(BuildTable(
-            new[] { "Товар", "Остаток", "Продаж в день", "Хватит на, дн." },
-            data.Restock.Select(r => new[]
+        // 5. Склад
+        doc.Heading1("5. " + TitleRestock);
+        doc.Note(RestockNote);
+        doc.Table(
+            [
+                new WColumn(ReportLabels.Number, 0.5, Center: true),
+                new WColumn(LProduct, 5),
+                new WColumn(LStock, 1.3, Numeric: true),
+                new WColumn(LPerDay, 1.4, Numeric: true),
+                new WColumn(LDaysLeft, 1.4, Numeric: true),
+            ],
+            data.Restock.Select((r, i) => new[]
             {
-                r.Name, r.Stock.ToString("0.###", Ru), r.DailyRate.ToString("0.##", Ru), r.DaysLeft.ToString("0.#", Ru),
-            }).ToList()));
+                (i + 1).ToString(ReportFormat.Culture), r.Name, ReportFormat.Quantity(r.Stock),
+                r.DailyRate.ToString("#,##0.00", ReportFormat.Culture), ReportFormat.Days(r.DaysLeft),
+            }).ToList(),
+            tone: (row, column) => column == 4 ? DaysTone(data.Restock[row].DaysLeft) : ReportTone.None);
 
-        mainPart.Document.Save();
-    }
-
-    private static List<(string Title, byte[] Png)> BuildCharts(AnalyticsReportData data)
-    {
-        var charts = new List<(string, byte[])>();
-
-        charts.Add(("Выручка по дням", AnalyticsChartRenderer.RenderBars(
-            "Выручка по дням",
-            data.ByDay.Select(d => (d.Day.ToString("dd.MM"), d.Revenue)).ToList())));
-
-        charts.Add(("Топ товаров по сумме", AnalyticsChartRenderer.RenderBars(
-            "Топ товаров по сумме",
-            data.TopProducts.Take(10).Select(p => (p.Name, p.Sum)).ToList())));
-
-        // Круговая строится только по тому, что реально было: нули в легенде только мешают.
-        var structure = new List<(string, double)>
-        {
-            ("Выручка", data.Revenue),
-            ("Скидки", data.Discounts),
-            ("Возвраты", data.Returns),
-            ("Списания", data.WriteOffs),
-            ("Расход", data.Expenses),
-        }.Where(x => x.Item2 > 0.005).ToList();
-
-        charts.Add(("Структура за период", AnalyticsChartRenderer.RenderPie("Структура за период", structure)));
-
-        if (data.AbcSummary.Count > 0)
-        {
-            charts.Add(("ABC-анализ по выручке", AnalyticsChartRenderer.RenderPie(
-                "ABC-анализ: доля групп в выручке",
-                data.AbcSummary.Select(g => ($"Группа {g.Group} ({g.Count} поз.)", g.Sum)).ToList())));
-        }
-
-        // Каждый срез ABC — своей парой картинок: доля групп и диаграмма Парето. Раньше в
-        // отчёт попадала только сводка по выручке, хотя на экране срезов пять, и решения по
-        // закупке принимают как раз по разным срезам.
-        foreach (var slice in data.AbcSlices)
-        {
-            if (slice.Summary.Count > 0)
-            {
-                charts.Add(($"ABC: {slice.Title} — доля групп", AnalyticsChartRenderer.RenderPie(
-                    $"ABC: {slice.Title} — доля групп",
-                    slice.Summary.Select(g => ($"Группа {g.Group} ({g.Count} поз.)", g.Sum)).ToList())));
-            }
-
-            if (slice.Rows.Count > 0)
-            {
-                var top = slice.Rows.Take(20).ToList();
-
-                charts.Add(($"Парето: {slice.Title}", AnalyticsChartRenderer.RenderParetoClassic(
-                    $"Диаграмма Парето: {slice.Title}",
-                    top.Select(r => (r.Name, r.Share, r.Cumulative, r.Group)).ToList())));
-
-                charts.Add(($"Парето столбцами: {slice.Title}", AnalyticsChartRenderer.RenderPareto(
-                    $"Парето столбцами: {slice.Title}",
-                    top.Select(r => (r.Name, r.Sum, r.Cumulative)).ToList(),
-                    slice.Title)));
-            }
-        }
-
-        return charts;
-    }
-
-    private static W.Paragraph Heading(string text, int halfPoints) =>
-        new(new W.Run(
-            new W.RunProperties(new W.Bold(), new W.FontSize { Val = halfPoints.ToString(CultureInfo.InvariantCulture) }),
-            new W.Text(text)));
-
-    private static W.Paragraph TextLine(string text) =>
-        new(new W.Run(new W.Text(text) { Space = SpaceProcessingModeValues.Preserve }));
-
-    private static W.Table BuildTable(string[] header, List<string[]> rows)
-    {
-        var table = new W.Table(new W.TableProperties(
-            new W.TableBorders(
-                new W.TopBorder { Val = W.BorderValues.Single, Size = 4 },
-                new W.BottomBorder { Val = W.BorderValues.Single, Size = 4 },
-                new W.LeftBorder { Val = W.BorderValues.Single, Size = 4 },
-                new W.RightBorder { Val = W.BorderValues.Single, Size = 4 },
-                new W.InsideHorizontalBorder { Val = W.BorderValues.Single, Size = 4 },
-                new W.InsideVerticalBorder { Val = W.BorderValues.Single, Size = 4 })));
-
-        table.AppendChild(BuildRow(header, bold: true));
-        foreach (var row in rows)
-            table.AppendChild(BuildRow(row, bold: false));
-
-        return table;
-    }
-
-    private static W.TableRow BuildRow(string[] values, bool bold)
-    {
-        var row = new W.TableRow();
-        foreach (var value in values)
-        {
-            var run = bold
-                ? new W.Run(new W.RunProperties(new W.Bold()), new W.Text(value ?? ""))
-                : new W.Run(new W.Text(value ?? ""));
-            row.AppendChild(new W.TableCell(new W.Paragraph(run)));
-        }
-
-        return row;
-    }
-
-    private static W.Paragraph BuildImageParagraph(MainDocumentPart mainPart, byte[] png)
-    {
-        var imagePart = mainPart.AddImagePart(ImagePartType.Png);
-        using (var stream = new MemoryStream(png))
-            imagePart.FeedData(stream);
-
-        var id = mainPart.GetIdOfPart(imagePart);
-        const long emuPerPixel = 9525;
-        // 620 точек ширины — вписывается в страницу A4 с обычными полями.
-        var width = 620L * emuPerPixel;
-        var height = 289L * emuPerPixel;
-
-        var element = new W.Drawing(
-            new DW.Inline(
-                new DW.Extent { Cx = width, Cy = height },
-                new DW.DocProperties { Id = (UInt32Value)(uint)Math.Abs(id.GetHashCode() % 100000 + 1), Name = "Chart" },
-                new A.Graphic(new A.GraphicData(
-                    new PIC.Picture(
-                        new PIC.NonVisualPictureProperties(
-                            new PIC.NonVisualDrawingProperties { Id = 0U, Name = "chart.png" },
-                            new PIC.NonVisualPictureDrawingProperties()),
-                        new PIC.BlipFill(
-                            new A.Blip { Embed = id },
-                            new A.Stretch(new A.FillRectangle())),
-                        new PIC.ShapeProperties(
-                            new A.Transform2D(
-                                new A.Offset { X = 0L, Y = 0L },
-                                new A.Extents { Cx = width, Cy = height }),
-                            new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle }))
-                    )
-                    { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }))
-            { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U });
-
-        return new W.Paragraph(new W.Run(element));
+        doc.Save();
     }
 }

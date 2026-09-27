@@ -57,7 +57,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public string ErrorMessage
         {
             get => _errorMessage;
-            set { _errorMessage = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasError)); }
+            set
+            {
+                _errorMessage = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasError));
+                // Любое сообщение по умолчанию — ошибка; «Отчёт сохранён» перекрашивает ShowSaved.
+                AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: false);
+            }
         }
         public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
@@ -707,7 +714,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 Title = toWord
                     ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
                     : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
-                SuggestedFileName = $"analitika-{_historyFrom:yyyy-MM-dd}_{_historyTo:yyyy-MM-dd}.{extension}",
+                SuggestedFileName = AnalyticsExportService.SuggestFileName(AnalyticsExportService.FileTitle,
+                    _historyFrom, _historyTo, UserPreferences.Instance.StoreName, extension),
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
             if (file is null)
@@ -735,6 +743,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }).ConfigureAwait(true);
 
                 ErrorMessage = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
+                AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: true);
             }
             catch (Exception ex)
             {
@@ -1084,6 +1093,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     break;
                 }
             }
+
+            // 2026-09-28, найдено проверкой копии чека: discount_total продажи — это уже ВСЯ
+            // скидка чека (строки + на чек: subtotal − total). Раньше к ней прибавлялись ещё и
+            // скидки строк — на копии «Сумма 225,50 / Скидка −41,00» вместо 205,00 / −20,50.
+            if (header > 0m)
+                return header;
 
             var lines = 0m;
             foreach (var item in CartDisplayHelper.EnumerateSaleLineItems(json))

@@ -22,6 +22,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
     private string _statusMessage = "";
     private bool _isBusy;
     private Bitmap? _preview;
+    private string? _barcodeWarning;
 
     public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -130,6 +131,14 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
             ms.Position = 0;
             Preview = new Bitmap(ms);
+
+            // Штрих-код не в выбранном формате / не напечатается — объясняем почему.
+            var warning = BarcodeLabelService.DescribeBarcodeProblem(Barcode, _template);
+            if (warning is not null)
+                StatusMessage = warning;
+            else if (_barcodeWarning is not null && StatusMessage == _barcodeWarning)
+                StatusMessage = "";
+            _barcodeWarning = warning;
         }
         catch (Exception ex)
         {

@@ -165,6 +165,17 @@ public partial class PriceTagPrintDialog : Window
             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
             ms.Position = 0;
             PreviewImage.Source = new Bitmap(ms);
+
+            // Штрих-код, который напечатается не как выбрано (Code 128 вместо EAN) или не
+            // напечатается вовсе (кириллица, не влезает), — объясняем в строке состояния.
+            var warning = option.Kind == PriceTagKind.Custom
+                ? BarcodeLabelService.DescribeBarcodeProblem(_product.Barcode, _customTemplate)
+                : PriceTagService.DescribeBarcodeProblem(option.Kind, _product.Barcode, widthMm, heightMm);
+            if (warning is not null)
+                StatusText.Text = warning;
+            else if (_barcodeWarning is not null && StatusText.Text == _barcodeWarning)
+                StatusText.Text = "";
+            _barcodeWarning = warning;
         }
         catch (Exception ex)
         {
@@ -172,6 +183,10 @@ public partial class PriceTagPrintDialog : Window
             StatusText.Text = Tr.T("Не удалось построить предпросмотр ценника.", "Баа белгисинин алдын ала көрүнүшүн түзүү мүмкүн болгон жок.", "Could not build the price tag preview.", "Fiyat etiketi önizlemesi oluşturulamadı.", "Narx yorlig'ini oldindan ko'rishni yaratib bo'lmadi.");
         }
     }
+
+    /// <summary>Последнее показанное предупреждение о штрих-коде — чтобы убрать только его,
+    /// не стирая другие сообщения (результат печати, «принтер не найден»).</summary>
+    private string? _barcodeWarning;
 
     private async void PrintButton_Click(object? sender, RoutedEventArgs e)
     {

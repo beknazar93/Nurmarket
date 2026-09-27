@@ -23,7 +23,8 @@
                  Margin="0,0,0,12"/>
 
       <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,0,22">
-        <TextBlock x:Name="MessageText"
+        <!-- Отступ справа: полоса прокрутки длинного текста («Касса обновлена») не ложится на буквы. -->
+        <TextBlock x:Name="MessageText" Margin="0,0,14,0"
                    FontSize="14" TextWrapping="Wrap"
                    Foreground="{DynamicResource BrushTextSoft}"
                    HorizontalAlignment="Stretch"

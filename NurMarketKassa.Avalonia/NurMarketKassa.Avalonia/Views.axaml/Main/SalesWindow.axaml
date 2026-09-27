@@ -321,10 +321,10 @@
         </Grid>
 
         <!-- 5: Сообщение об ошибке -->
-        <Border Grid.Row="5" Margin="0,8,0,0" Padding="12"
+        <Border x:Name="NoticeBox" Grid.Row="5" Margin="0,8,0,0" Padding="12"
                 Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
                 IsVisible="{Binding HasError}">
-            <TextBlock Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+            <TextBlock x:Name="NoticeText" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
         </Border>
 
         <!-- Popup с деталями чека -->

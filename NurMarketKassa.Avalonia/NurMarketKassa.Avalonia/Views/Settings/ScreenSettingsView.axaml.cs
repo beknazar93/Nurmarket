@@ -40,6 +40,10 @@ public partial class ScreenSettingsView : UserControl
         TileSizeSlider.Value = UserPreferences.Instance.CatalogTileScalePercent;
         TileSizeValueText.Text = $"{UserPreferences.Instance.CatalogTileScalePercent:F0}%";
         _suppressUiScaleChange = false;
+
+        // Окно настроек подгоняется под экран уже после конструктора — подпись с реальным
+        // масштабом обновляем, когда страница оказалась на экране.
+        AttachedToVisualTree += (_, _) => UpdateUiScaleValueText(UiScaleSlider.Value);
     }
 
     private void Save_Click(object? sender, RoutedEventArgs e) =>
@@ -47,16 +51,51 @@ public partial class ScreenSettingsView : UserControl
 
     public double UiScalePercent => UiScaleSlider.Value;
 
-    private void UpdateUiScaleValueText(double percent) =>
-        UiScaleValueText.Text = $"{percent:F0}%";
+    /// <summary>Ползунок — это выбор кассира, а на экране может стоять меньше: масштаб никогда
+    /// не выходит за то, что помещается на экран (см. UiScaleHelper.ComputeScale). Раньше здесь
+    /// показывалось только значение ползунка — «100%» при реальных 78% на 1024×768, и было не
+    /// понять, почему касса вдруг выросла или почему ползунок «не работает».</summary>
+    private void UpdateUiScaleValueText(double percent)
+    {
+        var text = $"{percent:F0}%";
+        var actual = TryGetAppliedUiScalePercent();
+        if (actual is { } applied && Math.Abs(applied - percent) >= 0.5)
+        {
+            text = Tr.T(
+                $"{percent:F0}% (на этом экране {applied:F0}%)",
+                $"{percent:F0}% (бул экранда {applied:F0}%)",
+                $"{percent:F0}% ({applied:F0}% on this screen)",
+                $"{percent:F0}% (bu ekranda {applied:F0}%)",
+                $"{percent:F0}% (bu ekranda {applied:F0}%)");
+        }
+
+        UiScaleValueText.Text = text;
+    }
+
+    /// <summary>Реально применённый масштаб: у кассы, если она открыта, иначе (программа
+    /// владельца) — у самого окна настроек.</summary>
+    private double? TryGetAppliedUiScalePercent()
+    {
+        try
+        {
+            return UiScaleHelper.GetAppliedPercent(App.GetRequiredService<MainWindowHostBridge>().Window)
+                   ?? UiScaleHelper.GetAppliedPercent(TopLevel.GetTopLevel(this) as Control);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     private CancellationTokenSource? _uiScaleSaveDebounceCts;
 
     private void UiScaleSlider_ValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
-        UpdateUiScaleValueText(e.NewValue);
         if (_suppressUiScaleChange)
+        {
+            UpdateUiScaleValueText(e.NewValue);
             return;
+        }
 
         // Живое применение сразу при перетаскивании ползунка (та же схема, что уже
         // используется для GlassOpacitySlider/LiquidGlassToggle в MarketplaceView) —
@@ -67,6 +106,8 @@ public partial class ScreenSettingsView : UserControl
         UserPreferences.Instance.UiScalePercent = e.NewValue;
         App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
         UiScaleChanged?.Invoke(this, EventArgs.Empty);
+        // После применения — чтобы подпись показала, что реально получилось на этом экране.
+        UpdateUiScaleValueText(e.NewValue);
         ScheduleUiScaleSaveDebounce();
     }
 

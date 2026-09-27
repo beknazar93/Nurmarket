@@ -40,7 +40,7 @@ public static class AnalyticsChartRenderer
     public static byte[] RenderBars(string title, IReadOnlyList<(string Label, double Value)> data,
         int width = 900, int height = 420)
     {
-        using var bitmap = new Bitmap(width, height);
+        using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
 
@@ -55,26 +55,38 @@ public static class AnalyticsChartRenderer
 
         if (data.Count == 0)
         {
-            g.DrawString("Нет данных за период", labelFont, muted, 18, 60);
+            g.DrawString(ReportLabels.NoData, labelFont, muted, 18, 60);
             return ToPng(bitmap);
         }
 
         const int left = 70, right = 24, top = 56, bottom = 58;
         var plotWidth = width - left - right;
         var plotHeight = height - top - bottom;
-        var max = Math.Max(data.Max(d => d.Value), 0.0001);
+        var (max, step) = NiceScale(data.Max(d => d.Value), 5);
 
-        // Сетка и подписи оси — пять линий достаточно, чтобы читать порядок величин.
-        for (var i = 0; i <= 4; i++)
+        // Сетка по «круглым» значениям (0, 5 тыс, 10 тыс…): по шкале 7,1 / 14,1 / 21,2 тыс
+        // величину на глаз не прочитать.
+        for (var tick = 0.0; tick <= max + step / 2; tick += step)
         {
-            var y = top + plotHeight - plotHeight * i / 4f;
+            var y = top + plotHeight - (float)(plotHeight * tick / max);
             g.DrawLine(gridPen, left, y, left + plotWidth, y);
-            g.DrawString(FormatShort(max * i / 4), labelFont, muted, 8, y - 8);
+            var tickText = FormatShort(tick);
+            g.DrawString(tickText, labelFont, muted, left - 8 - g.MeasureString(tickText, labelFont).Width, y - 8);
         }
 
         var slot = plotWidth / (float)data.Count;
         var barWidth = Math.Min(slot * 0.62f, 90f);
 
+        // Подписи не должны налезать друг на друга: при тридцати днях в месяце подписываем каждый
+        // второй-третий столбец, а суммы над столбцами — только если им хватает места.
+        var widestLabel = data.Max(d => g.MeasureString(d.Label, labelFont).Width);
+        var labelEvery = Math.Max(1, (int)Math.Ceiling((widestLabel + 6) / slot));
+        if (labelEvery > 3)
+            labelEvery = 1; // длинные названия товаров — лучше обрезать, чем пропускать
+        var widestValue = data.Max(d => g.MeasureString(FormatShort(d.Value), valueFont).Width);
+        var showValues = widestValue + 2 <= slot;
+
+        using var fill = new SolidBrush(Palette[0]);
         for (var i = 0; i < data.Count; i++)
         {
             var (label, value) = data[i];
@@ -82,20 +94,35 @@ public static class AnalyticsChartRenderer
             var x = left + slot * i + (slot - barWidth) / 2f;
             var y = top + plotHeight - barHeight;
 
-            using var fill = new SolidBrush(Palette[i % Palette.Length]);
             g.FillRectangle(fill, x, y, barWidth, Math.Max(barHeight, 1));
 
-            var valueText = FormatShort(value);
-            var valueSize = g.MeasureString(valueText, valueFont);
-            g.DrawString(valueText, valueFont, ink, x + (barWidth - valueSize.Width) / 2, y - 16);
+            if (showValues)
+            {
+                var valueText = FormatShort(value);
+                var valueSize = g.MeasureString(valueText, valueFont);
+                g.DrawString(valueText, valueFont, ink, x + (barWidth - valueSize.Width) / 2, y - 16);
+            }
 
-            var shortLabel = Ellipsize(g, label, labelFont, slot - 4);
+            if (i % labelEvery != 0)
+                continue;
+
+            var shortLabel = Ellipsize(g, label, labelFont, slot * labelEvery - 4);
             var labelSize = g.MeasureString(shortLabel, labelFont);
             g.DrawString(shortLabel, labelFont, muted,
                 x + (barWidth - labelSize.Width) / 2, top + plotHeight + 8);
         }
 
         return ToPng(bitmap);
+    }
+
+    /// <summary>«Круглая» шкала: шаг 1, 2, 2,5 или 5 × 10ⁿ и максимум, кратный шагу.</summary>
+    private static (double Max, double Step) NiceScale(double dataMax, int ticks)
+    {
+        dataMax = Math.Max(dataMax, 0.0001);
+        var rough = dataMax / ticks;
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rough)));
+        var step = new[] { 1.0, 2.0, 2.5, 5.0, 10.0 }.Select(m => m * magnitude).First(s => s >= rough);
+        return (Math.Ceiling(dataMax / step) * step, step);
     }
 
     /// <summary>Диаграмма Парето для отчёта — та же, что на экране: на каждый товар три
@@ -116,7 +143,7 @@ public static class AnalyticsChartRenderer
         var colorThreshold = Color.FromArgb(165, 165, 165);
         const double threshold = 80.0;
 
-        using var bitmap = new Bitmap(width, height);
+        using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
 
@@ -130,20 +157,23 @@ public static class AnalyticsChartRenderer
 
         if (data.Count == 0)
         {
-            g.DrawString("Нет данных за период", labelFont, muted, 18, 60);
+            g.DrawString(ReportLabels.NoData, labelFont, muted, 18, 60);
             return ToPng(bitmap);
         }
 
         const int left = 78, right = 60, top = 56, bottom = 86;
         var plotWidth = width - left - right;
         var plotHeight = height - top - bottom;
-        var max = Math.Max(data.Max(d => d.Value), 0.0001);
+        // Левая шкала — «круглая» и ровно на пять делений, чтобы её линии совпали с процентами справа.
+        var paretoStep = NiceScale(data.Max(d => d.Value), 5).Step;
+        var max = paretoStep * 5;
 
         for (var i = 0; i <= 5; i++)
         {
             var y = top + plotHeight - plotHeight * i / 5f;
             g.DrawLine(gridPen, left, y, left + plotWidth, y);
-            g.DrawString(FormatShort(max * i / 5), labelFont, muted, 8, y - 8);
+            var tickText = FormatShort(max * i / 5);
+            g.DrawString(tickText, labelFont, muted, left - 8 - g.MeasureString(tickText, labelFont).Width, y - 8);
             g.DrawString((i * 20).ToString(System.Globalization.CultureInfo.InvariantCulture) + " %",
                 labelFont, muted, left + plotWidth + 6, y - 8);
         }
@@ -180,8 +210,8 @@ public static class AnalyticsChartRenderer
         foreach (var (color, text) in new[]
                  {
                      (colorValue, valueLegend),
-                     (colorCumulative, "Накопленная доля"),
-                     (colorThreshold, "Порог 80 %"),
+                     (colorCumulative, Tr.T("Накопленная доля", "Топтолгон үлүш", "Cumulative share", "Kümülatif pay", "Jamlangan ulush")),
+                     (colorThreshold, Tr.T("Порог 80 %", "80 % босогосу", "80 % threshold", "%80 eşiği", "80 % chegarasi")),
                  })
         {
             using var swatch = new SolidBrush(color);
@@ -204,7 +234,7 @@ public static class AnalyticsChartRenderer
         int width = 980,
         int height = 460)
     {
-        using var bitmap = new Bitmap(width, height);
+        using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
 
@@ -218,7 +248,7 @@ public static class AnalyticsChartRenderer
 
         if (data.Count == 0)
         {
-            g.DrawString("Нет данных за период", labelFont, muted, 18, 60);
+            g.DrawString(ReportLabels.NoData, labelFont, muted, 18, 60);
             return ToPng(bitmap);
         }
 
@@ -298,7 +328,7 @@ public static class AnalyticsChartRenderer
     public static byte[] RenderPie(string title, IReadOnlyList<(string Label, double Value)> data,
         int width = 900, int height = 420)
     {
-        using var bitmap = new Bitmap(width, height);
+        using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
 
@@ -312,7 +342,7 @@ public static class AnalyticsChartRenderer
         var total = data.Sum(d => d.Value);
         if (data.Count == 0 || total <= 0)
         {
-            g.DrawString("Нет данных за период", legendFont, muted, 18, 60);
+            g.DrawString(ReportLabels.NoData, legendFont, muted, 18, 60);
             return ToPng(bitmap);
         }
 
@@ -337,7 +367,7 @@ public static class AnalyticsChartRenderer
             g.FillRectangle(box, legendX, legendY + 2, 12, 12);
 
             var text = $"{Ellipsize(g, data[i].Label, legendFont, width - legendX - 130)} — " +
-                       $"{FormatShort(data[i].Value)} ({share:0.#} %)";
+                       $"{FormatShort(data[i].Value)} ({share.ToString("0.#", ReportFormat.Culture)} %)";
             g.DrawString(text, legendFont, ink, legendX + 18, legendY);
             legendY += 22;
 
@@ -348,20 +378,36 @@ public static class AnalyticsChartRenderer
         return ToPng(bitmap);
     }
 
+    /// <summary>Во сколько раз картинка плотнее экранной. Рисуем в логических точках, а сохраняем
+    /// вдвое большим растром с пометкой 192 dpi: в Word график занимает ту же ширину страницы, но
+    /// при печати и увеличении не «мылится» — на 96 dpi подписи на бумаге выходили размытыми.</summary>
+    private const float Scale = 2f;
+
+    private static Bitmap NewCanvas(int width, int height)
+    {
+        var bitmap = new Bitmap((int)(width * Scale), (int)(height * Scale));
+        // Шрифты заданы в пунктах: при 96 dpi растра и масштабе ×2 они выходят ровно вдвое крупнее,
+        // как и всё остальное. Разрешение «для печати» ставится уже при сохранении (ToPng).
+        bitmap.SetResolution(96, 96);
+        return bitmap;
+    }
+
     private static void Prepare(Graphics g, int width, int height)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         g.Clear(Color.White);
+        g.ScaleTransform(Scale, Scale);
     }
 
     /// <summary>Крупные суммы сокращаем: «1 234 567» на подписи столбца не помещается и
     /// налезает на соседний.</summary>
     private static string FormatShort(double value) => Math.Abs(value) switch
     {
-        >= 1_000_000 => (value / 1_000_000).ToString("0.##") + " млн",
-        >= 1_000 => (value / 1_000).ToString("0.#") + " тыс",
-        _ => value.ToString("0.##"),
+        >= 1_000_000 => (value / 1_000_000).ToString("0.##", ReportFormat.Culture) + " " + Tr.T("млн", "млн", "M", "Mn", "mln"),
+        >= 1_000 => (value / 1_000).ToString("0.#", ReportFormat.Culture) + " " + Tr.T("тыс", "миң", "K", "B", "ming"),
+        _ => value.ToString("0.##", ReportFormat.Culture),
     };
 
     private static string Ellipsize(Graphics g, string text, Font font, float maxWidth)
@@ -378,6 +424,7 @@ public static class AnalyticsChartRenderer
 
     private static byte[] ToPng(Bitmap bitmap)
     {
+        bitmap.SetResolution(96 * Scale, 96 * Scale);
         using var stream = new MemoryStream();
         bitmap.Save(stream, ImageFormat.Png);
         return stream.ToArray();

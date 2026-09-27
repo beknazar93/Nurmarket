@@ -160,6 +160,9 @@ public partial class MainWindow : Window
         // reintroduce either without confirming real hardware still scans correctly afterward.
 
         ApplyFullscreenPreference();
+        // Масштаб — до показа окна: UiScaleHelper дождётся, пока окно окажется на экране, и
+        // первый же кадр кассы будет подогнан под экран, а не в родных 1280×840.
+        RefreshUiScale();
         _viewModel.Toolbar.UpdateThemeGlyph(UserPreferences.Instance.DarkTheme);
     }
 
@@ -1542,6 +1545,11 @@ public partial class MainWindow : Window
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         PlaceOnPrimaryScreen();
+        // Сразу после переноса на основной экран, а не в конце метода, как раньше: ниже есть
+        // модальное «Касса обновлена» (первый запуск после установки) и ожидания — всё это
+        // время касса стояла без подгонки, в родных 100% (на 1024×768 при 125% — в 1,6 раза
+        // крупнее экрана).
+        RefreshUiScale();
         if (!_appInitialized)
             await InitializeApplicationAsync(null, _windowCts.Token).ConfigureAwait(true);
 
@@ -1592,7 +1600,6 @@ public partial class MainWindow : Window
         _voiceControl.Start();
 
         RefreshBackgroundWallpaper();
-        RefreshUiScale();
         RefreshLayoutMode();
     }
 
@@ -1709,7 +1716,12 @@ public partial class MainWindow : Window
                 }
             }
 
-            await NavigateToLoginAsync().ConfigureAwait(true);
+            // 2026-09-28, владелец: «открыть кассу, закрыть — потом не откроешь просто так».
+            // Крестик окна раньше выходил из учётной записи и стирал сохранённый вход — кассира
+            // встречал экран входа с паролем. Теперь крестик = «Выйти на рабочий стол»: программа
+            // закрывается, вход сохраняется (если была отмечена «Запомнить меня»). Выйти из
+            // учётной записи можно отдельно — «Сменить кассира».
+            ExitApplication();
         }
         catch (OperationCanceledException)
         {

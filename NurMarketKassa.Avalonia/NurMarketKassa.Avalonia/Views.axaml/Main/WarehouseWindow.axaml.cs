@@ -531,7 +531,7 @@ public partial class WarehouseWindow : Window, IOwnerSection
             Title = toWord
                 ? Tr.T("Сохранить журнал в Word", "Журналды Word форматында сактоо", "Save the log to Word", "Günlüğü Word olarak kaydet", "Jurnalni Word formatida saqlash")
                 : Tr.T("Сохранить журнал в Excel", "Журналды Excel форматында сактоо", "Save the log to Excel", "Günlüğü Excel olarak kaydet", "Jurnalni Excel formatida saqlash"),
-            SuggestedFileName = $"transfers-{DateTime.Now:yyyy-MM-dd}.{extension}",
+            SuggestedFileName = StockTransferExportService.SuggestJournalFileName(UserPreferences.Instance.StoreName, extension),
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
 

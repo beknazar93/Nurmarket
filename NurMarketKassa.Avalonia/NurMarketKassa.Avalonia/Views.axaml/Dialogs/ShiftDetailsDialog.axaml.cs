@@ -25,6 +25,7 @@ public partial class ShiftDetailsDialog : Window
     private readonly CancellationTokenSource _cts = new();
     private Task<List<ShiftReportData.ShiftSale>>? _saleRows;
     private Task? _pendingDebt;
+    private double _serverDiscounts;
 
     public ShiftDetailsDialog()
     {
@@ -48,6 +49,7 @@ public partial class ShiftDetailsDialog : Window
 
         // Список продаж смены нужен любой плитке «Продажи/Наличные/…» — к нажатию он уже здесь.
         SaleRows();
+        _ = ShowServerDiscountsAsync();
         if (RefreshFromServer)
             _ = RefreshFromServerAsync(shift.Id);
     }
@@ -204,7 +206,8 @@ public partial class ShiftDetailsDialog : Window
         DebtPaidText.Text = debtPaid > 0.005 ? Money(debtPaid) : "—";
 
         var adjustments = ClientLoyaltyStore.AdjustmentsForShift(shiftId);
-        DiscountsText.Text = adjustments.Discounts > 0.005 ? Money(adjustments.Discounts) : "—";
+        var discounts = Math.Max(adjustments.Discounts, _serverDiscounts);
+        DiscountsText.Text = discounts > 0.005 ? Money(discounts) : "—";
 
         // Оплату бонусами показываем отдельной строкой под скидкой: она входит в общую сумму
         // скидок, и без пояснения владелец считал бы её дважды.
@@ -214,6 +217,34 @@ public partial class ShiftDetailsDialog : Window
             $"of which paid with points: {adjustments.PointsRedeemed:N2}",
             $"puanla ödenen: {adjustments.PointsRedeemed:N2}",
             $"shundan bonus bilan: {adjustments.PointsRedeemed:N2}");
+    }
+
+    /// <summary>2026-09-28, регресс 1.17.19: в смене была скидка 10 % на строку, а плитка
+    /// «Скидки» показывала прочерк — она считала только скидки программы лояльности
+    /// (ClientLoyaltyStore), а обычные скидки кассира в неё не попадали. Нажатие на ту же
+    /// плитку при этом показывало скидку: детализация берёт discount_total чеков смены.
+    /// Теперь плитка — та же сумма, что и в детализации (отменённые/возвращённые чеки не в
+    /// счёт). Бонусы сервер тоже видит скидкой по строкам, поэтому берём большее из двух.</summary>
+    private async Task ShowServerDiscountsAsync()
+    {
+        try
+        {
+            var sales = await SaleRows().ConfigureAwait(true);
+            var fromServer = sales
+                .Where(s => !string.Equals(s.Status, "canceled", StringComparison.OrdinalIgnoreCase))
+                .Sum(s => s.Discount);
+            _serverDiscounts = fromServer;
+            var discounts = Math.Max(fromServer, ClientLoyaltyStore.AdjustmentsForShift(_shift?.Id).Discounts);
+            if (ExtraTotalsRow.IsVisible && discounts > 0.005)
+                DiscountsText.Text = $"{discounts:N2} {Som}";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Ошибку загрузки чеков уже записал SaleRows(); плитка остаётся как была.
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     /// <summary>2026-09-15, живой баг ("Долг для уже закрытых смен в Истории смен показывает

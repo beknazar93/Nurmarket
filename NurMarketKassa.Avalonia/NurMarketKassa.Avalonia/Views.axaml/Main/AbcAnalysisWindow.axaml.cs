@@ -260,7 +260,9 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             Title = toWord
                 ? Tr.T("Сохранить отчёт в Word", "Отчётту Word форматында сактоо", "Save the report to Word", "Raporu Word olarak kaydet", "Hisobotni Word formatida saqlash")
                 : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel форматында сактоо", "Save the report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel formatida saqlash"),
-            SuggestedFileName = $"abc-{_from:yyyy-MM-dd}_{_to:yyyy-MM-dd}.{extension}",
+            SuggestedFileName = AnalyticsExportService.SuggestFileName(
+                Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
+                _from, _to, UserPreferences.Instance.StoreName, extension),
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
         if (file is null)
@@ -288,6 +290,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             }).ConfigureAwait(true);
 
             ShowError(Tr.T("Отчёт сохранён", "Отчёт сакталды", "Report saved", "Rapor kaydedildi", "Hisobot saqlandi") + $": {path}");
+            AvaloniaHost.Services.NoticeBanner.Apply(ErrorBox, ErrorText, success: true);
         }
         catch (Exception ex)
         {
@@ -315,5 +318,6 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
     {
         ErrorText.Text = message ?? "";
         ErrorBox.IsVisible = !string.IsNullOrEmpty(message);
+        AvaloniaHost.Services.NoticeBanner.Apply(ErrorBox, ErrorText, success: false);
     }
 }
