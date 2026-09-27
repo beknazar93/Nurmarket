@@ -44,7 +44,7 @@ public partial class ScaleConnectionDialog : Window
         }
 
         TestButton.IsEnabled = false;
-        ShowStatus("Проверяю связь с весами…");
+        ShowStatus(Tr.T("Проверяю связь с весами…", "Тараза менен байланыш текшерилүүдө…", "Checking the connection to the scale…", "Tartı bağlantısı kontrol ediliyor…", "Tarozi bilan aloqa tekshirilmoqda…"));
         try
         {
             var prefs = UserPreferences.Instance;
@@ -52,7 +52,7 @@ public partial class ScaleConnectionDialog : Window
                 prefs.ScaleNetworkIp ?? "", prefs.ScaleLanPort, prefs.ScaleLanPassword);
 
             var info = await scale.TestConnectionAsync(beep: true, CancellationToken.None).ConfigureAwait(true);
-            ShowStatus("Весы на связи: " + info);
+            ShowStatus(Tr.T("Весы на связи: ", "Тараза байланышта: ", "Scale connected: ", "Tartı bağlı: ", "Tarozi aloqada: ") + info);
         }
         catch (Exception ex)
         {
@@ -88,7 +88,12 @@ public partial class ScaleConnectionDialog : Window
         var ip = (IpBox.Text ?? "").Trim();
         if (ip.Length == 0)
         {
-            error = "Укажите IP-адрес весов — он есть в их системном меню.";
+            error = Tr.T(
+                "Укажите IP-адрес весов — он есть в их системном меню.",
+                "Таразанын IP-дарегин көрсөтүңүз — ал таразанын системалык менюсунда бар.",
+                "Enter the scale's IP address — you'll find it in the scale's system menu.",
+                "Tartının IP adresini girin — tartının sistem menüsünde bulunur.",
+                "Tarozining IP manzilini kiriting — u tarozining tizim menyusida bor.");
             return false;
         }
 
@@ -96,14 +101,24 @@ public partial class ScaleConnectionDialog : Window
         if (!int.TryParse(portText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var port)
             || port is <= 0 or > 65535)
         {
-            error = "Порт должен быть числом от 1 до 65535. Обычно 1111.";
+            error = Tr.T(
+                "Порт должен быть числом от 1 до 65535. Обычно 1111.",
+                "Порт 1ден 65535ке чейинки сан болушу керек. Адатта 1111.",
+                "The port must be a number from 1 to 65535. Usually 1111.",
+                "Port 1 ile 65535 arasında bir sayı olmalıdır. Genellikle 1111.",
+                "Port 1 dan 65535 gacha bo'lgan son bo'lishi kerak. Odatda 1111.");
             return false;
         }
 
         var password = (PasswordBox.Text ?? "").Trim();
         if (password.Length > 0 && (password.Length != 4 || !password.All(char.IsDigit)))
         {
-            error = "Пароль весов — ровно 4 цифры. Обычно 0030.";
+            error = Tr.T(
+                "Пароль весов — ровно 4 цифры. Обычно 0030.",
+                "Таразанын сырсөзү — так 4 цифра. Адатта 0030.",
+                "The scale password is exactly 4 digits. Usually 0030.",
+                "Tartı şifresi tam 4 hanelidir. Genellikle 0030.",
+                "Tarozi paroli — aniq 4 ta raqam. Odatda 0030.");
             return false;
         }
 

@@ -125,10 +125,10 @@ public partial class BulkImportWindow : Window
                 vm.DuplicateOfRow = firstRow;
                 vm.StatusText = "❌ " + Tr.T(
                     $"штрихкод уже есть в строке {firstRow} — строка пропускается",
-                    $"штрихкод {firstRow}-сапта бар — сап өткөрүлөт",
-                    $"barcode already in row {firstRow} — row skipped",
-                    $"barkod {firstRow}. satırda zaten var — satır atlanıyor",
-                    $"shtrix-kod {firstRow}-qatorda bor — qator o'tkazib yuboriladi");
+                    $"штрихкод {firstRow}-сапта мурунтан эле бар — бул сап өткөрүлүп жиберилет",
+                    $"barcode already appears in row {firstRow} — row skipped",
+                    $"bu barkod zaten {firstRow}. satırda var — satır atlanıyor",
+                    $"shtrix-kod {firstRow}-qatorda allaqachon bor — qator o'tkazib yuboriladi");
                 return vm;
             }
             firstRowByBarcode[row.Barcode] = row.RowNumber;
@@ -138,8 +138,8 @@ public partial class BulkImportWindow : Window
             {
                 vm.ExistingProductId = existing.Id;
                 vm.StatusText = Tr.T($"Будет обновлён: «{existing.Title}»", $"Жаңыртылат: «{existing.Title}»",
-                    $"Will be updated: “{existing.Title}”", $"Güncellenecek: “{existing.Title}”",
-                    $"Yangilanadi: “{existing.Title}”");
+                    $"Will be updated: “{existing.Title}”", $"Güncellenecek: «{existing.Title}»",
+                    $"Yangilanadi: «{existing.Title}»");
 
                 // Остаток ЗАМЕНЯЕТСЯ, а не прибавляется. Владельцы регулярно грузят накладную
                 // поставщика, ожидая приход: при 40 на складе и «60» в файле станет 60, а не 100.
@@ -154,9 +154,9 @@ public partial class BulkImportWindow : Window
                         vm.StatusText += Tr.T(
                             $" · остаток {oldText} → {newText} (замена, не приход)",
                             $" · калдык {oldText} → {newText} (алмаштыруу, кошуу эмес)",
-                            $" · stock {oldText} → {newText} (replace, not add)",
-                            $" · stok {oldText} → {newText} (değiştirme, ekleme değil)",
-                            $" · qoldiq {oldText} → {newText} (almashtirish, qo'shish emas)");
+                            $" · stock {oldText} → {newText} (replaced, not added)",
+                            $" · stok {oldText} → {newText} (değiştirilir, stok girişi değil)",
+                            $" · qoldiq {oldText} → {newText} (almashtirish, kirim emas)");
                     }
                 }
             }
@@ -171,10 +171,10 @@ public partial class BulkImportWindow : Window
         PreviewGrid.ItemsSource = _rows;
         var validCount = _rows.Count(r => r.CanImport);
         SummaryText.Text = Tr.T($"Строк: {_rows.Count}, из них корректных: {validCount}.",
-            $"Саптар: {_rows.Count}, туурасы: {validCount}.",
+            $"Саптар: {_rows.Count}, анын ичинен туурасы: {validCount}.",
             $"Rows: {_rows.Count}, valid: {validCount}.",
             $"Satır: {_rows.Count}, geçerli: {validCount}.",
-            $"Qatorlar: {_rows.Count}, to'g'risi: {validCount}.");
+            $"Qatorlar: {_rows.Count}, shundan to'g'ri: {validCount}.");
         StartImportButton.IsEnabled = validCount > 0 && _catalogApi != null;
     }
 
@@ -211,10 +211,10 @@ public partial class BulkImportWindow : Window
 
             row.StatusText = "⏳ " + Tr.T("Загружается…", "Жүктөлүүдө…", "Uploading…", "Yükleniyor…", "Yuklanmoqda…");
             SummaryText.Text = Tr.T($"Обработка строки {row.RowNumber} из {_rows.Count}…",
-                $"{row.RowNumber}-сап иштелүүдө, бардыгы {_rows.Count}…",
+                $"{_rows.Count} саптын {row.RowNumber}-сабы иштетилүүдө…",
                 $"Processing row {row.RowNumber} of {_rows.Count}…",
-                $"{row.RowNumber}. satır işleniyor, toplam {_rows.Count}…",
-                $"{row.RowNumber}-qator qayta ishlanmoqda, jami {_rows.Count}…");
+                $"Satır işleniyor: {row.RowNumber} / {_rows.Count}…",
+                $"Qator qayta ishlanmoqda: {row.RowNumber} / {_rows.Count}…");
 
             var request = new ProductEditRequest
             {
@@ -265,10 +265,10 @@ public partial class BulkImportWindow : Window
         }
 
         SummaryText.Text = Tr.T($"Готово: создано {created}, обновлено {updated}, ошибок {failed}.",
-            $"Даяр: түзүлдү {created}, жаңыртылды {updated}, каталар {failed}.",
+            $"Даяр: түзүлдү — {created}, жаңыртылды — {updated}, ката — {failed}.",
             $"Done: created {created}, updated {updated}, errors {failed}.",
-            $"Tamamlandı: oluşturulan {created}, güncellenen {updated}, hata {failed}.",
-            $"Tayyor: yaratildi {created}, yangilandi {updated}, xatolar {failed}.");
+            $"Tamamlandı: {created} oluşturuldu, {updated} güncellendi, {failed} hata.",
+            $"Tayyor: yaratildi — {created}, yangilandi — {updated}, xato — {failed}.");
         StartImportButton.IsEnabled = true;
 
         if (created > 0 || updated > 0)
@@ -320,8 +320,8 @@ public partial class BulkImportWindow : Window
                     $"сервер просит паузу, повтор через {wait.TotalSeconds:0} с",
                     $"сервер тыныгуу сурайт, {wait.TotalSeconds:0} с кийин кайталанат",
                     $"server asked to slow down, retrying in {wait.TotalSeconds:0} s",
-                    $"sunucu bekleme istedi, {wait.TotalSeconds:0} sn sonra tekrar",
-                    $"server pauza so'radi, {wait.TotalSeconds:0} s dan keyin qayta");
+                    $"sunucu beklemeyi istedi, {wait.TotalSeconds:0} sn sonra tekrar denenecek",
+                    $"server pauza so'radi, {wait.TotalSeconds:0} soniyadan keyin qayta urinish");
                 PosLogger.Log($"Массовая загрузка: строка {row.RowNumber} — 429, повтор через {wait.TotalSeconds:0} с.", "WAREHOUSE");
                 await Task.Delay(wait).ConfigureAwait(true);
             }

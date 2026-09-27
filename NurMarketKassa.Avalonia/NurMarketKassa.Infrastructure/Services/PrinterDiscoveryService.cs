@@ -62,7 +62,7 @@ public static class PrinterDiscoveryService
             // (Диспетчер устройств → "Порты USB для печати"). DevicePath в формате \\.\USBxxx
             // подхватывается WriteViaDirectPort в PrinterPortService — отдельного пути записи не нужно.
             foreach (var port in UsbRawPrinterPort.EnumeratePortNames())
-                result.Add(new DiscoveredPrinter($"🔌 USB {port} (без драйвера)", $@"\\.\{port}"));
+                result.Add(new DiscoveredPrinter(Tr.T($"🔌 USB {port} (без драйвера)", $"🔌 USB {port} (драйверсиз)", $"🔌 USB {port} (no driver)", $"🔌 USB {port} (sürücüsüz)", $"🔌 USB {port} (drayversiz)"), $@"\\.\{port}"));
         }
         catch (Exception ex)
         {
@@ -74,7 +74,7 @@ public static class PrinterDiscoveryService
             try
             {
                 if (PrinterPortService.LptDeviceExists(lpt))
-                    result.Add(new DiscoveredPrinter($"🔌 {lpt} (параллельный порт)", lpt));
+                    result.Add(new DiscoveredPrinter(Tr.T($"🔌 {lpt} (параллельный порт)", $"🔌 {lpt} (параллелдүү порт)", $"🔌 {lpt} (parallel port)", $"🔌 {lpt} (paralel port)", $"🔌 {lpt} (parallel port)"), lpt));
             }
             catch (Exception ex)
             {
@@ -85,7 +85,7 @@ public static class PrinterDiscoveryService
         try
         {
             foreach (var com in SerialPort.GetPortNames().OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
-                result.Add(new DiscoveredPrinter($"🔌 {com} (последовательный порт)", com));
+                result.Add(new DiscoveredPrinter(Tr.T($"🔌 {com} (последовательный порт)", $"🔌 {com} (ырааттуу порт)", $"🔌 {com} (serial port)", $"🔌 {com} (seri port)", $"🔌 {com} (ketma-ket port)"), com));
         }
         catch (Exception ex)
         {

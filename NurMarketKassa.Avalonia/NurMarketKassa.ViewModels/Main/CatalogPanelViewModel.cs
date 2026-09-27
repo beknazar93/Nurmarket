@@ -35,7 +35,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     private string _searchText = "";
     private bool _isLoading;
     private bool _isOfflineBannerVisible;
-    private string _statusText = "Загрузка каталога…";
+    private string _statusText = Tr.T("Загрузка каталога…", "Каталог жүктөлүүдө…", "Loading catalog…", "Katalog yükleniyor…", "Katalog yuklanmoqda…");
     private string _productCountText = "";
     private List<CatalogProductTileVm> _allProducts = [];
     private int _currentPage = 1;
@@ -85,6 +85,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         {
             ApplyFilter();
             StatusText = Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}");
+            OnPropertyChanged(nameof(PageStatusText));
+            OnPropertyChanged(nameof(HotkeyGroupFilterLabel));
         });
 
         Products.CollectionChanged += (_, _) =>
@@ -290,7 +292,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     public bool CanGoToPreviousPage => CurrentPage > 1;
     public bool CanGoToNextPage => CurrentPage < TotalPages;
     public bool ShowPager => _filteredProductCount > 0;
-    public string PageStatusText => $"Страница {CurrentPage} из {TotalPages}";
+    public string PageStatusText => Tr.T($"Страница {CurrentPage} из {TotalPages}", $"Барак {CurrentPage} / {TotalPages}",
+        $"Page {CurrentPage} of {TotalPages}", $"Sayfa {CurrentPage} / {TotalPages}", $"Sahifa {CurrentPage} / {TotalPages}");
 
     private CatalogProductTileVm? _selectedProduct;
 
@@ -316,7 +319,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     public string? HotkeyGroupFilter => _hotkeyGroupFilter;
     public bool HasHotkeyGroupFilter => !string.IsNullOrEmpty(_hotkeyGroupFilter);
     public string HotkeyGroupFilterLabel =>
-        string.IsNullOrEmpty(_hotkeyGroupFilter) ? "" : $"Группа {_hotkeyGroupFilter}";
+        string.IsNullOrEmpty(_hotkeyGroupFilter)
+            ? ""
+            : Tr.T($"Группа {_hotkeyGroupFilter}", $"Топ {_hotkeyGroupFilter}", $"Group {_hotkeyGroupFilter}",
+                $"Grup {_hotkeyGroupFilter}", $"Guruh {_hotkeyGroupFilter}");
 
     /// <summary>Нажатие F1-F12 переключает фильтр по группе товара (повторное нажатие — снимает).</summary>
     public void ToggleHotkeyGroupFilter(string group) =>
@@ -406,7 +412,11 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         if (_catalogApi is null)
         {
             _prompts?.ShowToast(
-                newState ? "Добавлено в избранное (локально)" : "Убрано из избранного (локально)");
+                newState
+                    ? Tr.T("Добавлено в избранное (локально)", "Тандалмаларга кошулду (ушул кассада)",
+                        "Added to favorites (locally)", "Favorilere eklendi (yerel olarak)", "Sevimlilarga qo'shildi (mahalliy)")
+                    : Tr.T("Убрано из избранного (локально)", "Тандалмалардан алынды (ушул кассада)",
+                        "Removed from favorites (locally)", "Favorilerden çıkarıldı (yerel olarak)", "Sevimlilardan olib tashlandi (mahalliy)"));
             return;
         }
 
@@ -419,20 +429,33 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             {
                 _auditDb?.LogFavorite(product.Id, newState);
                 _prompts?.ShowToast(
-                    newState ? "Добавлено в избранное на сайте" : "Убрано из избранного на сайте");
+                    newState
+                        ? Tr.T("Добавлено в избранное на сайте", "Сайттагы тандалмаларга кошулду",
+                            "Added to favorites on the website", "Web sitesindeki favorilere eklendi", "Saytdagi sevimlilarga qo'shildi")
+                        : Tr.T("Убрано из избранного на сайте", "Сайттагы тандалмалардан алынды",
+                            "Removed from favorites on the website", "Web sitesindeki favorilerden çıkarıldı", "Saytdagi sevimlilardan olib tashlandi"));
             }
             else
             {
-                _prompts?.ShowToast("Избранное сохранено локально (сайт не ответил)", isWarning: true);
+                _prompts?.ShowToast(Tr.T("Избранное сохранено локально (сайт не ответил)",
+                    "Тандалмалар ушул кассада сакталды (сайт жооп берген жок)",
+                    "Favorites saved locally (the website didn't respond)",
+                    "Favoriler yerel olarak kaydedildi (web sitesi yanıt vermedi)",
+                    "Sevimlilar mahalliy saqlandi (sayt javob bermadi)"), isWarning: true);
             }
         }
         catch (ApiException ex)
         {
-            _prompts?.ShowToast($"Синхронизация избранного: {ex.Message}", isWarning: true);
+            _prompts?.ShowToast(Tr.T($"Синхронизация избранного: {ex.Message}", $"Тандалмаларды шайкештирүү: {ex.Message}",
+                $"Favorites sync: {ex.Message}", $"Favori senkronizasyonu: {ex.Message}", $"Sevimlilarni sinxronlash: {ex.Message}"), isWarning: true);
         }
         catch (HttpRequestException)
         {
-            _prompts?.ShowToast("Избранное сохранено локально (нет сети)", isWarning: true);
+            _prompts?.ShowToast(Tr.T("Избранное сохранено локально (нет сети)",
+                "Тандалмалар ушул кассада сакталды (тармак жок)",
+                "Favorites saved locally (no network)",
+                "Favoriler yerel olarak kaydedildi (ağ yok)",
+                "Sevimlilar mahalliy saqlandi (tarmoq yo'q)"), isWarning: true);
         }
     }
 
@@ -476,7 +499,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase
                     PublishProducts(localProducts);
                     IsOfflineBannerVisible = !isTrueAutonomous;
                     StatusText = localProducts.Count == 0
-                        ? "Каталог пуст. Добавьте товар в Складе."
+                        ? Tr.T("Каталог пуст. Добавьте товар в Складе.", "Каталог бош. «Кампа» бөлүмүндө товар кошуңуз.",
+                            "The catalog is empty. Add products in the “Warehouse” section.", "Katalog boş. Depo bölümünden ürün ekleyin.",
+                            "Katalog bo'sh. Mahsulotni «Ombor» bo'limida qo'shing.")
                         : isTrueAutonomous
                             ? Tr.T($"Товаров: {localProducts.Count}", $"Товарлар: {localProducts.Count}", $"Products: {localProducts.Count}", $"Ürün: {localProducts.Count}", $"Mahsulotlar: {localProducts.Count}")
                             : "";
@@ -489,12 +514,18 @@ public sealed class CatalogPanelViewModel : ViewModelBase
                 PublishProducts(localProducts);
                 if (localProducts.Count > 0)
                 {
-                    StatusText = $"Каталог из локальной БД ({localProducts.Count}). Проверка обновлений…";
+                    StatusText = Tr.T($"Каталог из локальной БД ({localProducts.Count}). Проверка обновлений…",
+                        $"Каталог локалдык базадан ({localProducts.Count}). Жаңыртуулар текшерилүүдө…",
+                        $"Catalog from the local database ({localProducts.Count}). Checking for updates…",
+                        $"Katalog yerel veritabanından ({localProducts.Count}). Güncellemeler kontrol ediliyor…",
+                        $"Katalog mahalliy bazadan ({localProducts.Count}). Yangilanishlar tekshirilmoqda…");
                     IsOfflineBannerVisible = false;
                 }
                 else
                 {
-                    StatusText = "Локальный каталог пуст. Загрузка с сервера…";
+                    StatusText = Tr.T("Локальный каталог пуст. Загрузка с сервера…", "Локалдык каталог бош. Серверден жүктөлүүдө…",
+                        "The local catalog is empty. Loading from the server…", "Yerel katalog boş. Sunucudan yükleniyor…",
+                        "Mahalliy katalog bo'sh. Serverdan yuklanmoqda…");
                 }
             }).ConfigureAwait(false);
 
@@ -505,8 +536,16 @@ public sealed class CatalogPanelViewModel : ViewModelBase
                 {
                     IsOfflineBannerVisible = true;
                     StatusText = localProducts.Count > 0
-                        ? $"Работа в автономном режиме (из локальной БД). Товаров: {localProducts.Count}."
-                        : "Нет подключения и локальный каталог пуст. Проверьте сеть и нажмите «Обновить».";
+                        ? Tr.T($"Работа в автономном режиме (из локальной БД). Товаров: {localProducts.Count}.",
+                            $"Офлайн режимде иштөө (локалдык базадан). Товарлар: {localProducts.Count}.",
+                            $"Working offline (from local database). Products: {localProducts.Count}.",
+                            $"Çevrimdışı çalışılıyor (yerel veritabanından). Ürün: {localProducts.Count}.",
+                            $"Oflayn rejimda ishlash (mahalliy bazadan). Mahsulotlar: {localProducts.Count}.")
+                        : Tr.T("Нет подключения и локальный каталог пуст. Проверьте сеть и нажмите «Обновить».",
+                            "Байланыш жок жана локалдык каталог бош. Тармакты текшерип, «Жаңылоо» баскычын басыңыз.",
+                            "No connection and the local catalog is empty. Check the network and click “Refresh”.",
+                            "Bağlantı yok ve yerel katalog boş. Ağı kontrol edip «Yenile» düğmesine tıklayın.",
+                            "Aloqa yo'q va mahalliy katalog bo'sh. Tarmoqni tekshiring va «Yangilash» tugmasini bosing.");
                 }).ConfigureAwait(false);
                 return;
             }
@@ -514,8 +553,12 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             // 2) Сеть доступна — синхронизация с API + upsert в SQLite.
             await _dispatcher.InvokeAsync(() =>
                 StatusText = localProducts.Count > 0
-                    ? "Синхронизация каталога с сервером…"
-                    : "Загрузка каталога с сервера…").ConfigureAwait(false);
+                    ? Tr.T("Синхронизация каталога с сервером…", "Каталог сервер менен шайкештирилүүдө…",
+                        "Syncing the catalog with the server…", "Katalog sunucuyla senkronize ediliyor…",
+                        "Katalog server bilan sinxronlanmoqda…")
+                    : Tr.T("Загрузка каталога с сервера…", "Каталог серверден жүктөлүүдө…",
+                        "Loading the catalog from the server…", "Katalog sunucudan yükleniyor…",
+                        "Katalog serverdan yuklanmoqda…")).ConfigureAwait(false);
 
             var syncResult = await _catalogCache.SyncCatalogFullAsync().ConfigureAwait(false);
             _catalogCache.TryLoadFromDatabase();
@@ -530,14 +573,19 @@ public sealed class CatalogPanelViewModel : ViewModelBase
                     IsOfflineBannerVisible = false;
                     StatusText = products.Count > 0
                         ? Tr.T($"Каталог обновлён. Товаров: {products.Count}.", $"Каталог жаңыртылды. Товарлар: {products.Count}.", $"Catalog updated. Products: {products.Count}.", $"Katalog güncellendi. Ürün: {products.Count}.", $"Katalog yangilandi. Mahsulotlar: {products.Count}.")
-                        : Tr.T("Каталог пуст. Добавьте товар в свой каталог.", "Каталог бош. Каталогуңузга товар кошуңуз.", "Catalog is empty. Add a product.", "Katalog boş. Ürün ekleyin.", "Katalog bo'sh. Mahsulot qo'shing.");
+                        : Tr.T("Каталог пуст. Добавьте товар в свой каталог.", "Каталог бош. Каталогуңузга товар кошуңуз.", "The catalog is empty. Add products to your catalog.", "Katalog boş. Kataloğunuza ürün ekleyin.", "Katalog bo'sh. Katalogingizga mahsulot qo'shing.");
                 }
                 else
                 {
                     IsOfflineBannerVisible = products.Count > 0;
                     StatusText = products.Count > 0
-                        ? $"Сервер недоступен — показан локальный каталог ({products.Count}). {syncResult.ErrorMessage}"
-                        : syncResult.ErrorMessage ?? "Не удалось загрузить каталог.";
+                        ? Tr.T($"Сервер недоступен — показан локальный каталог ({products.Count}). {syncResult.ErrorMessage}",
+                            $"Сервер жеткиликсиз — локалдык каталог көрсөтүлдү ({products.Count}). {syncResult.ErrorMessage}",
+                            $"Server unavailable — showing the local catalog ({products.Count}). {syncResult.ErrorMessage}",
+                            $"Sunucuya ulaşılamıyor — yerel katalog gösteriliyor ({products.Count}). {syncResult.ErrorMessage}",
+                            $"Server mavjud emas — mahalliy katalog ko'rsatilmoqda ({products.Count}). {syncResult.ErrorMessage}")
+                        : syncResult.ErrorMessage ?? Tr.T("Не удалось загрузить каталог.", "Каталогду жүктөө мүмкүн болгон жок.",
+                            "Could not load the catalog.", "Katalog yüklenemedi.", "Katalogni yuklab bo'lmadi.");
                 }
             }).ConfigureAwait(false);
 
@@ -553,8 +601,13 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             {
                 IsOfflineBannerVisible = _allProducts.Count > 0;
                 StatusText = _allProducts.Count > 0
-                    ? $"Ошибка синхронизации — показан локальный каталог ({_allProducts.Count})."
-                    : "Ошибка загрузки каталога.";
+                    ? Tr.T($"Ошибка синхронизации — показан локальный каталог ({_allProducts.Count}).",
+                        $"Шайкештирүү катасы — локалдык каталог көрсөтүлдү ({_allProducts.Count}).",
+                        $"Sync error — showing the local catalog ({_allProducts.Count}).",
+                        $"Senkronizasyon hatası — yerel katalog gösteriliyor ({_allProducts.Count}).",
+                        $"Sinxronlash xatosi — mahalliy katalog ko'rsatilmoqda ({_allProducts.Count}).")
+                    : Tr.T("Ошибка загрузки каталога.", "Каталогду жүктөөдө ката кетти.",
+                        "Error loading the catalog.", "Katalog yüklenirken hata oluştu.", "Katalogni yuklashda xato.");
             }).ConfigureAwait(false);
         }
         finally
@@ -666,8 +719,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             Products.Add(product);
 
         ProductCountText = _filteredProductCount == _allProducts.Count
-            ? $"Товаров: {_allProducts.Count}"
-            : $"Показано: {_filteredProductCount} из {_allProducts.Count}";
+            ? Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}")
+            : Tr.T($"Показано: {_filteredProductCount} из {_allProducts.Count}", $"Көрсөтүлдү: {_filteredProductCount} / {_allProducts.Count}",
+                $"Showing {_filteredProductCount} of {_allProducts.Count}", $"Gösterilen: {_filteredProductCount} / {_allProducts.Count}",
+                $"Ko'rsatilgan: {_filteredProductCount} / {_allProducts.Count}");
 
         RebuildPagerEntries();
     }

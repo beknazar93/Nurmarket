@@ -21,7 +21,7 @@ public partial class PosAlertDialog : Window
 
     public PosAlertDialog() => InitializeComponent();
 
-    public PosAlertDialog(string title, string message, PosAlertKind kind = PosAlertKind.Info, string buttonText = "Понятно")
+    public PosAlertDialog(string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
     {
         InitializeComponent();
         Title = title;
@@ -37,7 +37,7 @@ public partial class PosAlertDialog : Window
         // IUserPrompts — все они в итоге открывают именно это окно), так что кнопка "Отложить
         // ошибку" появляется сразу везде без правки каждого места по отдельности.
         var isErrorOrWarning = kind is PosAlertKind.Error or PosAlertKind.Warning;
-        OkButton.Content = isErrorOrWarning ? Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") : buttonText;
+        OkButton.Content = isErrorOrWarning ? Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish") : buttonText ?? Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
         DeferButton.IsVisible = isErrorOrWarning;
 
         if (kind == PosAlertKind.Error)
@@ -47,13 +47,13 @@ public partial class PosAlertDialog : Window
         }
     }
 
-    public static void Show(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string buttonText = "Понятно")
+    public static void Show(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
     {
         var dlg = new PosAlertDialog(title, message, kind, buttonText);
         PosDialogHost.Show(dlg, owner);
     }
 
-    public static Task ShowAsync(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string buttonText = "Понятно")
+    public static Task ShowAsync(Window? owner, string title, string message, PosAlertKind kind = PosAlertKind.Info, string? buttonText = null)
     {
         var dlg = new PosAlertDialog(title, message, kind, buttonText);
         return PosDialogHost.ShowAsync(dlg, owner);

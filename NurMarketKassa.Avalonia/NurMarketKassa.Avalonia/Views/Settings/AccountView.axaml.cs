@@ -106,7 +106,7 @@ public partial class AccountView : UserControl
             if (LoadingOrErrorText.IsVisible)
                 LoadingOrErrorText.Text = Tr.T(
                     "Не удалось загрузить данные аккаунта — нет связи с сервером.",
-                    "Аккаунт маалыматын жүктөө мүмкүн болгон жок — сервер менен байланыш жок.");
+                    "Аккаунт маалыматын жүктөө мүмкүн болгон жок — сервер менен байланыш жок.", "Couldn't load account data — no connection to the server.", "Hesap verileri yüklenemedi — sunucuyla bağlantı yok.", "Hisob ma'lumotlarini yuklab bo'lmadi — server bilan aloqa yo'q.");
         }
         catch (Exception ex)
         {
@@ -154,10 +154,10 @@ public partial class AccountView : UserControl
         var end = TryParseDate(endDateRaw);
 
         ExpiryDatesText.Text = start is null && end is null
-            ? Tr.T("Даты не указаны.", "Даталар көрсөтүлгөн эмес.", "Dates are not specified.", "Tarihler belirtilmedi.", "Sanalar ko'rsatilmagan.")
+            ? Tr.T("Даты не указаны.", "Даталар көрсөтүлгөн эмес.", "No dates specified.", "Tarihler belirtilmedi.", "Sanalar ko'rsatilmagan.")
             : Tr.T(
                 $"С {FormatDate(start)} по {FormatDate(end)}",
-                $"{FormatDate(start)} чейин {FormatDate(end)}");
+                $"{FormatDate(start)} — {FormatDate(end)}", $"From {FormatDate(start)} to {FormatDate(end)}", $"{FormatDate(start)} – {FormatDate(end)}", $"{FormatDate(start)} — {FormatDate(end)}");
 
         if (end is null)
         {
@@ -177,7 +177,7 @@ public partial class AccountView : UserControl
         {
             var days = (int)Math.Ceiling(remaining.TotalDays);
             statusText = Tr.T($"Истекает через {days} дн.", $"{days} күндөн кийин бүтөт",
-                $"Expires in {days} d.", $"{days} gün içinde sona erer", $"{days} kundan keyin tugaydi");
+                $"Expires in {days} days", $"{days} gün içinde sona erer", $"{days} kundan keyin tugaydi");
             (bgKey, borderKey, fgKey) = ("BrushWarningSoft", "BrushWarning", "BrushWarning");
         }
         else

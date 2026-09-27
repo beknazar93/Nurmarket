@@ -12,22 +12,22 @@ public sealed class AvaloniaUserPrompts : IUserPrompts
     public async Task<bool> ConfirmAsync(string message)
     {
         return await RunOnUiAsync(() =>
-            PosMessageBox.Show(message, "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question)
+            PosMessageBox.Show(message, Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), MessageBoxButton.YesNo, MessageBoxImage.Question)
             == MessageBoxResult.Yes).ConfigureAwait(true);
     }
 
     public void ShowToast(string message, bool isWarning = false) =>
         RunOnUi(() =>
-            PosMessageBox.Show(message, isWarning ? "Внимание" : "Сообщение",
+            PosMessageBox.Show(message, isWarning ? Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat") : Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"),
                 MessageBoxButton.OK, isWarning ? MessageBoxImage.Warning : MessageBoxImage.Information));
 
     public void ShowWarning(string message) =>
         RunOnUi(() =>
-            PosMessageBox.Show(message, "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning));
+            PosMessageBox.Show(message, Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat"), MessageBoxButton.OK, MessageBoxImage.Warning));
 
     public void ShowError(string message) =>
         RunOnUi(() =>
-            PosMessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error));
+            PosMessageBox.Show(message, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"), MessageBoxButton.OK, MessageBoxImage.Error));
 
     public async Task<bool> ConfirmWithPasswordAsync(string title, string message, string expectedPassword)
     {

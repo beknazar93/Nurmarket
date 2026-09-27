@@ -26,9 +26,9 @@ public sealed class TypeBadgeTextConverter : IValueConverter
         if (vm.IsBundle)
             return Tr.T("Комплект", "Комплект", "Kit", "Set", "To'plam");
         if (vm.IsWeighted)
-            return Tr.T("Весовой", "Салмактуу", "By weight", "Tartılan", "Tortiladigan");
+            return Tr.T("Весовой", "Салмактуу", "By weight", "Tartılı", "Vaznli");
         if (vm.HasPieceOption)
-            return Tr.T("Штучный + Поштучно", "Даана + Пакеттен даана", "Piece + from pack", "Adet + Paketten adet", "Dona + Paketdan dona");
+            return Tr.T("Штучный + Поштучно", "Даана + Пачкадан даана", "Piece + from pack", "Adet + Paketten adet", "Dona + Paketdan dona");
         return Tr.T("Штучный", "Даана", "Piece", "Adet", "Dona");
     }
 

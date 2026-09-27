@@ -68,7 +68,7 @@ public partial class EmployeesSettingsView : UserControl
 
         var nameText = new TextBlock
         {
-            Text = employee.Name.Length > 0 ? employee.Name : Tr.T("(без имени)", "(аты жок)", "(no name)", "(isimsiz)", "(ismisiz)"),
+            Text = employee.Name.Length > 0 ? employee.Name : Tr.T("(без имени)", "(аты жок)", "(no name)", "(isimsiz)", "(ismsiz)"),
             FontWeight = Avalonia.Media.FontWeight.SemiBold,
         };
         var subtitleText = new TextBlock
@@ -141,7 +141,7 @@ public partial class EmployeesSettingsView : UserControl
                 Margin = new Avalonia.Thickness(6, 0, 0, 0),
                 Padding = new Avalonia.Thickness(14, 0),
             };
-            ToolTip.SetTip(accessButton, Tr.T("Доступы", "Доступтар", "Access", "Erişimler", "Huquqlar"));
+            ToolTip.SetTip(accessButton, Tr.T("Доступы", "Укуктар", "Permissions", "Erişimler", "Huquqlar"));
             accessButton.Click += (_, _) => _ = OpenAccessEditorAsync(employee);
             Grid.SetColumn(accessButton, 1);
             outer.Children.Add(accessButton);
@@ -177,8 +177,8 @@ public partial class EmployeesSettingsView : UserControl
         {
             ShowLoadStatus(
                 Tr.T("Не удалось загрузить текущие доступы сотрудника с сервера.",
-                    "Кызматкердин учурдагы доступторун сервертен жүктөө мүмкүн болгон жок.",
-                    "Could not load the employee's current access from the server.",
+                    "Кызматкердин учурдагы укуктарын серверден жүктөө мүмкүн болгон жок.",
+                    "Couldn't load the employee's current permissions from the server.",
                     "Personelin mevcut erişimleri sunucudan yüklenemedi.",
                     "Xodimning joriy huquqlarini serverdan yuklab bo'lmadi."),
                 isError: true);
@@ -194,8 +194,8 @@ public partial class EmployeesSettingsView : UserControl
         {
             await authApi.UpdateEmployeeAccessAsync(employee.ServerId, dialog.AccessFlags);
             ShowLoadStatus(
-                Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» доступтору жаңырды.",
-                    $"Access for «{employee.Name}» updated.", $"«{employee.Name}» erişimleri güncellendi.",
+                Tr.T($"Доступы «{employee.Name}» обновлены.", $"«{employee.Name}» укуктары жаңыртылды.",
+                    $"Permissions for “{employee.Name}” updated.", $"«{employee.Name}» için erişimler güncellendi.",
                     $"«{employee.Name}» huquqlari yangilandi."),
                 isError: false);
         }
@@ -216,8 +216,8 @@ public partial class EmployeesSettingsView : UserControl
             ShowLoadStatus(
                 Tr.T(
                     "Сначала создайте хотя бы одну роль (кнопка «+ Добавить роль» выше) — сервер требует роль для нового сотрудника.",
-                    "Адегенде жок дегенде бир ролду түзүңүз (жогорудагы «+ Ролду кошуу» баскычы) — сервер жаңы кызматкер үчүн ролду талап кылат.",
-                    "First create at least one role (the «+ Add role» button above) — the server requires a role for a new employee.",
+                    "Адегенде кеминде бир роль түзүңүз (жогорудагы «+ Роль кошуу» баскычы) — сервер жаңы кызматкер үчүн роль талап кылат.",
+                    "First create at least one role (the “+ Add role” button above) — the server requires a role for a new employee.",
                     "Önce en az bir rol oluşturun (yukarıdaki «+ Rol ekle» düğmesi) — sunucu yeni personel için rol gerektirir.",
                     "Avval kamida bitta rol yarating (yuqoridagi «+ Rol qo'shish» tugmasi) — server yangi xodim uchun rol talab qiladi."),
                 isError: true);
@@ -257,10 +257,10 @@ public partial class EmployeesSettingsView : UserControl
             ShowLoadStatus(
                 Tr.T(
                     $"Сотрудник «{name}» создан на сервере. Впишите ему коды доступа и нажмите «Сохранить».",
-                    $"«{name}» сервердо түзүлдү. Ага коддорду киргизип, «Сактоо» баскычын басыңыз.",
-                    $"Employee «{name}» created on the server. Enter their access codes and click «Save».",
-                    $"«{name}» sunucuda oluşturuldu. Erişim kodlarını girin ve «Kaydet»e basın.",
-                    $"«{name}» serverda yaratildi. Unga kirish kodlarini kiriting va «Saqlash»ni bosing."),
+                    $"«{name}» кызматкери серверде түзүлдү. Ага кирүү коддорун жазып, «Сактоо» баскычын басыңыз.",
+                    $"Employee “{name}” created on the server. Enter their access codes and click “Save”.",
+                    $"Personel «{name}» sunucuda oluşturuldu. Erişim kodlarını girip «Kaydet»e basın.",
+                    $"«{name}» xodimi serverda yaratildi. Uning kirish kodlarini kiriting va «Saqlash»ni bosing."),
                 isError: false);
         }
         catch (System.Exception ex)
@@ -268,7 +268,7 @@ public partial class EmployeesSettingsView : UserControl
             ShowLoadStatus(
                 Tr.T(
                     $"Не удалось создать сотрудника на сервере: {ex.Message}",
-                    $"Кызматкерди сервердо түзүү мүмкүн болгон жок: {ex.Message}",
+                    $"Кызматкерди серверде түзүү мүмкүн болгон жок: {ex.Message}",
                     $"Couldn't create the employee on the server: {ex.Message}",
                     $"Personel sunucuda oluşturulamadı: {ex.Message}",
                     $"Xodimni serverda yaratib bo'lmadi: {ex.Message}"),
@@ -300,10 +300,10 @@ public partial class EmployeesSettingsView : UserControl
                 ShowLoadStatus(
                     Tr.T(
                         "Не удалось получить список сотрудников с сайта — сервер не ответил ожидаемыми данными. Обратитесь в поддержку.",
-                        "Сайттан кызматкерлердин тизмесин алуу мүмкүн болгон жок — сервер күтүлгөн маалыматты кайтарган жок.",
-                        "Couldn't load the employee list from the website — the server didn't return the expected data.",
-                        "Web sitesinden personel listesi alınamadı — sunucu beklenen verileri döndürmedi.",
-                        "Veb-saytdan xodimlar ro'yxatini olib bo'lmadi — server kutilgan ma'lumotlarni qaytarmadi."),
+                        "Сайттан кызматкерлердин тизмесин алуу мүмкүн болгон жок — сервер күтүлгөн маалыматты кайтарган жок. Колдоо кызматына кайрылыңыз.",
+                        "Couldn't load the employee list from the website — the server didn't return the expected data. Contact support.",
+                        "Web sitesinden personel listesi alınamadı — sunucu beklenen verileri döndürmedi. Destek ekibine başvurun.",
+                        "Saytdan xodimlar ro'yxatini olib bo'lmadi — server kutilgan ma'lumotlarni qaytarmadi. Qo'llab-quvvatlash xizmatiga murojaat qiling."),
                     isError: true);
                 return;
             }
@@ -331,13 +331,13 @@ public partial class EmployeesSettingsView : UserControl
                     ? Tr.T(
                         $"Добавлено сотрудников: {added}. Не забудьте нажать «Сохранить».",
                         $"Кошулган кызматкерлер: {added}. «Сактоо» баскычын басууну унутпаңыз.",
-                        $"Added employees: {added}. Don't forget to click «Save».",
+                        $"Employees added: {added}. Don't forget to click “Save”.",
                         $"Eklenen personel: {added}. «Kaydet» düğmesine basmayı unutmayın.",
                         $"Qo'shilgan xodimlar: {added}. «Saqlash» tugmasini bosishni unutmang.")
                     : Tr.T(
                         "Новых сотрудников не найдено — все уже добавлены.",
                         "Жаңы кызматкерлер табылган жок — баары мурунтан кошулган.",
-                        "No new employees found — everyone is already added.",
+                        "No new employees found — all have already been added.",
                         "Yeni personel bulunamadı — herkes zaten eklendi.",
                         "Yangi xodimlar topilmadi — hammasi allaqachon qo'shilgan."),
                 isError: false);
@@ -477,7 +477,7 @@ public partial class EmployeesSettingsView : UserControl
     private async void AddRole_Click(object? sender, RoutedEventArgs e)
     {
         var dialog = new SimpleInputDialog(
-            Tr.T("Новая роль", "Жаңы ролу", "New role", "Yeni rol", "Yangi rol"),
+            Tr.T("Новая роль", "Жаңы роль", "New role", "Yeni rol", "Yangi rol"),
             Tr.T("Название роли", "Ролдун аты", "Role name", "Rol adı", "Rol nomi"));
         var owner = TopLevel.GetTopLevel(this) as Window;
         var confirmed = PosDialogHost.Show(dialog, owner);

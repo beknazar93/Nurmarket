@@ -107,7 +107,8 @@ public sealed class SyncService : IDisposable
 
     public bool IsSyncInProgress { get; private set; }
 
-    public string StatusText { get; private set; } = "Проверка связи…";
+    public string StatusText { get; private set; } = Tr.T("Проверка связи…", "Байланыш текшерилүүдө…", "Checking connection…",
+        "Bağlantı kontrol ediliyor…", "Aloqa tekshirilmoqda…");
 
     public void Start()
     {
@@ -206,7 +207,7 @@ public sealed class SyncService : IDisposable
             }
             catch (Exception ex)
             {
-                StatusText = "Синхронизация: " + ex.Message;
+                StatusText = Tr.T("Синхронизация: ", "Шайкештирүү: ", "Sync: ", "Senkronizasyon: ", "Sinxronlash: ") + ex.Message;
                 RaiseStateChanged();
                 try
                 {
@@ -537,22 +538,33 @@ public sealed class SyncService : IDisposable
         if (IsSyncInProgress)
         {
             StatusText = pending > 0
-                ? $"Синхронизация очереди: {pending} чек(ов)."
-                : "Синхронизация завершается…";
+                ? Tr.T($"Синхронизация очереди: {pending} чек(ов).", $"Кезек шайкештирилүүдө: {pending} чек.",
+                    $"Syncing queued receipts: {pending}.", $"Kuyruk senkronize ediliyor: {pending} fiş.",
+                    $"Navbat sinxronlanmoqda: {pending} ta chek.")
+                : Tr.T("Синхронизация завершается…", "Шайкештирүү аяктап жатат…", "Finishing sync…",
+                    "Senkronizasyon tamamlanıyor…", "Sinxronlash yakunlanmoqda…");
             return;
         }
 
         if (!IsOnline)
         {
             StatusText = pending > 0
-                ? $"Оффлайн. В очереди {pending} чек(ов)."
-                : "Оффлайн. Продажи будут сохранены локально.";
+                ? Tr.T($"Оффлайн. В очереди {pending} чек(ов).", $"Офлайн. Кезекте {pending} чек.",
+                    $"Offline. Receipts in queue: {pending}.", $"Çevrimdışı. Kuyrukta {pending} fiş.",
+                    $"Oflayn. Navbatda {pending} ta chek.")
+                : Tr.T("Оффлайн. Продажи будут сохранены локально.", "Офлайн. Сатуулар ушул кассада сакталат.",
+                    "Offline. Sales will be saved locally.", "Çevrimdışı. Satışlar yerel olarak kaydedilecek.",
+                    "Oflayn. Sotuvlar shu kompyuterda saqlanadi.");
             return;
         }
 
         StatusText = pending > 0
-            ? $"Онлайн. Ожидают синхронизации: {pending}."
-            : "Онлайн. Очередь синхронизации пуста.";
+            ? Tr.T($"Онлайн. Ожидают синхронизации: {pending}.", $"Онлайн. Шайкештирүүнү күтүүдө: {pending}.",
+                $"Online. Waiting to sync: {pending}.", $"Çevrimiçi. Senkronizasyon bekleyen: {pending}.",
+                $"Onlayn. Sinxronlashni kutmoqda: {pending}.")
+            : Tr.T("Онлайн. Очередь синхронизации пуста.", "Онлайн. Шайкештирүү кезеги бош.",
+                "Online. The sync queue is empty.", "Çevrimiçi. Senkronizasyon kuyruğu boş.",
+                "Onlayn. Sinxronlash navbati bo'sh.");
     }
 
     private void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);

@@ -154,7 +154,7 @@ namespace NurMarketKassa.ViewModels
                 : !string.IsNullOrEmpty(_consultantsError)
                     ? _consultantsError
                     : _consultantsLoaded && ConsultantMatches.Count == 0
-                        ? Tr.T("Никого не найдено", "Эч ким табылган жок", "Nobody found", "Kimse bulunamadı", "Hech kim topilmadi")
+                        ? Tr.T("Никого не найдено", "Эч ким табылган жок", "No one found", "Kimse bulunamadı", "Hech kim topilmadi")
                         : "";
 
         public bool HasConsultantListStatus => ConsultantListStatus.Length > 0;
@@ -227,20 +227,20 @@ namespace NurMarketKassa.ViewModels
         public string ConsultantHintText => Tr.T(
             "Кассир чека — вы. Процент с этой продажи получит консультант.",
             "Чектин кассири — сиз. Бул сатуудан пайызды консультант алат.",
-            "You are the cashier of this receipt. The consultant gets the percentage of this sale.",
-            "Fişin kasiyeri sizsiniz. Bu satıştan yüzdeyi danışman alır.",
+            "You are the cashier on this receipt. The consultant gets the commission from this sale.",
+            "Fişin kasiyeri sizsiniz. Bu satıştan yüzde payını danışman alır.",
             "Chek kassiri — siz. Bu sotuvdan foizni maslahatchi oladi.");
         public string ConsultantSearchWatermark => Tr.T("Поиск по ФИО…", "Аты-жөнү боюнча издөө…", "Search by name…",
-            "Ada göre ara…", "F.I.Sh. bo'yicha qidirish…");
+            "Ad soyada göre ara…", "F.I.Sh. bo'yicha qidirish…");
         public string ConsultantChangeText => Tr.T("Изменить", "Өзгөртүү", "Change", "Değiştir", "O'zgartirish");
         public string ConsultantCommissionToggleText => Tr.T("Начислять процент от продажи", "Сатуудан пайыз эсептөө",
-            "Pay a percentage of the sale", "Satıştan yüzde ver", "Sotuvdan foiz hisoblash");
-        public string ConsultantPercentLabel => Tr.T("Процент (%)", "Пайыз (%)", "Percent (%)", "Yüzde (%)", "Foiz (%)");
+            "Pay a percentage of the sale", "Satıştan yüzde payı hesapla", "Sotuvdan foiz hisoblash");
+        public string ConsultantPercentLabel => Tr.T("Процент (%)", "Пайыз (%)", "Percentage (%)", "Yüzde (%)", "Foiz (%)");
         public string ConsultantNoCommissionText => Tr.T(
             "Консультант будет привязан к чеку без начисления процента.",
             "Консультант чекке пайыз эсептелбей байланат.",
-            "The consultant will be linked to the receipt without a percentage.",
-            "Danışman fişe yüzdesiz bağlanacak.",
+            "The consultant will be linked to the receipt without a commission.",
+            "Danışman, yüzde payı hesaplanmadan fişe bağlanacak.",
             "Maslahatchi chekka foizsiz biriktiriladi.");
 
         /// <summary>id консультанта для checkout — null, когда блок выключен или скрыт.</summary>
@@ -265,7 +265,7 @@ namespace NurMarketKassa.ViewModels
                 return Tr.T(
                     "Выберите консультанта или снимите галочку «Указать консультанта».",
                     "Консультантты тандаңыз же «Консультантты көрсөтүү» белгисин алып салыңыз.",
-                    "Choose a consultant or untick \"Specify a consultant\".",
+                    "Choose a consultant or uncheck “Specify a consultant”.",
                     "Bir danışman seçin veya «Danışman belirt» işaretini kaldırın.",
                     "Maslahatchini tanlang yoki «Maslahatchini ko'rsatish» belgisini olib tashlang.");
             if (_isConsultantCommissionEnabled && ParseConsultantPercent(_consultantPercentInput) is not { } pct)

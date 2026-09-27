@@ -16,7 +16,7 @@ public sealed class EmployeeCredentialsDialog : Window
 {
     public EmployeeCredentialsDialog(string email, string password)
     {
-        Title = Tr.T("Логин сотрудника", "Кызматкердин логини", "Employee login", "Personel girişi", "Xodim login ma'lumoti");
+        Title = Tr.T("Логин сотрудника", "Кызматкердин логини", "Employee login", "Giriş bilgileri", "Xodim logini");
         Width = 380;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -28,17 +28,17 @@ public sealed class EmployeeCredentialsDialog : Window
         {
             Text = Tr.T(
                 "Запишите или скопируйте — повторно этот пароль не показывается.",
-                "Жазып алыңыз же көчүрүңүз — бул пароль кайра көрсөтүлбөйт.",
+                "Жазып алыңыз же көчүрүңүз — бул сырсөз кайра көрсөтүлбөйт.",
                 "Save or copy it now — this password won't be shown again.",
-                "Şimdi kaydedin veya kopyalayın — bu şifre tekrar gösterilmeyecek.",
-                "Hozir saqlang yoki nusxalang — bu parol qayta ko'rsatilmaydi."),
+                "Not alın veya kopyalayın — bu şifre bir daha gösterilmeyecek.",
+                "Yozib oling yoki nusxalang — bu parol boshqa ko'rsatilmaydi."),
             FontSize = 12,
             Foreground = Brushes.Gray,
             TextWrapping = TextWrapping.Wrap,
         });
 
-        panel.Children.Add(BuildField(Tr.T("Логин", "Логин", "Login", "Giriş", "Login"), email));
-        panel.Children.Add(BuildField(Tr.T("Пароль", "Пароль", "Password", "Şifre", "Parol"), password));
+        panel.Children.Add(BuildField(Tr.T("Логин", "Логин", "Login", "Kullanıcı adı", "Login"), email));
+        panel.Children.Add(BuildField(Tr.T("Пароль", "Сырсөз", "Password", "Şifre", "Parol"), password));
 
         var closeButton = new Button
         {

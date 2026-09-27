@@ -73,7 +73,7 @@ public partial class FinanceDateRangeDialog : Window
     {
         if (FromDatePicker.SelectedDate is null || ToDatePicker.SelectedDate is null)
         {
-            ShowError("Выберите обе даты.");
+            ShowError(Tr.T("Выберите обе даты.", "Эки датаны тең тандаңыз.", "Select both dates.", "Her iki tarihi de seçin.", "Ikkala sanani ham tanlang."));
             return;
         }
 
@@ -81,7 +81,7 @@ public partial class FinanceDateRangeDialog : Window
         var to = ToDatePicker.SelectedDate.Value.Date;
         if (from > to)
         {
-            ShowError("Дата «От» не может быть позже даты «До».");
+            ShowError(Tr.T("Дата «От» не может быть позже даты «До».", "«Баштап» датасы «Чейин» датасынан кеч болбошу керек.", "The “From” date cannot be later than the “To” date.", "«Başlangıç» tarihi «Bitiş» tarihinden sonra olamaz.", "«Dan» sanasi «Gacha» sanasidan keyin bo'lishi mumkin emas."));
             return;
         }
 

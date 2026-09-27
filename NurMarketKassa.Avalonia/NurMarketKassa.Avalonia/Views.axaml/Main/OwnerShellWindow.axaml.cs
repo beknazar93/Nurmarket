@@ -113,9 +113,9 @@ public partial class OwnerShellWindow : Window, IMainShell
                         Tr.T("Подписка не оплачена", "Жазылуу төлөнгөн эмес", "Subscription not paid", "Abonelik ödenmedi", "Obuna to'lanmagan"),
                         Tr.T($"Срок действия компании истёк ({subscription.EndDate:dd.MM.yyyy}). Пожалуйста, оплатите!",
                             $"Компаниянын мөөнөтү бүттү ({subscription.EndDate:dd.MM.yyyy}). Сураныч, төлөңүз!",
-                            $"The company subscription expired ({subscription.EndDate:dd.MM.yyyy}). Please pay.",
-                            $"Şirket aboneliği sona erdi ({subscription.EndDate:dd.MM.yyyy}). Lütfen ödeyin.",
-                            $"Kompaniya obunasi tugadi ({subscription.EndDate:dd.MM.yyyy}). Iltimos, to'lang."),
+                            $"Your company's subscription has expired ({subscription.EndDate:dd.MM.yyyy}). Please make a payment.",
+                            $"Şirketin abonelik süresi doldu ({subscription.EndDate:dd.MM.yyyy}). Lütfen ödeme yapın!",
+                            $"Kompaniya obunasi muddati tugadi ({subscription.EndDate:dd.MM.yyyy}). Iltimos, to'lovni amalga oshiring!"),
                         PosAlertKind.Error,
                         Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash"));
                 }
@@ -146,6 +146,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void OnLanguageChanged() => Dispatcher.UIThread.Post(() =>
     {
         ApplyTexts();
+        RebuildSectionsForLanguage();
         _compareKey = null;
         _ = RefreshAsync();
     });
@@ -169,14 +170,14 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void ApplyTexts()
     {
-        Title = Tr.T("NurMarket Владелец", "NurMarket Ээси", "NurMarket Owner", "NurMarket Sahibi", "NurMarket Egasi");
-        OwnerBadgeText.Text = Tr.T("Владелец", "Ээси", "Owner", "Sahibi", "Egasi");
+        Title = Tr.T("NurMarket Владелец", "NurMarket Ээси", "NurMarket Owner", "NurMarket İşletme Sahibi", "NurMarket Egasi");
+        OwnerBadgeText.Text = Tr.T("Владелец", "Ээси", "Owner", "İşletme sahibi", "Egasi");
 
         var company = CompanyInfoService.LastCompany;
         CompanyNameText.Text = string.IsNullOrWhiteSpace(company?.Name) ? "NurCRM" : company!.Name;
         var plan = TariffGate.CurrentPlanName;
         var end = CompanyInfoService.GetCachedSubscriptionStatus()?.EndDate;
-        var tariff = string.IsNullOrWhiteSpace(plan) ? "" : Tr.T($"Тариф «{plan}»", $"Тариф «{plan}»", $"{plan} plan", $"{plan} tarifesi", $"«{plan}» tarifi");
+        var tariff = string.IsNullOrWhiteSpace(plan) ? "" : Tr.T($"Тариф «{plan}»", $"Тариф «{plan}»", $"{plan} plan", $"«{plan}» tarifesi", $"«{plan}» tarifi");
         if (end is { } e && e.Year > 2000)
             tariff += (tariff.Length > 0 ? " · " : "") + Tr.T($"до {e:dd.MM.yyyy}", $"{e:dd.MM.yyyy} чейин", $"until {e:dd.MM.yyyy}", $"{e:dd.MM.yyyy} tarihine kadar", $"{e:dd.MM.yyyy} gacha");
         TariffText.Text = tariff;
@@ -193,7 +194,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         UpdateThemeIcon();
 
         DashboardTitle.Text = Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish");
-        SectionLoadingText.Text = Tr.T("Открываем раздел…", "Бөлүм ачылууда…", "Opening…", "Açılıyor…", "Ochilmoqda…");
+        SectionLoadingText.Text = Tr.T("Открываем раздел…", "Бөлүм ачылууда…", "Opening…", "Bölüm açılıyor…", "Bo'lim ochilmoqda…");
         var culture = UiCulture;
         var today = DateTime.Today.ToString("dddd, d MMMM yyyy", culture);
         DateText.Text = today.Length > 0 ? char.ToUpper(today[0], culture) + today[1..] : today;
@@ -201,14 +202,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
         MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
 
-        RevenueLabel.Text = Tr.T("Выручка", "Киреше", "Revenue", "Ciro", "Tushum");
+        RevenueLabel.Text = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
         ChecksLabel.Text = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
         AvgLabel.Text = Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek");
         ProfitLabel.Text = Tr.T("Валовая прибыль", "Дүң пайда", "Gross profit", "Brüt kâr", "Yalpi foyda");
 
         ChartTitle.Text = _period == "month"
-            ? Tr.T("Выручка по дням месяца", "Айдын күндөрү боюнча киреше", "Revenue by day this month", "Bu ay günlük ciro", "Oy kunlari bo'yicha tushum")
-            : Tr.T("Выручка за 7 дней", "7 күндүк киреше", "Revenue, last 7 days", "Son 7 gün ciro", "7 kunlik tushum");
+            ? Tr.T("Выручка по дням месяца", "Айдын күндөрү боюнча түшүм", "Revenue by day this month", "Ayın günlerine göre ciro", "Oy kunlari bo'yicha tushum")
+            : Tr.T("Выручка за 7 дней", "7 күндүк түшүм", "Revenue, last 7 days", "Son 7 günün cirosu", "7 kunlik tushum");
         ChartEmptyText.Text = Tr.T("Продаж за эти дни нет", "Бул күндөрү сатуу жок", "No sales on these days", "Bu günlerde satış yok", "Bu kunlarda sotuv yo'q");
         PaymentsTitle.Text = Tr.T("Способы оплаты", "Төлөм ыкмалары", "Payment methods", "Ödeme yöntemleri", "To'lov usullari");
         PaymentsEmptyText.Text = Tr.T("Оплат пока нет", "Азырынча төлөм жок", "No payments yet", "Henüz ödeme yok", "Hozircha to'lov yo'q");
@@ -306,10 +307,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewProcurement)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
         Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
             () => OpenSection("calculator", () => new CalculatorWindow()));
-        Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok ve SKT", "To'ldirish va muddatlar"), !isStart,
+        Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), !isStart,
             () => OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()));
 
-        Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuv va pul"));
+        Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuvlar va pul"));
         Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
         Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart,
@@ -323,7 +324,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 
-        Group(Tr.T("Сервис", "Кызмат", "Service", "Hizmet", "Xizmat"));
+        Group(Tr.T("Сервис", "Кызмат", "Tools", "Araçlar", "Xizmat"));
         Add("crm", "CrmIcon", "NurCRM", !isStart,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
@@ -334,7 +335,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group(Tr.T("Помощь", "Жардам", "Help", "Yardım", "Yordam"));
         Add("kb", "KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), !isStart,
             () => OpenSection("kb", () => App.GetRequiredService<KnowledgeBaseWindow>()));
-        Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Техколдоо", "Support", "Destek", "Texnik yordam"), !isStart,
+        Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam"), !isStart,
             () => OpenSection("support", () => App.GetRequiredService<RemoteSupportWindow>()));
         Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), !isStart,
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
@@ -394,7 +395,14 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         public required string Key { get; init; }
         public required Window Window { get; init; }
+
+        /// <summary>Открыт до смены языка — при следующем переходе откроется заново.</summary>
+        public bool Stale { get; set; }
     }
+
+    /// <summary>Разделы, которые сами переводятся на лету (калькулятор, база знаний), и сайт
+    /// NurCRM — язык его страниц не наш. Остальные собирают часть надписей в коде один раз.</summary>
+    private static readonly HashSet<string> LiveLanguageSections = new() { "calculator", "kb", "crm" };
 
     private readonly List<Section> _sections = new();
     private readonly Dictionary<string, Button> _navButtons = new();
@@ -409,6 +417,14 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void OpenSection(string key, Func<Window> create)
     {
         var existing = _sections.FirstOrDefault(s => s.Key == key);
+        if (existing is { Stale: true })
+        {
+            // Сначала из списка — чтобы закрытие не вернуло окно к сводке и не нашлось снова.
+            _sections.Remove(existing);
+            existing.Window.Close();
+            existing = null;
+        }
+
         if (existing != null)
         {
             ShowSection(existing);
@@ -556,6 +572,34 @@ public partial class OwnerShellWindow : Window, IMainShell
         ShowSection(null);
     }
 
+    /// <summary>2026-09-26, «баг с языком»: раздел, открытый до смены языка, оставался на старом
+    /// (меню по-узбекски, «Эмгек акы» по-кыргызски). Спрятанные разделы закрываем — при переходе
+    /// они откроются уже на новом языке; открытый сейчас (обычно «Настройки», где язык и меняют)
+    /// не трогаем, а помечаем — он откроется заново при следующем переходе в него.</summary>
+    private void RebuildSectionsForLanguage()
+    {
+        foreach (var section in _sections.ToList())
+        {
+            if (LiveLanguageSections.Contains(section.Key))
+                continue;
+            if (ReferenceEquals(section, _activeSection))
+            {
+                section.Stale = true;
+                continue;
+            }
+
+            _sections.Remove(section);
+            try
+            {
+                section.Window.Close();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Owner app: section close on language change failed: {ex.Message}", "WARNING");
+            }
+        }
+    }
+
     private void CloseAllSections()
     {
         _closingAllSections = true;
@@ -578,8 +622,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             return true;
         PosLogger.Log($"Owner app: permission denied: {permission}", "WARNING");
         PosMessageBox.Show(this,
-            Tr.T("Недостаточно прав для этого раздела.", "Бул бөлүм үчүн укук жетишсиз.", "Not enough rights for this section.",
-                "Bu bölüm için yetki yetersiz.", "Bu bo'lim uchun huquq yetarli emas."),
+            Tr.T("Недостаточно прав для этого раздела.", "Бул бөлүм үчүн укук жетишсиз.", "You don't have permission to open this section.",
+                "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas."),
             Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         return false;
     }
@@ -619,9 +663,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private string CompareHint() => _period switch
     {
-        "week" => Tr.T("к прошлой неделе", "өткөн жумага", "vs last week", "geçen haftaya göre", "o'tgan haftaga"),
-        "month" => Tr.T("к прошлому месяцу", "өткөн айга", "vs last month", "geçen aya göre", "o'tgan oyga"),
-        _ => Tr.T("к вчера", "кечээкиге", "vs yesterday", "düne göre", "kechagiga"),
+        "week" => Tr.T("к прошлой неделе", "өткөн жумага карата", "vs last week", "geçen haftaya göre", "o'tgan haftaga nisbatan"),
+        "month" => Tr.T("к прошлому месяцу", "өткөн айга карата", "vs last month", "geçen aya göre", "o'tgan oyga nisbatan"),
+        _ => Tr.T("к вчера", "кечээге карата", "vs yesterday", "düne göre", "kechaga nisbatan"),
     };
 
     private async Task RefreshAsync()
@@ -670,10 +714,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             _lastSuccess = DateTime.Now;
             UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
             UpdatedText.Text = Tr.T($"Обновлено в {DateTime.Now:HH:mm}", $"{DateTime.Now:HH:mm} жаңыртылды", $"Updated at {DateTime.Now:HH:mm}",
-                $"{DateTime.Now:HH:mm} güncellendi", $"{DateTime.Now:HH:mm} da yangilandi");
+                $"Güncellendi: {DateTime.Now:HH:mm}", $"Yangilandi: {DateTime.Now:HH:mm}");
             ToolTip.SetTip(UpdatedText, Tr.T($"Обновляется само каждые {RefreshInterval.TotalSeconds:0} с",
-                $"Ар {RefreshInterval.TotalSeconds:0} с сайын өзү жаңырат", $"Refreshes every {RefreshInterval.TotalSeconds:0} s",
-                $"Her {RefreshInterval.TotalSeconds:0} sn yenilenir", $"Har {RefreshInterval.TotalSeconds:0} s da yangilanadi"));
+                $"Ар {RefreshInterval.TotalSeconds:0} с сайын өзү жаңырат", $"Auto-refreshes every {RefreshInterval.TotalSeconds:0} s",
+                $"Her {RefreshInterval.TotalSeconds:0} saniyede bir otomatik yenilenir", $"Har {RefreshInterval.TotalSeconds:0} soniyada avtomatik yangilanadi"));
         }
         catch (OperationCanceledException)
         {
@@ -683,8 +727,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             PosLogger.Log($"Owner app: overview refresh failed: {ex.Message}", "WARNING");
             UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
             UpdatedText.Text = _lastSuccess is { } at
-                ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · {at:HH:mm} маалыматы", $"Offline · data as of {at:HH:mm}",
-                    $"Bağlantı yok · {at:HH:mm} verileri", $"Aloqa yo'q · {at:HH:mm} ma'lumotlari")
+                ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
+                    $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
                 : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
         }
         finally
@@ -780,7 +824,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         var values = days.Select(d => byDay.TryGetValue(d, out var v) ? v : 0).ToList();
         var max = values.Count == 0 ? 0 : values.Max();
         var total = values.Sum();
-        ChartTotalText.Text = Tr.T($"Итого: {Amount(total)} {Som()}", $"Бардыгы: {Amount(total)} {Som()}", $"Total: {Amount(total)} {Som()}",
+        ChartTotalText.Text = Tr.T($"Итого: {Amount(total)} {Som()}", $"Жыйынтык: {Amount(total)} {Som()}", $"Total: {Amount(total)} {Som()}",
             $"Toplam: {Amount(total)} {Som()}", $"Jami: {Amount(total)} {Som()}");
         ChartEmptyText.IsVisible = max <= 0;
         ChartBars.IsVisible = max > 0;
@@ -998,7 +1042,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             UseBrush(revenueText, TextBlock.ForegroundProperty, "BrushText");
             var soldText = new TextBlock
             {
-                Text = Tr.T($"продано {Qty(sold)}", $"сатылды {Qty(sold)}", $"sold {Qty(sold)}", $"satılan {Qty(sold)}", $"sotildi {Qty(sold)}"),
+                Text = Tr.T($"продано {Qty(sold)}", $"{Qty(sold)} сатылды", $"sold {Qty(sold)}", $"satılan: {Qty(sold)}", $"sotildi {Qty(sold)}"),
                 FontSize = 11.5,
                 HorizontalAlignment = HorizontalAlignment.Right,
             };
@@ -1097,9 +1141,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     private static string PaymentLabel(string method) => (method ?? "").Trim().ToLowerInvariant() switch
     {
         "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
-        "transfer" or "card" => Tr.T("Безналичные", "Накталай эмес", "Non-cash", "Nakitsiz", "Naqdsiz"),
+        "transfer" or "card" => Tr.T("Безналичные", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
         "mbank" => "MBank",
-        "mixed" or "split" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karma", "Aralash"),
+        "mixed" or "split" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karışık", "Aralash"),
         "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
         "" => "—",
         var other => other,
@@ -1133,9 +1177,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         var ru = CultureInfo.GetCultureInfo("ru-RU");
         if (value >= 1_000_000)
-            return (value / 1_000_000).ToString("0.#", ru) + " " + Tr.T("млн", "млн", "M", "Mn", "mln");
+            return (value / 1_000_000).ToString("0.#", ru) + " " + Tr.T("млн", "млн", "M", "mn", "mln");
         if (value >= 10_000)
-            return (value / 1_000).ToString("0", ru) + " " + Tr.T("тыс", "миң", "K", "B", "ming");
+            return (value / 1_000).ToString("0", ru) + " " + Tr.T("тыс", "миң", "K", "bin", "ming");
         return value.ToString("N0", ru);
     }
 

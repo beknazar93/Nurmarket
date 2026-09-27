@@ -57,9 +57,9 @@ public partial class SalaryWindow : Window
         SubtitleText.Text = Tr.T(
             "Расчёт делает сервер — те же цифры, что на сайте в карточке сотрудника.",
             "Эсепти сервер жасайт — сайттагы кызматкердин карточкасындагыдай эле сандар.",
-            "The server does the calculation — the same figures as on the website's employee page.",
-            "Hesabı sunucu yapar — sitedeki personel kartıyla aynı rakamlar.",
-            "Hisobni server qiladi — saytdagi xodim kartochkasidagi bilan bir xil raqamlar.");
+            "Calculated by the server — the same figures as on the employee's page on the website.",
+            "Hesaplamayı sunucu yapar — rakamlar sitedeki çalışan kartındakilerle aynıdır.",
+            "Hisob-kitobni server bajaradi — raqamlar saytdagi xodim kartochkasidagi bilan bir xil.");
         RefreshButton.Content = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
         CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
         ThisMonthButton.Content = Tr.T("Текущий месяц", "Ушул ай", "This month", "Bu ay", "Joriy oy");
@@ -71,36 +71,36 @@ public partial class SalaryWindow : Window
         GuideStep1.Text = Tr.T(
             "1. У каждого сотрудника своя схема: оклад, процент от продаж или оклад + процент (кнопка «Схема» в строке).",
             "1. Ар бир кызматкердин өз схемасы бар: айлык, сатуудан пайыз же айлык + пайыз (саптагы «Схема» баскычы).",
-            "1. Each employee has a scheme: salary, sales percentage, or salary + percentage (the «Scheme» button in the row).",
-            "1. Her personelin bir şeması vardır: maaş, satış yüzdesi veya maaş + yüzde (satırdaki «Şema» düğmesi).",
+            "1. Each employee has their own scheme: fixed salary, percentage of sales, or salary + percentage (the “Scheme” button in the row).",
+            "1. Her çalışanın kendi şeması vardır: sabit maaş, satış yüzdesi veya sabit maaş + yüzde (satırdaki «Şema» düğmesi).",
             "1. Har bir xodimning o'z sxemasi bor: maosh, sotuvdan foiz yoki maosh + foiz (qatordagi «Sxema» tugmasi).");
         GuideStep2.Text = Tr.T(
             "2. В расчёт идут только оплаченные чеки, где сотрудник пробил оплату, — и чеки, где он указан консультантом.",
-            "2. Эсепке сотрудник төлөмдү өткөргөн төлөнгөн чектер гана кирет — жана ал консультант катары көрсөтүлгөн чектер.",
-            "2. Only paid receipts where the employee took the payment count — plus receipts where they are the consultant.",
-            "2. Yalnızca personelin ödemeyi aldığı ödenmiş fişler sayılır — ve danışman olarak belirtildiği fişler.",
-            "2. Hisobga faqat xodim to'lovni o'tkazgan to'langan cheklar kiradi — va u maslahatchi sifatida ko'rsatilgan cheklar.");
+            "2. Эсепке кызматкер төлөмүн өткөргөн төлөнгөн чектер жана ал консультант катары көрсөтүлгөн чектер гана кирет.",
+            "2. Only paid receipts count: those where the employee took the payment, and those where they are listed as the consultant.",
+            "2. Hesaba yalnızca çalışanın ödemesini aldığı ödenmiş fişler ile danışman olarak belirtildiği fişler girer.",
+            "2. Hisobga faqat xodim to'lovni o'tkazgan to'langan cheklar hamda u maslahatchi sifatida ko'rsatilgan cheklar kiradi.");
         GuideStep3.Text = Tr.T(
             "3. Оклад считается пропорционально дням выбранного периода.",
             "3. Айлык тандалган мезгилдин күндөрүнө жараша эсептелет.",
-            "3. The salary is prorated to the days of the selected period.",
-            "3. Maaş seçilen dönemin günlerine göre orantılı hesaplanır.",
-            "3. Maosh tanlangan davr kunlariga mutanosib hisoblanadi.");
+            "3. The fixed salary is prorated by the days in the selected period.",
+            "3. Sabit maaş, seçilen dönemin gün sayısına göre orantılı hesaplanır.",
+            "3. Maosh tanlangan davr kunlariga mutanosib ravishda hisoblanadi.");
 
-        CardPayrollLabel.Text = Tr.T("К выплате за период", "Мезгил үчүн төлөнөт", "Payable for the period", "Dönem için ödenecek", "Davr uchun to'lanadi");
-        CardBaseLabel.Text = Tr.T("Оклады за период", "Мезгил үчүн айлыктар", "Salaries for the period", "Dönem maaşları", "Davr uchun maoshlar");
+        CardPayrollLabel.Text = Tr.T("К выплате за период", "Мезгил үчүн төлөөгө", "Payable for the period", "Dönem için ödenecek", "Davr uchun to'lanadigan summa");
+        CardBaseLabel.Text = Tr.T("Оклады за период", "Мезгил үчүн айлыктар", "Salaries for the period", "Dönemin sabit maaşları", "Davr uchun maoshlar");
         CardBonusLabel.Text = Tr.T("Проценты и комиссии", "Пайыздар жана комиссиялар", "Percentages and commissions", "Yüzdeler ve komisyonlar", "Foizlar va komissiyalar");
         CardSalesLabel.Text = Tr.T("Продажи сотрудников", "Кызматкерлердин сатуулары", "Employee sales", "Personel satışları", "Xodimlar sotuvlari");
-        CardEmployeesLabel.Text = Tr.T("Сотрудников со схемой", "Схемасы бар кызматкерлер", "Employees with a scheme", "Şeması olan personel", "Sxemasi bor xodimlar");
+        CardEmployeesLabel.Text = Tr.T("Сотрудников со схемой", "Схемасы бар кызматкерлер", "Employees with a scheme", "Şeması olan çalışanlar", "Sxemasi bor xodimlar");
 
-        HeadEmployee.Text = Tr.T("Сотрудник", "Кызматкер", "Employee", "Personel", "Xodim");
+        HeadEmployee.Text = Tr.T("Сотрудник", "Кызматкер", "Employee", "Çalışan", "Xodim");
         HeadScheme.Text = Tr.T("Схема", "Схема", "Scheme", "Şema", "Sxema");
-        HeadBase.Text = Tr.T("Оклад за период", "Мезгил үчүн айлык", "Salary for period", "Dönem maaşı", "Davr maoshi");
-        HeadCashier.Text = Tr.T("Продажи как кассир", "Кассир катары сатуу", "Sales as cashier", "Kasiyer olarak satış", "Kassir sifatida sotuv");
-        HeadConsultant.Text = Tr.T("Продажи как консультант", "Консультант катары сатуу", "Sales as consultant", "Danışman olarak satış", "Maslahatchi sifatida sotuv");
+        HeadBase.Text = Tr.T("Оклад за период", "Мезгил үчүн айлык", "Salary for the period", "Dönem sabit maaşı", "Davr uchun maosh");
+        HeadCashier.Text = Tr.T("Продажи как кассир", "Кассир катары сатуу", "Sales as cashier", "Kasiyer olarak satış", "Kassir sifatida sotuvlar");
+        HeadConsultant.Text = Tr.T("Продажи как консультант", "Консультант катары сатуу", "Sales as consultant", "Danışman olarak satış", "Maslahatchi sifatida sotuvlar");
         HeadCommission.Text = Tr.T("Комиссия консультанта", "Консультанттын комиссиясы", "Consultant commission", "Danışman komisyonu", "Maslahatchi komissiyasi");
         HeadBonus.Text = Tr.T("Бонус (%)", "Бонус (%)", "Bonus (%)", "Bonus (%)", "Bonus (%)");
-        HeadTotal.Text = Tr.T("К выплате", "Төлөнөт", "Payable", "Ödenecek", "To'lanadi");
+        HeadTotal.Text = Tr.T("К выплате", "Төлөөгө", "Payable", "Ödenecek", "To'lanadigan summa");
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
@@ -152,7 +152,7 @@ public partial class SalaryWindow : Window
         _suppressPickerEvents = false;
 
         var days = (_to - _from).Days + 1;
-        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "d.", "gün", "kun");
+        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "days", "gün", "kun");
 
         var today = DateTime.Today;
         var firstThisMonth = new DateTime(today.Year, today.Month, 1);
@@ -192,9 +192,9 @@ public partial class SalaryWindow : Window
             ShowError(Tr.T(
                 "Нет доступа к зарплате: у этого аккаунта нет права на аналитику сотрудников на сайте.",
                 "Эмгек акыга уруксат жок: бул аккаунттун сайтта кызматкерлердин аналитикасына укугу жок.",
-                "No access to salaries: this account has no right to employee analytics on the website.",
-                "Maaşlara erişim yok: bu hesabın sitede personel analitiğine yetkisi yok.",
-                "Ish haqiga ruxsat yo'q: bu akkauntning saytda xodimlar tahliliga huquqi yo'q."));
+                "No access to salaries: this account doesn't have the employee analytics permission on the website.",
+                "Maaşlara erişim yok: bu hesabın sitede personel analizine yetkisi yok.",
+                "Ish haqini ko'rishga ruxsat yo'q: bu akkauntda saytdagi xodimlar tahliliga huquq yo'q."));
         }
         catch (Exception ex)
         {
@@ -235,8 +235,8 @@ public partial class SalaryWindow : Window
             "За этот период начислять некому: нет продаж и ни у кого не настроена схема зарплаты.",
             "Бул мезгилде эсептей турган эч ким жок: сатуу жок жана эч кимде эмгек акы схемасы жок.",
             "Nobody to pay for this period: no sales and no salary schemes set up.",
-            "Bu dönem için ödenecek kimse yok: satış yok ve kimsede maaş şeması yok.",
-            "Bu davr uchun hisoblanadigan hech kim yo'q: sotuv yo'q va hech kimda ish haqi sxemasi yo'q.");
+            "Bu dönemde maaş hesaplanacak kimse yok: satış yok ve hiç kimse için maaş şeması ayarlanmamış.",
+            "Bu davr uchun hisoblanadigan hech kim yo'q: sotuvlar yo'q va hech kimga ish haqi sxemasi sozlanmagan.");
     }
 
     private async void EditScheme_Click(object? sender, RoutedEventArgs e)
@@ -315,8 +315,8 @@ public partial class SalaryWindow : Window
             var details = scheme switch
             {
                 "percent" => $"{percent.ToString("0.##", Ru)} %",
-                "salary_plus_percent" => $"{Money(monthly)} / " + Tr.T("мес", "ай", "mo", "ay", "oy") + $" · {percent.ToString("0.##", Ru)} %",
-                _ => $"{Money(monthly)} / " + Tr.T("мес", "ай", "mo", "ay", "oy"),
+                "salary_plus_percent" => $"{Money(monthly)} / " + Tr.T("мес", "ай", "month", "ay", "oy") + $" · {percent.ToString("0.##", Ru)} %",
+                _ => $"{Money(monthly)} / " + Tr.T("мес", "ай", "month", "ay", "oy"),
             };
 
             return new SalaryRow
@@ -324,12 +324,12 @@ public partial class SalaryWindow : Window
                 UserId = Str(r, "user_id"),
                 Name = name.Length > 0 ? name : "—",
                 ProfileNote = scope == "none"
-                    ? Tr.T("схема не настроена", "схема орнотулган эмес", "no scheme set", "şema ayarlanmadı", "sxema sozlanmagan")
+                    ? Tr.T("схема не настроена", "схема жөндөлгөн эмес", "no scheme set up", "şema ayarlanmamış", "sxema sozlanmagan")
                     : "",
                 SchemeLabel = SchemeName(scheme, Str(r, "pay_scheme_label")),
                 SchemeDetails = details,
                 BaseText = Money(Num(r, "base_prorated")),
-                DaysText = $"{(int)Num(r, "period_days")} " + Tr.T("дн.", "күн", "d.", "gün", "kun"),
+                DaysText = $"{(int)Num(r, "period_days")} " + Tr.T("дн.", "күн", "days", "gün", "kun"),
                 CashierSalesText = Money(cashierSales),
                 CashierCountText = Checks(cashierCount),
                 ConsultantSalesText = Money(Num(r, "consultant_sales_period")),
@@ -348,10 +348,10 @@ public partial class SalaryWindow : Window
     /// <summary>Название схемы на языке кассы; сайт отдаёт подпись только по-русски.</summary>
     internal static string SchemeName(string scheme, string serverLabel = "") => scheme switch
     {
-        "salary" => Tr.T("Оклад", "Айлык", "Salary", "Maaş", "Maosh"),
+        "salary" => Tr.T("Оклад", "Айлык", "Salary", "Sabit maaş", "Maosh"),
         "percent" => Tr.T("Процент от продаж", "Сатуудан пайыз", "Sales percentage", "Satış yüzdesi", "Sotuvdan foiz"),
         "salary_plus_percent" => Tr.T("Оклад + процент от продаж", "Айлык + сатуудан пайыз", "Salary + sales percentage",
-            "Maaş + satış yüzdesi", "Maosh + sotuvdan foiz"),
+            "Sabit maaş + satış yüzdesi", "Maosh + sotuvdan foiz"),
         _ => serverLabel.Length > 0 ? serverLabel : "—",
     };
 }

@@ -86,8 +86,8 @@ public static class StockSyncService
         vm.Quantity = quantity;
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
         vm.StockInfo = mustWeigh
-            ? $"{quantity.ToString("F2", qtyCulture)} кг"
-            : $"{quantity.ToString("F0", qtyCulture)} шт.";
+            ? $"{quantity.ToString("F2", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
+            : $"{quantity.ToString("F0", qtyCulture)} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
         vm.IsLowStock = quantity < LowStockThreshold;
     }
 

@@ -61,26 +61,26 @@ public partial class StockTransferDialog : Window
     {
         StockTransferService.StatusInTransit => Tr.T("В пути", "Жолдо", "In transit", "Yolda", "Yo'lda"),
         StockTransferService.StatusDelivered => Tr.T("Доставлено", "Жеткирилди", "Delivered", "Teslim edildi", "Yetkazildi"),
-        StockTransferService.StatusCancelled => Tr.T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"),
+        StockTransferService.StatusCancelled => Tr.T("Отменено", "Жокко чыгарылды", "Canceled", "İptal edildi", "Bekor qilindi"),
         _ => Tr.T("Создано", "Түзүлдү", "Created", "Oluşturuldu", "Yaratildi"),
     };
 
     private void InitializeFileKinds()
     {
         FileKindBox.Items.Clear();
-        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Накладная", "Накладная", "Invoice", "İrsaliye", "Yuk xati"), Tag = "invoice" });
-        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Акт приёма-передачи", "Кабыл алуу акты", "Handover act", "Teslim tutanağı", "Qabul akti"), Tag = "act" });
-        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Транспортный документ", "Транспорт документи", "Transport document", "Taşıma belgesi", "Transport hujjati"), Tag = "transport" });
-        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Фото повреждений", "Бузулуу сүрөтү", "Damage photo", "Hasar fotoğrafı", "Shikast surati"), Tag = "damage" });
+        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Накладная", "Накладная", "Waybill", "İrsaliye", "Yuk xati"), Tag = "invoice" });
+        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Акт приёма-передачи", "Кабыл алуу-өткөрүп берүү акты", "Handover certificate", "Teslim tutanağı", "Qabul-topshirish akti"), Tag = "act" });
+        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Транспортный документ", "Транспорттук документ", "Transport document", "Taşıma belgesi", "Transport hujjati"), Tag = "transport" });
+        FileKindBox.Items.Add(new ComboBoxItem { Content = Tr.T("Фото повреждений", "Бузулуулардын сүрөтү", "Damage photo", "Hasar fotoğrafı", "Shikastlanish surati"), Tag = "damage" });
         FileKindBox.SelectedIndex = 0;
     }
 
     private static string FileKindText(string? kind) => kind switch
     {
-        "invoice" => Tr.T("Накладная", "Накладная", "Invoice", "İrsaliye", "Yuk xati"),
-        "act" => Tr.T("Акт приёма-передачи", "Кабыл алуу акты", "Handover act", "Teslim tutanağı", "Qabul akti"),
-        "transport" => Tr.T("Транспортный документ", "Транспорт документи", "Transport document", "Taşıma belgesi", "Transport hujjati"),
-        "damage" => Tr.T("Фото повреждений", "Бузулуу сүрөтү", "Damage photo", "Hasar fotoğrafı", "Shikast surati"),
+        "invoice" => Tr.T("Накладная", "Накладная", "Waybill", "İrsaliye", "Yuk xati"),
+        "act" => Tr.T("Акт приёма-передачи", "Кабыл алуу-өткөрүп берүү акты", "Handover certificate", "Teslim tutanağı", "Qabul-topshirish akti"),
+        "transport" => Tr.T("Транспортный документ", "Транспорттук документ", "Transport document", "Taşıma belgesi", "Transport hujjati"),
+        "damage" => Tr.T("Фото повреждений", "Бузулуулардын сүрөтү", "Damage photo", "Hasar fotoğrafı", "Shikastlanish surati"),
         _ => Tr.T("Документ", "Документ", "Document", "Belge", "Hujjat"),
     };
 
@@ -341,7 +341,7 @@ public partial class StockTransferDialog : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = Tr.T("Выберите документ", "Документти тандаңыз", "Choose a document", "Belge seçin", "Hujjatni tanlang"),
+            Title = Tr.T("Выберите документ", "Документти тандаңыз", "Select a document", "Belge seçin", "Hujjatni tanlang"),
             AllowMultiple = true,
         });
 
@@ -431,7 +431,7 @@ public partial class StockTransferDialog : Window
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = Tr.T("Сохранить выгрузку", "Жүктөөнү сактоо", "Save export", "Dışa aktarımı kaydet", "Eksportni saqlash"),
+            Title = Tr.T("Сохранить выгрузку", "Файлды сактоо", "Save export", "Dışa aktarımı kaydet", "Eksportni saqlash"),
             SuggestedFileName = $"transfer-{_transfer.Number}.{format}",
         });
 
@@ -450,7 +450,7 @@ public partial class StockTransferDialog : Window
             Tr.T("Статус", "Абалы", "Status", "Durum", "Holat"), DescribeStatus(_transfer.Status)));
         text.AppendLine();
         text.AppendLine(string.Join(separator,
-            Tr.T("Название", "Аты", "Name", "Ad", "Nomi"),
+            Tr.T("Название", "Аталышы", "Name", "Ad", "Nomi"),
             Tr.T("Код", "Коду", "Code", "Kod", "Kod"),
             Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"),
             Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor")));

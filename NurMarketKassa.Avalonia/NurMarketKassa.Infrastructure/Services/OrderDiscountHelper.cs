@@ -58,11 +58,12 @@ public static class OrderDiscountHelper
     {
         var s = (raw ?? "").Trim();
         if (s.Length == 0)
-            return "Введите процент";
+            return Tr.T("Введите процент", "Пайызды киргизиңиз", "Enter a percentage", "Yüzde girin", "Foizni kiriting");
         if (!TryParseNonNegative(s, out var v))
-            return "Некорректный процент";
+            return Tr.T("Некорректный процент", "Пайыз туура эмес", "Invalid percentage", "Geçersiz yüzde", "Foiz noto'g'ri");
         if (v > 100)
-            return "Процент не может быть больше 100";
+            return Tr.T("Процент не может быть больше 100", "Пайыз 100дөн ашпашы керек", "The percentage can't exceed 100",
+                "Yüzde 100'den büyük olamaz", "Foiz 100 dan oshmasligi kerak");
         return null;
     }
 
@@ -70,20 +71,23 @@ public static class OrderDiscountHelper
     {
         var s = (raw ?? "").Trim();
         if (s.Length == 0)
-            return "Введите сумму скидки";
+            return Tr.T("Введите сумму скидки", "Арзандатуунун суммасын киргизиңиз", "Enter the discount amount",
+                "İndirim tutarını girin", "Chegirma summasini kiriting");
         if (!TryParseNonNegative(s, out _))
-            return "Некорректная сумма скидки";
+            return Tr.T("Некорректная сумма скидки", "Арзандатуунун суммасы туура эмес", "Invalid discount amount",
+                "Geçersiz indirim tutarı", "Chegirma summasi noto'g'ri");
         return null;
     }
 
     public static string? ValidateQuantity(string raw)
     {
         if (!TryParseNonNegative(NormalizeDecimal(raw), out var v))
-            return "Некорректное количество";
+            return Tr.T("Некорректное количество", "Саны туура эмес", "Invalid quantity", "Geçersiz miktar", "Miqdor noto'g'ri");
         if (v <= 0)
-            return "Количество должно быть больше нуля";
+            return Tr.T("Количество должно быть больше нуля", "Саны нөлдөн чоң болушу керек", "The quantity must be greater than zero",
+                "Miktar sıfırdan büyük olmalıdır", "Miqdor noldan katta bo'lishi kerak");
         if (v > 1_000_000)
-            return "Слишком большое количество";
+            return Tr.T("Слишком большое количество", "Саны өтө чоң", "The quantity is too large", "Miktar çok büyük", "Miqdor juda katta");
         return null;
     }
 

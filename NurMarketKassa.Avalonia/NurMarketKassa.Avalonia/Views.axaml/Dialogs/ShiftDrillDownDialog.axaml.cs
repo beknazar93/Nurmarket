@@ -45,32 +45,36 @@ public partial class ShiftDrillDownDialog : Window
         var number = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
             : shift.ShiftNumber[..Math.Min(8, shift.ShiftNumber.Length)].ToUpperInvariant();
-        SubtitleText.Text = $"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — "
-            + (shift.ClosedAt is { } closed ? closed.ToString("dd.MM.yyyy HH:mm") : "сейчас");
+        SubtitleText.Text = Tr.T($"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
+                $"Смена {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
+                $"Shift {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
+                $"Vardiya {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ",
+                $"Smena {number} · {shift.OpenedAt:dd.MM.yyyy HH:mm} — ")
+            + (shift.ClosedAt is { } closed ? closed.ToString("dd.MM.yyyy HH:mm") : Tr.T("сейчас", "азыр", "now", "şu an", "hozir"));
         Opened += async (_, _) => await LoadAsync();
     }
 
     private static string TitleFor(string kind) => kind switch
     {
-        KindCash => "Наличные",
-        KindCard => "Безналичные",
-        KindDebt => "Продажи в долг",
-        KindDiscounts => "Скидки",
-        KindReturns => "Возвраты",
-        KindWriteOffs => "Списания",
-        KindExpense => "Расход",
-        KindDebtPaid => "Оплата долгов",
-        _ => "Продажи",
+        KindCash => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
+        KindCard => Tr.T("Безналичные", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
+        KindDebt => Tr.T("Продажи в долг", "Карызга сатуулар", "Sales on credit", "Veresiye satışlar", "Qarzga sotuvlar"),
+        KindDiscounts => Tr.T("Скидки", "Арзандатуулар", "Discounts", "İndirimler", "Chegirmalar"),
+        KindReturns => Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"),
+        KindWriteOffs => Tr.T("Списания", "Эсептен чыгаруулар", "Write-offs", "Düşümler", "Hisobdan chiqarishlar"),
+        KindExpense => Tr.T("Расход", "Чыгаша", "Expense", "Gider", "Xarajat"),
+        KindDebtPaid => Tr.T("Оплата долгов", "Карыздарды төлөө", "Debt payments", "Borç ödemeleri", "Qarz to'lovlari"),
+        _ => Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"),
     };
 
-    private static string Money(double value) => value.ToString("N2", Ru) + " сом";
+    private static string Money(double value) => value.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
 
     private static string MethodText(string method) => method.ToLowerInvariant() switch
     {
-        "cash" => "наличные",
-        "transfer" or "card" or "noncash" or "cashless" or "bank" => "безналичные",
-        "debt" => "в долг",
-        "mixed" => "смешанная",
+        "cash" => Tr.T("наличные", "накталай", "cash", "nakit", "naqd"),
+        "transfer" or "card" or "noncash" or "cashless" or "bank" => Tr.T("безналичные", "накталай эмес", "cashless", "nakitsiz", "naqdsiz"),
+        "debt" => Tr.T("в долг", "карызга", "on credit", "veresiye", "qarzga"),
+        "mixed" => Tr.T("смешанная", "аралаш", "mixed", "karışık", "aralash"),
         _ => string.IsNullOrWhiteSpace(method) ? "—" : method,
     };
 
@@ -79,7 +83,7 @@ public partial class ShiftDrillDownDialog : Window
         if (_shift is null)
             return;
 
-        SummaryText.Text = "Загрузка…";
+        SummaryText.Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
         LoadingBar.IsVisible = true;
         try
         {
@@ -87,13 +91,15 @@ public partial class ShiftDrillDownDialog : Window
                 ? LoadEvents()
                 : await LoadSalesAsync();
             RowsList.ItemsSource = rows.Rows;
-            SummaryText.Text = rows.Rows.Count == 0 ? "За эту смену записей нет." : rows.Summary;
-            FooterText.Text = rows.Rows.Count == 0 ? "" : "Итого: " + Money(rows.Total);
+            SummaryText.Text = rows.Rows.Count == 0
+                ? Tr.T("За эту смену записей нет.", "Бул сменада жазуулар жок.", "No records for this shift.", "Bu vardiyada kayıt yok.", "Bu smenada yozuvlar yo'q.")
+                : rows.Summary;
+            FooterText.Text = rows.Rows.Count == 0 ? "" : Tr.T("Итого: ", "Жыйынтык: ", "Total: ", "Toplam: ", "Jami: ") + Money(rows.Total);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Отчёт смены ({_kind}) не загружен: {ex}", "SHIFTS");
-            SummaryText.Text = "Не удалось загрузить отчёт: " + ex.Message;
+            SummaryText.Text = Tr.T("Не удалось загрузить отчёт: ", "Отчётту жүктөө мүмкүн болгон жок: ", "Could not load the report: ", "Rapor yüklenemedi: ", "Hisobotni yuklab bo'lmadi: ") + ex.Message;
         }
         finally
         {
@@ -118,16 +124,21 @@ public partial class ShiftDrillDownDialog : Window
 
         var rows = list.Select(s =>
         {
-            var header = $"{s.CreatedAt.ToLocalTime():HH:mm} · чек {s.Id[..Math.Min(8, s.Id.Length)].ToUpperInvariant()} · {MethodText(s.PaymentMethod)}";
+            var receiptNo = s.Id[..Math.Min(8, s.Id.Length)].ToUpperInvariant();
+            var header = Tr.T($"{s.CreatedAt.ToLocalTime():HH:mm} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{s.CreatedAt.ToLocalTime():HH:mm} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{s.CreatedAt.ToLocalTime():HH:mm} · receipt {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{s.CreatedAt.ToLocalTime():HH:mm} · fiş {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{s.CreatedAt.ToLocalTime():HH:mm} · chek {receiptNo} · {MethodText(s.PaymentMethod)}");
             if (s.Status == "debt")
-                header += " · долг";
+                header += Tr.T(" · долг", " · карыз", " · debt", " · borç", " · qarz");
             if (s.Discount > 0.005)
-                header += " · скидка " + Money(s.Discount);
+                header += Tr.T(" · скидка ", " · арзандатуу ", " · discount ", " · indirim ", " · chegirma ") + Money(s.Discount);
             if (!string.IsNullOrWhiteSpace(s.Cashier))
                 header += " · " + s.Cashier;
 
             var details = s.Lines.Count == 0
-                ? "товары чека не загрузились"
+                ? Tr.T("товары чека не загрузились", "чектин товарлары жүктөлгөн жок", "receipt items did not load", "fiş ürünleri yüklenemedi", "chek mahsulotlari yuklanmadi")
                 : string.Join("\n", s.Lines.Select(l =>
                     $"{l.Name} — {l.Quantity.ToString("0.###", Ru)} × {l.Price.ToString("N2", Ru)} = {(l.Quantity * l.Price).ToString("N2", Ru)}"));
             var amount = _kind == KindDiscounts ? s.Discount : _kind == KindDebt && s.Debt > 0.005 ? s.Debt : s.Total;
@@ -138,15 +149,30 @@ public partial class ShiftDrillDownDialog : Window
             : _kind == KindDebt ? list.Sum(s => s.Debt > 0.005 ? s.Debt : s.Total)
             : list.Sum(s => s.Total);
         var units = list.Sum(s => s.Lines.Sum(l => l.Quantity));
-        var summary = $"Чеков: {list.Count} · товаров: {units.ToString("0.###", Ru)} ед. · на сумму {Money(total)}";
+        var unitsText = units.ToString("0.###", Ru);
+        var totalText = Money(total);
+        var summary = Tr.T($"Чеков: {list.Count} · товаров: {unitsText} ед. · на сумму {totalText}",
+            $"Чектер: {list.Count} · товарлар: {unitsText} бирд. · суммасы {totalText}",
+            $"Receipts: {list.Count} · quantity: {unitsText} · total {totalText}",
+            $"Fiş: {list.Count} · ürün: {unitsText} birim · toplam {totalText}",
+            $"Cheklar: {list.Count} · mahsulotlar: {unitsText} birlik · jami {totalText}");
 
         // Товары по итогам — что именно ушло за эту категорию.
         var byProduct = list.SelectMany(s => s.Lines)
             .GroupBy(l => l.Name)
-            .Select(g => $"{g.Key} — {g.Sum(l => l.Quantity).ToString("0.###", Ru)} ед. на {g.Sum(l => l.Quantity * l.Price).ToString("N2", Ru)}")
+            .Select(g =>
+            {
+                var qty = g.Sum(l => l.Quantity).ToString("0.###", Ru);
+                var sum = g.Sum(l => l.Quantity * l.Price).ToString("N2", Ru);
+                return Tr.T($"{g.Key} — {qty} ед. на {sum}",
+                    $"{g.Key} — {qty} бирд., суммасы {sum}",
+                    $"{g.Key} — {qty} units for {sum}",
+                    $"{g.Key} — {qty} birim, toplam {sum}",
+                    $"{g.Key} — {qty} birlik, jami {sum}");
+            })
             .ToList();
         if (byProduct.Count > 0)
-            rows.Insert(0, new Row("Товары за смену в этом разделе", "", string.Join("\n", byProduct)));
+            rows.Insert(0, new Row(Tr.T("Товары за смену в этом разделе", "Бул бөлүмдөгү сменанын товарлары", "Products in this section for the shift", "Bu bölümdeki vardiya ürünleri", "Ushbu bo'limdagi smena mahsulotlari"), "", string.Join("\n", byProduct)));
 
         return (rows, summary, total);
     }
@@ -169,7 +195,12 @@ public partial class ShiftDrillDownDialog : Window
                 e.Note ?? ""))
             .ToList();
         var total = events.Sum(e => e.Amount);
-        return (rows, $"Записей: {events.Count} · на сумму {Money(total)}", total);
+        var totalText = Money(total);
+        return (rows, Tr.T($"Записей: {events.Count} · на сумму {totalText}",
+            $"Жазуулар: {events.Count} · суммасы {totalText}",
+            $"Records: {events.Count} · total {totalText}",
+            $"Kayıt: {events.Count} · toplam {totalText}",
+            $"Yozuvlar: {events.Count} · jami {totalText}"), total);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();

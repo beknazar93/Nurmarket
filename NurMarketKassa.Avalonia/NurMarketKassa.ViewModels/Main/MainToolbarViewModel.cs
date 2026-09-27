@@ -1,4 +1,5 @@
 ﻿using System.Windows.Input;
+using NurMarketKassa.Services;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.ViewModels.Main;
@@ -10,9 +11,9 @@ public sealed class MainToolbarViewModel : ViewModelBase
     private readonly Action? _openUpdate;
     private bool _hasUpdateAvailable;
     private string _updateNoticeText = "";
-    private string _userTitle = "Касса";
+    private string _userTitle = Tr.T("Касса", "Касса", "Till", "Kasa", "Kassa");
     private string _themeGlyph = "\uE706";
-    private string _themeTooltip = "Светлая тема";
+    private string _themeTooltip = Tr.T("Светлая тема", "Ачык тема", "Light theme", "Açık tema", "Yorug' mavzu");
 
     private readonly Func<Task>? _openShiftHandler;
     private readonly Func<Task>? _closeShiftHandler;
@@ -70,7 +71,9 @@ public sealed class MainToolbarViewModel : ViewModelBase
     public void UpdateThemeGlyph(bool isDark)
     {
         ThemeGlyph = isDark ? "\uE706" : "\uE708";
-        ThemeTooltip = isDark ? "Светлая тема" : "Тёмная тема";
+        ThemeTooltip = isDark
+            ? Tr.T("Светлая тема", "Ачык тема", "Light theme", "Açık tema", "Yorug' mavzu")
+            : Tr.T("Тёмная тема", "Караңгы тема", "Dark theme", "Koyu tema", "Qorong'i mavzu");
     }
 
     public bool CanOpenShift => !_session.IsShiftOpen;
@@ -102,14 +105,15 @@ public sealed class MainToolbarViewModel : ViewModelBase
     /// прямо в браузере в обход уже существующего экрана обновлений).</summary>
     public void SetUpdateAvailable(string version)
     {
-        UpdateNoticeText = $"Доступна версия {version}";
+        UpdateNoticeText = Tr.T($"Доступна версия {version}", $"Жаңы версия бар: {version}",
+            $"Version {version} is available", $"Yeni sürüm mevcut: {version}", $"Yangi versiya mavjud: {version}");
         HasUpdateAvailable = true;
     }
 
     public void RefreshUserTitle()
     {
         UserTitle = string.IsNullOrWhiteSpace(_session.PosCashboxDisplayName)
-            ? "Касса — Nur Market"
+            ? Tr.T("Касса — Nur Market", "Касса — Nur Market", "Till — Nur Market", "Kasa — Nur Market", "Kassa — Nur Market")
             : _session.PosCashboxDisplayName!;
     }
 

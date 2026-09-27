@@ -177,26 +177,26 @@ public sealed class PurchaseReceivingService
             {
                 if (!newBarcodes.Add(line.Barcode))
                     problems.Add(Tr.T($"{name}: штрихкод {line.Barcode} встречается в приёмке дважды",
-                        $"{name}: {line.Barcode} штрихкоду эки жолу бар", $"{name}: barcode {line.Barcode} appears twice",
-                        $"{name}: {line.Barcode} barkodu iki kez var", $"{name}: {line.Barcode} shtrix-kodi ikki marta bor"));
+                        $"{name}: {line.Barcode} штрихкоду кабыл алууда эки жолу кездешет", $"{name}: barcode {line.Barcode} appears twice in this receiving",
+                        $"{name}: barkod {line.Barcode} mal kabulde iki kez geçiyor", $"{name}: {line.Barcode} shtrix-kodi qabul qilishda ikki marta uchraydi"));
                 else if (line.Source == ReceivingSource.Unknown
                          && CatalogCacheService.Products.FirstOrDefault(p =>
                              string.Equals(p.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)) is { } owner)
                     problems.Add(Tr.T($"{name}: штрихкод {line.Barcode} уже есть у товара «{owner.Title}» — отсканируйте его, чтобы принять",
-                        $"{name}: {line.Barcode} штрихкоду «{owner.Title}» товарында бар — аны сканерлеңиз",
-                        $"{name}: barcode {line.Barcode} already belongs to “{owner.Title}” — scan it to receive",
-                        $"{name}: {line.Barcode} barkodu “{owner.Title}” ürününde var — kabul için onu okutun",
-                        $"{name}: {line.Barcode} shtrix-kodi “{owner.Title}” mahsulotida bor — qabul uchun uni skanerlang"));
+                        $"{name}: {line.Barcode} штрихкоду «{owner.Title}» товарында мурунтан бар — кабыл алуу үчүн аны сканерлеңиз",
+                        $"{name}: barcode {line.Barcode} already belongs to “{owner.Title}” — scan that product to receive it",
+                        $"{name}: barkod {line.Barcode} zaten «{owner.Title}» ürününde var — kabul etmek için o ürünü okutun",
+                        $"{name}: {line.Barcode} shtrix-kodi «{owner.Title}» mahsulotida allaqachon bor — qabul qilish uchun uni skanerlang"));
             }
             if (line.Quantity <= 0)
                 problems.Add(Tr.T($"{name}: не указано количество", $"{name}: саны көрсөтүлгөн эмес",
-                    $"{name}: quantity missing", $"{name}: miktar yok", $"{name}: miqdor ko'rsatilmagan"));
+                    $"{name}: quantity missing", $"{name}: miktar belirtilmedi", $"{name}: miqdor ko'rsatilmagan"));
             if (line.PurchasePrice <= 0)
-                problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы жок",
-                    $"{name}: purchase price missing", $"{name}: alış fiyatı yok", $"{name}: xarid narxi yo'q"));
+                problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы көрсөтүлгөн эмес",
+                    $"{name}: purchase price missing", $"{name}: alış fiyatı belirtilmedi", $"{name}: xarid narxi ko'rsatilmagan"));
             if (line.SalePrice <= 0)
-                problems.Add(Tr.T($"{name}: не указана цена продажи", $"{name}: сатуу баасы жок",
-                    $"{name}: sale price missing", $"{name}: satış fiyatı yok", $"{name}: sotuv narxi yo'q"));
+                problems.Add(Tr.T($"{name}: не указана цена продажи", $"{name}: сатуу баасы көрсөтүлгөн эмес",
+                    $"{name}: sale price missing", $"{name}: satış fiyatı belirtilmedi", $"{name}: sotuv narxi ko'rsatilmagan"));
         }
 
         return problems;
@@ -242,7 +242,11 @@ public sealed class PurchaseReceivingService
                 var id = Str(response, "id") ?? (response.TryGetProperty("product", out var pr) ? Str(pr, "id") : null);
                 if (string.IsNullOrWhiteSpace(id))
                 {
-                    errors.Add($"{line.ProductName}: сервер не вернул номер созданного товара");
+                    errors.Add(Tr.T($"{line.ProductName}: сервер не вернул номер созданного товара",
+                        $"{line.ProductName}: сервер түзүлгөн товардын номерин кайтарган жок",
+                        $"{line.ProductName}: the server didn't return the ID of the created product",
+                        $"{line.ProductName}: sunucu oluşturulan ürünün numarasını döndürmedi",
+                        $"{line.ProductName}: server yaratilgan mahsulot raqamini qaytarmadi"));
                     continue;
                 }
 
@@ -251,7 +255,11 @@ public sealed class PurchaseReceivingService
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                errors.Add($"{line.ProductName}: не удалось создать товар — {ex.Message}");
+                errors.Add(Tr.T($"{line.ProductName}: не удалось создать товар — {ex.Message}",
+                    $"{line.ProductName}: товарды түзүү мүмкүн болгон жок — {ex.Message}",
+                    $"{line.ProductName}: could not create the product — {ex.Message}",
+                    $"{line.ProductName}: ürün oluşturulamadı — {ex.Message}",
+                    $"{line.ProductName}: mahsulotni yaratib bo'lmadi — {ex.Message}"));
             }
         }
 
@@ -287,7 +295,9 @@ public sealed class PurchaseReceivingService
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                errors.Add("Приход от поставщика не проведён: " + ex.Message);
+                errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
+                    "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
+                    "Yetkazib beruvchidan kirim o'tkazilmadi: ") + ex.Message);
                 return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
             }
 
@@ -306,7 +316,11 @@ public sealed class PurchaseReceivingService
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    errors.Add($"{line.ProductName}: товар принят, но цена продажи не обновилась — {ex.Message}");
+                    errors.Add(Tr.T($"{line.ProductName}: товар принят, но цена продажи не обновилась — {ex.Message}",
+                        $"{line.ProductName}: товар кабыл алынды, бирок сатуу баасы жаңырган жок — {ex.Message}",
+                        $"{line.ProductName}: the product was received, but the selling price wasn't updated — {ex.Message}",
+                        $"{line.ProductName}: ürün kabul edildi ancak satış fiyatı güncellenmedi — {ex.Message}",
+                        $"{line.ProductName}: mahsulot qabul qilindi, lekin sotuv narxi yangilanmadi — {ex.Message}"));
                 }
             }
         }
@@ -334,7 +348,11 @@ public sealed class PurchaseReceivingService
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    errors.Add($"{line.ProductName}: не принят — {ex.Message}");
+                    errors.Add(Tr.T($"{line.ProductName}: не принят — {ex.Message}",
+                        $"{line.ProductName}: кабыл алынган жок — {ex.Message}",
+                        $"{line.ProductName}: not received — {ex.Message}",
+                        $"{line.ProductName}: kabul edilmedi — {ex.Message}",
+                        $"{line.ProductName}: qabul qilinmadi — {ex.Message}"));
                 }
             }
         }
@@ -496,7 +514,7 @@ public sealed class PurchaseReceivingService
                             null,
                             Str(receipt, "supplier_name"),
                             Str(receipt, "created_by_name"),
-                            Tr.T("Закупки на сайте", "Сайттагы сатып алуулар", "Website purchases", "Web alımları", "Saytdagi xaridlar"),
+                            Tr.T("Закупки на сайте", "Сайттагы сатып алуулар", "Website purchases", "Sitedeki alımlar", "Saytdagi xaridlar"),
                             receiptId));
                     }
                 }

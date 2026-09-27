@@ -57,7 +57,7 @@ public partial class BulkPriceTagPrintDialog : Window
         {
             new PriceTagKindOption(PriceTagKind.Simple, Tr.T("Простой (название + цена)", "Жөнөкөй (аталышы + баасы)", "Simple (name + price)", "Basit (ad + fiyat)", "Oddiy (nomi + narxi)")),
             new PriceTagKindOption(PriceTagKind.WithBarcode, Tr.T("Со штрих-кодом", "Штрих-код менен", "With barcode", "Barkodlu", "Shtrix-kod bilan")),
-            new PriceTagKindOption(PriceTagKind.Detailed, Tr.T("Подробный (магазин, категория, штрих-код)", "Кеңири (дүкөн, категория, штрих-код)", "Detailed (store, category, barcode)", "Detaylı (mağaza, kategori, barkod)", "Batafsil (do'kon, kategoriya, shtrix-kod)")),
+            new PriceTagKindOption(PriceTagKind.Detailed, Tr.T("Подробный (магазин, категория, штрих-код)", "Толук (дүкөн, категория, штрих-код)", "Detailed (store, category, barcode)", "Detaylı (mağaza, kategori, barkod)", "Batafsil (do'kon, kategoriya, shtrix-kod)")),
             new PriceTagKindOption(PriceTagKind.WithQr, Tr.T("С QR-кодом", "QR-код менен", "With QR code", "QR kodlu", "QR-kod bilan")),
             new PriceTagKindOption(PriceTagKind.Custom, Tr.T("🎨 Пользовательский шаблон", "🎨 Колдонуучунун шаблону", "🎨 Custom template", "🎨 Özel şablon", "🎨 Foydalanuvchi shabloni")),
         };
@@ -144,8 +144,8 @@ public partial class BulkPriceTagPrintDialog : Window
     private async void EditTemplateButton_Click(object? sender, RoutedEventArgs e)
     {
         var editor = new LabelTemplateEditorDialog(
-            _customTemplate, Tr.T("Образец товара", "Товардын үлгүсү", "Sample product", "Örnek ürün", "Namunaviy mahsulot"), "4870145004807", "285 сом",
-            PriceTagTemplateStore.Save, Tr.T("Редактор ценника", "Ценник редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorlig'i muharriri"));
+            _customTemplate, Tr.T("Образец товара", "Товардын үлгүсү", "Sample product", "Örnek ürün", "Mahsulot namunasi"), "4870145004807", "285 сом",
+            PriceTagTemplateStore.Save, Tr.T("Редактор ценника", "Баа белгиси редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorlig'i muharriri"));
         await editor.ShowDialog(this).ConfigureAwait(true);
         if (editor.Saved)
         {
@@ -198,12 +198,12 @@ public partial class BulkPriceTagPrintDialog : Window
 
         if (PrinterCombo.SelectedItem is not DiscoveredPrinter printer)
         {
-            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Choose a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
+            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
             return;
         }
 
         PrintButton.IsEnabled = false;
-        StatusText.Text = Tr.T($"Печать {selected.Count} ценников…", $"{selected.Count} ценник басып чыгарылууда…",
+        StatusText.Text = Tr.T($"Печать {selected.Count} ценников…", $"{selected.Count} баа белгиси басып чыгарылууда…",
             $"Printing {selected.Count} price tags…", $"{selected.Count} fiyat etiketi yazdırılıyor…", $"{selected.Count} ta narx yorlig'i chop etilmoqda…");
         try
         {
@@ -239,11 +239,11 @@ public partial class BulkPriceTagPrintDialog : Window
 
             StatusText.Text = result switch
             {
-                LabelPrintResult.Success => Tr.T($"Готово — отправлено на печать {selected.Count} ценников.", $"Даяр — {selected.Count} ценник басып чыгарууга жөнөтүлдү.",
-                    $"Done — {selected.Count} price tags sent to print.", $"Tamamlandı — {selected.Count} fiyat etiketi yazdırmaya gönderildi.",
+                LabelPrintResult.Success => Tr.T($"Готово — отправлено на печать {selected.Count} ценников.", $"Даяр — {selected.Count} баа белгиси басып чыгарууга жөнөтүлдү.",
+                    $"Done — {selected.Count} price tags sent to the printer.", $"Tamamlandı — {selected.Count} fiyat etiketi yazdırmaya gönderildi.",
                     $"Tayyor — {selected.Count} ta narx yorlig'i chop etishga yuborildi."),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
-                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See details in the app log.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
+                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
             };
         }
         finally

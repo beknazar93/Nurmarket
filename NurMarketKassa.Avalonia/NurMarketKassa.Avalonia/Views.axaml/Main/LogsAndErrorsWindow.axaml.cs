@@ -48,20 +48,20 @@ public partial class LogsAndErrorsWindow : Window
         (new Regex(@"^Subscription expired: end_date=(?<date>\S+), daysRemaining=(?<days>-?\d+)$", RegexOptions.Compiled),
             m => Tr.T(
                 $"Подписка истекла (дата окончания: {m.Groups["date"].Value}, дней просрочено: {-int.Parse(m.Groups["days"].Value)}).",
-                $"Жазылуу мөөнөтү бүттү (аяктоо күнү: {m.Groups["date"].Value}, {-int.Parse(m.Groups["days"].Value)} күн өттү).")),
+                $"Жазылуу мөөнөтү бүттү (аяктоо күнү: {m.Groups["date"].Value}, {-int.Parse(m.Groups["days"].Value)} күн өттү).", $"Subscription has expired (end date: {m.Groups["date"].Value}, days overdue: {-int.Parse(m.Groups["days"].Value)}).", $"Aboneliğin süresi doldu (bitiş tarihi: {m.Groups["date"].Value}, geciken gün: {-int.Parse(m.Groups["days"].Value)}).", $"Obuna muddati tugagan (tugash sanasi: {m.Groups["date"].Value}, kechikkan kunlar: {-int.Parse(m.Groups["days"].Value)}).")),
 
         (new Regex(@"^Subscription near expiry: end_date=(?<date>\S+), daysRemaining=(?<days>\d+)$", RegexOptions.Compiled),
             m => Tr.T(
                 $"Подписка скоро истекает (дата окончания: {m.Groups["date"].Value}, осталось дней: {m.Groups["days"].Value}).",
-                $"Жазылуу мөөнөтү жакында бүтөт (аяктоо күнү: {m.Groups["date"].Value}, {m.Groups["days"].Value} күн калды).")),
+                $"Жазылуу мөөнөтү жакында бүтөт (аяктоо күнү: {m.Groups["date"].Value}, {m.Groups["days"].Value} күн калды).", $"Subscription expires soon (end date: {m.Groups["date"].Value}, days left: {m.Groups["days"].Value}).", $"Aboneliğin süresi yakında doluyor (bitiş tarihi: {m.Groups["date"].Value}, kalan gün: {m.Groups["days"].Value}).", $"Obuna muddati tez orada tugaydi (tugash sanasi: {m.Groups["date"].Value}, qolgan kunlar: {m.Groups["days"].Value}).")),
 
         (new Regex(@"^Subscription expired during active session.*$", RegexOptions.Compiled),
             _ => Tr.T(
                 "Подписка истекла во время работы — чек сохранён автоматически, выполнен выход из кассы.",
-                "Жазылуу мөөнөтү иштеп жатканда бүттү — чек автоматтык түрдө сакталды, кассадан чыгуу аткарылды.")),
+                "Жазылуу мөөнөтү иштеп жатканда бүттү — чек автоматтык түрдө сакталды, кассадан чыгуу аткарылды.", "The subscription expired during work — the receipt was saved automatically and you were signed out of the till.", "Çalışma sırasında aboneliğin süresi doldu — fiş otomatik olarak kaydedildi, kasadan çıkış yapıldı.", "Ish vaqtida obuna muddati tugadi — chek avtomatik saqlandi, kassadan chiqildi.")),
 
         (new Regex(@"^Receipt printer returned failure\.?$", RegexOptions.Compiled),
-            _ => Tr.T("Чековый принтер вернул ошибку печати.", "Чек принтери басып чыгаруу катасын кайтарды.", "The receipt printer returned a printing error.", "Fiş yazıcısı bir baskı hatası döndürdü.", "Chek printeri chop etish xatosini qaytardi.")),
+            _ => Tr.T("Чековый принтер вернул ошибку печати.", "Чек принтери басып чыгарууда ката берди.", "The receipt printer returned a printing error.", "Fiş yazıcısı yazdırma hatası verdi.", "Chek printeri chop etish xatosini qaytardi.")),
 
         (new Regex(@"^Receipt printed\.?$", RegexOptions.Compiled),
             _ => Tr.T("Чек напечатан.", "Чек басылып чыкты.", "Receipt printed.", "Fiş yazdırıldı.", "Chek chop etildi.")),
@@ -69,7 +69,7 @@ public partial class LogsAndErrorsWindow : Window
         (new Regex(@"^Permission denied: (?<perm>\S+)$", RegexOptions.Compiled),
             m => Tr.T(
                 $"Недостаточно прав для действия ({m.Groups["perm"].Value}).",
-                $"Аракет үчүн укук жетишсиз ({m.Groups["perm"].Value}).")),
+                $"Аракет үчүн укук жетишсиз ({m.Groups["perm"].Value}).", $"Insufficient permissions for this action ({m.Groups["perm"].Value}).", $"Bu işlem için yetkiniz yetersiz ({m.Groups["perm"].Value}).", $"Bu amal uchun huquq yetarli emas ({m.Groups["perm"].Value}).")),
 
         (new Regex(@"^Нет связи с сервером\.?$", RegexOptions.Compiled),
             _ => Tr.T("Нет связи с сервером.", "Сервер менен байланыш жок.", "No connection to the server.", "Sunucuyla bağlantı yok.", "Server bilan aloqa yo'q.")),
@@ -201,7 +201,7 @@ public partial class LogsAndErrorsWindow : Window
     private static string LevelDisplayText(string level, bool isDeferred)
     {
         if (isDeferred)
-            return Tr.T("Отложено кассиром", "Кассир кийинкиге калтырды", "Held by cashier", "Kasiyer tarafından beklemeye alındı", "Kassir tomonidan kutishga qo'yildi");
+            return Tr.T("Отложено кассиром", "Кассир кийинкиге калтырды", "Deferred by the cashier", "Kasiyer tarafından ertelendi", "Kassir tomonidan kutishga qo'yildi");
 
         return level switch
         {

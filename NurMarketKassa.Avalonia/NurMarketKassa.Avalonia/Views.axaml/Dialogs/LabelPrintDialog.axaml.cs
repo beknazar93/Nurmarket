@@ -111,9 +111,9 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             : null) ?? Printers.FirstOrDefault();
 
         if (!HasBarcode)
-            StatusMessage = "У товара не указан штрих-код — печать недоступна.";
+            StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
         else if (Printers.Count == 0)
-            StatusMessage = "Не найдено ни одного установленного принтера в Windows.";
+            StatusMessage = Tr.T("Не найдено ни одного установленного принтера в Windows.", "Windows'то бир дагы орнотулган принтер табылган жок.", "No printers are installed in Windows.", "Windows'ta yüklü yazıcı bulunamadı.", "Windows'da birorta ham o'rnatilgan printer topilmadi.");
 
         RefreshPreview();
     }
@@ -134,7 +134,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             PosLogger.Log($"Label preview render failed: {ex}", "WARNING");
-            StatusMessage = "Не удалось построить предпросмотр этикетки.";
+            StatusMessage = Tr.T("Не удалось построить предпросмотр этикетки.", "Этикетканы алдын ала көрүүнү түзүү мүмкүн болгон жок.", "Could not build the label preview.", "Etiket önizlemesi oluşturulamadı.", "Yorliqni oldindan ko'rishni yaratib bo'lmadi.");
         }
     }
 
@@ -145,21 +145,21 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
         if (SelectedPrinter is null)
         {
-            StatusMessage = "Выберите принтер.";
+            StatusMessage = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
             return;
         }
 
         IsBusy = true;
-        StatusMessage = "Печать…";
+        StatusMessage = Tr.T("Печать…", "Басып чыгарылууда…", "Printing…", "Yazdırılıyor…", "Chop etilmoqda…");
         try
         {
             var request = new LabelPrintRequest(ProductName, Barcode, PriceText, (int)(Copies ?? 1), SelectedPrinter.DevicePath, _template, Sku, Unit, StoreName);
             var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
             StatusMessage = result switch
             {
-                LabelPrintResult.Success => "Этикетка отправлена на печать.",
-                LabelPrintResult.PrinterNotFound => "Принтер не найден — обновите список.",
-                _ => "Ошибка печати. Подробности в журнале приложения.",
+                LabelPrintResult.Success => Tr.T("Этикетка отправлена на печать.", "Этикетка басып чыгарууга жөнөтүлдү.", "Label sent to the printer.", "Etiket yazdırmaya gönderildi.", "Yorliq chop etishga yuborildi."),
+                LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
+                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Чоо-жайы колдонмонун журналында.", "Print error. See the application log for details.", "Yazdırma hatası. Ayrıntılar uygulama günlüğünde.", "Chop etish xatosi. Tafsilotlar dastur jurnalida."),
             };
         }
         finally

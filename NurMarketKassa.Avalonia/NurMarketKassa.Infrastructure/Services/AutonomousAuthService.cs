@@ -64,9 +64,17 @@ public sealed class AutonomousAuthService : IAutonomousAuthService
     {
         email = email.Trim();
         if (email.Length == 0 || !email.Contains('@'))
-            return (false, "Введите корректный email — он будет вашим логином.");
+            return (false, Tr.T("Введите корректный email — он будет вашим логином.",
+                "Туура email киргизиңиз — ал сиздин логиниңиз болот.",
+                "Enter a valid email — it will be your login.",
+                "Geçerli bir e-posta girin — kullanıcı adınız olacak.",
+                "To'g'ri email kiriting — u sizning loginingiz bo'ladi."));
         if (password.Length < 4)
-            return (false, "Пароль должен быть не короче 4 символов.");
+            return (false, Tr.T("Пароль должен быть не короче 4 символов.",
+                "Сырсөз 4 белгиден кыска болбошу керек.",
+                "The password must be at least 4 characters long.",
+                "Şifre en az 4 karakter olmalıdır.",
+                "Parol kamida 4 ta belgidan iborat bo'lishi kerak."));
 
         var salt = RandomNumberGenerator.GetBytes(SaltBytes);
         var hash = Hash(password, salt);
@@ -78,14 +86,14 @@ public sealed class AutonomousAuthService : IAutonomousAuthService
     {
         var account = Db.FindLocalOwnerAccount(email.Trim());
         if (account is null)
-            return (false, "Неверный логин или пароль.", null);
+            return (false, Tr.T("Неверный логин или пароль.", "Логин же сырсөз туура эмес.", "Incorrect login or password.", "Kullanıcı adı veya şifre hatalı.", "Login yoki parol noto'g'ri."), null);
 
         var salt = Convert.FromBase64String(account.Value.PasswordSalt);
         var expectedHash = Convert.FromBase64String(account.Value.PasswordHash);
         var actualHash = Hash(password, salt);
 
         if (!CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
-            return (false, "Неверный логин или пароль.", null);
+            return (false, Tr.T("Неверный логин или пароль.", "Логин же сырсөз туура эмес.", "Incorrect login or password.", "Kullanıcı adı veya şifre hatalı.", "Login yoki parol noto'g'ri."), null);
 
         IsCurrentSessionAutonomous = true;
         var prefs = UserPreferences.Instance;

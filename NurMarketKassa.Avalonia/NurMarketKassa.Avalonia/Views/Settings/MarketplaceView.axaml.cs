@@ -78,12 +78,12 @@ public partial class MarketplaceView : UserControl
 
             UpdateBannerTitle.Text = Tr.T(
                 $"Доступно обновление {result.LatestVersion} — новые темы и функции!",
-                $"{result.LatestVersion} жаңыртуусу жеткиликтүү — жаңы темалар жана функциялар!");
+                $"{result.LatestVersion} жаңыртуусу жеткиликтүү — жаңы темалар жана функциялар!", $"Update {result.LatestVersion} is available — new themes and features!", $"Güncelleme mevcut: {result.LatestVersion} — yeni temalar ve özellikler!", $"Yangi versiya mavjud: {result.LatestVersion} — yangi mavzular va funksiyalar!");
 
             var notes = await updateService.GetReleaseNotesAsync(result.LatestVersion, System.Threading.CancellationToken.None)
                 .ConfigureAwait(true);
             UpdateBannerNotes.Text = string.IsNullOrWhiteSpace(notes)
-                ? Tr.T("Нажмите «Обновить», чтобы получить последнюю версию.", "Акыркы версияны алуу үчүн «Жаңыртуу» баскычын басыңыз.", "Click Update to get the latest version.", "Son sürümü almak için Güncelle'ye dokunun.", "Oxirgi versiyani olish uchun Yangilash tugmasini bosing.")
+                ? Tr.T("Нажмите «Обновить», чтобы получить последнюю версию.", "Акыркы версияны алуу үчүн «Жаңыртуу» баскычын басыңыз.", "Click “Update” to get the latest version.", "Son sürümü almak için «Güncelle»ye basın.", "Oxirgi versiyani olish uchun «Yangilash» tugmasini bosing.")
                 : notes.Trim();
 
             UpdateBanner.IsVisible = true;
@@ -115,7 +115,7 @@ public partial class MarketplaceView : UserControl
                 });
             }).ConfigureAwait(true);
 
-            UpdateBannerNotes.Text = Tr.T("Обновление скачано. Касса сейчас перезапустится…", "Жаңыртуу жүктөлдү. Касса азыр өзү кайра күйгүзүлөт…", "Update downloaded. The POS will restart now…", "Güncelleme indirildi. Kasa şimdi yeniden başlatılacak…", "Yangilanish yuklab olindi. Kassa hozir qayta ishga tushadi…");
+            UpdateBannerNotes.Text = Tr.T("Обновление скачано. Касса сейчас перезапустится…", "Жаңыртуу жүктөлдү. Касса азыр кайра ачылат…", "Update downloaded. The till will now restart…", "Güncelleme indirildi. Kasa şimdi yeniden başlatılacak…", "Yangilanish yuklab olindi. Kassa hozir qayta ishga tushadi…");
             await Task.Delay(1200).ConfigureAwait(true);
 
             // Не возвращает управление — Velopack завершает процесс изнутри.
@@ -124,7 +124,7 @@ public partial class MarketplaceView : UserControl
         catch (Exception ex)
         {
             PosLogger.Log($"Marketplace update download/apply failed: {ex}", "UPDATE");
-            UpdateBannerNotes.Text = Tr.T($"Не удалось обновить: {ex.Message}", $"Жаңырта алган жок: {ex.Message}",
+            UpdateBannerNotes.Text = Tr.T($"Не удалось обновить: {ex.Message}", $"Жаңыртуу мүмкүн болгон жок: {ex.Message}",
                 $"Could not update: {ex.Message}", $"Güncellenemedi: {ex.Message}", $"Yangilab bo'lmadi: {ex.Message}");
             UpdateProgressBar.IsVisible = false;
             UpdateNowButton.IsEnabled = true;
@@ -240,7 +240,7 @@ public partial class MarketplaceView : UserControl
                             new TextBlock
                             {
                                 Text = Tr.T("Каталог и кнопка оплаты", "Каталог жана төлөм баскычы",
-                                            "Catalogue and pay button", "Katalog ve ödeme düğmesi",
+                                            "Catalog and pay button", "Katalog ve ödeme düğmesi",
                                             "Katalog va to'lov tugmasi"),
                                 FontSize = 9,
                                 Margin = new Thickness(0, 7, 0, 0),
@@ -267,7 +267,7 @@ public partial class MarketplaceView : UserControl
 
             var nameText = new TextBlock
             {
-                Text = Tr.T(theme.LabelRu, theme.LabelKy),
+                Text = theme.Label,
                 FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -286,7 +286,7 @@ public partial class MarketplaceView : UserControl
                     VerticalAlignment = VerticalAlignment.Center,
                     Child = new TextBlock
                     {
-                        Text = Tr.T("Выбрана", "Тандалды", "Active", "Seçili", "Tanlangan"),
+                        Text = Tr.T("Выбрана", "Тандалган", "Selected", "Seçili", "Tanlangan"),
                         FontSize = 10,
                         FontWeight = FontWeight.SemiBold,
                         Foreground = ThemeBrush("BrushAccentStrong", Brushes.DarkGoldenrod),
@@ -298,7 +298,7 @@ public partial class MarketplaceView : UserControl
 
             var descText = new TextBlock
             {
-                Text = Tr.T(theme.DescRu, theme.DescKy),
+                Text = theme.Description,
                 FontSize = 11,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 5, 0, 0),
@@ -386,7 +386,7 @@ public partial class MarketplaceView : UserControl
         {
             (false, _) => (Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"), "BrushWarning"),
             (true, false) => (Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi"), "BrushAccent"),
-            (true, true) => (Tr.T("✓ Установлено", "✓ Орнотулду", "✓ Installed", "✓ Yüklendi", "✓ O'rnatildi"), "BrushAccent"),
+            (true, true) => (Tr.T("✓ Установлено", "✓ Орнотулду", "✓ Installed", "✓ Kuruldu", "✓ O'rnatildi"), "BrushAccent"),
         };
 
         var badge = new Border
@@ -415,7 +415,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Кассир говорит «касса» и название товара — программа сама находит и добавляет его в чек. Работает офлайн. Пакет распознавания речи (~113 МБ) скачивается отдельно, чтобы не утяжелять базовую кассу.",
-                "Кассир «касса» деп жана товардын атын айтат — программа өзү таап, аны чекке кошот. Офлайн иштейт. Сүйлөө таануу пакети (~113 МБ) негизги кассаны оордотпош үчүн өзүнчө жүктөлөт."),
+                "Кассир «касса» деп, андан кийин товардын атын айтат — программа аны өзү таап, чекке кошот. Офлайн иштейт. Кепти таануу пакети (~113 МБ) негизги кассаны оордотпош үчүн өзүнчө жүктөлөт.", "The cashier says “kassa” and the product name — the program finds it and adds it to the receipt. Works offline. The speech recognition pack (~113 MB) is downloaded separately to keep the base till lightweight.", "Kasiyer «kassa» deyip ürün adını söyler — program ürünü kendisi bulur ve fişe ekler. Çevrimdışı çalışır. Ses tanıma paketi (~113 MB), temel kasayı ağırlaştırmamak için ayrıca indirilir.", "Kassir «kassa» so'zini va mahsulot nomini aytadi — dastur mahsulotni o'zi topib, chekka qo'shadi. Oflayn ishlaydi. Asosiy kassani og'irlashtirmaslik uchun nutqni tanish paketi (~113 MB) alohida yuklab olinadi."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -465,7 +465,7 @@ public partial class MarketplaceView : UserControl
                 var testButton = new Button
                 {
                     Classes = { "btn-secondary" },
-                    Content = Tr.T("🎙 Проверить и обучение", "🎙 Текшерүү жана үйрөнүү", "🎙 Test and train", "🎙 Test et ve eğit", "🎙 Tekshirish va o'rgatish"),
+                    Content = Tr.T("🎙 Проверить и обучение", "🎙 Текшерүү жана үйрөтүү", "🎙 Test and train", "🎙 Test et ve eğit", "🎙 Tekshirish va o'rgatish"),
                     Height = 32,
                     Padding = new Thickness(14, 4),
                     HorizontalAlignment = HorizontalAlignment.Left,
@@ -498,7 +498,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -512,10 +512,10 @@ public partial class MarketplaceView : UserControl
 
         PosAlertDialog.Show(
             owner,
-            Tr.T("Доп. услуга разблокирована", "Кошумча кызмат ачылды", "Extra service unlocked", "Ek hizmet kilidi açıldı", "Qo'shimcha xizmat ochildi"),
+            Tr.T("Доп. услуга разблокирована", "Кошумча кызмат ачылды", "Add-on unlocked", "Ek hizmet kilidi açıldı", "Qo'shimcha xizmat ochildi"),
             Tr.T(
                 "Серийный номер принят — теперь можно скачать пакет распознавания речи.",
-                "Серия номери кабыл алынды — эми сүйлөө таануу пакетин жүктөп алсаңыз болот."),
+                "Сериялык номер кабыл алынды — эми кепти таануу пакетин жүктөп алсаңыз болот.", "Serial number accepted — you can now download the speech recognition pack.", "Seri numarası kabul edildi — artık ses tanıma paketini indirebilirsiniz.", "Seriya raqami qabul qilindi — endi nutqni tanish paketini yuklab olish mumkin."),
             PosAlertKind.Success);
 
         RefreshVoiceControlCard();
@@ -565,15 +565,15 @@ public partial class MarketplaceView : UserControl
         button.IsEnabled = false;
         progressBar.IsVisible = true;
         statusText.IsVisible = true;
-        statusText.Text = Tr.T("Загрузка… 0%", "Жүктөлүүдө… 0%", "Loading… 0%", "Yükleniyor… %0", "Yuklanmoqda… 0%");
+        statusText.Text = Tr.T("Загрузка… 0%", "Жүктөлүүдө… 0%", "Downloading… 0%", "İndiriliyor… %0", "Yuklanmoqda… 0%");
 
         var progress = new Progress<double>(percent =>
         {
             progressBar.Value = percent;
             statusText.Text = percent < 100
                 ? Tr.T($"Загрузка… {percent:F0}%", $"Жүктөлүүдө… {percent:F0}%",
-                    $"Loading… {percent:F0}%", $"Yükleniyor… %{percent:F0}", $"Yuklanmoqda… {percent:F0}%")
-                : Tr.T("Распаковка…", "Ачылууда…", "Unpacking…", "Paket açılıyor…", "Ochilmoqda…");
+                    $"Downloading… {percent:F0}%", $"İndiriliyor… %{percent:F0}", $"Yuklanmoqda… {percent:F0}%")
+                : Tr.T("Распаковка…", "Архив ачылууда…", "Unpacking…", "Paket açılıyor…", "Arxivdan chiqarilmoqda…");
         });
 
         var (ok, error) = await VoiceModelDownloadService.DownloadAndInstallAsync(language, progress).ConfigureAwait(true);
@@ -591,10 +591,10 @@ public partial class MarketplaceView : UserControl
 
         PosAlertDialog.Show(
             owner,
-            Tr.T("Пакет установлен", "Пакет орнотулду", "Package installed", "Paket yüklendi", "Paket o'rnatildi"),
+            Tr.T("Пакет установлен", "Пакет орнотулду", "Package installed", "Paket kuruldu", "Paket o'rnatildi"),
             Tr.T(
                 "Голосовое управление скачано — теперь включите его переключателем.",
-                "Үн менен башкаруу жүктөлдү — эми аны которгуч менен күйгүзүңүз."),
+                "Үн менен башкаруу жүктөлдү — эми аны которгуч менен күйгүзүңүз.", "Voice control downloaded — now turn it on with the switch.", "Sesli kontrol indirildi — şimdi anahtarı açarak etkinleştirin.", "Ovozli boshqaruv yuklab olindi — endi uni almashtirgich bilan yoqing."),
             PosAlertKind.Success);
 
         RefreshVoiceControlCard();
@@ -677,7 +677,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Бонусные баллы клиентам за покупки — начисление и списание при следующей оплате.",
-                "Сатып алуулар үчүн клиенттерге бонус упайлар — кийинки төлөмдө эсептелет жана эсептен алынат."),
+                "Клиенттерге сатып алуулары үчүн бонус упайлар: топтолот жана кийинки төлөмдө чегерилет.", "Bonus points for customer purchases — earned at payment and redeemed on the next one.", "Alışveriş yapan müşterilere bonus puan: puanlar ödemede kazanılır ve sonraki alışverişte harcanır.", "Xaridlar uchun mijozlarga bonus ballar: ball yig'ish va keyingi to'lovda ularni ishlatish."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -706,7 +706,7 @@ public partial class MarketplaceView : UserControl
             content.Children.Add(new TextBlock
             {
                 Text = Tr.T("Работает автоматически на кассе — отдельно ничего открывать не нужно.",
-                    "Кассада автоматтык түрдө иштейт — өзүнчө эч нерсе ачуунун кереги жок."),
+                    "Кассада автоматтык түрдө иштейт — өзүнчө эч нерсе ачуунун кереги жок.", "Works automatically at the till — nothing to open separately.", "Kasada otomatik çalışır — ayrıca bir şey açmanıza gerek yok.", "Kassada avtomatik ishlaydi — alohida hech narsani ochish shart emas."),
                 FontSize = 11,
                 FontStyle = FontStyle.Italic,
                 Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -735,7 +735,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -754,7 +754,7 @@ public partial class MarketplaceView : UserControl
             Tr.T("Программа лояльности активирована", "Лоялдуулук программасы иштетилди", "Loyalty program activated", "Sadakat programı etkinleştirildi", "Sodiqlik dasturi faollashtirildi"),
             Tr.T(
                 $"Бонусные баллы включены и начисляются автоматически при оплате — {UserPreferences.Instance.LoyaltyEarnPercent:0.#}% от суммы покупки.",
-                $"Бонус упайлар күйгүзүлдү жана төлөмдө автоматтык түрдө эсептелет — сатып алуу суммасынын {UserPreferences.Instance.LoyaltyEarnPercent:0.#}%ы."),
+                $"Бонус упайлар күйгүзүлдү жана төлөмдө автоматтык түрдө эсептелет — сатып алуу суммасынын {UserPreferences.Instance.LoyaltyEarnPercent:0.#}% өлчөмүндө.", $"Bonus points are on and earned automatically at payment — {UserPreferences.Instance.LoyaltyEarnPercent:0.#}% of the purchase amount.", $"Bonus puanlar etkin: her ödemede alışveriş tutarı üzerinden %{UserPreferences.Instance.LoyaltyEarnPercent:0.#} otomatik olarak kazanılır.", $"Bonus ballar yoqildi va to'lovda avtomatik hisoblanadi — xarid summasidan {UserPreferences.Instance.LoyaltyEarnPercent:0.#}%."),
             PosAlertKind.Success);
     }
 
@@ -814,7 +814,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Табель по кассирам: сколько смен, сколько часов отработано и какая выручка за выбранный период — по уже имеющимся данным о сменах.",
-                "Кассирлер боюнча табель: тандалган мезгилде канча смена, канча саат иштелди жана кандай киреше — сменалар боюнча бар маалыматтар менен."),
+                "Кассирлер боюнча табель: тандалган мезгилде канча смена, канча саат иштелгени жана канча түшүм болгону — сменалар боюнча бар маалыматтардан.", "Timesheet by cashier: number of shifts, hours worked and revenue for the selected period — based on existing shift data.", "Kasiyer çizelgesi: seçilen dönemde kaç vardiya, kaç saat çalışıldığı ve ne kadar ciro yapıldığı — mevcut vardiya verilerine göre.", "Kassirlar bo'yicha tabel: tanlangan davrda nechta smena, necha soat ishlangani va qancha tushum bo'lgani — mavjud smena ma'lumotlari asosida."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -843,7 +843,7 @@ public partial class MarketplaceView : UserControl
             var openButton = new Button
             {
                 Classes = { "btn-primary" },
-                Content = Tr.T("🧑‍💼 Открыть табель", "🧑‍💼 Табельди ачуу", "🧑‍💼 Open timesheet", "🧑‍💼 Personel takibini aç", "🧑‍💼 Tabelni ochish"),
+                Content = Tr.T("🧑‍💼 Открыть табель", "🧑‍💼 Табелди ачуу", "🧑‍💼 Open timesheet", "🧑‍💼 Çizelgeyi aç", "🧑‍💼 Tabelni ochish"),
                 Height = 32,
                 Padding = new Thickness(14, 4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -874,7 +874,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -892,7 +892,7 @@ public partial class MarketplaceView : UserControl
             Tr.T("Учёт сотрудников активирован", "Кызматкерлерди эсепке алуу иштетилди", "Staff timesheet activated", "Personel takibi etkinleştirildi", "Xodimlar hisobi faollashtirildi"),
             Tr.T(
                 "Табель по кассирам доступен по кнопке «Открыть табель» прямо здесь, в Доп. функциях.",
-                "Кассирлер боюнча табель ушул жерде, Кошумча функцияларда, «Табельди ачуу» баскычы аркылуу жеткиликтүү."),
+                "Кассирлер боюнча табелди ушул жерден — Кошумча функциялардагы «Табелди ачуу» баскычы аркылуу ачса болот.", "The cashier timesheet opens with the “Open timesheet” button right here in Extras.", "Kasiyer çizelgesi burada, Ek özellikler bölümündeki «Çizelgeyi aç» düğmesiyle açılır.", "Kassirlar tabelini shu yerning o'zida, Qo'shimcha funksiyalar bo'limidagi «Tabelni ochish» tugmasi bilan ochish mumkin."),
             PosAlertKind.Success);
     }
 
@@ -942,7 +942,7 @@ public partial class MarketplaceView : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
-                Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно на тарифе «Старт»", "🔒 «Старт» тарифинде акылуу", "🔒 Paid on the Start plan", "🔒 Start planında ücretli", "🔒 Start tarifida pullik"),
+                Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно на тарифе «Старт»", "🔒 «Старт» тарифинде акылуу", "🔒 Paid on the “Start” plan", "🔒 «Start» tarifesinde ücretli", "🔒 «Start» tarifida pullik"),
                 FontSize = 10,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
@@ -958,7 +958,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Отправка весовых товаров с PLU-кодами на сетевые весы (Штрих-М, Rongta) — Настройки → Весы. Базовое взвешивание на кассе (COM-довес) сюда не входит и остаётся бесплатным.",
-                "PLU коддору бар салмактуу товарларды тармак таразаларына жөнөтүү (Штрих-М, Rongta) — Жөндөөлөр → Таразалар. Кассадагы негизги салмактоо (COM-довес) бул жерге кирбейт жана бекер бойдон калат."),
+                "PLU коддору бар салмактуу товарларды тармактык таразаларга жөнөтүү (Штрих-М, Rongta) — Жөндөөлөр → Тараза. Кассадагы негизги тартуу (COM-тараза) буга кирбейт жана акысыз бойдон калат.", "Sends weighed products with PLU codes to network scales (Shtrikh-M, Rongta) — Settings → Scales. Basic weighing at the till (COM scale) isn't included and stays free.", "Tartılı ürünleri PLU kodlarıyla ağ tartılarına (Shtrikh-M, Rongta) gönderme — Ayarlar → Tartılar. Kasadaki temel tartım (COM üzerinden) buna dahil değildir ve ücretsiz kalır.", "PLU kodli vaznli mahsulotlarni tarmoq tarozilariga (Shtrih-M, Rongta) yuborish — Sozlamalar → Tarozilar. Kassadagi oddiy tortish (COM orqali) bunga kirmaydi va bepulligicha qoladi."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -986,7 +986,7 @@ public partial class MarketplaceView : UserControl
         {
             content.Children.Add(new TextBlock
             {
-                Text = Tr.T("Открыто на вкладке Настройки → Весы.", "Жөндөөлөр → Таразалар бетинде ачык.",
+                Text = Tr.T("Открыто на вкладке Настройки → Весы.", "Жөндөөлөр → Тараза бетинде ачык.",
                     "Available on the Settings → Scales tab.", "Ayarlar → Tartılar sekmesinde açık.", "Sozlamalar → Tarozilar bo'limida ochiq."),
                 FontSize = 11,
                 FontStyle = FontStyle.Italic,
@@ -1016,7 +1016,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1031,10 +1031,10 @@ public partial class MarketplaceView : UserControl
 
         PosAlertDialog.Show(
             owner,
-            Tr.T("Доп. услуга разблокирована", "Кошумча кызмат ачылды", "Extra service unlocked", "Ek hizmet kilidi açıldı", "Qo'shimcha xizmat ochildi"),
+            Tr.T("Доп. услуга разблокирована", "Кошумча кызмат ачылды", "Add-on unlocked", "Ek hizmet kilidi açıldı", "Qo'shimcha xizmat ochildi"),
             Tr.T(
                 "Отправка на весы теперь доступна на вкладке Настройки → Весы.",
-                "Таразага жөнөтүү эми Жөндөөлөр → Таразалар бетинде жеткиликтүү."),
+                "Таразага жөнөтүү эми Жөндөөлөр → Тараза бетинде жеткиликтүү.", "Sending to scales is now available in Settings → Scales.", "Tartıya gönderme artık Ayarlar → Tartılar sekmesinde kullanılabilir.", "Tarozilarga yuborish endi Sozlamalar → Tarozilar bo'limida mavjud."),
             PosAlertKind.Success);
     }
 
@@ -1094,7 +1094,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Показатели по остаткам и продажам, топ товаров по стоимости и разбивка по категориям — вкладка «Аналитика» в окне склада.",
-                "Калдыктар жана сатуулар боюнча көрсөткүчтөр, наркы боюнча топ товарлар жана категориялар боюнча бөлүштүрүү — склад терезесиндеги «Аналитика» табы."),
+                "Калдыктар жана сатуулар боюнча көрсөткүчтөр, наркы боюнча топ товарлар жана категориялар боюнча бөлүштүрүү — склад терезесиндеги «Аналитика» өтмөгү.", "Stock and sales metrics, top products by value and a category breakdown — the “Analytics” tab in the warehouse window.", "Stok ve satış göstergeleri, değere göre en iyi ürünler ve kategori dağılımı — depo penceresindeki «Analiz» sekmesi.", "Qoldiq va sotuv ko'rsatkichlari, qiymati bo'yicha top mahsulotlar va kategoriyalar kesimi — ombor oynasidagi «Analitika» bo'limi."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -1159,7 +1159,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1177,7 +1177,7 @@ public partial class MarketplaceView : UserControl
             Tr.T("Аналитика склада активирована", "Складдын аналитикасы иштетилди", "Warehouse analytics activated", "Depo analitiği etkinleştirildi", "Ombor analitikasi faollashtirildi"),
             Tr.T(
                 "Откройте окно склада — появится вкладка «Аналитика» с показателями по остаткам, продажам и категориям.",
-                "Склад терезесин ачыңыз — калдыктар, сатуулар жана категориялар боюнча көрсөткүчтөр менен «Аналитика» табы пайда болот."),
+                "Склад терезесин ачыңыз — калдыктар, сатуулар жана категориялар боюнча көрсөткүчтөрү бар «Аналитика» өтмөгү пайда болот.", "Open the warehouse window — it now has an “Analytics” tab with stock, sales and category metrics.", "Depo penceresini açın — stok, satış ve kategori göstergelerini içeren «Analiz» sekmesi görünecek.", "Ombor oynasini oching — qoldiqlar, sotuvlar va kategoriyalar bo'yicha ko'rsatkichlari bilan «Analitika» bo'limi paydo bo'ladi."),
             PosAlertKind.Success);
     }
 
@@ -1202,10 +1202,10 @@ public partial class MarketplaceView : UserControl
             ExtrasWrapPanel.Children.Remove(_bulkPriceTagCard);
 
         _priceTagEditorCard = BuildPriceTagFeatureCard(
-            title: Tr.T("💲 Редактор ценников", "💲 Ценник редактору", "💲 Price tag editor", "💲 Fiyat etiketi düzenleyici", "💲 Narx yorliqlari muharriri"),
+            title: Tr.T("💲 Редактор ценников", "💲 Баа белгиси редактору", "💲 Price tag editor", "💲 Fiyat etiketi düzenleyici", "💲 Narx yorliqlari muharriri"),
             description: Tr.T(
                 "6 готовых шаблонов ценника (простой, со штрих-кодом, акционные, подробный, с QR-кодом) для одного товара — вкладка «Склад» → «Товары» → «Ценник».",
-                "Бир товар үчүн ценниктин 6 даяр шаблону (жөнөкөй, штрих-код менен, акциялык, кеңири, QR-код менен) — «Склад» → «Товарлар» → «Ценник»."),
+                "Бир товар үчүн баа белгисинин 6 даяр шаблону (жөнөкөй, штрих-код менен, акциялык, толук, QR-код менен) — «Кампа» → «Товарлар» → «Баа белгиси».", "6 ready-made price tag templates (simple, with barcode, promo, detailed, with QR code) for a single product — “Warehouse” → “Products” → “Price tag”.", "Tek ürün için 6 hazır fiyat etiketi şablonu (basit, barkodlu, promosyonlu, detaylı, QR kodlu) — «Depo» → «Ürünler» → «Fiyat etiketi».", "Bitta mahsulot uchun 6 ta tayyor narx yorlig'i shabloni (oddiy, shtrix-kodli, aksiya, batafsil, QR-kodli) — «Ombor» → «Mahsulotlar» → «Narx yorlig'i»."),
             openButtonLabel: Tr.T("💲 Открыть склад", "💲 Складды ачуу", "💲 Open warehouse", "💲 Depoyu aç", "💲 Omborni ochish"),
             openAction: () =>
             {
@@ -1216,10 +1216,10 @@ public partial class MarketplaceView : UserControl
             unlocked: UserPreferences.Instance.PriceTagEditorUnlocked,
             onUnlockClick: PriceTagEditorUnlockButton_Click);
         _bulkPriceTagCard = BuildPriceTagFeatureCard(
-            title: Tr.T("🏷 Массовая печать ценников", "🏷 Ценниктерди топтоп басып чыгаруу", "🏷 Bulk price tag printing", "🏷 Toplu fiyat etiketi baskısı", "🏷 Ommaviy narx yorliqlarini chop etish"),
+            title: Tr.T("🏷 Массовая печать ценников", "🏷 Баа белгилерин топтоп басып чыгаруу", "🏷 Bulk price tag printing", "🏷 Toplu fiyat etiketi baskısı", "🏷 Narx yorliqlarini ommaviy chop etish"),
             description: Tr.T(
                 "Печать ценников сразу для нескольких товаров за один проход — на термопринтер или обычный A4, вместо печати по одному — вкладка «Склад» → «Товары».",
-                "Бир нече товар үчүн ценниктерди бир жолу басып чыгаруу — термопринтерге же кадимки A4гэ, бирден басып чыгарбай — «Склад» → «Товарлар» табы."),
+                "Бир нече товардын баа белгилерин бир жолу басып чыгаруу — термопринтерге же кадимки A4 барагына, бирден басып отурбай — «Кампа» → «Товарлар» өтмөгү.", "Print price tags for several products in one go — on a thermal printer or plain A4 — instead of one at a time. “Warehouse” → “Products”.", "Birden fazla ürünün fiyat etiketini tek seferde yazdırma — termal yazıcıya veya normal A4'e, tek tek yazdırmak yerine — «Depo» → «Ürünler».", "Bir nechta mahsulotning narx yorliqlarini bir yo'la chop etish — termoprinterda yoki oddiy A4 printerda, birma-bir emas — «Ombor» → «Mahsulotlar»."),
             openButtonLabel: Tr.T("🏷 Открыть массовую печать", "🏷 Топтоп басууну ачуу", "🏷 Open bulk printing", "🏷 Toplu baskıyı aç", "🏷 Ommaviy chop etishni ochish"),
             openAction: () => BulkPriceTagPrintDialog.Open(TopLevel.GetTopLevel(this) as Window),
             unlocked: UserPreferences.Instance.BulkPriceTagUnlocked,
@@ -1239,21 +1239,21 @@ public partial class MarketplaceView : UserControl
             ExtrasWrapPanel.Children.Remove(_analyticsExportCard);
 
         _analyticsExportCard = BuildPriceTagFeatureCard(
-            title: Tr.T("Выгрузка аналитики в Excel и Word", "Аналитиканы Excel жана Word'ко жүктөө",
-                        "Analytics export to Excel and Word", "Excel ve Word'e analiz aktarımı",
-                        "Tahlilni Excel va Word ga yuklash"),
+            title: Tr.T("Выгрузка аналитики в Excel и Word", "Аналитиканы Excel жана Word файлына чыгаруу",
+                        "Analytics export to Excel and Word", "Analitiği Excel ve Word'e aktarma",
+                        "Tahlilni Excel va Word'ga eksport qilish"),
             description: Tr.T(
                 "Отчёт по продажам и складу за выбранный период: выручка, чеки, средний чек, скидки, возвраты, топ товаров и что пора заказать. С графиками — выручка по дням, топ товаров, структура за период. Excel и Word не нужны: файл собирается самой кассой.",
-                "Тандалган мезгил үчүн сатуу жана кампа боюнча отчёт: түшкөн акча, чектер, орточо чек, арзандатуулар, кайтаруулар, эң көп сатылгандар. Графиктери менен. Excel жана Word керек эмес: файлды касса өзү чогултат."),
-            openButtonLabel: Tr.T("Где выгрузить", "Кайдан жүктөө", "Where to export",
-                                  "Nereden aktarılır", "Qayerdan yuklash"),
+                "Тандалган мезгил боюнча сатуу жана кампа отчёту: түшүм, чектер, орточо чек, арзандатуулар, кайтаруулар, топ товарлар жана эмнеге буйрутма берүү керектиги. Графиктери менен — күндөр боюнча түшүм, топ товарлар, мезгилдин түзүмү. Excel жана Word керек эмес: файлды касса өзү түзөт.", "Sales and stock report for the selected period: revenue, receipts, average receipt, discounts, returns, top products and what to reorder. With charts: revenue by day, top products, period breakdown. No Excel or Word needed — the till builds the file itself.", "Seçilen dönem için satış ve depo raporu: ciro, fişler, ortalama fiş, indirimler, iadeler, en çok satanlar ve sipariş edilmesi gerekenler. Grafiklerle — günlük ciro, en çok satanlar, dönemin yapısı. Excel ve Word gerekmez: dosyayı kasa kendisi oluşturur.", "Tanlangan davr bo'yicha sotuv va ombor hisoboti: tushum, cheklar, o'rtacha chek, chegirmalar, qaytarishlar, top mahsulotlar va nimani buyurtma qilish vaqti kelgani. Grafiklar bilan — kunlar bo'yicha tushum, top mahsulotlar, davr tarkibi. Excel va Word shart emas: faylni kassaning o'zi tayyorlaydi."),
+            openButtonLabel: Tr.T("Где выгрузить", "Кайдан чыгарса болот", "Where to export",
+                                  "Nereden aktarılır", "Qayerda eksport qilinadi"),
             openAction: () =>
             {
                 PosAlertDialog.Show(
                     TopLevel.GetTopLevel(this) as Window,
-                    Tr.T("Где выгрузить", "Кайдан жүктөө", "Where to export", "Nereden aktarılır", "Qayerdan yuklash"),
+                    Tr.T("Где выгрузить", "Кайдан чыгарса болот", "Where to export", "Nereden aktarılır", "Qayerda eksport qilinadi"),
                     Tr.T("Откройте «Отчёты», выберите период и нажмите «Excel» или «Word» в верхней строке.",
-                         "«Отчёттор» бөлүмүн ачып, мезгилди тандап, жогорку саптагы «Excel» же «Word» баскычын басыңыз."),
+                         "«Отчёттор» бөлүмүн ачып, мезгилди тандап, жогорку саптагы «Excel» же «Word» баскычын басыңыз.", "Open “Reports”, select a period and click “Excel” or “Word” in the top bar.", "«Raporlar»ı açın, dönemi seçin ve üst satırdaki «Excel» veya «Word» düğmesine basın.", "«Hisobotlar»ni oching, davrni tanlang va yuqori qatordagi «Excel» yoki «Word» tugmasini bosing."),
                     PosAlertKind.Info);
                 return System.Threading.Tasks.Task.CompletedTask;
             },
@@ -1266,8 +1266,8 @@ public partial class MarketplaceView : UserControl
     private void AnalyticsExportUnlockButton_Click(object? sender, RoutedEventArgs e)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;
-        var name = Tr.T("Выгрузка аналитики", "Аналитиканы жүктөө", "Analytics export",
-                        "Analiz aktarımı", "Tahlil yuklash");
+        var name = Tr.T("Выгрузка аналитики", "Аналитиканы чыгаруу", "Analytics export",
+                        "Analitik aktarımı", "Tahlilni eksport qilish");
         var serial = SerialActivationDialog.Show(owner, name);
         if (serial == null)
             return;
@@ -1276,7 +1276,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number",
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number",
                      "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.",
                      "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.",
@@ -1293,7 +1293,7 @@ public partial class MarketplaceView : UserControl
         RefreshAnalyticsExportCard();
 
         PosAlertDialog.Show(owner, name,
-            Tr.T("Функция активирована.", "Функция иштетилди.", "The feature is activated.",
+            Tr.T("Функция активирована.", "Функция иштетилди.", "Feature activated.",
                  "Özellik etkinleştirildi.", "Funksiya faollashtirildi."),
             PosAlertKind.Success);
     }
@@ -1310,11 +1310,11 @@ public partial class MarketplaceView : UserControl
 
         _telegramBotCard = BuildPriceTagFeatureCard(
             title: Tr.T("Телеграм-бот владельца", "Ээсинин телеграм-боту", "Owner's Telegram bot",
-                        "Sahibin Telegram botu", "Ega uchun Telegram bot"),
+                        "Sahibin Telegram botu", "Egasi uchun Telegram-bot"),
             description: Tr.T(
                 "Сводка по закрытой смене приходит вам в Telegram. Бот отвечает на команды: выручка за день и неделю, топ товаров, что пора заказать, что заканчивается, список должников со ссылками для напоминания.",
-                "Жабылган смена боюнча жыйынтык Telegram'га келет. Бот буйруктарга жооп берет: күндүк жана жумалык түшкөн акча, эң көп сатылгандар, эмнени заказ кылуу керек, карызы барлардын тизмеси."),
-            openButtonLabel: Tr.T("Настроить бота", "Ботту тууралоо", "Set up the bot",
+                "Жабылган смена боюнча жыйынтык сизге Telegram'га келет. Бот буйруктарга жооп берет: күндүк жана жумалык түшүм, топ товарлар, эмнеге буйрутма берүү керек, эмне түгөнүп баратат, эскертүү шилтемелери менен карызкорлордун тизмеси.", "You get a summary of each closed shift in Telegram. The bot answers commands: revenue for the day and week, top products, what to reorder, what's running low, and a list of debtors with reminder links.", "Kapanan vardiyanın özeti size Telegram'dan gelir. Bot şu komutlara yanıt verir: günlük ve haftalık ciro, en çok satanlar, sipariş edilmesi gerekenler, tükenmek üzere olanlar, hatırlatma bağlantılı borçlu listesi.", "Yopilgan smena bo'yicha hisobot sizga Telegram'da keladi. Bot buyruqlarga javob beradi: kunlik va haftalik tushum, top mahsulotlar, nimani buyurtma qilish kerak, nima tugayapti, eslatma havolalari bilan qarzdorlar ro'yxati."),
+            openButtonLabel: Tr.T("Настроить бота", "Ботту жөндөө", "Set up the bot",
                                   "Botu ayarla", "Botni sozlash"),
             openAction: () =>
             {
@@ -1331,7 +1331,7 @@ public partial class MarketplaceView : UserControl
     {
         var owner = TopLevel.GetTopLevel(this) as Window;
         var name = Tr.T("Телеграм-бот владельца", "Ээсинин телеграм-боту", "Owner's Telegram bot",
-                        "Sahibin Telegram botu", "Ega uchun Telegram bot");
+                        "Sahibin Telegram botu", "Egasi uchun Telegram-bot");
         var serial = SerialActivationDialog.Show(owner, name);
         if (serial == null)
             return;
@@ -1340,7 +1340,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number",
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number",
                      "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.",
                      "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.",
@@ -1357,7 +1357,7 @@ public partial class MarketplaceView : UserControl
         RefreshTelegramBotCard();
 
         PosAlertDialog.Show(owner, name,
-            Tr.T("Функция активирована.", "Функция иштетилди.", "The feature is activated.",
+            Tr.T("Функция активирована.", "Функция иштетилди.", "Feature activated.",
                  "Özellik etkinleştirildi.", "Funksiya faollashtirildi."),
             PosAlertKind.Success);
     }
@@ -1377,17 +1377,17 @@ public partial class MarketplaceView : UserControl
                         "Kengaytirilgan smena yakunlari"),
             description: Tr.T(
                 "Возвраты, списания, расход, оплата долгов и скидки (в том числе оплаченные бонусами) — в окне смены, в X/Z-отчёте и в сводке закрытия смены. Считаются самой кассой, поэтому доступны и без интернета.",
-                "Кайтаруулар, эсептен чыгаруулар, чыгым, карыз төлөмү жана арзандатуулар — смена терезесинде, X/Z-отчётто жана смена жабылуу жыйынтыгында. Касса өзү эсептейт, интернетсиз да иштейт."),
-            openButtonLabel: Tr.T("Открыть смены", "Сменаларды ачуу", "Open shifts",
-                                  "Vardiyaları aç", "Smenalarni ochish"),
+                "Кайтаруулар, эсептен чыгаруулар, чыгымдар, карыз төлөмдөрү жана арзандатуулар (бонус менен төлөнгөндөрү да) — смена терезесинде, X/Z-отчётто жана смена жабылгандагы жыйынтыкта. Аларды касса өзү эсептейт, ошондуктан интернетсиз да көрүнөт.", "Returns, write-offs, expenses, debt payments and discounts (including those paid with points) — in the shift window, the X/Z report and the shift closing summary. Calculated by the till itself, so they're available offline too.", "İadeler, stok düşümleri, giderler, borç ödemeleri ve indirimler (bonusla ödenenler dahil) — vardiya penceresinde, X/Z raporunda ve vardiya kapanış özetinde. Kasa bunları kendisi hesaplar, bu yüzden internetsiz de kullanılabilir.", "Qaytarishlar, hisobdan chiqarishlar, xarajatlar, qarz to'lovlari va chegirmalar (jumladan, bonuslar bilan to'langanlari) — smena oynasida, X/Z-hisobotda va smena yopilishi hisobotida. Kassaning o'zi hisoblaydi, shuning uchun internetsiz ham ishlaydi."),
+            openButtonLabel: Tr.T("Открыть смены", "Сменаларды көрүү", "View shifts",
+                                  "Vardiyaları aç", "Smenalar bo'limini ochish"),
             openAction: () =>
             {
                 PosAlertDialog.Show(
                     TopLevel.GetTopLevel(this) as Window,
-                    Tr.T("Где смотреть", "Кайдан кароо керек", "Where to look",
-                         "Nereye bakmalı", "Qayerda ko'rish kerak"),
+                    Tr.T("Где смотреть", "Кайдан көрсө болот", "Where to look",
+                         "Nereye bakmalı", "Qayerda ko'rish mumkin"),
                     Tr.T("Итоги открываются из меню кассы: «Смены» → выбрать смену. Те же цифры печатаются в X/Z-отчёте и приходят в Telegram при закрытии смены.",
-                         "Жыйынтыктар касса менюсунан ачылат: «Смена» → сменаны тандаңыз. Ошол эле сандар X/Z-отчётто басылат."),
+                         "Жыйынтыктар касса менюсунан ачылат: «Смена» → сменаны тандаңыз. Ошол эле сандар X/Z-отчётто басылат жана смена жабылганда Telegram'га келет.", "Totals open from the till menu: “Shifts” → select a shift. The same figures are printed in the X/Z report and sent to Telegram when the shift is closed.", "Özet kasa menüsünden açılır: «Vardiyalar» → vardiyayı seçin. Aynı rakamlar X/Z raporunda yazdırılır ve vardiya kapanınca Telegram'a gelir.", "Yakunlar kassa menyusidan ochiladi: «Smenalar» → smenani tanlang. Xuddi shu raqamlar X/Z-hisobotda chop etiladi va smena yopilganda Telegram'ga keladi."),
                     PosAlertKind.Info);
                 return System.Threading.Tasks.Task.CompletedTask;
             },
@@ -1411,7 +1411,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number",
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number",
                      "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.",
                      "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.",
@@ -1428,7 +1428,7 @@ public partial class MarketplaceView : UserControl
         RefreshShiftAnalyticsCard();
 
         PosAlertDialog.Show(owner, name,
-            Tr.T("Функция активирована.", "Функция иштетилди.", "The feature is activated.",
+            Tr.T("Функция активирована.", "Функция иштетилди.", "Feature activated.",
                  "Özellik etkinleştirildi.", "Funksiya faollashtirildi."),
             PosAlertKind.Success);
     }
@@ -1449,7 +1449,7 @@ public partial class MarketplaceView : UserControl
             title: Tr.T("🎨 Редактор этикетки", "🎨 Этикетка редактору", "🎨 Label editor", "🎨 Etiket düzenleyici", "🎨 Yorliq muharriri"),
             description: Tr.T(
                 "Расположение штрих-кода, названия, цены, артикула, единицы измерения и магазина на этикетке — с перетаскиванием и настройкой каждого элемента.",
-                "Штрих-коддун, аталыштын, баанын, артикулдун, өлчөм бирдигинин жана дүкөндүн этикеткадагы жайгашуусу — ар бир элементти сүйрөп жана ыңгайлаштырып."),
+                "Штрих-коддун, аталыштын, баанын, артикулдун, өлчөм бирдигинин жана дүкөндүн этикеткадагы жайгашуусу — ар бир элементти сүйрөп жылдырууга жана жөндөөгө болот.", "Place the barcode, name, price, SKU, unit and store name on the label — drag and configure each element.", "Etiketteki barkod, ad, fiyat, stok kodu, ölçü birimi ve mağaza adının yerleşimi — her öğe sürüklenip ayrı ayrı ayarlanabilir.", "Yorliqdagi shtrix-kod, nom, narx, artikul, o'lchov birligi va do'kon nomining joylashuvi — har bir elementni sudrab ko'chirish va sozlash imkoni bilan."),
             openButtonLabel: Tr.T("🎨 Открыть редактор", "🎨 Редакторду ачуу", "🎨 Open editor", "🎨 Düzenleyiciyi aç", "🎨 Muharrirni ochish"),
             openAction: () =>
             {
@@ -1473,7 +1473,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1491,7 +1491,7 @@ public partial class MarketplaceView : UserControl
             Tr.T("Редактор этикетки активирован", "Этикетка редактору иштетилди", "Label editor activated", "Etiket düzenleyici etkinleştirildi", "Yorliq muharriri faollashtirildi"),
             Tr.T(
                 "Теперь доступен редактор этикеток — Маркетплейс → Доп. функции или Склад → Товары.",
-                "Эми этикетка редактору жеткиликтүү — Маркетплейс → Кошумча функциялар же Склад → Товарлар."),
+                "Эми этикетка редактору жеткиликтүү — Маркетплейс → Кошумча функциялар же Кампа → Товарлар.", "The label editor is now available — Marketplace → Extras or Warehouse → Products.", "Etiket düzenleyici artık kullanılabilir — Mağaza → Ek özellikler veya Depo → Ürünler.", "Endi yorliq muharriri mavjud — Bozor → Qo'shimcha funksiyalar yoki Ombor → Mahsulotlar."),
             PosAlertKind.Success);
     }
 
@@ -1529,7 +1529,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "English, Türkçe, O'zbekcha — дополнительные языки интерфейса кассы. По умолчанию доступны русский и кыргызский. После активации языки появятся в Настройки → Экран.",
-                "English, Türkçe, O'zbekcha — кассанын кошумча интерфейс тилдери. Демейки боюнча орусча жана кыргызча жеткиликтүү. Активациядан кийин тилдер Жөндөөлөр → Экран бөлүмүндө пайда болот."),
+                "English, Türkçe, O'zbekcha — кассанын кошумча интерфейс тилдери. Демейки боюнча орусча жана кыргызча жеткиликтүү. Активациядан кийин тилдер Жөндөөлөр → Экран бөлүмүндө пайда болот.", "English, Türkçe, O'zbekcha — additional interface languages for the till. Russian and Kyrgyz are available by default. After activation, the languages appear in Settings → Screen.", "English, Türkçe, O'zbekcha — kasa arayüzü için ek diller. Varsayılan olarak Rusça ve Kırgızca kullanılabilir. Etkinleştirmeden sonra diller Ayarlar → Ekran bölümünde görünür.", "English, Türkçe, O'zbekcha — kassa interfeysining qo'shimcha tillari. Standart holatda rus va qirg'iz tillari mavjud. Faollashtirilgach, tillar Sozlamalar → Ekran bo'limida paydo bo'ladi."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -1541,7 +1541,7 @@ public partial class MarketplaceView : UserControl
             Classes = { unlocked ? "btn-secondary" : "btn-primary" },
             Content = unlocked
                 ? Tr.T("✓ Активировано", "✓ Активдештирилди", "✓ Activated", "✓ Etkinleştirildi", "✓ Faollashtirildi")
-                : Tr.T("🔒 Активировать (серийный номер)", "🔒 Активдештирүү (серия номери)", "🔒 Activate (serial number)", "🔒 Etkinleştir (seri numarası)", "🔒 Faollashtirish (seriya raqami)"),
+                : Tr.T("🔒 Активировать (серийный номер)", "🔒 Активдештирүү (сериялык номер)", "🔒 Activate (serial number)", "🔒 Etkinleştir (seri numarası)", "🔒 Faollashtirish (seriya raqami)"),
             Height = 34,
             Padding = new Thickness(14, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -1579,7 +1579,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1595,7 +1595,7 @@ public partial class MarketplaceView : UserControl
             owner,
             Tr.T("Языковой пакет активирован", "Тил пакети активдештирилди", "Language pack activated", "Dil paketi etkinleştirildi", "Til paketi faollashtirildi"),
             Tr.T("English, Türkçe и O'zbekcha теперь доступны в Настройки → Экран.",
-                 "English, Türkçe жана O'zbekcha эми Жөндөөлөр → Экран бөлүмүндө жеткиликтүү."),
+                 "English, Türkçe жана O'zbekcha эми Жөндөөлөр → Экран бөлүмүндө жеткиликтүү.", "English, Türkçe and O'zbekcha are now available in Settings → Screen.", "English, Türkçe ve O'zbekcha artık Ayarlar → Ekran bölümünde kullanılabilir.", "English, Türkçe va O'zbekcha endi Sozlamalar → Ekran bo'limida mavjud."),
             PosAlertKind.Success);
         RefreshLanguagePackCard();
     }
@@ -1635,7 +1635,7 @@ public partial class MarketplaceView : UserControl
         };
         badges.Children.Add(MakeLayoutBadge(Tr.T("Бесплатно", "Акысыз", "Free", "Ücretsiz", "Bepul"), "BrushSuccess"));
         badges.Children.Add(isOneC
-            ? MakeLayoutBadge(Tr.T("✓ Включено", "✓ Күйгүзүлдү", "✓ Enabled", "✓ Etkin", "✓ Yoqilgan"), "BrushAccent")
+            ? MakeLayoutBadge(Tr.T("✓ Включено", "✓ Күйгүзүлгөн", "✓ Enabled", "✓ Etkin", "✓ Yoqilgan"), "BrushAccent")
             : MakeLayoutBadge(Tr.T("Выключено", "Өчүрүлгөн", "Off", "Kapalı", "O'chirilgan"), "BrushBorder", mutedText: true));
 
         var headerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
@@ -1647,7 +1647,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T(
                 "Крупная активная строка чека, список позиций и сводка с кнопкой «Оплата» справа — как в 1С «Рабочее место кассира». Товар добавляется только сканером.",
-                "Чектин чоң активдүү сабы, позициялар тизмеси жана оң жакта «Төлөм» баскычы бар жыйынтык — 1С «Кассир жумуш орду» сыяктуу. Товар сканер менен гана кошулат."),
+                "Чектин чоң активдүү сабы, позициялар тизмеси жана оң жакта «Төлөм» баскычы бар жыйынтык — 1С «Кассирдин жумуш орду» сыяктуу. Товар сканер менен гана кошулат.", "A large active receipt line, the item list and a summary with the “Payment” button on the right — like the 1C “Cashier workplace”. Products are added by scanner only.", "Büyük etkin fiş satırı, kalem listesi ve sağda «Ödeme» düğmeli özet — 1C'deki «Kasiyer çalışma yeri» gibi. Ürün yalnızca barkod okuyucuyla eklenir.", "Chekning katta faol qatori, pozitsiyalar ro'yxati va o'ngda «To'lash» tugmasi bilan yakuniy ma'lumot — 1C «Kassir ish joyi»dagidek. Mahsulot faqat skaner orqali qo'shiladi."),
             Classes = { "SettingsCardBody" },
             FontSize = 12,
             Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
@@ -1657,7 +1657,7 @@ public partial class MarketplaceView : UserControl
         var hintText = new TextBlock
         {
             Text = Tr.T("Переключается мгновенно, без перезапуска. Также: Настройки → Экран.",
-                        "Дароо которулат, кайра жүктөөсүз. Ошондой эле: Жөндөөлөр → Экран."),
+                        "Дароо которулат, кайра ачуунун кереги жок. Ошондой эле: Жөндөөлөр → Экран.", "Switches instantly, no restart needed. Also in Settings → Screen.", "Yeniden başlatma gerekmeden anında geçiş yapılır. Ayrıca: Ayarlar → Ekran.", "Qayta ishga tushirmasdan darhol almashadi. Shuningdek: Sozlamalar → Ekran."),
             FontSize = 11,
             Foreground = ThemeBrush("BrushTextMuted", Brushes.Gray),
             TextWrapping = TextWrapping.Wrap,
@@ -1877,7 +1877,7 @@ public partial class MarketplaceView : UserControl
     private void PriceTagEditorUnlockButton_Click(object? sender, RoutedEventArgs e)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;
-        var serial = SerialActivationDialog.Show(owner, Tr.T("Редактор ценников", "Ценник редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorliqlari muharriri"));
+        var serial = SerialActivationDialog.Show(owner, Tr.T("Редактор ценников", "Баа белгиси редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorliqlari muharriri"));
         if (serial == null)
             return;
 
@@ -1885,7 +1885,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1900,10 +1900,10 @@ public partial class MarketplaceView : UserControl
 
         PosAlertDialog.Show(
             owner,
-            Tr.T("Редактор ценников активирован", "Ценник редактору иштетилди", "Price tag editor activated", "Fiyat etiketi düzenleyici etkinleştirildi", "Narx yorliqlari muharriri faollashtirildi"),
+            Tr.T("Редактор ценников активирован", "Баа белгиси редактору иштетилди", "Price tag editor activated", "Fiyat etiketi düzenleyici etkinleştirildi", "Narx yorliqlari muharriri faollashtirildi"),
             Tr.T(
                 "Теперь доступна печать ценника для одного товара: Склад → Товары → кнопка «💲 Ценник» на карточке товара.",
-                "Эми бир товар үчүн ценник басып чыгаруу жеткиликтүү: Склад → Товарлар → товар карточкасындагы «💲 Ценник» баскычы."),
+                "Эми бир товардын баа белгисин басып чыгарса болот: Кампа → Товарлар → товар карточкасындагы «💲 Баа белгиси» баскычы.", "Single-product price tag printing is now available: Warehouse → Products → the “💲 Price tag” button on the product card.", "Artık tek ürün için fiyat etiketi yazdırabilirsiniz: Depo → Ürünler → ürün kartındaki «💲 Fiyat etiketi» düğmesi.", "Endi bitta mahsulotning narx yorlig'ini chop etish mumkin: Ombor → Mahsulotlar → mahsulot kartasidagi «💲 Narx yorlig'i» tugmasi."),
             PosAlertKind.Success);
     }
 
@@ -1913,7 +1913,7 @@ public partial class MarketplaceView : UserControl
     private void BulkPriceTagUnlockButton_Click(object? sender, RoutedEventArgs e)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;
-        var serial = SerialActivationDialog.Show(owner, Tr.T("Массовая печать ценников", "Ценниктерди массалык басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi baskısı", "Ommaviy narx yorliqlarini chop etish"));
+        var serial = SerialActivationDialog.Show(owner, Tr.T("Массовая печать ценников", "Баа белгилерин топтоп басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi baskısı", "Narx yorliqlarini ommaviy chop etish"));
         if (serial == null)
             return;
 
@@ -1921,7 +1921,7 @@ public partial class MarketplaceView : UserControl
         {
             PosAlertDialog.Show(
                 owner,
-                Tr.T("Неверный серийный номер", "Серия номери туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number", "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
                 Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.", "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.", "Raqamni tekshirib, qaytadan urinib ko'ring."),
                 PosAlertKind.Error);
             return;
@@ -1936,10 +1936,10 @@ public partial class MarketplaceView : UserControl
 
         PosAlertDialog.Show(
             owner,
-            Tr.T("Массовая печать ценников активирована", "Ценниктерди массалык басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi baskısı etkinleştirildi", "Ommaviy narx yorlig'i chop etish faollashtirildi"),
+            Tr.T("Массовая печать ценников активирована", "Баа белгилерин топтоп басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi baskısı etkinleştirildi", "Narx yorliqlarini ommaviy chop etish faollashtirildi"),
             Tr.T(
                 "Теперь доступна кнопка «🏷 Массовая печать ценников» в Склад → Товары — выберите нужные товары и распечатайте ценники сразу для всех.",
-                "Эми Склад → Товарлар бетинде «🏷 Ценниктерди массалык басып чыгаруу» баскычы жеткиликтүү — керектүү товарларды тандап, баарына бирден ценник басып чыгарыңыз."),
+                "Эми Кампа → Товарлар бетинде «🏷 Баа белгилерин топтоп басып чыгаруу» баскычы бар — керектүү товарларды тандап, баарынын баа белгилерин бир жолу басып чыгарыңыз.", "The “🏷 Bulk price tag printing” button is now available in Warehouse → Products — select the products you need and print price tags for all of them at once.", "Depo → Ürünler bölümünde artık «🏷 Toplu fiyat etiketi yazdır» düğmesi var — ürünleri seçip hepsinin fiyat etiketini tek seferde yazdırın.", "Endi Ombor → Mahsulotlar bo'limida «🏷 Narx yorliqlarini ommaviy chop etish» tugmasi bor — kerakli mahsulotlarni tanlang va hammasining narx yorlig'ini bir yo'la chop eting."),
             PosAlertKind.Success);
     }
 }

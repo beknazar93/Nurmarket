@@ -22,14 +22,29 @@ public partial class LabelTemplateEditorDialog : Window
     private static readonly string[] AvailableFontFamilies =
         { "Arial", "Consolas", "Segoe UI", "Calibri", "Times New Roman", "Verdana", "Tahoma" };
 
-    private static readonly (double WidthMm, double HeightMm, string Label)[] SizePresets =
+    // Подписи пресетов считаются на языке интерфейса при каждом обращении; сравниваются они
+    // только между собой (список комбобокса строится из этого же массива).
+    private static (double WidthMm, double HeightMm, string Label)[] SizePresets => new (double WidthMm, double HeightMm, string Label)[]
     {
-        (39, 29, "39×29 мм"),
-        (58, 40, "58×40 мм"),
-        (40, 30, "40×30 мм (по умолчанию)"),
+        (39, 29, Tr.T("39×29 мм", "39×29 мм", "39×29 mm", "39×29 mm", "39×29 mm")),
+        (58, 40, Tr.T("58×40 мм", "58×40 мм", "58×40 mm", "58×40 mm", "58×40 mm")),
+        (40, 30, Tr.T("40×30 мм (по умолчанию)", "40×30 мм (демейки)", "40×30 mm (default)", "40×30 mm (varsayılan)", "40×30 mm (standart)")),
     };
 
-    private const string CustomSizeLabel = "Свой размер";
+    private static string CustomSizeLabel => Tr.T("Свой размер", "Жеке өлчөм", "Custom size", "Özel boyut", "Maxsus o'lcham");
+
+    /// <summary>Подпись элемента на холсте и в заголовке панели свойств — те же слова, что на
+    /// кнопках инструментов слева.</summary>
+    private static string ElementLabel(LabelElementKind kind) => kind switch
+    {
+        LabelElementKind.Barcode => Tr.T("Штрих-код", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"),
+        LabelElementKind.ProductName => Tr.T("Название", "Аталышы", "Name", "Ad", "Nomi"),
+        LabelElementKind.Price => Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx"),
+        LabelElementKind.Sku => Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul"),
+        LabelElementKind.Unit => Tr.T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov birligi"),
+        LabelElementKind.StoreName => Tr.T("Магазин", "Дүкөн", "Store", "Mağaza", "Do'kon"),
+        _ => "",
+    };
 
     private static readonly string[] CurrencyPresets = { "сом", "$", "₽", "so'm", "₸", "₺" };
 
@@ -136,11 +151,11 @@ public partial class LabelTemplateEditorDialog : Window
             (LabelElementKind.Price, "\U0001F4B0",
                 Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx")),
             (LabelElementKind.Unit, "⚖",
-                Tr.T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov")),
+                Tr.T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov birligi")),
             (LabelElementKind.StoreName, "\U0001F3EA",
                 Tr.T("Магазин", "Дүкөн", "Store", "Mağaza", "Do'kon")),
             (LabelElementKind.Sku, "\U0001F522",
-                Tr.T("Артикул", "Артикул", "SKU", "Ürün kodu", "Artikul")),
+                Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul")),
         };
 
         foreach (var (kind, icon, label) in tools)
@@ -179,16 +194,16 @@ public partial class LabelTemplateEditorDialog : Window
         EditorCanvas.Height = _template.HeightMm * Scale;
 
         if (_template.Barcode.Enabled)
-            AddElementBox(LabelElementKind.Barcode, _template.Barcode, "Штрих-код", "#FDE68A");
-        AddElementBox(LabelElementKind.ProductName, _template.ProductName, "Название", "#BFDBFE");
-        AddElementBox(LabelElementKind.Price, _template.Price, "Цена", "#BBF7D0");
+            AddElementBox(LabelElementKind.Barcode, _template.Barcode, ElementLabel(LabelElementKind.Barcode), "#FDE68A");
+        AddElementBox(LabelElementKind.ProductName, _template.ProductName, ElementLabel(LabelElementKind.ProductName), "#BFDBFE");
+        AddElementBox(LabelElementKind.Price, _template.Price, ElementLabel(LabelElementKind.Price), "#BBF7D0");
 
         if (_template.Sku.Enabled)
-            AddElementBox(LabelElementKind.Sku, _template.Sku, "Артикул", "#FBCFE8");
+            AddElementBox(LabelElementKind.Sku, _template.Sku, ElementLabel(LabelElementKind.Sku), "#FBCFE8");
         if (_template.Unit.Enabled)
-            AddElementBox(LabelElementKind.Unit, _template.Unit, "Ед. изм.", "#DDD6FE");
+            AddElementBox(LabelElementKind.Unit, _template.Unit, ElementLabel(LabelElementKind.Unit), "#DDD6FE");
         if (_template.StoreName.Enabled)
-            AddElementBox(LabelElementKind.StoreName, _template.StoreName, "Магазин", "#FED7AA");
+            AddElementBox(LabelElementKind.StoreName, _template.StoreName, ElementLabel(LabelElementKind.StoreName), "#FED7AA");
 
         foreach (var (kind2, box) in _canvasBoxes)
         {
@@ -353,16 +368,7 @@ public partial class LabelTemplateEditorDialog : Window
     private void BuildPropertiesPanel()
     {
         PropertiesPanel.Children.Clear();
-        PropertiesHeader.Text = _selectedKind switch
-        {
-            LabelElementKind.Barcode => "Штрих-код",
-            LabelElementKind.ProductName => "Название",
-            LabelElementKind.Price => "Цена",
-            LabelElementKind.Sku => "Артикул",
-            LabelElementKind.Unit => "Ед. изм.",
-            LabelElementKind.StoreName => "Магазин",
-            _ => "",
-        };
+        PropertiesHeader.Text = ElementLabel(_selectedKind);
 
         switch (_selectedKind)
         {
@@ -394,7 +400,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void AddVisibilityCheckbox(LabelElementLayout element)
     {
-        var check = new CheckBox { Content = "Показывать на этикетке", IsChecked = element.Enabled };
+        var check = new CheckBox { Content = Tr.T("Показывать на этикетке", "Этикеткада көрсөтүү", "Show on label", "Etikette göster", "Yorliqda ko'rsatish"), IsChecked = element.Enabled };
         check.Click += (_, _) =>
         {
             element.Enabled = check.IsChecked == true;
@@ -406,7 +412,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void AddFontControls(LabelElementLayout element)
     {
-        var fontHeader = new TextBlock { Text = "Шрифт", FontWeight = FontWeight.SemiBold, Foreground = Brushes.Black };
+        var fontHeader = new TextBlock { Text = Tr.T("Шрифт", "Шрифт", "Font", "Yazı tipi", "Shrift"), FontWeight = FontWeight.SemiBold, Foreground = Brushes.Black };
         PropertiesPanel.Children.Add(fontHeader);
 
         var fontCombo = new ComboBox { ItemsSource = AvailableFontFamilies, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -423,7 +429,7 @@ public partial class LabelTemplateEditorDialog : Window
         };
         PropertiesPanel.Children.Add(fontCombo);
 
-        var sizeLabel = new TextBlock { Text = "Размер шрифта, px (0 — автоматически)", FontSize = 11, Foreground = Brush.Parse("#64748B") };
+        var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 11, Foreground = Brush.Parse("#64748B") };
         PropertiesPanel.Children.Add(sizeLabel);
 
         var sizeBox = new NumericUpDown
@@ -447,22 +453,22 @@ public partial class LabelTemplateEditorDialog : Window
     {
         AddVisibilityCheckbox(_template.Barcode);
 
-        var formatLabel = new TextBlock { Text = "Тип кодирования", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) };
+        var formatLabel = new TextBlock { Text = Tr.T("Тип кодирования", "Коддоо түрү", "Encoding type", "Kodlama türü", "Kodlash turi"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) };
         PropertiesPanel.Children.Add(formatLabel);
 
         var formatOptions = new (LabelBarcodeFormat Format, string Label)[]
         {
-            (LabelBarcodeFormat.Auto, "Авто (по длине кода)"),
+            (LabelBarcodeFormat.Auto, Tr.T("Авто (по длине кода)", "Авто (коддун узундугу боюнча)", "Auto (by code length)", "Otomatik (kod uzunluğuna göre)", "Avto (kod uzunligi bo'yicha)")),
             (LabelBarcodeFormat.Ean13, "EAN-13"),
             (LabelBarcodeFormat.Code128, "Code 128"),
-            (LabelBarcodeFormat.QrCode, "QR-код"),
+            (LabelBarcodeFormat.QrCode, Tr.T("QR-код", "QR-код", "QR code", "QR kodu", "QR-kod")),
         };
         var formatCombo = new ComboBox { ItemsSource = formatOptions.Select(o => o.Label).ToArray(), HorizontalAlignment = HorizontalAlignment.Stretch };
         formatCombo.SelectedIndex = Array.FindIndex(formatOptions, o => o.Format == _template.BarcodeFormat);
 
         var digitsCheck = new CheckBox
         {
-            Content = "Показывать цифры кода",
+            Content = Tr.T("Показывать цифры кода", "Коддун сандарын көрсөтүү", "Show code digits", "Kod rakamlarını göster", "Kod raqamlarini ko'rsatish"),
             IsChecked = _template.BarcodeShowDigits,
             Margin = new Thickness(0, 6, 0, 0),
             IsVisible = _template.BarcodeFormat != LabelBarcodeFormat.QrCode,
@@ -484,7 +490,7 @@ public partial class LabelTemplateEditorDialog : Window
         PropertiesPanel.Children.Add(formatCombo);
         PropertiesPanel.Children.Add(digitsCheck);
 
-        var marginLabel = new TextBlock { Text = "Плотность (поля), модулей", FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
+        var marginLabel = new TextBlock { Text = Tr.T("Плотность (поля), модулей", "Тыгыздык (четтер), модуль", "Margins (quiet zone), modules", "Kenar boşluğu (sessiz bölge), modül", "Zichlik (chetlar), modul"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
         PropertiesPanel.Children.Add(marginLabel);
         var marginBox = new NumericUpDown
         {
@@ -505,7 +511,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void BuildPriceProperties()
     {
-        var currencyLabel = new TextBlock { Text = "Валюта", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) };
+        var currencyLabel = new TextBlock { Text = Tr.T("Валюта", "Валюта", "Currency", "Para birimi", "Valyuta"), FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) };
         PropertiesPanel.Children.Add(currencyLabel);
 
         var currencyBox = new AutoCompleteBox
@@ -524,7 +530,7 @@ public partial class LabelTemplateEditorDialog : Window
 
         var hideDecimalsCheck = new CheckBox
         {
-            Content = "Скрывать копейки/тыйын",
+            Content = Tr.T("Скрывать копейки/тыйын", "Тыйындарды жашыруу", "Hide tyiyn (cents)", "Kuruşları gizle", "Tiyinlarni yashirish"),
             IsChecked = _template.PriceHideDecimals,
             Margin = new Thickness(0, 6, 0, 0),
         };
@@ -538,7 +544,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void BuildSkuProperties()
     {
-        var overrideLabel = new TextBlock { Text = "Заменить текст (пусто — реальный артикул товара)", FontSize = 11, Margin = new Thickness(0, 6, 0, 0), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var overrideLabel = new TextBlock { Text = Tr.T("Заменить текст (пусто — реальный артикул товара)", "Текстти алмаштыруу (бош болсо — товардын чыныгы артикулу)", "Replace text (empty = the product's actual SKU)", "Metni değiştir (boşsa ürünün gerçek stok kodu)", "Matnni almashtirish (bo'sh bo'lsa — mahsulotning haqiqiy artikuli)"), FontSize = 11, Margin = new Thickness(0, 6, 0, 0), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         PropertiesPanel.Children.Add(overrideLabel);
 
         var overrideBox = new TextBox { Text = _template.SkuCustomText, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -586,12 +592,12 @@ public partial class LabelTemplateEditorDialog : Window
         var printerPath = UserPreferences.Instance.LabelPrinterDevicePath;
         if (string.IsNullOrWhiteSpace(printerPath))
         {
-            StatusText.Text = "Принтер этикеток не настроен — выберите его в окне печати этикетки.";
+            StatusText.Text = Tr.T("Принтер этикеток не настроен — выберите его в окне печати этикетки.", "Этикетка принтери жөндөлгөн эмес — аны этикетка басып чыгаруу терезесинен тандаңыз.", "The label printer is not set up — select it in the label print window.", "Etiket yazıcısı ayarlanmamış — etiket yazdırma penceresinden seçin.", "Yorliq printeri sozlanmagan — uni yorliqni chop etish oynasida tanlang.");
             return;
         }
 
         TestPrintButton.IsEnabled = false;
-        StatusText.Text = "Печать…";
+        StatusText.Text = Tr.T("Печать…", "Басып чыгарылууда…", "Printing…", "Yazdırılıyor…", "Chop etilmoqda…");
         try
         {
             var request = new LabelPrintRequest(
@@ -602,9 +608,9 @@ public partial class LabelTemplateEditorDialog : Window
             var result = await System.Threading.Tasks.Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
             StatusText.Text = result switch
             {
-                LabelPrintResult.Success => "Этикетка отправлена на печать.",
-                LabelPrintResult.PrinterNotFound => "Принтер не найден — выберите его в окне печати этикетки.",
-                _ => "Ошибка печати. Подробности в журнале приложения.",
+                LabelPrintResult.Success => Tr.T("Этикетка отправлена на печать.", "Этикетка басып чыгарууга жөнөтүлдү.", "Label sent to the printer.", "Etiket yazdırmaya gönderildi.", "Yorliq chop etishga yuborildi."),
+                LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — выберите его в окне печати этикетки.", "Принтер табылган жок — аны этикетка басып чыгаруу терезесинен тандаңыз.", "Printer not found — select it in the label print window.", "Yazıcı bulunamadı — etiket yazdırma penceresinden seçin.", "Printer topilmadi — uni yorliqni chop etish oynasida tanlang."),
+                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Чоо-жайы колдонмонун журналында.", "Print error. See the app log for details.", "Yazdırma hatası. Ayrıntılar uygulama günlüğünde.", "Chop etish xatosi. Tafsilotlar dastur jurnalida."),
             };
         }
         finally

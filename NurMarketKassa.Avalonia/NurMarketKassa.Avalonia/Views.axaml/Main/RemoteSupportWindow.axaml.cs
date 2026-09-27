@@ -56,14 +56,14 @@ public partial class RemoteSupportWindow : Window
         {
             StatusText.Text = Tr.T(
                 "AnyDesk найден на этом компьютере.",
-                "AnyDesk бул компьютерде табылды.");
+                "AnyDesk бул компьютерде табылды.", "AnyDesk was found on this computer.", "AnyDesk bu bilgisayarda bulundu.", "AnyDesk shu kompyuterda topildi.");
             DownloadButton.IsVisible = false;
         }
         else
         {
             StatusText.Text = Tr.T(
                 "AnyDesk не установлен. Нажмите «Запустить AnyDesk» — если он ещё не скачан, откроется страница загрузки.",
-                "AnyDesk орнотулган эмес. «AnyDesk иштетүү» баскычын басыңыз — эгер али жүктөлбөсө, жүктөө барагы ачылат.");
+                "AnyDesk орнотулган эмес. «AnyDesk'ти иштетүү» баскычын басыңыз — эгер ал али жүктөлө элек болсо, жүктөө барагы ачылат.", "AnyDesk is not installed. Click “Launch AnyDesk” — if it has not been downloaded yet, the download page will open.", "AnyDesk yüklü değil. «AnyDesk'i başlat» düğmesine basın — henüz indirilmediyse indirme sayfası açılır.", "AnyDesk o'rnatilmagan. «AnyDesk'ni ishga tushirish» tugmasini bosing — agar u hali yuklab olinmagan bo'lsa, yuklab olish sahifasi ochiladi.");
             DownloadButton.IsVisible = true;
         }
     }
@@ -82,14 +82,14 @@ public partial class RemoteSupportWindow : Window
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
             StatusText.Text = Tr.T(
                 "AnyDesk запущен. Назовите оператору адрес (ID), который появится в его окне.",
-                "AnyDesk иштетилди. Анын терезесинде чыккан дарек (ID) операторго айтыңыз.");
+                "AnyDesk иштетилди. Анын терезесинде чыккан даректи (ID) операторго айтыңыз.", "AnyDesk is running. Tell the support agent the address (ID) shown in its window.", "AnyDesk başlatıldı. Penceresinde görünecek adresi (ID) destek görevlisine bildirin.", "AnyDesk ishga tushdi. Uning oynasida paydo bo'ladigan manzilni (ID) operatorga ayting.");
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Не удалось запустить AnyDesk: {ex}", "WARNING");
             StatusText.Text = Tr.T(
                 $"Не удалось запустить AnyDesk: {ex.Message}",
-                $"AnyDesk иштетилген жок: {ex.Message}");
+                $"AnyDesk иштетилген жок: {ex.Message}", $"Could not launch AnyDesk: {ex.Message}", $"AnyDesk başlatılamadı: {ex.Message}", $"AnyDesk'ni ishga tushirib bo'lmadi: {ex.Message}");
             DownloadButton.IsVisible = true;
         }
     }

@@ -203,7 +203,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string ProductName { get; set; }
             public int Quantity { get; set; }
             public decimal Revenue { get; set; }
-            public string SummaryText => $"{DayName} — лучше всего продаётся «{ProductName}» ({Quantity} шт., {Revenue:N0} сом)";
+            public string SummaryText => Tr.T($"{DayName} — лучше всего продаётся «{ProductName}» ({Quantity} шт., {Revenue:N0} сом)",
+                $"{DayName} — эң көп сатылганы «{ProductName}» ({Quantity} даана, {Revenue:N0} сом)",
+                $"{DayName} — best seller: “{ProductName}” ({Quantity} pcs, {Revenue:N0} som)",
+                $"{DayName} — en çok satan: «{ProductName}» ({Quantity} adet, {Revenue:N0} som)",
+                $"{DayName} — eng ko'p sotiladigani: «{ProductName}» ({Quantity} dona, {Revenue:N0} so'm)");
         }
 
         private sealed record SaleLineFact(DateTime SaleDate, string ProductName, decimal Revenue, int Quantity, decimal Cost);
@@ -415,15 +419,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             return new ShiftCardVm
             {
-                Title = $"{Tr.T("Смена", "Кезек", "Shift", "Vardiya", "Smena")} #{shortId}",
+                Title = $"{Tr.T("Смена", "Смена", "Shift", "Vardiya", "Smena")} #{shortId}",
                 IsOpen = isOpen,
                 StatusText = isOpen
                     ? Tr.T("Открыта", "Ачык", "Open", "Açık", "Ochiq")
                     : Tr.T("Закрыта", "Жабык", "Closed", "Kapalı", "Yopiq"),
                 OpenedDisplay = openedAt == DateTime.MinValue
                     ? "—"
-                    : $"{Tr.T("Открыта", "Ачылды", "Opened", "Açıldı", "Ochildi")} {openedAt:d MMMM в HH:mm}",
-                RevenueText = $"{salesTotal:N2} сом",
+                    : $"{Tr.T("Открыта", "Ачылды", "Opened", "Açıldı", "Ochildi")} {openedAt:d MMMM} {Tr.T("в", "саат", "at", "saat", "soat")} {openedAt:HH:mm}",
+                RevenueText = $"{salesTotal:N2} {Som}",
                 SalesCountText = salesCount.ToString(),
                 CashboxName = cashboxName,
                 CashierLine = $"{Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir")}: {cashierName}",
@@ -468,7 +472,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .FirstOrDefault(s => string.Equals(s.ShiftNumber, row.ShiftId, StringComparison.OrdinalIgnoreCase));
             if (entry is null)
             {
-                PosMessageBox.Show(this, "Не удалось загрузить отчёт смены — нет связи с сервером.", "Смена",
+                PosMessageBox.Show(this, Tr.T("Не удалось загрузить отчёт смены — нет связи с сервером.", "Сменанын отчётун жүктөө мүмкүн болгон жок — сервер менен байланыш жок.", "Could not load the shift report — no connection to the server.", "Vardiya raporu yüklenemedi — sunucuyla bağlantı yok.", "Smena hisobotini yuklab bo'lmadi — server bilan aloqa yo'q."), Tr.T("Смена", "Смена", "Shift", "Vardiya", "Smena"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -519,7 +523,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             catch (Exception ex)
             {
                 PosLogger.Log($"Close shift for other cashbox failed: {ex}", "SHIFT");
-                PosMessageBox.Show(this, "Не удалось закрыть смену: " + ex.Message, "Ошибка",
+                PosMessageBox.Show(this, Tr.T("Не удалось закрыть смену: ", "Сменаны жабуу мүмкүн болгон жок: ", "Could not close the shift: ", "Vardiya kapatılamadı: ", "Smenani yopib bo'lmadi: ") + ex.Message, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -561,15 +565,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .ToList();
 
             BarChartRenderer.Render(PopularProductsChart, TopItems
-                .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} сом"))
+                .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
                 .ToList());
             BarChartRenderer.RenderPie(PopularProductsPie, TopItems
                 .Take(10)
-                .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} сом"))
+                .Select(t => (t.ProductName, (double)t.Revenue, $"{t.Revenue:N0} {Som}"))
                 .ToList());
             BarChartRenderer.Render(UnpopularProductsChart, unpopular
                 .Take(10)
-                .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} шт."))
+                .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} {Pcs}"))
                 .ToList());
 
             RefreshAllProductsSection();
@@ -590,7 +594,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     ProductName = p.Title,
                     Article = string.IsNullOrWhiteSpace(p.Article) ? "—" : p.Article!,
-                    StockText = $"{p.Quantity:0.###} {(p.MustWeigh ? "кг" : "шт.")}",
+                    StockText = $"{p.Quantity:0.###} {(p.MustWeigh ? Kg : Pcs)}",
                     CategoryName = string.IsNullOrWhiteSpace(p.Category) ? "—" : p.Category!,
                 })
                 .ToList();
@@ -605,7 +609,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             var pieItems = byStock
                 .Take(topSlices)
-                .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} {(p.MustWeigh ? "кг" : "шт.")}"))
+                .Select(p => (p.Title, p.Quantity, $"{p.Quantity:N0} {(p.MustWeigh ? Kg : Pcs)}"))
                 .ToList();
 
             var othersQty = byStock.Skip(topSlices).Sum(p => p.Quantity);
@@ -619,7 +623,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var message = Tr.T(
                 $"Не удалось загрузить данные за период: {ErrorMessage}",
-                $"Мезгил үчүн маалыматтарды жүктөө мүмкүн болгон жок: {ErrorMessage}");
+                $"Мезгилдин маалыматтарын жүктөө мүмкүн болгон жок: {ErrorMessage}", $"Could not load data for the period: {ErrorMessage}", $"Dönem verileri yüklenemedi: {ErrorMessage}", $"Davr uchun ma'lumotlarni yuklab bo'lmadi: {ErrorMessage}");
             foreach (var panel in new[] { PopularProductsChart, PopularProductsPie, UnpopularProductsChart })
             {
                 panel.Children.Clear();
@@ -695,7 +699,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var extension = toWord ? "docx" : "xlsx";
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = toWord ? "Сохранить отчёт в Word" : "Сохранить отчёт в Excel",
+                Title = toWord
+                    ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
+                    : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
                 SuggestedFileName = $"analitika-{_historyFrom:yyyy-MM-dd}_{_historyTo:yyyy-MM-dd}.{extension}",
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
@@ -705,13 +711,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var path = file.TryGetLocalPath();
             if (string.IsNullOrEmpty(path))
             {
-                ErrorMessage = "Не удалось определить путь файла — выберите папку на этом компьютере.";
+                ErrorMessage = Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang.");
                 return;
             }
 
             try
             {
-                ErrorMessage = "Готовлю отчёт…";
+                ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
                 var data = await Task.Run(() => AnalyticsReportData.Build(_historyFrom, _historyTo)).ConfigureAwait(true);
                 var shop = UserPreferences.Instance.StoreName;
 
@@ -723,12 +729,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         AnalyticsExportService.ExportToExcel(path!, data, shop);
                 }).ConfigureAwait(true);
 
-                ErrorMessage = $"Отчёт сохранён: {path}";
+                ErrorMessage = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Выгрузка аналитики не удалась: {ex}", "WARNING");
-                ErrorMessage = "Не удалось сохранить отчёт: " + ex.Message;
+                ErrorMessage = Tr.T("Не удалось сохранить отчёт: ", "Отчётту сактоо мүмкүн болгон жок: ", "Could not save the report: ", "Rapor kaydedilemedi: ", "Hisobotni saqlab bo'lmadi: ") + ex.Message;
             }
         }
 
@@ -763,8 +769,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
             RefreshAbc();
 
             ErrorMessage = sales.Count > 0
-                ? "Нет связи с сервером — показаны данные этой кассы за выбранный период."
-                : "Нет связи с сервером, а локальных продаж за выбранный период нет.";
+                ? Tr.T("Нет связи с сервером — показаны данные этой кассы за выбранный период.",
+                    "Сервер менен байланыш жок — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
+                    "No connection to the server — showing this till's data for the selected period.",
+                    "Sunucuyla bağlantı yok — seçilen dönem için bu kasanın verileri gösteriliyor.",
+                    "Server bilan aloqa yo'q — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
+                : Tr.T("Нет связи с сервером, а локальных продаж за выбранный период нет.",
+                    "Сервер менен байланыш жок, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
+                    "No connection to the server, and there are no local sales for the selected period.",
+                    "Sunucuyla bağlantı yok ve seçilen dönemde yerel satış yok.",
+                    "Server bilan aloqa yo'q, tanlangan davrda esa mahalliy sotuvlar yo'q.");
         }
 
         /// <summary>Пересчёт по сигналу «продажи изменились».
@@ -1016,15 +1030,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 TopItems.Add(new TopItem { ProductName = item.Name, Revenue = item.Revenue, Quantity = item.Qty });
         }
 
-        private static readonly (DayOfWeek Day, string Name)[] WeekDayOrder =
+        // Названия дней — на языке интерфейса, поэтому массив собирается при каждом обращении.
+        private static (DayOfWeek Day, string Name)[] WeekDayOrder => new (DayOfWeek Day, string Name)[]
         {
-            (DayOfWeek.Monday, "Понедельник"),
-            (DayOfWeek.Tuesday, "Вторник"),
-            (DayOfWeek.Wednesday, "Среда"),
-            (DayOfWeek.Thursday, "Четверг"),
-            (DayOfWeek.Friday, "Пятница"),
-            (DayOfWeek.Saturday, "Суббота"),
-            (DayOfWeek.Sunday, "Воскресенье"),
+            (DayOfWeek.Monday, Tr.T("Понедельник", "Дүйшөмбү", "Monday", "Pazartesi", "Dushanba")),
+            (DayOfWeek.Tuesday, Tr.T("Вторник", "Шейшемби", "Tuesday", "Salı", "Seshanba")),
+            (DayOfWeek.Wednesday, Tr.T("Среда", "Шаршемби", "Wednesday", "Çarşamba", "Chorshanba")),
+            (DayOfWeek.Thursday, Tr.T("Четверг", "Бейшемби", "Thursday", "Perşembe", "Payshanba")),
+            (DayOfWeek.Friday, Tr.T("Пятница", "Жума", "Friday", "Cuma", "Juma")),
+            (DayOfWeek.Saturday, Tr.T("Суббота", "Ишемби", "Saturday", "Cumartesi", "Shanba")),
+            (DayOfWeek.Sunday, Tr.T("Воскресенье", "Жекшемби", "Sunday", "Pazar", "Yakshanba")),
         };
 
         private void UpdateDayOfWeekInsights(List<SaleLineFact> facts)
@@ -1066,29 +1081,40 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var lines = new List<string>();
             if (product != null)
             {
-                lines.Add($"Товар: {product.Title}");
+                lines.Add(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot") + $": {product.Title}");
                 if (!string.IsNullOrWhiteSpace(product.Barcode))
-                    lines.Add($"Штрихкод: {product.Barcode}");
+                    lines.Add(Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod") + $": {product.Barcode}");
                 if (!string.IsNullOrWhiteSpace(product.Category))
-                    lines.Add($"Категория: {product.Category}");
+                    lines.Add(Tr.T("Категория", "Категория", "Category", "Kategori", "Toifa") + $": {product.Category}");
                 if (!string.IsNullOrWhiteSpace(product.Brand))
-                    lines.Add($"Бренд: {product.Brand}");
+                    lines.Add(Tr.T("Бренд", "Бренд", "Brand", "Marka", "Brend") + $": {product.Brand}");
                 if (!string.IsNullOrWhiteSpace(product.Unit))
-                    lines.Add($"Ед. изм.: {product.Unit}");
-                lines.Add($"Цена: {product.PriceLine}");
-                lines.Add($"Остаток на складе: {product.Quantity:0.###} {product.Unit}");
-                lines.Add($"Тип: {(product.IsWeighted ? "Весовой" : "Штучный")}");
+                    lines.Add(Tr.T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov birligi") + $": {product.Unit}");
+                lines.Add(Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx") + $": {product.PriceLine}");
+                lines.Add(Tr.T("Остаток на складе", "Кампадагы калдык", "In stock", "Stok", "Ombordagi qoldiq") + $": {product.Quantity:0.###} {product.Unit}");
+                lines.Add(Tr.T("Тип", "Түрү", "Type", "Tür", "Turi") + ": " + (product.IsWeighted
+                    ? Tr.T("Весовой", "Салмактуу", "By weight", "Tartılı", "Vaznli")
+                    : Tr.T("Штучный", "Даана", "Piece", "Adet", "Dona")));
             }
             else
             {
-                lines.Add($"Товар: {insight.ProductName}");
-                lines.Add("Не найден в текущем каталоге кассы (возможно, переименован или удалён).");
+                lines.Add(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot") + $": {insight.ProductName}");
+                lines.Add(Tr.T("Не найден в текущем каталоге кассы (возможно, переименован или удалён).",
+                    "Кассанын учурдагы каталогунан табылган жок (аты өзгөртүлгөн же өчүрүлгөн болушу мүмкүн).",
+                    "Not found in the till's current catalog (it may have been renamed or deleted).",
+                    "Kasanın mevcut kataloğunda bulunamadı (yeniden adlandırılmış veya silinmiş olabilir).",
+                    "Kassaning joriy katalogida topilmadi (nomi o'zgartirilgan yoki o'chirilgan bo'lishi mumkin)."));
             }
 
             lines.Add("");
-            lines.Add($"Продажи ({insight.DayName.ToLowerInvariant()}): {insight.Quantity} шт. на {insight.Revenue:N2} сом");
+            var dayLower = insight.DayName.ToLowerInvariant();
+            lines.Add(Tr.T($"Продажи ({dayLower}): {insight.Quantity} шт. на {insight.Revenue:N2} сом",
+                $"Сатуулар ({dayLower}): {insight.Quantity} даана, {insight.Revenue:N2} сом",
+                $"Sales ({insight.DayName}): {insight.Quantity} pcs for {insight.Revenue:N2} som",
+                $"Satışlar ({dayLower}): {insight.Quantity} adet, {insight.Revenue:N2} som",
+                $"Sotuvlar ({dayLower}): {insight.Quantity} dona, {insight.Revenue:N2} so'm"));
 
-            PosDialogs.Info(this, string.Join("\n", lines), "Информация о товаре");
+            PosDialogs.Info(this, string.Join("\n", lines), Tr.T("Информация о товаре", "Товар жөнүндө маалымат", "Product information", "Ürün bilgisi", "Mahsulot haqida ma'lumot"));
         }
 
         /// <summary>2026-09-15, живой баг ("время в аналитике не работают" — переключение
@@ -1437,11 +1463,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
             // ── Базовые показатели ──
-            TotalSalesText.Text = $"{net:N2} сом";
-            TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} сом";
-            CashText.Text = $"{cashSales:N2} сом";
-            NonCashText.Text = $"{nonCash:N2} сом";
-            AvgReceiptText.Text = $"{avg:N2} сом";
+            TotalSalesText.Text = $"{net:N2} {Som}";
+            TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} {Som}";
+            CashText.Text = $"{cashSales:N2} {Som}";
+            NonCashText.Text = $"{nonCash:N2} {Som}";
+            AvgReceiptText.Text = $"{avg:N2} {Som}";
             ReceiptCountText.Text = totalCount.ToString();
 
             // ── Новые показатели ──
@@ -1459,7 +1485,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // отменённые чеки, в выручку они и так не входят.
             decimal netProfit = _serverSummary?.GrossProfit ?? totalSales - costOfGoods;
             if (NetProfitText != null)
-                NetProfitText.Text = $"{netProfit:N2} сом";
+                NetProfitText.Text = $"{netProfit:N2} {Som}";
 
             if (MarginPercentText != null)
             {
@@ -1474,16 +1500,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // выглядела больше, чем осталось в ящике.
             var (deposits, withdrawals) = CashOperationsForPeriod(_displayFrom, _displayTo);
             if (ExpensesText != null)
-                ExpensesText.Text = $"{withdrawals:N2} сом";
+                ExpensesText.Text = $"{withdrawals:N2} {Som}";
             if (ExpensesBreakdownText != null)
             {
                 ExpensesBreakdownText.Text = deposits > 0m
-                    ? $"внесено: {deposits:N2} сом"
-                    : "внесений не было";
+                    ? Tr.T($"внесено: {deposits:N2} сом", $"салынды: {deposits:N2} сом", $"cash in: {deposits:N2} som", $"para girişi: {deposits:N2} som", $"kiritildi: {deposits:N2} so'm")
+                    : Tr.T("внесений не было", "акча салынган жок", "no cash in", "para girişi yapılmadı", "kirim bo'lmagan");
             }
 
             if (ProfitAfterExpensesText != null)
-                ProfitAfterExpensesText.Text = $"{netProfit - withdrawals:N2} сом";
+                ProfitAfterExpensesText.Text = $"{netProfit - withdrawals:N2} {Som}";
         }
 
         /// <summary>Внесения и изъятия из денежного ящика за период. Операции хранятся локально
@@ -1569,14 +1595,26 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .Where(s => s.CountsAsRevenue && s.CreatedAt.Date >= prevFrom && s.CreatedAt.Date <= prevTo)
                 .Sum(s => (decimal?)s.TotalAmount);
 
-            var periodLabel = _summaryPeriod switch { 1 => "За неделю", 2 => "За месяц", _ => "Сегодня" };
-            var compareLabel = _summaryPeriod switch { 1 => "прошлую неделю", 2 => "прошлый месяц", _ => "вчера" };
+            var periodLabel = _summaryPeriod switch
+            {
+                1 => Tr.T("За неделю", "Акыркы жума", "Past week", "Son hafta", "So'nggi hafta"),
+                2 => Tr.T("За месяц", "Акыркы ай", "Past month", "Son ay", "So'nggi oy"),
+                _ => Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun"),
+            };
+            // Форма «с чем сравниваем» у каждого языка своя: «чем за вчера», «кечээкиге
+            // караганда», «from yesterday», «düne göre», «kechagiga nisbatan».
+            var compareLabel = _summaryPeriod switch
+            {
+                1 => Tr.T("прошлую неделю", "өткөн жумага", "the previous week", "geçen haftaya", "oldingi haftaga"),
+                2 => Tr.T("прошлый месяц", "өткөн айга", "the previous month", "geçen aya", "oldingi oyga"),
+                _ => Tr.T("вчера", "кечээкиге", "yesterday", "düne", "kechagi kunga"),
+            };
 
             if (periodSales.Count == 0)
             {
                 DailySummaryText.Text = _summaryPeriod == 0
-                    ? "Сегодня пока не было продаж."
-                    : "За этот период пока не было продаж.";
+                    ? Tr.T("Сегодня пока не было продаж.", "Бүгүн азырынча сатуу болгон жок.", "No sales yet today.", "Bugün henüz satış yok.", "Bugun hali sotuv bo'lmadi.")
+                    : Tr.T("За этот период пока не было продаж.", "Бул мезгилде азырынча сатуу болгон жок.", "No sales in this period yet.", "Bu dönemde henüz satış yok.", "Bu davrda hali sotuv bo'lmadi.");
                 return;
             }
 
@@ -1614,26 +1652,52 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var sb = new System.Text.StringBuilder();
             // Выручка как на сайте и в плитках — без вычета удалений из корзины (это строки,
             // убранные до оплаты, а не возвраты); сравнение со вчера идёт по той же мерке.
-            sb.Append($"{periodLabel}: выручка {periodRevenue:N0} сом");
+            sb.Append(Tr.T($"{periodLabel}: выручка {periodRevenue:N0} сом",
+                $"{periodLabel}: түшүм {periodRevenue:N0} сом",
+                $"{periodLabel}: revenue {periodRevenue:N0} som",
+                $"{periodLabel}: ciro {periodRevenue:N0} som",
+                $"{periodLabel}: tushum {periodRevenue:N0} so'm"));
 
             if (prevPeriodRevenue is > 0)
             {
                 decimal changePercent = (periodRevenue - prevPeriodRevenue.Value) / prevPeriodRevenue.Value * 100;
-                string direction = changePercent >= 0 ? "больше" : "меньше";
-                sb.Append($", это на {Math.Abs(changePercent):F0}% {direction}, чем за {compareLabel} ({prevPeriodRevenue.Value:N0} сом)");
+                var up = changePercent >= 0;
+                var pct = Math.Abs(changePercent).ToString("F0");
+                var prev = prevPeriodRevenue.Value.ToString("N0");
+                sb.Append(Tr.T($", это на {pct}% {(up ? "больше" : "меньше")}, чем за {compareLabel} ({prev} сом)",
+                    $", бул {compareLabel} ({prev} сом) караганда {pct}% {(up ? "көп" : "аз")}",
+                    $", {(up ? "up" : "down")} {pct}% from {compareLabel} ({prev} som)",
+                    $", {compareLabel} ({prev} som) göre %{pct} {(up ? "daha fazla" : "daha az")}",
+                    $", bu {compareLabel} ({prev} so'm) nisbatan {pct}% {(up ? "ko'p" : "kam")}"));
             }
             sb.Append('.');
 
             if (topProduct is not null)
-                sb.Append($" Лучше всего продавался «{topProduct.Name}» ({topProduct.Qty} шт).");
+                sb.Append(Tr.T($" Лучше всего продавался «{topProduct.Name}» ({topProduct.Qty} шт).",
+                    $" Эң көп сатылганы — «{topProduct.Name}» ({topProduct.Qty} даана).",
+                    $" Best seller: “{topProduct.Name}” ({topProduct.Qty} pcs).",
+                    $" En çok satan: «{topProduct.Name}» ({topProduct.Qty} adet).",
+                    $" Eng ko'p sotilgani — «{topProduct.Name}» ({topProduct.Qty} dona)."));
 
-            sb.Append($" Чеков — {receiptCount}, средний чек — {avgCheck:N0} сом.");
+            sb.Append(Tr.T($" Чеков — {receiptCount}, средний чек — {avgCheck:N0} сом.",
+                $" Чектер — {receiptCount}, орточо чек — {avgCheck:N0} сом.",
+                $" Receipts: {receiptCount}, average receipt: {avgCheck:N0} som.",
+                $" Fiş sayısı: {receiptCount}, ortalama fiş: {avgCheck:N0} som.",
+                $" Cheklar — {receiptCount}, o'rtacha chek — {avgCheck:N0} so'm."));
 
             if (busiestHour is not null)
-                sb.Append($" Самое активное время — {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00.");
+                sb.Append(Tr.T($" Самое активное время — {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00.",
+                    $" Эң активдүү убакыт — {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00.",
+                    $" Busiest time: {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00.",
+                    $" En yoğun saat: {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00.",
+                    $" Eng faol vaqt — {busiestHour.Hour}:00–{busiestHour.Hour + 1}:00."));
 
             if (periodSales.Count > 200)
-                sb.Append(" (Товар-лидер посчитан по первым 200 чекам периода.)");
+                sb.Append(Tr.T(" (Товар-лидер посчитан по первым 200 чекам периода.)",
+                    " (Эң көп сатылган товар мезгилдин алгачкы 200 чеги боюнча эсептелди.)",
+                    " (The top product is based on the first 200 receipts of the period.)",
+                    " (En çok satan ürün, dönemin ilk 200 fişine göre hesaplandı.)",
+                    " (Yetakchi mahsulot davrning dastlabki 200 ta cheki bo'yicha hisoblandi.)"));
 
             DailySummaryText.Text = sb.ToString();
         }
@@ -1656,7 +1720,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var byMethod = sales
                 .GroupBy(s => NormalizePaymentMethodLabel(s.PaymentMethod))
-                .Select(g => (Label: g.Key, Value: (double)g.Sum(s => s.TotalAmount), ValueText: $"{g.Sum(s => s.TotalAmount):N0} сом"))
+                .Select(g => (Label: g.Key, Value: (double)g.Sum(s => s.TotalAmount), ValueText: $"{g.Sum(s => s.TotalAmount):N0} {Som}"))
                 .Where(x => x.Value > 0)
                 .OrderByDescending(x => x.Value)
                 .ThenBy(x => x.Label, StringComparer.Ordinal)
@@ -1691,24 +1755,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
             BarChartRenderer.RenderArea(RevenueCumulativeChart, cumulativePoints);
 
             var combined = byDay
-                .Select(d => (d.Date.ToString("dd.MM"), (double)d.Total, (double)d.Count, $"{d.Total:N0} сом"))
+                .Select(d => (d.Date.ToString("dd.MM"), (double)d.Total, (double)d.Count, $"{d.Total:N0} {Som}"))
                 .ToList();
             BarChartRenderer.RenderCombined(RevenueVsSalesChart, combined,
-                Tr.T("Выручка", "Киреше", "Revenue", "Ciro", "Tushum"), Tr.T("Продажи, шт.", "Сатуулар, даана", "Sales, pcs.", "Satış, adet", "Sotuv, dona"));
+                Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"), Tr.T("Продажи, шт.", "Сатуулар, даана", "Sales, pcs.", "Satış, adet", "Sotuv, dona"));
         }
+
+        /// <summary>Подписи валюты и единиц на экране — на языке интерфейса.</summary>
+        private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
+        private static string Pcs => Tr.T("шт.", "даана", "pcs", "adet", "dona");
+        private static string Kg => Tr.T("кг", "кг", "kg", "kg", "kg");
 
         private static string NormalizePaymentMethodLabel(string method)
         {
             var key = (method ?? "").Trim().ToLowerInvariant();
             return key switch
             {
-                "" => "Не указано",
-                "cash" => "Наличные",
-                "transfer" or "card" => "Перевод",
+                "" => Tr.T("Не указано", "Көрсөтүлгөн эмес", "Not specified", "Belirtilmemiş", "Ko'rsatilmagan"),
+                "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
+                "transfer" or "card" => Tr.T("Перевод", "Которуу", "Transfer", "Nakitsiz", "Naqdsiz"),
                 "mbank" => "MBank",
-                "mixed" => "Смешанный",
-                "debt" => "Долг",
-                _ when key.Contains("нал") => "Наличные",
+                "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
+                "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),
+                _ when key.Contains("нал") => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
                 _ => char.ToUpperInvariant(method![0]) + method[1..],
             };
         }
@@ -1734,7 +1803,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PaymentSplitBar.Children.Add(new Border { Background = Brushes.LightGray, CornerRadius = new CornerRadius(6) });
                 PaymentLegend.Children.Add(new TextBlock
                 {
-                    Text = "Нет данных за выбранный период",
+                    Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
                     Foreground = Brushes.Gray,
                 });
@@ -1753,7 +1822,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Background = Brush.Parse(color),
                     CornerRadius = new CornerRadius(isFirst ? 6 : 0, isLast ? 6 : 0, isLast ? 6 : 0, isFirst ? 6 : 0),
-                    [ToolTip.TipProperty] = $"{entry.Label}: {entry.Total:N2} сом ({entry.Total / total * 100:N0}%)",
+                    [ToolTip.TipProperty] = $"{entry.Label}: {entry.Total:N2} {Som} ({entry.Total / total * 100:N0}%)",
                 };
                 Grid.SetColumn(segment, i);
                 PaymentSplitBar.Children.Add(segment);
@@ -1763,7 +1832,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 legendItem.Children.Add(new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(2), Background = Brush.Parse(color) });
                 legendItem.Children.Add(new TextBlock
                 {
-                    Text = $"{entry.Label}: {entry.Total:N0} сом ({pct:N1}%)",
+                    Text = $"{entry.Label}: {entry.Total:N0} {Som} ({pct:N1}%)",
                     FontSize = 12,
                     Foreground = Brushes.Gray,
                 });
@@ -1782,7 +1851,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 HourlyRevenueBars.Children.Add(new TextBlock
                 {
-                    Text = "Нет данных за выбранный период",
+                    Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
                     Foreground = Brushes.Gray,
                     VerticalAlignment = VerticalAlignment.Bottom,
@@ -1815,7 +1884,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Background = value > 0 ? Brush.Parse("#3B82F6") : Brushes.LightGray,
                     CornerRadius = new CornerRadius(3, 3, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    [ToolTip.TipProperty] = $"{hour:00}:00 — {value:N2} сом",
+                    [ToolTip.TipProperty] = $"{hour:00}:00 — {value:N2} {Som}",
                 });
                 column.Children.Add(new TextBlock
                 {
@@ -1845,7 +1914,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 DailyRevenueBars.Children.Add(new TextBlock
                 {
-                    Text = "Нет данных за выбранный период",
+                    Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
                     Foreground = Brushes.Gray,
                     VerticalAlignment = VerticalAlignment.Bottom,
@@ -1881,7 +1950,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Background = Brush.Parse("#F59E0B"),
                     CornerRadius = new CornerRadius(4, 4, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    [ToolTip.TipProperty] = $"{day.Date:dd.MM.yyyy}: {day.Total:N2} сом",
+                    [ToolTip.TipProperty] = $"{day.Date:dd.MM.yyyy}: {day.Total:N2} {Som}",
                 });
                 column.Children.Add(new TextBlock
                 {
@@ -1903,7 +1972,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Id = s.Id,
                     CreatedAt = s.CreatedAt,
-                    Type = "Продажа",
+                    Type = Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"),
                     ReceiptNumber = s.ReceiptNumber,
                     TotalAmount = s.TotalAmount,
                     PaymentMethod = s.PaymentMethod ?? "—"
@@ -1915,7 +1984,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Id = r.Id,
                     CreatedAt = r.CreatedAt,
-                    Type = "Возврат",
+                    Type = Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
                     ReceiptNumber = r.ProductName,
                     TotalAmount = -Math.Abs(r.TotalAmount),
                     PaymentMethod = string.IsNullOrWhiteSpace(r.DeletedBy) ? "—" : r.DeletedBy
@@ -1964,7 +2033,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                ErrorMessage = "Не удалось загрузить детали чека: " + ex.Message;
+                ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ex.Message;
             }
         }
 
@@ -1976,7 +2045,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
             }
 
-            PopupTitle.Text = "Чек " + receiptNumber;
+            PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
             PopupItemsControl.ItemsSource = items;
             ReceiptDetailsPopup.IsOpen = true;
         }

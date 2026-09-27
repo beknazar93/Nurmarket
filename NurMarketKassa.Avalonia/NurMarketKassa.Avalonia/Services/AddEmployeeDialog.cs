@@ -114,10 +114,10 @@ public sealed class AddEmployeeDialog : Window
         {
             _errorText.Text = Tr.T(
                 "Заполните Email, Имя, Фамилию и выберите роль.",
-                "Email, Аты, Фамилиясын толтуруңуз жана ролду тандаңыз.",
-                "Fill in Email, First name, Last name and select a role.",
-                "Email, Ad, Soyad alanlarını doldurun ve rol seçin.",
-                "Email, Ism, Familiya to'ldiring va rolni tanlang.");
+                "Email'ди, атын жана фамилиясын толтуруп, ролду тандаңыз.",
+                "Fill in the email, first name and last name, and select a role.",
+                "E-posta, Ad ve Soyad alanlarını doldurun ve bir rol seçin.",
+                "Email, ism va familiyani kiriting hamda rolni tanlang.");
             _errorText.IsVisible = true;
             return;
         }

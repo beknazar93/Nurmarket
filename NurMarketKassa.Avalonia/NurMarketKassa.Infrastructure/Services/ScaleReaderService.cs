@@ -202,7 +202,7 @@ public sealed class ScaleReaderService : IDisposable
                             break;
                         var msg = $"COM потерян: {portName}. Переподключение… ({ex.Message})";
                         PosLogger.Log(msg, "SCALE");
-                        SetStatus(msg);
+                        SetStatus(Tr.T(msg, $"COM байланышы үзүлдү: {portName}. Кайра туташууда… ({ex.Message})", $"COM connection lost: {portName}. Reconnecting… ({ex.Message})", $"COM bağlantısı koptu: {portName}. Yeniden bağlanılıyor… ({ex.Message})", $"COM aloqasi uzildi: {portName}. Qayta ulanmoqda… ({ex.Message})"));
                         break;
                     }
                     catch (InvalidOperationException ex)
@@ -211,7 +211,7 @@ public sealed class ScaleReaderService : IDisposable
                             break;
                         var msg = $"COM закрыт: {portName}. Переподключение… ({ex.Message})";
                         PosLogger.Log(msg, "SCALE");
-                        SetStatus(msg);
+                        SetStatus(Tr.T(msg, $"COM жабылды: {portName}. Кайра туташууда… ({ex.Message})", $"COM port closed: {portName}. Reconnecting… ({ex.Message})", $"COM kapandı: {portName}. Yeniden bağlanılıyor… ({ex.Message})", $"COM yopildi: {portName}. Qayta ulanmoqda… ({ex.Message})"));
                         break;
                     }
                 }
@@ -221,13 +221,13 @@ public sealed class ScaleReaderService : IDisposable
                 var port = HardwarePortHelper.NormalizeComPort(_cfg.ComPort);
                 var msg = $"COM занят или доступ запрещён: {port}.";
                 PosLogger.Log(msg, "SCALE");
-                SetStatus(msg);
+                SetStatus(Tr.T(msg, $"COM бош эмес же ага кирүүгө тыюу салынган: {port}.", $"COM port is busy or access is denied: {port}.", $"COM meşgul veya erişim reddedildi: {port}.", $"COM band yoki unga kirish taqiqlangan: {port}."));
             }
             catch (Exception ex)
             {
                 var msg = $"COM недоступен: {ex.Message}";
                 PosLogger.Log(msg, "SCALE");
-                SetStatus(msg);
+                SetStatus(Tr.T(msg, $"COM жеткиликсиз: {ex.Message}", $"COM port unavailable: {ex.Message}", $"COM kullanılamıyor: {ex.Message}", $"COM mavjud emas: {ex.Message}"));
             }
             finally
             {
@@ -259,26 +259,26 @@ public sealed class ScaleReaderService : IDisposable
     {
         var port = HardwarePortHelper.NormalizeComPort(rawPort, "");
         if (string.IsNullOrWhiteSpace(port) || !HardwarePortHelper.LooksLikeComPort(port))
-            return new ScaleProbeResult(false, "○ COM-порт не выбран", ScalePortState.NotSpecified);
+            return new ScaleProbeResult(false, Tr.T("○ COM-порт не выбран", "○ COM-порт тандалган жок", "○ No COM port selected", "○ COM portu seçilmedi", "○ COM port tanlanmagan"), ScalePortState.NotSpecified);
 
         var names = SerialPort.GetPortNames();
         if (!names.Any(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase)))
-            return new ScaleProbeResult(false, "○ COM-порт не найден", ScalePortState.NotFound);
+            return new ScaleProbeResult(false, Tr.T("○ COM-порт не найден", "○ COM-порт табылган жок", "○ COM port not found", "○ COM portu bulunamadı", "○ COM port topilmadi"), ScalePortState.NotFound);
 
         try
         {
             using var sp = new SerialPort(port);
             sp.Open();
             sp.Close();
-            return new ScaleProbeResult(true, "● Доступен (Весы)", ScalePortState.Available);
+            return new ScaleProbeResult(true, Tr.T("● Доступен (Весы)", "● Жеткиликтүү (тараза)", "● Available (scale)", "● Kullanılabilir (tartı)", "● Mavjud (tarozi)"), ScalePortState.Available);
         }
         catch (UnauthorizedAccessException)
         {
-            return new ScaleProbeResult(false, "○ Порт занят другим приложением", ScalePortState.Busy);
+            return new ScaleProbeResult(false, Tr.T("○ Порт занят другим приложением", "○ Портту башка программа колдонуп жатат", "○ The port is in use by another application", "○ Port başka bir uygulama tarafından kullanılıyor", "○ Portni boshqa dastur band qilgan"), ScalePortState.Busy);
         }
         catch (Exception ex)
         {
-            return new ScaleProbeResult(false, $"○ Порт недоступен: {ex.Message}", ScalePortState.NotFound);
+            return new ScaleProbeResult(false, Tr.T($"○ Порт недоступен: {ex.Message}", $"○ Порт жеткиликсиз: {ex.Message}", $"○ Port unavailable: {ex.Message}", $"○ Port kullanılamıyor: {ex.Message}", $"○ Port mavjud emas: {ex.Message}"), ScalePortState.NotFound);
         }
     }
 
@@ -309,10 +309,20 @@ public sealed class ScaleReaderService : IDisposable
     public static void ValidateSettings(ScaleSettings cfg)
     {
         if (!HardwarePortHelper.LooksLikeComPort(cfg.ComPort))
-            throw new InvalidOperationException("Для весов укажите корректный COM-порт, например COM3.");
+            throw new InvalidOperationException(Tr.T(
+                "Для весов укажите корректный COM-порт, например COM3.",
+                "Тараза үчүн туура COM-портту көрсөтүңүз, мисалы COM3.",
+                "Specify a valid COM port for the scale, for example, COM3.",
+                "Tartı için geçerli bir COM portu belirtin, örneğin COM3.",
+                "Tarozi uchun to'g'ri COM portni ko'rsating, masalan COM3."));
 
         if (cfg.BaudRate <= 0)
-            throw new InvalidOperationException("Скорость весов должна быть больше 0.");
+            throw new InvalidOperationException(Tr.T(
+                "Скорость весов должна быть больше 0.",
+                "Таразанын ылдамдыгы 0дөн чоң болушу керек.",
+                "The scale baud rate must be greater than 0.",
+                "Tartının baud hızı 0'dan büyük olmalıdır.",
+                "Tarozi tezligi 0 dan katta bo'lishi kerak."));
 
         _ = ParseRequestHex(cfg.RequestHex);
     }
@@ -332,7 +342,12 @@ public sealed class ScaleReaderService : IDisposable
             if (t.Length == 0)
                 continue;
             if (!byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out var b))
-                throw new InvalidOperationException("Запрос весов HEX указан неверно. Пример: 05 или 57 0D.");
+                throw new InvalidOperationException(Tr.T(
+                    "Запрос весов HEX указан неверно. Пример: 05 или 57 0D.",
+                    "Таразанын HEX сурамы туура эмес көрсөтүлгөн. Мисал: 05 же 57 0D.",
+                    "The scale HEX request is invalid. Example: 05 or 57 0D.",
+                    "Tartı HEX sorgusu hatalı. Örnek: 05 veya 57 0D.",
+                    "Tarozi HEX so'rovi noto'g'ri ko'rsatilgan. Misol: 05 yoki 57 0D."));
             outBytes.Add(b);
         }
 

@@ -253,10 +253,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             {
                 var ownName = own.TryGetProperty("name", out var n) ? n.GetString() : null;
                 ErrorMessage = Tr.T($"Товар с этим штрихкодом уже есть на складе: {ownName}.",
-                    $"Бул штрихкоддогу товар кампада бар: {ownName}.",
-                    $"A product with this barcode is already in stock: {ownName}.",
+                    $"Мындай штрихкоддуу товар кампада мурунтан эле бар: {ownName}.",
+                    $"A product with this barcode already exists in the warehouse: {ownName}.",
                     $"Bu barkodlu ürün zaten depoda var: {ownName}.",
-                    $"Bu shtrix-kodli mahsulot omborda bor: {ownName}.");
+                    $"Bu shtrix-kodli mahsulot omborda allaqachon bor: {ownName}.");
                 return;
             }
 
@@ -313,7 +313,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             _purchaseHistoryLoaded = false;
-            PurchaseHistoryStatus.Text = Tr.T("История закупок не загрузилась: ", "Тарых жүктөлгөн жок: ",
+            PurchaseHistoryStatus.Text = Tr.T("История закупок не загрузилась: ", "Сатып алуулар тарыхы жүктөлгөн жок: ",
                 "Purchase history failed to load: ", "Alım geçmişi yüklenemedi: ", "Xaridlar tarixi yuklanmadi: ") + ex.Message;
             return;
         }
@@ -324,11 +324,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var unit = string.IsNullOrWhiteSpace(h.Unit) ? "шт" : h.Unit;
             var details = new List<string>();
             if (h.SalePrice is { } sale && sale > 0)
-                details.Add(Tr.T("продажа", "сатуу", "sale", "satış", "sotuv") + $" {sale:0.##} {som}");
+                details.Add(Tr.T("продажа", "сатуу", "sale", "satış", "sotuv narxi") + $" {sale:0.##} {som}");
             if (!string.IsNullOrWhiteSpace(h.SupplierName))
                 details.Add(Tr.T("поставщик", "жеткирүүчү", "supplier", "tedarikçi", "yetkazib beruvchi") + " " + h.SupplierName);
             if (!string.IsNullOrWhiteSpace(h.Employee))
-                details.Add(Tr.T("принял", "кабыл алган", "received by", "teslim alan", "qabul qildi") + " " + h.Employee);
+                details.Add(Tr.T("принял", "кабыл алган", "received by", "teslim alan", "qabul qiluvchi") + " " + h.Employee);
             details.Add(h.Source);
 
             return new PurchaseHistoryRow
@@ -341,11 +341,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         }).ToList();
 
         PurchaseHistoryStatus.Text = history.Count == 0
-            ? Tr.T("Закупок этого товара пока не было.", "Бул товар азырынча сатылып алынган эмес.",
-                "No purchases of this product yet.", "Bu ürün henüz alınmadı.", "Bu mahsulot hali xarid qilinmagan.")
+            ? Tr.T("Закупок этого товара пока не было.", "Бул товар боюнча азырынча сатып алуу болгон эмес.",
+                "No purchases of this product yet.", "Bu ürün için henüz alım yapılmadı.", "Bu mahsulot hali xarid qilinmagan.")
             : Tr.T("Последняя цена закупки", "Акыркы сатып алуу баасы", "Last purchase price", "Son alış fiyatı", "Oxirgi xarid narxi")
               + $": {history[0].PurchasePrice:0.##} {som}  ·  "
-              + Tr.T("закупок", "сатып алуулар", "purchases", "alım", "xaridlar") + $": {history.Count}";
+              + Tr.T("закупок", "сатып алуулар", "purchases", "alım", "xaridlar soni") + $": {history.Count}";
     }
 
     /// <summary>Parameterless ctor required by Avalonia XAML previewer/designer only.</summary>
@@ -359,14 +359,14 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// решение, что уже применялись в PayDebtDialog для выбора клиента.</summary>
     private void BuildHotkeyOptions()
     {
-        HotkeyCurrentText.Text = _hotkeyGroup;
+        HotkeyCurrentText.Text = _hotkeyGroup == HotkeyValues[0] ? Tr.T("Без горячей клавиши", "Ыкчам баскычсыз", "No hotkey", "Kısayol tuşu yok", "Tezkor tugmasiz") : _hotkeyGroup;
         HotkeyOptionsList.Items.Clear();
         foreach (var option in HotkeyValues)
         {
             var button = new Button
             {
                 Classes = { "SecondaryButton" },
-                Content = option,
+                Content = option == HotkeyValues[0] ? Tr.T("Без горячей клавиши", "Ыкчам баскычсыз", "No hotkey", "Kısayol tuşu yok", "Tezkor tugmasiz") : option,
                 Tag = option,
                 Margin = new Thickness(0, 0, 6, 6),
                 Padding = new Thickness(10, 6),
@@ -440,11 +440,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     private void BuildCategoryOptions() =>
         BuildReferenceOptions(CategoryCurrentText, CategoryOptionsList, _categoryOptions, Category,
-            Tr.T("Выберите категорию", "Категорияны тандаңыз", "Choose a category", "Kategori seçin", "Kategoriyani tanlang"), CategoryOption_Click);
+            Tr.T("Выберите категорию", "Категорияны тандаңыз", "Select a category", "Kategori seçin", "Kategoriyani tanlang"), CategoryOption_Click);
 
     private void BuildBrandOptions() =>
         BuildReferenceOptions(BrandCurrentText, BrandOptionsList, _brandOptions, Brand,
-            Tr.T("Выберите бренд", "Брендди тандаңыз", "Choose a brand", "Marka seçin", "Brendni tanlang"), BrandOption_Click);
+            Tr.T("Выберите бренд", "Брендди тандаңыз", "Select a brand", "Marka seçin", "Brendni tanlang"), BrandOption_Click);
 
     private void BuildReferenceOptions(
         TextBlock currentText,
@@ -630,8 +630,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
             var granted = prompts != null && await prompts.ConfirmWithCodeAsync(
                 _existing is null
-                    ? Tr.T("Добавление товара", "Товар кошуу", "Adding product", "Ürün ekleme", "Mahsulot qo'shish")
-                    : Tr.T("Редактирование товара", "Товарды түзөтүү", "Editing product", "Ürün düzenleme", "Mahsulotni tahrirlash"),
+                    ? Tr.T("Добавление товара", "Товар кошуу", "Add product", "Ürün ekleme", "Mahsulot qo'shish")
+                    : Tr.T("Редактирование товара", "Товарды түзөтүү", "Edit product", "Ürün düzenleme", "Mahsulotni tahrirlash"),
                 Tr.T("Введите свой код доступа, чтобы продолжить.",
                     "Улантуу үчүн жеке кодуңузду киргизиңиз.",
                     "Enter your access code to continue.",
@@ -645,7 +645,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         await SaveAsync().ConfigureAwait(true);
     }
 
-    public string HeaderText => _existing is null ? Tr.T("Новый товар", "Жаңы товар", "New product", "Yeni ürün", "Yangi mahsulot") : Tr.T("Редактирование товара", "Товарды түзөтүү", "Editing product", "Ürün düzenleme", "Mahsulotni tahrirlash");
+    public string HeaderText => _existing is null ? Tr.T("Новый товар", "Жаңы товар", "New product", "Yeni ürün", "Yangi mahsulot") : Tr.T("Редактирование товара", "Товарды түзөтүү", "Edit product", "Ürün düzenleme", "Mahsulotni tahrirlash");
     public string SaveButtonText => _existing is null ? Tr.T("Добавить", "Кошуу", "Add", "Ekle", "Qo'shish") : Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash");
 
     public string ProductName
@@ -692,8 +692,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public bool HasVariantPreview => !string.IsNullOrEmpty(VariantFullNamePreview);
 
     public string VariantPreviewText => HasVariantPreview
-        ? Tr.T("При сканировании в чеке будет: «", "Сканерленгенде чекте болот: «", "On scan, the receipt line will read: \"", "Okutulduğunda fişte şöyle görünür: \"", "Skanerlanganda chekda shunday bo'ladi: \"") + VariantFullNamePreview
-          + Tr.T("»", "»", "\"", "\"", "\"")
+        ? Tr.T("При сканировании в чеке будет: «", "Сканерлегенде чекте мындай болот: «", "On scan, the receipt line will read: \"", "Okutulduğunda fişte şöyle görünür: \"", "Skanerlanganda chekda shunday ko'rinadi: «") + VariantFullNamePreview
+          + Tr.T("»", "»", "\"", "\"", "»")
         : "";
 
     public ObservableCollection<VariantDraft> Variants => _variants;
@@ -845,7 +845,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 "Вариант үчүн штрихкодду жана атын киргизиңиз.",
                 "Enter the variant's barcode and name.",
                 "Varyant için barkod ve ad girin.",
-                "Variant uchun shtrix-kod va nom kiriting.");
+                "Variantning shtrix-kodi va nomini kiriting.");
             return;
         }
 
@@ -920,7 +920,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         {
             ErrorMessage = Tr.T(
                 "Введите штрихкод (или нажмите «Сгенерировать»).",
-                "Штрихкодду киргизиңиз (же «Түзүү» баскычын басыңыз).");
+                "Штрихкодду киргизиңиз (же «Түзүү» баскычын басыңыз).", "Enter a barcode (or click “Generate”).", "Barkodu girin (veya «Oluştur»a basın).", "Shtrix-kodni kiriting (yoki «Yaratish» tugmasini bosing).");
             return;
         }
 
@@ -1086,10 +1086,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             CatalogCacheService.RaiseToast(
                 Tr.T(
                     "Не удалось отправить новый товар на сервер — он сохранён только локально.",
-                    "Жаңы товар серверге жөнөтүлгөн жок — ал жөн гана жергиликтүү сакталды.",
+                    "Жаңы товарды серверге жөнөтүү мүмкүн болгон жок — ал ушул компьютерде гана сакталды.",
                     "Could not send the new product to the server — it was saved locally only.",
                     "Yeni ürün sunucuya gönderilemedi — yalnızca yerel olarak kaydedildi.",
-                    "Yangi mahsulot serverga yuborilmadi — u faqat lokal saqlandi."),
+                    "Yangi mahsulotni serverga yuborib bo'lmadi — u faqat shu kompyuterda saqlandi."),
                 true);
         }
     }

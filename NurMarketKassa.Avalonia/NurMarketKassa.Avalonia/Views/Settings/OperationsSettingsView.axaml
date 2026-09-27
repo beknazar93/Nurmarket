@@ -53,50 +53,50 @@
         <!-- Телеграм-бот владельца -->
         <Border Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
-            <TextBlock Text="Телеграм-бот владельца" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock Text="{DynamicResource loc.settings.telegram.title}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Сводка по закрытой смене приходит вам в Telegram: выручка, чеки, средний чек, наличные и безналичные, внесения и изъятия, недостача или излишек. Работает из магазина без белого IP и без своего сервера."/>
+                       Text="{DynamicResource loc.settings.telegram.desc}"/>
 
             <!-- Главная кнопка блока: мастер ведёт по шагам и сам включает всё нужное.
                  Поля ниже остаются для тех, кто уже знает, что делает. -->
             <Button x:Name="TelegramWizardButton" Classes="PrimaryButton"
-                    Content="Подключить бота (пошагово)"
+                    Content="{DynamicResource loc.settings.telegram.wizardButton}"
                     HorizontalAlignment="Left"
                     Click="TelegramWizard_Click"/>
 
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Как подключить вручную: 1) в Telegram напишите @BotFather команду /newbot и получите токен; 2) вставьте токен сюда; 3) откройте своего бота и нажмите «Старт»; 4) нажмите «Определить получателя»."/>
+                       Text="{DynamicResource loc.settings.telegram.manualHint}"/>
 
-            <TextBlock Text="Токен бота" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource loc.settings.telegram.tokenLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBox x:Name="TelegramTokenBox" x:FieldModifier="public"
                      PasswordChar="•" Watermark="123456789:AA..."/>
 
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <Button x:Name="TelegramDetectButton" Content="Определить получателя" Click="TelegramDetect_Click"/>
-              <Button x:Name="TelegramTestButton" Content="Отправить пробное" Click="TelegramTest_Click"/>
+              <Button x:Name="TelegramDetectButton" Content="{DynamicResource loc.settings.telegram.detectRecipient}" Click="TelegramDetect_Click"/>
+              <Button x:Name="TelegramTestButton" Content="{DynamicResource loc.settings.telegram.sendTest}" Click="TelegramTest_Click"/>
             </StackPanel>
 
             <TextBlock x:Name="TelegramStatusText" x:FieldModifier="public" FontSize="12"
                        TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
             <CheckBox x:Name="TelegramSummaryCheck" x:FieldModifier="public" Classes="ToggleSwitch"
-                      Content="Присылать сводку при закрытии смены"
+                      Content="{DynamicResource loc.settings.telegram.summaryOnClose}"
                       IsCheckedChanged="TelegramSummary_Changed"/>
 
             <CheckBox x:Name="TelegramCommandsCheck" x:FieldModifier="public" Classes="ToggleSwitch"
-                      Content="Отвечать на команды в Telegram"
+                      Content="{DynamicResource loc.settings.telegram.answerCommands}"
                       IsCheckedChanged="TelegramCommands_Changed"/>
 
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Команды бота: /segodnya — выручка за сегодня, /nedelya — за неделю, /top — топ товаров, /abc — ABC-анализ, /sezon — сезонность, /soveti — рекомендации, /zakaz — что пора заказать, /ostatki — что заканчивается, /dolgi — должники с готовой ссылкой на WhatsApp. Бот отвечает, пока касса включена: своего сервера у программы нет."/>
+                       Text="{DynamicResource loc.settings.telegram.commandsHelp}"/>
 
-            <Button x:Name="TelegramDebtRemindersButton" Content="Разослать напоминания о долге"
+            <Button x:Name="TelegramDebtRemindersButton" Content="{DynamicResource loc.settings.telegram.debtReminders}"
                     Click="TelegramDebtReminders_Click"/>
 
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Напоминание уходит в Telegram только тем покупателям, кто сам подписался на бота по персональной ссылке (кнопка «Ссылка для Telegram» в карточке клиента). Написать человеку по номеру телефона Telegram не разрешает — для остальных должников бот пришлёт вам список со ссылками WhatsApp."/>
+                       Text="{DynamicResource loc.settings.telegram.debtRemindersHint}"/>
 
-            <TextBlock Text="Телефон владельца (для обратной связи в рассылках клиентам)"
+            <TextBlock Text="{DynamicResource loc.settings.telegram.ownerPhone}"
                        FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
             <TextBox x:Name="OwnerPhoneBox" x:FieldModifier="public" Watermark="+996 700 000000"
                      LostFocus="OwnerPhone_LostFocus"/>
@@ -108,14 +108,14 @@
           <StackPanel Spacing="8">
             <CheckBox x:Name="DynamicQrCheck" x:FieldModifier="public"
                       Classes="ToggleSwitch"
-                      Content="Показывать покупателю QR с суммой чека"
+                      Content="{DynamicResource loc.settings.dynamicQr.toggle}"
                       IsCheckedChanged="DynamicQr_Changed"/>
             <TextBlock FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Вместо обычного QR банка на экране покупателя показывается код, в который уже вписана сумма чека — набирать её вручную не нужно. Реквизиты берутся из загруженного выше QR."/>
+                       Text="{DynamicResource loc.settings.dynamicQr.desc}"/>
             <TextBlock FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushWarning}"
-                       Text="Перед включением отсканируйте пробный чек приложениями двух-трёх банков: формат сверен с QR MBank, на других банках не проверялся. Оплату кассир по-прежнему подтверждает вручную — касса не узнаёт о платеже сама."/>
+                       Text="{DynamicResource loc.settings.dynamicQr.warning}"/>
           </StackPanel>
         </Border>
 
@@ -161,7 +161,7 @@
 
                     <!-- Банков в списке больше двух десятков, а магазин обычно работает с
                          одним-двумя. Кассиру в очереди показываем только отмеченные. -->
-                    <CheckBox Content="Показывать при оплате"
+                    <CheckBox Content="{DynamicResource loc.settings.bank.showAtCheckout}"
                               IsChecked="{Binding ShowAtCheckout, Mode=TwoWay}"
                               FontSize="12"
                               Margin="0,2,0,2"

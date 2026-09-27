@@ -291,8 +291,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
             TopItemsGrid.ItemsSource = top;
 
             ErrorMessage = sales.Count > 0
-                ? "Нет связи с сервером — показаны данные этой кассы за выбранный период."
-                : "Нет связи с сервером, а локальных продаж за выбранный период нет.";
+                ? Tr.T("Нет связи с сервером — показаны данные этой кассы за выбранный период.",
+                    "Сервер менен байланыш жок — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
+                    "No connection to the server — showing this till's data for the selected period.",
+                    "Sunucuyla bağlantı yok — seçilen dönem için bu kasanın verileri gösteriliyor.",
+                    "Server bilan aloqa yo'q — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
+                : Tr.T("Нет связи с сервером, а локальных продаж за выбранный период нет.",
+                    "Сервер менен байланыш жок, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
+                    "No connection to the server, and there are no local sales for the selected period.",
+                    "Sunucuyla bağlantı yok ve seçilen dönemde yerel satış yok.",
+                    "Server bilan aloqa yo'q, tanlangan davrda esa mahalliy sotuvlar yo'q.");
         }
 
         /// <summary>2026-09-10: офлайн-эквивалент LoadDataAsync — источник данных
@@ -647,7 +655,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var extension = toWord ? "docx" : "xlsx";
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = toWord ? "Сохранить отчёт в Word" : "Сохранить отчёт в Excel",
+                Title = toWord
+                    ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
+                    : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
                 SuggestedFileName = $"analitika-{_historyFrom:yyyy-MM-dd}_{_historyTo:yyyy-MM-dd}.{extension}",
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
@@ -657,13 +667,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var path = file.TryGetLocalPath();
             if (string.IsNullOrEmpty(path))
             {
-                ErrorMessage = "Не удалось определить путь файла — выберите папку на этом компьютере.";
+                ErrorMessage = Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang.");
                 return;
             }
 
             try
             {
-                ErrorMessage = "Готовлю отчёт…";
+                ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
                 var data = await Task.Run(() => AnalyticsReportData.Build(_historyFrom, _historyTo)).ConfigureAwait(true);
                 var shop = UserPreferences.Instance.StoreName;
 
@@ -675,12 +685,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         AnalyticsExportService.ExportToExcel(path!, data, shop);
                 }).ConfigureAwait(true);
 
-                ErrorMessage = $"Отчёт сохранён: {path}";
+                ErrorMessage = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Выгрузка аналитики не удалась: {ex}", "WARNING");
-                ErrorMessage = "Не удалось сохранить отчёт: " + ex.Message;
+                ErrorMessage = Tr.T("Не удалось сохранить отчёт: ", "Отчётту сактоо мүмкүн болгон жок: ", "Could not save the report: ", "Rapor kaydedilemedi: ", "Hisobotni saqlab bo'lmadi: ") + ex.Message;
             }
         }
 
@@ -732,11 +742,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal net = totalSales;
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
-            TotalSalesText.Text = $"{net:N2} сом";
-            TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} сом";
-            CashText.Text = $"{cashSales:N2} сом";
-            NonCashText.Text = $"{nonCash:N2} сом";
-            AvgReceiptText.Text = $"{avg:N2} сом";
+            TotalSalesText.Text = $"{net:N2} {Som}";
+            TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} {Som}";
+            CashText.Text = $"{cashSales:N2} {Som}";
+            NonCashText.Text = $"{nonCash:N2} {Som}";
+            AvgReceiptText.Text = $"{avg:N2} {Som}";
             ReceiptCountText.Text = totalCount.ToString();
 
             // Скидки и оплата бонусами (2026-09-22). Берутся из локальной таблицы кассы, а не с
@@ -753,8 +763,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // показывала 0,00, когда скидка была на строку.
                 var serverDiscounts = sales.Sum(s => s.DiscountTotal);
                 var discounts = Math.Max(0d, (double)serverDiscounts - adjustments.PointsRedeemed);
-                DiscountsText.Text = $"{discounts:N2} сом";
-                PointsRedeemedText.Text = $"{adjustments.PointsRedeemed:N2} сом";
+                DiscountsText.Text = $"{discounts:N2} {Som}";
+                PointsRedeemedText.Text = $"{adjustments.PointsRedeemed:N2} {Som}";
             }
             catch (Exception ex)
             {
@@ -885,13 +895,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (_serverSummary is { GrossProfit: { } serverProfit, MarginPercent: { } serverMargin })
             {
                 // Как у сайта — «Валовая прибыль» и маржа сервера (см. ServerSalesSummary).
-                NetProfitText.Text = $"{serverProfit:N2} сом";
+                NetProfitText.Text = $"{serverProfit:N2} {Som}";
                 MarginPercentText.Text = $"{serverMargin:F1}%";
             }
             else if (totalRevenueFromItems > 0)
             {
                 var netProfit = totalRevenueFromItems - totalCostFromItems;
-                NetProfitText.Text = $"{netProfit:N2} сом";
+                NetProfitText.Text = $"{netProfit:N2} {Som}";
                 MarginPercentText.Text = $"{netProfit / totalRevenueFromItems * 100:F1}%";
             }
             else
@@ -963,7 +973,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     var entry = OfflinePendingSalesStore.TryGetById(receiptId);
                     if (entry is null)
                     {
-                        ErrorMessage = "Локальный чек не найден.";
+                        ErrorMessage = Tr.T("Локальный чек не найден.", "Жергиликтүү чек табылган жок.", "Local receipt not found.", "Yerel fiş bulunamadı.", "Mahalliy chek topilmadi.");
                         return;
                     }
                     using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(entry.CartJson) ? "{}" : entry.CartJson);
@@ -993,12 +1003,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PopupReceiptText.Text = SaleReceiptTextBuilder.Build(
                     json, receiptNumber, receiptDiscount, receiptTotal);
 
-                PopupTitle.Text = "Чек " + receiptNumber;
+                PopupTitle.Text = Tr.T("Чек ", "Чек ", "Receipt ", "Fiş ", "Chek ") + receiptNumber;
                 _currentReceiptJson = json;
                 _currentReceiptNumber = receiptNumber;
                 ReceiptDetailsPopup.IsOpen = true;
             }
-            catch (Exception ex) { ErrorMessage = "Не удалось загрузить детали чека: " + ex.Message; }
+            catch (Exception ex) { ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ex.Message; }
         }
 
         /// <summary>Скидка чека, как её записал сервер. Обычная скидка и списанные бонусы
@@ -1085,7 +1095,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                ErrorMessage = "Не удалось напечатать чек: " + ex.Message;
+                ErrorMessage = Tr.T("Не удалось напечатать чек: ", "Чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the receipt: ", "Fiş yazdırılamadı: ", "Chekni chop etib bo'lmadi: ") + ex.Message;
             }
         }
 
@@ -1203,19 +1213,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string RefundReason { get; set; }
         }
 
-        /// <summary>Читаемая русская подпись способа оплаты — сервер отдаёт технические ключи (cash/transfer/…).</summary>
+        /// <summary>Подпись валюты на экране.</summary>
+        private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
+
+        /// <summary>Читаемая подпись способа оплаты на языке интерфейса — сервер отдаёт технические ключи (cash/transfer/…).</summary>
         private static string NormalizePaymentMethodLabel(string method)
         {
             var key = (method ?? "").Trim().ToLowerInvariant();
             return key switch
             {
-                "" => "Не указано",
-                "cash" => "Наличные",
-                "transfer" or "card" => "Перевод",
+                "" => Tr.T("Не указано", "Көрсөтүлгөн эмес", "Not specified", "Belirtilmemiş", "Ko'rsatilmagan"),
+                "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
+                "transfer" or "card" => Tr.T("Перевод", "Которуу", "Transfer", "Nakitsiz", "Naqdsiz"),
                 "mbank" => "MBank",
-                "mixed" => "Смешанный",
-                "debt" => "Долг",
-                _ when key.Contains("нал") => "Наличные",
+                "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
+                "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),
+                _ when key.Contains("нал") => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
                 _ => char.ToUpperInvariant(method![0]) + method[1..],
             };
         }

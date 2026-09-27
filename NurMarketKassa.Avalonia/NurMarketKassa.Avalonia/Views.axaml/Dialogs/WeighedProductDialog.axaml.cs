@@ -50,7 +50,7 @@ public partial class WeighedProductDialog : Window
             ? title
             : Tr.T($"Взвесить: {productTitle}", $"Тартуу: {productTitle}",
                 $"Weigh: {productTitle}", $"Tart: {productTitle}", $"Tortish: {productTitle}");
-        OkButton.Content = okButtonText ?? Tr.T("В чек", "Чекке", "To receipt", "Fişe", "Chekka");
+        OkButton.Content = okButtonText ?? Tr.T("В чек", "Чекке", "Add to receipt", "Fişe ekle", "Chekka");
         PriceBlock.Text = string.IsNullOrEmpty(pricePerKgLine)
             ? ""
             : Tr.T("Цена за кг: ", "1 кг баасы: ", "Price per kg: ", "Kg başına fiyat: ", "Kg narxi: ") + pricePerKgLine;
@@ -286,22 +286,22 @@ public partial class WeighedProductDialog : Window
         if (!_scaleLive)
             return "—";
         return _scale?.LastWeight is double w
-            ? w.ToString("0.00", CultureInfo.InvariantCulture) + " кг"
-            : "0.00 кг";
+            ? w.ToString("0.00", CultureInfo.InvariantCulture) + Tr.T(" кг", " кг", " kg", " kg", " kg")
+            : Tr.T("0.00 кг", "0.00 кг", "0.00 kg", "0.00 kg", "0.00 kg");
     }
 
     private void FromScale_Click(object? sender, RoutedEventArgs e)
     {
         if (_scale == null || !_scaleLive)
         {
-            PosMessageBox.Show(this, "Весы не подключены — укажите вес вручную.", "Весы",
+            PosMessageBox.Show(this, Tr.T("Весы не подключены — укажите вес вручную.", "Тараза туташтырылган эмес — салмакты кол менен киргизиңиз.", "The scale is not connected — enter the weight manually.", "Tartı bağlı değil — ağırlığı elle girin.", "Tarozi ulanmagan — og'irlikni qo'lda kiriting."), Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_scale.LastWeight is not double w || w <= 0)
         {
-            PosMessageBox.Show(this, "Нет веса с весов.", "Весы",
+            PosMessageBox.Show(this, Tr.T("Нет веса с весов.", "Таразадан салмак келген жок.", "No weight reading from the scale.", "Tartıdan ağırlık alınamadı.", "Tarozidan og'irlik kelmadi."), Tr.T("Весы", "Тараза", "Scales", "Tartı", "Tarozi"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -328,7 +328,7 @@ public partial class WeighedProductDialog : Window
         if (raw.Length == 0)
         {
             var emptyMessage = _isAmountMode
-                ? Tr.T("Введите сумму.", "Суммасын киргизиңиз.", "Enter the amount.", "Tutarı girin.", "Summani kiriting.")
+                ? Tr.T("Введите сумму.", "Сумманы киргизиңиз.", "Enter the amount.", "Tutarı girin.", "Summani kiriting.")
                 : Tr.T("Введите вес.", "Салмакты киргизиңиз.", "Enter the weight.", "Ağırlığı girin.", "Og'irlikni kiriting.");
             PosMessageBox.Show(this, emptyMessage, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -354,7 +354,7 @@ public partial class WeighedProductDialog : Window
             PosMessageBox.Show(this,
                 Tr.T("Слишком большое число — похоже, в поле попал штрихкод. Введите вес заново.",
                     "Өтө чоң сан — талаага штрихкод түшүп калган окшойт. Салмакты кайра киргизиңиз.",
-                    "The number is too large — a barcode seems to have landed in the field. Enter the weight again.",
+                    "The number is too large — looks like a barcode got into the field. Enter the weight again.",
                     "Sayı çok büyük — alana barkod girilmiş gibi görünüyor. Ağırlığı yeniden girin.",
                     "Son juda katta — maydonga shtrix-kod tushib qolganga o'xshaydi. Og'irlikni qayta kiriting."),
                 Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
@@ -369,7 +369,7 @@ public partial class WeighedProductDialog : Window
         if (_isAmountMode && kg <= 0)
         {
             PosMessageBox.Show(this,
-                Tr.T("Не удалось посчитать вес — не задана цена товара.", "Салмакты эсептөө мүмкүн болбоду — товардын баасы көрсөтүлгөн эмес.", "Could not compute the weight — the product price is not set.", "Ağırlık hesaplanamadı — ürün fiyatı belirtilmemiş.", "Og'irlikni hisoblab bo'lmadi — mahsulot narxi ko'rsatilmagan."),
+                Tr.T("Не удалось посчитать вес — не задана цена товара.", "Салмакты эсептөө мүмкүн болбоду — товардын баасы көрсөтүлгөн эмес.", "Couldn't calculate the weight — the product price isn't set.", "Ağırlık hesaplanamadı — ürün fiyatı belirtilmemiş.", "Og'irlikni hisoblab bo'lmadi — mahsulot narxi ko'rsatilmagan."),
                 Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;

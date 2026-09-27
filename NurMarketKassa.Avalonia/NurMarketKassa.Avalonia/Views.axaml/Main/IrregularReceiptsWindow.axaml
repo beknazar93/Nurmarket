@@ -88,7 +88,7 @@
             <TextBlock Grid.Column="0" Text="{DynamicResource csh.menu.deferredReceipts}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="RetryButton" Content="Отправить повторно" Classes="PrimaryActionButton"
+                <Button x:Name="RetryButton" Content="{DynamicResource loc.owner.irregular.retry}" Classes="PrimaryActionButton"
                         Margin="0,0,10,0" Click="Retry_Click"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
                         Margin="0,0,10,0" Click="Refresh_Click"/>

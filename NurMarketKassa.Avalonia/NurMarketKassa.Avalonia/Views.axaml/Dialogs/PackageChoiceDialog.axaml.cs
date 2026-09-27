@@ -61,15 +61,15 @@ public partial class PackageChoiceDialog : Window
         _stockQuantity = stockQuantity;
         _wholePackPrice = ParsePriceLine(wholePackPriceLine);
 
-        Title = Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How to add to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shiladi?");
+        Title = Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How should it be added to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shilsin?");
         HeaderTitleText.Text = productTitle;
         // Раньше здесь был обобщённый вопрос "Как добавить в корзину?" — при наличии
         // поштучной опции (единственный случай, когда это окно вообще открывается, см.
         // MainWindow.Dialogs.cs AddProductFromCatalogAsync) кассир должен сразу видеть тот же
         // вопрос, который заодно и озвучивается (VoicePromptPlayer.PlayPieceOrPackChoice).
         QuestionText.Text = pieceOption != null
-            ? Tr.T("Поштучно или целая пачка?", "Даанадан же бүтүн пачкадан?", "By the piece or a whole pack?", "Adet mi, tam paket mi?", "Donalab yoki butun paket?")
-            : Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How to add to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shiladi?");
+            ? Tr.T("Поштучно или целая пачка?", "Даанадан же бүтүн пачкадан?", "By the piece or a whole pack?", "Adet mi, tam paket mi?", "Donalabmi yoki butun paketmi?")
+            : Tr.T("Как добавить в корзину?", "Себетке кантип кошуу керек?", "How should it be added to the cart?", "Sepete nasıl eklenir?", "Savatga qanday qo'shilsin?");
 
         WholePackTitle.Text = Tr.T("Целая пачка", "Бүтүн пачка", "Whole pack", "Tam paket", "Butun paket");
         WholePackSubtitle.Text = string.IsNullOrWhiteSpace(wholePackPriceLine)
@@ -83,7 +83,7 @@ public partial class PackageChoiceDialog : Window
                 $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом за шт " +
                 $"({FormatQty(pieceOption.QuantityInPackage)} шт в пачке)",
                 $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом даанасы " +
-                $"(пачкада {FormatQty(pieceOption.QuantityInPackage)} даана)");
+                $"(пачкада {FormatQty(pieceOption.QuantityInPackage)} даана)", $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som per pc ({FormatQty(pieceOption.QuantityInPackage)} pcs per pack)", $"{pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som/adet (pakette {FormatQty(pieceOption.QuantityInPackage)} adet)", $"Donasi {pieceOption.PieceUnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} so'm (paketda {FormatQty(pieceOption.QuantityInPackage)} dona)");
         }
         else
         {
@@ -209,8 +209,8 @@ public partial class PackageChoiceDialog : Window
     private void SetStockText(bool isPieceMode)
     {
         StockText.Text = isPieceMode
-            ? $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity * _pieceOption!.QuantityInPackage)} шт"
-            : $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity)} шт";
+            ? $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity * _pieceOption!.QuantityInPackage)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}"
+            : $"{Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq")}: {FormatQty(_stockQuantity)} {Tr.T("шт", "даана", "pcs", "adet", "dona")}";
     }
 
     private void Next_Click(object? sender, RoutedEventArgs e)
@@ -218,7 +218,7 @@ public partial class PackageChoiceDialog : Window
         IsPieceMode = _pieceOption != null && PieceOption.IsChecked == true;
 
         QuantityLabel.Text = IsPieceMode
-            ? Tr.T("Сколько шт добавить?", "Канча даана кошуу керек?", "How many pcs to add?", "Kaç adet eklensin?", "Nechta dona qo'shilsin?")
+            ? Tr.T("Сколько шт добавить?", "Канча даана кошуу керек?", "How many pieces to add?", "Kaç adet eklensin?", "Nechta dona qo'shilsin?")
             : Tr.T("Сколько пачек добавить?", "Канча пачка кошуу керек?", "How many packs to add?", "Kaç paket eklensin?", "Nechta paket qo'shilsin?");
         QuantityUnitText.Text = IsPieceMode ? Tr.T("шт", "даана", "pcs", "adet", "dona") : Tr.T("пачек", "пачка", "packs", "paket", "paket");
 
@@ -254,12 +254,12 @@ public partial class PackageChoiceDialog : Window
 
         PriceCalcText.Text = Tr.T(
             $"Цена: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
-            $"Баасы: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            $"Баасы: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} сом", $"Price: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} som", $"Fiyat: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} som × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} som", $"Narxi: {unitPrice.ToString("0.00", CultureInfo.InvariantCulture)} so'm × {(qty ?? 0).ToString("0.###", CultureInfo.InvariantCulture)} = {total.ToString("0.00", CultureInfo.InvariantCulture)} so'm");
 
         var unit = IsPieceMode ? Tr.T("шт", "даана", "pcs", "adet", "dona") : Tr.T("пачек", "пачка", "packs", "paket", "paket");
         AvailableText.Text = Tr.T(
             $"Доступно до {FormatQty(MaxAllowedQuantity)} {unit}",
-            $"{FormatQty(MaxAllowedQuantity)} {unit} чейин жеткиликтүү");
+            $"Эң көп: {FormatQty(MaxAllowedQuantity)} {unit}", $"Up to {FormatQty(MaxAllowedQuantity)} {unit} available", $"En fazla {FormatQty(MaxAllowedQuantity)} {unit} eklenebilir", $"Ko'pi bilan: {FormatQty(MaxAllowedQuantity)} {unit}");
     }
 
     private double? ParseQuantity()
@@ -295,7 +295,7 @@ public partial class PackageChoiceDialog : Window
         var qty = ParseQuantity();
         if (qty is not { } value)
         {
-            PosMessageBox.Show(this, Tr.T("Укажите количество.", "Санды көрсөтүңүз.", "Specify the quantity.", "Miktarı belirtin.", "Miqdorni ko'rsating."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
+            PosMessageBox.Show(this, Tr.T("Укажите количество.", "Санды көрсөтүңүз.", "Enter the quantity.", "Miktarı belirtin.", "Miqdorni ko'rsating."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -317,11 +317,11 @@ public partial class PackageChoiceDialog : Window
                 this,
                 Tr.T(
                     $"На складе только {FormatQty(maxAllowed)} {unit}. Продолжить и пополнить склад?",
-                    $"Складда болгону {FormatQty(maxAllowed)} {unit}. Улантып, складды толуктайсызбы?",
-                    $"Only {FormatQty(maxAllowed)} {unit} in stock. Continue and replenish?",
-                    $"Stokta yalnızca {FormatQty(maxAllowed)} {unit} var. Devam edip stok eklensin mi?",
-                    $"Omborda faqat {FormatQty(maxAllowed)} {unit} bor. Davom etib, omborni toldirasizmi?"),
-                Tr.T("Недостаточно остатка", "Калдык жетишсиз", "Insufficient stock", "Stok yetersiz", "Qoldiq yetarli emas"),
+                    $"Кампада болгону {FormatQty(maxAllowed)} {unit}. Улантып, кампаны толуктайсызбы?",
+                    $"Only {FormatQty(maxAllowed)} {unit} in stock. Continue and restock?",
+                    $"Depoda yalnızca {FormatQty(maxAllowed)} {unit} var. Devam edilsin ve stok eklensin mi?",
+                    $"Omborda faqat {FormatQty(maxAllowed)} {unit} bor. Davom etib, omborni to'ldirasizmi?"),
+                Tr.T("Недостаточно остатка", "Калдык жетишсиз", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
             if (answer != MessageBoxResult.Yes)

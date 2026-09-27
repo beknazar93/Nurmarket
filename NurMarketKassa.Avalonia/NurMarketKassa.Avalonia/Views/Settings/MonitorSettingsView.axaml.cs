@@ -31,8 +31,8 @@ public partial class MonitorSettingsView : UserControl
             return;
         if (ViewModel.RequiresDisableConfirmation &&
             PosMessageBox.Show(
-                "Окно покупателя сейчас открыто. Отключить и закрыть его?",
-                "Монитор покупателя",
+                Tr.T("Окно покупателя сейчас открыто. Отключить и закрыть его?", "Сатып алуучунун терезеси азыр ачык. Аны өчүрүп, жабасызбы?", "The customer window is open now. Turn it off and close it?", "Müşteri penceresi şu anda açık. Devre dışı bırakılıp kapatılsın mı?", "Xaridor oynasi hozir ochiq. Uni o'chirib, yopasizmi?"),
+                Tr.T("Монитор покупателя", "Сатып алуучунун монитору", "Customer monitor", "Müşteri monitörü", "Xaridor monitori"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
@@ -48,13 +48,13 @@ public partial class MonitorSettingsView : UserControl
     {
         if (ViewModel is null || TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
             return;
-        var adMediaFilter = new FilePickerFileType("Изображение, GIF или видео")
+        var adMediaFilter = new FilePickerFileType(Tr.T("Изображение, GIF или видео", "Сүрөт, GIF же видео", "Image, GIF or video", "Görsel, GIF veya video", "Rasm, GIF yoki video"))
         {
             Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.gif", "*.mp4", "*.webm"],
         };
         var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Выберите изображение, GIF или видео для рекламы",
+            Title = Tr.T("Выберите изображение, GIF или видео для рекламы", "Жарнама үчүн сүрөт, GIF же видео тандаңыз", "Select an image, GIF or video for the ad", "Reklam için görsel, GIF veya video seçin", "Reklama uchun rasm, GIF yoki video tanlang"),
             AllowMultiple = false,
             FileTypeFilter = [adMediaFilter],
         });
@@ -68,7 +68,7 @@ public partial class MonitorSettingsView : UserControl
             return;
         var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Выберите фон",
+            Title = Tr.T("Выберите фон", "Фонду тандаңыз", "Select a background", "Arka plan seçin", "Fonni tanlang"),
             AllowMultiple = false,
             FileTypeFilter = [FilePickerFileTypes.ImageAll],
         });

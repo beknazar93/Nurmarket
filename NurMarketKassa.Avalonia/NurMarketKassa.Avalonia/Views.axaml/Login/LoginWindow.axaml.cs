@@ -59,6 +59,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _viewModel.RememberMe = true;
             RememberMeCheckBox.IsChecked = true;
 
+            // Программа владельца входит через это же окно: заголовок про кассу и автономный
+            // вход (без сервера) ей не подходят (2026-09-27).
+            if (AppMode.IsOwner)
+            {
+                FormTitleText.Text = Tr.T("Вход в программу владельца", "Ээсинин программасына кирүү", "Sign in to the owner program", "Sahip programına giriş", "Ega dasturiga kirish");
+                SecureTitleText.Text = Tr.T("Вход владельца или администратора", "Ээсинин же администратордун кирүүсү", "Owner or administrator sign-in", "Sahip veya yönetici girişi", "Ega yoki administrator kirishi");
+                WorkOfflineLink.IsVisible = false;
+            }
+
             Loaded += OnLoaded;
             Closed += OnClosed;
         }
@@ -135,7 +144,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         ? Tr.T("Нет связи с сервером. Используются локальные данные.", "Сервер менен байланыш жок. Жергиликтүү маалыматтар колдонулууда.", "No connection to the server. Using local data.", "Sunucuyla bağlantı yok. Yerel veriler kullanılıyor.", "Server bilan aloqa yo'q. Mahalliy ma'lumotlar ishlatilmoqda.")
                         : null;
 
-                _viewModel.SetLoadingStatus(Tr.T("Загрузка кассы…", "Касса жүктөлүүдө…", "Loading the POS…", "Kasa yükleniyor…", "Kassa yuklanmoqda…"));
+                _viewModel.SetLoadingStatus(Tr.T("Загрузка кассы…", "Касса жүктөлүүдө…", "Loading the till…", "Kasa yükleniyor…", "Kassa yuklanmoqda…"));
                 var mainWindow = App.ResolveMainShell();
                 var shell = (IMainShell)mainWindow;
                 var progress = new Progress<string>(status =>
@@ -163,7 +172,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             catch (Exception ex)
             {
                 _enteringMain = false;
-                _viewModel.ReportError(Tr.T("Не удалось загрузить кассу: ", "Кассаны жүктөө мүмкүн болгон жок: ", "Could not load the POS: ", "Kasa yüklenemedi: ", "Kassani yuklab bo'lmadi: ") + ex.Message);
+                _viewModel.ReportError(Tr.T("Не удалось загрузить кассу: ", "Кассаны жүктөө мүмкүн болгон жок: ", "Couldn't load the till: ", "Kasa yüklenemedi: ", "Kassani yuklab bo'lmadi: ") + ex.Message);
             }
         }
 

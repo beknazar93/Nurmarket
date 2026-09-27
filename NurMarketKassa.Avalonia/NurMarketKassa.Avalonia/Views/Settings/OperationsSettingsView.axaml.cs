@@ -39,12 +39,12 @@ public partial class OperationsSettingsView : UserControl
         SphereTitle.Text = Tr.T("Сфера магазина", "Дүкөндүн тармагы", "Store type", "Mağaza türü", "Do'kon turi");
         SphereHint.Text = Tr.T(
             "Под что настроена касса. Меняется в любой момент, на продажи и отчёты не влияет.",
-            "Касса эмнеге ыңгайлаштырылган. Каалаган убакта өзгөрөт, сатууларга жана отчётторго таасир этпейт.",
-            "What the POS is set up for. Can be changed at any time; sales and reports are not affected.",
-            "Kasanın neye göre ayarlandığı. İstediğiniz zaman değişir, satışları ve raporları etkilemez.",
-            "Kassa nimaga moslangan. Istalgan vaqtda o'zgartiriladi, sotuv va hisobotlarga ta'sir qilmaydi.");
+            "Касса кайсы тармакка ыңгайлаштырылган. Каалаган убакта өзгөртсө болот, сатууларга жана отчётторго таасир этпейт.",
+            "What the till is set up for. You can change it at any time; sales and reports aren't affected.",
+            "Kasanın hangi işe göre ayarlandığı. Her zaman değiştirilebilir; satışları ve raporları etkilemez.",
+            "Kassa qaysi soha uchun sozlangan. Istalgan vaqtda o'zgartirish mumkin, sotuv va hisobotlarga ta'sir qilmaydi.");
         SphereGroceryRadio.Content = Tr.T("Продуктовый", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat");
-        SphereClothingRadio.Content = Tr.T("Одежда и похожие", "Кийим жана ушул сыяктуу", "Clothing and similar", "Giyim ve benzeri", "Kiyim va shunga o'xshash");
+        SphereClothingRadio.Content = Tr.T("Одежда и похожие", "Кийим жана ушул сыяктуулар", "Clothing and similar", "Giyim ve benzeri", "Kiyim va shunga o'xshash");
         SphereServicesRadio.Content = Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar");
 
         var sphere = UserPreferences.Instance.MarketSphere;
@@ -55,20 +55,20 @@ public partial class OperationsSettingsView : UserControl
         {
             MarketSpheres.Clothing => Tr.T(
                 "При оплате появляется блок «Консультант»: кто помог покупателю, и процент ему с этой продажи — как на сайте.",
-                "Төлөөдө «Консультант» блогу пайда болот: сатып алуучуга ким жардам берди жана ага бул сатуудан пайыз — сайттагыдай.",
-                "The payment window gets a Consultant block: who helped the customer and their percentage of the sale, as on the website.",
-                "Ödemede «Danışman» bölümü çıkar: müşteriye kim yardım etti ve bu satıştan ona yüzde — sitedeki gibi.",
-                "To'lovda «Maslahatchi» bloki paydo bo'ladi: xaridorga kim yordam berdi va unga bu sotuvdan foiz — saytdagidek."),
+                "Төлөө учурунда «Консультант» блогу чыгат: сатып алуучуга ким жардам бергени жана ага ушул сатуудан канча пайыз тиешелүү экени — сайттагыдай.",
+                "The payment window shows a “Consultant” block: who helped the customer and their percentage of the sale, as on the website.",
+                "Ödeme sırasında «Danışman» bölümü görünür: müşteriye kim yardım etti ve bu satıştan alacağı yüzde — sitedeki gibi.",
+                "To'lov oynasida «Maslahatchi» bloki paydo bo'ladi: xaridorga kim yordam bergani va unga shu sotuvdan beriladigan foiz — saytdagidek."),
             MarketSpheres.Services => Tr.T(
                 "Каталог открывается на вкладке «Услуги». Услуги продаются без остатка: касса не просит пополнить склад и не показывает у них количество.",
                 "Каталог «Кызматтар» өтмөгүндө ачылат. Кызматтар калдыксыз сатылат: касса кампаны толуктоону сурабайт жана алардын санын көрсөтпөйт.",
-                "The catalogue opens on the Services tab. Services are sold without stock: the POS does not ask to restock them and does not show their quantity.",
-                "Katalog «Hizmetler» sekmesinde açılır. Hizmetler stoksuz satılır: kasa stok eklemeyi istemez ve miktarlarını göstermez.",
+                "The catalog opens on the “Services” tab. Services are sold without stock: the till doesn't ask to restock them or show their quantity.",
+                "Katalog «Hizmetler» sekmesinde açılır. Hizmetler stoksuz satılır: kasa stok eklemenizi istemez ve miktarlarını göstermez.",
                 "Katalog «Xizmatlar» bo'limida ochiladi. Xizmatlar qoldiqsiz sotiladi: kassa omborni to'ldirishni so'ramaydi va ularning sonini ko'rsatmaydi."),
             _ => Tr.T(
                 "Обычная касса магазина, как было.",
                 "Дүкөндүн кадимки кассасы, мурункудай.",
-                "A regular store POS, as before.",
+                "A regular store till, as before.",
                 "Her zamanki mağaza kasası.",
                 "Oddiy do'kon kassasi, avvalgidek."),
         };
@@ -137,13 +137,13 @@ public partial class OperationsSettingsView : UserControl
         var prefs = UserPreferences.Instance;
         if (string.IsNullOrWhiteSpace(prefs.TelegramChatId))
         {
-            TelegramStatusText.Text = "Получатель не определён.";
+            TelegramStatusText.Text = Tr.T("Получатель не определён.", "Алуучу аныкталган жок.", "Recipient not set.", "Alıcı belirlenmedi.", "Qabul qiluvchi aniqlanmagan.");
             return;
         }
 
         TelegramStatusText.Text = string.IsNullOrWhiteSpace(prefs.TelegramChatTitle)
-            ? $"Получатель определён (чат {prefs.TelegramChatId})."
-            : $"Получатель: {prefs.TelegramChatTitle}.";
+            ? Tr.T($"Получатель определён (чат {prefs.TelegramChatId}).", $"Алуучу аныкталды (чат {prefs.TelegramChatId}).", $"Recipient set (chat {prefs.TelegramChatId}).", $"Alıcı belirlendi (sohbet {prefs.TelegramChatId}).", $"Qabul qiluvchi aniqlandi (chat {prefs.TelegramChatId}).")
+            : Tr.T($"Получатель: {prefs.TelegramChatTitle}.", $"Алуучу: {prefs.TelegramChatTitle}.", $"Recipient: {prefs.TelegramChatTitle}.", $"Alıcı: {prefs.TelegramChatTitle}.", $"Qabul qiluvchi: {prefs.TelegramChatTitle}.");
     }
 
     private void SaveTelegramToken()
@@ -162,7 +162,7 @@ public partial class OperationsSettingsView : UserControl
     {
         SaveTelegramToken();
         TelegramDetectButton.IsEnabled = false;
-        TelegramStatusText.Text = "Спрашиваю Telegram…";
+        TelegramStatusText.Text = Tr.T("Спрашиваю Telegram…", "Telegram'дан суралууда…", "Asking Telegram…", "Telegram'a soruluyor…", "Telegram'dan so'ralmoqda…");
         try
         {
             var (chatId, name, error) = await TelegramBotService
@@ -171,7 +171,7 @@ public partial class OperationsSettingsView : UserControl
 
             if (error is not null || chatId is null)
             {
-                TelegramStatusText.Text = error ?? "Не удалось определить получателя.";
+                TelegramStatusText.Text = error ?? Tr.T("Не удалось определить получателя.", "Алуучуну аныктоо мүмкүн болгон жок.", "Couldn't detect the recipient.", "Alıcı belirlenemedi.", "Qabul qiluvchini aniqlab bo'lmadi.");
                 return;
             }
 
@@ -191,14 +191,14 @@ public partial class OperationsSettingsView : UserControl
     {
         SaveTelegramToken();
         TelegramTestButton.IsEnabled = false;
-        TelegramStatusText.Text = "Отправляю…";
+        TelegramStatusText.Text = Tr.T("Отправляю…", "Жөнөтүлүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
         try
         {
             var shop = UserPreferences.Instance.StoreName;
             var error = await TelegramBotService
                 .SendAsync($"<b>{shop}</b>\n\nПробное сообщение из кассы. Если вы его видите — бот настроен верно.")
                 .ConfigureAwait(true);
-            TelegramStatusText.Text = error ?? "Отправлено — проверьте Telegram.";
+            TelegramStatusText.Text = error ?? Tr.T("Отправлено — проверьте Telegram.", "Жөнөтүлдү — Telegram'ды текшериңиз.", "Sent — check Telegram.", "Gönderildi — Telegram'ı kontrol edin.", "Yuborildi — Telegram'ni tekshiring.");
         }
         finally
         {
@@ -257,12 +257,17 @@ public partial class OperationsSettingsView : UserControl
     {
         if (!TelegramBotService.IsConfigured)
         {
-            TelegramStatusText.Text = "Сначала подключите бота: вставьте токен и определите получателя.";
+            TelegramStatusText.Text = Tr.T(
+                "Сначала подключите бота: вставьте токен и определите получателя.",
+                "Адегенде ботту туташтырыңыз: токенди коюп, алуучуну аныктаңыз.",
+                "Connect the bot first: paste the token and detect the recipient.",
+                "Önce botu bağlayın: token'ı yapıştırın ve alıcıyı belirleyin.",
+                "Avval botni ulang: tokenni qo'ying va qabul qiluvchini aniqlang.");
             return;
         }
 
         TelegramDebtRemindersButton.IsEnabled = false;
-        TelegramStatusText.Text = "Рассылаю напоминания…";
+        TelegramStatusText.Text = Tr.T("Рассылаю напоминания…", "Эскертмелер жөнөтүлүүдө…", "Sending reminders…", "Hatırlatmalar gönderiliyor…", "Eslatmalar yuborilmoqda…");
         try
         {
             var bot = new TelegramBotPollingService(
@@ -271,12 +276,17 @@ public partial class OperationsSettingsView : UserControl
 
             var sent = await bot.SendDebtRemindersAsync().ConfigureAwait(true);
             TelegramStatusText.Text = sent > 0
-                ? $"Отправлено напоминаний: {sent}."
-                : "Некому отправлять: должники не подписаны на бота. Список со ссылками WhatsApp пришлёт команда /dolgi.";
+                ? Tr.T($"Отправлено напоминаний: {sent}.", $"Жөнөтүлгөн эскертмелер: {sent}.", $"Reminders sent: {sent}.", $"Gönderilen hatırlatma sayısı: {sent}.", $"Yuborilgan eslatmalar: {sent}.")
+                : Tr.T(
+                    "Некому отправлять: должники не подписаны на бота. Список со ссылками WhatsApp пришлёт команда /dolgi.",
+                    "Алуучулар жок: карызкорлор ботко жазылышкан эмес. WhatsApp шилтемелери бар тизмени /dolgi буйругу жөнөтөт.",
+                    "No one to send to: the debtors haven't subscribed to the bot. The /dolgi command will send you a list with WhatsApp links.",
+                    "Gönderilecek kimse yok: borçlular bota abone olmamış. WhatsApp bağlantılı listeyi /dolgi komutu gönderir.",
+                    "Eslatma yuboriladigan hech kim yo'q: qarzdorlar botga obuna bo'lmagan. WhatsApp havolalari bilan ro'yxatni /dolgi buyrug'i yuboradi.");
         }
         catch (Exception ex)
         {
-            TelegramStatusText.Text = "Не удалось разослать напоминания: " + ex.Message;
+            TelegramStatusText.Text = Tr.T("Не удалось разослать напоминания: ", "Эскертмелерди жөнөтүү мүмкүн болгон жок: ", "Couldn't send reminders: ", "Hatırlatmalar gönderilemedi: ", "Eslatmalarni yuborib bo'lmadi: ") + ex.Message;
         }
         finally
         {
@@ -341,8 +351,8 @@ public partial class OperationsSettingsView : UserControl
         if (alreadyExists)
         {
             PosMessageBox.Show(
-                "Банк с таким названием уже есть в списке.",
-                "Новый банк",
+                Tr.T("Банк с таким названием уже есть в списке.", "Мындай аталыштагы банк тизмеде бар.", "A bank with this name is already on the list.", "Bu adda bir banka listede zaten var.", "Bunday nomli bank ro'yxatda allaqachon bor."),
+                Tr.T("Новый банк", "Жаңы банк", "New bank", "Yeni banka", "Yangi bank"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
@@ -367,8 +377,13 @@ public partial class OperationsSettingsView : UserControl
             return;
 
         if (PosMessageBox.Show(
-                $"Удалить банк {setting.BankName} из списка вместе с загруженным QR-кодом?",
-                "Удаление банка",
+                Tr.T(
+                    $"Удалить банк {setting.BankName} из списка вместе с загруженным QR-кодом?",
+                    $"{setting.BankName} банкын жүктөлгөн QR-коду менен кошо тизмеден өчүрөсүзбү?",
+                    $"Remove bank {setting.BankName} from the list along with its uploaded QR code?",
+                    $"{setting.BankName} bankası, yüklenen QR koduyla birlikte listeden silinsin mi?",
+                    $"{setting.BankName} banki yuklangan QR-kodi bilan birga ro'yxatdan o'chirilsinmi?"),
+                Tr.T("Удаление банка", "Банкты өчүрүү", "Remove bank", "Bankayı sil", "Bankni o'chirish"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
         {
@@ -396,11 +411,11 @@ public partial class OperationsSettingsView : UserControl
 
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = $"Выберите логотип для {setting.BankName}",
+            Title = Tr.T($"Выберите логотип для {setting.BankName}", $"{setting.BankName} үчүн логотип тандаңыз", $"Select a logo for {setting.BankName}", $"{setting.BankName} için logo seçin", $"{setting.BankName} uchun logotip tanlang"),
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("Изображения") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
+                new FilePickerFileType(Tr.T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
             }
         });
 
@@ -427,11 +442,11 @@ public partial class OperationsSettingsView : UserControl
 
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = $"Выберите QR-код для банка {setting.BankName}",
+            Title = Tr.T($"Выберите QR-код для банка {setting.BankName}", $"{setting.BankName} банкы үчүн QR-код тандаңыз", $"Select a QR code for {setting.BankName}", $"{setting.BankName} bankası için QR kodu seçin", $"{setting.BankName} banki uchun QR-kod tanlang"),
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("Изображения") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
+                new FilePickerFileType(Tr.T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
             }
         });
 
@@ -462,8 +477,8 @@ public partial class OperationsSettingsView : UserControl
             return;
 
         if (PosMessageBox.Show(
-                $"Убрать QR-код банка {setting.BankName}?",
-                "Удаление QR-кода",
+                Tr.T($"Убрать QR-код банка {setting.BankName}?", $"{setting.BankName} банкынын QR-кодун өчүрөсүзбү?", $"Remove the QR code for {setting.BankName}?", $"{setting.BankName} bankasının QR kodu kaldırılsın mı?", $"{setting.BankName} bankining QR-kodi olib tashlansinmi?"),
+                Tr.T("Удаление QR-кода", "QR-кодду өчүрүү", "Remove QR code", "QR kodunu kaldır", "QR-kodni olib tashlash"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
         {

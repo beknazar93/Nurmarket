@@ -35,7 +35,7 @@ public sealed class PoleDisplayService
     private string? _devicePath;
     private int _baudRate = 2400;
     private string _protocol = ProtocolLed;
-    private string _status = "выключен";
+    private string _status = Tr.T("выключен", "өчүк", "off", "kapalı", "o'chirilgan");
 
     // Корзина меняется на каждый скан — на табло уходит только последнее значение, по одному
     // письму за раз (COM на 2400 бод пишет десятки миллисекунд).
@@ -70,7 +70,7 @@ public sealed class PoleDisplayService
             _baudRate = prefs.PoleDisplayBaudRate > 0 ? prefs.PoleDisplayBaudRate : 2400;
             if (!prefs.PoleDisplayEnabled)
             {
-                _status = "выключен в настройках";
+                _status = Tr.T("выключен в настройках", "жөндөөлөрдө өчүрүлгөн", "turned off in settings", "ayarlarda kapalı", "sozlamalarda o'chirilgan");
                 PosLogger.Log("Дисплей цены: выключен в настройках кассы.", "POLE_DISPLAY");
                 return;
             }
@@ -78,13 +78,13 @@ public sealed class PoleDisplayService
             var devicePath = prefs.PoleDisplayComPort;
             if (string.IsNullOrWhiteSpace(devicePath) || HardwareModeHelper.IsNonePort(devicePath))
             {
-                _status = "устройство не выбрано";
+                _status = Tr.T("устройство не выбрано", "түзмөк тандалган жок", "no device selected", "cihaz seçilmedi", "qurilma tanlanmagan");
                 PosLogger.Log("Дисплей цены: устройство не выбрано.", "POLE_DISPLAY");
                 return;
             }
 
             _devicePath = devicePath;
-            _status = $"выбран ({devicePath}, {_baudRate} бод)";
+            _status = Tr.T($"выбран ({devicePath}, {_baudRate} бод)", $"тандалды ({devicePath}, {_baudRate} бод)", $"selected ({devicePath}, {_baudRate} baud)", $"seçildi ({devicePath}, {_baudRate} baud)", $"tanlangan ({devicePath}, {_baudRate} bod)");
             PosLogger.Log($"Дисплей цены: {devicePath}, {_baudRate} бод, {(_protocol == ProtocolLed ? "цифровое табло" : "текстовый дисплей CD5220")}.", "POLE_DISPLAY");
         }
     }
@@ -95,7 +95,7 @@ public sealed class PoleDisplayService
         {
             _devicePath = null;
             _pendingPayload = null;
-            _status = "выключен";
+            _status = Tr.T("выключен", "өчүк", "off", "kapalı", "o'chirilgan");
         }
     }
 
@@ -173,8 +173,18 @@ public sealed class PoleDisplayService
                 ? BuildLedPayload(1234.56, LedLamp.Total)
                 : BuildTextPayload("NURMARKET", "TEST 1234.56"));
             return (true, protocol == ProtocolLed
-                ? $"Отправлено «1234.56» на {devicePath} ({baud} бод). Если на табло не появилось — нажмите «Найти табло»."
-                : $"Отправлено «NURMARKET / TEST 1234.56» на {devicePath} ({baud} бод).");
+                ? Tr.T(
+                    $"Отправлено «1234.56» на {devicePath} ({baud} бод). Если на табло не появилось — нажмите «Найти табло».",
+                    $"«1234.56» жөнөтүлдү: {devicePath} ({baud} бод). Эгер табло эч нерсе көрсөтпөсө — «Таблону табуу» баскычын басыңыз.",
+                    $"Sent “1234.56” to {devicePath} ({baud} baud). If nothing appears on the display, press “Find display”.",
+                    $"«1234.56» gönderildi: {devicePath} ({baud} baud). Ekranda görünmediyse «Ekranı bul» düğmesine basın.",
+                    $"«1234.56» yuborildi: {devicePath} ({baud} bod). Agar tabloda ko'rinmasa — «Tabloni topish» tugmasini bosing.")
+                : Tr.T(
+                    $"Отправлено «NURMARKET / TEST 1234.56» на {devicePath} ({baud} бод).",
+                    $"«NURMARKET / TEST 1234.56» жөнөтүлдү: {devicePath} ({baud} бод).",
+                    $"Sent “NURMARKET / TEST 1234.56” to {devicePath} ({baud} baud).",
+                    $"«NURMARKET / TEST 1234.56» gönderildi: {devicePath} ({baud} baud).",
+                    $"«NURMARKET / TEST 1234.56» yuborildi: {devicePath} ({baud} bod)."));
         }
         catch (Exception ex)
         {
@@ -208,7 +218,12 @@ public sealed class PoleDisplayService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var label = $"{number}.{baud}";
-                progress?.Invoke($"{port}, {baud} бод — на табло должно появиться {label}");
+                progress?.Invoke(Tr.T(
+                    $"{port}, {baud} бод — на табло должно появиться {label}",
+                    $"{port}, {baud} бод — таблодо {label} саны чыгышы керек",
+                    $"{port}, {baud} baud — the display should show {label}",
+                    $"{port}, {baud} baud — ekranda {label} görünmeli",
+                    $"{port}, {baud} bod — tabloda {label} paydo bo'lishi kerak"));
                 string? error = null;
                 try
                 {

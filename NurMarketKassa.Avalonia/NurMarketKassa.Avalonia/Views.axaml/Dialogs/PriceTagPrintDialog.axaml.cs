@@ -39,8 +39,8 @@ public partial class PriceTagPrintDialog : Window
             new PriceTagKindOption(PriceTagKind.Simple, Tr.T("Простой (название + цена)", "Жөнөкөй (аталышы + баасы)", "Simple (name + price)", "Basit (ad + fiyat)", "Oddiy (nomi + narxi)")),
             new PriceTagKindOption(PriceTagKind.WithBarcode, Tr.T("Со штрих-кодом", "Штрих-код менен", "With barcode", "Barkodlu", "Shtrix-kod bilan")),
             new PriceTagKindOption(PriceTagKind.Promotional, Tr.T("Акционный (старая цена + скидка)", "Акциялык (эски баа + арзандатуу)", "Promo (old price + discount)", "Promosyon (eski fiyat + indirim)", "Aksiya (eski narx + chegirma)")),
-            new PriceTagKindOption(PriceTagKind.PromotionalColored, Tr.T("Акционный с цветным фоном", "Түстүү фондо акциялык", "Promo with colored background", "Renkli arka planlı promosyon", "Rangli fonli aksiya")),
-            new PriceTagKindOption(PriceTagKind.Detailed, Tr.T("Подробный (магазин, категория, штрих-код)", "Кеңири (дүкөн, категория, штрих-код)", "Detailed (store, category, barcode)", "Detaylı (mağaza, kategori, barkod)", "Batafsil (do'kon, kategoriya, shtrix-kod)")),
+            new PriceTagKindOption(PriceTagKind.PromotionalColored, Tr.T("Акционный с цветным фоном", "Акциялык, түстүү фон менен", "Promo with colored background", "Renkli arka planlı promosyon", "Rangli fonli aksiya")),
+            new PriceTagKindOption(PriceTagKind.Detailed, Tr.T("Подробный (магазин, категория, штрих-код)", "Толук (дүкөн, категория, штрих-код)", "Detailed (store, category, barcode)", "Detaylı (mağaza, kategori, barkod)", "Batafsil (do'kon, kategoriya, shtrix-kod)")),
             new PriceTagKindOption(PriceTagKind.WithQr, Tr.T("С QR-кодом", "QR-код менен", "With QR code", "QR kodlu", "QR-kod bilan")),
             new PriceTagKindOption(PriceTagKind.Custom, Tr.T("🎨 Пользовательский шаблон", "🎨 Колдонуучунун шаблону", "🎨 Custom template", "🎨 Özel şablon", "🎨 Foydalanuvchi shabloni")),
         };
@@ -89,7 +89,7 @@ public partial class PriceTagPrintDialog : Window
     {
         var editor = new LabelTemplateEditorDialog(
             _customTemplate, _product.Title, _product.Barcode ?? "4870145004807", _product.PriceLine,
-            PriceTagTemplateStore.Save, Tr.T("Редактор ценника", "Ценник редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorlig'i muharriri"));
+            PriceTagTemplateStore.Save, Tr.T("Редактор ценника", "Баа белгиси редактору", "Price tag editor", "Fiyat etiketi düzenleyici", "Narx yorlig'i muharriri"));
         await editor.ShowDialog(this).ConfigureAwait(true);
         if (editor.Saved)
         {
@@ -169,7 +169,7 @@ public partial class PriceTagPrintDialog : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Price tag preview render failed: {ex}", "WARNING");
-            StatusText.Text = Tr.T("Не удалось построить предпросмотр ценника.", "Ценниктин алдын ала көрүнүшүн түзүү мүмкүн болгон жок.", "Could not build the price tag preview.", "Fiyat etiketi önizlemesi oluşturulamadı.", "Narx yorlig'i ko'rinishini yaratib bo'lmadi.");
+            StatusText.Text = Tr.T("Не удалось построить предпросмотр ценника.", "Баа белгисинин алдын ала көрүнүшүн түзүү мүмкүн болгон жок.", "Could not build the price tag preview.", "Fiyat etiketi önizlemesi oluşturulamadı.", "Narx yorlig'ini oldindan ko'rishni yaratib bo'lmadi.");
         }
     }
 
@@ -180,7 +180,7 @@ public partial class PriceTagPrintDialog : Window
 
         if (PrinterCombo.SelectedItem is not DiscoveredPrinter printer)
         {
-            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Choose a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
+            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
             return;
         }
 
@@ -208,9 +208,9 @@ public partial class PriceTagPrintDialog : Window
                     copies, printer.DevicePath, target))).ConfigureAwait(true);
             StatusText.Text = result switch
             {
-                LabelPrintResult.Success => Tr.T("Ценник отправлен на печать.", "Ценник басып чыгарууга жөнөтүлдү.", "Price tag sent to print.", "Fiyat etiketi yazdırmaya gönderildi.", "Narx yorlig'i chop etishga yuborildi."),
+                LabelPrintResult.Success => Tr.T("Ценник отправлен на печать.", "Баа белгиси басып чыгарууга жөнөтүлдү.", "Price tag sent to the printer.", "Fiyat etiketi yazdırmaya gönderildi.", "Narx yorlig'i chop etishga yuborildi."),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
-                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See details in the app log.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
+                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
             };
         }
         finally

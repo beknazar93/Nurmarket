@@ -34,7 +34,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         {
             return AuthenticationResult.Failed(
                 AuthenticationFailure.InvalidCredentials,
-                "Введите логин и пароль.");
+                Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting."));
         }
 
         try
@@ -59,19 +59,27 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             _api.ClearSession();
             return AuthenticationResult.Failed(
                 AuthenticationFailure.InvalidCredentials,
-                "Неверный логин или пароль.");
+                Tr.T("Неверный логин или пароль.", "Логин же сырсөз туура эмес.", "Incorrect login or password.", "Kullanıcı adı veya şifre hatalı.", "Login yoki parol noto'g'ri."));
         }
         catch (Exception ex) when (IsNetworkFailure(ex, cancellationToken))
         {
             return AuthenticationResult.Failed(
                 AuthenticationFailure.NetworkUnavailable,
-                "Нет связи с сервером. Первый вход требует интернет-соединения.");
+                Tr.T("Нет связи с сервером. Первый вход требует интернет-соединения.",
+                    "Сервер менен байланыш жок. Биринчи кирүү үчүн интернет керек.",
+                    "No connection to the server. The first sign-in requires an internet connection.",
+                    "Sunucuyla bağlantı yok. İlk giriş için internet bağlantısı gerekir.",
+                    "Server bilan aloqa yo'q. Birinchi kirish uchun internet aloqasi kerak."));
         }
         catch (ApiException)
         {
             return AuthenticationResult.Failed(
                 AuthenticationFailure.ServerError,
-                "Сервер временно недоступен. Повторите попытку позже.");
+                Tr.T("Сервер временно недоступен. Повторите попытку позже.",
+                    "Сервер убактылуу жеткиликсиз. Кийинчерээк кайра аракет кылыңыз.",
+                    "The server is temporarily unavailable. Try again later.",
+                    "Sunucu geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
+                    "Server vaqtincha mavjud emas. Keyinroq qayta urinib ko'ring."));
         }
     }
 
@@ -95,7 +103,10 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             if (!IsLocallyValid(saved))
             {
                 if (!await _api.RefreshAccessAsync(cancellationToken).ConfigureAwait(false))
-                    return await RejectSavedSessionAsync("Сессия истекла. Войдите снова.", cancellationToken).ConfigureAwait(false);
+                    return await RejectSavedSessionAsync(Tr.T("Сессия истекла. Войдите снова.",
+                        "Сессиянын мөөнөтү бүттү. Кайра кириңиз.", "Your session has expired. Please sign in again.",
+                        "Oturumun süresi doldu. Tekrar giriş yapın.", "Sessiya muddati tugadi. Qaytadan kiring."),
+                        cancellationToken).ConfigureAwait(false);
 
                 var refreshedProfile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, refreshedProfile, saved);
@@ -114,7 +125,10 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             try
             {
                 if (!await _api.RefreshAccessAsync(cancellationToken).ConfigureAwait(false))
-                    return await RejectSavedSessionAsync("Сессия отозвана. Войдите снова.", cancellationToken).ConfigureAwait(false);
+                    return await RejectSavedSessionAsync(Tr.T("Сессия отозвана. Войдите снова.", "Сессия жокко чыгарылды. Кайра кириңиз.",
+                        "Your session was revoked. Please sign in again.", "Oturum iptal edildi. Tekrar giriş yapın.",
+                        "Sessiya bekor qilindi. Qaytadan kiring."),
+                        cancellationToken).ConfigureAwait(false);
 
                 var profile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, profile, saved);
@@ -127,12 +141,19 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             }
             catch (ApiException)
             {
-                return await RejectSavedSessionAsync("Сессия отозвана. Войдите снова.", cancellationToken).ConfigureAwait(false);
+                return await RejectSavedSessionAsync(Tr.T("Сессия отозвана. Войдите снова.", "Сессия жокко чыгарылды. Кайра кириңиз.",
+                        "Your session was revoked. Please sign in again.", "Oturum iptal edildi. Tekrar giriş yapın.",
+                        "Sessiya bekor qilindi. Qaytadan kiring."),
+                        cancellationToken).ConfigureAwait(false);
             }
         }
         catch (ApiException ex) when (ex.StatusCode == 403)
         {
-            return await RejectSavedSessionAsync("Доступ к учётной записи отозван. Войдите снова.", cancellationToken).ConfigureAwait(false);
+            return await RejectSavedSessionAsync(Tr.T("Доступ к учётной записи отозван. Войдите снова.",
+                "Эсептик жазууга кирүү укугу жокко чыгарылды. Кайра кириңиз.",
+                "Access to the account was revoked. Please sign in again.",
+                "Hesaba erişim iptal edildi. Tekrar giriş yapın.",
+                "Hisobga kirish huquqi bekor qilindi. Qaytadan kiring."), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (IsNetworkFailure(ex, cancellationToken))
         {
@@ -144,7 +165,11 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             // invalid, but it is also not a "no internet" condition.
             return AuthenticationResult.Failed(
                 AuthenticationFailure.ServerError,
-                "Сервер временно недоступен. Автономный вход разрешён только при сетевой ошибке.");
+                Tr.T("Сервер временно недоступен. Автономный вход разрешён только при сетевой ошибке.",
+                    "Сервер убактылуу жеткиликсиз. Автономдук кирүүгө тармак катасы болгондо гана уруксат берилет.",
+                    "The server is temporarily unavailable. Offline sign-in is allowed only when there's a network error.",
+                    "Sunucu geçici olarak kullanılamıyor. Çevrimdışı girişe yalnızca ağ hatası olduğunda izin verilir.",
+                    "Server vaqtincha mavjud emas. Oflayn kirishga faqat tarmoq xatosi bo'lganda ruxsat beriladi."));
         }
     }
 
@@ -170,7 +195,11 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
     {
         if (!IsLocallyValid(session))
             return await RejectSavedSessionAsync(
-                "Сессия истекла. Для входа подключитесь к интернету.",
+                Tr.T("Сессия истекла. Для входа подключитесь к интернету.",
+                    "Сессиянын мөөнөтү бүттү. Кирүү үчүн интернетке туташыңыз.",
+                    "Your session has expired. Connect to the internet to sign in.",
+                    "Oturumun süresi doldu. Giriş yapmak için internete bağlanın.",
+                    "Sessiya muddati tugadi. Kirish uchun internetga ulaning."),
                 cancellationToken).ConfigureAwait(false);
 
         // 2026-09-09: 60-часовой потолок офлайн-работы для ОБЫЧНОГО (не автономного) режима —
@@ -182,7 +211,11 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         if (!IsWithinOfflineGracePeriod(session))
             return AuthenticationResult.Failed(
                 AuthenticationFailure.NetworkUnavailable,
-                "Автономная работа без интернета ограничена 60 часами. Подключитесь к интернету, чтобы продолжить.");
+                Tr.T("Автономная работа без интернета ограничена 60 часами. Подключитесь к интернету, чтобы продолжить.",
+                    "Интернетсиз автономдук иштөө 60 саат менен чектелген. Улантуу үчүн интернетке туташыңыз.",
+                    "Offline work is limited to 60 hours. Connect to the internet to continue.",
+                    "İnternetsiz çalışma 60 saatle sınırlıdır. Devam etmek için internete bağlanın.",
+                    "Internetsiz oflayn ishlash 60 soat bilan cheklangan. Davom etish uchun internetga ulaning."));
 
         _api.RestoreOfflineSession(ToLegacySession(session));
         return AuthenticationResult.Success(session, AuthenticationMode.Offline);

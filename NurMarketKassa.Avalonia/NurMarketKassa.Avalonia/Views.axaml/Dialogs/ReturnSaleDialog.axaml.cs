@@ -199,9 +199,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             if (reset && Sales.Count == 0)
                 ShowErr(Tr.T("Список продаж пуст или API не вернул данные. Попробуйте «Обновить» или введите ID продажи вручную.",
                     "Сатуулар тизмеси бош же API маалымат кайтарган жок. «Жаңылоо» баскычын басыңыз же сатуунун ID’син өзүңүз киргизиңиз.",
-                    "The sales list is empty or the API returned no data. Try Refresh or enter the sale ID manually.",
-                    "Satış listesi boş veya API veri döndürmedi. «Yenile»yi deneyin veya satış kimliğini manuel girin.",
-                    "Sotuvlar ro'yxati bo'sh yoki API ma'lumot qaytarmadi. «Yangilash»ni sinab ko'ring yoki sotuv ID’sini qo'lda kiriting."));
+                    "The sales list is empty or the API returned no data. Try “Refresh” or enter the sale ID manually.",
+                    "Satış listesi boş veya API veri döndürmedi. «Yenile»yi deneyin veya satış ID'sini elle girin.",
+                    "Sotuvlar ro'yxati bo'sh yoki API ma'lumot qaytarmadi. «Yangilash»ni bosib ko'ring yoki sotuv ID'sini qo'lda kiriting."));
             else if (!reset && added == 0)
             {
                 PosMessageBox.Show(this, Tr.T("Больше записей нет.", "Башка жазуулар жок.", "No more records.", "Başka kayıt yok.", "Boshqa yozuvlar yo'q."),
@@ -304,7 +304,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         var raw = (SaleIdBox.Text ?? "").Trim();
         if (raw.Length == 0)
         {
-            ShowErr(Tr.T("Введите ID продажи.", "Сатуунун ID'син киргизиңиз.", "Enter the sale ID.", "Satış kimliğini girin.", "Sotuv ID’sini kiriting."));
+            ShowErr(Tr.T("Введите ID продажи.", "Сатуунун ID'син киргизиңиз.", "Enter the sale ID.", "Satış ID'sini girin.", "Sotuv ID'sini kiriting."));
             return;
         }
 
@@ -338,9 +338,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             if (Lines.Count == 0)
                 ShowErr(Tr.T("В ответе сервера нет позиций с идентификатором строки для возврата.",
                     "Сервердин жообунда кайтаруу үчүн сап идентификатору бар позициялар жок.",
-                    "The server response has no line items with a returnable identifier.",
-                    "Sunucu yanıtında iade edilebilir kimliğe sahip kalem yok.",
-                    "Server javobida qaytarish uchun identifikatorga ega pozitsiyalar yo'q."));
+                    "The server response has no items with a line ID that can be returned.",
+                    "Sunucu yanıtında iade için satır kimliği olan kalem yok.",
+                    "Server javobida qaytarish uchun qator identifikatoriga ega pozitsiyalar yo'q."));
         }
         catch (ApiException ex)
         {
@@ -598,7 +598,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             SelectedSaleText.Text = "";
             LinesPlaceholder.Text = Tr.T("Сначала выберите чек в списке выше — здесь появится его содержимое.",
                 "Алгач жогорудагы тизмеден чекти тандаңыз — анын курамы ушул жерде көрүнөт.",
-                "First select a receipt in the list above — its contents will appear here.",
+                "Select a receipt in the list above first — its contents will appear here.",
                 "Önce yukarıdaki listeden bir fiş seçin — içeriği burada görünecek.",
                 "Avval yuqoridagi ro'yxatdan chekni tanlang — uning tarkibi shu yerda ko'rinadi.");
             LinesPlaceholder.IsVisible = true;
@@ -608,7 +608,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             SelectedSaleText.Text = Tr.T("Выбран чек · ", "Тандалган чек · ", "Selected receipt · ", "Seçilen fiş · ", "Tanlangan chek · ") + DisplaySaleNumber(_currentSaleId);
             LinesPlaceholder.Text = Tr.T("В этом чеке нет позиций с идентификатором строки для возврата через кассу.",
                 "Бул чекте кассадан кайтаруу үчүн сап идентификатору бар позициялар жок.",
-                "This receipt has no line items with an identifier that can be returned via the POS.",
+                "This receipt has no items with a line ID that can be returned through the till.",
                 "Bu fişte kasadan iade edilebilecek satır kimliğine sahip kalem yok.",
                 "Bu chekda kassa orqali qaytarish uchun qator identifikatoriga ega pozitsiyalar yo'q.");
             LinesPlaceholder.IsVisible = true;
@@ -643,7 +643,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(_currentSaleId))
         {
-            PosMessageBox.Show(this, Tr.T("Сначала выберите чек в списке выше.", "Алгач жогорудагы тизмеден чекти тандаңыз.", "First select a receipt in the list above.", "Önce yukarıdaki listeden bir fiş seçin.", "Avval yuqoridagi ro'yxatdan chekni tanlang."),
+            PosMessageBox.Show(this, Tr.T("Сначала выберите чек в списке выше.", "Алгач жогорудагы тизмеден чекти тандаңыз.", "Select a receipt in the list above first.", "Önce yukarıdaki listeden bir fiş seçin.", "Avval yuqoridagi ro'yxatdan chekni tanlang."),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
@@ -720,7 +720,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 PosLogger.Log($"Loyalty reversal on full return failed: {ex.Message}", "WARNING");
             }
 
-            PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чектин толук кайтарылышы таризделди.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chekning to'liq qaytarilishi rasmiylashtirildi."),
+            PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi."),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
             await RefreshCurrentSaleAsync().ConfigureAwait(true);
         }
@@ -775,6 +775,6 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         public string SaleDateDisplay => Item.SaleDate == DateTime.MinValue
             ? "—"
             : Item.SaleDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
-        public string TotalAmountDisplay => $"{Item.TotalAmount:F2} сом";
+        public string TotalAmountDisplay => Tr.T($"{Item.TotalAmount:F2} сом", $"{Item.TotalAmount:F2} сом", $"{Item.TotalAmount:F2} som", $"{Item.TotalAmount:F2} som", $"{Item.TotalAmount:F2} so'm");
     }
 }

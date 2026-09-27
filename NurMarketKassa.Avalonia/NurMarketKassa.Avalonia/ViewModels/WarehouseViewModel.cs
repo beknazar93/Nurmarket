@@ -26,10 +26,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// WriteOffReasonOptions/InitializeWriteOffReasonPicker без изменений там.</summary>
     public static string[] WriteOffReasons => new[]
     {
-        Tr.T("Брак", "Брак", "Defect", "Kusurlu", "Nuqsonli"),
+        Tr.T("Брак", "Брак", "Defective", "Kusurlu", "Nuqsonli"),
         Tr.T("Просрочка", "Мөөнөтү өткөн", "Expired", "Son kullanma tarihi geçmiş", "Muddati o'tgan"),
-        Tr.T("Порча упаковки", "Кабы бузулган", "Damaged packaging", "Ambalaj hasarlı", "Qadoq shikastlangan"),
-        Tr.T("Списание для себя", "Өзүм үчүн алып коюу", "Written off for personal use", "Kendim için düşüldü", "O'zim uchun hisobdan chiqarish"),
+        Tr.T("Порча упаковки", "Таңгагы бузулган", "Damaged packaging", "Ambalaj hasarlı", "Qadoq shikastlangan"),
+        Tr.T("Списание для себя", "Өз керегине алуу", "Personal use", "Kişisel kullanım", "O'z ehtiyoji uchun hisobdan chiqarish"),
         Tr.T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 
@@ -113,7 +113,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         $"{_currentPage}/{TotalProductPages}-бет",
         $"Page {_currentPage} of {TotalProductPages}",
         $"Sayfa {_currentPage}/{TotalProductPages}",
-        $"{_currentPage}/{TotalProductPages}-sahifa");
+        $"Sahifa: {_currentPage} / {TotalProductPages}");
 
     public ICommand PreviousProductPageCommand { get; }
     public ICommand NextProductPageCommand { get; }
@@ -245,9 +245,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     public string ProductCountText => Tr.T(
         $"Всего: {CatalogCacheService.Products.Count} · Найдено: {FilteredProducts.Count}",
-        $"Баары: {CatalogCacheService.Products.Count} · Табылды: {FilteredProducts.Count}",
+        $"Жалпы: {CatalogCacheService.Products.Count} · Табылды: {FilteredProducts.Count}",
         $"Total: {CatalogCacheService.Products.Count} · Found: {FilteredProducts.Count}",
-        $"Toplam: {CatalogCacheService.Products.Count} · Bulundu: {FilteredProducts.Count}",
+        $"Toplam: {CatalogCacheService.Products.Count} · Bulunan: {FilteredProducts.Count}",
         $"Jami: {CatalogCacheService.Products.Count} · Topildi: {FilteredProducts.Count}");
 
     /// <summary>Вызывается из радиокнопок "Единица продажи" в WarehouseWindow.axaml.cs
@@ -502,7 +502,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             _writeOffProductId = "";
             WriteOffBarcode = trimmed;
             WriteOffProductName = trimmed;
-            _prompts?.ShowWarning("Товар с этим штрих-кодом не найден в каталоге — списание недоступно.");
+            _prompts?.ShowWarning(Tr.T("Товар с этим штрих-кодом не найден в каталоге — списание недоступно.", "Бул штрихкоддуу товар каталогдон табылган жок — эсептен чыгаруу мүмкүн эмес.", "No product with this barcode in the catalog — write-off isn't available.", "Bu barkoda sahip ürün katalogda bulunamadı — düşüm yapılamaz.", "Bu shtrix-kodli mahsulot katalogda topilmadi — hisobdan chiqarib bo'lmaydi."));
         }
     }
 
@@ -545,7 +545,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                     $"…and {problems.Count - shown.Count} more", $"…ve {problems.Count - shown.Count} tane daha",
                     $"…va yana {problems.Count - shown.Count}"));
             _prompts?.ShowWarning(Tr.T("Приёмку нельзя провести:", "Кабыл алууну өткөрүүгө болбойт:",
-                "The receiving cannot be posted:", "Mal kabul yapılamıyor:", "Qabul qilishni o'tkazib bo'lmaydi:")
+                "Receiving can't be posted:", "Mal kabul yapılamıyor:", "Qabulni rasmiylashtirib bo'lmaydi:")
                 + "\n\n" + string.Join("\n", shown));
             return;
         }
@@ -588,13 +588,13 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             var summary = Tr.T($"Принято позиций: {result.PostedLines.Count} на {result.TotalAmount:0.##} сом.",
                 $"Кабыл алынды: {result.PostedLines.Count} позиция, {result.TotalAmount:0.##} сом.",
-                $"Received: {result.PostedLines.Count} items for {result.TotalAmount:0.##} som.",
+                $"Received {result.PostedLines.Count} items worth {result.TotalAmount:0.##} som.",
                 $"Kabul edildi: {result.PostedLines.Count} kalem, {result.TotalAmount:0.##} som.",
-                $"Qabul qilindi: {result.PostedLines.Count} ta, {result.TotalAmount:0.##} som.");
+                $"Qabul qilingan pozitsiyalar: {result.PostedLines.Count}, jami {result.TotalAmount:0.##} so'm.");
             if (result.Created > 0)
                 summary += " " + Tr.T($"Новых товаров создано: {result.Created}.", $"Жаңы товар түзүлдү: {result.Created}.",
                     $"New products created: {result.Created}.", $"Oluşturulan yeni ürün: {result.Created}.",
-                    $"Yangi mahsulotlar: {result.Created}.");
+                    $"Yaratilgan yangi mahsulotlar: {result.Created}.");
 
             if (result.Errors.Count == 0)
                 _prompts?.ShowToast(summary);
@@ -605,7 +605,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         {
             PosLogger.Log($"Приёмка не проведена: {ex}", "WARNING");
             _prompts?.ShowError(Tr.T("Не удалось провести приёмку: ", "Кабыл алуу өткөрүлгөн жок: ",
-                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabul qilish amalga oshmadi: ") + ex.Message);
+                "Receiving failed: ", "Mal kabul yapılamadı: ", "Qabulni rasmiylashtirib bo'lmadi: ") + ex.Message);
         }
         finally
         {
@@ -618,7 +618,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     {
         if (_inventoryApi is null)
         {
-            _prompts?.ShowError("Сервис ревизии недоступен в этом режиме.");
+            _prompts?.ShowError(Tr.T("Сервис ревизии недоступен в этом режиме.", "Бул режимде ревизия кызматы жеткиликсиз.", "The stocktake service isn't available in this mode.", "Sayım hizmeti bu modda kullanılamıyor.", "Bu rejimda inventarizatsiya xizmati mavjud emas."));
             return;
         }
 
@@ -626,7 +626,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         var skipped = RevisionLines.Count - countable.Count;
         if (countable.Count == 0)
         {
-            _prompts?.ShowWarning("В акте нет позиций, привязанных к товару из каталога.");
+            _prompts?.ShowWarning(Tr.T("В акте нет позиций, привязанных к товару из каталога.", "Актта каталогдогу товарга байланган позициялар жок.", "The document has no lines linked to a catalog product.", "Tutanakta katalogdaki bir ürüne bağlı kalem yok.", "Aktda katalogdagi mahsulotga bog'langan pozitsiyalar yo'q."));
             return;
         }
 
@@ -644,7 +644,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             if (string.IsNullOrWhiteSpace(sessionId))
             {
-                _prompts?.ShowError("Не удалось создать акт ревизии на сервере.");
+                _prompts?.ShowError(Tr.T("Не удалось создать акт ревизии на сервере.", "Серверде ревизия актысын түзүү мүмкүн болгон жок.", "Could not create the stocktake document on the server.", "Sunucuda sayım tutanağı oluşturulamadı.", "Serverda inventarizatsiya aktini yaratib bo'lmadi."));
                 return;
             }
 
@@ -657,16 +657,20 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             RevisionLines.Clear();
             FocusedRevisionLine = null;
             _prompts?.ShowToast(skipped > 0
-                ? $"Ревизия проведена. Пропущено позиций без привязки к товару: {skipped}."
-                : "Ревизия проведена.");
+                ? Tr.T($"Ревизия проведена. Пропущено позиций без привязки к товару: {skipped}.",
+                    $"Ревизия өткөрүлдү. Товарга байланбаган позициялар өткөрүлүп жиберилди: {skipped}.",
+                    $"Stocktake posted. Lines skipped (not linked to a product): {skipped}.",
+                    $"Sayım tamamlandı. Ürüne bağlı olmadığı için atlanan kalem: {skipped}.",
+                    $"Inventarizatsiya o'tkazildi. Mahsulotga bog'lanmagan, o'tkazib yuborilgan pozitsiyalar: {skipped}.")
+                : Tr.T("Ревизия проведена.", "Ревизия өткөрүлдү.", "Stocktake posted.", "Sayım tamamlandı.", "Inventarizatsiya o'tkazildi."));
         }
         catch (ApiException ex)
         {
-            _prompts?.ShowError($"Не удалось провести ревизию: {ex.Message}");
+            _prompts?.ShowError(Tr.T($"Не удалось провести ревизию: {ex.Message}", $"Ревизияны өткөрүү мүмкүн болгон жок: {ex.Message}", $"Could not post the stocktake: {ex.Message}", $"Sayım yapılamadı: {ex.Message}", $"Inventarizatsiyani o'tkazib bo'lmadi: {ex.Message}"));
         }
         catch (HttpRequestException)
         {
-            _prompts?.ShowError("Не удалось провести ревизию — нет сети.");
+            _prompts?.ShowError(Tr.T("Не удалось провести ревизию — нет сети.", "Ревизияны өткөрүү мүмкүн болгон жок — тармак жок.", "Could not post the stocktake — no network.", "Sayım yapılamadı — ağ bağlantısı yok.", "Inventarizatsiyani o'tkazib bo'lmadi — tarmoq yo'q."));
         }
         finally
         {
@@ -679,19 +683,19 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     {
         if (_inventoryApi is null)
         {
-            _prompts?.ShowError("Сервис списания недоступен в этом режиме.");
+            _prompts?.ShowError(Tr.T("Сервис списания недоступен в этом режиме.", "Бул режимде эсептен чыгаруу кызматы жеткиликсиз.", "The write-off service isn't available in this mode.", "Düşüm hizmeti bu modda kullanılamıyor.", "Bu rejimda hisobdan chiqarish xizmati mavjud emas."));
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_writeOffProductId))
         {
-            _prompts?.ShowWarning("Выберите товар для списания.");
+            _prompts?.ShowWarning(Tr.T("Выберите товар для списания.", "Эсептен чыгаруу үчүн товар тандаңыз.", "Select a product to write off.", "Düşülecek ürünü seçin.", "Hisobdan chiqarish uchun mahsulotni tanlang."));
             return;
         }
 
         if (WriteOffQuantity <= 0)
         {
-            _prompts?.ShowWarning("Укажите количество для списания.");
+            _prompts?.ShowWarning(Tr.T("Укажите количество для списания.", "Эсептен чыгарылуучу санды көрсөтүңүз.", "Enter the quantity to write off.", "Düşülecek miktarı girin.", "Hisobdan chiqariladigan miqdorni kiriting."));
             return;
         }
 
@@ -699,7 +703,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             string.Equals(p.Id, _writeOffProductId, StringComparison.OrdinalIgnoreCase));
         if (product is null)
         {
-            _prompts?.ShowError("Товар не найден в каталоге — обновите каталог и попробуйте снова.");
+            _prompts?.ShowError(Tr.T("Товар не найден в каталоге — обновите каталог и попробуйте снова.", "Товар каталогдон табылган жок — каталогду жаңыртып, кайра аракет кылыңыз.", "Product not found in the catalog — refresh the catalog and try again.", "Ürün katalogda bulunamadı — kataloğu güncelleyip tekrar deneyin.", "Mahsulot katalogda topilmadi — katalogni yangilab, qayta urinib ko'ring."));
             return;
         }
 
@@ -716,7 +720,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 .ConfigureAwait(true);
             if (detail is not { } el)
             {
-                _prompts?.ShowError("Сервер не вернул остаток товара. Списание отменено.");
+                _prompts?.ShowError(Tr.T("Сервер не вернул остаток товара. Списание отменено.", "Сервер товардын калдыгын кайтарган жок. Эсептен чыгаруу жокко чыгарылды.", "The server didn't return the product's stock. Write-off canceled.", "Sunucu ürünün stok miktarını döndürmedi. Düşüm iptal edildi.", "Server mahsulot qoldig'ini qaytarmadi. Hisobdan chiqarish bekor qilindi."));
                 return;
             }
 
@@ -728,14 +732,18 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             // Списание всё равно требует сервера (создание и проведение акта), поэтому без
             // достоверного остатка безопаснее отменить операцию, чем отправить абсолютное
             // значение, посчитанное из устаревших данных.
-            _prompts?.ShowError("Нет связи с сервером — актуальный остаток не получен. Списание отменено.");
+            _prompts?.ShowError(Tr.T("Нет связи с сервером — актуальный остаток не получен. Списание отменено.", "Сервер менен байланыш жок — учурдагы калдык алынган жок. Эсептен чыгаруу жокко чыгарылды.", "No connection to the server — couldn't get the current stock. Write-off canceled.", "Sunucuyla bağlantı yok — güncel stok alınamadı. Düşüm iptal edildi.", "Server bilan aloqa yo'q — joriy qoldiq olinmadi. Hisobdan chiqarish bekor qilindi."));
             return;
         }
 
         if (WriteOffQuantity > currentQuantity)
         {
             _prompts?.ShowWarning(
-                $"Списываемое количество ({WriteOffQuantity:0.###}) больше остатка ({currentQuantity:0.###}).");
+                Tr.T($"Списываемое количество ({WriteOffQuantity:0.###}) больше остатка ({currentQuantity:0.###}).",
+                    $"Эсептен чыгарылуучу сан ({WriteOffQuantity:0.###}) калдыктан ({currentQuantity:0.###}) көп.",
+                    $"The write-off quantity ({WriteOffQuantity:0.###}) is greater than the stock ({currentQuantity:0.###}).",
+                    $"Düşülecek miktar ({WriteOffQuantity:0.###}) stoktan ({currentQuantity:0.###}) fazla.",
+                    $"Hisobdan chiqariladigan miqdor ({WriteOffQuantity:0.###}) qoldiqdan ({currentQuantity:0.###}) ko'p."));
             return;
         }
 
@@ -754,7 +762,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             if (string.IsNullOrWhiteSpace(sessionId))
             {
-                _prompts?.ShowError("Не удалось создать акт списания на сервере.");
+                _prompts?.ShowError(Tr.T("Не удалось создать акт списания на сервере.", "Серверде эсептен чыгаруу актысын түзүү мүмкүн болгон жок.", "Could not create the write-off document on the server.", "Sunucuda düşüm tutanağı oluşturulamadı.", "Serverda hisobdan chiqarish aktini yaratib bo'lmadi."));
                 return;
             }
 
@@ -801,15 +809,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             WriteOffBarcode = "";
             WriteOffProductName = "";
             WriteOffQuantity = 1;
-            _prompts?.ShowToast("Списание проведено.");
+            _prompts?.ShowToast(Tr.T("Списание проведено.", "Эсептен чыгаруу аткарылды.", "Write-off posted.", "Düşüm tamamlandı.", "Hisobdan chiqarish o'tkazildi."));
         }
         catch (ApiException ex)
         {
-            _prompts?.ShowError($"Не удалось провести списание: {ex.Message}");
+            _prompts?.ShowError(Tr.T($"Не удалось провести списание: {ex.Message}", $"Эсептен чыгаруу мүмкүн болгон жок: {ex.Message}", $"Could not post the write-off: {ex.Message}", $"Düşüm yapılamadı: {ex.Message}", $"Hisobdan chiqarishni o'tkazib bo'lmadi: {ex.Message}"));
         }
         catch (HttpRequestException)
         {
-            _prompts?.ShowError("Не удалось провести списание — нет сети.");
+            _prompts?.ShowError(Tr.T("Не удалось провести списание — нет сети.", "Эсептен чыгаруу мүмкүн болгон жок — тармак жок.", "Could not post the write-off — no network.", "Düşüm yapılamadı — ağ bağlantısı yok.", "Hisobdan chiqarishni o'tkazib bo'lmadi — tarmoq yo'q."));
         }
         finally
         {

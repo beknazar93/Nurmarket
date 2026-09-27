@@ -51,7 +51,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
     public async Task PrepareCartForCheckoutAsync(bool forceMaterialize, CancellationToken cancellationToken = default)
     {
         if (!_cart.HasCart || _cart.LineCount == 0)
-            throw new ApiException("Добавьте товары в корзину.", 400);
+            throw new ApiException(Tr.T("Добавьте товары в корзину.", "Себетке товар кошуңуз.", "Add products to the cart.", "Sepete ürün ekleyin.", "Savatga mahsulot qo'shing."), 400);
 
         if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline)
             return;
@@ -259,7 +259,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
         CancellationToken cancellationToken = default)
     {
         if (!_cart.HasCart || _cart.LineCount == 0)
-            return PosCheckoutResult.Failed("Добавьте товары в корзину.");
+            return PosCheckoutResult.Failed(Tr.T("Добавьте товары в корзину.", "Себетке товар кошуңуз.", "Add products to the cart.", "Sepete ürün ekleyin.", "Savatga mahsulot qo'shing."));
 
         // Materialization replaces a staging cart before its network work is
         // complete. Keep a recoverable copy for an offline fallback.
@@ -365,21 +365,41 @@ public sealed class PosCheckoutService : IPosCheckoutService
                     + $"не хватает {shortfall:0.00}. Корзина: {cartJsonSnapshot}",
                     "PAYMENT");
 
-                return PosCheckoutResult.Failed(
+                return PosCheckoutResult.Failed(Tr.T(
                     $"Сумма чека изменилась при переносе на сервер: касса показала {cashGiven:0.00} сом, "
                     + $"сервер посчитал {total:0.00} сом (не хватает {shortfall:0.00}). "
-                    + "Чаще всего это скидка, которую сервер не принял. Проверьте скидку и повторите оплату.");
+                    + "Чаще всего это скидка, которую сервер не принял. Проверьте скидку и повторите оплату.",
+                    $"Чектин суммасы серверге өткөрүүдө өзгөрдү: касса {cashGiven:0.00} сом көрсөттү, "
+                    + $"сервер {total:0.00} сом эсептеди ({shortfall:0.00} жетишпейт). "
+                    + "Көбүнчө бул сервер кабыл албаган арзандатуу. Арзандатууну текшерип, төлөмдү кайталаңыз.",
+                    $"The receipt total changed when it was sent to the server: the till showed {cashGiven:0.00} som, "
+                    + $"the server calculated {total:0.00} som ({shortfall:0.00} short). "
+                    + "This is usually a discount the server didn't accept. Check the discount and retry the payment.",
+                    $"Fiş tutarı sunucuya aktarılırken değişti: kasa {cashGiven:0.00} som gösterdi, "
+                    + $"sunucu {total:0.00} som hesapladı ({shortfall:0.00} eksik). "
+                    + "Bu genellikle sunucunun kabul etmediği bir indirimdir. İndirimi kontrol edip ödemeyi tekrarlayın.",
+                    $"Chek summasi serverga o'tkazilganda o'zgardi: kassa {cashGiven:0.00} so'm ko'rsatdi, "
+                    + $"server {total:0.00} so'm hisobladi ({shortfall:0.00} yetishmaydi). "
+                    + "Odatda bu server qabul qilmagan chegirma. Chegirmani tekshirib, to'lovni takrorlang."));
             }
 
             if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline)
             {
                 if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
-                    return PosCheckoutResult.Failed(
-                        "Продажа «в долг» недоступна офлайн — нужна связь с сервером.");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        "Продажа «в долг» недоступна офлайн — нужна связь с сервером.",
+                        "«Карызга» сатуу офлайн режимде жеткиликсиз — сервер менен байланыш керек.",
+                        "Selling “on credit” is unavailable offline — a server connection is required.",
+                        "«Veresiye» satış çevrimdışı modda kullanılamaz — sunucu bağlantısı gerekir.",
+                        "«Qarzga» sotish oflayn rejimda mavjud emas — server bilan aloqa kerak."));
 
                 if (string.Equals(request.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
-                    return PosCheckoutResult.Failed(
-                        "Смешанная оплата недоступна офлайн — нужна связь с сервером.");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        "Смешанная оплата недоступна офлайн — нужна связь с сервером.",
+                        "Аралаш төлөм офлайн режимде жеткиликсиз — сервер менен байланыш керек.",
+                        "Mixed payment is unavailable offline — a server connection is required.",
+                        "Karışık ödeme çevrimdışı modda kullanılamaz — sunucu bağlantısı gerekir.",
+                        "Aralash to'lov oflayn rejimda mavjud emas — server bilan aloqa kerak."));
 
                 return await CompleteOfflineCheckoutAsync(request, cartJsonSnapshot, total)
                     .ConfigureAwait(false);
@@ -405,9 +425,21 @@ public sealed class PosCheckoutService : IPosCheckoutService
             {
                 var reassigned = await TryReassignCashboxAsync(cancellationToken).ConfigureAwait(false);
                 return PosCheckoutResult.Failed(reassigned
-                    ? "Касса была переназначена (старая не подходит для вашего филиала). Нажмите «Оплатить» ещё раз."
-                    : "Ни одна касса компании не подходит для вашего филиала. Обратитесь к администратору NurCRM — " +
-                      "проверьте привязку кассы к филиалу в веб-версии.");
+                    ? Tr.T("Касса была переназначена (старая не подходит для вашего филиала). Нажмите «Оплатить» ещё раз.",
+                        "Касса алмаштырылды (мурункусу филиалыңызга туура келбейт). «Төлөө» баскычын дагы бир жолу басыңыз.",
+                        "The till was reassigned (the old one doesn't match your branch). Click “Pay” again.",
+                        "Kasa yeniden atandı (eskisi şubenize uymuyor). «Öde» düğmesine tekrar tıklayın.",
+                        "Kassa qayta tayinlandi (eskisi filialingizga mos emas). «To'lash» tugmasini yana bir bor bosing.")
+                    : Tr.T("Ни одна касса компании не подходит для вашего филиала. Обратитесь к администратору NurCRM — " +
+                      "проверьте привязку кассы к филиалу в веб-версии.",
+                        "Компаниянын бир да кассасы филиалыңызга туура келбейт. NurCRM администраторуна кайрылыңыз — " +
+                        "веб-версияда кассанын филиалга байланышын текшериңиз.",
+                        "None of the company's tills match your branch. Contact your NurCRM administrator — " +
+                        "check the till's branch assignment in the web version.",
+                        "Şirketin hiçbir kasası şubenize uymuyor. NurCRM yöneticinize başvurun — " +
+                        "web sürümünde kasanın şubeye bağlantısını kontrol edin.",
+                        "Kompaniyaning birorta kassasi filialingizga mos emas. NurCRM administratoriga murojaat qiling — " +
+                        "veb-versiyada kassaning filialga bog'lanishini tekshiring."));
             }
 
             return PosCheckoutResult.Failed(PaymentErrorMessages.ForCashier(ex));
@@ -442,7 +474,10 @@ public sealed class PosCheckoutService : IPosCheckoutService
                 return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
             var fallback = BuildOfflineFallback(fallbackCartJson, fallbackTotal, request.OrderDiscountBody);
             return await CompleteOfflineCheckoutAsync(
-                    request, fallback.CartJson, fallback.Total, "Таймаут оплаты или потеря сети.")
+                    request, fallback.CartJson, fallback.Total,
+                    Tr.T("Таймаут оплаты или потеря сети.", "Төлөмдү күтүү убактысы бүттү же тармак үзүлдү.",
+                        "Payment timed out or the connection was lost.", "Ödeme zaman aşımına uğradı veya ağ bağlantısı koptu.",
+                        "To'lov vaqti tugadi yoki tarmoq uzildi."))
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -550,8 +585,16 @@ public sealed class PosCheckoutService : IPosCheckoutService
         return PosCheckoutResult.Succeeded(
             total,
             cartJsonSnapshot,
-            info: "Оплата уже прошла на сервере (ответ не успел дойти вовремя) — повторно не проводим. " +
-                  "Чек можно распечатать ещё раз из раздела «Продажи».");
+            info: Tr.T("Оплата уже прошла на сервере (ответ не успел дойти вовремя) — повторно не проводим. " +
+                  "Чек можно распечатать ещё раз из раздела «Продажи».",
+                "Төлөм серверде мурунтан эле өткөн (жооп убагында келген жок) — кайра өткөрбөйбүз. " +
+                "Чекти «Сатуулар» бөлүмүнөн кайра басып чыгарса болот.",
+                "The payment already went through on the server (the response didn't arrive in time) — not charging again. " +
+                "You can reprint the receipt from the “Sales” section.",
+                "Ödeme sunucuda zaten gerçekleşti (yanıt zamanında gelmedi) — tekrar işlenmeyecek. " +
+                "Fişi «Satışlar» bölümünden yeniden yazdırabilirsiniz.",
+                "To'lov serverda allaqachon o'tgan (javob o'z vaqtida kelmadi) — qayta o'tkazilmaydi. " +
+                "Chekni «Sotuvlar» bo'limidan qayta chop etish mumkin."));
     }
 
     /// <summary>Узнаёт именно ту ошибку сервера ("cashbox_id: Касса не найдена или не
@@ -622,12 +665,20 @@ public sealed class PosCheckoutService : IPosCheckoutService
         // клиента к долгу, ни передать безналичную часть (её просто негде хранить), поэтому
         // смешанный чек 3000 нал + 7000 карта выгрузился бы как 3000.
         if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
-            return PosCheckoutResult.Failed(
-                "Продажа «в долг» недоступна без связи с сервером. Повторите оплату, когда появится интернет.");
+            return PosCheckoutResult.Failed(Tr.T(
+                "Продажа «в долг» недоступна без связи с сервером. Повторите оплату, когда появится интернет.",
+                "«Карызга» сатуу сервер менен байланышсыз жеткиликсиз. Интернет пайда болгондо төлөмдү кайталаңыз.",
+                "Selling “on credit” is unavailable without a server connection. Retry the payment when the internet is back.",
+                "«Veresiye» satış sunucu bağlantısı olmadan kullanılamaz. İnternet bağlantısı sağlandığında ödemeyi tekrarlayın.",
+                "«Qarzga» sotish server bilan aloqasiz mavjud emas. Internet paydo bo'lganda to'lovni takrorlang."));
 
         if (string.Equals(request.PaymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
-            return PosCheckoutResult.Failed(
-                "Смешанная оплата недоступна без связи с сервером. Повторите оплату, когда появится интернет.");
+            return PosCheckoutResult.Failed(Tr.T(
+                "Смешанная оплата недоступна без связи с сервером. Повторите оплату, когда появится интернет.",
+                "Аралаш төлөм сервер менен байланышсыз жеткиликсиз. Интернет пайда болгондо төлөмдү кайталаңыз.",
+                "Mixed payment is unavailable without a server connection. Retry the payment when the internet is back.",
+                "Karışık ödeme sunucu bağlantısı olmadan kullanılamaz. İnternet bağlantısı sağlandığında ödemeyi tekrarlayın.",
+                "Aralash to'lov server bilan aloqasiz mavjud emas. Internet paydo bo'lganda to'lovni takrorlang."));
 
         var isAutonomous = _autonomous.IsCurrentSessionAutonomous;
         var entry = new OfflineSaleEntry
@@ -665,14 +716,28 @@ public sealed class PosCheckoutService : IPosCheckoutService
         // 2026-09-10: автономная продажа никуда не "выгружается" (нет сервера/аккаунта, на
         // который выгружать) — "В очереди: N" тут вводит в заблуждение, как будто чек чего-то
         // ждёт. Обычный офлайн-режим (временная потеря связи с NurCRM) ниже не тронут.
+        var pending = isAutonomous ? 0 : OfflinePendingSalesStore.PendingCount;
         var info = isAutonomous
-            ? "Оплата сохранена (автономный режим)."
+            ? Tr.T("Оплата сохранена (автономный режим).", "Төлөм сакталды (автономдук режим).",
+                "Payment saved (offline mode).", "Ödeme kaydedildi (çevrimdışı mod).", "To'lov saqlandi (oflayn rejim).")
             : reason != null
-                ? $"Оплата сохранена локально ({reason}). В очереди: {OfflinePendingSalesStore.PendingCount}."
-                : $"Оплата сохранена локально. В очереди: {OfflinePendingSalesStore.PendingCount}.";
+                ? Tr.T($"Оплата сохранена локально ({reason}). В очереди: {pending}.",
+                    $"Төлөм ушул кассада сакталды ({reason}). Кезекте: {pending}.",
+                    $"Payment saved locally ({reason}). Queued: {pending}.",
+                    $"Ödeme yerel olarak kaydedildi ({reason}). Sırada: {pending}.",
+                    $"To'lov shu kompyuterda saqlandi ({reason}). Navbatda: {pending}.")
+                : Tr.T($"Оплата сохранена локально. В очереди: {pending}.",
+                    $"Төлөм ушул кассада сакталды. Кезекте: {pending}.",
+                    $"Payment saved locally. Queued: {pending}.",
+                    $"Ödeme yerel olarak kaydedildi. Sırada: {pending}.",
+                    $"To'lov shu kompyuterda saqlandi. Navbatda: {pending}.");
 
         if (request.PrintReceipt && !printed)
-            info += " Продажа сохранена, но чек не напечатан; используйте повторную печать.";
+            info += Tr.T(" Продажа сохранена, но чек не напечатан; используйте повторную печать.",
+                " Сатуу сакталды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
+                " The sale is saved, but the receipt wasn't printed; use reprint.",
+                " Satış kaydedildi ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
+                " Sotuv saqlandi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.");
 
         return PosCheckoutResult.OfflineSaved(
             total,
@@ -690,7 +755,11 @@ public sealed class PosCheckoutService : IPosCheckoutService
     {
         var cartId = _cart.CartId;
         if (string.IsNullOrWhiteSpace(cartId))
-            return PosCheckoutResult.Failed("Корзина не привязана к серверу. Начните продажу заново.");
+            return PosCheckoutResult.Failed(Tr.T("Корзина не привязана к серверу. Начните продажу заново.",
+                "Себет серверге байланган эмес. Сатууну кайрадан баштаңыз.",
+                "The cart isn't linked to the server. Start the sale again.",
+                "Sepet sunucuya bağlı değil. Satışı yeniden başlatın.",
+                "Savat serverga bog'lanmagan. Sotuvni qaytadan boshlang."));
 
         var body = BuildCheckoutRequestBody(
             request.PaymentMethod, request.CashReceived, request.PrintReceipt, request.ClientId, request.NonCashReceived);
@@ -840,9 +909,17 @@ public sealed class PosCheckoutService : IPosCheckoutService
         _ = Task.Run(() => RefreshShiftStateInBackgroundAsync());
 
         var info = debtPartialAmountRequested
-            ? "Продажа оформлена в долг. Частичная оплата досчитывается сервером в фоне — если через пару минут долг клиента не уменьшится, введите оплату вручную через «Оплата долга»."
+            ? Tr.T("Продажа оформлена в долг. Частичная оплата досчитывается сервером в фоне — если через пару минут долг клиента не уменьшится, введите оплату вручную через «Оплата долга».",
+                "Сатуу карызга жазылды. Жарым-жартылай төлөмдү сервер фондо эсептейт — эгер бир-эки мүнөттөн кийин клиенттин карызы азайбаса, төлөмдү «Карыз төлөө» аркылуу кол менен киргизиңиз.",
+                "The sale was recorded on credit. The server applies the partial payment in the background — if the client's debt doesn't go down in a couple of minutes, enter the payment manually via “Pay debt”.",
+                "Satış veresiye olarak kaydedildi. Kısmi ödeme sunucu tarafından arka planda işleniyor — birkaç dakika içinde müşterinin borcu azalmazsa ödemeyi «Borç ödeme» üzerinden elle girin.",
+                "Sotuv qarzga rasmiylashtirildi. Qisman to'lovni server fonda hisoblaydi — agar bir-ikki daqiqadan keyin mijozning qarzi kamaymasa, to'lovni «Qarzni to'lash» orqali qo'lda kiriting.")
             : request.PrintReceipt && !printed
-                ? "Оплата выполнена, но чек не напечатан; используйте повторную печать."
+                ? Tr.T("Оплата выполнена, но чек не напечатан; используйте повторную печать.",
+                    "Төлөм аткарылды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
+                    "Payment completed, but the receipt wasn't printed; use reprint.",
+                    "Ödeme tamamlandı ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
+                    "To'lov amalga oshirildi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.")
                 : null;
 
         return PosCheckoutResult.Succeeded(

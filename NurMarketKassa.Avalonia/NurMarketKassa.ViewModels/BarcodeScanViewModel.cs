@@ -2,6 +2,7 @@ using MediatR;
 using NurMarketKassa.Core.Application.Commands;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Core.Domain;
+using NurMarketKassa.Services;
 using NurMarketKassa.Ui.Shared;
 using NurMarketKassa.ViewModels.Scanning;
 
@@ -78,7 +79,8 @@ public sealed class BarcodeScanViewModel : ViewModelBase
 
         if (string.IsNullOrWhiteSpace(_session.CurrentUserId))
         {
-            ScanErrorMessage = "Выполните вход в кассу.";
+            ScanErrorMessage = Tr.T("Выполните вход в кассу.", "Кассага кириңиз.", "Sign in to the till.",
+                "Kasaya giriş yapın.", "Kassaga kiring.");
             return false;
         }
 
@@ -104,8 +106,14 @@ public sealed class BarcodeScanViewModel : ViewModelBase
             if (product == null)
             {
                 ScanErrorMessage = isWeighedBarcode
-                    ? $"Товар с кодом {lookupCode} не найден в каталоге."
-                    : "У вас нет такого товара в базе.";
+                    ? Tr.T($"Товар с кодом {lookupCode} не найден в каталоге.",
+                        $"{lookupCode} коддуу товар каталогдон табылган жок.",
+                        $"Product with code {lookupCode} was not found in the catalog.",
+                        $"Kodu {lookupCode} olan ürün katalogda bulunamadı.",
+                        $"{lookupCode} kodli mahsulot katalogda topilmadi.")
+                    : Tr.T("У вас нет такого товара в базе.", "Базада мындай товар жок.",
+                        "This product is not in your database.", "Bu ürün veritabanınızda yok.",
+                        "Bazangizda bunday mahsulot yo'q.");
                 return false;
             }
 
@@ -130,7 +138,8 @@ public sealed class BarcodeScanViewModel : ViewModelBase
         catch (Exception ex)
         {
             ScanErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
-                ? "Ошибка при обработке штрих-кода."
+                ? Tr.T("Ошибка при обработке штрих-кода.", "Штрихкодду иштетүүдө ката кетти.",
+                    "Error processing the barcode.", "Barkod işlenirken hata oluştu.", "Shtrix-kodni qayta ishlashda xato.")
                 : ex.Message;
             return false;
         }
@@ -164,7 +173,8 @@ public sealed class BarcodeScanViewModel : ViewModelBase
                 .ConfigureAwait(false);
 
             if (!success && string.IsNullOrWhiteSpace(ScanErrorMessage))
-                ScanErrorMessage = "Не удалось обработать штрих-код.";
+                ScanErrorMessage = Tr.T("Не удалось обработать штрих-код.", "Штрихкодду иштетүү мүмкүн болгон жок.",
+                    "Could not process the barcode.", "Barkod işlenemedi.", "Shtrix-kodni qayta ishlab bo'lmadi.");
 
             if (success)
                 BarcodeBuffer = "";
@@ -178,7 +188,8 @@ public sealed class BarcodeScanViewModel : ViewModelBase
         catch (Exception ex)
         {
             ScanErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
-                ? "Ошибка при обработке штрих-кода."
+                ? Tr.T("Ошибка при обработке штрих-кода.", "Штрихкодду иштетүүдө ката кетти.",
+                    "Error processing the barcode.", "Barkod işlenirken hata oluştu.", "Shtrix-kodni qayta ishlashda xato.")
                 : ex.Message;
             return false;
         }

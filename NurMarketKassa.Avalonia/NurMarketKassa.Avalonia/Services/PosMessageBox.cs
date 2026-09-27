@@ -9,7 +9,7 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 public static class PosMessageBox
 {
     public static MessageBoxResult Show(string messageBoxText) =>
-        Show(messageBoxText, "Nur Market — Касса");
+        Show(messageBoxText, Tr.T("Nur Market — Касса", "Nur Market — Касса", "Nur Market — Till", "Nur Market — Kasa", "Nur Market — Kassa"));
 
     public static MessageBoxResult Show(string messageBoxText, string caption) =>
         Show(messageBoxText, caption, MessageBoxButton.OK);
@@ -73,14 +73,14 @@ public static class PosMessageBox
                     owner,
                     caption,
                     messageBoxText,
-                    confirmText: "Да",
-                    cancelText: button == MessageBoxButton.YesNoCancel ? "Отмена" : "Нет");
+                    confirmText: Tr.T("Да", "Ооба", "Yes", "Evet", "Ha"),
+                    cancelText: button == MessageBoxButton.YesNoCancel ? Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish") : Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q"));
                 return confirmed ? MessageBoxResult.Yes : MessageBoxResult.No;
             }
             default:
             {
                 var kind = MapAlertKind(icon);
-                var buttonText = icon == MessageBoxImage.Question ? "ОК" : "Понятно";
+                var buttonText = icon == MessageBoxImage.Question ? Tr.T("ОК", "ОК", "OK", "Tamam", "OK") : Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
                 if (string.Equals(caption, "Принтер не подключен", StringComparison.OrdinalIgnoreCase)
                     || (messageBoxText.Contains("принтер", StringComparison.OrdinalIgnoreCase)
                         && messageBoxText.Length < 80))
@@ -116,17 +116,17 @@ public static class PosMessageBox
 
 public static class PosDialogs
 {
-    public static bool ConfirmYesNo(Window? owner, string message, string title = "Подтверждение") =>
-        PosConfirmDialog.Show(owner, title, message);
+    public static bool ConfirmYesNo(Window? owner, string message, string? title = null) =>
+        PosConfirmDialog.Show(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message);
 
-    public static void Info(Window? owner, string message, string title = "Сообщение") =>
-        PosAlertDialog.Show(owner, title, message, PosAlertKind.Info);
+    public static void Info(Window? owner, string message, string? title = null) =>
+        PosAlertDialog.Show(owner, title ?? Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info);
 
-    public static void Warning(Window? owner, string message, string title = "Внимание") =>
-        PosAlertDialog.Show(owner, title, message, PosAlertKind.Warning);
+    public static void Warning(Window? owner, string message, string? title = null) =>
+        PosAlertDialog.Show(owner, title ?? Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat"), message, PosAlertKind.Warning);
 
-    public static void Error(Window? owner, string message, string title = "Ошибка") =>
-        PosAlertDialog.Show(owner, title, message, PosAlertKind.Error);
+    public static void Error(Window? owner, string message, string? title = null) =>
+        PosAlertDialog.Show(owner, title ?? Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"), message, PosAlertKind.Error);
 
     public static PaymentSuccessDialogResult? ShowPaymentSuccess(Window? owner, double totalAmount, bool defaultPrintReceipt)
     {
@@ -156,8 +156,8 @@ public static class PosDialogs
         PosLogger.Log("Preview requested. Feature not implemented yet.", "RECEIPT_PREVIEW");
         PosAlertDialog.Show(
             owner,
-            "Предпросмотр",
-            "Предпросмотр чека будет доступен в следующей версии.",
+            Tr.T("Предпросмотр", "Алдын ала көрүү", "Preview", "Önizleme", "Oldindan ko'rish"),
+            Tr.T("Предпросмотр чека будет доступен в следующей версии.", "Чекти алдын ала көрүү кийинки версияда жеткиликтүү болот.", "Receipt preview will be available in the next version.", "Fiş önizleme bir sonraki sürümde kullanılabilir olacak.", "Chekni oldindan ko'rish keyingi versiyada mavjud bo'ladi."),
             PosAlertKind.Info);
     }
 }

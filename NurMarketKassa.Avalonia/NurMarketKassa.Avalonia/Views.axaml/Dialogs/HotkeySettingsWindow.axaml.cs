@@ -80,7 +80,7 @@ public partial class HotkeySettingsWindow : Window, INotifyPropertyChanged
         var values = Rows.ToDictionary(x => x.Action, x => x.Gesture);
         if (!_hotkeys.Save(values, out var error))
         {
-            ErrorText = error ?? "Не удалось сохранить комбинации.";
+            ErrorText = error ?? Tr.T("Не удалось сохранить комбинации.", "Айкалыштарды сактоо мүмкүн болгон жок.", "Could not save the key combinations.", "Tuş kombinasyonları kaydedilemedi.", "Tugmalar kombinatsiyalarini saqlab bo'lmadi.");
             return;
         }
 

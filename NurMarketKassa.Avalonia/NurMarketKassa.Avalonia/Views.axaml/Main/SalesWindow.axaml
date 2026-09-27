@@ -144,10 +144,10 @@
                 </Border>
                 <Button Content="Excel" Classes="SecondaryActionButton"
                         Margin="10,0,0,0" Click="ExportExcel_Click"
-                        ToolTip.Tip="Выгрузить аналитику продаж и склада за выбранный период в Excel с графиками."/>
+                        ToolTip.Tip="{DynamicResource loc.owner.sales.excelTip}"/>
                 <Button Content="Word" Classes="SecondaryActionButton"
                         Margin="6,0,0,0" Click="ExportWord_Click"
-                        ToolTip.Tip="Выгрузить тот же отчёт в Word — с таблицами и графиками."/>
+                        ToolTip.Tip="{DynamicResource loc.owner.sales.wordTip}"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
                         Margin="10,0,0,0" Click="Refresh_Click" />
                 <Button Content="{DynamicResource common.back}" Classes="SecondaryActionButton"
@@ -257,7 +257,7 @@
 
             <!-- Дополнительная статистика и Топ-10 (оборонуты в ScrollViewer на случай небольших экранов) -->
             <TabControl Grid.Row="1" Margin="0,8,0,0">
-                <TabItem Header="Показатели">
+                <TabItem Header="{DynamicResource loc.owner.sales.metricsTab}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="4,8,4,4">
 

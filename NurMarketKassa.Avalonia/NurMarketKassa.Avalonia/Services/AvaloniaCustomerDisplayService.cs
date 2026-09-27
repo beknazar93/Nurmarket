@@ -17,7 +17,7 @@ public sealed record DisplayScreenOption(
     bool IsPrimary)
 {
     public string Label =>
-        $"{DisplayName} — {Bounds.Width}×{Bounds.Height}{(IsPrimary ? " — основной" : "")}";
+        $"{DisplayName} — {Bounds.Width}×{Bounds.Height}{(IsPrimary ? Tr.T(" — основной", " — негизги", " — primary", " — ana", " — asosiy") : "")}";
 }
 
 public sealed record CustomerDisplayOpenResult(bool IsSuccess, string Message);
@@ -173,7 +173,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
     {
         var preferences = UserPreferences.Instance;
         if (respectEnabledSetting && !preferences.CustomerDisplay.IsEnabled)
-            return new CustomerDisplayOpenResult(false, "Экран покупателя отключён в настройках.");
+            return new CustomerDisplayOpenResult(false, Tr.T("Экран покупателя отключён в настройках.", "Сатып алуучунун экраны жөндөөлөрдө өчүрүлгөн.", "The customer display is turned off in settings.", "Müşteri ekranı ayarlarda kapalı.", "Xaridor ekrani sozlamalarda o'chirilgan."));
 
         var secondaryScreens = GetScreens(owner).Where(screen => !screen.IsPrimary).ToList();
         if (secondaryScreens.Count == 0)
@@ -184,8 +184,8 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             return new CustomerDisplayOpenResult(
                 false,
                 IsWindowsDisplayCloned()
-                    ? "Задний экран повторяет экран кассы (Windows: «Дублировать эти экраны») — покупатель видит экран кассира, а не цену. Нужен режим «Расширить эти экраны»."
-                    : "Второй монитор не найден. Экран покупателя не открыт поверх кассы.");
+                    ? Tr.T("Задний экран повторяет экран кассы (Windows: «Дублировать эти экраны») — покупатель видит экран кассира, а не цену. Нужен режим «Расширить эти экраны».", "Арткы экран кассанын экранын кайталайт (Windows: «Дублировать эти экраны») — сатып алуучу бааны эмес, кассирдин экранын көрөт. «Расширить эти экраны» режими керек.", "The rear screen mirrors the till screen (Windows: “Duplicate these displays”) — the customer sees the cashier's screen instead of the price. “Extend these displays” mode is required.", "Arka ekran kasa ekranını yansıtıyor (Windows: «Bu ekranları çoğalt») — müşteri fiyatı değil, kasiyerin ekranını görüyor. «Bu ekranları genişlet» modu gerekli.", "Orqa ekran kassa ekranini takrorlayapti (Windows: «Дублировать эти экраны») — xaridor narxni emas, kassir ekranini ko'radi. «Расширить эти экраны» rejimi kerak.")
+                    : Tr.T("Второй монитор не найден. Экран покупателя не открыт поверх кассы.", "Экинчи монитор табылган жок. Сатып алуучунун экраны кассанын үстүнө ачылган жок.", "Second monitor not found. The customer display wasn't opened on top of the till.", "İkinci monitör bulunamadı. Müşteri ekranı kasa ekranının üzerinde açılmadı.", "Ikkinchi monitor topilmadi. Xaridor ekrani kassa ustida ochilmadi."));
         }
 
         var settings = preferences.CustomerDisplay.Clone();
@@ -208,8 +208,8 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         return IsOpen
             ? new CustomerDisplayOpenResult(
                 true,
-                $"Экран покупателя открыт на «{target.DisplayName}» ({target.Bounds.Width}×{target.Bounds.Height}).")
-            : new CustomerDisplayOpenResult(false, "Не удалось открыть экран покупателя.");
+                Tr.T($"Экран покупателя открыт на «{target.DisplayName}» ({target.Bounds.Width}×{target.Bounds.Height}).", $"Сатып алуучунун экраны «{target.DisplayName}» мониторунда ачылды ({target.Bounds.Width}×{target.Bounds.Height}).", $"Customer display opened on “{target.DisplayName}” ({target.Bounds.Width}×{target.Bounds.Height}).", $"Müşteri ekranı açıldı: «{target.DisplayName}» ({target.Bounds.Width}×{target.Bounds.Height}).", $"Xaridor ekrani ochildi: «{target.DisplayName}» ({target.Bounds.Width}×{target.Bounds.Height})."))
+            : new CustomerDisplayOpenResult(false, Tr.T("Не удалось открыть экран покупателя.", "Сатып алуучунун экранын ачуу мүмкүн болгон жок.", "Could not open the customer display.", "Müşteri ekranı açılamadı.", "Xaridor ekranini ochib bo'lmadi."));
     }
 
     public void CloseForSession() => _ = CloseAsync(false);
@@ -267,7 +267,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         for (var i = 0; i < screens.Count; i++)
         {
             var screen = screens[i];
-            var name = string.IsNullOrWhiteSpace(screen.DisplayName) ? $"Монитор {i + 1}" : screen.DisplayName!;
+            var name = string.IsNullOrWhiteSpace(screen.DisplayName) ? Tr.T($"Монитор {i + 1}", $"Монитор {i + 1}", $"Monitor {i + 1}", $"Monitör {i + 1}", $"Monitor {i + 1}") : screen.DisplayName!;
             result.Add(new DisplayScreenOption(
                 BuildScreenId(screen), name, screen.Bounds, screen.WorkingArea, screen.IsPrimary));
         }
@@ -281,7 +281,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         EnsureWindowVisible(true, settings, requireSecondaryScreen: false);
         _window?.Activate();
         if (_window is null)
-            return "Не удалось открыть экран покупателя.";
+            return Tr.T("Не удалось открыть экран покупателя.", "Сатып алуучунун экранын ачуу мүмкүн болгон жок.", "Could not open the customer display.", "Müşteri ekranı açılamadı.", "Xaridor ekranini ochib bo'lmadi.");
         var target = ResolveTarget(_window, settings, out _, out var warning);
         return target.Label + (string.IsNullOrEmpty(warning) ? "" : $". {warning}");
     }
@@ -295,9 +295,9 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         if (!settings.IsEnabled)
         {
             if (_state.CurrentStatus == CustomerDisplayPaymentStatus.Processing)
-                return "Настройки сохранены. Монитор закроется после завершения оплаты.";
+                return Tr.T("Настройки сохранены. Монитор закроется после завершения оплаты.", "Жөндөөлөр сакталды. Монитор төлөм бүткөндөн кийин жабылат.", "Settings saved. The monitor will close once the payment is complete.", "Ayarlar kaydedildi. Monitör ödeme tamamlandıktan sonra kapanacak.", "Sozlamalar saqlandi. Monitor to'lov tugagandan keyin yopiladi.");
             _ = CloseAsync(false);
-            return "Монитор покупателя отключён.";
+            return Tr.T("Монитор покупателя отключён.", "Сатып алуучунун монитору өчүрүлдү.", "Customer monitor turned off.", "Müşteri monitörü kapatıldı.", "Xaridor monitori o'chirildi.");
         }
 
         if (_window is { IsVisible: true })
@@ -306,7 +306,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             _window.ApplySettings(settings);
             ApplyWindowPlacement(_window, settings, _requiresSecondaryScreen);
         }
-        return "Настройки применены.";
+        return Tr.T("Настройки применены.", "Жөндөөлөр колдонулду.", "Settings applied.", "Ayarlar uygulandı.", "Sozlamalar qo'llandi.");
     }
 
     public void CloseDisplay() => _ = CloseAsync(true);
@@ -432,7 +432,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         for (var i = 0; i < screens.Count; i++)
         {
             var item = screens[i];
-            var name = string.IsNullOrWhiteSpace(item.DisplayName) ? $"Монитор {i + 1}" : item.DisplayName!;
+            var name = string.IsNullOrWhiteSpace(item.DisplayName) ? Tr.T($"Монитор {i + 1}", $"Монитор {i + 1}", $"Monitor {i + 1}", $"Monitör {i + 1}", $"Monitor {i + 1}") : item.DisplayName!;
             options.Add((new DisplayScreenOption(
                 BuildScreenId(item), name, item.Bounds, item.WorkingArea, item.IsPrimary), item));
         }
@@ -450,11 +450,11 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             if (selected.option is null)
                 selected = options.First();
             if (!string.IsNullOrWhiteSpace(settings.SelectedScreenId))
-                warning = "Выбранный ранее экран не найден; использован доступный экран";
+                warning = Tr.T("Выбранный ранее экран не найден; использован доступный экран", "Мурда тандалган экран табылган жок; жеткиликтүү экран колдонулду", "The previously selected screen was not found; an available screen was used", "Önceden seçilen ekran bulunamadı; mevcut bir ekran kullanıldı", "Avval tanlangan ekran topilmadi; mavjud ekran ishlatildi");
         }
 
         if (selected.option.IsPrimary && !options.Any(x => !x.option.IsPrimary))
-            warning = "Внешний монитор не найден. Экран покупателя открыт в безопасном оконном режиме";
+            warning = Tr.T("Внешний монитор не найден. Экран покупателя открыт в безопасном оконном режиме", "Тышкы монитор табылган жок. Сатып алуучунун экраны коопсуз терезе режиминде ачылды", "External monitor not found. The customer display opened in safe windowed mode", "Harici monitör bulunamadı. Müşteri ekranı güvenli pencere modunda açıldı", "Tashqi monitor topilmadi. Xaridor ekrani xavfsiz oyna rejimida ochildi");
 
         screen = selected.screen;
         return selected.option;

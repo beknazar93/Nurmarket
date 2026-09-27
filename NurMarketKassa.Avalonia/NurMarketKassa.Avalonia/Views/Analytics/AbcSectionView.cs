@@ -59,7 +59,7 @@ public sealed class AbcSectionView : UserControl
                 Header = Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
                 Content = new TextBlock
                 {
-                    Text = Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөөгө эч нерсе жок.", "No sales in the selected period - nothing to calculate ABC from.", "Seçilen dönemde satış yok - ABC hesaplanacak bir şey yok.", "Tanlangan davrda sotuv yo'q - ABC hisoblash uchun hech narsa yo'q."),
+                    Text = Tr.T("Продаж за выбранный период нет — считать ABC не на чем.", "Тандалган мезгилде сатуу жок — ABC эсептөө үчүн маалымат жок.", "No sales in the selected period — nothing to run ABC analysis on.", "Seçilen dönemde satış yok — ABC analizi yapılamıyor.", "Tanlangan davrda sotuv yo'q — ABC tahlili uchun ma'lumot yo'q."),
                     Margin = new Thickness(12),
                     Foreground = Brushes.Gray,
                 },
@@ -172,7 +172,7 @@ public sealed class AbcSectionView : UserControl
 
             _grid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = Tr.T("Гр.", "Тп.", "Gr.", "Gr.", "Gr."),
+                Header = Tr.T("Гр.", "Тп.", "Grp", "Gr.", "Gr."),
                 Width = new DataGridLength(54),
                 CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : new Border
                 {
@@ -227,7 +227,7 @@ public sealed class AbcSectionView : UserControl
 
             _grid.Columns.Add(new DataGridTextColumn
             {
-                Header = Tr.T("Накопл.", "Топтолмо", "Cumul.", "Kümül.", "Jami"),
+                Header = Tr.T("Накопл.", "Топтолгон", "Cumul.", "Kümül.", "To'plangan"),
                 Width = new DataGridLength(95),
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.CumulativeText)),
             });
@@ -278,23 +278,23 @@ public sealed class AbcSectionView : UserControl
 
             var shown = Math.Min(slice.Rows.Count, 20);
             _paretoTitle.Text = slice.Rows.Count > shown
-                ? Tr.T("Диаграмма Парето — крупнейшие", "Парето диаграммасы — эң ириси", "Pareto chart - largest", "Pareto grafiği - en büyükleri", "Pareto diagrammasi - eng yiriklari") + $": {shown} / {slice.Rows.Count}"
-                : Tr.T("Диаграмма Парето — все", "Парето диаграммасы — баары", "Pareto chart - all", "Pareto grafiği - tümü", "Pareto diagrammasi - barchasi") + $": {slice.Rows.Count}";
+                ? Tr.T("Диаграмма Парето — крупнейшие", "Парето диаграммасы — эң ирилери", "Pareto chart — top items", "Pareto grafiği — en büyükler", "Pareto diagrammasi — eng yiriklari") + $": {shown} / {slice.Rows.Count}"
+                : Tr.T("Диаграмма Парето — все", "Парето диаграммасы — баары", "Pareto chart — all items", "Pareto grafiği — tümü", "Pareto diagrammasi — barchasi") + $": {slice.Rows.Count}";
 
             var rightTitle = slice.IsMoney
-                ? Tr.T("Выручка", "Түшкөн акча", "Revenue", "Ciro", "Tushum")
+                ? Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum")
                 : Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor");
-            _pyramidTitle.Text = Tr.T("Доля позиций против доли", "Позициялардын үлүшү үлүшкө каршы", "Positions versus share", "Kalemler paya karşı", "Pozitsiyalar ulushga qarshi") + ": " + rightTitle.ToLowerInvariant();
+            _pyramidTitle.Text = Tr.T("Доля позиций против доли", "Позициялардын жана көрсөткүчтүн үлүшү", "Item share vs. total share", "Kalem payına karşı pay", "Pozitsiyalar ulushi va natija ulushi") + ": " + rightTitle.ToLowerInvariant();
             BarChartRenderer.RenderAbcPyramid(_pyramid, slice.Summary,
-                Tr.T("Позиции", "Позициялар", "Positions", "Kalemler", "Pozitsiyalar"), rightTitle);
+                Tr.T("Позиции", "Позициялар", "Items", "Kalemler", "Pozitsiyalar"), rightTitle);
 
             BarChartRenderer.RenderAbcLegend(_legend, slice.Summary, slice.Unit);
             _paretoHint.Text = Tr.T(
                 "Товары слева направо — от самого весомого к самому мелкому. Высота столбца — доля товара, цвет — его группа. Ломаная сверху — та же доля нарастающим итогом: где она пересекает пунктир 80 %, заканчивается группа A, где 95 % — группа B. Нажмите на столбец, чтобы посмотреть разбор товара.",
-                "Товарлар солдон оңго — эң салмактуудан эң майдага. Мамынын бийиктиги — товардын үлүшү, түсү — анын тобу. Үстүндөгү сызык — ошол эле үлүш топтолмо түрүндө: ал 80 % пунктирин кесип өткөн жерде A тобу, 95 % кесип өткөн жерде B тобу аяктайт. Товардын чечмелөөсүн көрүү үчүн мамыны басыңыз.",
-                "Products run left to right, from the heaviest to the smallest. Bar height is the product's share, colour is its group. The line on top is the same share accumulated: where it crosses the 80 % dashes group A ends, where it crosses 95 % group B ends. Click a bar to see the product breakdown.",
-                "Ürünler soldan sağa, en ağırdan en küçüğe. Çubuk yüksekliği ürünün payı, rengi grubudur. Üstteki çizgi aynı payın birikmiş hâli: %80 kesik çizgisini geçtiği yerde A grubu, %95'i geçtiği yerde B grubu biter. Ürün ayrıntısı için bir çubuğa tıklayın.",
-                "Mahsulotlar chapdan o'ngga — eng salmoqlidan eng maydaga. Ustun balandligi — mahsulot ulushi, rangi — uning guruhi. Yuqoridagi chiziq — o'sha ulush to'plangan holda: u 80 % punktirini kesib o'tgan joyda A guruhi, 95 % ni kesib o'tgan joyda B guruhi tugaydi. Mahsulot tahlilini ko'rish uchun ustunni bosing.");
+                "Товарлар солдон оңго — эң маанилүүсүнөн эң майдасына чейин. Мамынын бийиктиги — товардын үлүшү, түсү — анын тобу. Үстүндөгү сынык сызык — ошол эле үлүштүн топтолгон жыйынтыгы: ал 80 % пунктирин кесип өткөн жерде A тобу, 95 % пунктирин кесип өткөн жерде B тобу бүтөт. Товардын талдоосун көрүү үчүн мамыны басыңыз.",
+                "Products run left to right, from the biggest contributor to the smallest. Bar height is the product's share, color is its group. The line on top is the same share as a running total: where it crosses the 80% dashed line, group A ends; where it crosses 95%, group B ends. Click a bar to see the product breakdown.",
+                "Ürünler soldan sağa, en büyük paydan en küçüğe sıralanır. Çubuk yüksekliği ürünün payını, rengi grubunu gösterir. Üstteki kırık çizgi aynı payın kümülatif toplamıdır: %80 kesik çizgisini geçtiği yerde A grubu, %95'i geçtiği yerde B grubu biter. Ürün ayrıntısını görmek için bir çubuğa tıklayın.",
+                "Mahsulotlar chapdan o'ngga — eng salmoqlisidan eng kichigigacha. Ustun balandligi — mahsulot ulushi, rangi — uning guruhi. Yuqoridagi siniq chiziq — o'sha ulushning o'sib boruvchi jami: u 80 % li punktirni kesib o'tgan joyda A guruhi, 95 % li punktirni kesgan joyda B guruhi tugaydi. Mahsulot tahlilini ko'rish uchun ustunni bosing.");
 
             BarChartRenderer.RenderPareto(_pareto, slice.Rows
                 .Take(shown)
@@ -307,14 +307,14 @@ public sealed class AbcSectionView : UserControl
                 .ToList(),
                 name => ProductAnalyticsRequested?.Invoke(name));
             _paretoColumnsTitle.Text = Tr.T(
-                "Парето столбцами", "Парето мамылар менен", "Pareto as columns", "Sütunlarla Pareto", "Ustunlar bilan Pareto")
+                "Парето столбцами", "Парето мамылар менен", "Pareto as bars", "Sütunlarla Pareto", "Ustunli Pareto")
                 + $": {shown} / {slice.Rows.Count}";
             _paretoColumnsHint.Text = Tr.T(
                 "Та же картина, но накопленная доля и порог 80 % — столбцами: так их высоты сравниваются напрямую. Где оранжевый столбец перерос серый, заканчивается группа A.",
-                "Ошол эле сүрөт, бирок топтолгон үлүш жана 80 % босогосу — мамылар менен: ошондо алардын бийиктиги түз салыштырылат. Кызгылт сары мамы бозду басып озгон жерде A тобу аяктайт.",
-                "The same picture, but the cumulative share and the 80 % threshold are columns, so their heights compare directly. Where the orange column overtakes the grey one, group A ends.",
-                "Aynı tablo, ama kümülatif pay ve %80 eşiği sütun hâlinde: yükseklikleri doğrudan karşılaştırılır. Turuncu sütun griyi geçtiği yerde A grubu biter.",
-                "O'sha manzara, lekin to'plangan ulush va 80 % chegarasi — ustunlar: balandliklari to'g'ridan-to'g'ri taqqoslanadi. To'q sariq ustun kulrangdan o'zib ketgan joyda A guruhi tugaydi.");
+                "Ошол эле сүрөт, бирок топтолгон үлүш жана 80 % босогосу — мамылар менен: ошондо алардын бийиктиктерин түз салыштырса болот. Кызгылт сары мамы боз мамыдан ашып кеткен жерде A тобу бүтөт.",
+                "The same picture, but the cumulative share and the 80% threshold are shown as bars, so their heights compare directly. Where the orange bar grows taller than the gray one, group A ends.",
+                "Aynı görünüm, ancak kümülatif pay ve %80 eşiği sütunlarla gösterilir: böylece yükseklikler doğrudan karşılaştırılır. Turuncu sütunun griyi geçtiği yerde A grubu biter.",
+                "Xuddi shu manzara, lekin to'plangan ulush va 80 % chegarasi ustunlar ko'rinishida: shunda balandliklar to'g'ridan-to'g'ri taqqoslanadi. To'q sariq ustun kulrangdan oshib ketgan joyda A guruhi tugaydi.");
 
             BarChartRenderer.RenderParetoColumns(_paretoColumns, slice.Rows
                 .Take(shown)

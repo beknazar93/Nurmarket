@@ -13,37 +13,47 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "База знаний: все вопросы и пошаговое обучение — 97 статей с поиском, у 40 из них наглядные скриншоты окон кассы и программы владельца («☰ → Системные → База знаний»)",
-        "Несколько весов одновременно: в настройках весов появились «Весы 2» и «Весы 3» — касса сама берёт вес с тех весов, на которых лежит товар",
-        "Подсказка у табло покупателя теперь про цифровое табло «0.00» и кнопку «Найти табло»",
+        "База знаний на языке программы: все 97 статей, снимки экранов и подписи — на русском, кыргызском, английском, турецком и узбекском",
+        "В базе знаний появились обучающие анимации: как открыть программу владельца, как провести продажу и как вернуть чек",
+        "Переведены около 900 надписей, которые раньше показывались только по-русски: главный экран кассы, оплата, смена, настройки, окна программы владельца",
+        "Исправлены переводы на кыргызский, английский, турецкий и узбекский: грамматика, падежи, опечатки, единые названия (две проверки, около 2200 исправлений)",
+        "Кнопки в окнах смены и скидки больше не обрезаются на длинных языках; программа владельца после смены языка открывает разделы заново на новом языке, а её экран входа называется «Вход в программу владельца»",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Билим базасы: бардык суроолор жана кадам-кадам окутуу — издөө менен 97 макала, 40ында кассанын жана ээсинин программасынын терезелеринин скриншоттору бар («☰ → Системалык → Билим базасы»)",
-        "Бир эле учурда бир нече тараза: тараза жөндөөлөрүндө «Тараза 2» жана «Тараза 3» пайда болду — касса товар турган таразадан салмакты өзү алат",
-        "Сатып алуучунун таблосундагы кеңеш эми «0.00» сандык таблосу жана «Таблону табуу» баскычы жөнүндө",
+        "Билим базасы программанын тилинде: бардык 97 макала, экран сүрөттөрү жана жазуулар — орус, кыргыз, англис, түрк жана өзбек тилдеринде",
+        "Билим базасында окутуучу анимациялар пайда болду: ээсинин программасын кантип ачуу, сатууну кантип жүргүзүү жана чекти кантип кайтаруу",
+        "Мурда орусча гана көрүнгөн 900гө жакын жазуу которулду: кассанын башкы экраны, төлөө, смена, жөндөөлөр, ээсинин программасынын терезелери",
+        "Кыргыз, англис, түрк жана өзбек тилдериндеги котормолор оңдолду: грамматика, жөндөмөлөр, ката жазуулар, бирдиктүү аттар (эки текшерүү, 2200гө жакын оңдоо)",
+        "Смена жана арзандатуу терезелериндеги баскычтар узун тилдерде кесилбей калды; ээсинин программасы тил алмашкандан кийин бөлүмдөрдү жаңы тилде кайра ачат, анын кирүү экраны «Ээсинин программасына кирүү» деп аталат",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Knowledge base: all questions and step-by-step training — 97 articles with search, 40 of them with screenshots of the register and owner program windows (☰ → System → Knowledge base)",
-        "Several scales at once: scale settings now have “Scale 2” and “Scale 3” — the register takes the weight from the scale the goods are on",
-        "The customer display hint now explains the numeric “0.00” display and the “Find display” button",
+        "The knowledge base follows the program language: all 97 articles, screenshots and captions in Russian, Kyrgyz, English, Turkish and Uzbek",
+        "The knowledge base now has tutorial animations: how to open the owner program, make a sale and return a receipt",
+        "About 900 texts that used to appear only in Russian are now translated: the main till screen, payment, shifts, settings and owner program windows",
+        "Kyrgyz, English, Turkish and Uzbek translations corrected: grammar, cases, typos, consistent names (two review passes, about 2,200 fixes)",
+        "Buttons in the shift and discount windows are no longer cut off in longer languages; the owner program reopens sections in the new language after a language change, and its sign-in screen now says “Sign in to the owner program”",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Bilgi bankası: tüm sorular ve adım adım eğitim — aramalı 97 makale, 40'ında kasa ve sahip programı pencerelerinin ekran görüntüleri var (☰ → Sistem → Bilgi bankası)",
-        "Aynı anda birkaç terazi: terazi ayarlarında “Terazi 2” ve “Terazi 3” var — kasa, ürünün bulunduğu teraziden ağırlığı kendisi alır",
-        "Müşteri ekranı ipucu artık “0.00” sayısal ekranı ve “Ekranı bul” düğmesini anlatıyor",
+        "Bilgi bankası programın dilinde: 97 makalenin tamamı, ekran görüntüleri ve açıklamalar Rusça, Kırgızca, İngilizce, Türkçe ve Özbekçe",
+        "Bilgi bankasına eğitim animasyonları eklendi: sahip programı nasıl açılır, satış nasıl yapılır ve fiş nasıl iade edilir",
+        "Daha önce yalnızca Rusça görünen yaklaşık 900 metin çevrildi: kasanın ana ekranı, ödeme, vardiya, ayarlar ve sahip programının pencereleri",
+        "Kırgızca, İngilizce, Türkçe ve Özbekçe çeviriler düzeltildi: dil bilgisi, hâl ekleri, yazım hataları, tutarlı adlar (iki kontrol, yaklaşık 2.200 düzeltme)",
+        "Vardiya ve indirim pencerelerindeki düğmeler uzun dillerde artık kesilmiyor; sahip programı dil değiştikten sonra bölümleri yeni dilde yeniden açar, giriş ekranı artık «Sahip programına giriş» diyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Bilimlar bazasi: barcha savollar va bosqichma-bosqich o'qitish — qidiruvli 97 ta maqola, 40 tasida kassa va ega dasturi oynalarining skrinshotlari bor («☰ → Tizim → Bilimlar bazasi»)",
-        "Bir vaqtda bir nechta tarozi: tarozi sozlamalarida «Tarozi 2» va «Tarozi 3» paydo bo'ldi — kassa og'irlikni mahsulot turgan tarozidan o'zi oladi",
-        "Xaridor tablosidagi maslahat endi «0.00» raqamli tablo va «Tabloni topish» tugmasi haqida",
+        "Bilimlar bazasi dastur tilida: barcha 97 ta maqola, ekran suratlari va izohlar — rus, qirg'iz, ingliz, turk va o'zbek tillarida",
+        "Bilimlar bazasida o'quv animatsiyalari paydo bo'ldi: ega dasturini qanday ochish, sotuvni qanday o'tkazish va chekni qanday qaytarish",
+        "Ilgari faqat ruscha ko'ringan 900 ga yaqin yozuv tarjima qilindi: kassaning asosiy ekrani, to'lov, smena, sozlamalar va ega dasturi oynalari",
+        "Qirg'iz, ingliz, turk va o'zbek tillaridagi tarjimalar tuzatildi: grammatika, kelishiklar, imlo xatolari, yagona nomlar (ikki tekshiruv, 2200 ga yaqin tuzatish)",
+        "Smena va chegirma oynalaridagi tugmalar uzun tillarda endi kesilmaydi; ega dasturi til almashtirilgandan keyin bo'limlarni yangi tilda qayta ochadi, kirish oynasi endi «Ega dasturiga kirish» deb nomlanadi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

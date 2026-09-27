@@ -31,7 +31,7 @@ public partial class ScreenSettingsView : UserControl
     public ScreenSettingsView()
     {
         InitializeComponent();
-        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, "Авто (первая активная касса)") };
+        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
         CashboxCombo.SelectedIndex = 0;
 
         _suppressUiScaleChange = true;
@@ -107,7 +107,7 @@ public partial class ScreenSettingsView : UserControl
 
     /// <summary>Выбранная касса: null означает "Авто".</summary>
     public CashboxOption SelectedCashbox =>
-        CashboxCombo.SelectedItem as CashboxOption ?? new CashboxOption(null, "Авто (первая активная касса)");
+        CashboxCombo.SelectedItem as CashboxOption ?? new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)"));
 
     /// <summary>Ставит текущее сохранённое значение как выбранное (после первой загрузки списка
     /// список содержит только "Авто" — выбор синхронизируется повторно после RefreshCashboxes_Click).</summary>
@@ -132,7 +132,7 @@ public partial class ScreenSettingsView : UserControl
         // Список ещё не загружен с сервера — показываем сохранённое имя как временный пункт,
         // чтобы не выглядело как "сброшено на Авто" пока кассир не нажмёт "Обновить".
         var placeholder = new CashboxOption(id, name ?? id);
-        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, "Авто (первая активная касса)"), placeholder };
+        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")), placeholder };
         CashboxCombo.SelectedItem = placeholder;
     }
 
@@ -145,7 +145,7 @@ public partial class ScreenSettingsView : UserControl
             var raw = await App.ShiftApi.ConstructionCashboxesListAsync().ConfigureAwait(true);
             var boxes = CartDisplayHelper.ListCashboxes(raw);
 
-            var options = new List<CashboxOption> { new(null, "Авто (первая активная касса)") };
+            var options = new List<CashboxOption> { new(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
             options.AddRange(boxes.Select(b =>
                 new CashboxOption(b.Id, b.IsActive ? b.DisplayName : $"{b.DisplayName} (неактивна)")));
 

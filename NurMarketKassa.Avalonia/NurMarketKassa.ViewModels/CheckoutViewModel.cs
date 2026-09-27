@@ -184,9 +184,12 @@ namespace NurMarketKassa.ViewModels
 
         public double ClientLoyaltyBalance => _clientLoyaltyBalance;
 
-        public string ClientLoyaltyBalanceDisplay => IsKyrgyz
-            ? $"Бонус: {_clientLoyaltyBalance:0.##} сом"
-            : $"Бонусов доступно: {_clientLoyaltyBalance:0.##} сом";
+        public string ClientLoyaltyBalanceDisplay => Tr.T(
+            $"Бонусов доступно: {_clientLoyaltyBalance:0.##} сом",
+            $"Жеткиликтүү бонус: {_clientLoyaltyBalance:0.##} сом",
+            $"Points available: {_clientLoyaltyBalance:0.##} som",
+            $"Kullanılabilir puan: {_clientLoyaltyBalance:0.##} som",
+            $"Mavjud bonuslar: {_clientLoyaltyBalance:0.##} so'm");
 
         public string PointsToRedeemInput
         {
@@ -215,9 +218,12 @@ namespace NurMarketKassa.ViewModels
             ? Math.Round(_effectiveTotalDue * UserPreferences.Instance.LoyaltyEarnPercent / 100.0, 2)
             : 0;
 
-        public string EarnedPointsPreviewDisplay => IsKyrgyz
-            ? $"Ушул чекте берилет: {EarnedPointsPreview:0.##} сом бонус"
-            : $"За этот чек начислится: {EarnedPointsPreview:0.##} сом бонусов";
+        public string EarnedPointsPreviewDisplay => Tr.T(
+            $"За этот чек начислится: {EarnedPointsPreview:0.##} сом бонусов",
+            $"Бул чек үчүн кошулат: {EarnedPointsPreview:0.##} сом бонус",
+            $"Points earned on this receipt: {EarnedPointsPreview:0.##} som",
+            $"Bu fişten kazanılacak puan: {EarnedPointsPreview:0.##} som",
+            $"Bu chek uchun beriladigan bonus: {EarnedPointsPreview:0.##} so'm");
 
         public double EffectiveTotalDue => _effectiveTotalDue;
 
@@ -236,10 +242,10 @@ namespace NurMarketKassa.ViewModels
             EffectivePayableNow.ToString("0.00", CultureInfo.InvariantCulture);
 
         public string SubtotalDisplay =>
-            $"{_subtotal.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+            $"{_subtotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
         public string DiscountSummaryDisplay =>
-            $"{_orderDiscountAmount.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+            $"{_orderDiscountAmount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
         /// <summary>Раньше видимость плашки скидки была завязана на "!!DiscountSummaryDisplay" —
         /// эта строка НИКОГДА не пуста (даже "0.00 сом" без реальной скидки), так что красная
@@ -248,16 +254,14 @@ namespace NurMarketKassa.ViewModels
         public bool HasDiscount => _orderDiscountAmount > 0.005;
 
         public string PayableDisplay =>
-            $"{EffectivePayableNow.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-
-        private static bool IsKyrgyz => UserPreferences.Instance.Language == AppLanguage.Kyrgyz;
+            $"{EffectivePayableNow.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
         public string PayButtonText
         {
             get
             {
                 var amount = EffectivePayableNow;
-                return $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {amount.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+                return $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {amount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
             }
         }
 
@@ -267,9 +271,9 @@ namespace NurMarketKassa.ViewModels
         public string ChangeStatusText =>
             IsCashMode
                 ? _isInsufficientCash
-                    ? Tr.T("Недостаточно средств", "Каражат жетишсиз", "Insufficient funds", "Yetersiz tutar", "Mablag' yetarli emas")
+                    ? Tr.T("Недостаточно средств", "Каражат жетишсиз", "Insufficient funds", "Tutar yetersiz", "Mablag' yetarli emas")
                     : _changeAmount > 1e-9
-                        ? Tr.T("Сдача будет выдана клиенту", "Клиентке кайтарым берилет", "Change will be given to the client", "Para üstü müşteriye verilecek", "Qaytim mijozga beriladi")
+                        ? Tr.T("Сдача будет выдана клиенту", "Клиентке кайтарым берилет", "Change will be given to the customer", "Para üstü müşteriye verilecek", "Qaytim mijozga beriladi")
                         : Tr.T("Точная сумма", "Так сумма", "Exact amount", "Tam tutar", "Aniq summa")
                 : "";
 
@@ -319,7 +323,7 @@ namespace NurMarketKassa.ViewModels
             set { if (value) IsDiscountPercent = false; }
         }
 
-        public string DiscountInputSuffix => _isDiscountPercent ? "%" : "сом";
+        public string DiscountInputSuffix => _isDiscountPercent ? "%" : Tr.T("сом", "сом", "som", "som", "so'm");
 
         public string DiscountInput
         {
@@ -443,7 +447,7 @@ namespace NurMarketKassa.ViewModels
             {
                 var paid = ParseNonNegative(_debtCashReceived) ?? 0;
                 var remaining = Math.Max(0, _effectiveTotalDue - paid);
-                return $"{Tr.T("Останется в долг", "Карызда калат", "Remains as debt", "Borç olarak kalır", "Qarzga qoladi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+                return $"{Tr.T("Останется в долг", "Карызга калат", "Left as debt", "Borç olarak kalacak", "Qarz bo'lib qoladi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
             }
         }
 
@@ -522,8 +526,8 @@ namespace NurMarketKassa.ViewModels
                 if (Math.Abs(remaining) < 0.005)
                     return Tr.T("Сумма сходится", "Сумма туура келет", "Amount matches", "Tutar uyuşuyor", "Summa mos keladi");
                 return remaining > 0
-                    ? $"{Tr.T("Не хватает", "Жетишсиз", "Missing", "Eksik", "Yetishmaydi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} сом"
-                    : $"{Tr.T("Лишнее", "Ашык", "Excess", "Fazla", "Ortiqcha")}: {(-remaining).ToString("0.00", CultureInfo.InvariantCulture)} сом";
+                    ? $"{Tr.T("Не хватает", "Жетишсиз", "Still due", "Eksik", "Yetishmaydi")}: {remaining.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+                    : $"{Tr.T("Лишнее", "Ашык", "Overpaid", "Fazla", "Ortiqcha")}: {(-remaining).ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
             }
         }
 
@@ -964,26 +968,32 @@ namespace NurMarketKassa.ViewModels
             {
                 if (SelectedClient == null)
                 {
-                    ErrorMessage = IsKyrgyz
-                        ? "Карыз сатуу үчүн клиентти тандаңыз."
-                        : "Для продажи в долг выберите клиента.";
+                    ErrorMessage = Tr.T("Для продажи в долг выберите клиента.",
+                        "Карызга сатуу үчүн клиентти тандаңыз.",
+                        "Select a client to sell on credit.",
+                        "Veresiye satış için müşteri seçin.",
+                        "Qarzga sotish uchun mijozni tanlang.");
                     return;
                 }
 
                 var paid = ParseNonNegative(_debtCashReceived);
                 if (paid == null)
                 {
-                    ErrorMessage = IsKyrgyz
-                        ? "Учурда алынган суманы көрсөтүңүз (0 болушу мүмкүн)."
-                        : "Укажите сумму, полученную сейчас (может быть 0).";
+                    ErrorMessage = Tr.T("Укажите сумму, полученную сейчас (может быть 0).",
+                        "Азыр алынган сумманы көрсөтүңүз (0 болушу мүмкүн).",
+                        "Enter the amount received now (can be 0).",
+                        "Şimdi alınan tutarı girin (0 olabilir).",
+                        "Hozir olingan summani kiriting (0 bo'lishi mumkin).");
                     return;
                 }
 
                 if (paid.Value > _effectiveTotalDue + 1e-9)
                 {
-                    ErrorMessage = IsKyrgyz
-                        ? "Учурда алынган сумма жалпы сумманан ашпашы керек."
-                        : "Полученная сумма не может превышать итог чека.";
+                    ErrorMessage = Tr.T("Полученная сумма не может превышать итог чека.",
+                        "Азыр алынган сумма чектин жыйынтыгынан ашпашы керек.",
+                        "The amount received can't exceed the receipt total.",
+                        "Alınan tutar fiş toplamını aşamaz.",
+                        "Olingan summa chek summasidan oshmasligi kerak.");
                     return;
                 }
             }
@@ -991,15 +1001,21 @@ namespace NurMarketKassa.ViewModels
             {
                 if (!MixedAmountsMatch)
                 {
-                    ErrorMessage = IsKyrgyz
-                        ? "Накталай жана накталай эмес суммалардын жыйындысы жалпы суммага барабар болушу керек."
-                        : "Сумма наличными и безналичными должна совпадать с итогом чека.";
+                    ErrorMessage = Tr.T("Сумма наличными и безналичными должна совпадать с итогом чека.",
+                        "Накталай жана накталай эмес суммалардын жыйындысы чектин жыйынтыгына барабар болушу керек.",
+                        "The cash and cashless amounts must add up to the receipt total.",
+                        "Nakit ve nakitsiz tutarların toplamı fiş toplamına eşit olmalıdır.",
+                        "Naqd va naqdsiz summalar yig'indisi chek summasiga teng bo'lishi kerak.");
                     return;
                 }
 
                 if (SelectedBank == null)
                 {
-                    ErrorMessage = IsKyrgyz ? "Банкты тандаңыз." : "Выберите банк для безналичной части.";
+                    ErrorMessage = Tr.T("Выберите банк для безналичной части.",
+                        "Накталай эмес бөлүгү үчүн банкты тандаңыз.",
+                        "Select a bank for the cashless part.",
+                        "Nakitsiz kısım için banka seçin.",
+                        "Naqdsiz qism uchun bankni tanlang.");
                     return;
                 }
             }
@@ -1009,8 +1025,8 @@ namespace NurMarketKassa.ViewModels
                 {
                     ErrorMessage = Tr.T("Выберите банк для безналичной оплаты.",
                         "Накталай эмес төлөм үчүн банкты тандаңыз.",
-                        "Select a bank for the non-cash payment.",
-                        "Nakit dışı ödeme için banka seçin.",
+                        "Select a bank for the cashless payment.",
+                        "Nakitsiz ödeme için banka seçin.",
                         "Naqd pulsiz to'lov uchun bankni tanlang.");
                     return;
                 }
@@ -1043,7 +1059,11 @@ namespace NurMarketKassa.ViewModels
             {
                 var maximum = Math.Max(0, _subtotal - _lineDiscounts);
                 if (value > maximum + 1e-9)
-                    return $"Скидка не может превышать сумму товаров: {maximum:0.00} сом.";
+                    return Tr.T($"Скидка не может превышать сумму товаров: {maximum:0.00} сом.",
+                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {maximum:0.00} сом.",
+                        $"The discount can't exceed the total of the items: {maximum:0.00} som.",
+                        $"İndirim, ürünlerin toplam tutarını aşamaz: {maximum:0.00} som.",
+                        $"Chegirma mahsulotlar summasidan oshmasligi kerak: {maximum:0.00} so'm.");
             }
 
             // 2026-09-23. Потолок скидки компании (max_discount_percent) проверялся только в
@@ -1058,7 +1078,7 @@ namespace NurMarketKassa.ViewModels
                     $"Скидка не может превышать {limit:0.##}% — таково ограничение для сотрудников.",
                     $"Арзандатуу {limit:0.##}%дан ашпашы керек — бул кызматкерлер үчүн чектөө.",
                     $"The discount can't exceed {limit:0.##}% — that's the limit set for employees.",
-                    $"İndirim %{limit:0.##}'i geçemez — personel için belirlenen sınır budur.",
+                    $"İndirim en fazla %{limit:0.##} olabilir — personel için belirlenen sınır budur.",
                     $"Chegirma {limit:0.##}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara.");
             }
 
@@ -1194,9 +1214,11 @@ namespace NurMarketKassa.ViewModels
             // сырым серверным "Сессия недействительна…", который кассир видел прямо в диалоге.
             if (OfflineModeHelper.UseLocalOperations)
             {
-                ErrorMessage = IsKyrgyz
-                    ? "Клиенттер офлайн жеткиликсиз."
-                    : "Клиенты недоступны офлайн.";
+                ErrorMessage = Tr.T("Клиенты недоступны офлайн.",
+                    "Клиенттер офлайн режимде жеткиликсиз.",
+                    "Clients are unavailable offline.",
+                    "Müşteriler çevrimdışı modda kullanılamaz.",
+                    "Mijozlar oflayn rejimda mavjud emas.");
                 return;
             }
 
@@ -1210,9 +1232,11 @@ namespace NurMarketKassa.ViewModels
                 var option = ToClientOption(created);
                 if (string.IsNullOrWhiteSpace(option.Id))
                 {
-                    ErrorMessage = IsKyrgyz
-                        ? "Клиентти кошуу мүмкүн болгон жок."
-                        : "Не удалось добавить клиента.";
+                    ErrorMessage = Tr.T("Не удалось добавить клиента.",
+                        "Клиентти кошуу мүмкүн болгон жок.",
+                        "Could not add the client.",
+                        "Müşteri eklenemedi.",
+                        "Mijozni qo'shib bo'lmadi.");
                     return;
                 }
 
@@ -1228,9 +1252,11 @@ namespace NurMarketKassa.ViewModels
             }
             catch (Exception ex)
             {
-                ErrorMessage = IsKyrgyz
-                    ? "Клиентти кошуу мүмкүн болгон жок."
-                    : "Не удалось добавить клиента.";
+                ErrorMessage = Tr.T("Не удалось добавить клиента.",
+                    "Клиентти кошуу мүмкүн болгон жок.",
+                    "Could not add the client.",
+                    "Müşteri eklenemedi.",
+                    "Mijozni qo'shib bo'lmadi.");
                 PosLogger.Log($"Checkout add client failed: {ex}", "PAYMENT");
             }
             finally
@@ -1246,9 +1272,11 @@ namespace NurMarketKassa.ViewModels
 
             if (OfflineModeHelper.UseLocalOperations)
             {
-                ErrorMessage = IsKyrgyz
-                    ? "Клиенттер офлайн жеткиликсиз."
-                    : "Клиенты недоступны офлайн.";
+                ErrorMessage = Tr.T("Клиенты недоступны офлайн.",
+                    "Клиенттер офлайн режимде жеткиликсиз.",
+                    "Clients are unavailable offline.",
+                    "Müşteriler çevrimdışı modda kullanılamaz.",
+                    "Mijozlar oflayn rejimda mavjud emas.");
                 return;
             }
 
@@ -1269,9 +1297,11 @@ namespace NurMarketKassa.ViewModels
             }
             catch (Exception ex)
             {
-                ErrorMessage = IsKyrgyz
-                    ? "Клиенттерди жүктөө мүмкүн болгон жок."
-                    : "Не удалось загрузить список клиентов.";
+                ErrorMessage = Tr.T("Не удалось загрузить список клиентов.",
+                    "Клиенттердин тизмесин жүктөө мүмкүн болгон жок.",
+                    "Could not load the client list.",
+                    "Müşteri listesi yüklenemedi.",
+                    "Mijozlar ro'yxatini yuklab bo'lmadi.");
                 PosLogger.Log($"Checkout clients load failed: {ex}", "PAYMENT");
             }
             finally

@@ -25,7 +25,21 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// </summary>
 public static class AccentThemeService
 {
-    public sealed record ThemeOption(string Id, string LabelRu, string LabelKy, string Icon, string DescRu, string DescKy);
+    public sealed record ThemeOption(string Id, string LabelRu, string LabelKy, string Icon, string DescRu, string DescKy)
+    {
+        // Английский, турецкий и узбекский (2026-09-26): раньше у этих языков карточки тем были по-русски.
+        public string LabelEn { get; init; } = "";
+        public string LabelTr { get; init; } = "";
+        public string LabelUz { get; init; } = "";
+        public string DescEn { get; init; } = "";
+        public string DescTr { get; init; } = "";
+        public string DescUz { get; init; } = "";
+
+        public string Label => Tr.T(LabelRu, LabelKy, Or(LabelEn, LabelRu), Or(LabelTr, LabelRu), Or(LabelUz, LabelRu));
+        public string Description => Tr.T(DescRu, DescKy, Or(DescEn, DescRu), Or(DescTr, DescRu), Or(DescUz, DescRu));
+
+        private static string Or(string value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
 
     /// <summary>Полная палитра одного варианта темы (светлого или тёмного).</summary>
     private sealed record Palette(
@@ -325,31 +339,85 @@ public static class AccentThemeService
     [
         new("classic", "Классическая", "Классикалык", "",
             "Родной вид кассы: жёлтый акцент в светлом режиме, синий — в тёмном, прямые углы. То, с чем касса ставится.",
-            "Кассанын жердик көрүнүшү: жарык режимде сары акцент, караңгы режимде — көк, бурчтары түз."),
+            "Кассанын жердик көрүнүшү: жарык режимде сары акцент, караңгы режимде — көк, бурчтары түз.")
+        {
+            LabelEn = "Classic", LabelTr = "Klasik", LabelUz = "Klassik",
+            DescEn = "The till's native look: yellow accent in light mode, blue in dark mode, square corners. This is how the till is installed.",
+            DescTr = "Kasanın özgün görünümü: açık modda sarı, koyu modda mavi vurgu, keskin köşeler. Kasa bu temayla kurulur.",
+            DescUz = "Kassaning asl ko'rinishi: yorug' rejimda sariq, qorong'i rejimda ko'k urg'u, to'g'ri burchaklar. Kassa shu mavzu bilan o'rnatiladi.",
+        },
         new("graphite", "Графит", "Графит", "",
             "Строгий монохром без цветных пятен: холодно-серые поверхности, чёрная цена, заметно скруглённые кнопки и карточки.",
-            "Катаал монохром: муздак боз беттер, кара баа, баскычтар менен карточкалар байкаларлык тегерек."),
+            "Катаал монохром: муздак боз беттер, кара баа, баскычтар менен карточкалар байкаларлык тегерек.")
+        {
+            LabelEn = "Graphite", LabelTr = "Grafit", LabelUz = "Grafit",
+            DescEn = "Strict monochrome with no color accents: cool gray surfaces, black price, noticeably rounded buttons and cards.",
+            DescTr = "Renk vurgusu olmayan sade tek renk: soğuk gri yüzeyler, siyah fiyat, belirgin şekilde yuvarlatılmış düğmeler ve kartlar.",
+            DescUz = "Rangli urg'usiz qat'iy monoxrom: sovuq kulrang yuzalar, qora narx, sezilarli yumaloqlangan tugmalar va kartochkalar.",
+        },
         new("sunset", "Закат", "Кеч батым", "",
             "Тёплая песочная гамма с терракотовым акцентом и самыми круглыми карточками — мягкий, неофициальный вид.",
-            "Жылуу кум түстүү гамма, терракота акцент жана эң тегерек карточкалар — жумшак көрүнүш."),
+            "Жылуу кум түстүү гамма, терракота акцент жана эң тегерек карточкалар — жумшак көрүнүш.")
+        {
+            LabelEn = "Sunset", LabelTr = "Gün batımı", LabelUz = "Shafaq",
+            DescEn = "A warm sandy palette with a terracotta accent and the roundest cards — a soft, informal look.",
+            DescTr = "Terakota vurgulu sıcak kum tonları ve en yuvarlak kartlar — yumuşak, samimi bir görünüm.",
+            DescUz = "Terrakota urg'uli iliq qumrang palitra va eng yumaloq kartochkalar — yumshoq, norasmiy ko'rinish.",
+        },
         new("forest", "Лесная", "Токой", "",
             "Спокойная зелёная гамма: мятный фон окон, тёмно-зелёная цена, умеренно скруглённые элементы.",
-            "Тынч жашыл гамма: жалбыз фон, кара жашыл баа, орточо тегеректелген элементтер."),
+            "Тынч жашыл гамма: жалбыз фон, кара жашыл баа, орточо тегеректелген элементтер.")
+        {
+            LabelEn = "Forest", LabelTr = "Orman", LabelUz = "O'rmon",
+            DescEn = "A calm green palette: mint window background, dark green price, moderately rounded elements.",
+            DescTr = "Sakin yeşil tonlar: nane yeşili pencere arka planı, koyu yeşil fiyat, orta derecede yuvarlatılmış öğeler.",
+            DescUz = "Sokin yashil palitra: yalpiz rangli oyna foni, to'q yashil narx, o'rtacha yumaloqlangan elementlar.",
+        },
         new("contrast", "Контрастная", "Контраст", "",
             "Только чёрное, белое и жёлтое: чёрные границы у всех карточек, увеличенный шрифт, прямые углы. Для яркого света и слабого зрения.",
-            "Кара, ак жана сары гана: бардык карточкаларда кара чек, чоңойтулган шрифт, түз бурчтар. Жарык жерге жана начар көрүүгө."),
+            "Кара, ак жана сары гана: бардык карточкаларда кара чек, чоңойтулган шрифт, түз бурчтар. Жарык жерге жана начар көрүүгө.")
+        {
+            LabelEn = "High contrast", LabelTr = "Yüksek kontrast", LabelUz = "Kontrast",
+            DescEn = "Only black, white and yellow: black borders on all cards, a larger font, square corners. For bright light and low vision.",
+            DescTr = "Yalnızca siyah, beyaz ve sarı: tüm kartlarda siyah kenarlık, büyük yazı tipi, keskin köşeler. Parlak ışık ve zayıf görme için.",
+            DescUz = "Faqat qora, oq va sariq: barcha kartochkalarda qora hoshiya, kattalashtirilgan shrift, to'g'ri burchaklar. Yorqin yorug'lik va zaif ko'rish uchun.",
+        },
         new("terminal", "Терминал", "Терминал", "",
             "Моноширинный шрифт и зелёный по тёмному — вид старых кассовых терминалов. Цифры выстраиваются ровной сеткой.",
-            "Моношириналуу шрифт жана караңгы фондо жашыл — эски кассалык терминалдардын көрүнүшү."),
+            "Моношириналуу шрифт жана караңгы фондо жашыл — эски кассалык терминалдардын көрүнүшү.")
+        {
+            LabelEn = "Terminal", LabelTr = "Terminal", LabelUz = "Terminal",
+            DescEn = "A monospaced font and green on dark — the look of old cash register terminals. Digits line up in a neat grid.",
+            DescTr = "Eş aralıklı yazı tipi ve koyu zemin üzerinde yeşil — eski yazar kasa terminallerinin görünümü. Rakamlar düzgün bir ızgarada hizalanır.",
+            DescUz = "Bir xil kenglikdagi shrift va qorong'i fonda yashil — eski kassa terminallarining ko'rinishi. Raqamlar tekis to'r bo'ylab joylashadi.",
+        },
         new("touch", "Сенсорная", "Сенсордук", "",
             "Для работы пальцем: плитка товара вдвое крупнее, кнопки и поля высотой 52 точки, увеличенные цена и название. Товаров на экране меньше, зато промахнуться трудно.",
-            "Манжа менен иштөө үчүн: товардын плиткасы эки эсе чоң, баскычтар менен талаалар бийик, баасы жана аты чоңойтулган."),
+            "Манжа менен иштөө үчүн: товардын плиткасы эки эсе чоң, баскычтар менен талаалар бийик, баасы жана аты чоңойтулган.")
+        {
+            LabelEn = "Touch", LabelTr = "Dokunmatik", LabelUz = "Sensorli",
+            DescEn = "Made for fingers: product tiles twice as large, buttons and fields 52 points high, a larger price and name. Fewer products fit on the screen, but they are hard to miss.",
+            DescTr = "Parmakla kullanım için: iki kat büyük ürün kutucukları, 52 nokta yüksekliğinde düğmeler ve alanlar, büyük fiyat ve ad. Ekrana daha az ürün sığar ama ıskalamak zordur.",
+            DescUz = "Barmoq bilan ishlash uchun: mahsulot plitkasi ikki baravar katta, tugma va maydonlar balandligi 52 nuqta, narx va nom kattalashtirilgan. Ekranga kamroq mahsulot sig'adi, lekin noto'g'ri bosish qiyin.",
+        },
         new("compact", "Плотная", "Тыгыз", "",
             "Обратная крайность: мелкая сетка и низкие элементы — на экран помещается вдвое больше товаров. Для залов с большим ассортиментом, где товар ищут глазами.",
-            "Тескери чеги: майда тор жана жапыз элементтер — экранга эки эсе көп товар батат."),
+            "Тескери чеги: майда тор жана жапыз элементтер — экранга эки эсе көп товар батат.")
+        {
+            LabelEn = "Compact", LabelTr = "Kompakt", LabelUz = "Ixcham",
+            DescEn = "The opposite extreme: a fine grid and low elements — twice as many products fit on the screen. For stores with a large assortment where products are found by eye.",
+            DescTr = "Tam tersi: sık ızgara ve alçak öğeler — ekrana iki kat fazla ürün sığar. Ürünlerin gözle arandığı, çeşidi bol mağazalar için.",
+            DescUz = "Teskari chekka: mayda to'r va past elementlar — ekranga ikki baravar ko'p mahsulot sig'adi. Mahsulot ko'z bilan qidiriladigan, assortimenti katta do'konlar uchun.",
+        },
         new("showcase", "Витрина", "Витрина", "",
             "Единственная тема с залитой цветом шапкой: фиолетовая полоса сверху, крупное фото товара на карточке, мягкие скругления. Касса выглядит витриной, а не служебной программой.",
-            "Башы түскө боёлгон жалгыз тема: өйдө кызгылт көк тилке, карточкада чоң сүрөт, жумшак бурчтар."),
+            "Башы түскө боёлгон жалгыз тема: өйдө кызгылт көк тилке, карточкада чоң сүрөт, жумшак бурчтар.")
+        {
+            LabelEn = "Showcase", LabelTr = "Vitrin", LabelUz = "Vitrina",
+            DescEn = "The only theme with a color-filled header: a purple bar at the top, a large product photo on the card, soft rounding. The till looks like a shop window rather than an office program.",
+            DescTr = "Başlığı renkle dolu tek tema: üstte mor şerit, kartta büyük ürün fotoğrafı, yumuşak köşeler. Kasa bir ofis programı gibi değil, vitrin gibi görünür.",
+            DescUz = "Sarlavhasi rang bilan to'ldirilgan yagona mavzu: tepada binafsha chiziq, kartochkada katta mahsulot surati, yumshoq burchaklar. Kassa idora dasturi emas, vitrina kabi ko'rinadi.",
+        },
     ];
 
     /// <summary>Ключи, которые задаёт тема. Список нужен, чтобы при переключении снимать всё

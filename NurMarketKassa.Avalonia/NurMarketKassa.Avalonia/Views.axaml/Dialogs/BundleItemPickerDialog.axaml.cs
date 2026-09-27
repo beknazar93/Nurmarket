@@ -87,8 +87,8 @@ public partial class BundleItemPickerDialog : Window
         };
 
         var stockText = item.Product.MustWeigh
-            ? $"{item.Product.Quantity:0.###} кг"
-            : $"{item.Product.Quantity:0.#} шт";
+            ? $"{item.Product.Quantity:0.###} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
+            : $"{item.Product.Quantity:0.#} {Tr.T("шт", "даана", "pcs", "adet", "dona")}";
 
         checkBox.Content = new StackPanel
         {

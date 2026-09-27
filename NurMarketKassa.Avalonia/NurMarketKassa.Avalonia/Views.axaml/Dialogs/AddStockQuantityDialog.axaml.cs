@@ -19,13 +19,13 @@ public partial class AddStockQuantityDialog : Window
     public AddStockQuantityDialog()
     {
         InitializeComponent();
-        _unit = "шт.";
+        _unit = Tr.T("шт.", "даана", "pcs", "adet", "dona");
     }
 
     public AddStockQuantityDialog(string productName, double suggestedQuantity, bool mustWeigh)
         : this()
     {
-        _unit = mustWeigh ? "кг" : "шт.";
+        _unit = mustWeigh ? Tr.T("кг", "кг", "kg", "kg", "kg") : Tr.T("шт.", "даана", "pcs", "adet", "dona");
         ProductNameText.Text = productName;
         QuantityBox.Text = FormatQty(suggestedQuantity);
     }
@@ -42,7 +42,7 @@ public partial class AddStockQuantityDialog : Window
         {
             ErrorText.Text = Tr.T(
                 $"Укажите положительное количество ({_unit}).",
-                $"Оң сан көрсөтүңүз ({_unit}).");
+                $"Оң сан көрсөтүңүз ({_unit}).", $"Enter a positive quantity ({_unit}).", $"Sıfırdan büyük bir miktar girin ({_unit}).", $"Musbat miqdorni kiriting ({_unit}).");
             ErrorText.IsVisible = true;
             return;
         }

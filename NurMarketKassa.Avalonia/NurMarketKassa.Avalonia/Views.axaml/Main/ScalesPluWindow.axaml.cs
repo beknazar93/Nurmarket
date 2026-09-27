@@ -164,16 +164,16 @@ public partial class ScalesPluWindow : Window
         PluStartRow.IsVisible = !isRongta && !isAi;
         ApplyDirectLanVisibility();
         RongtaSourceRow.IsVisible = isRongta;
-        SendButton.Content = isAi ? "Сохранить файл для весов" : _sendButtonDefaultText;
+        SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
 
         if (isAi)
         {
             SubtitleText.Text = Tr.T(
                 "AI весы: касса готовит файл со списком (PLU, название, единица, цена), а вы загружаете его программой весов. Прямой заливки по сети пока нет — у этих весов нет общего протокола, каждая модель идёт со своей программой.",
-                "AI тараза: касса тизме менен файл даярдайт (PLU, аталышы, бирдиги, баасы), аны тараза программасы менен жүктөйсүз. Тармак аркылуу түз жүктөө азырынча жок.",
-                "AI scales: the till prepares a file (PLU, name, unit, price) and you load it with the scale's own software. Direct upload over the network is not available yet - these scales have no common protocol.",
-                "AI terazi: kasa listeyi dosya olarak hazırlar (PLU, ad, birim, fiyat), siz de tartının kendi yazılımıyla yüklersiniz. Ağ üzerinden doğrudan yükleme henüz yok.",
-                "AI tarozi: kassa ro'yxatni fayl qilib tayyorlaydi (PLU, nomi, birligi, narxi), siz uni tarozi dasturi bilan yuklaysiz. Tarmoq orqali to'g'ridan-to'g'ri yuklash hozircha yo'q.");
+                "AI тараза: касса тизмеси бар файл даярдайт (PLU, аталышы, бирдиги, баасы), аны сиз тараза программасы менен жүктөйсүз. Тармак аркылуу түз жүктөө азырынча жок — бул таразалардын жалпы протоколу жок, ар бир модель өз программасы менен келет.",
+                "AI scales: the till prepares a file (PLU, name, unit, price) and you load it with the scale's software. There is no direct network upload yet — these scales have no common protocol; each model comes with its own software.",
+                "AI tartı: kasa listeyi (PLU, ad, birim, fiyat) dosya olarak hazırlar, siz de onu tartının kendi programıyla yüklersiniz. Ağ üzerinden doğrudan yükleme henüz yok — bu tartıların ortak protokolü yok, her model kendi programıyla gelir.",
+                "AI tarozi: kassa ro'yxat faylini tayyorlaydi (PLU, nomi, birligi, narxi), siz esa uni tarozi dasturi orqali yuklaysiz. Tarmoq orqali to'g'ridan-to'g'ri yuklash hozircha yo'q — bu tarozilarning umumiy protokoli yo'q, har bir model o'z dasturi bilan keladi.");
             return;
         }
 
@@ -181,10 +181,10 @@ public partial class ScalesPluWindow : Window
         {
             SubtitleText.Text = Tr.T(
                 "Rongta: на весы уйдёт весь список весовых товаров (выбор галочками здесь не действует) — через встроенный запуск RLS1000.",
-                "Rongta: таразага бардык салмактуу товарлар жиберилет (белгилер бул жерде таасир этпейт) — RLS1000 аркылуу.",
-                "Rongta: the entire weighed-product list is sent to the scale (checkboxes here don't apply) — via the built-in RLS1000 launch.",
-                "Rongta: tartıya tüm tartılabilir ürün listesi gönderilir (buradaki onay kutuları etkisizdir) — yerleşik RLS1000 başlatma yoluyla.",
-                "Rongta: tarozga barcha vazn mahsulotlari ro'yxati yuboriladi (bu yerdagi katakchalar ta'sir qilmaydi) — o'rnatilgan RLS1000 orqali.");
+                "Rongta: таразага бардык салмактуу товарлардын тизмеси жиберилет (бул жердеги белгилер эске алынбайт) — RLS1000 аркылуу, ал өзү иштетилет.",
+                "Rongta: the whole list of weighed products will be sent to the scale (the checkboxes here are ignored) — RLS1000 is launched automatically.",
+                "Rongta: tartıya tartılı ürünlerin tamamı gönderilir (buradaki işaretlemeler dikkate alınmaz) — RLS1000 yerleşik olarak başlatılır.",
+                "Rongta: taroziga barcha vaznli mahsulotlar ro'yxati yuboriladi (bu yerdagi belgilashlar hisobga olinmaydi) — o'rnatilgan RLS1000 orqali.");
         }
         else if (Application.Current?.TryFindResource("scalesPlu.subtitle", ActualThemeVariant, out var value) == true
                  && value is string defaultSubtitle)
@@ -280,8 +280,8 @@ public partial class ScalesPluWindow : Window
                 $"Отправлено на весы: {selectedIds.Count}.",
                 $"Таразага жиберилди: {selectedIds.Count}.",
                 $"Sent to the scale: {selectedIds.Count}.",
-                $"Teraziye gönderildi: {selectedIds.Count}.",
-                $"Tarozga yuborildi: {selectedIds.Count}.");
+                $"Tartıya gönderildi: {selectedIds.Count}.",
+                $"Taroziga yuborildi: {selectedIds.Count}.");
         }
         catch (System.Exception ex)
         {
@@ -311,11 +311,16 @@ public partial class ScalesPluWindow : Window
         SendButton.IsEnabled = false;
         try
         {
-            StatusText.Text = "Опрос весов…";
+            StatusText.Text = Tr.T("Опрос весов…", "Таразадан маалымат алынууда…", "Polling the scale…", "Tartı sorgulanıyor…", "Tarozi so'ralmoqda…");
             var status = await scale.GetStatusAsync(CancellationToken.None).ConfigureAwait(true);
             if (!status.IsIdle)
             {
-                StatusText.Text = $"Весы заняты ({status.DescribeBusyReason()}). Выйдите на весах в обычный режим и повторите.";
+                var busyReason = status.DescribeBusyReason();
+                StatusText.Text = Tr.T($"Весы заняты ({busyReason}). Выйдите на весах в обычный режим и повторите.",
+                    $"Тараза бош эмес ({busyReason}). Таразаны кадимки режимге которуп, кайра аракет кылыңыз.",
+                    $"The scale is busy ({busyReason}). Switch the scale back to normal mode and try again.",
+                    $"Tartı meşgul ({busyReason}). Tartıda normal moda dönüp tekrar deneyin.",
+                    $"Tarozi band ({busyReason}). Tarozini oddiy rejimga o'tkazib, qayta urinib ko'ring.");
                 return;
             }
 
@@ -360,18 +365,27 @@ public partial class ScalesPluWindow : Window
 
             if (records.Count == 0)
             {
-                StatusText.Text = "Не удалось собрать данные для выгрузки — обновите каталог.";
+                StatusText.Text = Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
                 return;
             }
 
             var progress = new Progress<ShtrikhUploadProgress>(p =>
-                StatusText.Text = $"{p.Stage}: {p.Done} из {p.Total}…");
+                StatusText.Text = Tr.T($"{p.Stage}: {p.Done} из {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} of {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…"));
 
             var result = await scale.UploadPlusAsync(records, progress, CancellationToken.None).ConfigureAwait(true);
 
+            var firstKeyName = keyMap.FirstOrDefault().Name;
             StatusText.Text = result.Ok
-                ? $"Выгружено на весы: {result.Sent}. Клавиша 1 — «{keyMap.FirstOrDefault().Name}», далее по порядку списка."
-                : $"Выгружено: {result.Sent}, с ошибками: {result.Failed}. " + string.Join(" · ", result.Errors.Take(3));
+                ? Tr.T($"Выгружено на весы: {result.Sent}. Клавиша 1 — «{firstKeyName}», далее по порядку списка.",
+                    $"Таразага жүктөлдү: {result.Sent}. 1-баскыч — «{firstKeyName}», андан ары тизменин тартиби боюнча.",
+                    $"Uploaded to the scale: {result.Sent}. Key 1 is “{firstKeyName}”, then in list order.",
+                    $"Tartıya gönderildi: {result.Sent}. 1. tuş — «{firstKeyName}», sonrakiler liste sırasıyla.",
+                    $"Taroziga yuklandi: {result.Sent}. 1-tugma — «{firstKeyName}», keyin ro'yxat tartibida.")
+                : Tr.T($"Выгружено: {result.Sent}, с ошибками: {result.Failed}. ",
+                    $"Жүктөлдү: {result.Sent}, ийгиликсиз: {result.Failed}. ",
+                    $"Uploaded: {result.Sent}, failed: {result.Failed}. ",
+                    $"Gönderildi: {result.Sent}, hatalı: {result.Failed}. ",
+                    $"Yuklandi: {result.Sent}, xatolik bilan: {result.Failed}. ") + string.Join(" · ", result.Errors.Take(3));
 
             // Печатаем раскладку в журнал: панель на 120 клавиш подписывают вручную, и владельцу
             // нужен список «номер клавиши — товар», чтобы наклеить ярлыки.
@@ -470,10 +484,10 @@ public partial class ScalesPluWindow : Window
             {
                 StatusText.Text = Tr.T(
                     "Нет весовых товаров с заполненным PLU в локальном каталоге.",
-                    "Локалдык каталогдо PLUсу бар салмактуу товар жок.",
+                    "Локалдык каталогдо PLU толтурулган салмактуу товар жок.",
                     "No weighed products with a PLU set in the local catalog.",
                     "Yerel katalogda PLU'su ayarlanmış tartılabilir ürün yok.",
-                    "Lokal katalogda PLU o'rnatilgan vazn mahsulotlari yo'q.");
+                    "Mahalliy katalogda PLU to'ldirilgan vaznli mahsulotlar yo'q.");
                 return;
             }
 
@@ -515,7 +529,7 @@ public partial class ScalesPluWindow : Window
             else
             {
                 StatusText.Text = Tr.T(
-                    $"Ждём подключения RLS1000 на порт {port}…", $"RLS1000нун {port}-портко туташуусун күтүүдө…",
+                    $"Ждём подключения RLS1000 на порт {port}…", $"RLS1000дин {port}-портко туташуусу күтүлүүдө…",
                     $"Waiting for RLS1000 to connect on port {port}…", $"RLS1000'in {port} portuna bağlanması bekleniyor…",
                     $"RLS1000ning {port} portiga ulanishi kutilmoqda…");
             }
@@ -538,10 +552,10 @@ public partial class ScalesPluWindow : Window
             StatusText.Text = serverResult.IsSuccess
                 ? Tr.T(
                     $"Отправлено на весы через свой сервер: {serverResult.RecordsSent}. Проверьте PLU на весах.",
-                    $"Өз сервери аркылуу жиберилди: {serverResult.RecordsSent}. Таразадагы PLUну текшериңиз.",
+                    $"Таразага өз сервериңиз аркылуу жиберилди: {serverResult.RecordsSent}. Таразадагы PLUну текшериңиз.",
                     $"Sent to the scale via the built-in server: {serverResult.RecordsSent}. Check the PLU on the scale.",
-                    $"Kendi sunucumuz üzerinden gönderildi: {serverResult.RecordsSent}. Tartıdaki PLU'yu kontrol edin.",
-                    $"O'z serverimiz orqali yuborildi: {serverResult.RecordsSent}. Tarozdagi PLUni tekshiring.")
+                    $"Kendi sunucumuz üzerinden tartıya gönderildi: {serverResult.RecordsSent}. Tartıdaki PLU'ları kontrol edin.",
+                    $"O'z serverimiz orqali taroziga yuborildi: {serverResult.RecordsSent}. Tarozidagi PLUlarni tekshiring.")
                 : Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") + serverResult.ErrorMessage;
         }
         catch (System.Exception ex)
@@ -561,8 +575,8 @@ public partial class ScalesPluWindow : Window
                 "Команда передана в RLS1000 — проверьте PLU на весах.",
                 "Буйрук RLS1000гө берилди — таразадагы PLUну текшериңиз.",
                 "The command was sent to RLS1000 — check the PLU on the scale.",
-                "Komut RLS1000'e gönderildi — tartıdaki PLU'yu kontrol edin.",
-                "Buyruq RLS1000ga yuborildi — tarozdagi PLUni tekshiring.")
+                "Komut RLS1000'e iletildi — tartıdaki PLU'ları kontrol edin.",
+                "Buyruq RLS1000 ga yuborildi — tarozidagi PLUlarni tekshiring.")
             : Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") + result.ErrorMessage;
 
     /// <summary>Находит установленную RLS1000, ставит её из бандла (если он появился) или
@@ -582,9 +596,9 @@ public partial class ScalesPluWindow : Window
             StatusText.Text = Tr.T(
                 "Программа RLS1000 не найдена и не установлена. Установите её вручную и повторите.",
                 "RLS1000 программасы табылган жок жана орнотулган жок. Аны кол менен орнотуп, кайра аракет кылыңыз.",
-                "RLS1000 was not found or installed. Install it manually and try again.",
-                "RLS1000 bulunamadı veya kurulmadı. Manuel olarak kurun ve tekrar deneyin.",
-                "RLS1000 topilmadi yoki o'rnatilmadi. Uni qo'lda o'rnating va qayta urinib ko'ring.");
+                "RLS1000 was not found and could not be installed. Install it manually and try again.",
+                "RLS1000 programı bulunamadı ve kurulamadı. Elle kurup tekrar deneyin.",
+                "RLS1000 dasturi topilmadi va o'rnatilmadi. Uni qo'lda o'rnating va qayta urinib ko'ring.");
         }
 
         return exePath;
@@ -618,17 +632,17 @@ public partial class ScalesPluWindow : Window
         {
             StatusText.Text = Tr.T(
                 "Нечего выгружать: весовых товаров нет.",
-                "Жүктөөгө эч нерсе жок: тараза товарлары жок.",
+                "Чыгарууга эч нерсе жок: салмактуу товарлар жок.",
                 "Nothing to export: there are no weighed products.",
-                "Dışa aktarılacak bir şey yok: tartılan ürün yok.",
-                "Yuklash uchun hech narsa yo'q: tarozi mahsulotlari yo'q.");
+                "Dışa aktarılacak bir şey yok: tartılı ürün yok.",
+                "Eksport qilish uchun hech narsa yo'q: vaznli mahsulotlar yo'q.");
             return;
         }
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = Tr.T("Сохранить PLU в CSV", "PLU'ну CSV'ге сактоо", "Save PLU to CSV",
-                         "PLU'yu CSV olarak kaydet", "PLU'ni CSV ga saqlash"),
+                         "PLU listesini CSV olarak kaydet", "PLU ro'yxatini CSV faylga saqlash"),
             SuggestedFileName = $"{baseName}-{DateTime.Now:yyyy-MM-dd}.csv",
             FileTypeChoices = [new FilePickerFileType("CSV") { Patterns = ["*.csv"] }],
         });
@@ -663,17 +677,17 @@ public partial class ScalesPluWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = Tr.T($"Не удалось сохранить файл: {ex.Message}",
-                                   $"Файлды сактоо мүмкүн болгон жок: {ex.Message}");
+                                   $"Файлды сактоо мүмкүн болгон жок: {ex.Message}", $"Could not save the file: {ex.Message}", $"Dosya kaydedilemedi: {ex.Message}", $"Faylni saqlab bo'lmadi: {ex.Message}");
             return;
         }
 
         var withoutPlu = rows.Count(r => r.PluText == "—");
         StatusText.Text = withoutPlu == 0
-            ? Tr.T($"Выгружено строк: {rows.Count}.", $"Жүктөлгөн саптар: {rows.Count}.",
+            ? Tr.T($"Выгружено строк: {rows.Count}.", $"Файлга чыгарылган саптар: {rows.Count}.",
                    $"Rows exported: {rows.Count}.", $"Dışa aktarılan satır: {rows.Count}.",
-                   $"Yuklangan satrlar: {rows.Count}.")
+                   $"Eksport qilingan qatorlar: {rows.Count}.")
             : Tr.T($"Выгружено строк: {rows.Count}, из них без PLU: {withoutPlu} — им номер нужно задать в карточке товара.",
-                   $"Жүктөлгөн саптар: {rows.Count}, алардын PLU'су жоктору: {withoutPlu}.");
+                   $"Файлга чыгарылган саптар: {rows.Count}, анын ичинен PLU'су жоктору: {withoutPlu} — алардын номерин товардын карточкасында коюңуз.", $"Rows exported: {rows.Count}, {withoutPlu} of them without a PLU — assign PLU numbers in their product cards.", $"Dışa aktarılan satır: {rows.Count}, bunlardan PLU'suz olan: {withoutPlu} — bunların numarasını ürün kartında girin.", $"Eksport qilingan qatorlar: {rows.Count}, shundan PLUsiz: {withoutPlu} — ularning raqamini mahsulot kartochkasida belgilang.");
     }
 
     /// <summary>Экранирование ячейки CSV: точка с запятой, кавычки и перенос строки внутри

@@ -39,8 +39,8 @@ public partial class OrderDiscountDialog : Window
 
     public void SetItemMode(string itemTitle, string? currentDiscountType, decimal? currentDiscountValue)
     {
-        Title = "Скидка на товар";
-        HeaderTitleText.Text = "Скидка на товар";
+        Title = Tr.T("Скидка на товар", "Товарга арзандатуу", "Product discount", "Ürün indirimi", "Mahsulotga chegirma");
+        HeaderTitleText.Text = Tr.T("Скидка на товар", "Товарга арзандатуу", "Product discount", "Ürün indirimi", "Mahsulotga chegirma");
         ItemTitleLabel.Text = itemTitle;
         ItemTitleLabel.IsVisible = true;
         ScopePanel.IsVisible = false;
@@ -74,8 +74,8 @@ public partial class OrderDiscountDialog : Window
     {
         var isPercent = DiscountTypeToggle.IsChecked == true;
         DiscountMode = isPercent ? "percent" : "sum";
-        ValueLabel.Text = isPercent ? "Введите процент скидки" : "Введите сумму скидки";
-        DiscountTypeLabel.Text = isPercent ? "Режим скидки: Процент (%)" : "Режим скидки: Сумма (сом)";
+        ValueLabel.Text = isPercent ? Tr.T("Введите процент скидки", "Арзандатуу пайызын киргизиңиз", "Enter discount percentage", "İndirim yüzdesini girin", "Chegirma foizini kiriting") : Tr.T("Введите сумму скидки", "Арзандатуу суммасын киргизиңиз", "Enter discount amount", "İndirim tutarını girin", "Chegirma summasini kiriting");
+        DiscountTypeLabel.Text = isPercent ? Tr.T("Режим скидки: Процент (%)", "Арзандатуу режими: Пайыз (%)", "Discount mode: percent (%)", "İndirim modu: Yüzde (%)", "Chegirma rejimi: Foiz (%)") : Tr.T("Режим скидки: Сумма (сом)", "Арзандатуу режими: Сумма (сом)", "Discount mode: amount (som)", "İndirim modu: Tutar (som)", "Chegirma rejimi: Summa (so'm)");
 
         if (ScopePanel.IsVisible)
             DiscountScope = ScopeCheckBox.IsChecked == true ? "item" : "check";
@@ -96,16 +96,16 @@ public partial class OrderDiscountDialog : Window
             if (DiscountMode == "percent")
             {
                 if (val < 0 || val > 100)
-                    error = "Процент должен быть от 0 до 100";
+                    error = Tr.T("Процент должен быть от 0 до 100", "Пайыз 0дөн 100гө чейин болушу керек", "Percentage must be between 0 and 100", "Yüzde 0 ile 100 arasında olmalıdır", "Foiz 0 dan 100 gacha bo'lishi kerak");
             }
             else if (val < 0)
             {
-                error = "Сумма не может быть отрицательной";
+                error = Tr.T("Сумма не может быть отрицательной", "Сумма терс болбошу керек", "Amount cannot be negative", "Tutar negatif olamaz", "Summa manfiy bo'lishi mumkin emas");
             }
         }
         else
         {
-            error = "Введите корректное число";
+            error = Tr.T("Введите корректное число", "Туура сан киргизиңиз", "Enter a valid number", "Geçerli bir sayı girin", "To'g'ri son kiriting");
         }
 
         if (error != null)

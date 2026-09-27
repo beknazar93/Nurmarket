@@ -19,10 +19,10 @@ public partial class SaleSuccessDialog : Window
     public SaleSuccessDialog(double totalAmount, bool receiptPrintRequested = false)
     {
         InitializeComponent();
-        AmountText.Text = $"{totalAmount:0.00} сом";
+        AmountText.Text = Tr.T($"{totalAmount:0.00} сом", $"{totalAmount:0.00} сом", $"{totalAmount:0.00} som", $"{totalAmount:0.00} som", $"{totalAmount:0.00} so'm");
         PrintButton.Content = receiptPrintRequested
-            ? "Напечатать чек ещё раз"
-            : "Напечатать чек";
+            ? Tr.T("Напечатать чек ещё раз", "Чекти кайра басып чыгаруу", "Print receipt again", "Fişi tekrar yazdır", "Chekni qayta chop etish")
+            : Tr.T("Напечатать чек", "Чекти басып чыгаруу", "Print receipt", "Fişi yazdır", "Chekni chop etish");
     }
 
     private void PrintButton_Click(object? sender, RoutedEventArgs e)

@@ -25,8 +25,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     private bool _isOnline = true;
     private string _networkModeText = "";
-    private string _shiftBalanceText = "Касса: 0.00 сом";
-    private string _statusLabel = Tr.T("Онлайн", "Онлайн", "Online", "Çevrimiçi", "Onlayn");
+    private string _shiftBalanceText = Tr.T("Касса: 0.00 сом", "Касса: 0.00 сом", "Till: 0.00 som", "Kasa: 0.00 som", "Kassa: 0.00 so'm");
+    private string _statusLabel = FormatStatusLabel(true);
     private int _queuedCount;
     private string _queueText = "";
     private bool _hasQueuedItems;
@@ -53,7 +53,29 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         QueuedCount = OfflinePendingSalesStore.PendingCount;
         _ = MonitorConnectivityAsync(_lifetimeCts.Token);
         _ = MonitorSubscriptionCountdownAsync(_lifetimeCts.Token);
+
+        // Смена языка интерфейса: подписи статусной строки собираются в коде — перечитываем их,
+        // иначе «Онлайн»/«В очереди» оставались на прежнем языке до следующего изменения.
+        Tr.LanguageChanged += OnLanguageChanged;
     }
+
+    private void OnLanguageChanged() => _dispatcher.Post(() =>
+    {
+        StatusLabel = FormatStatusLabel(IsOnline);
+        QueueText = FormatQueueText(QueuedCount);
+        RefreshFromSession();
+    });
+
+    private static string FormatStatusLabel(bool online) =>
+        online
+            ? Tr.T("Онлайн", "Онлайн", "Online", "Çevrimiçi", "Onlayn")
+            : Tr.T("Офлайн", "Офлайн", "Offline", "Çevrimdışı", "Oflayn");
+
+    private static string FormatQueueText(int queued) =>
+        queued > 0
+            ? Tr.T($"В очереди: {queued}", $"Кезекте: {queued}",
+                $"Queued: {queued}", $"Sırada: {queued}", $"Navbatda: {queued}")
+            : "";
 
     public bool IsOnline
     {
@@ -62,7 +84,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _isOnline, value))
                 return;
-            StatusLabel = value ? Tr.T("Онлайн", "Онлайн", "Online", "Çevrimiçi", "Onlayn") : Tr.T("Офлайн", "Оффлайн", "Offline", "Çevrimdışı", "Oflayn");
+            StatusLabel = FormatStatusLabel(value);
 
             // Этап 3 бэклога "Доработки": история обрывов связи должна попадать в "Логи и
             // ошибки" (пример из ТЗ: "в 12:37 не было связи с сервером"). Логируется только
@@ -103,10 +125,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _queuedCount, value))
                 return;
             HasQueuedItems = value > 0;
-            QueueText = value > 0
-                ? Tr.T($"В очереди: {value}", $"Кезекте: {value}",
-                    $"Queued: {value}", $"Sırada: {value}", $"Navbatda: {value}")
-                : "";
+            QueueText = FormatQueueText(value);
         }
     }
 
@@ -143,7 +162,9 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         // Название кассы здесь НЕ показываем: оно уже стоит слева, рядом с логотипом, и в
         // шапке получалось два одинаковых «Основная касса компании» подряд. В центре остаётся
         // только то, чего больше нигде нет, — причина, по которой касса работает без сервера.
-        NetworkModeText = _session.IsOfflineBootstrap ? "Офлайн-режим" : "";
+        NetworkModeText = _session.IsOfflineBootstrap
+            ? Tr.T("Офлайн-режим", "Офлайн режим", "Offline mode", "Çevrimdışı mod", "Oflayn rejim")
+            : "";
 
         // 2026-09-12: в автономном режиме уже виден отдельный жёлтый баннер "Работа в
         // автономном режиме" прямо в каталоге — этот же текст ещё раз в шапке (рядом с именем
@@ -155,7 +176,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     }
 
     public void SetShiftBalance(decimal balance) =>
-        ShiftBalanceText = $"Касса: {balance:0.00} сом";
+        ShiftBalanceText = Tr.T($"Касса: {balance:0.00} сом", $"Касса: {balance:0.00} сом",
+            $"Till: {balance:0.00} som", $"Kasa: {balance:0.00} som", $"Kassa: {balance:0.00} so'm");
 
     private void ApplySubscriptionCountdown(SubscriptionStatus? status)
     {
@@ -181,11 +203,13 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         var urgent = clamped <= SubscriptionCountdownThreshold;
         var icon = urgent ? "⏳" : "⚠";
         var timePart = clamped.Days > 0
-            ? $"{clamped.Days}д {clamped:hh\\:mm\\:ss}"
+            ? Tr.T($"{clamped.Days}д {clamped:hh\\:mm\\:ss}", $"{clamped.Days} күн {clamped:hh\\:mm\\:ss}",
+                $"{clamped.Days}d {clamped:hh\\:mm\\:ss}", $"{clamped.Days} gün {clamped:hh\\:mm\\:ss}",
+                $"{clamped.Days} kun {clamped:hh\\:mm\\:ss}")
             : $"{clamped:hh\\:mm\\:ss}";
         SubscriptionCountdownText = Tr.T(
             $"{icon} Касса закроется через {timePart}",
-            $"{icon} Касса {timePart} ичинде жабылат");
+            $"{icon} Касса {timePart} ичинде жабылат", $"{icon} The till will close in {timePart}", $"{icon} Kasanın kapanmasına kalan süre: {timePart}", $"{icon} Kassa yopilishiga qoldi: {timePart}");
 
         HasSubscriptionCountdown = true;
     }
@@ -194,6 +218,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
+        Tr.LanguageChanged -= OnLanguageChanged;
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
     }

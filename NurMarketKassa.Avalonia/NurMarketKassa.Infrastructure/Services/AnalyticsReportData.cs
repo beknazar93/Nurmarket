@@ -242,11 +242,11 @@ public sealed class AnalyticsReportData
 
         var history = Tr.T("История", "Тарых", "History", "Geçmiş", "Tarix")
             + $": {first:dd.MM.yyyy} — {last:dd.MM.yyyy}, "
-            + Tr.T("продажи есть в", "сатуу бар", "sales in", "satış var", "sotuv bor")
-            + $" {coveredMonths} " + Tr.T("мес.", "ай", "mo.", "ay", "oy") + ". ";
+            + Tr.T("продажи есть в", "сатуулар", "sales in", "satışlar", "sotuvlar")
+            + $" {coveredMonths} " + Tr.T("мес.", "айда болгон", "months", "ayı kapsıyor", "oyda bo'lgan") + ". ";
         var note = reliable
-            ? history + Tr.T("Доли считаются только по этим месяцам: месяцы без истории — это «неизвестно», а не ноль.", "Үлүштөр ушул айлар боюнча гана эсептелет: тарыхы жок айлар — «белгисиз», нөл эмес.", "Shares are calculated only over these months: a month without history means «unknown», not zero.", "Paylar yalnızca bu aylara göre hesaplanır: geçmişi olmayan ay «bilinmiyor» demektir, sıfır değil.", "Ulushlar faqat shu oylar bo'yicha hisoblanadi: tarixi yo'q oy — «noma'lum», nol emas.")
-            : history + Tr.T("Для вывода о сезонности нужна история минимум за два сезона — иначе любой товар выглядит сезонным просто потому, что в другие месяцы касса ещё не работала. Ниже — распределение по месяцам как есть, без выводов.", "Мезгилдүүлүк боюнча тыянак чыгаруу үчүн кеминде эки сезондук тарых керек — болбосо ар кандай товар башка айларда касса иштебегендиктен эле мезгилдүү болуп көрүнөт. Төмөндө — айлар боюнча бөлүштүрүү кандай болсо ошондой, тыянаксыз.", "A seasonality conclusion needs at least two seasons of history - otherwise any product looks seasonal simply because the till was not running in the other months. Below is the month-by-month distribution as it is, without conclusions.", "Mevsimsellik sonucu için en az iki sezonluk geçmiş gerekir - aksi halde her ürün, diğer aylarda kasa çalışmadığı için mevsimlik görünür. Aşağıda aylara göre dağılım olduğu gibi, sonuçsuz.", "Mavsumiylik xulosasi uchun kamida ikki mavsumlik tarix kerak - aks holda har qanday mahsulot boshqa oylarda kassa ishlamagani uchun mavsumiy ko'rinadi. Quyida - oylar bo'yicha taqsimot qanday bo'lsa shundayligicha, xulosasiz.");
+            ? history + Tr.T("Доли считаются только по этим месяцам: месяцы без истории — это «неизвестно», а не ноль.", "Үлүштөр ушул айлар боюнча гана эсептелет: тарыхы жок айлар — «белгисиз», нөл эмес.", "Shares are calculated over these months only: a month without history means “unknown”, not zero.", "Paylar yalnızca bu aylara göre hesaplanır: geçmişi olmayan aylar sıfır değil, «bilinmiyor» sayılır.", "Ulushlar faqat shu oylar bo'yicha hisoblanadi: tarixi yo'q oy — «noma'lum», nol emas.")
+            : history + Tr.T("Для вывода о сезонности нужна история минимум за два сезона — иначе любой товар выглядит сезонным просто потому, что в другие месяцы касса ещё не работала. Ниже — распределение по месяцам как есть, без выводов.", "Мезгилдүүлүк боюнча тыянак чыгаруу үчүн кеминде эки сезондук тарых керек — болбосо ар кандай товар башка айларда касса иштебегендиктен эле мезгилдүү болуп көрүнөт. Төмөндө — айлар боюнча бөлүштүрүү кандай болсо ошондой, тыянаксыз.", "Seasonality can only be judged with at least two seasons of history — otherwise any product looks seasonal simply because the till was not running in the other months. Below is the month-by-month distribution as is, with no conclusions.", "Mevsimsellik hakkında sonuç çıkarmak için en az iki sezonluk geçmiş gerekir — aksi halde her ürün, kasa diğer aylarda henüz çalışmadığı için mevsimlik görünür. Aşağıda aylara göre dağılım yorum yapılmadan, olduğu gibi verilmiştir.", "Mavsumiylik haqida xulosa chiqarish uchun kamida ikki mavsumlik tarix kerak — aks holda har qanday mahsulot mavsumiy bo'lib ko'rinadi, chunki boshqa oylarda kassa hali ishlamagan. Quyida — oylar bo'yicha taqsimot o'z holicha, xulosasiz.");
 
         var rows = new List<SeasonRow>();
         foreach (var group in lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase))
@@ -338,9 +338,9 @@ public sealed class AnalyticsReportData
         [
             BuildSlice(
                 "revenue",
-                Tr.T("Товары по выручке", "Товарлар түшкөн акча боюнча", "Products by revenue", "Ciroya göre ürünler", "Tushum bo'yicha mahsulotlar"),
-                Tr.T("сом", "сом", "KGS", "KGS", "KGS"), isMoney: true,
-                Tr.T("Классический ABC: где сосредоточены деньги магазина.", "Классикалык ABC: дүкөндүн акчасы кайда топтолгон.", "Classic ABC: where the shop's money is concentrated.", "Klasik ABC: mağazanın parası nerede toplanıyor.", "Klassik ABC: do'kon puli qayerda to'plangan."),
+                Tr.T("Товары по выручке", "Түшүм боюнча товарлар", "Products by revenue", "Ciroya göre ürünler", "Tushum bo'yicha mahsulotlar"),
+                Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
+                Tr.T("Классический ABC: где сосредоточены деньги магазина.", "Классикалык ABC: дүкөндүн акчасы кайда топтолгон.", "Classic ABC: where the shop's money is concentrated.", "Klasik ABC: mağazanın parası nerede toplanıyor.", "Klassik ABC: do'kon pullari qayerda jamlangan."),
                 lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
                     .Select(g => (
                         Name: g.First().ProductName,
@@ -349,9 +349,9 @@ public sealed class AnalyticsReportData
 
             BuildSlice(
                 "profit",
-                Tr.T("Товары по прибыли", "Товарлар пайда боюнча", "Products by profit", "Kâra göre ürünler", "Foyda bo'yicha mahsulotlar"),
-                Tr.T("сом", "сом", "KGS", "KGS", "KGS"), isMoney: true,
-                Tr.T("Выручка минус закупочная цена. Товар из группы A по выручке легко оказывается в C по прибыли.", "Түшкөн акча минус сатып алуу баасы. Түшкөн акча боюнча A тобундагы товар пайда боюнча C тобуна оңой түшөт.", "Revenue minus the purchase price. A product in group A by revenue easily lands in C by profit.", "Ciro eksi alış fiyatı. Ciroda A grubundaki bir ürün kârda kolayca C grubuna düşer.", "Tushum minus xarid narxi. Tushum bo'yicha A guruhidagi mahsulot foyda bo'yicha oson C ga tushadi."),
+                Tr.T("Товары по прибыли", "Пайда боюнча товарлар", "Products by profit", "Kâra göre ürünler", "Foyda bo'yicha mahsulotlar"),
+                Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
+                Tr.T("Выручка минус закупочная цена. Товар из группы A по выручке легко оказывается в C по прибыли.", "Түшүм минус сатып алуу баасы. Түшүм боюнча A тобундагы товар пайда боюнча оңой эле C тобуна түшүп калышы мүмкүн.", "Revenue minus the purchase price. A product in group A by revenue can easily end up in group C by profit.", "Ciro eksi alış fiyatı. Ciroda A grubundaki bir ürün, kârda kolayca C grubuna düşebilir.", "Tushum minus xarid narxi. Tushum bo'yicha A guruhidagi mahsulot foyda bo'yicha osongina C guruhiga tushib qolishi mumkin."),
                 lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
                     .Where(g => Card(g.Key) is { PurchasePrice: > 0 })
                     .Select(g =>
@@ -365,9 +365,9 @@ public sealed class AnalyticsReportData
 
             BuildSlice(
                 "quantity",
-                Tr.T("Товары по количеству", "Товарлар саны боюнча", "Products by quantity", "Adede göre ürünler", "Soni bo'yicha mahsulotlar"),
+                Tr.T("Товары по количеству", "Саны боюнча товарлар", "Products by quantity", "Adede göre ürünler", "Miqdor bo'yicha mahsulotlar"),
                 Tr.T("шт.", "даана", "pcs", "adet", "dona"), isMoney: false,
-                Tr.T("ABC по штукам, а не по деньгам: показывает товары, которые держат поток покупателей.", "Акча эмес, даана боюнча ABC: сатып алуучулардын агымын кармаган товарларды көрсөтөт.", "ABC by units rather than money: shows the products that keep customers coming.", "Para yerine adede göre ABC: müşteri akışını tutan ürünleri gösterir.", "Pul emas, dona bo'yicha ABC: xaridorlar oqimini ushlab turadigan mahsulotlarni ko'rsatadi."),
+                Tr.T("ABC по штукам, а не по деньгам: показывает товары, которые держат поток покупателей.", "Акча эмес, даана боюнча ABC: сатып алуучулардын агымын кармаган товарларды көрсөтөт.", "ABC by units rather than money: shows the products that keep customers coming.", "Para yerine adede göre ABC: müşteri akışını sağlayan ürünleri gösterir.", "Pul emas, dona bo'yicha ABC: xaridorlar oqimini ushlab turadigan mahsulotlarni ko'rsatadi."),
                 lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
                     .Select(g => (
                         Name: g.First().ProductName,
@@ -377,8 +377,8 @@ public sealed class AnalyticsReportData
             BuildSlice(
                 "category",
                 Tr.T("Категории", "Категориялар", "Categories", "Kategoriler", "Kategoriyalar"),
-                Tr.T("сом", "сом", "KGS", "KGS", "KGS"), isMoney: true,
-                Tr.T("Те же 80/15/5, но по категориям каталога — что нельзя допускать до пустых полок.", "Ошол эле 80/15/5, бирок каталогдун категориялары боюнча — кайсынысын бош текчеге чейин жеткирүүгө болбойт.", "The same 80/15/5, but by catalogue category - what must never run out on the shelf.", "Aynı 80/15/5, ama katalog kategorilerine göre - rafta hangisinin bitmemesi gerektiği.", "O'sha 80/15/5, lekin katalog kategoriyalari bo'yicha - qaysi biri javonda tugamasligi kerak."),
+                Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
+                Tr.T("Те же 80/15/5, но по категориям каталога — что нельзя допускать до пустых полок.", "Ошол эле 80/15/5, бирок каталогдун категориялары боюнча — кайсы категориялардын текчелери бош калбашы керек.", "The same 80/15/5, but by catalog category — what must never run out on the shelf.", "Aynı 80/15/5, ama katalog kategorilerine göre — hangi kategorilerin rafta tükenmemesi gerektiğini gösterir.", "Xuddi shu 80/15/5, lekin katalog kategoriyalari bo'yicha: qaysi kategoriyalarni javonda tugatib qo'ymaslik kerak."),
                 lines.GroupBy(
                         l => Card(l.ProductId)?.Category is { Length: > 0 } c ? c : "Без категории",
                         StringComparer.OrdinalIgnoreCase)
@@ -390,8 +390,8 @@ public sealed class AnalyticsReportData
             BuildSlice(
                 "brand",
                 Tr.T("Бренды", "Бренддер", "Brands", "Markalar", "Brendlar"),
-                Tr.T("сом", "сом", "KGS", "KGS", "KGS"), isMoney: true,
-                Tr.T("Кто из поставщиков-брендов реально делает выручку.", "Кайсы бренд чын эле түшкөн акча алып келет.", "Which brands actually bring in the revenue.", "Hangi markalar gerçekten ciro getiriyor.", "Qaysi brendlar haqiqatan tushum keltiradi."),
+                Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
+                Tr.T("Кто из поставщиков-брендов реально делает выручку.", "Кайсы бренддер чындыгында түшүм алып келет.", "Which brands actually bring in the revenue.", "Hangi markalar gerçekten ciro getiriyor.", "Qaysi brend-yetkazib beruvchilar haqiqatan tushum keltiradi."),
                 lines.GroupBy(
                         l => Card(l.ProductId)?.Brand is { Length: > 0 } b ? b : "Без бренда",
                         StringComparer.OrdinalIgnoreCase)

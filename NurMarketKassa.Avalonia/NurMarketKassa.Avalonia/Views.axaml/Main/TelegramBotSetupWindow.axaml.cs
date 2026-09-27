@@ -42,15 +42,15 @@ public partial class TelegramBotSetupWindow : Window
         {
             OpenMyBotButton.IsEnabled = true;
             DetectButton.IsEnabled = true;
-            TokenStatus.Text = $"Бот подключён: @{_botUsername}";
+            TokenStatus.Text = Tr.T($"Бот подключён: @{_botUsername}", $"Бот туташтырылды: @{_botUsername}", $"Bot connected: @{_botUsername}", $"Bot bağlandı: @{_botUsername}", $"Bot ulandi: @{_botUsername}");
         }
 
         if (!string.IsNullOrWhiteSpace(prefs.TelegramChatId))
         {
             TestButton.IsEnabled = true;
             DetectStatus.Text = string.IsNullOrWhiteSpace(prefs.TelegramChatTitle)
-                ? $"Получатель определён (чат {prefs.TelegramChatId})."
-                : $"Получатель: {prefs.TelegramChatTitle}.";
+                ? Tr.T($"Получатель определён (чат {prefs.TelegramChatId}).", $"Алуучу аныкталды (чат {prefs.TelegramChatId}).", $"Recipient detected (chat {prefs.TelegramChatId}).", $"Alıcı belirlendi (sohbet {prefs.TelegramChatId}).", $"Qabul qiluvchi aniqlandi (chat {prefs.TelegramChatId}).")
+                : Tr.T($"Получатель: {prefs.TelegramChatTitle}.", $"Алуучу: {prefs.TelegramChatTitle}.", $"Recipient: {prefs.TelegramChatTitle}.", $"Alıcı: {prefs.TelegramChatTitle}.", $"Qabul qiluvchi: {prefs.TelegramChatTitle}.");
         }
     }
 
@@ -88,18 +88,18 @@ public partial class TelegramBotSetupWindow : Window
         var token = (TokenBox.Text ?? "").Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
-            TokenStatus.Text = "Вставьте токен из чата с BotFather.";
+            TokenStatus.Text = Tr.T("Вставьте токен из чата с BotFather.", "BotFather чатынан алынган токенди коюңуз.", "Paste the token from the chat with BotFather.", "BotFather sohbetindeki token'ı yapıştırın.", "BotFather bilan chatdagi tokenni qo'ying.");
             return;
         }
 
         CheckTokenButton.IsEnabled = false;
-        TokenStatus.Text = "Проверяю токен…";
+        TokenStatus.Text = Tr.T("Проверяю токен…", "Токен текшерилүүдө…", "Checking the token…", "Token kontrol ediliyor…", "Token tekshirilmoqda…");
         try
         {
             var (username, title, error) = await TelegramBotService.GetBotInfoAsync(token).ConfigureAwait(true);
             if (error != null || string.IsNullOrWhiteSpace(username))
             {
-                TokenStatus.Text = error ?? "Telegram не принял токен.";
+                TokenStatus.Text = error ?? Tr.T("Telegram не принял токен.", "Telegram токенди кабыл алган жок.", "Telegram rejected the token.", "Telegram token'ı kabul etmedi.", "Telegram tokenni qabul qilmadi.");
                 OpenMyBotButton.IsEnabled = false;
                 DetectButton.IsEnabled = false;
                 return;
@@ -114,8 +114,8 @@ public partial class TelegramBotSetupWindow : Window
             OpenMyBotButton.IsEnabled = true;
             DetectButton.IsEnabled = true;
             TokenStatus.Text = string.IsNullOrWhiteSpace(title)
-                ? $"Токен верный. Бот: @{username}"
-                : $"Токен верный. Бот: {title} (@{username})";
+                ? Tr.T($"Токен верный. Бот: @{username}", $"Токен туура. Бот: @{username}", $"Token is valid. Bot: @{username}", $"Token geçerli. Bot: @{username}", $"Token to'g'ri. Bot: @{username}")
+                : Tr.T($"Токен верный. Бот: {title} (@{username})", $"Токен туура. Бот: {title} (@{username})", $"Token is valid. Bot: {title} (@{username})", $"Token geçerli. Bot: {title} (@{username})", $"Token to'g'ri. Bot: {title} (@{username})");
         }
         finally
         {
@@ -126,7 +126,7 @@ public partial class TelegramBotSetupWindow : Window
     private async void Detect_Click(object? sender, RoutedEventArgs e)
     {
         DetectButton.IsEnabled = false;
-        DetectStatus.Text = "Спрашиваю Telegram…";
+        DetectStatus.Text = Tr.T("Спрашиваю Telegram…", "Telegram'дан суралууда…", "Asking Telegram…", "Telegram'a soruluyor…", "Telegram'dan so'ralmoqda…");
         try
         {
             var (chatId, name, error) = await TelegramBotService
@@ -135,7 +135,7 @@ public partial class TelegramBotSetupWindow : Window
 
             if (error != null || chatId == null)
             {
-                DetectStatus.Text = error ?? "Не удалось определить получателя.";
+                DetectStatus.Text = error ?? Tr.T("Не удалось определить получателя.", "Алуучуну аныктоо мүмкүн болгон жок.", "Could not detect the recipient.", "Alıcı belirlenemedi.", "Qabul qiluvchini aniqlab bo'lmadi.");
                 return;
             }
 
@@ -146,8 +146,8 @@ public partial class TelegramBotSetupWindow : Window
 
             TestButton.IsEnabled = true;
             DetectStatus.Text = string.IsNullOrWhiteSpace(name)
-                ? $"Готово: сводки пойдут в чат {chatId}."
-                : $"Готово: сводки пойдут в чат «{name}».";
+                ? Tr.T($"Готово: сводки пойдут в чат {chatId}.", $"Даяр: жыйынтыктар {chatId} чатына жөнөтүлөт.", $"Done: summaries will go to chat {chatId}.", $"Hazır: özetler {chatId} sohbetine gönderilecek.", $"Tayyor: hisobotlar {chatId} chatiga yuboriladi.")
+                : Tr.T($"Готово: сводки пойдут в чат «{name}».", $"Даяр: жыйынтыктар «{name}» чатына жөнөтүлөт.", $"Done: summaries will go to the “{name}” chat.", $"Hazır: özetler «{name}» sohbetine gönderilecek.", $"Tayyor: hisobotlar «{name}» chatiga yuboriladi.");
 
             StartBotIfEnabled();
         }
@@ -160,7 +160,7 @@ public partial class TelegramBotSetupWindow : Window
     private async void Test_Click(object? sender, RoutedEventArgs e)
     {
         TestButton.IsEnabled = false;
-        TestStatus.Text = "Отправляю…";
+        TestStatus.Text = Tr.T("Отправляю…", "Жөнөтүлүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
         try
         {
             var shop = UserPreferences.Instance.StoreName;
@@ -168,7 +168,7 @@ public partial class TelegramBotSetupWindow : Window
                 .SendAsync($"<b>{shop}</b>\n\nПробное сообщение из кассы. Если вы его видите — бот подключён.\n\n"
                            + "Попробуйте команду /segodnya.")
                 .ConfigureAwait(true);
-            TestStatus.Text = error ?? "Отправлено — проверьте Telegram.";
+            TestStatus.Text = error ?? Tr.T("Отправлено — проверьте Telegram.", "Жөнөтүлдү — Telegram'ды текшериңиз.", "Sent — check Telegram.", "Gönderildi — Telegram'ı kontrol edin.", "Yuborildi — Telegram'ni tekshiring.");
         }
         finally
         {

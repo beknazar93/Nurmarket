@@ -207,7 +207,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил үчүн маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
+                Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгилде маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -340,7 +340,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Secilen donemde satis yok", "Tanlangan davrda sotuv yoq"),
+                Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Seçilen dönemde satış yok", "Tanlangan davrda sotuv yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -425,9 +425,9 @@ public static class BarChartRenderer
                 CornerRadius = new CornerRadius(3, 3, 0, 0),
             };
             ToolTip.SetTip(bar, item.Label + "\n" + item.ValueText
-                + "\n" + Tr.T("Доля", "Улушу", "Share", "Pay", "Ulush") + ": "
+                + "\n" + Tr.T("Доля", "Үлүшү", "Share", "Pay", "Ulush") + ": "
                 + item.Share.ToString("0.##", CultureInfo.InvariantCulture) + " %"
-                + "\n" + Tr.T("Накопительно", "Топтолмо", "Cumulative", "Kumulatif", "Jami") + ": "
+                + "\n" + Tr.T("Накопительно", "Топтолгон", "Cumulative", "Kümülatif", "To'plangan") + ": "
                 + item.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %");
             Canvas.SetLeft(bar, x);
             Canvas.SetTop(bar, topPad + plotHeight - barHeight);
@@ -527,7 +527,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Secilen donemde satis yok", "Tanlangan davrda sotuv yoq"),
+                Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Seçilen dönemde satış yok", "Tanlangan davrda sotuv yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -593,7 +593,7 @@ public static class BarChartRenderer
             var item = items[i];
             var groupX = leftPad + i * step + groupGap / 2;
             var tip = item.Label + "\n" + valueTitle + ": " + item.ValueText + "\n"
-                + Tr.T("Накопительно", "Топтолмо", "Cumulative", "Kumulatif", "Jami") + ": "
+                + Tr.T("Накопительно", "Топтолгон", "Cumulative", "Kümülatif", "To'plangan") + ": "
                 + item.Cumulative.ToString("0.##", CultureInfo.InvariantCulture) + " %";
 
             void AddBar(int index, double fraction, string color)
@@ -674,7 +674,7 @@ public static class BarChartRenderer
 
         AddLegend(ColorValue, valueTitle);
         AddLegend(ColorCumulative, Tr.T("Накопленная доля", "Топтолгон үлүш", "Cumulative share", "Kümülatif pay", "To'plangan ulush"));
-        AddLegend(ColorThreshold, Tr.T("Порог 80 %", "Босого 80 %", "80 % threshold", "Eşik %80", "Chegara 80 %"));
+        AddLegend(ColorThreshold, Tr.T("Порог 80 %", "Босого 80 %", "80% threshold", "Eşik %80", "80 % chegarasi"));
         container.Children.Add(legend);
     }
 
@@ -696,7 +696,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Malumot yoq"),
+                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -840,7 +840,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Malumot yoq"),
+                Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });
@@ -965,7 +965,7 @@ public static class BarChartRenderer
         {
             container.Children.Add(new TextBlock
             {
-                Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил үчүн маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
+                Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгилде маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                 FontSize = 12,
                 Foreground = Brushes.Gray,
             });

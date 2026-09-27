@@ -20,7 +20,7 @@
   <x:String x:Key="csh.menu.clients">Müşteriler</x:String>
   <x:String x:Key="csh.menu.payDebt">Borç ödeme</x:String>
   <x:String x:Key="csh.menu.settings">Ayarlar</x:String>
-  <x:String x:Key="csh.menu.marketplace">Mağaza</x:String>
+  <x:String x:Key="csh.menu.marketplace">Pazaryeri</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
   <x:String x:Key="csh.menu.errorLogs">Günlükler ve hatalar</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM destek</x:String>
@@ -28,7 +28,7 @@
   <x:String x:Key="csh.menu.restock">Stok yenileme ve son kullanma</x:String>
   <x:String x:Key="csh.menu.switchCashier">Kasiyer değiştir</x:String>
   <x:String x:Key="switchCashier.title">Kasiyer değiştir</x:String>
-  <x:String x:Key="switchCashier.message">Bir sonraki kasiyerin kullanıcı adını ve şifresini girin. Doğru bilgiler girilene kadar mevcut vardiya kapatılacak (normal vardiya kapatma gibi) — o ana kadar hiçbir şey değişmez.</x:String>
+  <x:String x:Key="switchCashier.message">Bir sonraki kasiyerin kullanıcı adını ve şifresini girin. Mevcut vardiya kapatılacak (normal vardiya kapatma gibi); doğru bilgiler girilene kadar hiçbir şey değişmez.</x:String>
   <x:String x:Key="switchCashier.emailWatermark">E-posta</x:String>
   <x:String x:Key="switchCashier.passwordWatermark">Şifre</x:String>
   <x:String x:Key="switchCashier.confirmButton">Değiştir</x:String>
@@ -36,18 +36,18 @@
   <x:String x:Key="restock.reorderSubtitle">Bu kasada kaydedilen satışlara göre hesaplanır. Henüz satış yoksa veya son güncellemeden bu yana birkaç günden az geçtiyse boş görünür.</x:String>
   <x:String x:Key="restock.lookbackLabel">Satış hızını şu süre için hesapla:</x:String>
   <x:String x:Key="restock.colDailyRate">Satış/gün</x:String>
-  <x:String x:Key="restock.colDaysLeft">Yeter süre</x:String>
+  <x:String x:Key="restock.colDaysLeft">Yeteceği süre</x:String>
   <x:String x:Key="restock.reorderEmpty">Tahmin için henüz satış geçmişi yok. "Sunucudan geçmişi çek" butonuna basın veya birkaç gün bekleyin — kasa her satıştan sonra kendi verisini biriktirir.</x:String>
   <x:String x:Key="restock.backfillButton">Sunucudan geçmişi çek</x:String>
   <x:String x:Key="restock.tabExpiry">Son kullanma tarihleri</x:String>
   <x:String x:Key="restock.expirySubtitle">Son kullanma tarihi — ürün kategorisine göre bir tahmindir (AI anahtarı olmadan gerçek internet araması yapılmaz, ayarlara bakın). Giriş tarihi — ürünün bu kasada ilk kez stoğa girdiği tarihtir.</x:String>
   <x:String x:Key="restock.colIntakeDate">Giriş tarihi</x:String>
   <x:String x:Key="restock.colExpiryDate">Son kullanma</x:String>
-  <x:String x:Key="restock.expiryEmpty">Henüz bilinen giriş tarihi olan ürün yok — ürün stoğa girer girmez otomatik olarak kaydedilir.</x:String>
+  <x:String x:Key="restock.expiryEmpty">Giriş tarihi bilinen ürün henüz yok — tarih, ürün stoğa girer girmez otomatik olarak kaydedilir.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyTitle">Sadakat programı</x:String>
   <x:String x:Key="posSettings.operations.loyaltySubtitle">Bakiye bu kasada yerel olarak saklanır — NurCRM'de henüz müşteri puan alanı yok.</x:String>
   <x:String x:Key="posSettings.operations.loyaltyEnable">Puanları etkinleştir</x:String>
-  <x:String x:Key="posSettings.operations.loyaltyEarnPercent">Fiş tutarından kazanılacak yüzde</x:String>
+  <x:String x:Key="posSettings.operations.loyaltyEarnPercent">Fiş tutarından kazanılan puan yüzdesi</x:String>
   <x:String x:Key="csh.menu.logout">Çıkış yap</x:String>
   <x:String x:Key="csh.menu.exitApp">Masaüstüne çık</x:String>
   <x:String x:Key="csh.menu.newBadge">Yeni</x:String>
@@ -71,8 +71,8 @@
   <x:String x:Key="csh.catalog.tabAll">Tüm ürünler</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Tartılı</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Adetli</x:String>
-  <x:String x:Key="csh.catalog.tabPieceOption">Adet adet satış</x:String>
-  <x:String x:Key="csh.catalog.tabBundle">Paketler</x:String>
+  <x:String x:Key="csh.catalog.tabPieceOption">Tek tek satış</x:String>
+  <x:String x:Key="csh.catalog.tabBundle">Setler</x:String>
   <x:String x:Key="csh.catalog.tabServices">Hizmetler</x:String>
   <x:String x:Key="csh.catalog.colName">Ürün</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Barkod</x:String>
@@ -100,7 +100,7 @@
   <x:String x:Key="csh.cart.moreTooltip">Diğer işlemler</x:String>
   <x:String x:Key="csh.cart.more">Daha fazla</x:String>
   <x:String x:Key="csh.cart.restore">Geri getir</x:String>
-  <x:String x:Key="csh.cart.deferredList">Bekleyen liste</x:String>
+  <x:String x:Key="csh.cart.deferredList">Bekleyenler</x:String>
   <x:String x:Key="csh.cart.orderDiscount">İndirim %</x:String>
   <x:String x:Key="mainWindow.menuTooltip">Menü</x:String>
   <x:String x:Key="mainWindow.openDownloadTooltip">İndirme sayfasını aç</x:String>
@@ -123,8 +123,8 @@
   <x:String x:Key="printSettings.cashDrawerPin2">Pin 2 (genelde)</x:String>
   <x:String x:Key="printSettings.cashDrawerPin5">Pin 5</x:String>
   <x:String x:Key="printSettings.cashDrawerTestButton">Aç</x:String>
-  <x:String x:Key="printSettings.lptNotFound">LPT bulunamadı</x:String>
-  <x:String x:Key="printSettings.previewTextReceipt">Metin fişi önizleme</x:String>
+  <x:String x:Key="printSettings.lptNotFound">Sistemde LPT bulunamadı</x:String>
+  <x:String x:Key="printSettings.previewTextReceipt">Metin fişi önizlemesi</x:String>
   <x:String x:Key="printSettings.qrHeader">QR kodu</x:String>
   <x:String x:Key="printSettings.uploadQr">QR yükle</x:String>
   <x:String x:Key="printSettings.deleteQr">Sil</x:String>
@@ -147,7 +147,7 @@
   <x:String x:Key="settings.resetImageButton">Sıfırla</x:String>
   <x:String x:Key="scaleSettings.comPortLabel">COM portu</x:String>
   <x:String x:Key="scaleSettings.comNotFound">COM portu bulunamadı</x:String>
-  <x:String x:Key="scaleSettings.testButton">Teraziyi test et</x:String>
+  <x:String x:Key="scaleSettings.testButton">Tartıyı test et</x:String>
   <x:String x:Key="operations.bankQrDesc">Nakitsiz ödeme için banka QR kodları ve logoları</x:String>
   <x:String x:Key="operations.qrNotLoaded">QR yüklenmedi</x:String>
   <x:String x:Key="operations.qrLoaded">QR yüklendi</x:String>
@@ -173,7 +173,7 @@
   <x:String x:Key="csh.checkout.totalDue">ÖDENECEK TUTAR</x:String>
   <x:String x:Key="csh.checkout.paymentMethod">ÖDEME YÖNTEMİ</x:String>
   <x:String x:Key="csh.checkout.cash">Nakit</x:String>
-  <x:String x:Key="csh.checkout.transfer">Kartla</x:String>
+  <x:String x:Key="csh.checkout.transfer">Nakitsiz</x:String>
   <x:String x:Key="csh.checkout.cashReceived">Alınan nakit</x:String>
   <x:String x:Key="csh.checkout.change">Para üstü:</x:String>
   <x:String x:Key="csh.checkout.selectBank">Banka seçin</x:String>
@@ -193,7 +193,7 @@
   <x:String x:Key="csh.checkout.addClient">+ Müşteri ekle</x:String>
   <x:String x:Key="csh.checkout.mixed">Karışık</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Nakit</x:String>
-  <x:String x:Key="csh.checkout.mixedNonCash">Kartla</x:String>
+  <x:String x:Key="csh.checkout.mixedNonCash">Nakitsiz</x:String>
   <x:String x:Key="csh.checkout.paidNow">Şimdi alınan (0 — tüm borç)</x:String>
   <x:String x:Key="csh.checkout.loyaltyRedeemWatermark">Puan kullan (som)</x:String>
 
@@ -204,7 +204,7 @@
   <x:String x:Key="csh.filter.subtitle">Koşulları ayarlayın ve "Uygula"ya basın</x:String>
   <x:String x:Key="csh.filter.summaryTitle">Katalog özeti</x:String>
   <x:String x:Key="csh.filter.search">Ara</x:String>
-  <x:String x:Key="csh.filter.searchWatermark">İsim, barkod veya kod…</x:String>
+  <x:String x:Key="csh.filter.searchWatermark">Ad, barkod veya stok kodu…</x:String>
   <x:String x:Key="csh.filter.kind">Ürün türü</x:String>
   <x:String x:Key="csh.filter.category">Kategori</x:String>
   <x:String x:Key="csh.filter.brand">Marka</x:String>
@@ -218,11 +218,11 @@
 
   <!-- Giriş ekranı -->
   <x:String x:Key="csh.login.title">Giriş — Nur Market</x:String>
-  <x:String x:Key="csh.login.tagline">Perakende için satış noktası sistemi</x:String>
+  <x:String x:Key="csh.login.tagline">Perakende satış için kasa sistemi</x:String>
   <x:String x:Key="csh.login.secureTitle">Vardiyanız için güvenli giriş</x:String>
   <x:String x:Key="csh.login.secureSubtitle">Veriler bulut ve yerel denetim veritabanıyla senkronize edilir.</x:String>
   <x:String x:Key="csh.login.formTitle">Kasaya giriş</x:String>
-  <x:String x:Key="csh.login.formSubtitle">Nur CRM e-posta ve şifresi</x:String>
+  <x:String x:Key="csh.login.formSubtitle">Nur CRM e-postanız ve şifreniz</x:String>
   <x:String x:Key="csh.login.email">E-posta</x:String>
   <x:String x:Key="csh.login.emailWatermark">Kullanıcı adı</x:String>
   <x:String x:Key="csh.login.password">Şifre</x:String>
@@ -244,7 +244,7 @@
   <x:String x:Key="csh.customer.tagline">Alışverişiniz — hızlı ve kolay</x:String>
   <x:String x:Key="csh.customer.receiptEyebrow">FİŞİNİZ</x:String>
   <x:String x:Key="csh.customer.receiptTitle">Alışveriş listesi</x:String>
-  <x:String x:Key="csh.customer.adPlaceholder">QR kod&#x0a;veya reklam alanı</x:String>
+  <x:String x:Key="csh.customer.adPlaceholder">QR kodu&#x0a;veya reklam alanı</x:String>
   <x:String x:Key="csh.customer.subtotal">ARA TOPLAM</x:String>
   <x:String x:Key="csh.customer.discount">İNDİRİM</x:String>
   <x:String x:Key="csh.customer.received">ALINAN</x:String>
@@ -260,8 +260,8 @@
   <x:String x:Key="common.add">Ekle</x:String>
   <x:String x:Key="common.confirm">Onayla</x:String>
   <x:String x:Key="common.close">Kapat</x:String>
-  <x:String x:Key="staffTimesheet.title">Personel Takip Çizelgesi</x:String>
-  <x:String x:Key="staffTimesheet.description">Saatler ve vardiyalar kasada zaten açılmış/kapatılmış vardiyalardan hesaplanır — yalnızca seçilen dönem için KAPATILMIŞ vardiyalar. Şu anda açık olan bir vardiya, kapatılana kadar çizelgeye dahil edilmez.</x:String>
+  <x:String x:Key="staffTimesheet.title">Personel çizelgesi</x:String>
+  <x:String x:Key="staffTimesheet.description">Saatler ve vardiyalar, kasada açılıp kapatılmış vardiyaların verilerinden hesaplanır — yalnızca seçilen dönemdeki KAPATILMIŞ vardiyalar sayılır. Şu anda açık olan vardiya, kapatılana kadar çizelgeye dahil edilmez.</x:String>
   <x:String x:Key="staffTimesheet.periodLabel">Dönem:</x:String>
   <x:String x:Key="staffTimesheet.fromWatermark">Başlangıç tarihi…</x:String>
   <x:String x:Key="staffTimesheet.toWatermark">Bitiş tarihi…</x:String>
@@ -273,7 +273,7 @@
   <x:String x:Key="staffTimesheet.colAvgShift">Ortalama vardiya</x:String>
   <x:String x:Key="staffTimesheet.colRevenue">Ciro</x:String>
   <x:String x:Key="staffTimesheet.colPeriod">İlk — son vardiya</x:String>
-  <x:String x:Key="bulkImport.title">Toplu Ürün Yükleme</x:String>
+  <x:String x:Key="bulkImport.title">Toplu ürün yükleme</x:String>
   <x:String x:Key="bulkImport.description">CSV dosyasından (örneğin bir tedarikçi listesinden) tek seferde birçok ürünü ekler veya günceller. Eşleştirme barkoda göre yapılır: bu barkodla bir ürün zaten varsa güncellenir, yoksa yenisi oluşturulur.</x:String>
   <x:String x:Key="bulkImport.downloadTemplate">CSV şablonunu indir</x:String>
   <x:String x:Key="bulkImport.pickFile">Dosya seç…</x:String>
@@ -284,7 +284,7 @@
   <x:String x:Key="printSettings.width58">58 mm (32 karakter)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 karakter)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 olarak yazdırılır)</x:String>
-  <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (Kiril harfsiz)</x:String>
+  <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (Kiril harfleri yok)</x:String>
   <x:String x:Key="common.save">Kaydet</x:String>
   <x:String x:Key="common.apply">Uygula</x:String>
   <x:String x:Key="common.delete">Sil</x:String>
@@ -323,17 +323,17 @@
   <x:String x:Key="kb.q.offlineQ">İnternetsiz çalışılabilir mi?</x:String>
   <x:String x:Key="kb.q.offlineA">Evet. Kasa çevrimdışı satış yapmaya devam eder, fişler yerel olarak kaydedilir ve bağlantı geri geldiğinde otomatik olarak sunucuya gönderilir. Gönderim bekleyen fiş sayısı ekranın altındaki durum çubuğunda gösterilir.</x:String>
   <x:String x:Key="kb.q.deferredCartsQ">"Bekleyen sepetler" nedir?</x:String>
-  <x:String x:Key="kb.q.deferredCartsA">Mevcut fişi bekletip (örneğin müşteri para almak için gittiyse) daha sonra sepetteki ürünleri kaybetmeden geri dönmenizi sağlar. Yan menüden açılır.</x:String>
+  <x:String x:Key="kb.q.deferredCartsA">Mevcut fişi bekletmenizi (örneğin müşteri para almaya gittiyse) ve daha sonra sepetteki ürünleri kaybetmeden ona geri dönmenizi sağlar. Yan menüden açılır.</x:String>
   <x:String x:Key="kb.q.themesQ">Kasanın görünümü değiştirilebilir mi?</x:String>
-  <x:String x:Key="kb.q.themesA">Evet — "Mağaza" → "Temalar" bölümünden hazır bir tema seçebilir veya kendi vurgu renginizi, yazı tipinizi ve köşe yuvarlaklığınızı ayarlayabilirsiniz. Bazı temalar ücretlidir — 2 tanesi ücretsizdir (Altın, Mavi), diğerleri seri numarasıyla açılır.</x:String>
+  <x:String x:Key="kb.q.themesA">Evet — "Pazaryeri" → "Temalar" bölümünden hazır bir tema seçebilir veya kendi vurgu renginizi, yazı tipinizi ve köşe yuvarlaklığınızı ayarlayabilirsiniz. Bazı temalar ücretlidir — 2 tanesi ücretsizdir (Altın, Mavi), diğerleri seri numarasıyla açılır.</x:String>
   <x:String x:Key="kb.q.zeroStockQ">Ürün stokta yoksa ama müşteri almak istiyorsa ne yapılır?</x:String>
   <x:String x:Key="kb.q.zeroStockA">Stoğu sıfır olan bir ürün eklerken kasa bir uyarı gösterir ve satışı onaylamanızı ister — onayladıktan sonra depoya ne kadar ekleneceğini belirtmeniz gerekir. Stok otomatik olarak güncellenir ve satış normal şekilde tamamlanır.</x:String>
   <x:String x:Key="kb.q.irregularReceiptsQ">"Sorunlu fişler" nedir?</x:String>
   <x:String x:Key="kb.q.irregularReceiptsA">Standart dışı işlem gören fişlerin otomatik olarak toplandığı yan menü bölümü: sıfır stokta satış, sunucuya gönderme hataları, yüklenmekte olan fişler. Vardiya sonu mutabakatı için kullanışlıdır.</x:String>
 
-  <x:String x:Key="kb.catCashierTitle">Kasiyer rolü nasıl çalışır ve nelere erişebilir</x:String>
+  <x:String x:Key="kb.catCashierTitle">Kasiyer nasıl çalışır ve nelere erişebilir</x:String>
   <x:String x:Key="kb.q.permissionsQ">Kasiyere hangi yetkiler verilebilir?</x:String>
-  <x:String x:Key="kb.q.permissionsA">Yetkiler her çalışan için ayrı ayrı NurCRM'de (web paneli) verilir: kasa ayarlarına, tartılara, fiyat etiketlerine, indirimlere, fiyat değişikliklerine, sepetten ürün silmeye, depo/satın almaya, tedarikçilere, iadelere, satışlara (raporlara) ve vardiyalara erişim. Yetki verilmemiş bölümler kasa menüsünde gizli veya kullanılamaz olur.</x:String>
+  <x:String x:Key="kb.q.permissionsA">Yetkiler NurCRM'de (web paneli) her çalışan için ayrı ayrı verilir: kasa ayarlarına, tartılara, fiyat etiketlerine, indirimlere, fiyat değiştirmeye, sepetten ürün silmeye, depo/satın almaya, tedarikçilere, iadelere, satışlara (raporlara) ve vardiyalara erişim. Yetki verilmemiş bölümler kasa menüsünde gizlenir veya kullanılamaz.</x:String>
   <x:String x:Key="kb.q.financeAccessQ">Kasiyer neden "Finans" veya "Satışlar" bölümünü göremiyor?</x:String>
   <x:String x:Key="kb.q.financeAccessA">Bu bölümler yalnızca NurCRM'de ilgili yetkisi ("Satışlar" vb.) verilmiş çalışanlara açıktır. Bölüm görünmüyorsa, bu çalışana o yetki verilmemiş demektir.</x:String>
   <x:String x:Key="kb.q.shiftQ">Vardiya nasıl açılır/kapatılır?</x:String>
@@ -343,18 +343,18 @@
   <x:String x:Key="kb.q.checkUpdateQ">Kasanın yeni bir sürümü olup olmadığı nasıl anlaşılır?</x:String>
   <x:String x:Key="kb.q.checkUpdateA">Kasa her açılışta güncellemeleri kendisi kontrol eder. Manuel kontrol için Ayarlar → Güncellemeler → "Güncellemeleri kontrol et" — yeni sürüm bulunursa aynı yerde "Güncelle" düğmesi çıkar.</x:String>
   <x:String x:Key="kb.q.rollbackQ">Güncelleme sonrası bir sorun olursa önceki sürüme dönülebilir mi?</x:String>
-  <x:String x:Key="kb.q.rollbackA">Evet — Ayarlar → Güncellemeler bölümünde, istediğiniz bir önceki sürüme dönebileceğiniz bir liste vardır.</x:String>
+  <x:String x:Key="kb.q.rollbackA">Evet — Ayarlar → Güncellemeler bölümünde önceki sürümlerin listesi vardır; bunlardan herhangi birine dönebilirsiniz.</x:String>
 
   <x:String x:Key="kb.catFailureTitle">Bir sorun olursa ne yapılır, kime başvurulur</x:String>
   <x:String x:Key="kb.q.errorDialogQ">Kasa bir hata penceresi gösterdi — ne yapmalıyım?</x:String>
-  <x:String x:Key="kb.q.errorDialogA">Hata penceresinde 2 düğme vardır: "Kapat" — pencereyi kapatır, ve "Hatayı ertele" — hata günlüğe kaydedilir ("Günlükler ve hatalar" bölümü) ve çalışma hiçbir şey olmamış gibi devam eder. Hata şu anda çalışmaya devam etmenizi engellemiyorsa "Hatayı ertele"yi kullanın.</x:String>
-  <x:String x:Key="kb.q.logsQ">Bir sorun olduğunda ne olduğunu nereden görebilirim?</x:String>
+  <x:String x:Key="kb.q.errorDialogA">Hata penceresinde 2 düğme vardır: "Kapat" — pencereyi kapatır; "Hatayı ertele" — hata günlüğe ("Günlükler ve hatalar" bölümü) kaydedilir ve çalışma hiçbir şey olmamış gibi devam eder. Hata şu anda çalışmanızı engellemiyorsa "Hatayı ertele"yi kullanın.</x:String>
+  <x:String x:Key="kb.q.logsQ">Arıza sırasında ne olduğunu nereden görebilirim?</x:String>
   <x:String x:Key="kb.q.logsA">Yan menü → "Günlükler ve hatalar" — son zamandaki uyarıları, hataları ve sunucu bağlantı kesintilerini gösterir. "Günlük klasörünü aç" düğmesi ayrıntılı teknik dosyaların bulunduğu klasörü açar — bunları desteğe gönderebilirsiniz.</x:String>
-  <x:String x:Key="kb.q.remoteSupportQ">NurCRM destekten uzaktan yardım nasıl alınır?</x:String>
+  <x:String x:Key="kb.q.remoteSupportQ">NurCRM desteğinden uzaktan yardım nasıl alınır?</x:String>
   <x:String x:Key="kb.q.remoteSupportA">Yan menü → "NurCRM destek" → "AnyDesk'i başlat". Bir bağlantı adresi (ID) görünecektir — bilgisayarınıza bağlanıp yardımcı olması için bunu telefonda veya WhatsApp'ta destek görevlisine bildirin.</x:String>
   <x:String x:Key="kb.q.printerQ">Kasa, USB ile bağlı fiş yazıcısını görmüyor — ne yapmalıyım?</x:String>
   <x:String x:Key="kb.q.printerA">Ayarlar → Yazdırma bölümünde tekrar "Bul"a basın (liste kendiliğinden yenilenmez). Yazıcı Zadig ile kurulduysa ve hâlâ görünmüyorsa — yeniden bağlayıp tekrar deneyin veya "NurCRM destek" üzerinden desteğe başvurun.</x:String>
-  <x:String x:Key="common.comment">Yorum</x:String>
+  <x:String x:Key="common.comment">Açıklama</x:String>
   <x:String x:Key="common.status">Durum</x:String>
   <x:String x:Key="common.number">Numara</x:String>
   <x:String x:Key="common.total">Toplam</x:String>
@@ -381,8 +381,8 @@
   <x:String x:Key="noStock.showAlternatives">Benzer ürünleri göster</x:String>
   <x:String x:Key="noStock.alternativesTitle">Benzer ürünler</x:String>
   <x:String x:Key="noStock.alternativesSubtitle">Aynı kategoriden, stokta olanlar:</x:String>
-  <x:String x:Key="noStock.alternativesEmpty">Bu kategoride başka stokta ürün yok.</x:String>
-  <x:String x:Key="addStock.title">Depoyu yenile</x:String>
+  <x:String x:Key="noStock.alternativesEmpty">Bu kategoride stokta başka ürün yok.</x:String>
+  <x:String x:Key="addStock.title">Stok yenileme</x:String>
   <x:String x:Key="addStock.header">Miktar girin</x:String>
   <x:String x:Key="addStock.message">Ürün depoda yok. Satışa devam etmek için depoya ne kadar ekleneceğini girin.</x:String>
   <x:String x:Key="addStock.confirm">Ekle ve sat</x:String>
@@ -395,14 +395,14 @@
 
   <!-- Vardiya pencereleri -->
   <x:String x:Key="closeShift.header">Vardiyayı kapat (Z raporu)</x:String>
-  <x:String x:Key="closeShift.instructions">Kasadaki nakiti sayın ve gerçek bakiyeyi girin.</x:String>
+  <x:String x:Key="closeShift.instructions">Kasadaki nakdi sayın ve gerçek bakiyeyi girin.</x:String>
   <x:String x:Key="shift.systemBalance">Sistem bakiyesi</x:String>
   <x:String x:Key="closeShift.actualBalanceLabel">Gerçek kasa bakiyesi</x:String>
   <x:String x:Key="closeShift.discrepancyLabel">Fark</x:String>
   <x:String x:Key="closeShift.openingCashLabel">Açılış tutarı</x:String>
   <x:String x:Key="closeShift.totalSalesLabel">Toplam satış</x:String>
   <x:String x:Key="closeShift.cashSalesLabel">Nakit</x:String>
-  <x:String x:Key="closeShift.nonCashSalesLabel">Kartla</x:String>
+  <x:String x:Key="closeShift.nonCashSalesLabel">Nakitsiz</x:String>
   <x:String x:Key="openShift.instructions">Vardiya başlangıcındaki kasa nakit tutarını girin.</x:String>
   <x:String x:Key="openShift.openingAmountLabel">Açılış tutarı</x:String>
   <x:String x:Key="shiftNotClosed.title">Vardiya kapatılmadı</x:String>
@@ -428,7 +428,7 @@
   <x:String x:Key="newOperation.title">Yeni işlem</x:String>
   <x:String x:Key="newOperation.subtitle">Kasa çekmecesine para girişi veya çıkışı</x:String>
   <x:String x:Key="newOperation.reasonWatermark">Örn: para bozdurma</x:String>
-  <x:String x:Key="newOperation.commentLabel">Yorum (isteğe bağlı)</x:String>
+  <x:String x:Key="newOperation.commentLabel">Açıklama (isteğe bağlı)</x:String>
   <x:String x:Key="newOperation.commentWatermark">Ek bilgi</x:String>
 
   <!-- Finans tarih aralığı / bekleyen sepetler / stok sorunları / kısayollar -->
@@ -452,7 +452,7 @@
   <x:String x:Key="hotkeys.subtitle">Kısayol tuşlarını ayarla</x:String>
   <x:String x:Key="hotkeys.header">Kasa kısayol tuşları</x:String>
   <x:String x:Key="hotkeys.instructions">İstediğiniz tuş kombinasyonuna doğrudan alanda basın. Değişiklikler mevcut kullanıcı için kaydedilir.</x:String>
-  <x:String x:Key="hotkeys.cheatsheet">Kasiyer kısa rehberi</x:String>
+  <x:String x:Key="hotkeys.cheatsheet">Kasiyer için kısa rehber</x:String>
   <x:String x:Key="hotkeys.pressKeysWatermark">Tuşlara basın</x:String>
   <x:String x:Key="hotkeys.resetDefault">Varsayılan</x:String>
 
@@ -488,22 +488,22 @@
   <x:String x:Key="priceTag.oldPriceLabel">Eski fiyat (üstü çizili)</x:String>
   <x:String x:Key="priceTag.discountLabel">İndirim (örn. -20%)</x:String>
   <x:String x:Key="priceTag.targetLabel">Nereye yazdırılsın</x:String>
-  <x:String x:Key="priceTag.targetThermal">Etiket termal yazıcısı</x:String>
+  <x:String x:Key="priceTag.targetThermal">Termal etiket yazıcısı</x:String>
   <x:String x:Key="priceTag.targetA4">Normal yazıcı (A4)</x:String>
   <x:String x:Key="priceTag.editTemplate">Şablonu düzenle</x:String>
   <x:String x:Key="priceTagBulk.title">Toplu fiyat etiketi yazdırma</x:String>
   <x:String x:Key="priceTagBulk.header">Toplu fiyat etiketi yazdırma</x:String>
   <x:String x:Key="priceTagBulk.selectAll">Tümünü seç</x:String>
-  <x:String x:Key="priceTagBulk.selectNone">Tümünü kaldır</x:String>
+  <x:String x:Key="priceTagBulk.selectNone">Seçimi kaldır</x:String>
   <x:String x:Key="priceTagBulk.copiesEachLabel">Ürün başına kopya</x:String>
   <x:String x:Key="priceTagBulk.printButton">Yazdır</x:String>
   <x:String x:Key="discount.title">İndirim</x:String>
   <x:String x:Key="discount.applyToSelected">Seçili ürüne uygula</x:String>
   <x:String x:Key="discount.modeAmountLabel">İndirim modu: Tutar (som)</x:String>
   <x:String x:Key="discount.enterAmountLabel">İndirim tutarını girin</x:String>
-  <x:String x:Key="qrCrop.title">QR kodu düzenle</x:String>
-  <x:String x:Key="qrCrop.header">QR kodu kırp</x:String>
-  <x:String x:Key="qrCrop.instructions">Görüntünün kenarlarındaki fazlalıkları kaldırın. QR kodun güvenilir taranması için küçük beyaz bir kenar bırakın. Kaynak dosya değişmeyecektir.</x:String>
+  <x:String x:Key="qrCrop.title">QR kodunu düzenle</x:String>
+  <x:String x:Key="qrCrop.header">QR kodunu kırp</x:String>
+  <x:String x:Key="qrCrop.instructions">Görüntünün kenarlarındaki fazlalıkları kaldırın. QR kodunun güvenilir şekilde taranması için küçük beyaz bir kenar bırakın. Kaynak dosya değiştirilmeyecektir.</x:String>
   <x:String x:Key="qrCrop.cropEdgesLabel">Kenarları kırp</x:String>
   <x:String x:Key="qrCrop.left">Sol</x:String>
   <x:String x:Key="qrCrop.right">Sağ</x:String>
@@ -529,7 +529,7 @@
   <x:String x:Key="common.windowedMode">Pencere modu</x:String>
   <x:String x:Key="common.shift">Vardiya</x:String>
   <x:String x:Key="common.cash">Nakit</x:String>
-  <x:String x:Key="common.cashless">Kartla</x:String>
+  <x:String x:Key="common.cashless">Nakitsiz</x:String>
   <x:String x:Key="common.debt">Borç</x:String>
   <x:String x:Key="returnSale.title">Fişe göre iade</x:String>
   <x:String x:Key="returnSale.header">Fişten ürün iadesi</x:String>
@@ -554,9 +554,9 @@
 
   <!-- Tartılı ürün penceresi, borç ödeme -->
   <x:String x:Key="weigh.title">Ürünü tart</x:String>
-  <x:String x:Key="weigh.currentScaleLabel">Şu anda terazide</x:String>
+  <x:String x:Key="weigh.currentScaleLabel">Şu anda tartıda</x:String>
   <x:String x:Key="weigh.weightKgLabel">Ağırlık, kg</x:String>
-  <x:String x:Key="weigh.fromScaleButton">Teraziden al</x:String>
+  <x:String x:Key="weigh.fromScaleButton">Tartıdan al</x:String>
   <x:String x:Key="weigh.addToReceipt">Fişe ekle</x:String>
   <x:String x:Key="weigh.byWeightTab">Ağırlığa göre</x:String>
   <x:String x:Key="weigh.byAmountTab">Tutara göre</x:String>
@@ -569,11 +569,11 @@
   <!-- Ekran klavyesi (harf olmayan tuşlar) -->
   <x:String x:Key="keyboard.title">Klavye</x:String>
   <x:String x:Key="keyboard.clear">Temizle</x:String>
-  <x:String x:Key="keyboard.enter">Gönder</x:String>
+  <x:String x:Key="keyboard.enter">Enter</x:String>
   <x:String x:Key="keyboard.space">Boşluk</x:String>
 
   <!-- Giriş görünümü, açılış ekranı -->
-  <x:String x:Key="login.enterCredentials">Nur CRM e-posta ve şifrenizi girin</x:String>
+  <x:String x:Key="login.enterCredentials">Nur CRM e-postanızı ve şifrenizi girin</x:String>
   <x:String x:Key="login.submitButton">Giriş yap</x:String>
   <x:String x:Key="login.loadingKassa">Kasa yükleniyor…</x:String>
   <x:String x:Key="login.workOffline">Çevrimdışı çalış (internetsiz)</x:String>
@@ -601,7 +601,7 @@
   <!-- Yönetici desteği, CRM tarayıcısı, vardiya geçmişi -->
   <x:String x:Key="adminSupport.title">Destek — Nur Market</x:String>
   <x:String x:Key="adminSupport.header">Yönetici desteği</x:String>
-  <x:String x:Key="adminSupport.subtitle">Destek her zaman ulaşılabilir</x:String>
+  <x:String x:Key="adminSupport.subtitle">Destek her zaman yanınızda</x:String>
   <x:String x:Key="common.forward">İleri</x:String>
   <x:String x:Key="crmWebView.loading">NurCRM yükleniyor…</x:String>
   <x:String x:Key="crmWebView.errorTitle">Dahili tarayıcı açılamadı</x:String>
@@ -618,7 +618,7 @@
   <x:String x:Key="posSettings.navUpdates">Güncellemeler</x:String>
   <x:String x:Key="posSettings.navOperations">İşlemler</x:String>
   <x:String x:Key="posSettings.navCustomization">Özelleştirme</x:String>
-  <x:String x:Key="posSettings.navMarketplace">Mağaza</x:String>
+  <x:String x:Key="posSettings.navMarketplace">Pazaryeri</x:String>
   <x:String x:Key="posSettings.navAccount">Hesap</x:String>
   <x:String x:Key="posSettings.navEmployees">Personel</x:String>
   <x:String x:Key="employees.subtitle">Sepetten silme, ürün silme, düzenleme ve ekleme için kişisel erişim kodları — kodu olmayan personel bu işlemleri yapamaz (sahip/yönetici kodsuz işlem yapar)</x:String>
@@ -632,7 +632,7 @@
 
   <!-- Ayarlar: Hesap sekmesi -->
   <x:String x:Key="account.title">Hesap</x:String>
-  <x:String x:Key="account.subtitle">Plan, abonelik süresi ve bağlı ek hizmetler</x:String>
+  <x:String x:Key="account.subtitle">Tarife, abonelik süresi ve etkin ek hizmetler</x:String>
   <x:String x:Key="account.refresh">Yenile</x:String>
   <x:String x:Key="account.companyLabel">Şirket</x:String>
   <x:String x:Key="account.loginCard">Kasaya giriş</x:String>
@@ -642,28 +642,28 @@
   <x:String x:Key="account.cashboxLabel">Kasa</x:String>
   <x:String x:Key="account.shiftLabel">Vardiya</x:String>
   <x:String x:Key="account.passwordLabel">Şifre</x:String>
-  <x:String x:Key="account.passwordHint">Kasa şifreyi saklamaz, aksi halde kasadaki herkes görebilirdi. Şifreyi NurCRM sitesinden değiştirip kurtarabilirsiniz.</x:String>
+  <x:String x:Key="account.passwordHint">Kasa şifreyi saklamaz; aksi halde kasanın başındaki herkes onu görebilirdi. Şifrenizi NurCRM sitesinde değiştirebilir veya sıfırlayabilirsiniz.</x:String>
   <x:String x:Key="account.planLabel">Tarife planı</x:String>
   <x:String x:Key="account.expiryLabel">Geçerlilik süresi</x:String>
-  <x:String x:Key="account.servicesLabel">Bağlı ek hizmetler</x:String>
+  <x:String x:Key="account.servicesLabel">Etkin ek hizmetler</x:String>
   <x:String x:Key="account.logoutLabel">Oturum</x:String>
   <x:String x:Key="account.logoutHint">Bu hesaptan çıkış yapın ve giriş ekranına dönün.</x:String>
-  <x:String x:Key="migrateOffline.cardLabel">Bağımsız moda geç</x:String>
+  <x:String x:Key="migrateOffline.cardLabel">Çevrimdışı moda geçiş</x:String>
   <x:String x:Key="migrateOffline.cardHint">Mevcut ürün kataloğunu bu bilgisayarda çevrimdışı moda taşıyın.</x:String>
-  <x:String x:Key="migrateOffline.cardButton">Çevrimdışına geç</x:String>
-  <x:String x:Key="migrateOffline.title">Bağımsız moda geç</x:String>
-  <x:String x:Key="migrateOffline.message">Bağımsız mod etkinleştirme anahtarını girin ve yeni bir yerel giriş/şifre belirleyin — mevcut ürün kataloğu sunucuyla tamamen yeniden senkronize edilip çevrimdışı kullanım için saklanacak.</x:String>
-  <x:String x:Key="migrateOffline.newLoginLabel">Yeni yerel giriş (e-posta) ve şifre</x:String>
+  <x:String x:Key="migrateOffline.cardButton">Çevrimdışı moda geç</x:String>
+  <x:String x:Key="migrateOffline.title">Çevrimdışı moda geçiş</x:String>
+  <x:String x:Key="migrateOffline.message">Çevrimdışı mod etkinleştirme anahtarını girin ve yeni bir yerel kullanıcı adı/şifre belirleyin — mevcut ürün kataloğu sunucudan eksiksiz senkronize edilip çevrimdışı çalışma için kaydedilecek.</x:String>
+  <x:String x:Key="migrateOffline.newLoginLabel">Yeni yerel kullanıcı adı (e-posta) ve şifre</x:String>
   <x:String x:Key="migrateOffline.startButton">Taşımayı başlat</x:String>
   <x:String x:Key="account.logout">Çıkış yap</x:String>
 
   <!-- Ayarlar: Özelleştirme sekmesi -->
   <x:String x:Key="posSettings.customization.subtitle">Arka plan görseli ve arayüz şeffaflığı</x:String>
-  <x:String x:Key="posSettings.customization.wallpaperTitle">Arka plan duvar kağıdı</x:String>
+  <x:String x:Key="posSettings.customization.wallpaperTitle">Arka plan duvar kâğıdı</x:String>
   <x:String x:Key="posSettings.customization.wallpaperDesc">Bir görsel seçin (PNG, JPG, JPEG, WEBP). Değişiklikler hemen uygulanır.</x:String>
   <x:String x:Key="posSettings.customization.opacityTitle">Cam yoğunluğu</x:String>
-  <x:String x:Key="posSettings.customization.opacityDesc">Cam yüzeylerin şeffaflığını %0 ile %100 arasında ayarlar, içeriğin şeffaflığını değil.</x:String>
-  <x:String x:Key="posSettings.customization.applyToCashierTitle">Bu duvar kağıdını kasiyer ekranına uygula</x:String>
+  <x:String x:Key="posSettings.customization.opacityDesc">Cam yüzeylerin opaklığını %0 ile %100 arasında ayarlar; içeriğin şeffaflığını değil.</x:String>
+  <x:String x:Key="posSettings.customization.applyToCashierTitle">Bu duvar kâğıdını kasiyer ekranına uygula</x:String>
   <x:String x:Key="posSettings.customization.applyToCashierDesc">Kaydettikten sonra arka plan ana kasa arayüzünde görünür.</x:String>
   <x:String x:Key="posSettings.customization.transparencyTitle">Şeffaflık ve bulanıklık</x:String>
   <x:String x:Key="posSettings.customization.blurTitle">Arka plan bulanıklığı</x:String>
@@ -675,7 +675,7 @@
   <x:String x:Key="marketplace.themesTab">Temalar</x:String>
   <x:String x:Key="marketplace.extrasTab">Ek özellikler</x:String>
   <x:String x:Key="marketplace.themeTitle">Tema</x:String>
-  <x:String x:Key="marketplace.themesRebuilding">Önceki temalar kaldırıldı — set yeniden hazırlanıyor. Şimdilik kasa açık veya koyu modda çalışır; anahtar başlıkta.</x:String>
+  <x:String x:Key="marketplace.themesRebuilding">Önceki temalar kaldırıldı — tema seti yeniden hazırlanıyor. Şimdilik kasa açık veya koyu modda çalışıyor; geçiş düğmesi üst çubukta.</x:String>
   <x:String x:Key="marketplace.themeDesc">Tüm programda aynı anda vurgu rengini, düğme/kart şeklini ve pencere arka planını değiştirir. Tek tıkla uygulanır.</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleTitle">Sıvı cam</x:String>
   <x:String x:Key="marketplace.liquidGlassToggleDesc">Açık — kasada parlak yarı saydam kartlar ve bulanıklık. Kapalı — mat, hafif saydam, bulanıklıksız kartlar.</x:String>
@@ -698,7 +698,7 @@
   <x:String x:Key="marketplace.editorPriceLabel">Ücretli editör — 1500 som</x:String>
   <x:String x:Key="marketplace.serialTitle">Tema etkinleştirme</x:String>
   <x:String x:Key="marketplace.serialActivate">Etkinleştir</x:String>
-  <x:String x:Key="marketplace.installedBadge">Kuruldu</x:String>
+  <x:String x:Key="marketplace.installedBadge">Kurulu</x:String>
   <x:String x:Key="marketplace.installButton">Kur</x:String>
   <x:String x:Key="marketplace.extrasIntro">Kasa için ek modüller. Bunları kademeli olarak ekliyoruz — liste büyümeye devam edecek.</x:String>
   <x:String x:Key="marketplace.comingSoonBadge">Yakında</x:String>
@@ -728,8 +728,8 @@
   <x:String x:Key="posSettings.screen.voiceControl">Sesli kontrol</x:String>
   <x:String x:Key="posSettings.screen.voiceControlDesc">"kassa" deyip ürün adını ve miktarını söyleyin — kasa ürünü bulup fişe ekler. Çevrimdışı çalışır, mikrofonu sürekli dinler.</x:String>
   <x:String x:Key="posSettings.screen.voiceControlTest">Sesi test et</x:String>
-  <x:String x:Key="posSettings.screen.voiceControlMovedDesc">Artık bu ücretli bir ek hizmet — ayrıca etkinleştirilir ve indirilir (~113 MB), temel kasayı ağırlaştırmamak için.</x:String>
-  <x:String x:Key="posSettings.screen.voiceControlOpenMarketplace">Market'te aç</x:String>
+  <x:String x:Key="posSettings.screen.voiceControlMovedDesc">Artık bu ücretli bir ek hizmettir — temel kasayı ağırlaştırmamak için ayrıca etkinleştirilir ve indirilir (~113 MB).</x:String>
+  <x:String x:Key="posSettings.screen.voiceControlOpenMarketplace">Pazaryerinde aç</x:String>
   <x:String x:Key="posSettings.screen.autoTouchKeyboard">Dokunmatik klavyeyi otomatik göster</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotos">Katalogda ürün fotoğraflarını göster</x:String>
   <x:String x:Key="posSettings.screen.showCatalogPhotosDesc">Ürünün yüklenmiş fotoğrafı yoksa, sadece adı gösterilir.</x:String>
@@ -743,15 +743,15 @@
   <x:String x:Key="posSettings.screen.langTurkish">Türkçe</x:String>
   <x:String x:Key="posSettings.screen.langUzbek">Özbekçe</x:String>
   <x:String x:Key="posSettings.screen.langEnglish">İngilizce</x:String>
-  <x:String x:Key="posSettings.screen.languagePackHint">İngilizce, Türkçe ve Özbekçe ücretli Dil paketidir: Marketplace → Ek özellikler</x:String>
+  <x:String x:Key="posSettings.screen.languagePackHint">İngilizce, Türkçe ve Özbekçe — ücretli Dil paketi: Pazaryeri → Ek özellikler</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Ölçek</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kasa ekranındaki tüm öğelerin boyutu — %50 ile %200 arasında. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Ürün kartı boyutu</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Büyük kartlar dokunmatik ekranda kolay seçilir, küçükler ekrana daha çok ürün sığdırır. Başlık ve fiş değişmez.</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Ana ekran düzeni</x:String>
-  <x:String x:Key="posSettings.screen.layoutModeDesc">Standart — katalog ve sepet yan yana, boyutu ayarlanabilir. 1C-stili — büyük ürün kutucukları, sabit sağ sütunda fiş, miktar için tuş takımı. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
+  <x:String x:Key="posSettings.screen.layoutModeDesc">Standart — katalog ve sepet yan yana, genişlik ayarlanabilir. 1C tarzı — büyük ürün kutucukları, sağda sabit sütunda fiş, miktar için tuş takımı. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Standart</x:String>
-  <x:String x:Key="posSettings.screen.layoutOneC">1C-stili</x:String>
+  <x:String x:Key="posSettings.screen.layoutOneC">1C tarzı</x:String>
   <x:String x:Key="posSettings.screen.addToCheckTitle">Fişe ürün ekleme</x:String>
   <x:String x:Key="posSettings.screen.clickOnProduct">Ürüne tıklama</x:String>
   <x:String x:Key="posSettings.screen.doubleClick">Çift</x:String>
@@ -764,8 +764,8 @@
   <x:String x:Key="posSettings.screen.storeAddress">Mağaza adresi</x:String>
   <x:String x:Key="posSettings.screen.storeAddressWatermark">Örn: Lenin Cad. 15</x:String>
   <x:String x:Key="posSettings.screen.storeAddressTooltip">"Adres" etkinse fişte yazdırılır</x:String>
-  <x:String x:Key="posSettings.screen.showInn">Vergi kimlik no'yu göster</x:String>
-  <x:String x:Key="posSettings.screen.showInnDesc">Şirketin vergi kimlik numarasını fiş başlığında yazdır</x:String>
+  <x:String x:Key="posSettings.screen.showInn">Vergi numarasını göster</x:String>
+  <x:String x:Key="posSettings.screen.showInnDesc">Şirketin vergi numarasını fiş başlığında yazdır</x:String>
 
   <!-- Ayarlar: Yazdırma sekmesi -->
   <x:String x:Key="posSettings.print.title">Fiş yazdırma</x:String>
@@ -774,8 +774,8 @@
   <x:String x:Key="posSettings.print.equipmentTitle">Donanım ve bağlantı</x:String>
   <x:String x:Key="posSettings.print.foundPrinters">Bulunan yazıcılar ve portlar</x:String>
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Hiçbir şey bulunamadı — "Bul"a basın</x:String>
-  <x:String x:Key="posSettings.print.retriesOnFailure">Hata durumunda yazdırma denemesi</x:String>
-  <x:String x:Key="posSettings.print.tapeWidth">Kağıt genişliği</x:String>
+  <x:String x:Key="posSettings.print.retriesOnFailure">Hata durumunda yeniden deneme</x:String>
+  <x:String x:Key="posSettings.print.tapeWidth">Kâğıt genişliği</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Grafik (nokta)</x:String>
   <x:String x:Key="posSettings.print.printMode">Yazdırma modu</x:String>
   <x:String x:Key="posSettings.print.modeText">Metin</x:String>
@@ -800,7 +800,7 @@
   <x:String x:Key="posSettings.monitor.title">Müşteri monitörü</x:String>
   <x:String x:Key="posSettings.monitor.subtitle">İkinci ekranı, içeriğini ve müşteri ekranı penceresinin görünümünü ayarlayın</x:String>
   <x:String x:Key="posSettings.monitor.mainSettingsTitle">Ana ayarlar</x:String>
-  <x:String x:Key="posSettings.monitor.useCustomerDisplay">Müşteri ekran monitörünü kullan</x:String>
+  <x:String x:Key="posSettings.monitor.useCustomerDisplay">Müşteri monitörünü kullan</x:String>
   <x:String x:Key="posSettings.monitor.keepOnTop">Dış monitörde pencerelerin üstünde tut</x:String>
   <x:String x:Key="posSettings.monitor.autoOpenDesc">Pencere kasa ile birlikte otomatik olarak açılır. Önizleme, anahtar kapalıyken de kullanılabilir.</x:String>
   <x:String x:Key="posSettings.monitor.outputDeviceTitle">Çıkış cihazı</x:String>
@@ -849,17 +849,17 @@
   <x:String x:Key="posSettings.monitor.afterPaymentTitle">Ödemeden sonra</x:String>
   <x:String x:Key="posSettings.monitor.successMessageLabel">Ödeme başarılı mesajı</x:String>
   <x:String x:Key="posSettings.monitor.showChangeAfterPayment">Ödemeden sonra para üstünü göster</x:String>
-  <x:String x:Key="posSettings.monitor.clearDelayLabel">Ekranı şu sürede temizle, sn.</x:String>
+  <x:String x:Key="posSettings.monitor.clearDelayLabel">Ekranı temizleme süresi, sn.</x:String>
   <x:String x:Key="posSettings.monitor.open">Aç</x:String>
   <x:String x:Key="posSettings.monitor.show">Göster</x:String>
 
   <!-- Ayarlar: Tartı sekmesi -->
   <x:String x:Key="posSettings.scale.subtitle">Bağlantı ayarları ve donanım sorgulama</x:String>
-  <x:String x:Key="posSettings.scale.enablePolling">Tartı sorgulamayı etkinleştir</x:String>
+  <x:String x:Key="posSettings.scale.enablePolling">Tartı sorgulamasını etkinleştir</x:String>
   <x:String x:Key="posSettings.scale.connectionParams">Bağlantı ayarları</x:String>
   <x:String x:Key="posSettings.scale.baudRate">Hız (baud)</x:String>
   <x:String x:Key="posSettings.scale.poleDisplayTitle">Müşteri fiyat ekranı</x:String>
-  <x:String x:Key="posSettings.scale.poleDisplayDesc">COM portta ayrı bir fiyat ekranlı kutu (ikinci monitör değil). CD5220 protokolü bu tür cihazlar için en yaygın olanıdır, ancak sizin modelinize uymayabilir. Hemen kontrol etmek için "Test"e basın.</x:String>
+  <x:String x:Key="posSettings.scale.poleDisplayDesc">COM portuna bağlı, fiyat göstergeli ayrı küçük cihaz (ikinci monitör değil). CD5220 protokolü bu tür cihazlarda en yaygın olanıdır, ancak sizin modelinize uymayabilir. Hemen kontrol etmek için "Test"e basın.</x:String>
   <x:String x:Key="posSettings.scale.poleDisplayTest">Ekranı test et</x:String>
   <x:String x:Key="posSettings.scale.pluSectionTitle">Shtrikh-M tartılarında PLU</x:String>
   <x:String x:Key="posSettings.scale.pluSectionDesc">PLU kodlu tartılabilir ürünleri LAN üzerinden ağa bağlı Shtrikh-M tartılarına gönderin (sitedeki "Tartılar" bölümündeki "Shtrikh-M" sekmesiyle aynı).</x:String>
@@ -871,7 +871,7 @@
   <x:String x:Key="scalesPlu.brandShtrikh">Shtrikh-M</x:String>
   <x:String x:Key="scalesPlu.brandRongta">Rongta</x:String>
   <x:String x:Key="scalesPlu.rongtaSourceSite">Site üzerinden (.txp)</x:String>
-  <x:String x:Key="scalesPlu.rongtaSourceServer">Kendi sunucumuz (yerel katalog)</x:String>
+  <x:String x:Key="scalesPlu.rongtaSourceServer">Kendi sunucunuz (yerel veritabanı)</x:String>
   <x:String x:Key="scalesPlu.rongtaPortLabel">Port:</x:String>
   <x:String x:Key="scalesPlu.subtitle">Tartılabilir ürünleri seçin ve ağa bağlı Shtrikh-M tartısına gönderin. Sunucu verileri yerel ağ üzerinden tartıya kendisi iletir.</x:String>
   <x:String x:Key="scalesPlu.selectAll">Tümünü seç</x:String>
@@ -891,10 +891,10 @@
   <x:String x:Key="posSettings.operations.uploadQr">QR yükle</x:String>
   <x:String x:Key="posSettings.operations.crop">Kırp</x:String>
   <x:String x:Key="posSettings.operations.removeQr">QR'ı kaldır</x:String>
-  <x:String x:Key="posSettings.operations.loyaltyHint">Puanlar, tüm indirimler ve kullanılan puanlar sonrasındaki fiş toplamı üzerinden kazanılır. Ödemede 1 puan = 1 som. Bakiye bu kasada saklanır.</x:String>
+  <x:String x:Key="posSettings.operations.loyaltyHint">Puanlar, tüm indirimler ve kullanılan puanlar düşüldükten sonraki fiş toplamı üzerinden kazanılır. Ödemede 1 puan = 1 som. Bakiye bu kasada saklanır.</x:String>
   <x:String x:Key="posSettings.operations.addBank">Banka ekle</x:String>
   <x:String x:Key="posSettings.operations.addBankTitle">Yeni banka</x:String>
-  <x:String x:Key="posSettings.operations.addBankMessage">Banka veya ödeme sisteminin adını girin — listede görünecek ve onun için bir QR kod yükleyebileceksiniz.</x:String>
+  <x:String x:Key="posSettings.operations.addBankMessage">Banka veya ödeme sisteminin adını girin — listede görünecek ve bunun için QR kodu yükleyebileceksiniz.</x:String>
   <x:String x:Key="posSettings.operations.addBankWatermark">Örn: Bakai Bank</x:String>
   <x:String x:Key="posSettings.operations.removeBank">Bankayı kaldır</x:String>
 
@@ -903,25 +903,25 @@
   <x:String x:Key="posSettings.updates.systemStatus">Sistem durumu</x:String>
   <x:String x:Key="posSettings.updates.currentVersionLabel">Mevcut uygulama sürümü:</x:String>
   <x:String x:Key="posSettings.updates.versionPlaceholder">Sürüm 1.0.0</x:String>
-  <x:String x:Key="posSettings.updates.diagnosticsTitle">Tanılama ve katalog</x:String>
+  <x:String x:Key="posSettings.updates.diagnosticsTitle">Tanılama ve dizin</x:String>
   <x:String x:Key="posSettings.updates.diagnosticsDesc">Uygulama ve çalışma dizini hakkında teknik bilgiler:</x:String>
 
   <!-- Müşteriler penceresi -->
   <x:String x:Key="clients.title">Müşteri veritabanı</x:String>
   <x:String x:Key="clients.newClientHeader">Yeni müşteri</x:String>
-  <x:String x:Key="clients.nameWatermark">Ad / tam ad</x:String>
+  <x:String x:Key="clients.nameWatermark">Ad / ad soyad</x:String>
   <x:String x:Key="clients.emailOptionalWatermark">E-posta (isteğe bağlı)</x:String>
   <x:String x:Key="clients.addressOptionalWatermark">Adres (isteğe bağlı)</x:String>
   <x:String x:Key="clients.addressLabel">Adres</x:String>
-  <x:String x:Key="clients.purchasesHeader">Satın almalar</x:String>
-  <x:String x:Key="clients.openPurchases">Satın alma geçmişi</x:String>
+  <x:String x:Key="clients.purchasesHeader">Alışverişler</x:String>
+  <x:String x:Key="clients.openPurchases">Alışveriş geçmişi</x:String>
   <x:String x:Key="clients.telegramHeader">Telegram botu</x:String>
   <x:String x:Key="clients.telegramCopyLink">Bağlantıyı kopyala</x:String>
-  <x:String x:Key="clients.telegramExplain">Bu bağlantıyı müşteriye gönderin — WhatsApp, SMS ile ya da fişe yazdırarak. Müşteri açıp Başlat'a bastığında kasa ona borç hatırlatmaları ve kampanya mesajları gönderebilir. Telegram telefon numarasıyla kişiye yazmaya izin vermez: ilk adımı müşteri atmalıdır.</x:String>
+  <x:String x:Key="clients.telegramExplain">Bu bağlantıyı müşteriye gönderin — WhatsApp, SMS ile ya da fişe yazdırarak. Müşteri bağlantıyı açıp Başlat'a bastığında kasa ona borç hatırlatmaları ve kampanya mesajları gönderebilir. Telegram, telefon numarasıyla kişiye ilk mesajı yazmaya izin vermez: ilk adımı müşteri atmalıdır.</x:String>
   <x:String x:Key="clients.addButton">+ Ekle</x:String>
   <x:String x:Key="clients.refreshButton">Yenile</x:String>
-  <x:String x:Key="clients.colFullName">Tam ad</x:String>
-  <x:String x:Key="clients.colAdded">Eklendi</x:String>
+  <x:String x:Key="clients.colFullName">Ad soyad</x:String>
+  <x:String x:Key="clients.colAdded">Eklenme tarihi</x:String>
   <x:String x:Key="clients.colLoyalty">Puanlar</x:String>
   <x:String x:Key="clients.cardHeader">Müşteri kartı</x:String>
   <x:String x:Key="clients.saveButton">Kaydet</x:String>
@@ -934,9 +934,9 @@
   <x:String x:Key="product.addButton">+ Ürün oluştur</x:String>
   <x:String x:Key="product.editRowButton">Düzenle</x:String>
   <x:String x:Key="product.nameLabel">Ad</x:String>
-  <x:String x:Key="product.nameWatermark">Örn., "Beyaz ekmek"</x:String>
-  <x:String x:Key="product.codeLabel">Ürün kodu</x:String>
-  <x:String x:Key="product.articleWatermark">Ürün kodunu girin</x:String>
+  <x:String x:Key="product.nameWatermark">Örn. "Beyaz ekmek"</x:String>
+  <x:String x:Key="product.codeLabel">Stok kodu</x:String>
+  <x:String x:Key="product.articleWatermark">Stok kodunu girin</x:String>
   <x:String x:Key="product.generateBarcode">Oluştur</x:String>
   <x:String x:Key="product.barcodeScanWatermark">Barkodu tarayın veya girin</x:String>
   <x:String x:Key="product.barcodeScanWatermarkShort">Tarayın…</x:String>
@@ -967,14 +967,14 @@
   <x:String x:Key="product.bundleSearchWatermark">İsim veya barkod ile ara…</x:String>
   <x:String x:Key="product.selectAll">Tümünü seç</x:String>
   <x:String x:Key="product.addSelected">Ekle</x:String>
-  <x:String x:Key="product.enablePieceSale">Paketten adet adet satış</x:String>
+  <x:String x:Key="product.enablePieceSale">Paketten tek tek satış</x:String>
   <x:String x:Key="product.packageQtyLabel">Paket başına miktar</x:String>
   <x:String x:Key="product.packagePriceLabel">Adet fiyatı</x:String>
   <x:String x:Key="product.pricesHeader">Fiyatlar</x:String>
   <x:String x:Key="product.purchasePriceLabel">Alış fiyatı</x:String>
   <x:String x:Key="product.markupLabel">Kâr payı, %</x:String>
   <x:String x:Key="product.salePriceLabel">Satış fiyatı</x:String>
-  <x:String x:Key="product.wholesalePriceLabel">Toptan fiyatı</x:String>
+  <x:String x:Key="product.wholesalePriceLabel">Toptan fiyat</x:String>
   <x:String x:Key="product.discountLabel">İndirim, %</x:String>
   <x:String x:Key="product.hotkeyLabel">Kısayol tuşu</x:String>
   <x:String x:Key="product.characteristicsHeader">Ürün özellikleri</x:String>
@@ -993,7 +993,7 @@
   <x:String x:Key="services.subtitle">CRM sisteminizi ek hizmetlerimizle genişletin.</x:String>
   <x:String x:Key="services.integrationsLabel">Entegrasyonlar</x:String>
   <x:String x:Key="services.whatsappDesc">Müşterilerle rahat iletişim için sohbetleri bağlayın.</x:String>
-  <x:String x:Key="services.connectButton">Bağlan</x:String>
+  <x:String x:Key="services.connectButton">Bağla</x:String>
   <x:String x:Key="services.telegramDesc">Otomatik yanıtlar ve CRM için Telegram entegrasyonu.</x:String>
   <x:String x:Key="services.cashierInterfaceTitle">Kasiyer arayüzü</x:String>
   <x:String x:Key="services.cashierInterfaceDesc">Hızlı satış, ödeme ve fiş işlemleri.</x:String>
@@ -1015,7 +1015,7 @@
 
   <!-- Vardiya özeti görünümü -->
   <x:String x:Key="shiftSummary.title">Vardiya genel bakışı</x:String>
-  <x:String x:Key="shiftSummary.subtitle">Seçilen dönem için işlemler ve finansal toplamlar özeti</x:String>
+  <x:String x:Key="shiftSummary.subtitle">Seçilen döneme ait işlem özeti ve finansal toplamlar</x:String>
   <x:String x:Key="shiftSummary.periodFrom">Dönem başlangıcı</x:String>
   <x:String x:Key="shiftSummary.periodTo">Dönem bitişi</x:String>
   <x:String x:Key="shiftSummary.operationTypeLabel">İşlem türü</x:String>
@@ -1026,7 +1026,7 @@
 
   <!-- Satışlar penceresi -->
   <x:String x:Key="sales.returns">İadeler</x:String>
-  <x:String x:Key="sales.nonCashShort">Kartla</x:String>
+  <x:String x:Key="sales.nonCashShort">Nakitsiz</x:String>
   <x:String x:Key="sales.avgReceipt">Ortalama fiş</x:String>
   <x:String x:Key="sales.receiptsCount">Fişler</x:String>
   <x:String x:Key="sales.discounts">İndirimler</x:String>
@@ -1055,22 +1055,22 @@
   <x:String x:Key="warehouse.colCodeBarcode">Kod / barkod</x:String>
   <x:String x:Key="warehouse.colCost">Maliyet</x:String>
   <x:String x:Key="warehouse.viewList">Liste</x:String>
-  <x:String x:Key="warehouse.viewTiles">Kutucuk</x:String>
+  <x:String x:Key="warehouse.viewTiles">Kutucuklar</x:String>
   <x:String x:Key="warehouse.colArticle">Stok kodu</x:String>
   <x:String x:Key="warehouse.colPlu">PLU kodu</x:String>
   <x:String x:Key="warehouse.colDiscountPercent">İndirim</x:String>
   <x:String x:Key="warehouse.saleUnitFilterLabel">Satış birimi</x:String>
   <x:String x:Key="warehouse.saleUnitAll">Tümü</x:String>
   <x:String x:Key="warehouse.saleUnitWeight">Tartılı</x:String>
-  <x:String x:Key="warehouse.saleUnitPiece">Adet</x:String>
-  <x:String x:Key="warehouse.saleUnitPiecePackage">Paketten adet</x:String>
+  <x:String x:Key="warehouse.saleUnitPiece">Adetli</x:String>
+  <x:String x:Key="warehouse.saleUnitPiecePackage">Paketten tek tek</x:String>
   <x:String x:Key="warehouse.colLabel">Etiket</x:String>
   <x:String x:Key="warehouse.printLabelButton">Yazdır</x:String>
   <x:String x:Key="warehouse.colPriceTag">Fiyat etiketi</x:String>
   <x:String x:Key="warehouse.priceTagButton">Fiyat etiketi</x:String>
   <x:String x:Key="warehouse.bulkPriceTagButton">Toplu fiyat etiketi yazdır</x:String>
   <x:String x:Key="warehouse.analyticsLockedTitle">Depo analitiği — ücretli ek hizmet</x:String>
-  <x:String x:Key="warehouse.analyticsLockedDesc">Grafikler ve kategori dağılımı, seri numarasıyla etkinleştirildikten sonra kullanılabilir — Market'teki temalar ve sesli kontrol gibi.</x:String>
+  <x:String x:Key="warehouse.analyticsLockedDesc">Grafikler ve kategori dağılımı, seri numarasıyla etkinleştirildikten sonra kullanılabilir — Pazaryerindeki temalar ve sesli kontrol gibi.</x:String>
   <x:String x:Key="warehouse.analyticsUnlockButton">Etkinleştir</x:String>
   <x:String x:Key="warehouse.colPhoto">Fotoğraf</x:String>
   <x:String x:Key="warehouse.colActions">İşlemler</x:String>
@@ -1078,11 +1078,11 @@
   <x:String x:Key="warehouse.photoButton">Fotoğraf</x:String>
   <x:String x:Key="warehouse.tabRevision">Sayım (Envanter)</x:String>
   <x:String x:Key="warehouse.tabReceiving">Mal kabul</x:String>
-  <x:String x:Key="warehouse.receivingHint">İrsaliyedeki ürünleri sıradan bir okuyucuyla okutun. Depodaki ürün kendi fiyatlarıyla, CRM tabanındaki ürün adıyla, bilinmeyen barkod yeni satır olarak gelir — adını yazın. Miktar, alış ve satış fiyatı tabloda düzeltilebilir. «Stoğa al» yeni ürünleri oluşturur, stoğu artırır ve fiyatları alım geçmişine yazar.</x:String>
+  <x:String x:Key="warehouse.receivingHint">İrsaliyedeki ürünleri normal bir barkod okuyucuyla okutun. Depodaki ürün kendi fiyatlarıyla, CRM ortak veritabanındaki ürün adıyla, bilinmeyen barkod ise yeni satır olarak gelir — adını yazın. Miktar, alış ve satış fiyatı doğrudan tabloda düzeltilebilir. «Stoğa al» yeni ürünleri oluşturur, stoğu artırır ve fiyatları alım geçmişine yazar.</x:String>
   <x:String x:Key="warehouse.receivingScanHint">Barkodu okutun veya yazın…</x:String>
-  <x:String x:Key="warehouse.receivingWas">Vardı</x:String>
-  <x:String x:Key="warehouse.receivingTaken">Alındı</x:String>
-  <x:String x:Key="warehouse.receivingCommit">Giriş yap</x:String>
+  <x:String x:Key="warehouse.receivingWas">Önceki</x:String>
+  <x:String x:Key="warehouse.receivingTaken">Kabul edilen</x:String>
+  <x:String x:Key="warehouse.receivingCommit">Stoğa al</x:String>
   <x:String x:Key="warehouse.receivingAddNew">+ Yeni ürün</x:String>
   <x:String x:Key="warehouse.receivingSupplier">Tedarikçi</x:String>
   <x:String x:Key="warehouse.receivingPaidNow">Hemen ödendi</x:String>
@@ -1101,12 +1101,12 @@
   <x:String x:Key="warehouse.commitRevisionButton">Sayımı onayla</x:String>
   <x:String x:Key="warehouse.tabWriteOff">Düşüm</x:String>
   <x:String x:Key="warehouse.tabAnalytics">Analiz</x:String>
-  <x:String x:Key="warehouse.tabMovements">Hareketler</x:String>
+  <x:String x:Key="warehouse.tabMovements">Transfer</x:String>
   <x:String x:Key="warehouse.transfersDocs">Belgeler</x:String>
   <x:String x:Key="warehouse.transfersFlow">Stok hareketi</x:String>
   <x:String x:Key="warehouse.transferCreate">+ Yeni transfer</x:String>
   <x:String x:Key="warehouse.transferNumber">Numara</x:String>
-  <x:String x:Key="warehouse.transferRoute">Güzergah</x:String>
+  <x:String x:Key="warehouse.transferRoute">Güzergâh</x:String>
   <x:String x:Key="warehouse.transferStatus">Durum</x:String>
   <x:String x:Key="warehouse.transferItems">Kalem</x:String>
   <x:String x:Key="warehouse.transferResponsible">Sorumlu</x:String>
@@ -1129,7 +1129,7 @@
   <x:String x:Key="warehouse.transferFileKind">Belge türü</x:String>
   <x:String x:Key="warehouse.transferShip">Gönder</x:String>
   <x:String x:Key="warehouse.transferDeliver">Teslim al</x:String>
-  <x:String x:Key="warehouse.transferCancel">İptal</x:String>
+  <x:String x:Key="warehouse.transferCancel">İptal et</x:String>
   <x:String x:Key="warehouse.movementsSearchHint">Ürün adına göre ara…</x:String>
   <x:String x:Key="warehouse.movementsWeek">Hafta</x:String>
   <x:String x:Key="warehouse.movementsMonth">Ay</x:String>
@@ -1139,7 +1139,7 @@
   <x:String x:Key="warehouse.movementsQuantity">Miktar</x:String>
   <x:String x:Key="warehouse.movementsNote">Not</x:String>
   <x:String x:Key="warehouse.movementsSale">Satış</x:String>
-  <x:String x:Key="warehouse.movementsWriteOff">Zayiat</x:String>
+  <x:String x:Key="warehouse.movementsWriteOff">Düşüm</x:String>
   <x:String x:Key="warehouse.tabLabelEditor">Etiket editörü</x:String>
   <x:String x:Key="warehouse.labelEditorTabTitle">Etiket editörü</x:String>
   <x:String x:Key="warehouse.labelEditorTabDescription">Etikette barkod, ad, fiyat, stok kodu, birim ve mağaza adının yerleşimi — her öğeyi sürükleyerek ve ayarlayarak. Ücretli özellik: seri numarasıyla açılır.</x:String>
@@ -1153,7 +1153,7 @@
   <x:String x:Key="warehouse.analyticsByCategoryTitle">Kategoriye göre</x:String>
   <x:String x:Key="warehouse.analyticsValueColumn">Değer</x:String>
   <x:String x:Key="warehouse.analyticsSkuColumn">Adet</x:String>
-  <x:String x:Key="warehouse.writeOffTitle">Düşüm formu</x:String>
+  <x:String x:Key="warehouse.writeOffTitle">Düşüm tutanağı</x:String>
   <x:String x:Key="warehouse.writeOffHistoryTitle">Düşüm geçmişi</x:String>
   <x:String x:Key="warehouse.writeOffHistoryExpandButton">Tamamını aç ⤢</x:String>
   <x:String x:Key="warehouse.writeOffHistorySearchWatermark">Ürün, sebep veya kasiyere göre ara…</x:String>
@@ -1166,7 +1166,7 @@
   <x:String x:Key="warehouse.writeOffUnitCost">Birim maliyet</x:String>
   <x:String x:Key="warehouse.writeOffLineTotal">Tutar</x:String>
   <x:String x:Key="warehouse.confirmWriteOffButton">Düşümü onayla</x:String>
-  <x:String x:Key="warehouse.savingData">Veri kaydediliyor…</x:String>
+  <x:String x:Key="warehouse.savingData">Veriler kaydediliyor…</x:String>
 
   <!-- Finans penceresi -->
   <x:String x:Key="common.exit">Çıkış</x:String>
@@ -1185,26 +1185,26 @@
   <x:String x:Key="finance.shiftsOpenedAtLabel">Açıldı</x:String>
   <x:String x:Key="finance.shiftsCashierLabel">Kasiyer</x:String>
   <x:String x:Key="finance.salesCountLabel">Satışlar</x:String>
-  <x:String x:Key="finance.popularProductsTitle">Popüler ürünler (dönem için ilk 10)</x:String>
-  <x:String x:Key="finance.popularProductsPieTitle">İlk 10 ürünün ciro payı (pasta)</x:String>
+  <x:String x:Key="finance.popularProductsTitle">Popüler ürünler (dönemin ilk 10'u)</x:String>
+  <x:String x:Key="finance.popularProductsPieTitle">İlk 10 ürünün ciro payı (pasta grafik)</x:String>
   <x:String x:Key="finance.unpopularProductsTitle">Az satan ürünler</x:String>
-  <x:String x:Key="finance.unpopularProductsSubtitle">Seçilen dönemde satışı olmayan, stoğa göre sıralanmış ürünler — en uzun süre bekleyenler.</x:String>
+  <x:String x:Key="finance.unpopularProductsSubtitle">Seçilen dönemde satışı olmayan, stoğa göre sıralanmış ürünler — depoda en uzun süre bekleyenler.</x:String>
   <x:String x:Key="finance.allProductsTitle">Tüm ürünler</x:String>
-  <x:String x:Key="finance.allProductsSubtitle">Depodaki tam ürün listesi, her ürünün toplam stoktaki payıyla birlikte.</x:String>
-  <x:String x:Key="finance.allProductsSearchWatermark">Ada veya koda göre ara…</x:String>
+  <x:String x:Key="finance.allProductsSubtitle">Depodaki ürünlerin tam listesi ve her ürünün toplam stoktaki payı.</x:String>
+  <x:String x:Key="finance.allProductsSearchWatermark">Ada veya stok koduna göre ara…</x:String>
   <x:String x:Key="finance.allProductsPieNote">Grafik, her ürünün depodaki toplam miktar/ağırlıktaki payını gösterir (ilk 9 ürün + "Diğerleri"). Adetli ve tartılı ürünler doğrudan toplandığı için pay yaklaşıktır.</x:String>
-  <x:String x:Key="product.articleLabel">Ürün kodu</x:String>
+  <x:String x:Key="product.articleLabel">Stok kodu</x:String>
   <x:String x:Key="finance.paymentMethodsTitle">Ödeme yöntemleri</x:String>
-  <x:String x:Key="finance.paymentMethodsPieTitle">Ödeme yöntemleri (pasta)</x:String>
-  <x:String x:Key="finance.revenueTrendTitle">Güne göre ciro trendi (çizgi)</x:String>
-  <x:String x:Key="finance.revenueCumulativeTitle">Kümülatif ciro (alan)</x:String>
-  <x:String x:Key="finance.revenueVsSalesTitle">Ciro ve satış sayısı (kombine)</x:String>
-  <x:String x:Key="finance.revenueByDayTitle">Güne göre ciro</x:String>
-  <x:String x:Key="finance.revenueByHourTitle">Saate göre ciro</x:String>
-  <x:String x:Key="finance.dayInsightsTitle">Haftanın gününe göre iyi satan ürünler</x:String>
-  <x:String x:Key="finance.dayInsightsSubtitle">Seçilen dönem için. Haftanın o gününde en çok satan ürün.</x:String>
+  <x:String x:Key="finance.paymentMethodsPieTitle">Ödeme yöntemleri (pasta grafik)</x:String>
+  <x:String x:Key="finance.revenueTrendTitle">Günlük ciro trendi (çizgi grafik)</x:String>
+  <x:String x:Key="finance.revenueCumulativeTitle">Kümülatif ciro (alan grafik)</x:String>
+  <x:String x:Key="finance.revenueVsSalesTitle">Ciro ve satış sayısı (birleşik grafik)</x:String>
+  <x:String x:Key="finance.revenueByDayTitle">Günlük ciro</x:String>
+  <x:String x:Key="finance.revenueByHourTitle">Saatlik ciro</x:String>
+  <x:String x:Key="finance.dayInsightsTitle">Haftanın günlerine göre iyi satan ürünler</x:String>
+  <x:String x:Key="finance.dayInsightsSubtitle">Seçilen dönem boyunca. Haftanın bu gününde en çok satılan ürün.</x:String>
   <x:String x:Key="finance.showFullInfoTooltip">Ürünün tüm bilgilerini göster</x:String>
-  <x:String x:Key="finance.underConstruction">Bu bölüm geliştirilmektedir</x:String>
+  <x:String x:Key="finance.underConstruction">Bu bölüm geliştirme aşamasında</x:String>
   <x:String x:Key="finance.backArrowButton">Geri</x:String>
   <x:String x:Key="finance.navSale">Satış</x:String>
   <x:String x:Key="finance.navWarehouse">Depo</x:String>
@@ -1233,4 +1233,134 @@
   <x:String x:Key="onecLayout.colPrice">Fiyat</x:String>
   <x:String x:Key="onecLayout.colSum">Tutar</x:String>
   <x:String x:Key="onecLayout.lineDiscountButton">Satır indirimi</x:String>
+    <!-- 2026-09-26: надписи, которые раньше были зашиты по-русски -->
+    <x:String x:Key="loc.kassa.addBank.pickPlaceholder">Listeden bir banka seçin</x:String>
+    <x:String x:Key="loc.kassa.addBank.orTypeName">ya da banka adını kendiniz yazın</x:String>
+    <x:String x:Key="loc.kassa.transfer.weightWatermark">0, kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick01">0,1 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick05">0,5 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick1">1 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick2">2 kg</x:String>
+    <x:String x:Key="loc.kassa.weigh.quick5">5 kg</x:String>
+    <x:String x:Key="loc.owner.shift.writeOffs">Düşümler</x:String>
+    <x:String x:Key="loc.owner.shift.debtPayments">Borç ödemeleri</x:String>
+    <x:String x:Key="loc.owner.shift.cashDrawerTitle">Vardiyadaki kasa çekmecesi</x:String>
+    <x:String x:Key="loc.owner.shift.deposits">Para girişleri</x:String>
+    <x:String x:Key="loc.owner.shift.withdrawalsExpense">Para çıkışları (gider)</x:String>
+    <x:String x:Key="loc.owner.shift.reportTitle">Vardiya raporu</x:String>
+    <x:String x:Key="loc.owner.irregular.retry">Yeniden gönder</x:String>
+    <x:String x:Key="loc.owner.scales.exportCsv">CSV'ye aktar</x:String>
+    <x:String x:Key="loc.owner.scales.brandAi">AI tartı</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Tartı tuşlarına göre numarala</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Tartı panelindeki tuşlar PLU'yu NUMARASINA göre çağırır: 1. tuş — PLU 1, 2. tuş — PLU 2 ve bu şekilde devam eder. Ürünü kendi numarasıyla (örneğin 10007) kaydederseniz hiçbir tuş onu bulamaz. Bu kutu işaretliyken ürünler girilen numaradan başlayarak sırayla numaralanır ve aşağıdaki listenin sırası tuşların sırasıdır.</x:String>
+    <x:String x:Key="loc.owner.scales.directLan">Doğrudan kabloyla</x:String>
+    <x:String x:Key="loc.owner.scales.directLanTip">Kasa, tartıyla sunucu olmadan yerel ağ üzerinden kendisi iletişim kurar. Gerçek tartılarda test edilmedi — portu tartının sistem menüsünden kontrol edin.</x:String>
+    <x:String x:Key="loc.owner.scales.lanSettings">Bağlantı ayarları…</x:String>
+    <x:String x:Key="loc.owner.scales.lanSettingsTip">Tartının adresi, portu ve şifresi ayrı bir pencerede; bağlantı testi de orada.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.title">Telegram botunu bağlama</x:String>
+    <x:String x:Key="loc.owner.tgSetup.intro">Bot size kapanan vardiyanın özetini gönderir ve komutlara yanıt verir: ciro, en çok satanlar, sipariş edilmesi gerekenler, borçlular. Mağazadan çalışır: kendi sunucunuza da, genel IP adresine de gerek yoktur.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.warning">Botu kasa değil, Telegram oluşturur: BotFather'ın programlar için bir arayüzü yoktur, bu yüzden 1. adım Telegram'da elle yapılır. Geri kalan her şeyi kasa sizin yerinize yapar.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step1">Adım 1. @BotFather'da bot oluşturun</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step1Body">«BotFather'ı aç» düğmesine basın — Telegram'da bir sohbet açılır. Orada /newbot komutunu gönderin, bot için bir ad ve kullanıcı adı belirleyin (kullanıcı adı «bot» ile bitmelidir). BotFather yanıt olarak bir token gönderir — 123456789:AAG... biçiminde uzun bir karakter dizisi.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.openBotFather">BotFather'ı aç</x:String>
+    <x:String x:Key="loc.owner.tgSetup.copyNewBot">/newbot'u kopyala</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step2">Adım 2. Token'ı yapıştırın</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step2Body">Token'ı BotFather sohbetinden kopyalayıp buraya eksiksiz yapıştırın. Kasa onu kontrol edip botun adını gösterecek.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.checkToken">Token'ı kontrol et</x:String>
+    <x:String x:Key="loc.owner.tgSetup.pasteToken">Panodan yapıştır</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step3">Adım 3. Botunuza «Başlat» gönderin</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step3Body">Telegram, botun ilk mesajı yazmasına izin vermez — önce botunuzu açıp «Başlat»a basmanız gerekir. Bundan sonra kasa özetleri hangi sohbete göndereceğini öğrenir.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.openMyBot">Botumu aç</x:String>
+    <x:String x:Key="loc.owner.tgSetup.detect">Alıcıyı belirle</x:String>
+    <x:String x:Key="loc.owner.tgSetup.step4">Adım 4. Test edin ve açın</x:String>
+    <x:String x:Key="loc.owner.tgSetup.sendTest">Deneme mesajı gönder</x:String>
+    <x:String x:Key="loc.owner.tgSetup.summaryOnClose">Vardiya kapanınca özet gönder</x:String>
+    <x:String x:Key="loc.owner.tgSetup.answerCommands">Telegram'daki komutlara yanıt ver</x:String>
+    <x:String x:Key="loc.owner.tgSetup.commandsHelp">Komutlar: /segodnya — bugünkü ciro, /nedelya — haftalık ciro, /top — en çok satanlar, /abc — ABC analizi, /sezon — mevsimsellik, /soveti — öneriler, /zakaz — sipariş edilmesi gerekenler, /ostatki — tükenmek üzere olanlar, /dolgi — borçlular. Bot, kasa açık olduğu sürece yanıt verir.</x:String>
+    <x:String x:Key="loc.owner.tgSetup.done">Tamam</x:String>
+    <x:String x:Key="loc.owner.sales.excelTip">Seçilen dönemin satış ve stok analizini grafiklerle Excel'e aktar.</x:String>
+    <x:String x:Key="loc.owner.sales.wordTip">Aynı raporu tablolar ve grafiklerle Word'e aktar.</x:String>
+    <x:String x:Key="loc.owner.sales.metricsTab">Göstergeler</x:String>
+    <x:String x:Key="loc.owner.finance.excelTip">Seçilen dönemin analizini grafikler ve ABC analiziyle Excel'e aktar.</x:String>
+    <x:String x:Key="loc.owner.finance.wordTip">Aynı rapor Word'de — tablolar, grafikler ve ABC analizi.</x:String>
+    <x:String x:Key="loc.owner.finance.expenses">Giderler (para çıkışları)</x:String>
+    <x:String x:Key="loc.owner.finance.profitAfterExpenses">Giderler düşüldükten sonra kâr</x:String>
+    <x:String x:Key="loc.owner.zeroMoney">0,00 som</x:String>
+    <x:String x:Key="loc.owner.voice.title">Sesli kontrol testi</x:String>
+    <x:String x:Key="loc.owner.voice.howTo">Nasıl kullanılır</x:String>
+    <x:String x:Key="loc.owner.voice.howToBody">Her zaman «касса» anahtar kelimesiyle başlayın, ardından hemen komutu söyleyin — mikrofon sürekli dinler, ayrı bir düğmeye basmanız gerekmez.</x:String>
+    <x:String x:Key="loc.owner.voice.exRu1">• «касса картошка два килограмма» — fişe 2 kg patates ekler</x:String>
+    <x:String x:Key="loc.owner.voice.exRu2">• «касса молоко» — 1 adet süt ekler (sayı söylenmezse 1)</x:String>
+    <x:String x:Key="loc.owner.voice.exRu3">• «касса манго 20 штук» — ürünün adet fiyatı varsa sormadan doğrudan adet olarak ekler</x:String>
+    <x:String x:Key="loc.owner.voice.exRu4">• «касса манго 2 пачки» — doğrudan tam paket olarak ekler; «штук»/«пачки» demeden sadece sayı söylerseniz tekrar sorar</x:String>
+    <x:String x:Key="loc.owner.voice.exRu5">• «касса найди сахар» — ürünü bulur ve gösterir, eklemez</x:String>
+    <x:String x:Key="loc.owner.voice.exRu6">• «касса убери последнюю» — son eklenen kalemi siler (onay ister)</x:String>
+    <x:String x:Key="loc.owner.voice.exRu7">• «касса очисти чек» — tüm fişi temizler (onay ister)</x:String>
+    <x:String x:Key="loc.owner.voice.exRu8">• «касса повтори» — son ürün eklemeyi tekrarlar</x:String>
+    <x:String x:Key="loc.owner.voice.exRu9">• «касса оплата» — ödemeye geçer</x:String>
+    <x:String x:Key="loc.owner.voice.exRu10">• «касса отмена» — mevcut işlemi iptal eder</x:String>
+    <x:String x:Key="loc.owner.voice.kyHeader">Kırgızca komutlar (Кыргызча буйруктар)</x:String>
+    <x:String x:Key="loc.owner.voice.kyNote">Dil Kırgızca olarak ayarlandığında (Ayarlar → Ekran) Kırgızca komutlar daha iyi tanınır — bu durumda kasa Kırgızca için eğitilmiş modeli kullanır.</x:String>
+    <x:String x:Key="loc.owner.voice.exKy1">• «касса нан эки даана» — fişe 2 adet ekmek ekler</x:String>
+    <x:String x:Key="loc.owner.voice.exKy2">• «касса сүт» — 1 adet süt ekler (sayı söylenmezse 1)</x:String>
+    <x:String x:Key="loc.owner.voice.exKy3">• «касса кант тап» — ürünü bulur ve gösterir, eklemez</x:String>
+    <x:String x:Key="loc.owner.voice.exKy4">• «касса акыркысын өчүр» — son eklenen ürünü siler (onay ister)</x:String>
+    <x:String x:Key="loc.owner.voice.exKy5">• «касса чекти тазала» — tüm fişi temizler (onay ister)</x:String>
+    <x:String x:Key="loc.owner.voice.exKy6">• «касса кайтала» — son eklenen ürünü tekrarlar</x:String>
+    <x:String x:Key="loc.owner.voice.exKy7">• «касса төлө» — ödemeye geçer</x:String>
+    <x:String x:Key="loc.owner.voice.exKy8">• «касса жокко чыгар» — mevcut işlemi iptal eder</x:String>
+    <x:String x:Key="loc.owner.voice.notHeard">Program yanlış mı duydu? İfadeyi aşağıdaki «Metni mikrofonsuz kontrol et» alanında deneyin — programın onu nasıl ayrıştırdığını mikrofonsuz ve fişe gerçekten eklemeden görürsünüz.</x:String>
+    <x:String x:Key="loc.owner.voice.manualTitle">Metni mikrofonsuz kontrol et</x:String>
+    <x:String x:Key="loc.owner.voice.manualHint">İfadeyi mikrofon zaten tanımış gibi yazın («касса» kelimesiyle ya da onsuz) — ayrıştırıcının onu nasıl işlediğini görürsünüz.</x:String>
+    <x:String x:Key="loc.owner.voice.parse">Ayrıştır</x:String>
+    <x:String x:Key="loc.owner.voice.lockTitle">Ses kilidi</x:String>
+    <x:String x:Key="loc.owner.voice.lockBody">Kasiyerin sesini kaydeder — ardından her sesli komut bununla karşılaştırılır. Ses eşleşmezse komut YÜRÜTÜLMEZ ve bir uyarı çıkar (sesli olarak da). Bu bir şifre değildir: soğuk algınlığı, gürültü veya farklı bir mikrofon bazen yanlışlıkla eşleşmemeye yol açabilir — o zaman komutu tekrarlayın ya da fare/klavye kullanın.</x:String>
+    <x:String x:Key="loc.owner.voice.download">Modülü indir (~27 MB)</x:String>
+    <x:String x:Key="loc.owner.voice.enroll">🎙 Sesi kaydet (3 ifade)</x:String>
+    <x:String x:Key="loc.owner.voice.lockOn">Kilit etkin</x:String>
+    <x:String x:Key="loc.owner.voice.unitsTitle">Ölçü birimi sözlüğü</x:String>
+    <x:String x:Key="loc.owner.voice.unitsBody">Rusça ve Kırgızca birimler yerleşiktir (кг, л, шт, даана, бөтөлкө vb.) — mağazanızda başka birimler kullanılıyorsa buradan kendi birimlerinizi ekleyebilirsiniz (örneğin «мешок», «ящик»). Kelime, kasiyerin yüksek sesle SÖYLEYECEĞİ şeydir; kısaltma yalnızca listede göstermek içindir.</x:String>
+    <x:String x:Key="loc.owner.voice.unitWordHint">Kelime, örneğin: мешок</x:String>
+    <x:String x:Key="loc.owner.voice.unitAbbrHint">kısaltma, örn. меш</x:String>
+    <x:String x:Key="loc.owner.voice.aliasTitle">Ürünleri öğretme</x:String>
+    <x:String x:Key="loc.owner.voice.aliasBody">Konuşma tanıma bir ürünün adını sürekli anlamıyorsa (ya da kasiyerler onu ürün kartında olmayan günlük bir kelimeyle söylüyorsa) ürüne aynı anda BİRKAÇ ifade bağlayın (3 ve üzeri daha iyi): adın nasıl duyulabileceğine dair ne kadar çok seçenek olursa tanıma o kadar güvenilir olur. Her satıra bir ifade — kasiyerin «касса» dedikten sonra SÖYLEYECEĞİ şey (miktar/birim olmadan), örneğin «кола» / «кокакола» / «чёрный напиток».</x:String>
+    <x:String x:Key="loc.owner.voice.aliasProductHint">Ürün: adını yazmaya başlayın…</x:String>
+    <x:String x:Key="loc.owner.voice.aliasAdd">İfadeleri ekle</x:String>
+    <x:String x:Key="loc.owner.voice.heardLive">Duyulan (canlı)</x:String>
+    <x:String x:Key="loc.owner.voice.recognized">Tanınan komutlar</x:String>
+    <x:String x:Key="loc.settings.monitor.samplePositions">2 kalem</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleQty2">×2 adet</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum320">320.00 som</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleQty1">×1 adet</x:String>
+    <x:String x:Key="loc.settings.monitor.sampleSum95">95.00 som</x:String>
+    <x:String x:Key="loc.settings.telegram.title">İşletme sahibinin Telegram botu</x:String>
+    <x:String x:Key="loc.settings.telegram.desc">Kapanan vardiyanın özeti size Telegram'dan gelir: ciro, fişler, ortalama fiş, nakit ve nakitsiz ödemeler, para girişleri ve çıkışları, kasa açığı veya fazlası. Mağazadan çalışır — sabit IP'ye de kendi sunucunuza da gerek yoktur.</x:String>
+    <x:String x:Key="loc.settings.telegram.wizardButton">Botu bağla (adım adım)</x:String>
+    <x:String x:Key="loc.settings.telegram.manualHint">Elle bağlamak için: 1) Telegram'da @BotFather'a /newbot komutunu yazın ve bir token alın; 2) token'ı buraya yapıştırın; 3) kendi botunuzu açıp «Başlat» düğmesine basın; 4) «Alıcıyı belirle» düğmesine basın.</x:String>
+    <x:String x:Key="loc.settings.telegram.tokenLabel">Bot token'ı</x:String>
+    <x:String x:Key="loc.settings.telegram.detectRecipient">Alıcıyı belirle</x:String>
+    <x:String x:Key="loc.settings.telegram.sendTest">Deneme mesajı gönder</x:String>
+    <x:String x:Key="loc.settings.telegram.summaryOnClose">Vardiya kapanınca özet gönder</x:String>
+    <x:String x:Key="loc.settings.telegram.answerCommands">Telegram'daki komutlara yanıt ver</x:String>
+    <x:String x:Key="loc.settings.telegram.commandsHelp">Bot komutları: /segodnya — bugünkü ciro, /nedelya — haftalık ciro, /top — en çok satanlar, /abc — ABC analizi, /sezon — mevsimsellik, /soveti — öneriler, /zakaz — sipariş edilmesi gerekenler, /ostatki — tükenmek üzere olanlar, /dolgi — hazır WhatsApp bağlantılı borçlular. Bot yalnızca kasa açıkken yanıt verir: programın kendi sunucusu yoktur.</x:String>
+    <x:String x:Key="loc.settings.telegram.debtReminders">Borç hatırlatmalarını gönder</x:String>
+    <x:String x:Key="loc.settings.telegram.debtRemindersHint">Hatırlatma Telegram'da yalnızca bota kişisel bağlantıyla kendisi abone olan müşterilere gider (müşteri kartındaki «Bağlantıyı kopyala» düğmesi). Telegram, telefon numarasıyla kişiye yazmaya izin vermez — diğer borçlular için bot size WhatsApp bağlantılı bir liste gönderir.</x:String>
+    <x:String x:Key="loc.settings.telegram.ownerPhone">İşletme sahibinin telefonu (müşterilere gönderilen mesajlarda iletişim için)</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.toggle">Müşteriye fiş tutarını içeren QR kodu göster</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.desc">Müşteri ekranında bankanın normal QR kodu yerine fiş tutarının zaten girildiği bir kod gösterilir — tutarı elle girmeye gerek yoktur. Hesap bilgileri yukarıda yüklenen QR kodundan alınır.</x:String>
+    <x:String x:Key="loc.settings.dynamicQr.warning">Açmadan önce deneme fişini iki üç bankanın uygulamasıyla okutun: format MBank QR koduyla doğrulandı, diğer bankalarda test edilmedi. Ödemeyi kasiyer yine elle onaylar — kasa ödemeyi kendisi algılamaz.</x:String>
+    <x:String x:Key="loc.settings.bank.showAtCheckout">Ödemede göster</x:String>
+    <x:String x:Key="loc.settings.lanScale.title">Ağ tartısı (ürün gönderme)</x:String>
+    <x:String x:Key="loc.settings.lanScale.desc">Adres, port ve şifre tartının kendi sistem menüsünden alınır. «Tartılar» penceresi de ürün listesini gönderirken aynı değerleri kullanır.</x:String>
+    <x:String x:Key="loc.settings.lanScale.ip">Tartı IP adresi</x:String>
+    <x:String x:Key="loc.settings.lanScale.port">Port</x:String>
+    <x:String x:Key="loc.settings.lanScale.passwordHint">Şifre tam 4 hanelidir, genellikle 0030. Yanlışsa tartı birkaç denemeden sonra erişimi engeller: bu durumda tartıyı kapatıp açın ve doğru şifreyi girin. Port genellikle 1111'dir.</x:String>
+    <x:String x:Key="loc.settings.lanScale.openDialog">Bağlantı ayarları penceresini aç…</x:String>
+    <x:String x:Key="loc.settings.lanScale.test">Tartı bağlantısını test et</x:String>
+    <x:String x:Key="loc.settings.scale.aiScales">AI tartı</x:String>
+    <x:String x:Key="loc.settings.scaleConn.title">Tartı bağlantısı</x:String>
+    <x:String x:Key="loc.settings.scaleConn.desc">Kasa, tartıyla sunucu olmadan doğrudan yerel ağ üzerinden haberleşir. Adresi, portu ve şifreyi tartının kendi sistem menüsünden alın.</x:String>
+    <x:String x:Key="loc.settings.scaleConn.password4">Şifre (4 hane)</x:String>
+    <x:String x:Key="loc.settings.scaleConn.hint">Port genellikle 1111, şifre 0030'dur. Şifre yanlışsa tartı birkaç denemeden sonra erişimi engeller: bu durumda tartıyı kapatıp açın ve doğru şifreyi girin.</x:String>
+    <x:String x:Key="loc.settings.scaleConn.test">Bağlantıyı test et</x:String>
 </ResourceDictionary>

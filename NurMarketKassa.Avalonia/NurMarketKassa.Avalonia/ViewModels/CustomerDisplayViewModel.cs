@@ -61,21 +61,21 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
         get => _statusBrush;
         private set { _statusBrush = value; OnPropertyChanged(); }
     }
-    public string TotalText => $"{_snapshot.Total:0.00} сом";
+    public string TotalText => Tr.T($"{_snapshot.Total:0.00} сом", $"{_snapshot.Total:0.00} сом", $"{_snapshot.Total:0.00} som", $"{_snapshot.Total:0.00} som", $"{_snapshot.Total:0.00} so'm");
     public string SubtotalText => Tr.T($"Промежуточный итог: {_snapshot.Subtotal:0.00} сом", $"Аралык жыйынтык: {_snapshot.Subtotal:0.00} сом",
         $"Subtotal: {_snapshot.Subtotal:0.00} som", $"Ara toplam: {_snapshot.Subtotal:0.00} som", $"Oraliq jami: {_snapshot.Subtotal:0.00} so'm");
     public string DiscountText => Tr.T($"Скидка: {_snapshot.Discount:0.00} сом", $"Арзандатуу: {_snapshot.Discount:0.00} сом",
         $"Discount: {_snapshot.Discount:0.00} som", $"İndirim: {_snapshot.Discount:0.00} som", $"Chegirma: {_snapshot.Discount:0.00} so'm");
-    public string SubtotalAmountText => $"{_snapshot.Subtotal:0.00} сом";
-    public string DiscountAmountText => $"-{_snapshot.Discount:0.00} сом";
+    public string SubtotalAmountText => Tr.T($"{_snapshot.Subtotal:0.00} сом", $"{_snapshot.Subtotal:0.00} сом", $"{_snapshot.Subtotal:0.00} som", $"{_snapshot.Subtotal:0.00} som", $"{_snapshot.Subtotal:0.00} so'm");
+    public string DiscountAmountText => Tr.T($"-{_snapshot.Discount:0.00} сом", $"-{_snapshot.Discount:0.00} сом", $"-{_snapshot.Discount:0.00} som", $"-{_snapshot.Discount:0.00} som", $"-{_snapshot.Discount:0.00} so'm");
     public bool HasCashInfo => _snapshot.CashReceived.HasValue && Settings.ShowChangeAfterPayment &&
         (Settings.ShowPaidAmount || Settings.ShowChange);
     public bool ShowPaidAmountColumn => HasCashInfo && Settings.ShowPaidAmount;
     public bool ShowChangeColumn => HasCashInfo && Settings.ShowChange;
-    public string CashReceivedText => $"{_snapshot.CashReceived ?? 0:0.00} сом";
-    public string ChangeDueText => $"{_snapshot.ChangeDue ?? 0:0.00} сом";
+    public string CashReceivedText => Tr.T($"{_snapshot.CashReceived ?? 0:0.00} сом", $"{_snapshot.CashReceived ?? 0:0.00} сом", $"{_snapshot.CashReceived ?? 0:0.00} som", $"{_snapshot.CashReceived ?? 0:0.00} som", $"{_snapshot.CashReceived ?? 0:0.00} so'm");
+    public string ChangeDueText => Tr.T($"{_snapshot.ChangeDue ?? 0:0.00} сом", $"{_snapshot.ChangeDue ?? 0:0.00} сом", $"{_snapshot.ChangeDue ?? 0:0.00} som", $"{_snapshot.ChangeDue ?? 0:0.00} som", $"{_snapshot.ChangeDue ?? 0:0.00} so'm");
     public string ItemCountText => Tr.T($"{Lines.Count} поз.", $"{Lines.Count} позиция",
-        $"{Lines.Count} items", $"{Lines.Count} kalem", $"{Lines.Count} pozitsiya");
+        $"{Lines.Count} items", $"{Lines.Count} kalem", $"{Lines.Count} ta mahsulot");
     public string DateTimeText => DateTime.Now.ToString("dd.MM.yyyy  HH:mm");
     public bool IsEmpty => Lines.Count == 0;
     public bool HasItems => !IsEmpty;
@@ -161,9 +161,9 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
              !string.IsNullOrWhiteSpace(path) && File.Exists(path)) ?? false) ||
         (!string.IsNullOrWhiteSpace(UserPreferences.Instance.QrCodePath) &&
          File.Exists(UserPreferences.Instance.QrCodePath)));
-    public string InformationEyebrow => HasPaymentQr ? Tr.T("ОПЛАТА ПО QR", "QR АРКЫЛУУ ТӨЛӨӨ", "PAY BY QR", "QR İLE ÖDEME", "QR ORQALI TO'LASH") : Tr.T("ИНФОРМАЦИЯ", "МААЛЫМАТ", "INFORMATION", "BİLGİ", "MA'LUMOT");
+    public string InformationEyebrow => HasPaymentQr ? Tr.T("ОПЛАТА ПО QR", "QR АРКЫЛУУ ТӨЛӨӨ", "PAY BY QR", "QR İLE ÖDEME", "QR ORQALI TO'LOV") : Tr.T("ИНФОРМАЦИЯ", "МААЛЫМАТ", "INFORMATION", "BİLGİ", "MA'LUMOT");
     public string InformationTitle => HasPaymentQr
-        ? Tr.T("Наведите камеру", "Камераны багыттаңыз", "Point the camera", "Kamerayı yöneltin", "Kamerani yo'naltiring")
+        ? Tr.T("Наведите камеру", "Камераны багыттаңыз", "Point your camera", "Kamerayı yöneltin", "Kamerani yo'naltiring")
         : string.IsNullOrWhiteSpace(Settings.AdvertisementTitle)
             ? Tr.T("Полезная информация", "Пайдалуу маалымат", "Useful information", "Yararlı bilgiler", "Foydali ma'lumot")
             : Settings.AdvertisementTitle;
@@ -179,14 +179,14 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
         CustomerDisplayPaymentStatus.Processing => Tr.T("Обработка оплаты", "Төлөм иштелүүдө", "Processing payment", "Ödeme işleniyor", "To'lov qayta ishlanmoqda"),
         CustomerDisplayPaymentStatus.Success => Tr.T("Оплата принята", "Төлөм кабыл алынды", "Payment accepted", "Ödeme kabul edildi", "To'lov qabul qilindi"),
         CustomerDisplayPaymentStatus.Failed => Tr.T("Оплата не прошла", "Төлөм өтпөй калды", "Payment failed", "Ödeme başarısız oldu", "To'lov amalga oshmadi"),
-        _ => Tr.T("Сканер готов", "Сканер даяр", "Scanner ready", "Tarayıcı hazır", "Skaner tayyor"),
+        _ => Tr.T("Сканер готов", "Сканер даяр", "Scanner ready", "Barkod okuyucu hazır", "Skaner tayyor"),
     };
     public string ScannerStatusDescription => _state.CurrentStatus switch
     {
         CustomerDisplayPaymentStatus.Processing => Tr.T("Пожалуйста, подождите", "Күтө туруңуз", "Please wait", "Lütfen bekleyin", "Iltimos, kuting"),
         CustomerDisplayPaymentStatus.Success => Tr.T("Спасибо за покупку", "Сатып алганыңыз үчүн рахмат", "Thank you for your purchase", "Alışverişiniz için teşekkürler", "Xaridingiz uchun rahmat"),
         CustomerDisplayPaymentStatus.Failed => Tr.T("Обратитесь к кассиру", "Кассирге кайрылыңыз", "Please see the cashier", "Kasiyere başvurun", "Kassirga murojaat qiling"),
-        _ => Tr.T("Можно сканировать следующий товар", "Кийинки товарды сканерлесе болот", "You can scan the next product", "Sıradaki ürünü tarayabilirsiniz", "Keyingi mahsulotni skanerlash mumkin"),
+        _ => Tr.T("Можно сканировать следующий товар", "Кийинки товарды сканерлесе болот", "You can scan the next product", "Sıradaki ürünü okutabilirsiniz", "Keyingi mahsulotni skanerlash mumkin"),
     };
     public bool IsPreviewMode => _previewMode;
     public CornerRadius DisplayCornerRadius => new(Settings.CornerRadius);
@@ -303,8 +303,8 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
 
         if (_previewMode && Lines.Count == 0)
         {
-            Lines.Add(new CustomerDisplayItemViewModel("Кофе натуральный", "4601234567890", 2, "шт", 320, columns));
-            Lines.Add(new CustomerDisplayItemViewModel("Молоко 1 л", "4870123456789", 1, "шт", 95, columns));
+            Lines.Add(new CustomerDisplayItemViewModel(Tr.T("Кофе натуральный", "Табигый кофе", "Ground coffee", "Öğütülmüş kahve", "Tabiiy qahva"), "4601234567890", 2, Tr.T("шт", "даана", "pcs", "adet", "dona"), 320, columns));
+            Lines.Add(new CustomerDisplayItemViewModel(Tr.T("Молоко 1 л", "Сүт 1 л", "Milk 1 L", "Süt 1 L", "Sut 1 l"), "4870123456789", 1, Tr.T("шт", "даана", "pcs", "adet", "dona"), 95, columns));
             _snapshot = new CustomerDisplayCartSnapshot { Subtotal = 415, Discount = 15, Total = 400 };
         }
 
@@ -391,8 +391,8 @@ public sealed class CustomerDisplayItemViewModel
         Title = title;
         Barcode = barcode?.Trim() ?? "";
         QuantityText = $"×{quantity.ToString("0.###", CultureInfo.InvariantCulture)} {unit}";
-        UnitPriceText = $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} сом";
-        TotalText = $"{lineTotal:0.00} сом";
+        UnitPriceText = Tr.T($"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} сом", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} сом", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} som", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} som", $"{(quantity == 0 ? 0 : lineTotal / quantity):0.00} so'm");
+        TotalText = Tr.T($"{lineTotal:0.00} сом", $"{lineTotal:0.00} сом", $"{lineTotal:0.00} som", $"{lineTotal:0.00} som", $"{lineTotal:0.00} so'm");
         foreach (var column in columns)
         {
             var value = column switch
@@ -407,7 +407,7 @@ public sealed class CustomerDisplayItemViewModel
     public string Title { get; }
     public string Barcode { get; }
     public bool HasBarcode => !string.IsNullOrWhiteSpace(Barcode);
-    public string BarcodeDisplay => $"ШК: {Barcode}";
+    public string BarcodeDisplay => Tr.T($"ШК: {Barcode}", $"Штрихкод: {Barcode}", $"Barcode: {Barcode}", $"Barkod: {Barcode}", $"Shtrix-kod: {Barcode}");
     public string QuantityText { get; }
     public string UnitPriceText { get; }
     public string TotalText { get; }

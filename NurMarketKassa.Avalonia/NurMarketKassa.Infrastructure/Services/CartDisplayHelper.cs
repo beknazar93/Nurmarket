@@ -428,7 +428,7 @@ public static class CartDisplayHelper
     {
         var qty = TryDouble(it, "quantity") ?? 1;
         var up = TryDouble(it, "unit_price") ?? 0;
-        return $"{FormatMoney(qty)} × {FormatMoney(up)} сом";
+        return $"{FormatMoney(qty)} × {FormatMoney(up)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
     }
 
     /// <summary>2026-09-13, живой баг: повторная печать чека показывала "2,000 x 0,00 = 0,00"

@@ -46,8 +46,8 @@ public partial class DeferredCartsDialog : Window
         CartListBox.Items.Clear();
         var items = DeferredCartsStore.LoadAll().OrderByDescending(x => x.SavedAt).ToList();
         SummaryText.Text = items.Count == 0
-            ? "Очередь пуста."
-            : $"В очереди: {items.Count} чек(ов). Последний: {items[0].SavedAt.LocalDateTime:g}.";
+            ? Tr.T("Очередь пуста.", "Кезек бош.", "The queue is empty.", "Kuyruk boş.", "Navbat bo'sh.")
+            : Tr.T($"В очереди: {items.Count} чек(ов). Последний: {items[0].SavedAt.LocalDateTime:g}.", $"Кезекте: {items.Count} чек. Акыркысы: {items[0].SavedAt.LocalDateTime:g}.", $"In queue: {items.Count} receipt(s). Latest: {items[0].SavedAt.LocalDateTime:g}.", $"Kuyrukta: {items.Count} fiş. Sonuncusu: {items[0].SavedAt.LocalDateTime:g}.", $"Navbatda: {items.Count} ta chek. Oxirgisi: {items[0].SavedAt.LocalDateTime:g}.");
 
         foreach (var e in items)
             CartListBox.Items.Add(new DeferredCartListRow(e));
@@ -85,7 +85,7 @@ public partial class DeferredCartsDialog : Window
         var rows = GetSelectedRows();
         if (rows.Count == 0)
         {
-            PosMessageBox.Show(this, "Выберите строки в списке.", "Отложенные",
+            PosMessageBox.Show(this, Tr.T("Выберите строки в списке.", "Тизмеден саптарды тандаңыз.", "Select rows in the list.", "Listeden satırları seçin.", "Ro'yxatdan qatorlarni tanlang."), Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -99,7 +99,7 @@ public partial class DeferredCartsDialog : Window
         var rows = GetSelectedRows();
         if (rows.Count == 0)
         {
-            PosMessageBox.Show(this, "Выберите одну или несколько корзин.", "Отложенные",
+            PosMessageBox.Show(this, Tr.T("Выберите одну или несколько корзин.", "Бир же бир нече себетти тандаңыз.", "Select one or more carts.", "Bir veya birden fazla sepet seçin.", "Bitta yoki bir nechta savatni tanlang."), Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -132,15 +132,15 @@ public partial class DeferredCartsDialog : Window
         var rows = GetSelectedRows();
         if (rows.Count == 0)
         {
-            PosMessageBox.Show(this, "Выберите корзину в списке.", "Отложенные",
+            PosMessageBox.Show(this, Tr.T("Выберите корзину в списке.", "Тизмеден себетти тандаңыз.", "Select a cart in the list.", "Listeden bir sepet seçin.", "Ro'yxatdan savatni tanlang."), Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (rows.Count > 1)
         {
-            PosMessageBox.Show(this, "Открыть как отдельный чек можно только одну корзину за раз.",
-                "Отложенные", MessageBoxButton.OK, MessageBoxImage.Information);
+            PosMessageBox.Show(this, Tr.T("Открыть как отдельный чек можно только одну корзину за раз.", "Өзүнчө чек катары бир эле учурда бир гана себетти ачууга болот.", "Only one cart at a time can be opened as a separate receipt.", "Ayrı fiş olarak aynı anda yalnızca bir sepet açılabilir.", "Alohida chek sifatida bir vaqtda faqat bitta savatni ochish mumkin."),
+                Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -171,7 +171,7 @@ public partial class DeferredCartsDialog : Window
         var rows = GetSelectedRows();
         if (rows.Count == 0)
         {
-            PosMessageBox.Show(this, "Выберите одну или несколько корзин.", "Отложенные",
+            PosMessageBox.Show(this, Tr.T("Выберите одну или несколько корзин.", "Бир же бир нече себетти тандаңыз.", "Select one or more carts.", "Bir veya birden fazla sepet seçin.", "Bitta yoki bir nechta savatni tanlang."), Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
@@ -193,7 +193,7 @@ public partial class DeferredCartsDialog : Window
         public override string ToString()
         {
             var n = CountLines(Entry.CartJson);
-            return $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз.";
+            return Tr.T($"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} поз.", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} позиция", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} item(s)", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} kalem", $"{Entry.Label} · {Entry.SavedAt.LocalDateTime:g} · {n} ta mahsulot");
         }
     }
 }

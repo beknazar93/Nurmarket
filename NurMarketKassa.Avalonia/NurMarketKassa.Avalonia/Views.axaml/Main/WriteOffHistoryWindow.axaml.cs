@@ -82,15 +82,15 @@ public partial class WriteOffHistoryWindow : Window
         var totalQty = filtered.Sum(r => r.Quantity);
         SummaryText.Text = string.Format(
             CultureInfo.InvariantCulture,
-            Tr.T("Записей: {0} · Списано единиц: {1}", "Жазуулар: {0} · Эсептен чыгарылган: {1}", "Entries: {0} · Units written off: {1}", "Kayıt: {0} · Silinen birim: {1}", "Yozuvlar: {0} · Hisobdan chiqarilgan: {1}"),
+            Tr.T("Записей: {0} · Списано единиц: {1}", "Жазуулар: {0} · Эсептен чыгарылган бирдик: {1}", "Entries: {0} · Units written off: {1}", "Kayıt: {0} · Zayi edilen birim: {1}", "Yozuvlar: {0} · Hisobdan chiqarilgan birliklar: {1}"),
             filtered.Count,
             totalQty.ToString("0.###", CultureInfo.InvariantCulture));
 
         var ru = CultureInfo.GetCultureInfo("ru-RU");
         var totalCost = filtered.Sum(r => r.Total);
-        TotalText.Text = Tr.T("Итого списано", "Бардыгы эсептен чыгарылды", "Total written off", "Toplam silinen", "Jami hisobdan chiqarildi")
+        TotalText.Text = Tr.T("Итого списано", "Жалпы эсептен чыгарылганы", "Total written off", "Toplam zayi edilen", "Jami hisobdan chiqarilgan")
             + $": {totalQty.ToString("0.###", CultureInfo.InvariantCulture)} "
-            + Tr.T("ед.", "бирд.", "units", "birim", "birl.")
+            + Tr.T("ед.", "бирд.", "units", "birim", "birlik")
             + " · " + totalCost.ToString("N2", ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
         ReasonsText.Text = string.Join("   ·   ", filtered
             .GroupBy(r => string.IsNullOrWhiteSpace(r.Reason) ? "—" : r.Reason)

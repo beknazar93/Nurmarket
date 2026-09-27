@@ -224,7 +224,9 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             PosLogger.Log($"ShiftHistory LoadAsync failed: {ex}", "SHIFTS");
-            PosMessageBox.Show(_owner, $"Не удалось загрузить данные: {ex.Message}", "История смен",
+            PosMessageBox.Show(_owner,
+                Tr.T($"Не удалось загрузить данные: {ex.Message}", $"Маалыматтарды жүктөө мүмкүн болгон жок: {ex.Message}", $"Could not load data: {ex.Message}", $"Veriler yüklenemedi: {ex.Message}", $"Ma'lumotlarni yuklab bo'lmadi: {ex.Message}"),
+                Tr.T("История смен", "Сменалардын тарыхы", "Shift history", "Vardiya geçmişi", "Smenalar tarixi"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
@@ -458,19 +460,33 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                 if (!shift.IsActive)
                 {
                     PosMessageBox.Show(_owner,
-                        "Внесение/изъятие можно оформить только для текущей открытой смены — эта смена уже закрыта.",
-                        "Смена закрыта", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        Tr.T("Внесение/изъятие можно оформить только для текущей открытой смены — эта смена уже закрыта.",
+                            "Акча салуу/алуу учурдагы ачык сменада гана жүргүзүлөт — бул смена жабылып калган.",
+                            "Cash in / cash out can only be recorded for the currently open shift — this shift is already closed.",
+                            "Para girişi/çıkışı yalnızca şu an açık olan vardiya için yapılabilir — bu vardiya zaten kapalı.",
+                            "Kirim/chiqimni faqat hozir ochiq smena uchun rasmiylashtirish mumkin — bu smena allaqachon yopilgan."),
+                        Tr.T("Смена закрыта", "Смена жабык", "Shift closed", "Vardiya kapalı", "Smena yopiq"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     break;
                 }
                 OpenTypedOperation(isDeposit: action == ShiftMenuAction.Deposit);
                 break;
             case ShiftMenuAction.Export:
-                PosMessageBox.Show(_owner, $"X-отчёт по смене {shift.ShiftNumber} будет доступен в следующем обновлении.",
-                    "X-отчёт", MessageBoxButton.OK, MessageBoxImage.Information);
+                PosMessageBox.Show(_owner,
+                    Tr.T($"X-отчёт по смене {shift.ShiftNumber} будет доступен в следующем обновлении.",
+                        $"Смена {shift.ShiftNumber} боюнча X-отчёт кийинки жаңыртууда жеткиликтүү болот.",
+                        $"The X-report for shift {shift.ShiftNumber} will be available in the next update.",
+                        $"Vardiya {shift.ShiftNumber} için X raporu bir sonraki güncellemede kullanılabilir olacak.",
+                        $"Smena {shift.ShiftNumber} bo'yicha X-hisobot keyingi yangilanishda mavjud bo'ladi."),
+                    Tr.T("X-отчёт", "X-отчёт", "X-report", "X raporu", "X-hisobot"), MessageBoxButton.OK, MessageBoxImage.Information);
                 break;
             case ShiftMenuAction.Delete:
-                if (PosMessageBox.Show(_owner, $"Удалить смену {shift.ShiftNumber} из локального списка?",
-                        "Удаление", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                if (PosMessageBox.Show(_owner,
+                        Tr.T($"Удалить смену {shift.ShiftNumber} из локального списка?",
+                            $"Смена {shift.ShiftNumber} жергиликтүү тизмеден өчүрүлсүнбү?",
+                            $"Remove shift {shift.ShiftNumber} from the local list?",
+                            $"Vardiya {shift.ShiftNumber} yerel listeden silinsin mi?",
+                            $"Smena {shift.ShiftNumber} mahalliy ro'yxatdan o'chirilsinmi?"),
+                        Tr.T("Удаление", "Өчүрүү", "Delete", "Silme", "O'chirish"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                 {
                     AllShifts.Remove(shift);
                     SelectedShift = AllShifts.FirstOrDefault();
@@ -532,12 +548,18 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
     }
 
     private void ExportSummary() =>
-        PosMessageBox.Show(_owner, "Экспорт общего плана будет доступен в следующем обновлении.",
-            "Экспорт", MessageBoxButton.OK, MessageBoxImage.Information);
+        PosMessageBox.Show(_owner,
+            Tr.T("Экспорт общего плана будет доступен в следующем обновлении.",
+                "Жалпы көрүнүштү экспорттоо кийинки жаңыртууда жеткиликтүү болот.",
+                "Exporting the overview will be available in the next update.",
+                "Genel bakışı dışa aktarma bir sonraki güncellemede kullanılabilir olacak.",
+                "Umumiy ko'rinishni eksport qilish keyingi yangilanishda mavjud bo'ladi."),
+            Tr.T("Экспорт", "Экспорт", "Export", "Dışa aktar", "Eksport"), MessageBoxButton.OK, MessageBoxImage.Information);
 
-    private static string FormatMoney(decimal value) => $"{value:N2} сом";
+    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
+    private static string FormatMoney(decimal value) => $"{value:N2} {Som}";
     private static string FormatSignedMoney(decimal value) =>
-        value >= 0 ? $"+{value:N2} сом" : $"{value.ToString("N2", CultureInfo.InvariantCulture)} сом";
+        value >= 0 ? $"+{value:N2} {Som}" : $"{value.ToString("N2", CultureInfo.InvariantCulture)} {Som}";
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

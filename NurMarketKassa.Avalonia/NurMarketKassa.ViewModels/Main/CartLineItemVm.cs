@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Input;
+using NurMarketKassa.Services;
 
 namespace NurMarketKassa.ViewModels.Main;
 
@@ -144,7 +145,7 @@ public sealed class CartLineItemVm : ViewModelBase
             var amount = FixedDiscountAmount is > 1e-6
                 ? FixedDiscountAmount.Value
                 : DiscountAmount;
-            return $"-{amount.ToString("0.##", CultureInfo.InvariantCulture)} сом";
+            return $"-{amount.ToString("0.##", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
         }
     }
 
@@ -154,12 +155,12 @@ public sealed class CartLineItemVm : ViewModelBase
         ? Quantity.ToString("0.000", CultureInfo.InvariantCulture)
         : Quantity.ToString("0.###", CultureInfo.InvariantCulture);
 
-    public string UnitPriceDisplay => $"{UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+    public string UnitPriceDisplay => $"{UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
     /// <summary>Подпись вида «0.500 кг × 115.71 сом» или «1 шт × 150.00 сом».</summary>
     public string PriceQuantityLine =>
-        $"{QuantityDisplay} {Unit} × {UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+        $"{QuantityDisplay} {Unit} × {UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
-    public string LineTotalDisplay => $"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+    public string LineTotalDisplay => $"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
     public string LineTotalAmount => LineTotal.ToString("0.00", CultureInfo.InvariantCulture);
 }

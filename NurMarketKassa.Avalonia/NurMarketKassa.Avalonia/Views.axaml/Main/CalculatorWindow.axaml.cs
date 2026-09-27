@@ -104,62 +104,62 @@ public partial class CalculatorWindow : Window
         Title = Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya");
         TitleText.Text = Title;
         SubtitleText.Text = Tr.T("Помощник владельца: цена, себестоимость, проверка цен, безубыточность и акции",
-            "Ээсинин жардамчысы: баа, өздүк нарк, бааларды текшерүү, зыянсыздык жана акциялар",
+            "Дүкөн ээсинин жардамчысы: баа, өздүк нарк, бааларды текшерүү, зыянсыздык жана акциялар",
             "Owner's helper: price, landed cost, price check, break-even and promotions",
-            "Sahip yardımcısı: fiyat, maliyet, fiyat kontrolü, başabaş ve kampanyalar",
-            "Egasi yordamchisi: narx, tannarx, narxlarni tekshirish, zararsizlik va aksiyalar");
+            "İşletme sahibi yardımcısı: fiyat, maliyet, fiyat kontrolü, başabaş noktası ve kampanyalar",
+            "Ega uchun yordamchi: narx, tannarx, narxlarni tekshirish, zararsizlik va aksiyalar");
 
         TabPriceButton.Content = Tr.T("Цена и наценка", "Баа жана үстөк", "Price & markup", "Fiyat ve kâr oranı", "Narx va ustama");
         TabBatchButton.Content = Tr.T("Себестоимость партии", "Партиянын өздүк наркы", "Batch landed cost", "Parti maliyeti", "Partiya tannarxi");
         TabAuditButton.Content = Tr.T("Проверка цен", "Бааларды текшерүү", "Price check", "Fiyat kontrolü", "Narxlarni tekshirish");
-        TabBreakEvenButton.Content = Tr.T("Безубыточность и цель", "Зыянсыздык жана максат", "Break-even & goal", "Başabaş ve hedef", "Zararsizlik va maqsad");
+        TabBreakEvenButton.Content = Tr.T("Безубыточность и цель", "Зыянсыздык жана максат", "Break-even & goal", "Başabaş noktası ve hedef", "Zararsizlik va maqsad");
         TabPromoButton.Content = Tr.T("Скидка и акция", "Арзандатуу жана акция", "Discount & promo", "İndirim ve kampanya", "Chegirma va aksiya");
 
         // 1. Цена
-        PriceInputsTitle.Text = Tr.T("Исходные данные", "Баштапкы маалымат", "Inputs", "Girdiler", "Boshlang'ich ma'lumot");
-        ProductSearchLabel.Text = Tr.T("Товар (необязательно) — подставит закупку и текущую цену", "Товар (милдеттүү эмес) — сатып алуу жана учурдагы бааны коёт",
-            "Product (optional) — fills in cost and current price", "Ürün (isteğe bağlı) — alış ve mevcut fiyatı doldurur", "Mahsulot (ixtiyoriy) — xarid va joriy narxni qo'yadi");
+        PriceInputsTitle.Text = Tr.T("Исходные данные", "Баштапкы маалымат", "Inputs", "Girdiler", "Boshlang'ich ma'lumotlar");
+        ProductSearchLabel.Text = Tr.T("Товар (необязательно) — подставит закупку и текущую цену", "Товар (милдеттүү эмес) — сатып алуу баасын жана учурдагы бааны өзү коёт",
+            "Product (optional) — fills in cost and current price", "Ürün (isteğe bağlı) — alış fiyatını ve mevcut fiyatı doldurur", "Mahsulot (ixtiyoriy) — xarid narxi va joriy narxni o'zi qo'yadi");
         ProductSearchBox.Watermark = Tr.T("Название или штрихкод…", "Аталышы же штрихкоду…", "Name or barcode…", "Ad veya barkod…", "Nomi yoki shtrix-kodi…");
-        CostLabel.Text = Tr.T("Закупочная цена (себестоимость), сом", "Сатып алуу баасы (өздүк нарк), сом", "Purchase cost, som", "Alış maliyeti, som", "Xarid narxi (tannarx), so'm");
-        ModeLabel.Text = Tr.T("Как считать цену", "Бааны кантип эсептөө", "How to set the price", "Fiyat nasıl hesaplansın", "Narxni qanday hisoblash");
-        ModeMarkupButton.Content = Tr.T("От наценки %", "Үстөктөн %", "From markup %", "Kâr oranından %", "Ustamadan %");
-        ModeMarginButton.Content = Tr.T("От маржи %", "Маржадан %", "From margin %", "Marjdan %", "Marjadan %");
-        ModePriceButton.Content = Tr.T("Проверить цену", "Бааны текшерүү", "Check a price", "Fiyatı kontrol et", "Narxni tekshirish");
-        TaxLabel.Text = Tr.T("Налог с выручки, %", "Кирешеден салык, %", "Tax on revenue, %", "Ciro vergisi, %", "Tushumdan soliq, %");
+        CostLabel.Text = Tr.T("Закупочная цена (себестоимость), сом", "Сатып алуу баасы (өздүк нарк), сом", "Purchase cost, som", "Alış fiyatı (maliyet), som", "Xarid narxi (tannarx), so'm");
+        ModeLabel.Text = Tr.T("Как считать цену", "Бааны кантип эсептөө", "How to set the price", "Fiyat nasıl hesaplansın", "Narx qanday hisoblansin");
+        ModeMarkupButton.Content = Tr.T("От наценки %", "Үстөктөн %", "From markup %", "Kâr oranına göre %", "Ustama % bo'yicha");
+        ModeMarginButton.Content = Tr.T("От маржи %", "Маржадан %", "From margin %", "Marja göre %", "Marja % bo'yicha");
+        ModePriceButton.Content = Tr.T("Проверить цену", "Бааны текшерүү", "Check price", "Fiyatı kontrol et", "Narxni tekshirish");
+        TaxLabel.Text = Tr.T("Налог с выручки, %", "Түшүмдөн салык, %", "Tax on revenue, %", "Ciro vergisi, %", "Tushumdan soliq, %");
         TaxHint.Text = Tr.T(
             "Кыргызстан: единый налог для торговли — 0,5% при выручке до 50 млн сом в год (выше — 4% наличные / 2% безнал); налог с продаж — 1–2%; патент — 0%. Ставку уточните у бухгалтера.",
-            "Кыргызстан: соода үчүн бирдиктүү салык — жылына 50 млн сомго чейин 0,5% (андан жогору — накталай 4% / накталай эмес 2%); сатуудан салык — 1–2%; патент — 0%. Ставканы бухгалтерден тактаңыз.",
-            "Kyrgyzstan: single tax for retail — 0.5% up to 50 M som a year (above that 4% cash / 2% non-cash); sales tax 1–2%; patent 0%. Check the rate with your accountant.",
-            "Kırgızistan: ticarette tek vergi — yılda 50 milyon soma kadar %0,5 (üstünde nakit %4 / nakitsiz %2); satış vergisi %1–2; patent %0. Oranı muhasebecinize danışın.",
-            "Qirg'iziston: savdo uchun yagona soliq — yiliga 50 mln so'mgacha 0,5% (undan yuqori — naqd 4% / naqdsiz 2%); savdo solig'i 1–2%; patent 0%. Stavkani buxgalterdan aniqlang.");
+            "Кыргызстан: соода үчүн бирдиктүү салык — жылдык түшүм 50 млн сомго чейин болсо 0,5% (андан жогору — накталай 4% / накталай эмес 2%); сатуудан салык — 1–2%; патент — 0%. Ставканы бухгалтерден тактаңыз.",
+            "Kyrgyzstan: single tax for retail — 0.5% on revenue up to 50 million som a year (above that, 4% cash / 2% cashless); sales tax 1–2%; patent 0%. Confirm the rate with your accountant.",
+            "Kırgızistan: ticarette tek vergi — yıllık ciro 50 milyon soma kadarsa %0,5 (üzerinde nakit %4 / nakitsiz %2); satış vergisi %1–2; patent %0. Oranı muhasebecinize danışın.",
+            "Qirg'iziston: savdo uchun yagona soliq — yillik tushum 50 mln so'mgacha bo'lsa 0,5% (undan yuqori — naqd 4% / naqdsiz 2%); savdo solig'i — 1–2%; patent — 0%. Stavkani buxgalterdan aniqlashtiring.");
         RoundLabel.Text = Tr.T("Округлять цену вверх до", "Бааны жогору карай тегеректөө", "Round the price up to", "Fiyatı yukarı yuvarla", "Narxni yuqoriga yaxlitlash");
         PriceResultTitle.Text = Tr.T("Результат", "Жыйынтык", "Result", "Sonuç", "Natija");
         ResPriceLabel.Text = Tr.T("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi");
-        ResProfitLabel.Text = Tr.T("Прибыль с единицы", "Бирдиктен пайда", "Profit per unit", "Birim başına kâr", "Birlikdan foyda");
-        ResTaxLabel.Text = Tr.T("Налог с единицы", "Бирдиктен салык", "Tax per unit", "Birim başına vergi", "Birlikdan soliq");
+        ResProfitLabel.Text = Tr.T("Прибыль с единицы", "Бирдиктен пайда", "Profit per unit", "Birim başına kâr", "Birlik boshiga foyda");
+        ResTaxLabel.Text = Tr.T("Налог с единицы", "Бирдиктен салык", "Tax per unit", "Birim başına vergi", "Birlik boshiga soliq");
         ResMarkupLabel.Text = Tr.T("Наценка", "Үстөк", "Markup", "Kâr oranı", "Ustama");
         ResMarginLabel.Text = Tr.T("Маржа", "Маржа", "Margin", "Marj", "Marja");
         FormulaHint.Text = Tr.T(
             "Наценка = (цена − закупка) / закупка. Маржа = (цена − закупка) / цена. Наценка 30% — это маржа 23%, наценка 100% — маржа 50%.",
             "Үстөк = (баа − сатып алуу) / сатып алуу. Маржа = (баа − сатып алуу) / баа. 30% үстөк — 23% маржа, 100% үстөк — 50% маржа.",
-            "Markup = (price − cost) / cost. Margin = (price − cost) / price. A 30% markup is a 23% margin; 100% markup is 50% margin.",
-            "Kâr oranı = (fiyat − maliyet) / maliyet. Marj = (fiyat − maliyet) / fiyat. %30 kâr oranı %23 marj, %100 kâr oranı %50 marjdır.",
+            "Markup = (price − cost) / cost. Margin = (price − cost) / price. A 30% markup is a 23% margin; a 100% markup is a 50% margin.",
+            "Kâr oranı = (fiyat − alış) / alış. Marj = (fiyat − alış) / fiyat. %30 kâr oranı %23 marja, %100 kâr oranı ise %50 marja denk gelir.",
             "Ustama = (narx − xarid) / xarid. Marja = (narx − xarid) / narx. 30% ustama — 23% marja, 100% ustama — 50% marja.");
 
         // 2. Партия
         ExtraCostsLabel.Text = Tr.T("Доп. расходы на партию (доставка, таможня), сом", "Партияга кошумча чыгым (жеткирүү, бажы), сом",
-            "Extra costs for the batch (delivery, customs), som", "Parti ek masrafları (nakliye, gümrük), som", "Partiyaga qo'shimcha xarajat (yetkazish, bojxona), so'm");
-        RateLabel.Text = Tr.T("Курс валюты закупки (1 — если в сомах)", "Сатып алуу валютасынын курсу (сом болсо 1)", "Exchange rate (1 if in som)", "Döviz kuru (som ise 1)", "Valyuta kursi (so'mda bo'lsa 1)");
-        BatchMarkupLabel.Text = Tr.T("Наценка для цены продажи, %", "Сатуу баасы үчүн үстөк, %", "Markup for selling price, %", "Satış fiyatı için kâr oranı, %", "Sotuv narxi uchun ustama, %");
-        SplitLabel.Text = Tr.T("Расходы распределить", "Чыгымды бөлүштүрүү", "Split costs by", "Masrafı dağıt", "Xarajatni taqsimlash");
+            "Extra costs for the batch (delivery, customs), som", "Parti ek masrafları (nakliye, gümrük), som", "Partiya uchun qo'shimcha xarajatlar (yetkazib berish, bojxona), so'm");
+        RateLabel.Text = Tr.T("Курс валюты закупки (1 — если в сомах)", "Сатып алуу валютасынын курсу (сом болсо 1)", "Purchase currency rate (1 if in som)", "Alış para biriminin kuru (som ise 1)", "Xarid valyutasi kursi (so'mda bo'lsa — 1)");
+        BatchMarkupLabel.Text = Tr.T("Наценка для цены продажи, %", "Сатуу баасы үчүн үстөк, %", "Markup for the selling price, %", "Satış fiyatı için kâr oranı, %", "Sotuv narxi uchun ustama, %");
+        SplitLabel.Text = Tr.T("Расходы распределить", "Чыгымды бөлүштүрүү", "Split costs by", "Masrafları dağıt", "Xarajatlarni taqsimlash");
         SplitSumButton.Content = Tr.T("по сумме", "сумма боюнча", "amount", "tutara göre", "summa bo'yicha");
-        SplitQtyButton.Content = Tr.T("по количеству", "саны боюнча", "quantity", "miktara göre", "soni bo'yicha");
-        SplitWeightButton.Content = Tr.T("по весу", "салмагы боюнча", "weight", "ağırlığa göre", "og'irligi bo'yicha");
+        SplitQtyButton.Content = Tr.T("по количеству", "саны боюнча", "quantity", "miktara göre", "miqdor bo'yicha");
+        SplitWeightButton.Content = Tr.T("по весу", "салмагы боюнча", "weight", "ağırlığa göre", "og'irlik bo'yicha");
         var batchHeaders = new[]
         {
             Tr.T("Товар", "Товар", "Item", "Ürün", "Mahsulot"),
             Tr.T("Кол-во", "Саны", "Qty", "Miktar", "Soni"),
-            Tr.T("Цена закупки", "Сатып алуу баасы", "Unit cost", "Birim alış", "Xarid narxi"),
+            Tr.T("Цена закупки", "Сатып алуу баасы", "Unit cost", "Alış fiyatı", "Xarid narxi"),
             Tr.T("Вес, кг", "Салмагы, кг", "Weight, kg", "Ağırlık, kg", "Og'irlik, kg"),
             Tr.T("Доля расходов", "Чыгымдын үлүшү", "Cost share", "Masraf payı", "Xarajat ulushi"),
             Tr.T("Себестоимость ед.", "Бирдиктин өздүк наркы", "Landed unit cost", "Birim maliyet", "Birlik tannarxi"),
@@ -171,9 +171,9 @@ public partial class CalculatorWindow : Window
         RemoveRowButton.Content = Tr.T("Удалить строку", "Сапты өчүрүү", "Delete row", "Satırı sil", "Qatorni o'chirish");
 
         // 3. Проверка цен
-        StockCostLabel.Text = Tr.T("Склад по закупке", "Кампа сатып алуу боюнча", "Stock at cost", "Stok (alış)", "Ombor xarid bo'yicha");
-        StockRetailLabel.Text = Tr.T("Склад по цене продажи", "Кампа сатуу баасы боюнча", "Stock at retail", "Stok (satış)", "Ombor sotuv narxida");
-        StockProfitLabel.Text = Tr.T("Будущая прибыль склада", "Кампанын келечектеги пайдасы", "Potential profit", "Potansiyel kâr", "Kutilayotgan foyda");
+        StockCostLabel.Text = Tr.T("Склад по закупке", "Кампа сатып алуу баасы боюнча", "Stock at cost", "Stok değeri (alış)", "Ombor (xarid narxida)");
+        StockRetailLabel.Text = Tr.T("Склад по цене продажи", "Кампа сатуу баасы боюнча", "Stock at retail", "Stok değeri (satış)", "Ombor (sotuv narxida)");
+        StockProfitLabel.Text = Tr.T("Будущая прибыль склада", "Кампанын келечектеги пайдасы", "Potential profit", "Stoktan beklenen kâr", "Ombordan kutilayotgan foyda");
         StockMarginLabel.Text = Tr.T("Средняя маржа склада", "Кампанын орточо маржасы", "Average stock margin", "Ortalama stok marjı", "Omborning o'rtacha marjasi");
         ThresholdLabel.Text = Tr.T("Порог маржи, %", "Маржанын чеги, %", "Margin threshold, %", "Marj eşiği, %", "Marja chegarasi, %");
         AuditSearchBox.Watermark = Tr.T("Поиск товара…", "Товар издөө…", "Search product…", "Ürün ara…", "Mahsulot qidirish…");
@@ -185,8 +185,8 @@ public partial class CalculatorWindow : Window
             Tr.T("Наценка", "Үстөк", "Markup", "Kâr oranı", "Ustama"),
             Tr.T("Маржа", "Маржа", "Margin", "Marj", "Marja"),
             Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq"),
-            Tr.T("Прибыль остатка", "Калдыктын пайдасы", "Stock profit", "Stok kârı", "Qoldiq foydasi"),
-            Tr.T("Внимание", "Көңүл буруңуз", "Attention", "Dikkat", "Diqqat"),
+            Tr.T("Прибыль остатка", "Калдыктын пайдасы", "Stock profit", "Stok kârı", "Qoldiqdan foyda"),
+            Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Dikkat", "Diqqat"),
         };
         for (var i = 0; i < auditHeaders.Length && i < AuditGrid.Columns.Count; i++)
             AuditGrid.Columns[i].Header = auditHeaders[i];
@@ -195,36 +195,36 @@ public partial class CalculatorWindow : Window
         CostsTitle.Text = Tr.T("Расходы в месяц и показатели", "Айлык чыгымдар жана көрсөткүчтөр", "Monthly costs and figures", "Aylık giderler ve göstergeler", "Oylik xarajatlar va ko'rsatkichlar");
         RentLabel.Text = Tr.T("Аренда, сом", "Ижара, сом", "Rent, som", "Kira, som", "Ijara, so'm");
         SalaryCostLabel.Text = Tr.T("Зарплата, сом", "Эмгек акы, сом", "Salaries, som", "Maaşlar, som", "Ish haqi, so'm");
-        UtilitiesLabel.Text = Tr.T("Коммунальные, интернет, сом", "Коммуналдык, интернет, сом", "Utilities, internet, som", "Faturalar, internet, som", "Kommunal, internet, so'm");
+        UtilitiesLabel.Text = Tr.T("Коммунальные, интернет, сом", "Коммуналдык, интернет, сом", "Utilities, internet, som", "Faturalar, internet, som", "Kommunal xizmatlar, internet, so'm");
         OtherCostsLabel.Text = Tr.T("Прочее (патент, налоги, реклама), сом", "Башка (патент, салыктар, жарнама), сом", "Other (patent, taxes, ads), som", "Diğer (patent, vergi, reklam), som", "Boshqa (patent, soliq, reklama), so'm");
         AvgMarginLabel.Text = Tr.T("Средняя маржа, %", "Орточо маржа, %", "Average margin, %", "Ortalama marj, %", "O'rtacha marja, %");
-        BeTaxLabel.Text = Tr.T("Налог с выручки, %", "Кирешеден салык, %", "Tax on revenue, %", "Ciro vergisi, %", "Tushumdan soliq, %");
+        BeTaxLabel.Text = Tr.T("Налог с выручки, %", "Түшүмдөн салык, %", "Tax on revenue, %", "Ciro vergisi, %", "Tushumdan soliq, %");
         AvgCheckLabel.Text = Tr.T("Средний чек, сом", "Орточо чек, сом", "Average receipt, som", "Ortalama fiş, som", "O'rtacha chek, so'm");
-        WorkDaysLabel.Text = Tr.T("Рабочих дней в месяце", "Айдагы жумуш күндөрү", "Working days a month", "Aylık iş günü", "Oydagi ish kunlari");
-        GoalLabel.Text = Tr.T("Желаемая чистая прибыль в месяц, сом", "Айына каалаган таза пайда, сом", "Target net profit a month, som", "Hedef aylık net kâr, som", "Oyiga kutilgan sof foyda, so'm");
+        WorkDaysLabel.Text = Tr.T("Рабочих дней в месяце", "Айдагы жумуш күндөрү", "Working days per month", "Aydaki iş günü sayısı", "Oydagi ish kunlari");
+        GoalLabel.Text = Tr.T("Желаемая чистая прибыль в месяц, сом", "Айына каалаган таза пайда, сом", "Target net profit per month, som", "Hedef aylık net kâr, som", "Oyiga istalgan sof foyda, so'm");
         FillFromSalesButton.Content = Tr.T("Взять маржу и средний чек из продаж за 30 дней", "Маржа менен орточо чекти 30 күндүк сатуудан алуу",
-            "Take margin and average receipt from the last 30 days", "Marjı ve ortalama fişi son 30 günden al", "Marja va o'rtacha chekni 30 kunlik sotuvdan olish");
+            "Take margin and average receipt from the last 30 days", "Marjı ve ortalama fişi son 30 günün satışlarından al", "Marja va o'rtacha chekni oxirgi 30 kunlik sotuvdan olish");
         BeResultTitle.Text = Tr.T("Результат", "Жыйынтык", "Result", "Sonuç", "Natija");
-        BeMonthLabel.Text = Tr.T("Выручка без убытка в месяц", "Айына зыянсыз киреше", "Break-even revenue a month", "Aylık başabaş cirosu", "Oyiga zararsiz tushum");
-        GoalMonthLabel.Text = Tr.T("Выручка для желаемой прибыли", "Каалаган пайда үчүн киреше", "Revenue for the target profit", "Hedef kâr için ciro", "Kutilgan foyda uchun tushum");
-        FactLabel.Text = Tr.T("Этот месяц по факту", "Бул ай иш жүзүндө", "This month so far", "Bu ay şu ana kadar", "Shu oy amalda");
+        BeMonthLabel.Text = Tr.T("Выручка без убытка в месяц", "Зыянсыздык үчүн айлык түшүм", "Monthly break-even revenue", "Aylık başabaş cirosu", "Zarar ko'rmaslik uchun oylik tushum");
+        GoalMonthLabel.Text = Tr.T("Выручка для желаемой прибыли", "Каалаган пайда үчүн түшүм", "Revenue for the target profit", "Hedef kâr için ciro", "Istalgan foyda uchun tushum");
+        FactLabel.Text = Tr.T("Этот месяц по факту", "Бул ай иш жүзүндө", "This month so far", "Bu ay şu ana kadar", "Shu oy (haqiqatda)");
         BeFormulaHint.Text = Tr.T(
             "Без убытка = расходы / (маржа − налог). Пример: расходы 100 000, маржа 25%, налог 0,5% → 408 163 сом выручки в месяц.",
-            "Зыянсыз = чыгымдар / (маржа − салык). Мисал: чыгым 100 000, маржа 25%, салык 0,5% → айына 408 163 сом киреше.",
-            "Break-even = costs / (margin − tax). Example: costs 100,000, margin 25%, tax 0.5% → 408,163 som revenue a month.",
+            "Зыянсыз = чыгымдар / (маржа − салык). Мисал: чыгым 100 000, маржа 25%, салык 0,5% → айына 408 163 сом түшүм.",
+            "Break-even = costs / (margin − tax). Example: costs 100,000, margin 25%, tax 0.5% → 408,163 som of revenue per month.",
             "Başabaş = giderler / (marj − vergi). Örnek: gider 100.000, marj %25, vergi %0,5 → ayda 408.163 som ciro.",
-            "Zararsizlik = xarajatlar / (marja − soliq). Misol: xarajat 100 000, marja 25%, soliq 0,5% → oyiga 408 163 so'm tushum.");
+            "Zararsizlik = xarajatlar / (marja − soliq). Misol: xarajatlar 100 000, marja 25%, soliq 0,5% → oyiga 408 163 so'm tushum.");
 
         // 5. Акция
-        PromoTitle.Text = Tr.T("Скидка на товар", "Товарга арзандатуу", "Discount on a product", "Ürün indirimi", "Mahsulotga chegirma");
+        PromoTitle.Text = Tr.T("Скидка на товар", "Товарга арзандатуу", "Product discount", "Ürün indirimi", "Mahsulotga chegirma");
         PromoMarginLabel.Text = Tr.T("Маржа товара сейчас, %", "Товардын азыркы маржасы, %", "Current product margin, %", "Mevcut ürün marjı, %", "Mahsulotning hozirgi marjasi, %");
         PromoDiscountLabel.Text = Tr.T("Скидка, %", "Арзандатуу, %", "Discount, %", "İndirim, %", "Chegirma, %");
         PromoHint.Text = Tr.T("Маржу товара видно на вкладке «Проверка цен».", "Товардын маржасы «Бааларды текшерүү» өтмөгүндө көрүнөт.",
-            "The product margin is shown on the “Price check” tab.", "Ürün marjı “Fiyat kontrolü” sekmesinde görünür.", "Mahsulot marjasi «Narxlarni tekshirish» bo'limida ko'rinadi.");
+            "The product margin is shown on the “Price check” tab.", "Ürün marjı «Fiyat kontrolü» sekmesinde görünür.", "Mahsulot marjasi «Narxlarni tekshirish» bo'limida ko'rinadi.");
         PromoResultTitle.Text = Tr.T("Что это значит", "Бул эмнени билдирет", "What it means", "Ne anlama gelir", "Bu nimani anglatadi");
-        PromoVolumeLabel.Text = Tr.T("Чтобы заработать столько же, продавайте больше в", "Ошончо табуу үчүн көбүрөөк сатыңыз",
-            "To earn the same, sell more by a factor of", "Aynı kârı elde etmek için satışı artırın", "Xuddi shuncha topish uchun ko'proq soting");
-        PromoNewMarginLabel.Text = Tr.T("Маржа со скидкой", "Арзандатуу менен маржа", "Margin with the discount", "İndirimli marj", "Chegirma bilan marja");
+        PromoVolumeLabel.Text = Tr.T("Чтобы заработать столько же, продавайте больше в", "Ошончо пайда табуу үчүн сатууну канча эсе көбөйтүү керек",
+            "Sales needed to earn the same", "Aynı kârı elde etmek için gereken satış artışı", "Xuddi shuncha topish uchun necha barobar ko'p sotish kerak");
+        PromoNewMarginLabel.Text = Tr.T("Маржа со скидкой", "Арзандатуудан кийинки маржа", "Margin after discount", "İndirimli marj", "Chegirma bilan marja");
 
         BuildAuditFilters();
     }
@@ -248,7 +248,7 @@ public partial class CalculatorWindow : Window
         {
             var chip = new Button
             {
-                Content = step == 0 ? Tr.T("без округления", "тегеректөөсүз", "no rounding", "yuvarlama yok", "yaxlitlamasiz") : $"{step:0} {Som()}",
+                Content = step == 0 ? Tr.T("без округления", "тегеректөөсүз", "no rounding", "yuvarlama yok", "yaxlitlashsiz") : $"{step:0} {Som()}",
                 Tag = step,
                 Classes = { "chip" },
             };
@@ -282,10 +282,10 @@ public partial class CalculatorWindow : Window
         }
 
         Add("all", Tr.T("Все", "Баары", "All", "Tümü", "Hammasi"));
-        Add("loss", Tr.T("В убыток или в ноль", "Зыянга же нөлгө", "At or below cost", "Zararına veya başabaş", "Zarariga yoki nolga"));
+        Add("loss", Tr.T("В убыток или в ноль", "Зыяндуу же пайдасыз", "At or below cost", "Zararına veya sıfır kârla", "Zarar yoki foydasiz"));
         Add("low", Tr.T("Маржа ниже порога", "Маржа чектен төмөн", "Margin below threshold", "Marj eşiğin altında", "Marja chegaradan past"));
         Add("nocost", Tr.T("Без закупочной цены", "Сатып алуу баасы жок", "No cost price", "Alış fiyatı yok", "Xarid narxi yo'q"));
-        Add("negative", Tr.T("Минус на складе", "Кампада минус", "Negative stock", "Eksi stok", "Omborda minus"));
+        Add("negative", Tr.T("Минус на складе", "Кампада минус", "Negative stock", "Eksi stok", "Omborda manfiy qoldiq"));
     }
 
     // ------------------------------------------------------------------ вкладки
@@ -346,7 +346,7 @@ public partial class CalculatorWindow : Window
         var p = choice.Product;
         _currentPrice = LocalCartService.ParsePrice(p.PriceLine);
         CostBox.Text = p.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture);
-        SelectedProductText.Text = Tr.T($"Выбран: {p.Title}", $"Тандалды: {p.Title}", $"Selected: {p.Title}", $"Seçildi: {p.Title}", $"Tanlandi: {p.Title}");
+        SelectedProductText.Text = Tr.T($"Выбран: {p.Title}", $"Тандалды: {p.Title}", $"Selected: {p.Title}", $"Seçilen: {p.Title}", $"Tanlandi: {p.Title}");
         SelectedProductText.IsVisible = true;
         ProductMatches.IsVisible = false;
         ProductMatches.SelectedItem = null;
@@ -394,7 +394,7 @@ public partial class CalculatorWindow : Window
                 if (denominator <= 0)
                 {
                     ShowPriceWarning(Tr.T("Маржа не может быть 100% и больше.", "Маржа 100% же андан көп боло албайт.",
-                        "Margin cannot reach 100%.", "Marj %100'e ulaşamaz.", "Marja 100% yoki undan ko'p bo'lolmaydi."));
+                        "Margin cannot be 100% or more.", "Marj %100 veya daha fazla olamaz.", "Marja 100% yoki undan ko'p bo'la olmaydi."));
                     ClearPriceResults();
                     return;
                 }
@@ -426,8 +426,8 @@ public partial class CalculatorWindow : Window
         ResMarginValue.Text = price > 0 ? Percent((price - cost) / price * 100) : "—";
 
         if (price > 0 && profit <= 0)
-            ShowPriceWarning(Tr.T("Цена не покрывает закупку и налог — каждая продажа в убыток.", "Баа сатып алууну жана салыкты жаппайт — ар бир сатуу зыян.",
-                "The price does not cover cost and tax — every sale loses money.", "Fiyat maliyeti ve vergiyi karşılamıyor — her satış zararına.", "Narx xarid va soliqni qoplamaydi — har bir sotuv zarar."));
+            ShowPriceWarning(Tr.T("Цена не покрывает закупку и налог — каждая продажа в убыток.", "Баа сатып алуу баасын жана салыкты жаппайт — ар бир сатуу зыян алып келет.",
+                "The price does not cover cost and tax — every sale loses money.", "Fiyat, alış maliyetini ve vergiyi karşılamıyor — her satış zarar getirir.", "Narx xarid va soliqni qoplamaydi — har bir sotuv zarar keltiradi."));
 
         if (_currentPrice is > 0 && _mode != "price")
         {
@@ -436,9 +436,9 @@ public partial class CalculatorWindow : Window
             CurrentPriceText.Text = Tr.T(
                 $"Сейчас в каталоге: {Money(cp)} — наценка {PercentOrDash(cost, cp)}, прибыль с единицы {Money(currentProfit)}",
                 $"Азыр каталогдо: {Money(cp)} — үстөк {PercentOrDash(cost, cp)}, бирдиктен пайда {Money(currentProfit)}",
-                $"Now in the catalog: {Money(cp)} — markup {PercentOrDash(cost, cp)}, profit per unit {Money(currentProfit)}",
+                $"Current catalog price: {Money(cp)} — markup {PercentOrDash(cost, cp)}, profit per unit {Money(currentProfit)}",
                 $"Katalogda şu an: {Money(cp)} — kâr oranı {PercentOrDash(cost, cp)}, birim kâr {Money(currentProfit)}",
-                $"Hozir katalogda: {Money(cp)} — ustama {PercentOrDash(cost, cp)}, birlikdan foyda {Money(currentProfit)}");
+                $"Hozir katalogda: {Money(cp)} — ustama {PercentOrDash(cost, cp)}, birlik boshiga foyda {Money(currentProfit)}");
             CurrentPriceBox.IsVisible = true;
         }
         else
@@ -544,7 +544,7 @@ public partial class CalculatorWindow : Window
             $"Purchase: {Money(totalPurchase)}  ·  extra: {Money(extra)}  ·  batch cost: {Money(totalPurchase + extra)}",
             $"Alış: {Money(totalPurchase)}  ·  masraf: {Money(extra)}  ·  parti maliyeti: {Money(totalPurchase + extra)}",
             $"Xarid: {Money(totalPurchase)}  ·  xarajat: {Money(extra)}  ·  partiya tannarxi: {Money(totalPurchase + extra)}")
-            + (noWeight ? Tr.T("  ·  укажите вес у всех строк", "  ·  бардык саптарга салмакты жазыңыз", "  ·  enter weight for every row",
+            + (noWeight ? Tr.T("  ·  укажите вес у всех строк", "  ·  бардык саптарга салмакты жазыңыз", "  ·  enter the weight for all rows",
                 "  ·  tüm satırlara ağırlık girin", "  ·  barcha qatorlarga og'irlikni kiriting") : "");
     }
 
@@ -630,10 +630,10 @@ public partial class CalculatorWindow : Window
             }
 
             FillFromSalesHint.Text = Tr.T("Маржа и средний чек взяты из продаж за 30 дней, факт — с 1-го числа.",
-                "Маржа жана орточо чек 30 күндүк сатуудан, факт — айдын 1-күнүнөн.",
-                "Margin and average receipt are from the last 30 days; the actual figure is since the 1st.",
-                "Marj ve ortalama fiş son 30 günden, gerçekleşen ayın 1'inden itibaren.",
-                "Marja va o'rtacha chek 30 kunlik sotuvdan, amaldagisi — oyning 1-kunidan.");
+                "Маржа жана орточо чек 30 күндүк сатуудан алынды, факт — айдын 1-күнүнөн бери.",
+                "Margin and average receipt are taken from the last 30 days of sales; actual figures are from the 1st of the month.",
+                "Marj ve ortalama fiş son 30 günün satışlarından, gerçekleşen değer ayın 1'inden itibaren alındı.",
+                "Marja va o'rtacha chek 30 kunlik sotuvdan olindi, amaldagi ko'rsatkich — oyning 1-sanasidan.");
         }
         catch (Exception ex)
         {
@@ -672,8 +672,8 @@ public partial class CalculatorWindow : Window
 
         if (effective <= 0)
         {
-            BeWarning.Text = Tr.T("Маржа не больше налога — прибыль невозможна при любой выручке.", "Маржа салыктан көп эмес — ар кандай кирешеде пайда болбойт.",
-                "Margin does not exceed the tax — no revenue can make a profit.", "Marj vergiden büyük değil — hiçbir ciroda kâr olmaz.", "Marja soliqdan katta emas — har qanday tushumda foyda bo'lmaydi.");
+            BeWarning.Text = Tr.T("Маржа не больше налога — прибыль невозможна при любой выручке.", "Маржа салыктан ашпайт — түшүм канча болсо да пайда болбойт.",
+                "Margin is not above the tax — no amount of revenue can make a profit.", "Marj vergiden yüksek değil — hiçbir ciroda kâr edilemez.", "Marja soliqdan katta emas — har qanday tushumda foyda bo'lmaydi.");
             BeWarning.IsVisible = true;
             BeMonthValue.Text = GoalMonthValue.Text = FactValue.Text = "—";
             BeDayText.Text = GoalDayText.Text = FactText.Text = "";
@@ -702,10 +702,10 @@ public partial class CalculatorWindow : Window
             FactBar.Children.Add(fill);
             FactText.Text = Tr.T(
                 $"{Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)} от безубыточности. Прогноз на месяц: {Money(forecast)}, чистая прибыль ≈ {Money(forecastProfit)}",
-                $"Зыянсыздыктын {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)}. Айга болжол: {Money(forecast)}, таза пайда ≈ {Money(forecastProfit)}",
-                $"{Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)} of break-even. Month forecast: {Money(forecast)}, net profit ≈ {Money(forecastProfit)}",
-                $"Başabaşın {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)}. Ay tahmini: {Money(forecast)}, net kâr ≈ {Money(forecastProfit)}",
-                $"Zararsizlikning {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)}. Oy prognozi: {Money(forecast)}, sof foyda ≈ {Money(forecastProfit)}");
+                $"Зыянсыздык чегинин {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)} аткарылды. Айга болжол: {Money(forecast)}, таза пайда ≈ {Money(forecastProfit)}",
+                $"{Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)} of break-even. Monthly forecast: {Money(forecast)}, net profit ≈ {Money(forecastProfit)}",
+                $"Başabaş noktasına göre {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)}. Ay tahmini: {Money(forecast)}, net kâr ≈ {Money(forecastProfit)}",
+                $"Zararsizlik nuqtasiga nisbatan {Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)}. Oylik prognoz: {Money(forecast)}, sof foyda ≈ {Money(forecastProfit)}");
         }
         else
         {
@@ -719,8 +719,8 @@ public partial class CalculatorWindow : Window
         var checks = avgCheck > 0 ? Math.Ceiling(perDay / avgCheck) : 0;
         return avgCheck > 0
             ? Tr.T($"≈ {Money(perDay)} в день · {checks:0} чеков в день", $"≈ күнүнө {Money(perDay)} · күнүнө {checks:0} чек",
-                $"≈ {Money(perDay)} a day · {checks:0} receipts a day", $"≈ günde {Money(perDay)} · günde {checks:0} fiş", $"≈ kuniga {Money(perDay)} · kuniga {checks:0} chek")
-            : Tr.T($"≈ {Money(perDay)} в день", $"≈ күнүнө {Money(perDay)}", $"≈ {Money(perDay)} a day", $"≈ günde {Money(perDay)}", $"≈ kuniga {Money(perDay)}");
+                $"≈ {Money(perDay)} per day · {checks:0} receipts per day", $"≈ günde {Money(perDay)} · günde {checks:0} fiş", $"≈ kuniga {Money(perDay)} · kuniga {checks:0} chek")
+            : Tr.T($"≈ {Money(perDay)} в день", $"≈ күнүнө {Money(perDay)}", $"≈ {Money(perDay)} per day", $"≈ günde {Money(perDay)}", $"≈ kuniga {Money(perDay)}");
     }
 
     // ------------------------------------------------------------------ 5. скидка и акция
@@ -745,8 +745,8 @@ public partial class CalculatorWindow : Window
         {
             PromoVolumeValue.Text = "∞";
             PromoNewMarginValue.Text = Percent((m - d) / (100 - d) * 100);
-            PromoExplain.Text = Tr.T("Скидка съедает всю наценку — каждая продажа по акции в убыток.", "Арзандатуу бардык үстөктү жеп коёт — акциядагы ар бир сатуу зыян.",
-                "The discount eats the whole margin — every promo sale loses money.", "İndirim tüm marjı yiyor — her kampanya satışı zararına.", "Chegirma butun marjani yeb qo'yadi — aksiyadagi har bir sotuv zarar.");
+            PromoExplain.Text = Tr.T("Скидка съедает всю наценку — каждая продажа по акции в убыток.", "Арзандатуу бардык үстөктү жеп коёт — акциядагы ар бир сатуу зыян алып келет.",
+                "The discount eats up the entire markup — every promo sale loses money.", "İndirim tüm kâr oranını yiyor — kampanyadaki her satış zararına.", "Chegirma butun ustamani yeb qo'yadi — aksiyadagi har bir sotuv zarar keltiradi.");
             return;
         }
 
@@ -873,7 +873,7 @@ public partial class CalculatorWindow : Window
         {
             if (Cost > 0 && Price < Cost)
             {
-                Flag = Tr.T("⚠ в убыток", "⚠ зыянга", "⚠ below cost", "⚠ zararına", "⚠ zarariga");
+                Flag = Tr.T("⚠ в убыток", "⚠ зыянга", "⚠ below cost", "⚠ zararına", "⚠ zarar");
                 SortKey = 0;
             }
             else if (Cost > 0 && Math.Abs(Price - Cost) < 0.005)
@@ -883,12 +883,12 @@ public partial class CalculatorWindow : Window
             }
             else if (Stock < 0)
             {
-                Flag = Tr.T("⚠ минус на складе", "⚠ кампада минус", "⚠ negative stock", "⚠ eksi stok", "⚠ omborda minus");
+                Flag = Tr.T("⚠ минус на складе", "⚠ кампада минус", "⚠ negative stock", "⚠ eksi stok", "⚠ omborda manfiy qoldiq");
                 SortKey = 1;
             }
             else if (Cost <= 0)
             {
-                Flag = Tr.T("нет закупки", "сатып алуу жок", "no cost", "alış yok", "xarid yo'q");
+                Flag = Tr.T("нет закупки", "сатып алуу баасы жок", "no cost price", "alış fiyatı yok", "xarid narxi yo'q");
                 SortKey = 2;
             }
             else if (Margin < threshold)

@@ -321,14 +321,14 @@ public partial class WarehouseWindow : Window
         var lines = _viewModel.ReceivingLines;
         var created = lines.Count(l => l.IsNew);
 
-        var text = Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiya") + $": {lines.Count}"
-            + "   ·   " + Tr.T("единиц", "бирдик", "units", "adet", "birlik")
+        var text = Tr.T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar") + $": {lines.Count}"
+            + "   ·   " + Tr.T("единиц", "бирдик", "units", "adet", "birliklar")
             + $": {lines.Sum(l => l.Quantity):0.###}"
             + "   ·   " + Tr.T("на сумму", "суммасы", "total", "tutar", "summa")
             + $": {lines.Sum(l => l.LineTotal):0.##} " + Tr.T("сом", "сом", "som", "som", "so'm");
 
         if (created > 0)
-            text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulot")
+            text += "   ·   " + Tr.T("новых товаров", "жаңы товар", "new products", "yeni ürün", "yangi mahsulotlar")
                 + $": {created}";
 
         ReceivingSummaryText.Text = text;
@@ -355,7 +355,7 @@ public partial class WarehouseWindow : Window
     {
         StockTransferService.StatusInTransit => Tr.T("В пути", "Жолдо", "In transit", "Yolda", "Yo'lda"),
         StockTransferService.StatusDelivered => Tr.T("Доставлено", "Жеткирилди", "Delivered", "Teslim edildi", "Yetkazildi"),
-        StockTransferService.StatusCancelled => Tr.T("Отменено", "Жокко чыгарылды", "Cancelled", "İptal edildi", "Bekor qilindi"),
+        StockTransferService.StatusCancelled => Tr.T("Отменено", "Жокко чыгарылды", "Canceled", "İptal edildi", "Bekor qilindi"),
         _ => Tr.T("Создано", "Түзүлдү", "Created", "Oluşturuldu", "Yaratildi"),
     };
 
@@ -403,18 +403,18 @@ public partial class WarehouseWindow : Window
             + "   ·   " + Tr.T(
                 "Документ о переносе между вашими местами хранения: общий остаток товара в NurCRM он не меняет, журнал хранится на этой кассе.",
                 "Сактоо жайларыңыздын ортосундагы жылыштыруу документи: NurCRMдеги товардын жалпы калдыгын өзгөртпөйт, журнал ушул кассада сакталат.",
-                "A record of moving goods between your storage places: it does not change the product's total stock in NurCRM, and the log is kept on this register.",
-                "Depolama yerleriniz arasındaki taşıma belgesi: NurCRM'deki toplam stoğu değiştirmez, kayıt bu kasada tutulur.",
+                "A document for moving goods between your storage locations: it does not change the total stock in NurCRM, and the log is kept on this till.",
+                "Depolama yerleriniz arasındaki transfer belgesi: NurCRM'deki toplam stoğu değiştirmez, kayıt defteri bu kasada tutulur.",
                 "Saqlash joylaringiz o'rtasidagi ko'chirish hujjati: NurCRMdagi umumiy qoldiqni o'zgartirmaydi, jurnal shu kassada saqlanadi.");
     }
 
     private static string BuildRouteText(StockTransferService.Transfer t)
     {
         var from = string.IsNullOrWhiteSpace(t.FromPlaceName)
-            ? Tr.T("склад не указан", "кампа көрсөтүлгөн эмес", "source not set", "kaynak yok", "manba ko'rsatilmagan")
+            ? Tr.T("склад не указан", "кампа көрсөтүлгөн эмес", "source not set", "kaynak belirtilmedi", "ombor ko'rsatilmagan")
             : t.FromPlaceName;
         var to = string.IsNullOrWhiteSpace(t.ToPlaceName)
-            ? Tr.T("получатель не указан", "алуучу көрсөтүлгөн эмес", "destination not set", "hedef yok", "qabul qiluvchi ko'rsatilmagan")
+            ? Tr.T("получатель не указан", "алуучу көрсөтүлгөн эмес", "destination not set", "hedef belirtilmedi", "qabul qiluvchi ko'rsatilmagan")
             : t.ToPlaceName;
 
         var route = from + "  →  " + to;
@@ -522,8 +522,8 @@ public partial class WarehouseWindow : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = toWord
-                ? Tr.T("Сохранить журнал в Word", "Журналды Word форматында сактоо", "Save the journal to Word", "Günlüğü Word olarak kaydet", "Jurnalni Word formatida saqlash")
-                : Tr.T("Сохранить журнал в Excel", "Журналды Excel форматында сактоо", "Save the journal to Excel", "Günlüğü Excel olarak kaydet", "Jurnalni Excel formatida saqlash"),
+                ? Tr.T("Сохранить журнал в Word", "Журналды Word форматында сактоо", "Save the log to Word", "Günlüğü Word olarak kaydet", "Jurnalni Word formatida saqlash")
+                : Tr.T("Сохранить журнал в Excel", "Журналды Excel форматында сактоо", "Save the log to Excel", "Günlüğü Excel olarak kaydet", "Jurnalni Excel formatida saqlash"),
             SuggestedFileName = $"transfers-{DateTime.Now:yyyy-MM-dd}.{extension}",
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
@@ -618,11 +618,11 @@ public partial class WarehouseWindow : Window
         var soldTotal = movements.Where(m => m.Kind != "writeoff").Sum(m => m.Quantity);
         var writeOffTotal = movements.Where(m => m.Kind == "writeoff").Sum(m => m.Quantity);
         MovementsSummaryText.Text =
-            Tr.T("За период", "Мезгил ичинде", "For the period", "Dönem boyunca", "Davr ichida")
+            Tr.T("За период", "Мезгил ичинде", "For the period", "Dönem içinde", "Davr ichida")
             + $": {rows.Count} "
             + Tr.T("записей", "жазуу", "records", "kayıt", "yozuv")
-            + " · " + Tr.T("продано", "сатылды", "sold", "satıldı", "sotildi") + $" {soldTotal:N0}"
-            + " · " + Tr.T("списано", "эсептен чыгарылды", "written off", "zayiat", "hisobdan chiqarildi") + $" {writeOffTotal:N0}";
+            + " · " + Tr.T("продано", "сатылды", "sold", "satılan", "sotildi") + $" {soldTotal:N0}"
+            + " · " + Tr.T("списано", "эсептен чыгарылды", "written off", "zayi edilen", "hisobdan chiqarildi") + $" {writeOffTotal:N0}";
     }
 
     /// <summary>Примечание к строке журнала. У продаж в базе лежит служебное слово источника
@@ -680,11 +680,11 @@ public partial class WarehouseWindow : Window
 
         WarehouseTotalsPanel.ItemsSource = new List<KpiCardVm>
         {
-            new() { Label = Tr.T("Позиций:", "Позициялар:", "Items:", "Kalem:", "Pozitsiya:"), Value = products.Count.ToString("N0") },
-            new() { Label = Tr.T("Единиц на складе:", "Кампадагы бирдик:", "Units in stock:", "Stoktaki adet:", "Ombordagi birlik:"), Value = units.ToString("N0") },
-            new() { Label = Tr.T("По закупке:", "Сатып алуу боюнча:", "At cost:", "Maliyetle:", "Tannarxda:"), Value = $"{purchaseValue:N0} " + Tr.T("сом", "сом", "KGS", "som", "so'm") },
-            new() { Label = Tr.T("По продаже:", "Сатуу боюнча:", "At sale price:", "Satışta:", "Sotuvda:"), Value = $"{saleValue:N0} " + Tr.T("сом", "сом", "KGS", "som", "so'm") },
-            new() { Label = Tr.T("Заканчивается:", "Аяктап жатат:", "Running low:", "Azalıyor:", "Tugayapti:"), Value = lowOrOut.ToString("N0") },
+            new() { Label = Tr.T("Позиций:", "Позициялар:", "Items:", "Kalem:", "Pozitsiyalar:"), Value = products.Count.ToString("N0") },
+            new() { Label = Tr.T("Единиц на складе:", "Кампадагы бирдик:", "Units in stock:", "Stoktaki adet:", "Ombordagi birliklar:"), Value = units.ToString("N0") },
+            new() { Label = Tr.T("По закупке:", "Сатып алуу баасы боюнча:", "At cost:", "Alış fiyatıyla:", "Xarid narxida:"), Value = $"{purchaseValue:N0} " + Tr.T("сом", "сом", "som", "som", "so'm") },
+            new() { Label = Tr.T("По продаже:", "Сатуу баасы боюнча:", "At sale price:", "Satış fiyatıyla:", "Sotuv narxida:"), Value = $"{saleValue:N0} " + Tr.T("сом", "сом", "som", "som", "so'm") },
+            new() { Label = Tr.T("Заканчивается:", "Түгөнүп баратат:", "Running low:", "Tükenmek üzere:", "Tugab bormoqda:"), Value = lowOrOut.ToString("N0") },
         };
     }
 
@@ -766,7 +766,7 @@ public partial class WarehouseWindow : Window
         }
         catch (Exception ex)
         {
-            PosMessageBox.Show(this, $"Не удалось загрузить каталог: {ex.Message}", "Склад",
+            PosMessageBox.Show(this, Tr.T($"Не удалось загрузить каталог: {ex.Message}", $"Каталогду жүктөө мүмкүн болгон жок: {ex.Message}", $"Could not load the catalog: {ex.Message}", $"Katalog yüklenemedi: {ex.Message}", $"Katalogni yuklab bo'lmadi: {ex.Message}"), Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
@@ -1040,7 +1040,7 @@ public partial class WarehouseWindow : Window
             Tr.T("Редактор этикетки активирован", "Этикетка редактору иштетилди", "Label editor activated", "Etiket düzenleyici etkinleştirildi", "Yorliq muharriri faollashtirildi"),
             Tr.T(
                 "Теперь доступен редактор этикеток.",
-                "Эми этикетка редактору жеткиликтүү."),
+                "Эми этикетка редактору жеткиликтүү.", "The label editor is now available.", "Etiket düzenleyici artık kullanılabilir.", "Endi yorliq muharriri mavjud."),
             PosAlertKind.Success);
         return true;
     }
@@ -1077,7 +1077,7 @@ public partial class WarehouseWindow : Window
             Tr.T("Редактор ценников активирован", "Ценник редактору иштетилди", "Price tag editor activated", "Fiyat etiketi düzenleyici etkinleştirildi", "Narx yorliqlari muharriri faollashtirildi"),
             Tr.T(
                 "Теперь доступна печать ценника для одного товара: Склад → Товары → кнопка «💲 Ценник» на карточке товара.",
-                "Эми бир товар үчүн ценник басып чыгаруу жеткиликтүү: Склад → Товарлар → товар карточкасындагы «💲 Ценник» баскычы."),
+                "Эми бир товар үчүн ценник басып чыгаруу жеткиликтүү: Склад → Товарлар → товар карточкасындагы «💲 Ценник» баскычы.", "Price tag printing for a single product is now available: Warehouse → Products → the “💲 Price tag” button on the product card.", "Artık tek bir ürün için fiyat etiketi yazdırılabilir: Depo → Ürünler → ürün kartındaki «💲 Fiyat etiketi» düğmesi.", "Endi bitta mahsulot uchun narx yorlig'ini chop etish mumkin: Ombor → Mahsulotlar → mahsulot kartochkasidagi «💲 Narx yorlig'i» tugmasi."),
             PosAlertKind.Success);
         return true;
     }
@@ -1090,7 +1090,7 @@ public partial class WarehouseWindow : Window
         if (UserPreferences.Instance.BulkPriceTagUnlocked)
             return true;
 
-        var serial = SerialActivationDialog.Show(this, Tr.T("Массовая печать ценников", "Ценниктерди массалык басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi baskısı", "Ommaviy narx yorliqlarini chop etish"));
+        var serial = SerialActivationDialog.Show(this, Tr.T("Массовая печать ценников", "Ценниктерди массалык басып чыгаруу", "Bulk price tag printing", "Toplu fiyat etiketi yazdırma", "Narx yorliqlarini ommaviy chop etish"));
         if (serial == null)
             return false;
 
@@ -1112,10 +1112,10 @@ public partial class WarehouseWindow : Window
         RefreshPaidFeatureVisibility();
 
         PosAlertDialog.Show(this,
-            Tr.T("Массовая печать ценников активирована", "Ценниктерди массалык басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi baskısı etkinleştirildi", "Ommaviy narx yorlig'i chop etish faollashtirildi"),
+            Tr.T("Массовая печать ценников активирована", "Ценниктерди массалык басып чыгаруу иштетилди", "Bulk price tag printing activated", "Toplu fiyat etiketi yazdırma etkinleştirildi", "Narx yorliqlarini ommaviy chop etish faollashtirildi"),
             Tr.T(
                 "Теперь доступна кнопка «🏷 Массовая печать ценников» в Склад → Товары — выберите нужные товары и распечатайте ценники сразу для всех.",
-                "Эми Склад → Товарлар бетинде «🏷 Ценниктерди массалык басып чыгаруу» баскычы жеткиликтүү — керектүү товарларды тандап, баарына бирден ценник басып чыгарыңыз."),
+                "Эми Склад → Товарлар бетинде «🏷 Ценниктерди массалык басып чыгаруу» баскычы жеткиликтүү — керектүү товарларды тандап, баарынын ценниктерин бир жолу басып чыгарыңыз.", "The “🏷 Bulk print price tags” button is now available in Warehouse → Products — select the products you need and print price tags for all of them at once.", "Depo → Ürünler bölümünde artık «🏷 Toplu fiyat etiketi yazdır» düğmesi var — gerekli ürünleri seçin ve hepsinin fiyat etiketlerini tek seferde yazdırın.", "Endi Ombor → Mahsulotlar bo'limida «🏷 Narx yorliqlarini ommaviy chop etish» tugmasi mavjud — kerakli mahsulotlarni tanlang va barchasi uchun narx yorliqlarini birdaniga chop eting."),
             PosAlertKind.Success);
         return true;
     }
@@ -1126,7 +1126,7 @@ public partial class WarehouseWindow : Window
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast("Добавление товара недоступно в этом режиме.", isWarning: true);
+            prompts?.ShowToast(Tr.T("Добавление товара недоступно в этом режиме.", "Бул режимде товар кошууга болбойт.", "Adding products isn't available in this mode.", "Bu modda ürün eklenemez.", "Bu rejimda mahsulot qo'shib bo'lmaydi."), isWarning: true);
             return;
         }
 
@@ -1134,7 +1134,7 @@ public partial class WarehouseWindow : Window
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
         if (saved)
         {
-            prompts?.ShowToast("Товар сохранён.");
+            prompts?.ShowToast(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
@@ -1149,7 +1149,7 @@ public partial class WarehouseWindow : Window
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast("Редактирование товара недоступно в этом режиме.", isWarning: true);
+            prompts?.ShowToast(Tr.T("Редактирование товара недоступно в этом режиме.", "Бул режимде товарды түзөтүүгө болбойт.", "Editing products isn't available in this mode.", "Bu modda ürün düzenlenemez.", "Bu rejimda mahsulotni tahrirlab bo'lmaydi."), isWarning: true);
             return;
         }
 
@@ -1177,7 +1177,7 @@ public partial class WarehouseWindow : Window
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
         if (saved)
         {
-            prompts?.ShowToast("Товар сохранён.");
+            prompts?.ShowToast(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
@@ -1197,7 +1197,7 @@ public partial class WarehouseWindow : Window
         var permissions = App.AppHost?.Services.GetService<IPermissionService>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast("Удаление товара недоступно в этом режиме.", isWarning: true);
+            prompts?.ShowToast(Tr.T("Удаление товара недоступно в этом режиме.", "Бул режимде товарды өчүрүүгө болбойт.", "Deleting products isn't available in this mode.", "Bu modda ürün silinemez.", "Bu rejimda mahsulotni o'chirib bo'lmaydi."), isWarning: true);
             return;
         }
 
@@ -1205,7 +1205,7 @@ public partial class WarehouseWindow : Window
             this,
             Tr.T("Удалить товар", "Товарды өчүрүү", "Delete product", "Ürünü sil", "Mahsulotni o'chirish"),
             Tr.T($"Удалить «{product.Title}»? Товар исчезнет из каталога NurCRM и из кассы. Это действие нельзя отменить.",
-                 $"«{product.Title}» өчүрүлсүнбү? Товар NurCRM каталогунан жана кассадан жоголот. Бул аракетти артка кайтарууга болбойт."),
+                 $"«{product.Title}» өчүрүлсүнбү? Товар NurCRM каталогунан жана кассадан жоголот. Бул аракетти артка кайтарууга болбойт.", $"Delete “{product.Title}”? The product will be removed from the NurCRM catalog and from the till. This cannot be undone.", $"«{product.Title}» silinsin mi? Ürün NurCRM kataloğundan ve kasadan kaldırılacak. Bu işlem geri alınamaz.", $"«{product.Title}» o'chirilsinmi? Mahsulot NurCRM katalogidan va kassadan yo'qoladi. Bu amalni bekor qilib bo'lmaydi."),
             Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
             Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
             PosConfirmAccent.Danger);
@@ -1218,12 +1218,12 @@ public partial class WarehouseWindow : Window
         if (EmployeeAccessGate.IsActiveFor(EmployeeAccessGate.WarehouseDelete, permissions) &&
             prompts != null &&
             !await prompts.ConfirmWithCodeAsync(
-                Tr.T("Удаление товара со склада", "Товарды кампадан өчүрүү", "Deleting product from warehouse", "Depodan ürün silme", "Mahsulotni ombordan o'chirish"),
+                Tr.T("Удаление товара со склада", "Товарды кампадан өчүрүү", "Delete a product from the warehouse", "Depodan ürün silme", "Mahsulotni ombordan o'chirish"),
                 Tr.T($"Введите свой код доступа, чтобы удалить «{product.Title}» со склада.",
                     $"«{product.Title}» товарын кампадан өчүрүү үчүн жеке кодуңузду киргизиңиз.",
                     $"Enter your access code to delete \"{product.Title}\" from the warehouse.",
-                    $"\"{product.Title}\" ürününü depodan silmek için erişim kodunuzu girin.",
-                    $"\"{product.Title}\" mahsulotini ombordan o'chirish uchun kirish kodingizni kiriting."),
+                    $"«{product.Title}» ürününü depodan silmek için erişim kodunuzu girin.",
+                    $"«{product.Title}» mahsulotini ombordan o'chirish uchun kirish kodingizni kiriting."),
                 entered => EmployeeAccessGate.TryValidate(EmployeeAccessGate.WarehouseDelete, entered)).ConfigureAwait(true))
             return;
 
@@ -1234,7 +1234,7 @@ public partial class WarehouseWindow : Window
             if (OfflineModeHelper.UseLocalOperations)
             {
                 LocalProductEditor.DeleteLocally(product.Id);
-                prompts?.ShowToast("Товар удалён.");
+                prompts?.ShowToast(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
                 await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
                 return;
             }
@@ -1242,17 +1242,17 @@ public partial class WarehouseWindow : Window
             var deleted = await catalogApi.DeleteProductAsync(product.Id).ConfigureAwait(true);
             if (!deleted)
             {
-                prompts?.ShowToast("Не удалось удалить товар: сервер не принял запрос на удаление.", isWarning: true);
+                prompts?.ShowToast(Tr.T("Не удалось удалить товар: сервер не принял запрос на удаление.", "Товарды өчүрүү мүмкүн болгон жок: сервер өчүрүү сурамын кабыл алган жок.", "Could not delete the product: the server rejected the delete request.", "Ürün silinemedi: sunucu silme isteğini kabul etmedi.", "Mahsulotni o'chirib bo'lmadi: server o'chirish so'rovini qabul qilmadi."), isWarning: true);
                 return;
             }
 
-            prompts?.ShowToast("Товар удалён.");
+            prompts?.ShowToast(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            prompts?.ShowToast($"Не удалось удалить товар: {ex.Message}", isWarning: true);
+            prompts?.ShowToast(Tr.T($"Не удалось удалить товар: {ex.Message}", $"Товарды өчүрүү мүмкүн болгон жок: {ex.Message}", $"Could not delete the product: {ex.Message}", $"Ürün silinemedi: {ex.Message}", $"Mahsulotni o'chirib bo'lmadi: {ex.Message}"), isWarning: true);
         }
     }
 
@@ -1266,7 +1266,7 @@ public partial class WarehouseWindow : Window
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null || photoPicker is null)
         {
-            prompts?.ShowToast("Загрузка фото недоступна в этом режиме.", isWarning: true);
+            prompts?.ShowToast(Tr.T("Загрузка фото недоступна в этом режиме.", "Бул режимде сүрөт жүктөөгө болбойт.", "Photo upload isn't available in this mode.", "Bu modda fotoğraf yüklenemez.", "Bu rejimda rasm yuklab bo'lmaydi."), isWarning: true);
             return;
         }
 
@@ -1282,7 +1282,7 @@ public partial class WarehouseWindow : Window
 
             if (string.IsNullOrWhiteSpace(uploadedUrl))
             {
-                prompts?.ShowToast("Не удалось загрузить фото.", isWarning: true);
+                prompts?.ShowToast(Tr.T("Не удалось загрузить фото.", "Сүрөттү жүктөө мүмкүн болгон жок.", "Could not upload the photo.", "Fotoğraf yüklenemedi.", "Rasmni yuklab bo'lmadi."), isWarning: true);
                 return;
             }
 
@@ -1291,15 +1291,15 @@ public partial class WarehouseWindow : Window
             product.ProductImagePath = filePath;
             App.AppHost?.Services.GetService<MySqlAuditService>()?
                 .LogEvent("catalog", "product_photo_upload", new { productId = product.Id });
-            prompts?.ShowToast("Фото товара загружено.");
+            prompts?.ShowToast(Tr.T("Фото товара загружено.", "Товардын сүрөтү жүктөлдү.", "Product photo uploaded.", "Ürün fotoğrafı yüklendi.", "Mahsulot rasmi yuklandi."));
         }
         catch (ApiException ex)
         {
-            prompts?.ShowToast($"Загрузка фото: {ex.Message}", isWarning: true);
+            prompts?.ShowToast(Tr.T($"Загрузка фото: {ex.Message}", $"Сүрөт жүктөө: {ex.Message}", $"Photo upload: {ex.Message}", $"Fotoğraf yükleme: {ex.Message}", $"Rasm yuklash: {ex.Message}"), isWarning: true);
         }
         catch (HttpRequestException)
         {
-            prompts?.ShowToast("Не удалось загрузить фото — нет сети.", isWarning: true);
+            prompts?.ShowToast(Tr.T("Не удалось загрузить фото — нет сети.", "Сүрөттү жүктөө мүмкүн болгон жок — тармак жок.", "Could not upload the photo — no network.", "Fotoğraf yüklenemedi — ağ bağlantısı yok.", "Rasmni yuklab bo'lmadi — tarmoq yo'q."), isWarning: true);
         }
     }
 
@@ -1339,6 +1339,8 @@ public partial class WarehouseWindow : Window
         public string ValueText { get; init; } = "";
     }
 
+    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
+
     private static double ParsePriceValue(string? priceLine) =>
         LocalCartService.ParsePrice(priceLine ?? "");
 
@@ -1357,10 +1359,10 @@ public partial class WarehouseWindow : Window
         AnalyticsKpiPanel.ItemsSource = new List<KpiCardVm>
         {
             new() { Label = Tr.T("Всего товаров (SKU)", "Бардык товарлар (SKU)", "Total products (SKU)", "Toplam ürün (SKU)", "Jami mahsulotlar (SKU)"), Value = skuCount.ToString() },
-            new() { Label = Tr.T("Нет в наличии", "Дүкөндө жок", "Out of stock", "Stokta yok", "Mavjud emas"), Value = outOfStock.ToString() },
+            new() { Label = Tr.T("Нет в наличии", "Калдыкта жок", "Out of stock", "Stokta yok", "Mavjud emas"), Value = outOfStock.ToString() },
             new() { Label = Tr.T("Низкий остаток", "Аз калды", "Low stock", "Düşük stok", "Kam qoldiq"), Value = lowStock.ToString() },
-            new() { Label = Tr.T("Остаток по закупке", "Сатып алуу баасы боюнча калдык", "Stock at purchase price", "Alış fiyatına göre stok", "Sotib olish narxi bo'yicha qoldiq"), Value = $"{purchaseValue:N0} сом" },
-            new() { Label = Tr.T("Остаток по продаже", "Сатуу баасы боюнча калдык", "Stock at sale price", "Satış fiyatına göre stok", "Sotuv narxi bo'yicha qoldiq"), Value = $"{saleValue:N0} сом" },
+            new() { Label = Tr.T("Остаток по закупке", "Сатып алуу баасы боюнча калдык", "Stock at purchase price", "Stok değeri (alış)", "Qoldiq (xarid narxida)"), Value = $"{purchaseValue:N0} {Som}" },
+            new() { Label = Tr.T("Остаток по продаже", "Сатуу баасы боюнча калдык", "Stock at sale price", "Stok değeri (satış)", "Qoldiq (sotuv narxida)"), Value = $"{saleValue:N0} {Som}" },
         };
 
         var topValue = products
@@ -1375,12 +1377,12 @@ public partial class WarehouseWindow : Window
             {
                 Title = x.Product.Title,
                 StockText = x.Product.Quantity.ToString("0.###"),
-                PriceText = $"{ParsePriceValue(x.Product.PriceLine):N2} сом",
-                ValueText = $"{x.Value:N2} сом",
+                PriceText = $"{ParsePriceValue(x.Product.PriceLine):N2} {Som}",
+                ValueText = $"{x.Value:N2} {Som}",
             })
             .ToList();
         BarChartRenderer.Render(AnalyticsTopValueChart, topValue
-            .Select(x => (x.Product.Title, (double)x.Value, $"{x.Value:N0} сом"))
+            .Select(x => (x.Product.Title, (double)x.Value, $"{x.Value:N0} {Som}"))
             .ToList());
 
         var byCategory = products
@@ -1401,12 +1403,12 @@ public partial class WarehouseWindow : Window
                 CategoryName = g.Name,
                 SkuCountText = g.SkuCount.ToString(),
                 StockText = g.Stock.ToString("0.###"),
-                ValueText = $"{g.Value:N2} сом",
+                ValueText = $"{g.Value:N2} {Som}",
             })
             .ToList();
         var categoryChartData = byCategory
             .Take(10)
-            .Select(g => (g.Name, g.Value, $"{g.Value:N0} сом"))
+            .Select(g => (g.Name, g.Value, $"{g.Value:N0} {Som}"))
             .ToList();
         BarChartRenderer.Render(AnalyticsCategoryChart, categoryChartData);
         BarChartRenderer.RenderPie(AnalyticsCategoryPie, categoryChartData);
@@ -1431,17 +1433,17 @@ public partial class WarehouseWindow : Window
         {
             var parts = new List<string>();
             if (receiving > 0)
-                parts.Add(Tr.T($"приёмка — {receiving}", $"кабыл алуу — {receiving}", $"receiving — {receiving}", $"kabul — {receiving}", $"qabul — {receiving}"));
+                parts.Add(Tr.T($"приёмка — {receiving}", $"кабыл алуу — {receiving}", $"receiving — {receiving}", $"mal kabul — {receiving}", $"qabul qilish — {receiving}"));
             if (revision > 0)
-                parts.Add(Tr.T($"ревизия — {revision}", $"ревизия — {revision}", $"stocktake — {revision}", $"sayım — {revision}", $"reviziya — {revision}"));
+                parts.Add(Tr.T($"ревизия — {revision}", $"ревизия — {revision}", $"stocktake — {revision}", $"sayım — {revision}", $"inventarizatsiya — {revision}"));
             var close = PosConfirmDialog.Show(
                 this,
-                Tr.T("Закрыть склад?", "Кампаны жабуу керекпи?", "Close the warehouse?", "Depo kapatılsın mı?", "Omborni yopasizmi?"),
-                Tr.T("Есть непроведённые строки: ", "Өткөрүлө элек саптар бар: ", "There are unposted lines: ", "Kaydedilmemiş satırlar var: ", "O'tkazilmagan qatorlar bor: ")
+                Tr.T("Закрыть склад?", "Кампаны жабасызбы?", "Close the warehouse?", "Depo kapatılsın mı?", "Omborni yopasizmi?"),
+                Tr.T("Есть непроведённые строки: ", "Өткөрүлө элек саптар бар: ", "There are unposted lines: ", "İşlenmemiş satırlar var: ", "O'tkazilmagan qatorlar bor: ")
                     + string.Join(", ", parts)
-                    + Tr.T(". После закрытия они пропадут.", ". Жабылгандан кийин алар жоголот.", ". They will be lost after closing.", ". Kapatınca kaybolacaklar.", ". Yopilgandan keyin ular yo'qoladi."),
+                    + Tr.T(". После закрытия они пропадут.", ". Жабылгандан кийин алар жоголот.", ". They will be lost after closing.", ". Kapattığınızda bunlar kaybolacak.", ". Yopilgandan keyin ular yo'qoladi."),
                 confirmText: Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"),
-                cancelText: Tr.T("Остаться", "Калуу", "Stay", "Kal", "Qolish"));
+                cancelText: Tr.T("Остаться", "Калуу", "Stay", "Vazgeç", "Qolish"));
             if (!close)
                 return;
         }

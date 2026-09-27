@@ -50,7 +50,7 @@ public static class TariffGate
 
     public static string ClientsLockedMessage =>
         Tr.T("Раздел «Клиенты» доступен на тарифе «Стандарт» и выше.",
-             "«Кардарлар» бөлүмү «Стандарт» тарифинен баштап жеткиликтүү.");
+             "«Кардарлар» бөлүмү «Стандарт» тарифинен баштап жеткиликтүү.", "The “Customers” section is available on the “Standard” plan and above.", "«Müşteriler» bölümü «Standart» ve üzeri tarifelerde kullanılabilir.", "«Mijozlar» bo'limi «Standart» va undan yuqori tarifda mavjud.");
 
     /// <summary>Отправка PLU на сетевые весы (Штрих-М/Rongta, см. ScaleSettingsView "Выгрузка
     /// весовых товаров...") — на тарифе «Старт» платная доп. услуга, как остальные карточки в
@@ -62,7 +62,7 @@ public static class TariffGate
 
     public static string ScalesLockedMessage =>
         Tr.T("Отправка на весы по сети — платная доп. услуга на тарифе «Старт». Активируйте её в Маркетплейс → Доп. функции.",
-             "Тармак таразаларына жөнөтүү — «Старт» тарифинде акылуу кошумча кызмат. Аны Маркетплейс → Кошумча функцияларда иштетиңиз.");
+             "Таразага тармак аркылуу жөнөтүү — «Старт» тарифинде акылуу кошумча кызмат. Аны Маркетплейс → Кошумча функциялар бөлүмүндө иштетиңиз.", "Sending to scales over the network is a paid add-on on the “Start” plan. Activate it in Marketplace → Extras.", "Tartılara ağ üzerinden gönderim, «Start» tarifesinde ücretli bir ek hizmettir. Marketplace → Ek özellikler bölümünden etkinleştirin.", "Tarmoq orqali taroziga yuborish — «Start» tarifida pullik qo'shimcha xizmat. Uni Marketpleys → Qo'shimcha funksiyalar bo'limida faollashtiring.");
 
     /// <summary>Телеграм-бот владельца (2026-09-22). Правило, заданное владельцем: НОВЫЕ функции
     /// входят в «Стандарт», а на «Старт» покупаются в Маркетплейсе. Базовая касса — продажи,
@@ -71,19 +71,19 @@ public static class TariffGate
 
     public static string TelegramBotLockedMessage =>
         Tr.T("Телеграм-бот владельца входит в тариф «Стандарт». На «Старт» его можно активировать в Маркетплейс → Доп. функции.",
-             "Ээсинин телеграм-боту «Стандарт» тарифине кирет. «Старт»та аны Маркетплейс → Кошумча функцияларда иштетсе болот.");
+             "Ээсинин телеграм-боту «Стандарт» тарифине кирет. «Старт» тарифинде аны Маркетплейс → Кошумча функциялар бөлүмүндө иштетүүгө болот.", "The owner's Telegram bot is included in the “Standard” plan. On “Start”, it can be activated in Marketplace → Extras.", "İşletme sahibinin Telegram botu «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden etkinleştirilebilir.", "Egasining Telegram-boti «Standart» tarifiga kiradi. «Start» tarifida uni Marketpleys → Qo'shimcha funksiyalar bo'limida faollashtirish mumkin.");
 
     /// <summary>Расширенные итоги смены: возвраты, списания, расход, оплата долгов и скидки.</summary>
     public static bool CanUseShiftAnalytics => !IsStartTariff || UserPreferences.Instance.ShiftAnalyticsUnlocked;
 
     public static string ShiftAnalyticsLockedMessage =>
         Tr.T("Расширенные итоги смены входят в тариф «Стандарт». На «Старт» их можно активировать в Маркетплейс → Доп. функции.",
-             "Кеңейтилген смена жыйынтыктары «Стандарт» тарифине кирет. «Старт»та аны Маркетплейс → Кошумча функцияларда иштетсе болот.");
+             "Сменанын кеңейтилген жыйынтыктары «Стандарт» тарифине кирет. «Старт» тарифинде аларды Маркетплейс → Кошумча функциялар бөлүмүндө иштетүүгө болот.", "Extended shift totals are included in the “Standard” plan. On “Start”, they can be activated in Marketplace → Extras.", "Genişletilmiş vardiya sonuçları «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden etkinleştirilebilir.", "Smenaning kengaytirilgan yakunlari «Standart» tarifiga kiradi. «Start» tarifida ularni Marketpleys → Qo'shimcha funksiyalar bo'limida faollashtirish mumkin.");
 
     /// <summary>Выгрузка аналитики продаж и склада в Excel и Word с графиками.</summary>
     public static bool CanUseAnalyticsExport => !IsStartTariff || UserPreferences.Instance.AnalyticsExportUnlocked;
 
     public static string AnalyticsExportLockedMessage =>
         Tr.T("Выгрузка аналитики в Excel и Word входит в тариф «Стандарт». На «Старт» её можно активировать в Маркетплейс → Доп. функции.",
-             "Аналитиканы Excel жана Word'ко жүктөө «Стандарт» тарифине кирет. «Старт»та аны Маркетплейс → Кошумча функцияларда иштетсе болот.");
+             "Аналитиканы Excel жана Word'ко чыгаруу «Стандарт» тарифине кирет. «Старт» тарифинде аны Маркетплейс → Кошумча функциялар бөлүмүндө иштетүүгө болот.", "Exporting analytics to Excel and Word is included in the “Standard” plan. On “Start”, it can be activated in Marketplace → Extras.", "Analizlerin Excel ve Word'e aktarılması «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden etkinleştirilebilir.", "Analitikani Excel va Word'ga eksport qilish «Standart» tarifiga kiradi. «Start» tarifida uni Marketpleys → Qo'shimcha funksiyalar bo'limida faollashtirish mumkin.");
 }

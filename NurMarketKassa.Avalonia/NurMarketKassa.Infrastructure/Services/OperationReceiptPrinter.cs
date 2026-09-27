@@ -63,7 +63,7 @@ public static class OperationReceiptPrinter
                 $"Операция проведена, но чек не напечатался: {ex.Message}",
                 $"Операция жасалды, бирок чек басылган жок: {ex.Message}",
                 $"The operation went through, but the receipt did not print: {ex.Message}",
-                $"İşlem tamamlandı, ancak fiş yazdırılmadı: {ex.Message}",
+                $"İşlem tamamlandı, ancak fiş yazdırılamadı: {ex.Message}",
                 $"Amal bajarildi, lekin chek chop etilmadi: {ex.Message}");
         }
     }

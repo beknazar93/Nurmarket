@@ -32,12 +32,12 @@ public sealed class PosHotkeyService
     public static IReadOnlyList<PosHotkeyDefinition> Definitions =>
     [
         new(PosHotkeyAction.Checkout,
-            Tr.T("Оплата / провести чек", "Төлөө / чекти өткөрүү", "Pay / process receipt", "Öde / fişi işle", "To'lash / chekni bajarish"),
+            Tr.T("Оплата / провести чек", "Төлөө / чекти өткөрүү", "Pay / complete receipt", "Ödeme / fişi tamamla", "To'lov / chekni o'tkazish"),
             Tr.T("Открывает окно оплаты текущего чека.", "Учурдагы чектин төлөм терезесин ачат.", "Opens the payment window for the current receipt.", "Mevcut fişin ödeme penceresini açar.", "Joriy chekning to'lov oynasini ochadi."),
             "Ctrl+Enter"),
         new(PosHotkeyAction.ClearCart,
             Tr.T("Очистить корзину", "Себетти тазалоо", "Clear cart", "Sepeti temizle", "Savatni tozalash"),
-            Tr.T("Удаляет текущий чек после стандартного подтверждения.", "Стандарттуу ырастоодон кийин учурдагы чекти өчүрөт.", "Deletes the current receipt after the standard confirmation.", "Standart onaydan sonra mevcut fişi siler.", "Standart tasdiqdan so'ng joriy chekni o'chiradi."),
+            Tr.T("Удаляет текущий чек после стандартного подтверждения.", "Кадимки ырастоодон кийин учурдагы чекти өчүрөт.", "Deletes the current receipt after the standard confirmation.", "Standart onaydan sonra mevcut fişi siler.", "Odatiy tasdiqlashdan so'ng joriy chekni o'chiradi."),
             "Ctrl+F1"),
         new(PosHotkeyAction.ToggleCustomerDisplay,
             Tr.T("Экран покупателя", "Сатып алуучу экраны", "Customer display", "Müşteri ekranı", "Xaridor ekrani"),
@@ -48,7 +48,7 @@ public sealed class PosHotkeyService
             Tr.T("Открывает окно применения скидки.", "Арзандатууну колдонуу терезесин ачат.", "Opens the discount window.", "İndirim uygulama penceresini açar.", "Chegirma qo'llash oynasini ochadi."),
             "Ctrl+D"),
         new(PosHotkeyAction.FocusProductSearch,
-            Tr.T("Быстрый поиск товара", "Товарды тез издөө", "Quick product search", "Hızlı ürün arama", "Tezkor mahsulot qidirish"),
+            Tr.T("Быстрый поиск товара", "Товарды тез издөө", "Quick product search", "Hızlı ürün arama", "Mahsulotni tezkor qidirish"),
             Tr.T("Переводит фокус в строку поиска каталога.", "Фокусту каталогдун издөө сабына которот.", "Moves focus to the catalog search box.", "Odağı katalog arama kutusuna taşır.", "Fokusni katalog qidiruv maydoniga o'tkazadi."),
             "Ctrl+F"),
     ];
@@ -102,8 +102,8 @@ public sealed class PosHotkeyService
                 error = Tr.T($"Некорректная комбинация для «{definition.Title}».",
                     $"«{definition.Title}» үчүн айкалыш туура эмес.",
                     $"Invalid combination for \"{definition.Title}\".",
-                    $"\"{definition.Title}\" için geçersiz kombinasyon.",
-                    $"\"{definition.Title}\" uchun noto'g'ri kombinatsiya.");
+                    $"«{definition.Title}» için geçersiz tuş kombinasyonu.",
+                    $"«{definition.Title}» uchun noto'g'ri kombinatsiya.");
                 return false;
             }
 

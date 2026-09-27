@@ -249,10 +249,10 @@ public partial class App : Application
     }
 
     /// <summary>Сообщение, которое видит кассир при неожиданной ошибке — без технических деталей.</summary>
-    private const string UserFacingErrorMessage =
+    private static string UserFacingErrorMessage => Tr.T(
         "Произошла ошибка в программе. Программисты уже знают о таких случаях и работают над " +
         "исправлением. Попробуйте повторить действие ещё раз — если ошибка повторяется, " +
-        "сообщите администратору.";
+        "сообщите администратору.", "Программада ката кетти. Программисттер мындай учурлардан кабардар жана аларды оңдоп жатышат. Аракетти дагы бир жолу кайталап көрүңүз — ката кайталанса, администраторго кабарлаңыз.", "An error occurred in the app. The developers are aware of this kind of issue and are working on a fix. Please try again — if the error persists, contact your administrator.", "Programda bir hata oluştu. Geliştiriciler bu tür durumlardan haberdar ve düzeltme üzerinde çalışıyor. İşlemi tekrar deneyin — hata devam ederse yöneticinize bildirin.", "Dasturda xatolik yuz berdi. Dasturchilar bunday holatlardan xabardor va tuzatish ustida ishlamoqda. Amalni yana bir bor takrorlab ko'ring — agar xato takrorlansa, administratorga xabar bering.");
 
     private static void RegisterGlobalExceptionHandlers()
     {
@@ -292,7 +292,7 @@ public partial class App : Application
             {
                 var lifetime = Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
                 var owner = lifetime?.Windows.FirstOrDefault(w => w.IsActive) ?? lifetime?.MainWindow;
-                PosDialogs.Error(owner, UserFacingErrorMessage, "Ошибка");
+                PosDialogs.Error(owner, UserFacingErrorMessage, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"));
                 args.Handled = true;
             }
             catch (Exception dialogEx)
@@ -414,7 +414,7 @@ public partial class App : Application
         appSession.PosCashboxDisplayName = displayName;
         appSession.ActiveTerminal = null;
         appSession.IsOfflineBootstrap = true;
-        appSession.OfflineBootstrapMessage = "Автономный режим — работа без интернета.";
+        appSession.OfflineBootstrapMessage = Tr.T("Автономный режим — работа без интернета.", "Автономдук режим — интернетсиз иштөө.", "Offline mode — working without internet.", "Çevrimdışı mod — internetsiz çalışma.", "Oflayn rejim — internetsiz ishlash.");
 
         NurMarketKassa.App.SyncFromSession(appSession);
         PosCashboxId = appSession.ActiveTerminal;
@@ -453,7 +453,7 @@ public partial class App : Application
         appSession.PosCashboxDisplayName = authenticated.DisplayName;
         appSession.IsOfflineBootstrap = offline;
         appSession.OfflineBootstrapMessage = offline
-            ? "Нет связи с сервером. Используются локальные данные."
+            ? Tr.T("Нет связи с сервером. Используются локальные данные.", "Сервер менен байланыш жок. Жергиликтүү маалыматтар колдонулууда.", "No connection to the server. Using local data.", "Sunucuyla bağlantı yok. Yerel veriler kullanılıyor.", "Server bilan aloqa yo'q. Mahalliy ma'lumotlar ishlatilmoqda.")
             : null;
 
         IsOfflineBootstrap = offline;

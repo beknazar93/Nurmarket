@@ -1,0 +1,2275 @@
+{
+ "version": "2026-09-26",
+ "language": "en",
+ "sections": [
+  {
+   "title": "Sales",
+   "groups": [
+    {
+     "title": "Making a sale",
+     "articles": [
+      {
+       "id": "продажи-как-создать-продажу",
+       "title": "How to make a sale",
+       "text": "Шаг 1. Open a shift with the “Open shift” button in the top bar (if a shift is already open, the button there reads “Close shift”).\nШаг 2. In the catalog on the left, tap the product tile — the product appears in the “Main receipt” on the right.\nШаг 3. Or scan the barcode with the scanner — the product is added to the receipt automatically; you don't need to press anything.\nШаг 4. Or type the code or name in the “Enter product code or name…” field under the receipt, set the quantity with the − and + buttons if needed, and press “Add”.\nШаг 5. Check the items in the receipt and the amount in the “Total” line.\nШаг 6. Press “Pay” (or the Enter key), choose the payment method, and confirm.\nВажно: If the shift is not open, the POS offers to open it when you add the first product.",
+       "keywords": [
+        "sale",
+        "sell",
+        "receipt",
+        "ring up",
+        "add product",
+        "ring up product",
+        "how to sell",
+        "продажа",
+        "пробить",
+        "чек",
+        "продать",
+        "добавить товар",
+        "пробить товар",
+        "как продавать"
+       ],
+       "images": [
+        {
+         "file": "kassa-main.png",
+         "caption": "Main POS screen: catalog on the left, receipt on the right"
+        },
+        {
+         "file": "anim-sale.gif",
+         "caption": "Animation: a sale in 4 steps"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-товар-по-штрихкоду-сканером",
+       "title": "How to add a product by scanning its barcode",
+       "text": "Шаг 1. Make sure the cursor is not in the search field or any other input field (press Esc to switch the POS back to scanner input).\nШаг 2. Scan the product barcode.\nШаг 3. The product is added to the current receipt; scanning the same product again increases the quantity.\nШаг 4. If the POS says “Product not found”, press “Add to warehouse” to create a product with this barcode right away, or “Skip”.\nВажно: The POS decodes weight labels printed by scales (13-digit barcodes starting with 20–29) automatically and adds the product with its weight or amount already filled in.",
+       "keywords": [
+        "barcode",
+        "scanner",
+        "scan",
+        "beep",
+        "bar code",
+        "not scanning",
+        "read code",
+        "штрихкод",
+        "сканер",
+        "сканировать",
+        "пикнуть",
+        "штрих код",
+        "не сканирует",
+        "считать код"
+       ]
+      },
+      {
+       "id": "продажи-как-изменить-количество-товара-в-чеке",
+       "title": "How to change a product's quantity in the receipt",
+       "text": "Шаг 1. Find the line you need in the receipt on the right.\nШаг 2. Press “+” to increase or “−” to decrease the quantity by 1.\nШаг 3. To enter an exact quantity, tap the number itself between “−” and “+” and type the value.\nШаг 4. For a weighed product, tap the scale icon in the line — the “Weigh product” window opens so you can reweigh it.\nШаг 5. The “Total” is recalculated automatically.\nВажно: You cannot add more than is in stock — the POS shows “Stock limit reached”.",
+       "keywords": [
+        "quantity",
+        "change quantity",
+        "plus",
+        "minus",
+        "how many pieces",
+        "change qty",
+        "количество",
+        "изменить количество",
+        "плюс",
+        "минус",
+        "сколько штук",
+        "поменять кол-во"
+       ],
+       "images": [
+        {
+         "file": "kassa-main.png",
+         "caption": "The − and + buttons on a receipt line"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-продать-весовой-товар",
+       "title": "How to sell a weighed product",
+       "text": "Шаг 1. Tap the weighed product in the catalog (the “Weighed” tab is handy for this) or scan its barcode.\nШаг 2. The “Weigh product” window opens; if a scale is connected, “Currently on the scale” is shown at the top.\nШаг 3. On the “By weight” tab, press “Read from scale” or enter the weight in the “Weight, kg” field (there are quick buttons for 0.1 kg, 0.5 kg, 1 kg, 2 kg, and 5 kg, plus number keys).\nШаг 4. If the customer asks for a set sum rather than a weight, open the “By amount” tab and fill in “Amount, som” — the weight is calculated automatically.\nШаг 5. Press “Add to receipt”.",
+       "keywords": [
+        "weighed",
+        "weigh",
+        "scales",
+        "kg",
+        "kilogram",
+        "by weight",
+        "by amount",
+        "gram",
+        "весовой",
+        "взвесить",
+        "весы",
+        "кг",
+        "килограмм",
+        "на вес",
+        "по сумме",
+        "грамм"
+       ]
+      },
+      {
+       "id": "продажи-как-продать-поштучно-из-пачки",
+       "title": "How to sell individual pieces from a pack",
+       "text": "Шаг 1. Tap a product that has piece sales turned on (all such products are on the “Singles from pack” tab).\nШаг 2. The “How to add to the cart?” window opens with the question “By the piece or a whole pack?”.\nШаг 3. Choose “Whole pack” or “By the piece” and press “Next”.\nШаг 4. Enter how many packs or pieces to add, and press “Add”.\nШаг 5. Pieces and whole packs are added to the receipt as separate lines, each with its own price.\nВажно: Piece sales are set up in the product card: “Sell individually from a pack”, “Quantity per pack”, and “Price per piece”.",
+       "keywords": [
+        "by the piece",
+        "pack",
+        "single piece",
+        "cigarettes by the piece",
+        "from a pack",
+        "sell one piece",
+        "carton",
+        "individual pieces",
+        "single cigarettes",
+        "поштучно",
+        "пачка",
+        "штучно",
+        "сигареты поштучно",
+        "из упаковки",
+        "продать штуку",
+        "блок"
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-товар-горячими-клавишами-f1-f12",
+       "title": "How to add a product with F1–F12 hotkeys",
+       "text": "Шаг 1. Assign products to a key: ☰ → “Warehouse” → “Products” tab → “Edit” on the product → the “More (wholesale price, discount, hotkey, characteristics)” section → “Hotkey” (F1–F12) → “Save”.\nШаг 2. On the POS screen, press the F1–F12 key you need.\nШаг 3. The “Hotkey products” window opens, showing all products assigned to this key.\nШаг 4. Tap a product — it is added to the receipt and the window closes.\nВажно: Other shortcuts: Ctrl+Enter — payment, Ctrl+F1 — clear the cart, Ctrl+D — receipt discount, Ctrl+M — customer display, Ctrl+F — product search, Enter — “Pay” when the receipt has products. You can change shortcuts with the “Hotkeys” button in the top bar.",
+       "keywords": [
+        "hotkeys",
+        "F1",
+        "F2",
+        "F12",
+        "quick products",
+        "key",
+        "F keys",
+        "keyboard shortcuts",
+        "горячие клавиши",
+        "быстрые товары",
+        "клавиша",
+        "кнопки F"
+       ]
+      },
+      {
+       "id": "продажи-как-пользоваться-избранными-быстрыми-товарами",
+       "title": "How to use favorite (quick) products",
+       "text": "Шаг 1. In the catalog, tap the star ☆ on a product tile — it turns into ★, and the product is added to favorites.\nШаг 2. When the receipt is empty, a “Quick products” block with your favorite products appears below “Cart is empty”.\nШаг 3. Tap a product in this block — it is added to the receipt right away.\nШаг 4. To remove a product from favorites, tap ★ on its tile again.",
+       "keywords": [
+        "favorites",
+        "star",
+        "quick products",
+        "best sellers",
+        "frequently sold",
+        "favourite products",
+        "избранное",
+        "звёздочка",
+        "быстрые товары",
+        "часто продаваемые",
+        "звезда",
+        "любимые товары"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Discounts",
+     "articles": [
+      {
+       "id": "продажи-как-сделать-скидку-на-один-товар",
+       "title": "How to give a discount on a single product",
+       "text": "Шаг 1. In the product's line in the receipt, press the “%” button (“Discount on this item”).\nШаг 2. The “Discount on item” window opens.\nШаг 3. Use the switch to choose “Discount mode: Percent (%)” or “Discount mode: amount (som)”.\nШаг 4. Enter the discount percentage or amount.\nШаг 5. Press “Apply”. To remove the discount, open the window again and press “Reset”.\nВажно: The right to give discounts and the maximum discount are set for each employee in NurCRM; without this right, the POS will not let you apply a discount.",
+       "keywords": [
+        "discount",
+        "item discount",
+        "percent",
+        "markdown",
+        "lower the price",
+        "price cut",
+        "скидка",
+        "скидка на товар",
+        "процент",
+        "уценка",
+        "скинуть цену",
+        "дисконт"
+       ],
+       "images": [
+        {
+         "file": "kassa-line-discount.png",
+         "caption": "The “Discount on item” window (the % button on a receipt line)"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-сделать-скидку-на-весь-чек",
+       "title": "How to give a discount on the whole receipt",
+       "text": "Шаг 1. Add all products to the receipt.\nШаг 2. Press “⋮ More” under the receipt, then “Discount %” (or press Ctrl+D).\nШаг 3. Use the switch to choose “Discount mode: Percent (%)” or “Discount mode: amount (som)”.\nШаг 4. Enter the value and press “Apply”.\nШаг 5. The receipt total decreases; to remove the discount, press “Reset” in the same window.",
+       "keywords": [
+        "receipt discount",
+        "discount on whole receipt",
+        "total discount",
+        "discount %",
+        "discount for everything",
+        "order discount",
+        "скидка на чек",
+        "скидка на весь чек",
+        "общая скидка",
+        "скидка %",
+        "скидка всем",
+        "скинуть"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Payment",
+     "articles": [
+      {
+       "id": "продажи-как-принять-оплату-наличными-и-посчитать-сдачу",
+       "title": "How to accept cash and calculate change",
+       "text": "Шаг 1. Press “Pay” under the receipt.\nШаг 2. In the “Payment” window, choose “Cash”.\nШаг 3. In the “Cash received” field, enter the amount the customer gave you, or press a quick button (100 / 200 / 500).\nШаг 4. The POS shows the “Change” — the amount to give back to the customer.\nШаг 5. Turn “Print receipt” on or off if needed.\nШаг 6. Press “Pay N som”.\nВажно: If a cash drawer is connected and “Open on cash payment” is turned on (Settings → “Print”), the drawer opens automatically.",
+       "keywords": [
+        "cash",
+        "change",
+        "cash payment",
+        "pay in cash",
+        "how much change",
+        "received",
+        "cash money",
+        "наличные",
+        "сдача",
+        "оплата наличными",
+        "нал",
+        "сколько сдачи",
+        "получено",
+        "кэш"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment.png",
+         "caption": "Payment window: cash and change"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-принять-безналичную-оплату-или-оплату-по-qr",
+       "title": "How to accept a cashless or QR payment",
+       "text": "Шаг 1. Press “Pay”.\nШаг 2. In the “Payment” window, choose “Cashless”.\nШаг 3. In the “Choose a bank” block, tap the bank you need — its QR code appears on the screen.\nШаг 4. The customer scans the QR code in their banking app and pays.\nШаг 5. Make sure the money has arrived and press “Pay N som”.\nВажно: The POS does not detect incoming payments by itself — the cashier confirms the payment. If no QR code has been uploaded, the POS asks you to add your own business QR code: Settings → “Operations”.",
+       "keywords": [
+        "cashless",
+        "qr",
+        "qr code",
+        "card",
+        "transfer",
+        "mbank",
+        "pay by qr",
+        "non-cash",
+        "by card",
+        "terminal",
+        "безнал",
+        "кьюар",
+        "карта",
+        "перевод",
+        "мбанк",
+        "оплата по qr",
+        "безналичные",
+        "картой",
+        "терминал"
+       ]
+      },
+      {
+       "id": "продажи-как-принять-смешанную-оплату-часть-наличными-часть-б",
+       "title": "How to accept a mixed payment (part cash, part cashless)",
+       "text": "Шаг 1. Press “Pay”.\nШаг 2. Choose the “Mixed” method.\nШаг 3. In the “Cash” field, enter the amount paid in cash.\nШаг 4. The “Cashless” field is filled in automatically with the remaining amount; choose the bank for the cashless part.\nШаг 5. Check that the POS says “Amount matches” and press “Pay N som”.",
+       "keywords": [
+        "mixed",
+        "in parts",
+        "half in cash",
+        "cash and card",
+        "combined payment",
+        "mixed payment",
+        "split payment",
+        "смешанная",
+        "частями",
+        "половина наличными",
+        "наличные и карта",
+        "комбинированная оплата",
+        "смешанная оплата"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-mixed.png",
+         "caption": "Mixed payment"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-продать-в-долг",
+       "title": "How to sell on credit",
+       "text": "Шаг 1. Press “Pay”.\nШаг 2. Choose the “On credit” method.\nШаг 3. Press “Choose client” and find the client by name or phone number, or create a new one (the “New client” block: name, phone → “+ Add client”).\nШаг 4. In the “Paid now (0 — all on credit)” field, enter the amount the customer pays now, or leave 0 to put the whole amount on credit.\nШаг 5. The POS shows how much “Remains as debt”.\nШаг 6. Press “Pay N som”.\nВажно: You cannot sell on credit without selecting a client. The debt is paid off later via “Pay debt”.",
+       "keywords": [
+        "debt",
+        "on credit",
+        "nasiya",
+        "sell on credit",
+        "record a debt",
+        "debtor",
+        "credit",
+        "pay later",
+        "долг",
+        "в долг",
+        "насия",
+        "продать в долг",
+        "запись в долг",
+        "должник",
+        "кредит",
+        "потом отдаст"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-debt.png",
+         "caption": "“On credit” payment: choose a client"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-указать-консультанта-продавца-в-продаже",
+       "title": "How to assign a consultant (salesperson) to a sale",
+       "text": "Шаг 1. Turn on clothing mode: ☰ → “Settings” → “Operations” → “Store type” → “Clothing and similar”.\nШаг 2. Add the products to the receipt and press “Pay”.\nШаг 3. In the “CONSULTANT” block, turn on “Specify a consultant”.\nШаг 4. In the “Search by name…” field, find the employee and tap their name.\nШаг 5. To pay them a commission, turn on “Pay a percentage of the sale” and enter the “Percent (%)” — the POS shows “Commission ≈ N som”.\nШаг 6. Finish the payment with the “Pay N som” button.\nВажно: Consultant commissions are shown in the “Salary” window.",
+       "keywords": [
+        "consultant",
+        "salesperson",
+        "seller percentage",
+        "commission",
+        "who sold",
+        "clothing",
+        "консультант",
+        "продавец",
+        "процент продавцу",
+        "комиссия",
+        "кто продал",
+        "одежда"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Receipts",
+     "articles": [
+      {
+       "id": "продажи-как-вести-несколько-чеков-одновременно",
+       "title": "How to handle several receipts at once",
+       "text": "Шаг 1. Above the receipt, press “+ New receipt” — a new receipt tab appears.\nШаг 2. Ring up another customer's products in the new tab.\nШаг 3. Switch between receipts by tapping their tabs.\nШаг 4. Each receipt is paid separately with the “Pay” button.\nШаг 5. Close an extra tab with the “Delete receipt” button.\nВажно: The “Main receipt” cannot be deleted — only extra tabs can.",
+       "keywords": [
+        "new receipt",
+        "several receipts",
+        "second receipt",
+        "two customers",
+        "receipt tab",
+        "queue",
+        "новый чек",
+        "несколько чеков",
+        "второй чек",
+        "два покупателя",
+        "вкладка чека",
+        "очередь"
+       ]
+      },
+      {
+       "id": "продажи-как-отложить-чек-и-вернуться-к-нему",
+       "title": "How to put a receipt on hold and come back to it",
+       "text": "Шаг 1. When a customer steps away, press “Hold receipt” under the receipt — the receipt is saved, and the current one is cleared.\nШаг 2. Serve the next customers as usual.\nШаг 3. To bring back the most recently held receipt, press “⋮ More” → “Restore” (if the current receipt has products, the two receipts swap places).\nШаг 4. To choose any held receipt, press “⋮ More” → “Held receipts” — the “Held carts” window opens.\nШаг 5. Select the ones you need and press “Open as a separate receipt” or “Add to current receipt”; delete the ones you don't need with “Delete selected”.\nВажно: After the current receipt is paid, the POS automatically opens the oldest held receipt, if there is one.",
+       "keywords": [
+        "hold",
+        "held receipt",
+        "put on hold",
+        "restore receipt",
+        "customer stepped away",
+        "held list",
+        "wait",
+        "park receipt",
+        "отложить",
+        "отложенный чек",
+        "вернуть чек",
+        "покупатель отошёл",
+        "список отложенных",
+        "подождать"
+       ]
+      },
+      {
+       "id": "продажи-как-удалить-товар-из-чека-или-очистить-чек",
+       "title": "How to remove a product from the receipt or clear the receipt",
+       "text": "Шаг 1. To remove a single item, press the trash can icon (“Remove from receipt”) in its line.\nШаг 2. If the POS asks for it, enter your employee access code.\nШаг 3. To clear the entire current receipt, press Ctrl+F1 and confirm “Clear the current cart?”.\nШаг 4. To close an extra receipt tab completely, press “Delete receipt” (this works when more than one receipt is open).\nВажно: Access codes are set in Settings → “Employees”. The owner can delete items without a code.",
+       "keywords": [
+        "delete product",
+        "remove from receipt",
+        "delete receipt",
+        "clear cart",
+        "cancel receipt",
+        "mistake",
+        "удалить товар",
+        "убрать из чека",
+        "удалить чек",
+        "очистить корзину",
+        "отменить чек",
+        "ошибся"
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-доп-услугу-или-расход-в-чек",
+       "title": "How to add an extra service or expense to the receipt",
+       "text": "Шаг 1. Press “Extra service” under the receipt.\nШаг 2. In the “Additional service” window, choose the “Type”: “Income” (delivery or a service — added to the receipt) or “Expense” (subtracted from the receipt).\nШаг 3. Enter the “Name” and “Amount”, and the “Quantity” if needed.\nШаг 4. Press “Add” — the line appears in the receipt.\nШаг 5. Pay the receipt as usual.\nВажно: An “Expense” added to an empty receipt is recorded as a cash withdrawal from the register, and an expense slip is printed.",
+       "keywords": [
+        "extra service",
+        "delivery",
+        "service in receipt",
+        "expense",
+        "income",
+        "free amount",
+        "custom amount",
+        "доп услуга",
+        "доставка",
+        "услуга в чек",
+        "расход",
+        "доход",
+        "свободная сумма",
+        "произвольная сумма"
+       ],
+       "images": [
+        {
+         "file": "kassa-custom-service.png",
+         "caption": "The “Additional service” window"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-напечатать-или-повторно-напечатать-чек",
+       "title": "How to print or reprint a receipt",
+       "text": "Шаг 1. To print the receipt during the sale, leave “Print receipt” turned on in the payment window.\nШаг 2. To reprint, open ☰ → “Info and clients” → “Sales”.\nШаг 3. Choose the period (“Today”, “Yesterday”, “Week”, “Month”, or “Custom date”) and find the receipt in the list.\nШаг 4. Double-click the receipt to see its items.\nШаг 5. Press “Print receipt”.\nВажно: To always print the receipt after payment, turn on Settings → “Print” → “Print receipt after payment”.",
+       "keywords": [
+        "print receipt",
+        "print",
+        "reprint",
+        "receipt copy",
+        "duplicate",
+        "print again",
+        "печать чека",
+        "распечатать",
+        "повторно",
+        "копия чека",
+        "дубликат",
+        "перепечатать"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Owner program",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
+       "title": "What “NurMarket Owner” is and where to find it",
+       "text": "Шаг 1. The “NurMarket Owner” program is installed together with the POS: after an update, a shortcut named “NurMarket Владелец” (NurMarket Owner) appears on the desktop and in the Start menu.\nШаг 2. Open it and sign in with a NurCRM owner or administrator account.\nШаг 3. The section menu is on the left, and the “Overview” is on the right: revenue, receipts, average receipt, and profit for today, the week, or the month; revenue by day; payment methods; latest sales; and top products.\nШаг 4. The overview refreshes automatically every 20 seconds — a sale made at the POS appears here without restarting the program.\nВажно: The program can run on a different computer: the POS and the owner program get their data from the same NurCRM server.",
+       "keywords": [
+        "owner",
+        "admin panel",
+        "owner program",
+        "overview",
+        "dashboard",
+        "shortcut",
+        "владелец",
+        "админка",
+        "программа владельца",
+        "сводка",
+        "ярлык"
+       ],
+       "images": [
+        {
+         "file": "owner-overview.png",
+         "caption": "Overview in the owner program"
+        },
+        {
+         "file": "anim-owner.gif",
+         "caption": "Animation: how to open the owner program"
+        }
+       ]
+      },
+      {
+       "id": "программа-владельца-как-открыть-раздел-и-свернуть-меню",
+       "title": "How to open a section and collapse the menu",
+       "text": "Шаг 1. Click a section in the menu on the left — it opens across the whole right side of the window, with its name shown at the top.\nШаг 2. To go back, click “Overview” or any other section — the program remembers the sections you opened earlier.\nШаг 3. The ☰ button next to the logo collapses the menu to icons; the section name appears when you hover over an icon.\nШаг 4. “Exit to desktop” is at the bottom of the menu.",
+       "keywords": [
+        "section",
+        "menu",
+        "collapse",
+        "burger",
+        "icons",
+        "exit",
+        "раздел",
+        "меню",
+        "свернуть",
+        "бургер",
+        "иконки",
+        "выйти"
+       ]
+      },
+      {
+       "id": "программа-владельца-калькуляция-как-рассчитать-цену-продажи",
+       "title": "Pricing calculator: how to calculate the selling price",
+       "text": "Шаг 1. Open “Pricing calculator” → the “Price & markup” tab.\nШаг 2. Choose a product from the catalog (its purchase price and current price are filled in) or enter the purchase price manually.\nШаг 3. Choose a calculation method: “From markup %” (price = cost + markup), “From margin %” (margin is the share of profit in the price), or “Check a price”.\nШаг 4. If needed, set the revenue tax and price rounding.\nШаг 5. The right side shows the selling price, profit per unit, tax, markup, and margin.\nВажно: A 30% markup equals a 23% margin. Example: cost 35 som, markup 30% → price 45.50 som.",
+       "keywords": [
+        "pricing calculator",
+        "markup",
+        "margin",
+        "selling price",
+        "calculate price",
+        "калькуляция",
+        "наценка",
+        "маржа",
+        "цена продажи",
+        "рассчитать цену"
+       ],
+       "images": [
+        {
+         "file": "owner-calc-price.png",
+         "caption": "Cost 35 som, markup 30% — price 45.50 som"
+        },
+        {
+         "file": "owner-calc-margin.png",
+         "caption": "Calculation from margin with 1% tax"
+        }
+       ]
+      },
+      {
+       "id": "программа-владельца-калькуляция-себестоимость-партии-проверк",
+       "title": "Pricing calculator: batch cost, price check, break-even, discounts",
+       "text": "Шаг 1. “Batch landed cost”: enter the items from the invoice, the delivery cost, and other expenses — the program distributes them among the products (by amount, quantity, or weight) and suggests a selling price.\nШаг 2. “Price check”: the whole warehouse at purchase and selling prices, plus the average margin; filters: “At or below cost”, “Margin below threshold”, “No cost price”, and “Negative stock”.\nШаг 3. “Break-even & goal”: monthly expenses, margin, and average receipt → how much you need to sell per month and per day; a button fills in the margin and average receipt from the last 30 days of sales.\nШаг 4. “Discount & promo”: how many times more you need to sell so that the discount does not reduce your profit.",
+       "keywords": [
+        "batch",
+        "cost price",
+        "landed cost",
+        "break-even",
+        "price check",
+        "discount",
+        "promotion",
+        "партия",
+        "себестоимость",
+        "безубыточность",
+        "проверка цен",
+        "скидка",
+        "акция"
+       ],
+       "images": [
+        {
+         "file": "owner-calculator.png",
+         "caption": "Pricing calculator"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Returns",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "возвраты-как-вернуть-весь-чек",
+       "title": "How to return a whole receipt",
+       "text": "Шаг 1. Open ☰ → the “Work” section → “Return”.\nШаг 2. In the “Return items from a receipt” window, find the receipt in the list (you can use search) and press “Select”. If the receipt is not in the list, expand “Enter sale ID manually”, enter the number, and press “Load receipt”.\nШаг 3. Press “Return whole receipt”.\nШаг 4. In the “Enter the return reason” window, type the reason and press “Return”.\nШаг 5. Confirm the “Full return” by pressing “Yes”.\nШаг 6. The POS reports “Full receipt return completed.” Give the money back to the customer.",
+       "keywords": [
+        "return",
+        "return receipt",
+        "refund",
+        "cancel sale",
+        "full return",
+        "receipt return",
+        "cancel purchase",
+        "возврат",
+        "вернуть чек",
+        "вернуть деньги",
+        "отмена продажи",
+        "полный возврат",
+        "возврат чека",
+        "отменить покупку"
+       ],
+       "images": [
+        {
+         "file": "kassa-return.png",
+         "caption": "Return: list of receipts"
+        },
+        {
+         "file": "anim-return.gif",
+         "caption": "Animation: returning a whole receipt"
+        }
+       ]
+      },
+      {
+       "id": "возвраты-как-вернуть-часть-товаров-из-чека",
+       "title": "How to return some items from a receipt",
+       "text": "Шаг 1. Open ☰ → “Work” → “Return”.\nШаг 2. Find the receipt and press “Select” — its items appear below.\nШаг 3. Select the products being returned (“All” selects everything, “Clear” clears the selection).\nШаг 4. Press “Return selected”.\nШаг 5. Enter the return reason and confirm.",
+       "keywords": [
+        "partial return",
+        "return product",
+        "return one product",
+        "partial refund",
+        "defective item returned",
+        "частичный возврат",
+        "вернуть товар",
+        "вернуть один товар",
+        "возврат части",
+        "брак вернули"
+       ],
+       "images": [
+        {
+         "file": "kassa-return-selected.png",
+         "caption": "Select the products and press “Return selected”"
+        }
+       ]
+      },
+      {
+       "id": "возвраты-где-посмотреть-оформленные-возвраты",
+       "title": "Where to see completed returns",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Finance”.\nШаг 2. Choose the period: “Today”, “Yesterday”, “Week”, “Month”, or “Custom date”.\nШаг 3. The total amount of returns is shown on the “Returns” tile.\nШаг 4. The detailed list is on the “Returns” tab (date, time, product, quantity, amount, and who processed the return).\nВажно: Returns for a shift are also shown in the shift report (“View shift”).",
+       "keywords": [
+        "where are returns",
+        "returns list",
+        "return history",
+        "how much was returned",
+        "returns report",
+        "refunds",
+        "где возвраты",
+        "список возвратов",
+        "история возвратов",
+        "сколько вернули",
+        "отчёт по возвратам"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Shift and cash register",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "смена-и-касса-как-открыть-смену",
+       "title": "How to open a shift",
+       "text": "Шаг 1. In the top bar, press “Open shift”.\nШаг 2. The window shows the “System balance” — how much money should be in the register.\nШаг 3. In the “Opening amount” field, enter how much cash is in the register right now.\nШаг 4. Press “Open shift”.\nШаг 5. The button in the top bar changes to “Close shift”, and a green open-shift indicator appears in the ☰ menu.\nВажно: You cannot open a second shift until the current one is closed.",
+       "keywords": [
+        "open shift",
+        "start shift",
+        "shift",
+        "start of day",
+        "open register",
+        "start work",
+        "открыть смену",
+        "начать смену",
+        "смена",
+        "начало дня",
+        "открытие кассы",
+        "начать работу"
+       ],
+       "images": [
+        {
+         "file": "kassa-open-shift.png",
+         "caption": "The “Open shift” window"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-закрыть-смену-и-что-показывает-отчёт",
+       "title": "How to close a shift and what the report shows",
+       "text": "Шаг 1. In the top bar, press “Close shift” (if there are still products in the receipt, the POS asks you to confirm).\nШаг 2. The “Close shift (Z-report)” window opens: “Opening amount”, “Total sales”, “Cash”, “Cashless”, and “System balance”.\nШаг 3. Count the cash and enter the amount in “Actual cash balance” — the POS shows the “Discrepancy”.\nШаг 4. Press “Close shift”.\nШаг 5. “View shift” opens: revenue, sales, cash, card, debt, returns, write-offs, expenses, debt payments, discounts, “Cash drawer for the shift” (deposits and withdrawals), and the products sold.\nШаг 6. Press “Print” to print the report, or “Close”.\nВажно: If the owner's Telegram bot is connected, the shift summary is sent to the owner automatically. On the “Start” plan, the extended report lines (returns, write-offs, expenses, and discounts) can be unlocked in Marketplace → “Extras”.",
+       "keywords": [
+        "close shift",
+        "z-report",
+        "z report",
+        "end of day",
+        "shift report",
+        "daily totals",
+        "close register",
+        "закрыть смену",
+        "z-отчёт",
+        "z отчет",
+        "конец дня",
+        "отчёт смены",
+        "итоги дня",
+        "закрытие кассы"
+       ],
+       "images": [
+        {
+         "file": "kassa-close-shift.png",
+         "caption": "Closing the shift (Z-report)"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-изъять-деньги-из-кассы",
+       "title": "How to take money out of the register",
+       "text": "Шаг 1. The shift must be open and the current receipt must be empty.\nШаг 2. Press “Extra service” under the receipt.\nШаг 3. Set the “Type” to “Expense”.\nШаг 4. In “Name”, enter the reason (for example, “getting change” or “supplier payment”), and in “Amount”, enter how much you are taking.\nШаг 5. Press “Add” — the POS records the withdrawal (“Withdrawal completed”) and prints an expense slip.\nВажно: Withdrawals are shown in the shift report (“Withdrawals (expense)”) and in “Finance” → “Analytics” → “Expenses (withdrawals)”. There is no separate “Cash in” button on the POS screen.",
+       "keywords": [
+        "withdrawal",
+        "cash out",
+        "take money",
+        "expense from register",
+        "take from register",
+        "payout",
+        "cash collection",
+        "изъятие",
+        "забрать деньги",
+        "расход из кассы",
+        "взять из кассы",
+        "выдача",
+        "инкассация"
+       ],
+       "images": [
+        {
+         "file": "kassa-cash-ops.png",
+         "caption": "☰ → “Cash in / cash out”"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-посмотреть-сколько-денег-в-кассе",
+       "title": "How to see how much money is in the register",
+       "text": "Шаг 1. Look at the top bar — it shows “Register: N som”.\nШаг 2. Or open ☰: the top of the menu shows the shift status, the amount, and the cashier's name.\nШаг 3. For an exact reconciliation, check the “System balance” line when closing the shift.",
+       "keywords": [
+        "how much money",
+        "register balance",
+        "cash balance",
+        "register som",
+        "cash in register",
+        "money in drawer",
+        "сколько денег",
+        "остаток в кассе",
+        "баланс кассы",
+        "касса сом",
+        "наличные в кассе",
+        "деньги в ящике"
+       ],
+       "images": [
+        {
+         "file": "kassa-menu.png",
+         "caption": "Register balance — in the ☰ menu and in the top bar"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-посмотреть-прошлые-смены-и-их-отчёты",
+       "title": "How to view past shifts and their reports",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Finance”.\nШаг 2. In the “Finance” window, press ☰ in the top left corner and choose “Shift”.\nШаг 3. Switch between “Open” and “Closed”.\nШаг 4. Tap a shift card — “View shift” opens with the totals and a “Print” button.\nШаг 5. To go back, press “←”.\nВажно: You can close another register's open shift right here with the “Close shift” button on its card.",
+       "keywords": [
+        "shift history",
+        "past shifts",
+        "closed shifts",
+        "shift report",
+        "shifts",
+        "yesterday's shift",
+        "история смен",
+        "прошлые смены",
+        "закрытые смены",
+        "отчёт за смену",
+        "смены",
+        "вчерашняя смена"
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-сменить-кассира",
+       "title": "How to switch cashiers",
+       "text": "Шаг 1. Open ☰ → “Switch cashier”.\nШаг 2. In the “Switch cashier” window, enter the next cashier's “Email” and “Password”.\nШаг 3. Press “Switch”.\nШаг 4. The current shift is closed as usual; the new cashier works in their own shift.\nВажно: Nothing changes until the correct login details are entered. The POS remembers the new cashier's login — there is no need to sign in again after a restart.",
+       "keywords": [
+        "switch cashier",
+        "shift change",
+        "another cashier",
+        "change cashier",
+        "hand over register",
+        "relief cashier",
+        "сменить кассира",
+        "пересменка",
+        "другой кассир",
+        "смена кассира",
+        "передать кассу",
+        "сменщик"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Products",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "товары-как-найти-товар",
+       "title": "How to find a product",
+       "text": "Шаг 1. On the main screen, click in the “Search product…” field above the catalog (or press Ctrl+F).\nШаг 2. Type a name, barcode, or article number — the list is filtered instantly.\nШаг 3. To narrow the results, click “Filter”: “Product type”, “Category”, “Brand”, “Price from” / “Price to”, “In-stock products only” → “Apply”.\nШаг 4. The “All products”, “Weighed”, “Piece items”, “Singles from pack”, “Bundles”, and “Services” tabs show only products of that type.\nШаг 5. To see stock levels and barcodes in a list, click the “Product view” button next to the search box and choose “Table view”.\nВажно: Esc clears the search box and switches the POS back to scanner input.",
+       "keywords": [
+        "find product",
+        "search",
+        "filter",
+        "where is the product",
+        "look up",
+        "search by barcode",
+        "article number",
+        "SKU",
+        "найти товар",
+        "поиск",
+        "фильтр",
+        "где товар",
+        "искать",
+        "поиск по штрихкоду",
+        "артикул"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-новый-товар",
+       "title": "How to add a new product",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Click “+ Create product”.\nШаг 3. At the top, choose the type: “Product”, “Service”, or “Bundle”.\nШаг 4. Fill in “Name”, “SKU”, “Barcode” (scan it or click “Generate”), “Unit”, and “Stock”; for a product sold by weight, turn on “Weighed product”.\nШаг 5. In the “Prices” block, enter the “Purchase price”, “Markup, %”, and “Selling price”.\nШаг 6. If needed, expand “Category, brand and additional barcodes” and “More (wholesale price, discount, hotkey, characteristics)”.\nШаг 7. Click “Add”.\nВажно: An employee without a “Product-add code” (Settings → “Employees”) cannot add products. If you scan an unknown barcode at the POS, the POS offers “Add to warehouse” automatically.",
+       "keywords": [
+        "add product",
+        "new product",
+        "create product",
+        "register product",
+        "product card",
+        "add new item",
+        "добавить товар",
+        "новый товар",
+        "создать товар",
+        "завести товар",
+        "карточка товара",
+        "оприходовать новый"
+       ]
+      },
+      {
+       "id": "товары-как-изменить-цену-или-карточку-товара",
+       "title": "How to change a product's price or details",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product using “Search by product name…”.\nШаг 3. Click the “Edit” button (pencil icon) in the “Actions” column.\nШаг 4. Change the “Selling price” (and other fields if needed: name, barcode, stock, category).\nШаг 5. Click “Save”.\nШаг 6. The POS will ask for an access code if one is set for the employee.\nВажно: A “Product-edit code” is required. The new price appears in the POS catalog right after saving.",
+       "keywords": [
+        "change price",
+        "edit price",
+        "price",
+        "repricing",
+        "edit product",
+        "fix product",
+        "изменить цену",
+        "поменять цену",
+        "цена",
+        "переоценка",
+        "редактировать товар",
+        "исправить товар"
+       ]
+      },
+      {
+       "id": "товары-как-удалить-товар",
+       "title": "How to delete a product",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product and click “Delete” (trash can icon) in the “Actions” column.\nШаг 3. Confirm “Delete product”.\nШаг 4. Enter your access code if the POS asks for it.\nВажно: The product disappears from the NurCRM catalog and from the POS; this cannot be undone. A “Warehouse-delete code” is required.",
+       "keywords": [
+        "delete product",
+        "remove product",
+        "delete from warehouse",
+        "unneeded product",
+        "duplicate product",
+        "удалить товар",
+        "убрать товар",
+        "удалить со склада",
+        "лишний товар",
+        "дубль товара"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-фото-товара",
+       "title": "How to add a product photo",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product and click “Photo” in the “Actions” column.\nШаг 3. Choose an image file on your computer.\nШаг 4. The photo appears on the product tile in the catalog.\nВажно: To show photos in the catalog, turn on Settings → “Screen” → “Show product photos in the catalog”.",
+       "keywords": [
+        "photo",
+        "picture",
+        "product image",
+        "image",
+        "upload photo",
+        "фото",
+        "картинка",
+        "изображение товара",
+        "фотография",
+        "загрузить фото"
+       ]
+      },
+      {
+       "id": "товары-как-завести-услугу",
+       "title": "How to create a service",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse” → “+ Create product”.\nШаг 2. At the top, choose “Service”.\nШаг 3. Enter the “Name” and “Selling price”.\nШаг 4. Click “Add”.\nШаг 5. The service appears on the “Services” tab in the POS catalog.\nВажно: Services are sold without tracking stock — the POS never asks you to restock them. A one-off service without a product card can be added with the “Extra service” button under the receipt.",
+       "keywords": [
+        "service",
+        "services",
+        "create service",
+        "work",
+        "labor",
+        "no stock",
+        "услуга",
+        "услуги",
+        "создать услугу",
+        "работа",
+        "сервис",
+        "без остатка"
+       ]
+      },
+      {
+       "id": "товары-как-создать-комплект",
+       "title": "How to create a bundle",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse” → “+ Create product”.\nШаг 2. At the top, choose “Bundle”.\nШаг 3. Enter the “Name” and the price.\nШаг 4. In the “Bundle contents” block, click “Select products”, select the products (you can search or use “Select all”), and click “Add”.\nШаг 5. Click “Add” at the bottom of the card.\nШаг 6. The bundle is sold from the “Bundles” tab in the catalog.",
+       "keywords": [
+        "bundle",
+        "kit",
+        "set",
+        "gift set",
+        "bundle contents",
+        "product set",
+        "комплект",
+        "набор",
+        "подарочный набор",
+        "бандл",
+        "состав комплекта",
+        "набор товаров"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-категорию-или-бренд",
+       "title": "How to add a category or brand",
+       "text": "Шаг 1. Open the product card: ☰ → “Warehouse” → “+ Create product”, or “Edit” on an existing product.\nШаг 2. Expand “Category, brand and additional barcodes”.\nШаг 3. Click the “Category” (or “Brand”) button with the ▾ arrow — a list opens.\nШаг 4. Pick an existing entry, or type a new one in the “New category” / “New brand” field and click “+ Create”.\nШаг 5. Save the product.\nВажно: You can then easily filter the catalog by category and brand with the “Filter” button.",
+       "keywords": [
+        "category",
+        "brand",
+        "create category",
+        "product group",
+        "manufacturer",
+        "section",
+        "категория",
+        "бренд",
+        "создать категорию",
+        "группа товаров",
+        "производитель",
+        "раздел"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-дополнительный-штрихкод-вариант-товара",
+       "title": "How to add an extra barcode (product variant)",
+       "text": "Шаг 1. Open the product card with the “Edit” button in the warehouse.\nШаг 2. Expand “Category, brand and additional barcodes”.\nШаг 3. Under “Additional barcodes”, enter the “Extra barcode”, the variant name (for example, “strawberry”), and “Qty per pack”.\nШаг 4. Click “Add barcode”, then “Save”.\nВажно: No new product is created: when this barcode is scanned, the receipt shows a combined name, for example “Asu water” + “Strawberry”.",
+       "keywords": [
+        "extra barcode",
+        "second barcode",
+        "variant",
+        "flavor",
+        "multiple barcodes",
+        "another barcode",
+        "доп штрихкод",
+        "второй штрихкод",
+        "вариант",
+        "вкус",
+        "несколько штрихкодов",
+        "другой штрихкод"
+       ]
+      },
+      {
+       "id": "товары-как-настроить-поштучную-продажу-из-упаковки",
+       "title": "How to set up selling individual pieces from a pack",
+       "text": "Шаг 1. Open the product card with the “Edit” button in the warehouse.\nШаг 2. Select the “Sell individually from a pack” check box.\nШаг 3. Enter the “Quantity per pack” and “Price per piece”.\nШаг 4. Click “Save” — the product appears on the “Singles from pack” tab.",
+       "keywords": [
+        "by the piece",
+        "pack",
+        "package",
+        "price per piece",
+        "sell single pieces",
+        "piece sale",
+        "поштучно",
+        "пачка",
+        "упаковка",
+        "цена за штуку",
+        "продавать по штуке",
+        "штучная продажа"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Labels and price tags",
+     "articles": [
+      {
+       "id": "товары-как-напечатать-этикетку-со-штрихкодом",
+       "title": "How to print a barcode label",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab in “List” view.\nШаг 2. Find the product and click “Print” in the “Actions” column.\nШаг 3. In the “Print label” window, choose the “Printer” and the “Number of copies”.\nШаг 4. Click “Print”.\nВажно: If the product has no barcode, the window shows “No barcode to print” — add one in the product card (“Generate”).",
+       "keywords": [
+        "label",
+        "print barcode",
+        "sticker",
+        "print label",
+        "barcode sticker",
+        "print a barcode",
+        "этикетка",
+        "штрихкод печать",
+        "наклейка",
+        "печать этикетки",
+        "стикер",
+        "распечатать штрихкод"
+       ]
+      },
+      {
+       "id": "товары-как-напечатать-ценник",
+       "title": "How to print a price tag",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Find the product and click “Price tag” in the “Actions” column.\nШаг 3. Choose the “Price tag template” and, if needed, fill in “Old price (struck through)” and “Discount (e.g., -20%)”.\nШаг 4. Under “Print to”, choose “Thermal label printer” or “Regular printer (A4)”, then set the “Printer” and the “Number of copies”.\nШаг 5. Click “Print”.\nВажно: Price tag printing is a paid add-on: the first time you use it, the POS asks for the “Price tag editor” serial number.",
+       "keywords": [
+        "price tag",
+        "print price tag",
+        "price tags",
+        "sale price tag",
+        "old price",
+        "shelf price",
+        "ценник",
+        "печать ценника",
+        "ценники",
+        "акция ценник",
+        "старая цена",
+        "прайс на полку"
+       ]
+      },
+      {
+       "id": "товары-как-напечатать-ценники-сразу-на-много-товаров",
+       "title": "How to print price tags for many products at once",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Products” tab.\nШаг 2. Click “Bulk print price tags”.\nШаг 3. Find and select the products (“Select all” / “Clear selection”).\nШаг 4. Choose the “Price tag template”, “Print to”, “Copies per product”, and “Printer”.\nШаг 5. Click “Print”.\nВажно: “Bulk price tag printing” is a separate paid add-on — it is activated with a serial number.",
+       "keywords": [
+        "bulk printing",
+        "many price tags",
+        "all price tags",
+        "batch price tags",
+        "repricing price tags",
+        "массовая печать",
+        "много ценников",
+        "все ценники",
+        "ценники пачкой",
+        "переоценка ценники"
+       ]
+      },
+      {
+       "id": "товары-как-изменить-внешний-вид-этикетки",
+       "title": "How to change the label layout",
+       "text": "Шаг 1. Open ☰ → “Warehouse” → the “Label editor” tab → “Open editor” (or click “Label editor” in the label printing window).\nШаг 2. Set “Label width, mm” and “Label height, mm”, or choose a “Template”.\nШаг 3. Drag blocks with the mouse; resize a block by dragging its dark corner. Turn on the elements you need: “Barcode”, “SKU”, “Unit”, and “Store name”.\nШаг 4. Check the result in “Print preview” or with the “Test print” button.\nШаг 5. “Reset to default” restores the original layout.\nВажно: The label editor is a paid add-on: the first time you open it, the POS asks for a serial number. Regular label printing is free.",
+       "keywords": [
+        "label editor",
+        "label size",
+        "label template",
+        "layout",
+        "58 mm label",
+        "label design",
+        "редактор этикетки",
+        "размер этикетки",
+        "шаблон этикетки",
+        "макет",
+        "этикетка 58",
+        "дизайн этикетки"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-label.png",
+         "caption": "Warehouse → “Label editor”"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+  },
+  {
+   "title": "Warehouse",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "склад-как-посмотреть-остатки-товаров",
+       "title": "How to view product stock",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”.\nШаг 2. On the “Products” tab, the “Stock” column shows how much of each product is in stock.\nШаг 3. Search using “Search by product name…” and filter by “Sale unit”: “All”, “Weighed”, “Piece items”, or “Singles from pack”.\nШаг 4. Switch between the “List” and “Tiles” views.\nВажно: On the main screen, you can also see stock levels in the catalog in “Table view” mode.",
+       "keywords": [
+        "stock",
+        "stock levels",
+        "how many left",
+        "warehouse",
+        "availability",
+        "quantity on hand",
+        "остаток",
+        "остатки",
+        "сколько осталось",
+        "склад",
+        "наличие",
+        "сколько товара"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse.png",
+         "caption": "Warehouse → “Products”"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-оформить-приёмку-товара-от-поставщика",
+       "title": "How to receive goods from a supplier",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Receiving” tab.\nШаг 2. Click the “Supplier” ▾ button and choose the supplier, then select “Paid now” or “Owed to supplier”.\nШаг 3. Scan the items on the invoice or type a barcode in the “Scan or type a barcode…” field (enter the quantity in the field next to it); you can also click “Pick from list”.\nШаг 4. An unknown barcode is added as a new row — enter its name.\nШаг 5. In the table, check “Received”, “Purchase price”, and “Selling price”; remove an unneeded row with the “Remove” button.\nШаг 6. Click “Receive” — the POS shows “Received: N items for … som”.\nВажно: Receiving creates new products, adds to stock, and records the prices in the purchase history.",
+       "keywords": [
+        "receiving",
+        "goods receipt",
+        "receive goods",
+        "invoice",
+        "supplier",
+        "delivery",
+        "accept goods",
+        "purchase",
+        "приёмка",
+        "приход",
+        "оприходовать",
+        "накладная",
+        "поставщик",
+        "завоз",
+        "принять товар",
+        "закупка"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-receiving.png",
+         "caption": "Warehouse → “Receiving”"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-провести-ревизию-инвентаризацию",
+       "title": "How to run a stocktake (inventory count)",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Stocktake (inventory)” tab.\nШаг 2. Scan products with the scanner or find them using “Search by product name to add to the stocktake…”.\nШаг 3. Each product row shows the “Expected stock”; enter the “Actual stock” — the POS calculates the “Difference”.\nШаг 4. When all products have been counted, click “Finalize stocktake”.\nШаг 5. The POS reports “Stocktake completed.” and the stock levels are updated.\nВажно: A stocktake requires an internet connection.",
+       "keywords": [
+        "stocktake",
+        "inventory",
+        "recount",
+        "count products",
+        "stock audit",
+        "shortage",
+        "inventory count",
+        "physical inventory",
+        "ревизия",
+        "инвентаризация",
+        "пересчёт",
+        "пересчитать товар",
+        "учёт остатков",
+        "недостача"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-revision.png",
+         "caption": "Warehouse → “Stocktake”"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-списать-товар",
+       "title": "How to write off a product",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Write-off” tab.\nШаг 2. Find the product using the “Start typing the product name…” field, or scan it.\nШаг 3. Enter the “Quantity to write off”.\nШаг 4. Click “Write-off reason” and choose “Defect”, “Expired”, “Damaged packaging”, “Written off for personal use”, or “Other”.\nШаг 5. Click “Confirm write-off” — the POS reports “Write-off completed.”\nВажно: An internet connection is required, and you cannot write off more than is in stock. Past write-offs are in the “Write-off history” block (the “Expand ⤢” button).",
+       "keywords": [
+        "write-off",
+        "write off",
+        "defect",
+        "expired",
+        "spoiled",
+        "damage",
+        "personal use",
+        "списание",
+        "списать",
+        "брак",
+        "просрочка",
+        "испорчен",
+        "порча",
+        "для себя"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-writeoff.png",
+         "caption": "Warehouse → “Write-off”"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-оформить-перемещение-товара-между-точками",
+       "title": "How to transfer goods between locations",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Transfers” tab, “Documents” section.\nШаг 2. Click “+ New transfer”.\nШаг 3. Fill in “From”, “To”, and “Assignee”, and, if needed, “Carrier”, “Tracking number”, and “Batch weight”.\nШаг 4. Add products under “Contents”: enter a barcode or name and click “+ Add”, or use “Pick from list”.\nШаг 5. Click “Ship” — the status becomes “In transit”; at the destination, click “Receive” — the status becomes “Delivered”. You can cancel with the “Cancel” button.\nШаг 6. You can export the waybill with the “Excel”, “Word”, or “CSV” buttons and attach documents on the “Documents” tab.\nВажно: A transfer is only a record on this POS: it does not change stock on the server and is not visible on other POS terminals.",
+       "keywords": [
+        "transfer",
+        "move goods",
+        "another store",
+        "branch",
+        "between locations",
+        "waybill",
+        "stock transfer",
+        "перемещение",
+        "переместить",
+        "другой магазин",
+        "филиал",
+        "между точками",
+        "накладная",
+        "трансфер"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-transfer.png",
+         "caption": "Warehouse → “Transfers”"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-посмотреть-движение-товара-и-историю-закупок",
+       "title": "How to view product movement and purchase history",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Transfers” tab, “Stock movements” section.\nШаг 2. Choose the period (“Week”, “Month”, or “Quarter”) and find the product using “Search by product name…”.\nШаг 3. The table shows “Sale” and “Write-off” operations with the date and quantity.\nШаг 4. To see a specific product's purchase history, open its card: “Edit” → the “Purchase history” section.",
+       "keywords": [
+        "product movement",
+        "stock flow",
+        "purchase history",
+        "purchases",
+        "where did the product go",
+        "product sales",
+        "purchase price",
+        "движение товара",
+        "история закупок",
+        "закупки",
+        "куда ушёл товар",
+        "продажи товара",
+        "цена закупки"
+       ]
+      },
+      {
+       "id": "склад-как-загрузить-много-товаров-из-csv-файла",
+       "title": "How to upload many products from a CSV file",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, go to the “Products” tab, and click “Bulk import”.\nШаг 2. Click “Download CSV template” and fill it in (for example, in Excel) with your product list.\nШаг 3. Click “Choose file…” and select the filled-in file.\nШаг 4. Check the table: each row shows whether a “New product” will be created or an existing product will be updated.\nШаг 5. Click “Start import” and wait for “Done: created …, updated …, errors …”.\nВажно: Products are matched by barcode. “Qty” in the file is the new stock level, not an amount to add; empty columns in the file leave product data unchanged.",
+       "keywords": [
+        "csv",
+        "product upload",
+        "import",
+        "bulk import",
+        "excel",
+        "supplier list",
+        "many products",
+        "загрузка товаров",
+        "импорт",
+        "массовая загрузка",
+        "список от поставщика",
+        "много товаров"
+       ]
+      },
+      {
+       "id": "склад-как-узнать-что-пора-заказать-и-следить-за-сроками-годн",
+       "title": "How to know when to reorder and track expiry dates",
+       "text": "Шаг 1. Open ☰ → “Work” → “Restock and expiry”.\nШаг 2. On the “Restock” tab, choose the period used to calculate the sales rate (“Week” or “Month”).\nШаг 3. Look at the “Stock”, “Sales/day”, and “Days left” columns.\nШаг 4. If there is not enough sales history, click “Pull history from server”.\nШаг 5. The “Expiry dates” tab shows “Received”, “Expires on”, and how many days are left.\nВажно: The expiry date is a rough estimate based on the product category, not the date printed on the package.",
+       "keywords": [
+        "restock",
+        "what to order",
+        "expiry dates",
+        "running out",
+        "forecast",
+        "expiring soon",
+        "пополнение",
+        "что заказать",
+        "сроки годности",
+        "заканчивается",
+        "прогноз",
+        "просрочка скоро"
+       ],
+       "images": [
+        {
+         "file": "owner-restock.png",
+         "caption": "The “Restock and expiry” section"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-посмотреть-аналитику-склада",
+       "title": "How to view warehouse analytics",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse”, then the “Analytics” tab.\nШаг 2. Look at “Total products (SKUs)”, “Out of stock”, “Low stock”, “Stock value at purchase price”, and “Stock value at selling price”.\nШаг 3. Below are “Top 10 products by stock value” and the “By category” breakdown.\nВажно: Warehouse analytics is a paid add-on, enabled with a serial number (the “Activate” button).",
+       "keywords": [
+        "warehouse analytics",
+        "stock value",
+        "how much money in stock",
+        "out of stock",
+        "low stock",
+        "аналитика склада",
+        "стоимость склада",
+        "сколько денег в товаре",
+        "нет в наличии",
+        "низкий остаток"
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+  },
+  {
+   "title": "Clients and debts",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "клиенты-и-долги-как-добавить-клиента",
+       "title": "How to add a client",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Clients”.\nШаг 2. In the “New client” block, fill in “Name / full name” and “Phone”, and optionally the address and email.\nШаг 3. Click “+ Add”.\nШаг 4. The client appears in the list; click the row to open the “Client card”, where you can edit the details and click “Save”.\nВажно: You can also add a client during payment: “Choose client” → “New client” → “+ Add client”. The “Clients” section is available on the “Standard” plan and higher.",
+       "keywords": [
+        "add client",
+        "new client",
+        "client",
+        "customer",
+        "client base",
+        "contact",
+        "добавить клиента",
+        "новый клиент",
+        "клиент",
+        "покупатель",
+        "база клиентов",
+        "контакт"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-посмотреть-покупки-клиента",
+       "title": "How to view a client's purchases",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Clients”.\nШаг 2. Search for the client by name or phone number.\nШаг 3. Click the row — the “Client card” opens.\nШаг 4. In the “Purchases” block, click “Purchase history”.",
+       "keywords": [
+        "purchase history",
+        "what did they buy",
+        "client purchases",
+        "client card",
+        "client bought",
+        "история покупок",
+        "что покупал",
+        "покупки клиента",
+        "карточка клиента",
+        "клиент купил"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-принять-оплату-долга",
+       "title": "How to accept a debt payment",
+       "text": "Шаг 1. Under the receipt, click “⋮ More” → “Pay debt” (or ☰ → “Info and clients” → “Pay debt”).\nШаг 2. Find the client by name or phone number.\nШаг 3. The “Unsettled” tab shows the client's credit sales and the “Amount due”.\nШаг 4. If the client is paying only part of the debt, change the amount in the “Amount due” column.\nШаг 5. Click “Pay” in the corresponding row.\nШаг 6. See past payments on the “History” tab.\nВажно: The amount cannot exceed the remaining debt.",
+       "keywords": [
+        "debt payment",
+        "pay off debt",
+        "debt repaid",
+        "accept debt",
+        "debtor paid",
+        "credit",
+        "client debts",
+        "debtors",
+        "debt list",
+        "оплата долга",
+        "погасить долг",
+        "вернул долг",
+        "принять долг",
+        "должник заплатил",
+        "насия",
+        "долги клиентов",
+        "должники",
+        "список долгов"
+       ],
+       "images": [
+        {
+         "file": "kassa-pay-debt.png",
+         "caption": "☰ → “Info and clients” → “Pay debt”"
+        }
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-отправить-клиенту-напоминание-о-долге-в-",
+       "title": "How to send a client a debt reminder via Telegram",
+       "text": "Шаг 1. Open ☰ → “Clients” and click the client.\nШаг 2. In the “Telegram bot” block, click “Copy link” and send it to the client (via WhatsApp or SMS).\nШаг 3. The client opens the link and taps “Start”.\nШаг 4. Then, in Settings → “Operations” → “Owner's Telegram bot”, click “Send debt reminders”.\nВажно: Telegram does not let bots message people by phone number: only clients who have subscribed get the reminder; for the rest, the bot sends you a list of WhatsApp links.",
+       "keywords": [
+        "debt reminder",
+        "telegram to client",
+        "debtors",
+        "mass message",
+        "remind about debt",
+        "whatsapp",
+        "напоминание о долге",
+        "telegram клиенту",
+        "должники",
+        "рассылка",
+        "напомнить долг"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-подключить-бонусную-программу",
+       "title": "How to turn on the loyalty (bonus points) program",
+       "text": "Шаг 1. Open ☰ → “System” → “Marketplace”, then the “Extras” tab.\nШаг 2. On the “Loyalty program” card, click “Activate” and enter the serial number.\nШаг 3. Then open Settings → “Operations” → “Loyalty program”.\nШаг 4. Set the “Earn rate, % of receipt total”.\nВажно: 1 point = 1 som. Points are earned on the receipt total after discounts and are stored only on this POS. A client's balance is shown in the “Points” column of the “Clients” section.",
+       "keywords": [
+        "bonuses",
+        "bonus program",
+        "loyalty",
+        "points",
+        "cashback",
+        "rewards",
+        "loyalty program",
+        "bonus points",
+        "бонусы",
+        "бонусная программа",
+        "лояльность",
+        "баллы",
+        "кешбэк",
+        "накопительная"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-списать-бонусы-клиента-при-оплате",
+       "title": "How to redeem a client's points at payment",
+       "text": "Шаг 1. Add the products to the receipt and click “Pay”.\nШаг 2. Click “Choose client” and select the customer.\nШаг 3. The line “Points available: N som” appears.\nШаг 4. In the “Redeem points (som)” field, enter how many points to spend.\nШаг 5. Click “Pay N som” — points for this purchase are credited automatically.",
+       "keywords": [
+        "redeem points",
+        "pay with points",
+        "points",
+        "spend bonuses",
+        "bonus",
+        "списать бонусы",
+        "оплатить бонусами",
+        "баллы",
+        "потратить бонусы",
+        "бонус"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Reports and analytics",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-выручку-в-финансы",
+       "title": "How to view revenue in “Finance”",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Finance”.\nШаг 2. Choose the period: “Today”, “Yesterday”, “Week”, “Month”, or “Custom date” (set the “From” and “To” dates → “Apply”).\nШаг 3. The tiles at the top show “Revenue”, “Returns”, “Cash”, “Cashless”, “Average receipt”, and “Receipts”.\nШаг 4. The tabs are “Sales” (list of receipts), “Analytics” (profit, margin, expenses, charts), “ABC analysis”, “Returns”, and “History”.\nШаг 5. Click “Refresh” to load fresh data.\nВажно: The ☰ menu in the “Finance” window also has “Shift” (open and closed shifts) and “Products” (popular, unpopular, and all products).",
+       "keywords": [
+        "finance",
+        "revenue",
+        "report",
+        "profit",
+        "how much we earned",
+        "daily takings",
+        "margin",
+        "финансы",
+        "выручка",
+        "отчёт",
+        "прибыль",
+        "сколько заработали",
+        "касса за день",
+        "маржа"
+       ],
+       "images": [
+        {
+         "file": "owner-finance.png",
+         "caption": "The “Finance” section"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-историю-чеков-продажи",
+       "title": "How to view receipt history (Sales)",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Sales”.\nШаг 2. Choose the period: “Today”, “Yesterday”, “Week”, “Month”, or “Custom date”.\nШаг 3. The totals at the top: “Revenue”, “Returns”, “Cash”, “Cashless”, “Average receipt”, “Receipts”, “Discounts”, and “Paid with points”.\nШаг 4. Double-click a receipt to see its contents; the “Print receipt” button is there too.",
+       "keywords": [
+        "sales",
+        "receipt history",
+        "list of receipts",
+        "find receipt",
+        "receipts for the day",
+        "sales log",
+        "продажи",
+        "история чеков",
+        "список чеков",
+        "найти чек",
+        "чеки за день",
+        "журнал продаж"
+       ],
+       "images": [
+        {
+         "file": "owner-sales.png",
+         "caption": "The “Sales” section"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-сделать-abc-анализ",
+       "title": "How to run an ABC analysis",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “ABC analysis”.\nШаг 2. Choose the period: “Today”, “Week”, “Month”, or “Quarter”.\nШаг 3. Group A contains the products that bring in the first 80% of the result, group B the next 15%, and group C the remaining 5%.\nШаг 4. To export, click “Excel” or “Word”.",
+       "keywords": [
+        "abc",
+        "abc analysis",
+        "most profitable products",
+        "best sellers",
+        "poor sellers",
+        "assortment analysis",
+        "abc-анализ",
+        "какие товары выгодные",
+        "лидеры продаж",
+        "плохо продаются",
+        "анализ ассортимента"
+       ],
+       "images": [
+        {
+         "file": "owner-abc.png",
+         "caption": "The “ABC analysis” section"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-зарплату-сотрудников",
+       "title": "How to view employee salaries",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Salary”.\nШаг 2. Choose the period: “This month”, “Last month”, or “7 days”.\nШаг 3. The totals at the top: “Payable for the period”, “Salaries for the period”, “Percentages and commissions”, and “Employee sales”.\nШаг 4. For each employee, the table shows “Scheme”, “Salary for period”, “Sales as cashier”, “Sales as consultant”, “Consultant commission”, and “Payable”.\nВажно: To change an employee's pay scheme, use the “Scheme” button in this window.",
+       "keywords": [
+        "salary",
+        "wages",
+        "pay",
+        "base salary",
+        "payable",
+        "seller commission",
+        "how much the employee earned",
+        "зарплата",
+        "зп",
+        "оклад",
+        "к выплате",
+        "процент продавцу",
+        "сколько заработал сотрудник"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-выгрузить-отчёт-в-excel-или-word",
+       "title": "How to export a report to Excel or Word",
+       "text": "Шаг 1. Open “Finance”, “Sales”, or “ABC analysis” (☰ → “Info and clients”).\nШаг 2. Choose the period you need.\nШаг 3. Click “Excel” or “Word” in the top row.\nШаг 4. Choose a folder to save the file.\nВажно: On the “Start” plan, export to Excel and Word is unlocked in Marketplace → “Extras”.",
+       "keywords": [
+        "excel",
+        "word",
+        "export",
+        "download report",
+        "report to file",
+        "save report",
+        "выгрузить",
+        "экспорт",
+        "скачать отчёт",
+        "отчёт в файл"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-подключить-телеграм-бот-отчётов-владе",
+       "title": "How to connect the owner's Telegram report bot",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Operations” → “Owner's Telegram bot” → “Connect the bot (step by step)”.\nШаг 2. Wizard step 1: click “Open BotFather”, send /newbot, choose a name for the bot, and get the token.\nШаг 3. Paste the token (“Paste from clipboard”) and click “Check token”.\nШаг 4. Click “Open my bot”, tap “Start” in Telegram, then click “Detect recipient”.\nШаг 5. Click “Send test message”, turn on “Send a summary when the shift closes” and “Reply to commands in Telegram”, and then click “Done”.\nВажно: Commands: /segodnya, /nedelya, /top, /abc, /sezon, /soveti, /zakaz, /ostatki, /dolgi. The bot replies only while the POS is running. On the “Start” plan, the bot is unlocked in Marketplace → “Extras”.",
+       "keywords": [
+        "telegram",
+        "bot",
+        "telegram report",
+        "shift summary",
+        "owner notifications",
+        "botfather",
+        "телеграм",
+        "бот",
+        "отчёт в телеграм",
+        "сводка смены",
+        "уведомления владельцу"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-некорректные-чеки",
+       "title": "How to view irregular receipts",
+       "text": "Шаг 1. Open ☰ → “Work” → “Irregular receipts”.\nШаг 2. The list shows receipts that did not go through normally: “Not enough stock”, “Error sending to the server”, and “In progress (awaiting upload)”.\nШаг 3. Click “View” to open a receipt, or “Print receipt” to print it.\nШаг 4. To resend receipts that failed to send, click “Resend”.",
+       "keywords": [
+        "irregular receipts",
+        "sending error",
+        "receipt not sent",
+        "problem receipts",
+        "reconciliation",
+        "некорректные чеки",
+        "ошибка отправки",
+        "не отправился чек",
+        "проблемные чеки",
+        "сверка"
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+  },
+  {
+   "title": "Employees",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "сотрудники-как-добавить-сотрудника",
+       "title": "How to add an employee",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Employees”.\nШаг 2. If there are no roles yet, click “+ Add role” and enter the “Role name”.\nШаг 3. Click “+ Add employee” and fill in “Email”, “First name”, “Last name”, and “Role” (all fields are required).\nШаг 4. Click “Create” — the POS shows the employee's login and password; copy them (“Copy”) and click “Done”.\nШаг 5. Enter the employee's access codes and click “Save”.\nВажно: The password is shown only once — give it to the employee right away. To import employees already created on the website, use the “Load from website” button.",
+       "keywords": [
+        "add employee",
+        "new employee",
+        "cashier",
+        "seller",
+        "staff member",
+        "cashier login",
+        "добавить сотрудника",
+        "новый сотрудник",
+        "кассир",
+        "продавец",
+        "работник",
+        "логин кассира"
+       ]
+      },
+      {
+       "id": "сотрудники-как-задать-коды-доступа-сотруднику",
+       "title": "How to set access codes for an employee",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Employees”.\nШаг 2. Click the employee's card.\nШаг 3. Fill in “Cart-delete code”, “Warehouse-delete code”, “Product-edit code”, and “Product-add code”.\nШаг 4. Click “Done”, then “Save”.\nВажно: If a code is left empty, that action is blocked for the employee. The owner and administrators don't need codes. Section permissions (the “Access” lock button next to the employee's card) are also granted in NurCRM.",
+       "keywords": [
+        "access code",
+        "pin code",
+        "employee password",
+        "permissions",
+        "forbid deleting",
+        "delete code",
+        "код доступа",
+        "пин код",
+        "пароль сотрудника",
+        "права",
+        "запретить удаление",
+        "код на удаление"
+       ]
+      },
+      {
+       "id": "сотрудники-как-посмотреть-табель-сотрудников",
+       "title": "How to view the staff timesheet",
+       "text": "Шаг 1. Open ☰ → “Work” → “Staff timesheet”.\nШаг 2. Set the period (“From date…” — “To date…”) and click “Refresh”, or click “All time”.\nШаг 3. For each cashier, the table shows “Shifts”, “Days”, “Total hours”, “Average shift”, “Revenue”, and “First — last shift”.\nВажно: Only closed shifts are counted. The timesheet is part of the paid “Staff management” add-on (Marketplace → “Extras”).",
+       "keywords": [
+        "timesheet",
+        "working hours",
+        "employee shifts",
+        "time tracking",
+        "hours worked",
+        "schedule",
+        "табель",
+        "часы работы",
+        "смены сотрудников",
+        "учёт времени",
+        "сколько отработал",
+        "график"
+       ]
+      },
+      {
+       "id": "сотрудники-как-настроить-схему-зарплаты-сотрудника",
+       "title": "How to set up an employee's pay scheme",
+       "text": "Шаг 1. Open ☰ → “Info and clients” → “Salary”.\nШаг 2. Click “Scheme” next to the employee.\nШаг 3. In the “Sales-based pay” window, choose “Salary”, “Sales percentage”, or “Salary + sales percentage”.\nШаг 4. Fill in “Monthly salary” and/or “Percentage of own sales”.\nШаг 5. Click “Save”.",
+       "keywords": [
+        "salary scheme",
+        "fixed salary",
+        "sales percentage",
+        "commission",
+        "payroll",
+        "employee salary",
+        "pay rate",
+        "pay scheme",
+        "схема зарплаты",
+        "оклад",
+        "процент от продаж",
+        "начисление",
+        "зарплата сотруднику",
+        "ставка"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Settings and equipment",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "настройки-и-оборудование-как-подключить-принтер-чеков",
+       "title": "How to connect a receipt printer",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Print”.\nШаг 2. Click “Find” and select the printer in the “Detected printers and ports” list (or enter the port in the “LPT port or printer path” field).\nШаг 3. Set the “Paper width”: “58 mm (32 char.)” or “80 mm (48 char.)”.\nШаг 4. Click “Test” — a test receipt should print.\nШаг 5. Turn on “Print receipt after payment” and click “Save”.\nВажно: If Chinese characters or random symbols print instead of Russian letters, adjust the “Encoding” and “ESC t table” in the “ESC/POS parameters” block; the “0 — PC437 (no Cyrillic)” option cannot print Russian text.",
+       "keywords": [
+        "printer",
+        "receipt printer",
+        "connect printer",
+        "print receipts",
+        "thermal printer",
+        "xprinter",
+        "58 mm",
+        "80 mm",
+        "garbled text",
+        "chinese characters",
+        "80 мм",
+        "58 мм",
+        "принтер",
+        "чековый принтер",
+        "подключить принтер",
+        "печать чеков"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-print.png",
+         "caption": "Settings → “Print”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-денежный-ящик",
+       "title": "How to set up the cash drawer",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Print” and find the “Cash drawer” block.\nШаг 2. Turn on “Open on cash payment”.\nШаг 3. In “Connector pin”, choose “Pin 2 (standard)” or “Pin 5”.\nШаг 4. Click “Open” to test it, then “Save”.\nВажно: The drawer connects to the receipt printer and is opened through it.",
+       "keywords": [
+        "cash drawer",
+        "money drawer",
+        "drawer does not open",
+        "cash box",
+        "till drawer",
+        "денежный ящик",
+        "ящик для денег",
+        "не открывается ящик",
+        "купюрник"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-print.png",
+         "caption": "Cash drawer — in Settings → “Print”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-весы-к-кассе",
+       "title": "How to connect a scale to the POS",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”.\nШаг 2. Turn on “Enable scale polling”.\nШаг 3. Choose the “COM port”, set the “Baud rate” (usually 9600), and, if needed, “Weight request (hex)” and “Poll interval (ms)”.\nШаг 4. Put a product on the scale and click “Test scales”.\nШаг 5. Click “Save”.\nВажно: After that, the “Read from scale” button works in the “Weigh product” window. If you have several scales, see “How to connect several scales at once”.",
+       "keywords": [
+        "scales",
+        "connect scales",
+        "com port",
+        "scales show nothing",
+        "electronic scales",
+        "weight not coming",
+        "scale",
+        "connect scale",
+        "весы",
+        "подключить весы",
+        "com порт",
+        "весы не показывают",
+        "электронные весы",
+        "вес не идёт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "Settings → “Scales”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-отправить-весовые-товары-на-вес",
+       "title": "How to send weighed products to a label-printing scale",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales” and, in the “Network scales (product upload)” block, enter the “Scale IP address”, “Port”, and “Password”, then click “Test connection to scale”.\nШаг 2. In the “PLU on Shtrikh-M scales” block, choose the “Scale model:” (“Shtrikh-M”, “Rongta”, or “AI scales”).\nШаг 3. Click “Send products to the scale →”.\nШаг 4. In the “Scales” window, select the products (“Select all” / “Clear selection”) and, if needed, set the “Starting PLU:”.\nШаг 5. Click “Send to the scale”, or click “Export to CSV” to load the file into the scale manually.\nВажно: On the “Start” plan, sending to network scales is a paid add-on (Marketplace → “Extras”).",
+       "keywords": [
+        "plu",
+        "shtrikh scales",
+        "rongta",
+        "upload to scales",
+        "label scales",
+        "products to scales",
+        "network scales",
+        "весы штрих",
+        "выгрузка на весы",
+        "весы с этикеткой",
+        "товары на весы"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-экран-покупателя-втор",
+       "title": "How to set up the customer display (second monitor)",
+       "text": "Шаг 1. Connect the second monitor to the computer.\nШаг 2. Open ☰ → “Settings” → “Monitor”.\nШаг 3. Turn on “Use customer monitor”, and choose the “Monitor” and the “Window mode”.\nШаг 4. Set up the product view, screen content, ad block, and appearance.\nШаг 5. Click “Open” or “Preview” to check the result, then click “Save”.\nШаг 6. If the customer-facing screen shows the same image as the cashier's screen, Windows is in “Duplicate” mode. The POS will offer to switch the screens to “Extend” — accept. To do it manually: Win+P → “Extend”.\nВажно: For a quick check, use the “Display” button in the POS top bar (Ctrl+M).",
+       "keywords": [
+        "customer screen",
+        "second monitor",
+        "customer display",
+        "client monitor",
+        "client screen",
+        "экран покупателя",
+        "второй монитор",
+        "дисплей покупателя",
+        "монитор клиента",
+        "экран клиента"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-дисплей-цены-покупат",
+       "title": "How to connect the customer price display (pole display)",
+       "text": "Шаг 1. Connect the display to the computer. On POS all-in-ones (for example, CY25), the numeric “0.00” display is already built into the case and connected to one of the COM ports.\nШаг 2. Open ☰ → “Settings” → “Scales”, find the “Customer price display” block, and turn it on.\nШаг 3. In “Display type”, choose “Numeric display “0.00” (8 digits, LED)” — or “Text display, 2 lines (CD5220)” if your display shows letters.\nШаг 4. If you don't know the port, click “Find display”: the POS sends a number like 3.2400 (port 3, baud rate 2400) to each COM port in turn. Look at the display and click the button with the number that remains on it.\nШаг 5. Click “Save”, then “Test display” — 1234.56 appears on the display.\nВажно: Numeric displays usually run at 2400 baud. When there are items in the receipt, the display shows the total and lights up the “Total” indicator.",
+       "keywords": [
+        "pole display",
+        "price display",
+        "customer display",
+        "vfd",
+        "price indicator",
+        "led display",
+        "табло",
+        "дисплей цены",
+        "дисплей покупателя",
+        "индикатор цены"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "The “Customer price display” block: display type and “Find display”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-загрузить-qr-код-банка-для-безн",
+       "title": "How to upload a bank QR code for cashless payment",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Operations”.\nШаг 2. If the bank you need is not in the list, click “Add bank” and enter its name.\nШаг 3. Next to the bank, click “Upload QR” and choose the image of your business QR code; “Crop” it if needed.\nШаг 4. Select “Show at payment”.\nВажно: The “Show the customer a QR with the receipt amount” switch displays a QR code with the amount already filled in; before turning it on, test it with several banks' apps.",
+       "keywords": [
+        "qr",
+        "bank qr code",
+        "upload qr",
+        "mbank qr",
+        "optima qr",
+        "bank details",
+        "add bank",
+        "cashless payment",
+        "qr код банка",
+        "загрузить qr",
+        "мбанк qr",
+        "оптима qr",
+        "реквизиты",
+        "добавить банк"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-выбрать-сферу-магазина",
+       "title": "How to choose the store type",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Operations”.\nШаг 2. In the “Store type” block, choose “Grocery”, “Clothing and similar”, or “Services”.\nШаг 3. “Clothing and similar” adds a “CONSULTANT” block to the payment window; “Services” opens the catalog on the “Services” tab.\nВажно: You can change the store type at any time; it does not affect sales or reports.",
+       "keywords": [
+        "store type",
+        "clothing",
+        "services",
+        "grocery",
+        "shop type",
+        "consultant",
+        "сфера магазина",
+        "одежда",
+        "услуги",
+        "продуктовый",
+        "тип магазина",
+        "консультант"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-operations.png",
+         "caption": "Settings → “Operations”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-сменить-язык-интерфейса",
+       "title": "How to change the interface language",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Screen”.\nШаг 2. In “Cashier screen language”, choose “Russian”, “Kyrgyz”, “Turkish”, “Uzbek”, or “English”.\nШаг 3. The language changes immediately, without a restart.\nВажно: Russian and Kyrgyz are free; English, Turkish, and Uzbek are part of the paid “Language pack” (Marketplace → “Extras”).",
+       "keywords": [
+        "language",
+        "kyrgyz",
+        "russian",
+        "english",
+        "change language",
+        "switch language",
+        "язык",
+        "кыргызча",
+        "русский",
+        "английский",
+        "сменить язык",
+        "тилди өзгөртүү"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-screen.png",
+         "caption": "Settings → “Screen”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-вид-главного-экрана",
+       "title": "How to customize the main screen",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Screen”.\nШаг 2. In “Main screen layout”, choose “Standard” or “1C style”.\nШаг 3. Adjust “UI scale”, “Product tile size”, and “Show product photos in the catalog”.\nШаг 4. In “Clicking a product”, choose “Single” or “Double” — the number of clicks needed to add a product to the receipt.\nШаг 5. Click “Save”.\nВажно: The same tab also has “Fullscreen mode”, “Launch with Windows”, “Low-power device mode”, and the “Store name” and “Store address” printed on the receipt. To switch between light and dark themes, use the “Theme” button in the top bar.",
+       "keywords": [
+        "1c",
+        "scale",
+        "zoom",
+        "bigger",
+        "double click",
+        "full screen",
+        "button size",
+        "POS look",
+        "theme",
+        "вид кассы",
+        "1с",
+        "масштаб",
+        "крупнее",
+        "двойной клик",
+        "полный экран",
+        "размер кнопок"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-screen.png",
+         "caption": "Settings → “Screen”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-изменить-горячие-клавиши",
+       "title": "How to change hotkeys",
+       "text": "Шаг 1. Click “Hotkeys” in the POS top bar.\nШаг 2. In the “Till hotkeys” window, click the field of the action you want to change.\nШаг 3. Press the new key combination on the keyboard.\nШаг 4. Click “Save”. “Default” restores the standard shortcuts.\nВажно: F1–F12 without Ctrl are reserved for product groups.",
+       "keywords": [
+        "hotkeys",
+        "keyboard shortcut",
+        "key combination",
+        "ctrl",
+        "assign key",
+        "shortcut",
+        "горячие клавиши",
+        "сочетание клавиш",
+        "назначить клавишу",
+        "шорткат"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-обновить-программу",
+       "title": "How to update the program",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Updates”.\nШаг 2. Click “Check for updates”.\nШаг 3. If the POS says “New version available”, click “Update”.\nШаг 4. Wait for the download to finish — the POS restarts automatically.\nВажно: The POS checks for updates automatically at startup; a button in the top bar reminds you about a new version. The current version is shown under “Current app version”.",
+       "keywords": [
+        "update",
+        "updating",
+        "new version",
+        "program version",
+        "upgrade",
+        "обновить",
+        "обновление",
+        "новая версия",
+        "версия программы",
+        "апдейт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-updates.png",
+         "caption": "Settings → “Updates”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-вернуть-прошлую-версию-программ",
+       "title": "How to roll back to a previous version of the program",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Updates” and find the “Roll back to a previous version” block.\nШаг 2. Click “Show versions”.\nШаг 3. Click “Roll back” next to the version you need.\nШаг 4. Confirm “Version rollback” — the POS downloads the package and restarts.",
+       "keywords": [
+        "rollback",
+        "roll back",
+        "old version",
+        "previous version",
+        "restore version",
+        "broken after update",
+        "откат",
+        "старая версия",
+        "прошлая версия",
+        "вернуть версию",
+        "после обновления сломалось",
+        "откатить"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-rollback.png",
+         "caption": "“Show versions” → “Roll back”"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-активировать-платную-доп-функци",
+       "title": "How to activate a paid add-on",
+       "text": "Шаг 1. Open ☰ → “System” → “Marketplace”, then the “Extras” tab.\nШаг 2. Find the card you need (for example, “Loyalty program”, “Staff management”, “Language pack”, or “Owner's Telegram bot”).\nШаг 3. Click “Activate” and enter a serial number in the format NMK-XXXX-XXXX-XXXX.\nШаг 4. Click “Activate” — the card shows “Activated”.",
+       "keywords": [
+        "marketplace",
+        "serial number",
+        "activate",
+        "extras",
+        "add-on",
+        "paid feature",
+        "key",
+        "license",
+        "маркетплейс",
+        "серийный номер",
+        "активировать",
+        "доп функции",
+        "платная функция",
+        "ключ"
+       ],
+       "images": [
+        {
+         "file": "owner-marketplace.png",
+         "caption": "Marketplace"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-получить-удалённую-помощь-подде",
+       "title": "How to get remote help from support",
+       "text": "Шаг 1. Open ☰ → “System” → “NurCRM support”.\nШаг 2. Click “Launch AnyDesk” (if AnyDesk is not installed, click “Download AnyDesk”).\nШаг 3. Tell the support agent the address (ID) that AnyDesk shows.\nШаг 4. Allow the connection when AnyDesk asks.\nВажно: The error log is in ☰ → “System” → “Logs and errors” (the “Open logs folder” button).",
+       "keywords": [
+        "support",
+        "anydesk",
+        "remote",
+        "help",
+        "tech support",
+        "remote access",
+        "connect to computer",
+        "поддержка",
+        "удалённо",
+        "помощь",
+        "техподдержка",
+        "подключиться к компьютеру"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-несколько-весов-одно",
+       "title": "How to connect several scales at once",
+       "text": "Шаг 1. Connect the main scale as described in “How to connect a scale to the POS”.\nШаг 2. In the same “Scales” window, find the “Additional scales” block.\nШаг 3. Turn on “Scale 2” (and “Scale 3” if needed), and choose a separate COM port and baud rate for each.\nШаг 4. Click “Save”.\nШаг 5. When weighing, the POS takes the weight from whichever scale the product is on. If there are items on several scales, it uses the one where the weight appeared last.\nВажно: Additional scales use the same weight request and poll interval as the main scale; each scale must have its own port.",
+       "keywords": [
+        "scales",
+        "several scales",
+        "multiple scales",
+        "two scales",
+        "three scales",
+        "scale 2",
+        "весы",
+        "несколько весов",
+        "двое весов",
+        "три весов",
+        "весы 2"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "The “Additional scales” block"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Frequently asked questions",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "частые-вопросы-не-печатается-чек-что-делать",
+       "title": "The receipt doesn't print — what should I do?",
+       "text": "Шаг 1. Check that the printer is on, has paper, its cover is closed, and the cable is connected.\nШаг 2. Make sure “Print receipt” is turned on in the payment window.\nШаг 3. Open ☰ → “Settings” → “Print”, click “Find”, select the printer in the list, and click “Test”.\nШаг 4. If garbled characters are printed, change the “Encoding” and “ESC t table” (do not use “0 — PC437 (no Cyrillic)”) and click “Save”.\nШаг 5. If the POS says “The printer is not printing…”, the sale has already gone through — fix the printer and print the receipt from “Sales” → “Print receipt”.\nШаг 6. If this doesn't help, contact “Support”.\nВажно: Starting with version 1.17.16, the POS automatically removes its own old stuck receipts from the Windows print queue — they no longer block new receipts and don't suddenly print later.",
+       "keywords": [
+        "not printing",
+        "receipt does not print",
+        "printer not working",
+        "hieroglyphs",
+        "garbled text",
+        "printer not connected",
+        "chinese characters",
+        "не печатает",
+        "чек не печатается",
+        "принтер не работает",
+        "иероглифы",
+        "кракозябры",
+        "принтер не подключен"
+       ]
+      },
+      {
+       "id": "частые-вопросы-касса-пишет-нет-остатка-или-просит-пополнить-",
+       "title": "The POS says “out of stock” or asks you to restock — what should I do?",
+       "text": "Шаг 1. If the “Product ran out at the warehouse” window appears, the warehouse data shows that this product is out of stock.\nШаг 2. If you actually have the product, click “Confirm and add”.\nШаг 3. In the “Restock warehouse” window, enter how much of the product you actually have, and click “Add and sell”.\nШаг 4. If you don't have the product, click “Show similar products” and offer a substitute.\nШаг 5. Later, correct the stock levels via “Warehouse” → “Receiving” or “Stocktake (inventory)”.\nВажно: Such sales are listed in “Irregular receipts” for reconciliation. Services are sold without tracking stock.",
+       "keywords": [
+        "out of stock",
+        "no stock",
+        "product ran out",
+        "restock",
+        "zero stock",
+        "cannot sell",
+        "stock 0",
+        "нет остатка",
+        "товар закончился",
+        "пополнить склад",
+        "нулевой остаток",
+        "не даёт продать",
+        "остаток 0"
+       ]
+      },
+      {
+       "id": "частые-вопросы-товар-не-находится-по-штрихкоду-что-делать",
+       "title": "A product can't be found by its barcode — what should I do?",
+       "text": "Шаг 1. Check that the cursor is not in the search field (press Esc) and that the scanner reads the code.\nШаг 2. Click “Refresh catalog” in the catalog to load new products from the server.\nШаг 3. Find the product by name and check its “Barcode” in the product card (☰ → “Warehouse” → “Edit”).\nШаг 4. If the product does not exist, click “Add to warehouse” in the “Product not found” window and create it.\nШаг 5. If the product has several barcodes, add the missing one under “Additional barcodes”.\nВажно: Weight labels (13 digits, starting with 20–29) are looked up by the product's PLU — check the “PLU code (for scales)” in the product card and the weight barcode format in the company settings on the NurCRM website.",
+       "keywords": [
+        "not found",
+        "barcode not found",
+        "product not found",
+        "does not scan",
+        "scanner does not see",
+        "not in database",
+        "не находит",
+        "штрихкод не найден",
+        "товар не найден",
+        "не сканирует",
+        "сканер не видит",
+        "нет в базе"
+       ]
+      },
+      {
+       "id": "частые-вопросы-нет-интернета-можно-ли-продавать",
+       "title": "No internet — can I still sell?",
+       "text": "Шаг 1. Yes, keep selling as usual: receipts are saved on the POS.\nШаг 2. The top bar shows “Offline” and a “Queued: N” counter — these are receipts that have not been sent yet.\nШаг 3. When the connection is restored, the receipts are sent to the server automatically.\nШаг 4. You can check unsent receipts in ☰ → “Work” → “Irregular receipts” and resend them with the “Resend” button.\nВажно: Stocktakes and write-offs do not work without internet. Fully standalone operation without a NurCRM account is enabled with a key via “Work offline (no internet)” on the login screen.",
+       "keywords": [
+        "no internet",
+        "offline",
+        "without internet",
+        "internet is down",
+        "queue",
+        "standalone",
+        "нет интернета",
+        "офлайн",
+        "без интернета",
+        "пропал интернет",
+        "очередь",
+        "автономно"
+       ]
+      },
+      {
+       "id": "частые-вопросы-не-открывается-смена-что-делать",
+       "title": "A shift won't open — what should I do?",
+       "text": "Шаг 1. If the POS says “Shift is already open”, first close the current shift with the “Close shift” button.\nШаг 2. Check your internet connection: without it, the server may not accept the shift opening.\nШаг 3. If “Shift is not open” appears during payment, just click “Pay” again: the POS checks with the server and offers to open a shift — the receipt is not lost.\nШаг 4. If the POS says “You already have an open shift on register …”, close that shift on that register or on the NurCRM website, or select that register in Settings → “Screen” → “Till”.\nШаг 5. If the POS says that no register matches the branch, ask the administrator to check that the register is linked to the branch on the NurCRM website.\nВажно: The POS works only in the current cashier's own shift. Another cashier's shift on the same register does not get in the way — the POS opens a separate one.",
+       "keywords": [
+        "shift does not open",
+        "cannot open shift",
+        "shift error",
+        "shift already open",
+        "cannot start shift",
+        "не открывается смена",
+        "смена не открывается",
+        "ошибка смены",
+        "смена уже открыта",
+        "не могу начать смену"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-failed.png",
+         "caption": "If you see this during payment, click “Pay” again"
+        },
+        {
+         "file": "kassa-open-shift.png",
+         "caption": "The POS offers to open a shift"
+        }
+       ]
+      },
+      {
+       "id": "частые-вопросы-как-обновить-программу",
+       "title": "How do I update the program?",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Updates”.\nШаг 2. Click “Check for updates”.\nШаг 3. If there is a new version, click “Update” and wait for the program to restart.\nШаг 4. If something goes wrong after the update, go to “Roll back to a previous version” on the same tab and click “Show versions” → “Roll back”.",
+       "keywords": [
+        "update program",
+        "new version",
+        "update",
+        "how to update",
+        "version",
+        "обновить программу",
+        "новая версия",
+        "обновление",
+        "как обновить",
+        "версия"
+       ]
+      },
+      {
+       "id": "частые-вопросы-услуга-требует-остаток-что-делать",
+       "title": "A service requires stock — what should I do?",
+       "text": "Шаг 1. Open ☰ → “Work” → “Warehouse” and find this item.\nШаг 2. Click “Edit” and check the type at the top of the card: “Service” must be selected, not “Product”.\nШаг 3. Select “Service” and click “Save”.\nШаг 4. Click “Refresh catalog” on the main screen and try to sell again.\nВажно: Services are sold without tracking stock. For a one-off service without a product card, use “Extra service” under the receipt. If this does not help, update the program.",
+       "keywords": [
+        "service stock",
+        "service cannot be sold",
+        "service asks for warehouse",
+        "no stock service",
+        "service",
+        "услуга остаток",
+        "услуга не продаётся",
+        "услуга просит склад",
+        "нет остатка услуга",
+        "сервис"
+       ]
+      },
+      {
+       "id": "частые-вопросы-почему-цифры-в-кассе-и-на-сайте-не-совпадают",
+       "title": "Why don't the numbers in the POS and on the website match?",
+       "text": "Шаг 1. Check that the same period (day, week, or month) is selected in the POS and on the website.\nШаг 2. Check that all receipts have been sent: the top bar must not show “Queued: N”, and “Irregular receipts” must be empty.\nШаг 3. Keep in mind: credit sales are shown in the receipt list but are not included in the “Revenue” tile, and partial returns are not subtracted from revenue — the website calculates it the same way.\nШаг 4. Click “Refresh” in the “Finance” or “Sales” window.\nШаг 5. Update the POS to the latest version (Settings → “Updates”).\nВажно: If the numbers still differ, send support screenshots from the POS and the website for the same period.",
+       "keywords": [
+        "numbers do not match",
+        "different amount on website",
+        "revenue difference",
+        "discrepancy",
+        "report does not match",
+        "цифры не совпадают",
+        "на сайте другая сумма",
+        "разница выручки",
+        "расхождение",
+        "отчёт не сходится"
+       ]
+      },
+      {
+       "id": "частые-вопросы-кассир-не-видит-раздел-меню-почему",
+       "title": "A cashier can't see a menu section — why?",
+       "text": "Шаг 1. Starting with the “Standard” plan, the warehouse, sales, finance, salary, ABC analysis, clients, and restocking sections are in the “NurMarket Owner” program (shortcut on the desktop), not in the POS.\nШаг 2. Other sections are shown only if the employee has permission to see them — permissions are granted to each employee in NurCRM (the web panel).\nШаг 3. Some sections become available only after an add-on is activated (Marketplace → “Extras”).\nШаг 4. After permissions are changed, sign out of the POS and sign in again.",
+       "keywords": [
+        "no section",
+        "cannot see menu",
+        "permissions",
+        "access",
+        "section hidden",
+        "no access",
+        "нет раздела",
+        "не видит меню",
+        "права",
+        "доступ",
+        "скрыт раздел",
+        "нет доступа"
+       ],
+       "images": [
+        {
+         "file": "kassa-menu.png",
+         "caption": "POS menu on the “Standard” plan"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

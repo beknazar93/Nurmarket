@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services;
 
 namespace NurMarketKassa.ViewModels.Main;
 
@@ -69,7 +70,11 @@ public sealed class CatalogFilterViewModel : ViewModelBase
     public int PieceCount { get; }
     public int FavoriteCount { get; }
     public string SummaryText =>
-        $"Всего {TotalCount} · Весовых {WeightedCount} · Штучных {PieceCount} · Избранных {FavoriteCount}";
+        Tr.T($"Всего {TotalCount} · Весовых {WeightedCount} · Штучных {PieceCount} · Избранных {FavoriteCount}",
+            $"Бардыгы: {TotalCount} · Салмактуу: {WeightedCount} · Даана: {PieceCount} · Тандалмалар: {FavoriteCount}",
+            $"Total: {TotalCount} · Weighed: {WeightedCount} · Piece items: {PieceCount} · Favorites: {FavoriteCount}",
+            $"Toplam: {TotalCount} · Tartılı: {WeightedCount} · Adetli: {PieceCount} · Favoriler: {FavoriteCount}",
+            $"Jami: {TotalCount} · Vaznli: {WeightedCount} · Donali: {PieceCount} · Sevimlilar: {FavoriteCount}");
 
     public string SearchText { get => _searchText; set => SetProperty(ref _searchText, value ?? ""); }
     public string SelectedKind { get => _selectedKind; set => SetProperty(ref _selectedKind, value ?? AllProducts); }

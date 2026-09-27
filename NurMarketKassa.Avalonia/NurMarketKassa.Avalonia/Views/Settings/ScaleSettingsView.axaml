@@ -134,34 +134,34 @@
                      попыток. Теперь они на виду в настройках. -->
                 <Border Classes="SettingsCard" Padding="14">
                     <StackPanel Spacing="14">
-                        <TextBlock Text="Сетевые весы (выгрузка товаров)" Classes="SettingsCardTitle" FontSize="14"/>
-                        <TextBlock Text="Адрес, порт и пароль берутся из системного меню самих весов. Эти же значения использует окно «Весы» при выгрузке списка товаров."
+                        <TextBlock Text="{DynamicResource loc.settings.lanScale.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                        <TextBlock Text="{DynamicResource loc.settings.lanScale.desc}"
                                    FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
                         <Grid ColumnDefinitions="*,16,Auto,16,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="IP-адрес весов" Classes="FieldLabel"/>
+                                <TextBlock Text="{DynamicResource loc.settings.lanScale.ip}" Classes="FieldLabel"/>
                                 <TextBox x:Name="LanScaleIpBox" x:FieldModifier="public"
                                          Classes="ModernTextBox" Height="36" Watermark="192.168.0.50"
                                          LostFocus="LanScale_LostFocus"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Spacing="4" Width="110">
-                                <TextBlock Text="Порт" Classes="FieldLabel"/>
+                                <TextBlock Text="{DynamicResource loc.settings.lanScale.port}" Classes="FieldLabel"/>
                                 <TextBox x:Name="LanScalePortBox" x:FieldModifier="public"
                                          Classes="ModernTextBox" Height="36" Watermark="1111"
                                          LostFocus="LanScale_LostFocus"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="4" Spacing="4" Width="110">
-                                <TextBlock Text="Пароль" Classes="FieldLabel"/>
+                                <TextBlock Text="{DynamicResource account.passwordLabel}" Classes="FieldLabel"/>
                                 <TextBox x:Name="LanScalePasswordBox" x:FieldModifier="public"
                                          Classes="ModernTextBox" Height="36" MaxLength="4" Watermark="0030"
                                          LostFocus="LanScale_LostFocus"/>
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="Пароль — ровно 4 цифры, обычно 0030. Если он неверный, весы блокируют доступ после нескольких попыток: тогда выключите и включите весы и введите правильный пароль. Порт обычно 1111."
+                        <TextBlock Text="{DynamicResource loc.settings.lanScale.passwordHint}"
                                    FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
                         <StackPanel Spacing="8">
@@ -169,14 +169,14 @@
                                  полями и подписями над ними. Столбиком по центру они были разной
                                  ширины и «ступеньками» уезжали от остального содержимого. -->
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-                                <Button Content="Открыть окно настроек подключения…"
+                                <Button Content="{DynamicResource loc.settings.lanScale.openDialog}"
                                         Classes="ScaleGoldButton"
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         Click="OpenLanScaleDialog_Click"/>
 
                                 <Button x:Name="TestLanScaleButton" x:FieldModifier="public"
-                                        Content="Проверить связь с весами"
+                                        Content="{DynamicResource loc.settings.lanScale.test}"
                                         Classes="ScaleGoldButton"
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
@@ -318,7 +318,7 @@
                             <RadioButton x:Name="PluBrandRongtaRadio" GroupName="PluScaleBrand"
                                          Content="{DynamicResource scalesPlu.brandRongta}" Click="PluBrandRadio_Click"/>
                             <RadioButton x:Name="PluBrandAiRadio" GroupName="PluScaleBrand"
-                                         Content="AI весы" Click="PluBrandRadio_Click"/>
+                                         Content="{DynamicResource loc.settings.scale.aiScales}" Click="PluBrandRadio_Click"/>
                         </StackPanel>
 
                         <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>

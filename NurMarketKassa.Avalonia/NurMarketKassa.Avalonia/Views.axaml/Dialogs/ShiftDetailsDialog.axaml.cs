@@ -45,9 +45,14 @@ public partial class ShiftDetailsDialog : Window
             if (rows.Count == 0)
                 return;
 
-            ShiftProductsTitle.Text = $"Товары за смену: {rows.Count} поз., {rows.Sum(r => r.Qty):0.###} ед.";
+            var totalQty = rows.Sum(r => r.Qty);
+            ShiftProductsTitle.Text = Tr.T($"Товары за смену: {rows.Count} поз., {totalQty:0.###} ед.",
+                $"Сменадагы товарлар: {rows.Count} поз., {totalQty:0.###} бирд.",
+                $"Products this shift: {rows.Count} item(s), {totalQty:0.###} unit(s)",
+                $"Vardiyadaki ürünler: {rows.Count} kalem, {totalQty:0.###} birim",
+                $"Smenadagi mahsulotlar: {rows.Count} ta pozitsiya, {totalQty:0.###} birlik");
             ShiftProductsList.ItemsSource = rows
-                .Select(r => new ShiftProductRow(r.Name, $"{r.Qty:0.###}", $"{r.Revenue:N2} сом"))
+                .Select(r => new ShiftProductRow(r.Name, $"{r.Qty:0.###}", $"{r.Revenue:N2} {Som}"))
                 .ToList();
             ShiftProductsPanel.IsVisible = true;
         }
@@ -70,19 +75,26 @@ public partial class ShiftDetailsDialog : Window
         OpenedAtText.Text = shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         ClosedAtText.Text = shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         CashierText.Text = string.IsNullOrWhiteSpace(shift.Cashier) ? "—" : shift.Cashier;
-        StatusText.Text = string.IsNullOrWhiteSpace(shift.Status) ? "—" : shift.Status;
-        RevenueText.Text = $"{shift.Revenue:N2} сом";
+        // Статус приходит данными («Открыта»/«Закрыта» или open/closed) — на экран на языке программы.
+        var rawStatus = shift.Status ?? "";
+        StatusText.Text = rawStatus.Length == 0 ? "—"
+            : rawStatus.Contains("Закрыт", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("closed", StringComparison.OrdinalIgnoreCase)
+                ? Tr.T("Закрыта", "Жабык", "Closed", "Kapalı", "Yopiq")
+            : rawStatus.Contains("Открыт", StringComparison.OrdinalIgnoreCase) || rawStatus.Contains("open", StringComparison.OrdinalIgnoreCase)
+                ? Tr.T("Открыта", "Ачык", "Open", "Açık", "Ochiq")
+            : rawStatus;
+        RevenueText.Text = $"{shift.Revenue:N2} {Som}";
         SalesCountText.Text = shift.SalesCount?.ToString() ?? "—";
-        CashText.Text = shift.CashSales is { } cash ? $"{cash:N2} сом" : "—";
-        CardText.Text = shift.NonCashSales is { } card ? $"{card:N2} сом" : "—";
-        DebtText.Text = shift.DebtSales is { } debt ? $"{debt:N2} сом" : "—";
+        CashText.Text = shift.CashSales is { } cash ? $"{cash:N2} {Som}" : "—";
+        CardText.Text = shift.NonCashSales is { } card ? $"{card:N2} {Som}" : "—";
+        DebtText.Text = shift.DebtSales is { } debt ? $"{debt:N2} {Som}" : "—";
 
         BindExtraTotals(shift.Id, shift.ExpenseTotal);
 
         var (deposits, withdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
         CashOpsPanel.IsVisible = deposits > 0m || withdrawals > 0m;
-        DepositsText.Text = $"+{deposits:N2} сом";
-        WithdrawalsText.Text = $"-{withdrawals:N2} сом";
+        DepositsText.Text = $"+{deposits:N2} {Som}";
+        WithdrawalsText.Text = $"-{withdrawals:N2} {Som}";
 
         if (shift.IsActive)
         {
@@ -106,7 +118,7 @@ public partial class ShiftDetailsDialog : Window
     /// он будет стоять всегда — цифры копятся с версии 1.16.86.</summary>
     private void BindExtraTotals(string? shiftId, decimal? serverExpense)
     {
-        static string Money(double value) => $"{value:N2} сом";
+        static string Money(double value) => $"{value:N2} {Som}";
 
         // Тариф: на «Старт» расширенные итоги — платная доп. услуга. Ряд плиток прячем целиком,
         // а не показываем прочерками: прочерк означает «операций не было», и спутать эти два
@@ -136,14 +148,21 @@ public partial class ShiftDetailsDialog : Window
         // Оплату бонусами показываем отдельной строкой под скидкой: она входит в общую сумму
         // скидок, и без пояснения владелец считал бы её дважды.
         PointsRedeemedText.IsVisible = adjustments.PointsRedeemed > 0.005;
-        PointsRedeemedText.Text = $"из них бонусами: {adjustments.PointsRedeemed:N2}";
+        PointsRedeemedText.Text = Tr.T($"из них бонусами: {adjustments.PointsRedeemed:N2}",
+            $"анын ичинен бонус менен: {adjustments.PointsRedeemed:N2}",
+            $"of which paid with points: {adjustments.PointsRedeemed:N2}",
+            $"puanla ödenen: {adjustments.PointsRedeemed:N2}",
+            $"shundan bonus bilan: {adjustments.PointsRedeemed:N2}");
     }
 
     /// <summary>2026-09-15, живой баг ("Долг для уже закрытых смен в Истории смен показывает
     /// не то") — первичное значение shift.DebtSales может быть из непроверенного поля сервера;
     /// вызывающий код (ShiftHistoryViewModel) уточняет его асинхронно тем же надёжным способом,
     /// что уже работает для только что закрытой смены, и подставляет сюда, если диалог ещё открыт.</summary>
-    public void RefreshDebtDisplay(decimal debt) => DebtText.Text = $"{debt:N2} сом";
+    public void RefreshDebtDisplay(decimal debt) => DebtText.Text = $"{debt:N2} {Som}";
+
+    /// <summary>Подпись валюты на экране (на печатном отчёте остаётся «сом»).</summary>
+    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
     private IBrush ThemeBrush(string key, IBrush fallback) =>
         Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true

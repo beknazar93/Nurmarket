@@ -46,10 +46,10 @@ public partial class AbcAnalysisWindow : Window
         TitleText.Text = Title;
         SubtitleText.Text = Tr.T(
             "Группа A даёт первые 80 % результата, B — следующие 15 %, C — остальные 5 %.",
-            "A тобу натыйжанын алгачкы 80 %ин берет, B — кийинки 15 %, C — калган 5 %.",
-            "Group A gives the first 80 % of the result, B the next 15 %, C the remaining 5 %.",
+            "A тобу натыйжанын алгачкы 80 пайызын берет, B — кийинки 15 пайызын, C — калган 5 пайызын.",
+            "Group A makes up the first 80% of the result, B the next 15%, C the remaining 5%.",
             "A grubu sonucun ilk %80'ini, B sonraki %15'ini, C kalan %5'ini verir.",
-            "A guruhi natijaning birinchi 80 % ini beradi, B - keyingi 15 %, C - qolgan 5 %.");
+            "A guruhi natijaning dastlabki 80 % ini beradi, B — keyingi 15 % ini, C — qolgan 5 % ini.");
         RefreshButton.Content = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
         CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
@@ -120,7 +120,7 @@ public partial class AbcAnalysisWindow : Window
         _suppressPickerEvents = false;
 
         var days = (_to - _from).Days + 1;
-        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "d.", "gün", "kun");
+        PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "days", "gün", "kun");
         HighlightActivePeriod();
     }
 
@@ -249,7 +249,7 @@ public partial class AbcAnalysisWindow : Window
         var path = file.TryGetLocalPath();
         if (string.IsNullOrEmpty(path))
         {
-            ShowError(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютерден папка тандаңыз.", "Could not determine the file path - choose a folder on this computer.", "Dosya yolu belirlenemedi - bu bilgisayarda bir klasör seçin.", "Fayl yo'li aniqlanmadi - shu kompyuterdan papka tanlang."));
+            ShowError(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютерден папка тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang."));
             return;
         }
 

@@ -98,7 +98,7 @@ public static class ShiftBalanceHelper
 
     public static string FormatBalance(decimal? balance) =>
         balance.HasValue
-            ? $"{balance.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом"
+            ? $"{balance.Value.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
             : "—";
 
     /// <summary>2026-09-12, по просьбе пользователя ("сделай так же как в вебе") — детальная

@@ -266,7 +266,7 @@
                                                VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}" />
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                                    <TextBlock Text="{DynamicResource csh.login.secureTitle}"
+                                    <TextBlock x:Name="SecureTitleText" Text="{DynamicResource csh.login.secureTitle}"
                                                FontSize="12.5" FontWeight="SemiBold"
                                                TextWrapping="Wrap"
                                                Foreground="{DynamicResource BrushText}" />
@@ -306,7 +306,7 @@
                                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}" />
                         </Border>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource csh.login.formTitle}" FontSize="22" FontWeight="Bold"
+                            <TextBlock x:Name="FormTitleText" Text="{DynamicResource csh.login.formTitle}" FontSize="22" FontWeight="Bold"
                                        Foreground="{DynamicResource BrushText}" />
                             <TextBlock Text="{DynamicResource csh.login.formSubtitle}"
                                        Margin="0,2,0,0" FontSize="12.5"
@@ -461,7 +461,7 @@
                     </StackPanel>
 
                     <!-- Автономный (офлайн) режим -->
-                    <Button Content="{DynamicResource login.workOffline}"
+                    <Button x:Name="WorkOfflineLink" Content="{DynamicResource login.workOffline}"
                             Command="{Binding ShowAutonomousCommand}"
                             Classes="LoginLink"
                             FontSize="13"

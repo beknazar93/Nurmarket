@@ -26,12 +26,12 @@ public sealed class ProductAnalyticsWindow : Window
         "янв,фев,мар,апр,май,июн,июл,авг,сен,окт,ноя,дек",
         "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec",
         "Oca,Şub,Mar,Nis,May,Haz,Tem,Ağu,Eyl,Eki,Kas,Ara",
-        "Yan,Fev,Mar,Apr,May,Iyn,Iyl,Avg,Sen,Okt,Noy,Dek").Split(',');
+        "yan,fev,mar,apr,may,iyn,iyl,avg,sen,okt,noy,dek").Split(',');
 
     public ProductAnalyticsWindow(string productName, DateTime periodFrom, DateTime periodTo)
     {
-        Title = Tr.T("Разбор товара", "Товардын чечмелөөсү", "Product breakdown",
-                     "Ürün ayrıntısı", "Mahsulot tahlili");
+        Title = Tr.T("Разбор товара", "Товарды талдоо", "Product breakdown",
+                     "Ürün analizi", "Mahsulot tahlili");
         Width = 860;
         Height = 700;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -71,9 +71,9 @@ public sealed class ProductAnalyticsWindow : Window
                 Text = Tr.T(
                     "По этой строке нет истории продаж по названию товара. Так бывает у срезов «Категории» и «Бренды»: там строка — это группа товаров, а не один товар.",
                     "Бул сапта товардын аталышы боюнча сатуу тарыхы жок. «Категориялар» жана «Бренддер» кесилиштеринде ушундай болот: ал жерде сап — бир товар эмес, товарлардын тобу.",
-                    "There is no sales history under this row's product name. That happens on the Categories and Brands slices, where a row is a group of products rather than one product.",
-                    "Bu satırın ürün adı altında satış geçmişi yok. Kategoriler ve Markalar dilimlerinde böyle olur: orada satır tek ürün değil, ürün grubudur.",
-                    "Bu satrda mahsulot nomi bo'yicha sotuv tarixi yo'q. «Kategoriyalar» va «Brendlar» kesimlarida shunday bo'ladi: u yerda satr bitta mahsulot emas, mahsulotlar guruhi."),
+                    "There is no sales history for this row's product name. This happens in the “Categories” and “Brands” views, where a row is a group of products rather than a single product.",
+                    "Bu satır için ürün adına göre satış geçmişi yok. «Kategoriler» ve «Markalar» görünümlerinde böyle olur: orada satır tek bir ürün değil, bir ürün grubudur.",
+                    "Bu qator uchun mahsulot nomi bo'yicha sotuv tarixi yo'q. «Kategoriyalar» va «Brendlar» kesimlarida shunday bo'ladi: u yerda qator — bitta mahsulot emas, mahsulotlar guruhi."),
                 FontSize = 13,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = Brushes.Gray,
@@ -113,10 +113,10 @@ public sealed class ProductAnalyticsWindow : Window
 
         var panel = new WrapPanel();
         panel.Children.Add(Tile(
-            Tr.T("Продано", "Сатылды", "Sold", "Satıldı", "Sotildi"),
+            Tr.T("Продано", "Сатылды", "Sold", "Satılan", "Sotildi"),
             qty.ToString("0.###", CultureInfo.InvariantCulture)));
         panel.Children.Add(Tile(
-            Tr.T("Выручка", "Түшкөн акча", "Revenue", "Ciro", "Tushum"),
+            Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"),
             Money(revenue)));
         panel.Children.Add(Tile(
             Tr.T("Прибыль", "Пайда", "Profit", "Kâr", "Foyda"),
@@ -130,7 +130,7 @@ public sealed class ProductAnalyticsWindow : Window
         panel.Children.Add(Tile(
             Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq"),
             product is null
-                ? Tr.T("нет в каталоге", "каталогдо жок", "not in the catalogue", "katalogda yok", "katalogda yo'q")
+                ? Tr.T("нет в каталоге", "каталогдо жок", "not in the catalog", "katalogda yok", "katalogda yo'q")
                 : product.Quantity.ToString("0.###", CultureInfo.InvariantCulture)));
 
         return panel;
@@ -151,7 +151,7 @@ public sealed class ProductAnalyticsWindow : Window
 
         var body = new StackPanel();
         BarChartRenderer.Render(body, items);
-        return Card(Tr.T("Выручка по месяцам (вся история)", "Айлар боюнча түшкөн акча (бүт тарых)",
+        return Card(Tr.T("Выручка по месяцам (вся история)", "Айлар боюнча түшүм (бүт тарых)",
                          "Revenue by month (all history)", "Aylara göre ciro (tüm geçmiş)",
                          "Oylar bo'yicha tushum (butun tarix)"), body);
     }
@@ -173,14 +173,14 @@ public sealed class ProductAnalyticsWindow : Window
         {
             var cover = product.Quantity / perDay;
             body.Children.Add(Line(
-                Tr.T("Остатка хватит примерно на", "Калдык болжол менен жетет",
-                     "The stock lasts about", "Stok yaklaşık şu kadar yeter",
-                     "Qoldiq taxminan yetadi")
+                Tr.T("Остатка хватит примерно на", "Калдык болжол менен",
+                     "Stock will last about", "Mevcut satış hızıyla stok yaklaşık",
+                     "Hozirgi sotuv sur'atida qoldiq taxminan")
                 + " " + cover.ToString("0", CultureInfo.InvariantCulture) + " "
-                + Tr.T("дн.", "күн", "d.", "gün", "kun")
-                + " " + Tr.T("при нынешнем темпе продаж.", "азыркы сатуу темпинде.",
-                             "at the current pace of sales.", "mevcut satış hızıyla.",
-                             "hozirgi sotuv sur'atida.")));
+                + Tr.T("дн.", "күнгө жетет", "days", "gün", "kunga")
+                + " " + Tr.T("при нынешнем темпе продаж.", "(азыркы сатуу ылдамдыгы боюнча).",
+                             "at the current sales rate.", "yeter.",
+                             "yetadi.")));
         }
 
         var first = all.Min(l => l.SoldAt).ToLocalTime();
@@ -195,19 +195,19 @@ public sealed class ProductAnalyticsWindow : Window
         if (idle >= 14)
         {
             body.Children.Add(Line(
-                Tr.T("Не продавался", "Сатылган жок", "Not sold for", "Satılmadı", "Sotilmadi")
+                Tr.T("Не продавался", "Сатылбаганына", "Not sold for", "Son satıştan bu yana", "Oxirgi")
                 + " " + idle.ToString(CultureInfo.InvariantCulture) + " "
                 + Tr.T("дн. — проверьте, лежит ли он на месте и не пора ли уценить.",
-                       "күн — ордунда турганын жана арзандатуу убактысы келгенин текшериңиз.",
-                       "days - check whether it is still on the shelf and whether to mark it down.",
-                       "gün - rafta duruyor mu, indirim zamanı mı diye bakın.",
-                       "kun - javonda turganini va chegirma vaqti kelganini tekshiring.")));
+                       "күн болду — ордунда жатабы, баасын түшүрүү убагы келдиби, текшериңиз.",
+                       "days — check that it is still on the shelf and whether it is time to mark it down.",
+                       "gün geçti — ürün rafta mı ve indirim zamanı gelmiş mi kontrol edin.",
+                       "kun sotilmagan — javonda borligini tekshiring, balki narxini tushirish kerak.")));
         }
 
         // «Что это значит» ни о чём не говорило: по заголовку непонятно, что внутри. В карточке
         // лежат две вещи — на сколько хватит остатка и когда товар продавался, — так и назовём.
         return Card(Tr.T("Остаток и сроки", "Калдык жана мөөнөттөр", "Stock and timing",
-                         "Stok ve zamanlama", "Qoldiq va muddatlar"), body);
+                         "Stok ve süreler", "Qoldiq va muddatlar"), body);
     }
 
     /// <summary>Движение остатка: каждая продажа и каждое списание как строка со знаком, а
@@ -264,7 +264,7 @@ public sealed class ProductAnalyticsWindow : Window
         if (events.Count == 0)
         {
             body.Children.Add(Muted(Tr.T("Движения по этому товару нет.", "Бул товар боюнча кыймыл жок.",
-                "There is no movement for this product.", "Bu ürün için hareket yok.",
+                "No movements for this product.", "Bu ürün için hareket yok.",
                 "Bu mahsulot bo'yicha harakat yo'q.")));
             return Card(MovementTitle(), body);
         }
@@ -272,9 +272,9 @@ public sealed class ProductAnalyticsWindow : Window
         var soldTotal = sales.Sum(l => l.Quantity);
         var writtenOff = writeOffs.Sum(w => w.Quantity);
         body.Children.Add(Muted(
-            Tr.T("Продано", "Сатылды", "Sold", "Satıldı", "Sotildi") + ": "
+            Tr.T("Продано", "Сатылды", "Sold", "Satılan", "Sotildi") + ": "
             + soldTotal.ToString("0.###", CultureInfo.InvariantCulture)
-            + "   ·   " + Tr.T("Списано", "Эсептен чыгарылды", "Written off", "Zayi edildi", "Hisobdan chiqarildi")
+            + "   ·   " + Tr.T("Списано", "Эсептен чыгарылды", "Written off", "Zayi edilen", "Hisobdan chiqarildi")
             + ": " + writtenOff.ToString("0.###", CultureInfo.InvariantCulture)));
 
         body.Children.Add(Grid(events));
@@ -311,12 +311,12 @@ public sealed class ProductAnalyticsWindow : Window
             });
         }
 
-        Add(Tr.T("Когда", "Качан", "When", "Ne zaman", "Qachon"), nameof(MovementVm.WhenText), 140);
+        Add(Tr.T("Когда", "Качан", "When", "Tarih", "Qachon"), nameof(MovementVm.WhenText), 140);
         Add(Tr.T("Событие", "Окуя", "Event", "Olay", "Hodisa"), nameof(MovementVm.Kind), 120);
-        Add(Tr.T("Изменение", "Өзгөрүү", "Change", "Değişim", "O'zgarish"), nameof(MovementVm.DeltaText), 110);
+        Add(Tr.T("Изменение", "Өзгөрүү", "Change", "Değişiklik", "O'zgarish"), nameof(MovementVm.DeltaText), 110);
         Add(Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx"), nameof(MovementVm.PriceText), 120);
         Add(Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"), nameof(MovementVm.Note), 130);
-        Add(Tr.T("Остаток после", "Андан кийинки калдык", "Stock after", "Sonraki stok", "Keyingi qoldiq"),
+        Add(Tr.T("Остаток после", "Андан кийинки калдык", "Stock after", "İşlem sonrası stok", "Qoldiq (keyin)"),
             nameof(MovementVm.RestText), 140);
 
         return grid;
@@ -344,7 +344,7 @@ public sealed class ProductAnalyticsWindow : Window
     }
 
     private static string Money(double value) =>
-        value.ToString("N2", CultureInfo.CurrentCulture) + " " + Tr.T("сом", "сом", "KGS", "KGS", "KGS");
+        value.ToString("N2", CultureInfo.CurrentCulture) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
 
     private TextBlock Line(string text) => new()
     {

@@ -110,7 +110,7 @@
             <TextBlock Classes="field" Text="{DynamicResource warehouse.transferWeight}"/>
             <!-- Вес вписывают руками, с весов или из накладной перевозчика: вес каждой строки
                  в карточке товара почти никогда не заполнен, и автоподсчёт давал ноль. -->
-            <TextBox x:Name="WeightBox" LostFocus="Field_Changed" Watermark="0, кг"/>
+            <TextBox x:Name="WeightBox" LostFocus="Field_Changed" Watermark="{DynamicResource loc.kassa.transfer.weightWatermark}"/>
           </StackPanel>
         </Grid>
       </Border>

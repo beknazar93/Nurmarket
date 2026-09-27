@@ -107,9 +107,9 @@ public static class CustomVoicePrompts
             throw new InvalidDataException(Tr.T(
                 "Слишком тихо — голос почти не слышен. Говорите ближе к микрофону.",
                 "Өтө акырын — үн дээрлик угулбайт. Микрофонго жакыныраак сүйлөңүз.",
-                "Too quiet - the voice is barely audible. Speak closer to the microphone.",
-                "Çok sessiz - ses neredeyse duyulmuyor. Mikrofona daha yakın konuşun.",
-                "Juda past - ovoz deyarli eshitilmaydi. Mikrofonga yaqinroq gapiring."));
+                "Too quiet — your voice is barely audible. Speak closer to the microphone.",
+                "Çok sessiz — ses neredeyse duyulmuyor. Mikrofona daha yakın konuşun.",
+                "Ovoz juda past — deyarli eshitilmaydi. Mikrofonga yaqinroq gapiring."));
 
         var threshold = Math.Max(0.02f, peak * 0.06f);
         var first = Array.FindIndex(samples, s => Math.Abs(s) > threshold);
@@ -122,9 +122,9 @@ public static class CustomVoicePrompts
             throw new InvalidDataException(Tr.T(
                 "Слишком короткая запись — произнесите фразу целиком.",
                 "Жазуу өтө кыска — сөз айкашын толук айтыңыз.",
-                "The recording is too short - say the whole phrase.",
-                "Kayıt çok kısa - cümlenin tamamını söyleyin.",
-                "Yozuv juda qisqa - iborani to'liq ayting."));
+                "The recording is too short — say the whole phrase.",
+                "Kayıt çok kısa — cümlenin tamamını söyleyin.",
+                "Yozuv juda qisqa — iborani to'liq ayting."));
 
         var gain = Math.Min(0.9f / peak, 4f);
         if (gain > 1.05f)

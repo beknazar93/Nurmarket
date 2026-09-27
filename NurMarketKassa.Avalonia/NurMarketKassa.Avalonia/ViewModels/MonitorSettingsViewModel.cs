@@ -38,8 +38,12 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
 
         var labels = new Dictionary<string, string>
         {
-            ["Product"] = "Товар", ["Quantity"] = "Количество", ["Price"] = "Цена",
-            ["Discount"] = "Скидка", ["Total"] = "Сумма", ["Barcode"] = "Штрихкод",
+            ["Product"] = Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"),
+            ["Quantity"] = Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
+            ["Price"] = Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx"),
+            ["Discount"] = Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma"),
+            ["Total"] = Tr.T("Сумма", "Сумма", "Amount", "Tutar", "Summa"),
+            ["Barcode"] = Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"),
         };
         foreach (var key in Settings.TableColumnOrder.Concat(labels.Keys).Distinct())
             TableColumns.Add(new MonitorColumnOption
@@ -58,28 +62,28 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<MonitorChoice<CustomerDisplayWindowMode>> WindowModes { get; } =
     [
-        new(CustomerDisplayWindowMode.FullScreen, "Полноэкранный"),
-        new(CustomerDisplayWindowMode.WorkingArea, "На весь рабочий стол"),
-        new(CustomerDisplayWindowMode.Windowed, "Оконный режим"),
+        new(CustomerDisplayWindowMode.FullScreen, Tr.T("Полноэкранный", "Толук экран", "Full screen", "Tam ekran", "To'liq ekran")),
+        new(CustomerDisplayWindowMode.WorkingArea, Tr.T("На весь рабочий стол", "Бүт иш столуна", "Entire desktop", "Tüm masaüstü", "Butun ish stoli bo'ylab")),
+        new(CustomerDisplayWindowMode.Windowed, Tr.T("Оконный режим", "Терезе режими", "Windowed mode", "Pencere modu", "Oyna rejimi")),
     ];
     public IReadOnlyList<MonitorChoice<CustomerDisplayColumnMode>> ColumnModes { get; } =
     [
-        new(CustomerDisplayColumnMode.Auto, "Автоматически"),
+        new(CustomerDisplayColumnMode.Auto, Tr.T("Автоматически", "Автоматтык түрдө", "Automatic", "Otomatik", "Avtomatik")),
         new(CustomerDisplayColumnMode.Two, "2"),
         new(CustomerDisplayColumnMode.Three, "3"),
         new(CustomerDisplayColumnMode.Four, "4"),
     ];
     public IReadOnlyList<MonitorChoice<CustomerDisplayTheme>> Themes { get; } =
     [
-        new(CustomerDisplayTheme.Light, "Светлая"),
-        new(CustomerDisplayTheme.Dark, "Тёмная"),
-        new(CustomerDisplayTheme.System, "Системная"),
+        new(CustomerDisplayTheme.Light, Tr.T("Светлая", "Ачык", "Light", "Açık", "Yorug'")),
+        new(CustomerDisplayTheme.Dark, Tr.T("Тёмная", "Караңгы", "Dark", "Koyu", "Qorong'i")),
+        new(CustomerDisplayTheme.System, Tr.T("Системная", "Системалык", "System", "Sistem", "Tizim")),
     ];
     public IReadOnlyList<MonitorChoice<CustomerDisplayAdvertisementPosition>> AdvertisementPositions { get; } =
     [
-        new(CustomerDisplayAdvertisementPosition.Right, "Справа"),
-        new(CustomerDisplayAdvertisementPosition.Bottom, "Снизу"),
-        new(CustomerDisplayAdvertisementPosition.EmptyScreen, "На пустом экране"),
+        new(CustomerDisplayAdvertisementPosition.Right, Tr.T("Справа", "Оң жакта", "Right", "Sağda", "O'ngda")),
+        new(CustomerDisplayAdvertisementPosition.Bottom, Tr.T("Снизу", "Ылдыйда", "Bottom", "Altta", "Pastda")),
+        new(CustomerDisplayAdvertisementPosition.EmptyScreen, Tr.T("На пустом экране", "Бош экранда", "On the empty screen", "Boş ekranda", "Bo'sh ekranda")),
     ];
 
     public DisplayScreenOption? SelectedScreen
@@ -135,16 +139,16 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
                          ?? Screens.FirstOrDefault(x => !x.IsPrimary)
                          ?? Screens.FirstOrDefault();
         StatusMessage = Screens.Count == 0
-            ? "Не удалось получить список экранов."
+            ? Tr.T("Не удалось получить список экранов.", "Экрандардын тизмесин алуу мүмкүн болгон жок.", "Couldn't get the list of screens.", "Ekran listesi alınamadı.", "Ekranlar ro'yxatini olib bo'lmadi.")
             : savedId is not null && SelectedScreen?.Id != savedId
-                ? "Сохранённый экран не найден. Выбран доступный экран."
-                : $"{Screens.Count} экран(а) доступно.";
+                ? Tr.T("Сохранённый экран не найден. Выбран доступный экран.", "Сакталган экран табылган жок. Жеткиликтүү экран тандалды.", "The saved screen wasn't found. An available screen was selected.", "Kaydedilen ekran bulunamadı. Kullanılabilir bir ekran seçildi.", "Saqlangan ekran topilmadi. Mavjud ekran tanlandi.")
+                : Tr.T($"{Screens.Count} экран(а) доступно.", $"Жеткиликтүү экрандар: {Screens.Count}.", $"Screens available: {Screens.Count}.", $"Kullanılabilir ekran sayısı: {Screens.Count}.", $"Mavjud ekranlar soni: {Screens.Count}.");
     }
 
     public void Preview()
     {
         SyncColumns();
-        StatusMessage = $"Предпросмотр открыт: {_service.Preview(Settings)}";
+        StatusMessage = Tr.T("Предпросмотр открыт: ", "Алдын ала көрүү ачылды: ", "Preview opened: ", "Önizleme açıldı: ", "Oldindan ko'rish ochildi: ") + _service.Preview(Settings);
     }
 
     public void OpenDisplay()
@@ -152,7 +156,7 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
         SyncColumns();
         _service.ApplySettings(Settings);
         _service.OpenManually();
-        StatusMessage = "Экран покупателя открыт.";
+        StatusMessage = Tr.T("Экран покупателя открыт.", "Сатып алуучунун экраны ачылды.", "Customer display opened.", "Müşteri ekranı açıldı.", "Xaridor ekrani ochildi.");
     }
 
     public void ShowDisplay()
@@ -160,7 +164,7 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
         SyncColumns();
         _service.ApplySettings(Settings);
         _service.ShowManually();
-        StatusMessage = "Экран перемещён на выбранный монитор.";
+        StatusMessage = Tr.T("Экран перемещён на выбранный монитор.", "Экран тандалган мониторго жылдырылды.", "The display was moved to the selected monitor.", "Ekran seçilen monitöre taşındı.", "Ekran tanlangan monitorga ko'chirildi.");
     }
 
     public void Save()
@@ -172,7 +176,7 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
     public void CloseDisplay()
     {
         _service.CloseDisplay();
-        StatusMessage = "Окно покупателя закрыто.";
+        StatusMessage = Tr.T("Окно покупателя закрыто.", "Сатып алуучунун терезеси жабылды.", "Customer window closed.", "Müşteri penceresi kapatıldı.", "Xaridor oynasi yopildi.");
     }
 
     public void MoveColumn(MonitorColumnOption? column, int direction)

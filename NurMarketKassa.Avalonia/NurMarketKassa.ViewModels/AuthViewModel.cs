@@ -113,8 +113,8 @@ public class AuthViewModel : ViewModelBase
     }
 
     public string LoginButtonText => IsOfflineMode
-        ? Tr.T("Работа без сети", "Тармаксыз иштөө", "Working offline", "Ağsız çalışma", "Tarmoqsiz ishlash")
-        : Tr.T("Войти", "Кирүү", "Log in", "Giriş yap", "Kirish");
+        ? Tr.T("Работа без сети", "Тармаксыз иштөө", "Working offline", "Çevrimdışı çalışma", "Tarmoqsiz ishlash")
+        : Tr.T("Войти", "Кирүү", "Sign in", "Giriş yap", "Kirish");
     public bool LoginButtonIsOfflineAccent => IsOfflineMode;
 
     /// <summary>2026-09-09: какой экран формы входа сейчас показан — обычный NurCRM или один из
@@ -196,12 +196,12 @@ public class AuthViewModel : ViewModelBase
         ErrorMessage = "";
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrEmpty(Password))
         {
-            ErrorMessage = Tr.T("Введите логин и пароль.", "Логин менен паролду киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting.");
+            ErrorMessage = Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting.");
             return;
         }
 
         IsLoading = true;
-        LoadingStatus = Tr.T("Авторизация…", "Аутентификация…", "Authorizing…", "Yetkilendiriliyor…", "Avtorizatsiya…");
+        LoadingStatus = Tr.T("Авторизация…", "Авторизация…", "Signing in…", "Giriş yapılıyor…", "Avtorizatsiya…");
         try
         {
             var result = await _authentication.LoginAsync(
@@ -235,7 +235,7 @@ public class AuthViewModel : ViewModelBase
     {
         ErrorMessage = "";
         IsLoading = true;
-        LoadingStatus = Tr.T("Проверка сохранённой сессии…", "Сакталган сессия текшерилүүдө…", "Checking the saved session…", "Kaydedilen oturum kontrol ediliyor…", "Saqlangan sessiya tekshirilmoqda…");
+        LoadingStatus = Tr.T("Проверка сохранённой сессии…", "Сакталган сессия текшерилүүдө…", "Checking the saved session…", "Kayıtlı oturum kontrol ediliyor…", "Saqlangan sessiya tekshirilmoqda…");
         try
         {
             var result = await _authentication.AutoLoginAsync(CancellationToken.None)
@@ -341,7 +341,7 @@ public class AuthViewModel : ViewModelBase
             var (success, error) = _autonomous.CreateLocalAccount(LocalEmail, LocalPassword, LocalDisplayName);
             if (!success)
             {
-                ErrorMessage = error ?? Tr.T("Не удалось создать аккаунт.", "Аккаунт түзүү мүмкүн болгон жок.", "Could not create the account.", "Hesap oluşturulamadı.", "Hisob yaratib bo'lmadi.");
+                ErrorMessage = error ?? Tr.T("Не удалось создать аккаунт.", "Аккаунт түзүү мүмкүн болгон жок.", "Could not create the account.", "Hesap oluşturulamadı.", "Akkauntni yaratib bo'lmadi.");
                 return;
             }
 
@@ -359,7 +359,7 @@ public class AuthViewModel : ViewModelBase
         ErrorMessage = "";
         if (string.IsNullOrWhiteSpace(LocalEmail) || string.IsNullOrEmpty(LocalPassword))
         {
-            ErrorMessage = Tr.T("Введите логин и пароль.", "Логин менен паролду киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting.");
+            ErrorMessage = Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting.");
             return;
         }
 
@@ -369,7 +369,7 @@ public class AuthViewModel : ViewModelBase
             var (success, error, displayName) = _autonomous.LoginLocal(LocalEmail, LocalPassword);
             if (!success)
             {
-                ErrorMessage = error ?? Tr.T("Неверный логин или пароль.", "Логин же пароль туура эмес.", "Wrong login or password.", "Kullanıcı adı veya şifre hatalı.", "Login yoki parol noto'g'ri.");
+                ErrorMessage = error ?? Tr.T("Неверный логин или пароль.", "Логин же сырсөз туура эмес.", "Incorrect login or password.", "Kullanıcı adı veya şifre hatalı.", "Login yoki parol noto'g'ri.");
                 LocalPassword = "";
                 return;
             }
@@ -432,7 +432,7 @@ public class AuthViewModel : ViewModelBase
 
         LoadingStatus = IsOfflineMode
             ? Tr.T("Запуск в автономном режиме…", "Автономдук режимде иштетилүүдө…", "Starting in offline mode…", "Çevrimdışı modda başlatılıyor…", "Oflayn rejimda ishga tushirilmoqda…")
-            : Tr.T("Загрузка кассы…", "Касса жүктөлүүдө…", "Loading the POS…", "Kasa yükleniyor…", "Kassa yuklanmoqda…");
+            : Tr.T("Загрузка кассы…", "Касса жүктөлүүдө…", "Loading the till…", "Kasa yükleniyor…", "Kassa yuklanmoqda…");
         // Identity remains inside the session/service and never flows back into
         // Username, which is strictly an input property.
         ClearUiCredentials();

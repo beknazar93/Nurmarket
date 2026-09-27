@@ -39,7 +39,7 @@ public partial class OpenShiftDialog : Window
     {
         if (!decimal.TryParse(OpeningCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
         {
-            PosMessageBox.Show(this, "Введите корректную сумму.", "Ошибка",
+            PosMessageBox.Show(this, Tr.T("Введите корректную сумму.", "Туура сумманы киргизиңиз.", "Enter a valid amount.", "Geçerli bir tutar girin.", "To'g'ri summani kiriting."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

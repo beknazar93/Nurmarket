@@ -418,10 +418,10 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
                             <Button Content="Excel" Classes="SecondaryActionButton" Margin="0,0,6,0"
                                     Click="ExportExcel_Click"
-                                    ToolTip.Tip="Выгрузить аналитику за выбранный период в Excel с графиками и ABC-анализом."/>
+                                    ToolTip.Tip="{DynamicResource loc.owner.finance.excelTip}"/>
                             <Button Content="Word" Classes="SecondaryActionButton" Margin="0,0,6,0"
                                     Click="ExportWord_Click"
-                                    ToolTip.Tip="Тот же отчёт в Word — таблицы, графики и ABC-анализ."/>
+                                    ToolTip.Tip="{DynamicResource loc.owner.finance.wordTip}"/>
                             <Button Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
             Margin="0,0,10,0" Click="Refresh_Click" />
                             <Button Content="{DynamicResource common.exit}" Classes="SecondaryActionButton"
@@ -605,16 +605,16 @@
                                                      аналитика их не показывала вовсе. -->
                                                 <Border Classes="KpiCard" MinWidth="180">
                                                     <StackPanel>
-                                                        <TextBlock Text="Расходы (изъятия)" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
-                                                        <TextBlock x:Name="ExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" Text="0,00 сом" />
+                                                        <TextBlock Text="{DynamicResource loc.owner.finance.expenses}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
+                                                        <TextBlock x:Name="ExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" Text="{DynamicResource loc.owner.zeroMoney}" />
                                                         <TextBlock x:Name="ExpensesBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" />
                                                     </StackPanel>
                                                 </Border>
 
                                                 <Border Classes="KpiCard" MinWidth="180">
                                                     <StackPanel>
-                                                        <TextBlock Text="Прибыль за вычетом расходов" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap" />
-                                                        <TextBlock x:Name="ProfitAfterExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}" Text="0,00 сом" />
+                                                        <TextBlock Text="{DynamicResource loc.owner.finance.profitAfterExpenses}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap" />
+                                                        <TextBlock x:Name="ProfitAfterExpensesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushMoney}" Text="{DynamicResource loc.owner.zeroMoney}" />
                                                     </StackPanel>
                                                 </Border>
                                             </WrapPanel>

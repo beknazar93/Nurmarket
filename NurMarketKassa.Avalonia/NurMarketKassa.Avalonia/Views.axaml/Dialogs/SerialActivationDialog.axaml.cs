@@ -22,7 +22,7 @@ public partial class SerialActivationDialog : Window
         InitializeComponent();
         MessageText.Text = Tr.T(
             $"Введите серийный номер, полученный при оплате темы «{themeName}».",
-            $"«{themeName}» темасын төлөгөндө алган серия номерин киргизиңиз.");
+            $"«{themeName}» темасы үчүн төлөгөндө алган сериялык номериңизди киргизиңиз.", $"Enter the serial number you received when paying for the “{themeName}” theme.", $"«{themeName}» teması için ödeme yaparken aldığınız seri numarasını girin.", $"«{themeName}» mavzusini to'laganda olingan seriya raqamini kiriting.");
         Opened += (_, _) => SerialBox.Focus();
     }
 
@@ -47,7 +47,7 @@ public partial class SerialActivationDialog : Window
         var text = (SerialBox.Text ?? "").Trim();
         if (text.Length == 0)
         {
-            ErrorText.Text = Tr.T("Введите серийный номер.", "Серия номерин киргизиңиз.", "Enter the serial number.", "Seri numarasını girin.", "Seriya raqamini kiriting.");
+            ErrorText.Text = Tr.T("Введите серийный номер.", "Сериялык номерди киргизиңиз.", "Enter the serial number.", "Seri numarasını girin.", "Seriya raqamini kiriting.");
             ErrorText.IsVisible = true;
             return;
         }

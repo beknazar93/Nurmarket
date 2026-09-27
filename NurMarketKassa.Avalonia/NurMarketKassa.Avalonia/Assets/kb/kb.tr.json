@@ -1,0 +1,2268 @@
+{
+ "version": "2026-09-26",
+ "language": "tr",
+ "sections": [
+  {
+   "title": "Satışlar",
+   "groups": [
+    {
+     "title": "Fiş oluşturma",
+     "articles": [
+      {
+       "id": "продажи-как-создать-продажу",
+       "title": "Satış nasıl yapılır",
+       "text": "Шаг 1. Üst paneldeki «Vardiyayı aç» düğmesiyle vardiyayı açın (vardiya zaten açıksa aynı yerde «Vardiyayı kapat» düğmesi görünür).\nШаг 2. Soldaki katalogda istediğiniz ürünün kutucuğuna basın — ürün sağdaki «Ana fiş» adlı fişe eklenir.\nШаг 3. Ya da ürünün barkodunu barkod okuyucuyla okutun — ürün fişe kendiliğinden eklenir, hiçbir şeye basmanız gerekmez.\nШаг 4. Ya da fişin altındaki «Ürün kodu veya adı girin…» alanına kodu veya adı yazın, gerekirse − ve + düğmeleriyle miktarı belirleyin ve «Ekle» düğmesine basın.\nШаг 5. Fişteki ürünleri ve «Toplam» satırındaki tutarı kontrol edin.\nШаг 6. «Öde» düğmesine (veya Enter tuşuna) basın, ödeme yöntemini seçin ve onaylayın.\nВажно: Vardiya açık değilse ilk ürünü eklediğinizde kasa vardiyayı açmayı kendisi önerir.",
+       "keywords": [
+        "satış",
+        "fiş kesmek",
+        "fiş",
+        "satmak",
+        "ürün ekle",
+        "ürün okutmak",
+        "nasıl satılır",
+        "продажа",
+        "пробить",
+        "чек",
+        "продать",
+        "добавить товар",
+        "пробить товар",
+        "как продавать"
+       ],
+       "images": [
+        {
+         "file": "kassa-main.png",
+         "caption": "Kasanın ana ekranı: solda katalog, sağda fiş"
+        },
+        {
+         "file": "anim-sale.gif",
+         "caption": "Animasyon: 4 adımda satış"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-товар-по-штрихкоду-сканером",
+       "title": "Barkod okuyucuyla ürün nasıl eklenir",
+       "text": "Шаг 1. İmlecin arama alanında veya başka bir giriş alanında olmadığından emin olun (Esc tuşuna basın — kasa yeniden barkod okutmaya hazır hale gelir).\nШаг 2. Ürünün barkodunu okutun.\nШаг 3. Ürün mevcut fişe eklenir; aynı ürünü tekrar okuttuğunuzda miktarı artar.\nШаг 4. Kasa «Ürün bulunamadı» yazarsa bu barkodla hemen yeni ürün oluşturmak için «Depoya ekle» düğmesine, ürünü atlamak için «Atla» düğmesine basın.\nВажно: Tartının bastığı etiketleri (20–29 ile başlayan 13 haneli barkod) kasa kendisi çözer ve ürünü doğrudan ağırlığı veya tutarıyla birlikte ekler.",
+       "keywords": [
+        "barkod",
+        "tarayıcı",
+        "okutmak",
+        "taramak",
+        "barkod okutma",
+        "okumuyor",
+        "kod okuma",
+        "barkod okuyucu",
+        "штрихкод",
+        "сканер",
+        "сканировать",
+        "пикнуть",
+        "штрих код",
+        "не сканирует",
+        "считать код"
+       ]
+      },
+      {
+       "id": "продажи-как-изменить-количество-товара-в-чеке",
+       "title": "Fişteki ürün miktarı nasıl değiştirilir",
+       "text": "Шаг 1. Sağdaki fişte istediğiniz satırı bulun.\nШаг 2. Miktarı 1 artırmak için «+», 1 azaltmak için «−» düğmesine basın.\nШаг 3. Miktarı elle girmek için «−» ile «+» arasındaki sayıya basın ve değeri yazın.\nШаг 4. Tartılı ürün için satırdaki tartı simgesine basın — yeniden tartmak için «Ürünü tart» penceresi açılır.\nШаг 5. «Toplam» tutarı otomatik olarak yeniden hesaplanır.\nВажно: Depodaki stoktan fazlası eklenemez — kasa «Stok sınırına ulaşıldı» mesajını gösterir.",
+       "keywords": [
+        "miktar",
+        "miktarı değiştir",
+        "artı",
+        "eksi",
+        "kaç adet",
+        "adet değiştir",
+        "количество",
+        "изменить количество",
+        "плюс",
+        "минус",
+        "сколько штук",
+        "поменять кол-во"
+       ],
+       "images": [
+        {
+         "file": "kassa-main.png",
+         "caption": "Fiş satırındaki − ve + düğmeleri"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-продать-весовой-товар",
+       "title": "Tartılı ürün nasıl satılır",
+       "text": "Шаг 1. Katalogda tartılı ürüne basın («Tartılı» sekmesinde bulmak kolaydır) veya barkodunu okutun.\nШаг 2. «Ürünü tart» penceresi açılır; tartı bağlıysa üstte «Şu anda tartıda» görünür.\nШаг 3. «Ağırlığa göre» sekmesinde «Tartıdan al» düğmesine basın veya ağırlığı «Ağırlık, kg» alanına girin (0,1 kg, 0,5 kg, 1 kg, 2 kg, 5 kg hızlı düğmeleri ve rakam tuşları vardır).\nШаг 4. Müşteri belirli bir tutarlık ürün isterse «Tutara göre» sekmesini açın ve «Tutar, som» alanını doldurun — ağırlık kendiliğinden hesaplanır.\nШаг 5. «Fişe ekle» düğmesine basın.",
+       "keywords": [
+        "tartılı",
+        "tartmak",
+        "terazi",
+        "tartı",
+        "kg",
+        "kilogram",
+        "tartıyla",
+        "tutara göre",
+        "gram",
+        "весовой",
+        "взвесить",
+        "весы",
+        "кг",
+        "килограмм",
+        "на вес",
+        "по сумме",
+        "грамм"
+       ]
+      },
+      {
+       "id": "продажи-как-продать-поштучно-из-пачки",
+       "title": "Paketten tek tek nasıl satılır",
+       "text": "Шаг 1. Tek tek satışı açık olan ürüne basın (bu tür ürünlerin hepsi «Tek tek satış» sekmesindedir).\nШаг 2. «Adet mi, tam paket mi?» sorusuyla «Sepete nasıl eklenir?» penceresi açılır.\nШаг 3. «Tam paket» veya «Adet olarak» seçeneğini işaretleyin ve «İleri» düğmesine basın.\nШаг 4. Kaç paket veya kaç adet ekleneceğini girin ve «Ekle» düğmesine basın.\nШаг 5. Adetler ve tam paketler fişe ayrı satırlar olarak, her biri kendi fiyatıyla eklenir.\nВажно: Tek tek satış ürün kartında ayarlanır: «Paketten tek tek satış», «Paket başına miktar», «Adet fiyatı».",
+       "keywords": [
+        "adet adet",
+        "tek tek",
+        "paket",
+        "tane",
+        "tane sigara",
+        "paketten",
+        "tane satmak",
+        "karton",
+        "поштучно",
+        "пачка",
+        "штучно",
+        "сигареты поштучно",
+        "из упаковки",
+        "продать штуку",
+        "блок"
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-товар-горячими-клавишами-f1-f12",
+       "title": "F1–F12 kısayol tuşlarıyla ürün nasıl eklenir",
+       "text": "Шаг 1. Ürünleri bir tuşa bağlayın: ☰ → «Depo» → «Ürünler» sekmesi → üründe «Düzenle» → «Diğer (toptan fiyat, indirim, kısayol, özellikler)» bölümü → «Kısayol tuşu» (F1–F12) → «Kaydet».\nШаг 2. Kasa ekranında istediğiniz F1–F12 tuşuna basın.\nШаг 3. «Kısayol ürünleri» penceresi açılır; burada bu tuşa bağlı tüm ürünler listelenir.\nШаг 4. Ürüne basın — ürün fişe eklenir ve pencere kapanır.\nВажно: Diğer kısayollar: Ctrl+Enter — ödeme, Ctrl+F1 — sepeti temizle, Ctrl+D — fiş indirimi, Ctrl+M — müşteri ekranı, Ctrl+F — ürün arama, Enter — fişte ürün varken «Öde». Kısayollar üst paneldeki «Kısayol» düğmesiyle değiştirilir.",
+       "keywords": [
+        "kısayol tuşları",
+        "F1",
+        "F2",
+        "F12",
+        "hızlı ürünler",
+        "tuş",
+        "F tuşları",
+        "горячие клавиши",
+        "быстрые товары",
+        "клавиша",
+        "кнопки F"
+       ]
+      },
+      {
+       "id": "продажи-как-пользоваться-избранными-быстрыми-товарами",
+       "title": "Favori (hızlı) ürünler nasıl kullanılır",
+       "text": "Шаг 1. Katalogda ürün kutucuğundaki ☆ yıldızına basın — yıldız ★ olur ve ürün favorilere eklenir.\nШаг 2. Fiş boşken «Sepet boş» yazısının altında favori ürünlerinizi içeren «Hızlı ürünler» bölümü görünür.\nШаг 3. Bu bölümdeki ürüne basın — hemen fişe eklenir.\nШаг 4. Ürünü favorilerden çıkarmak için kutucuğundaki ★ işaretine tekrar basın.",
+       "keywords": [
+        "favoriler",
+        "yıldız",
+        "hızlı ürünler",
+        "çok satılanlar",
+        "yıldızlı",
+        "favori ürünler",
+        "избранное",
+        "звёздочка",
+        "быстрые товары",
+        "часто продаваемые",
+        "звезда",
+        "любимые товары"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "İndirimler",
+     "articles": [
+      {
+       "id": "продажи-как-сделать-скидку-на-один-товар",
+       "title": "Tek bir ürüne nasıl indirim yapılır",
+       "text": "Шаг 1. Fişteki ürün satırında «%» («Bu üründe indirim») düğmesine basın.\nШаг 2. «Ürün indirimi» penceresi açılır.\nШаг 3. Anahtarı «İndirim modu: Yüzde (%)» veya «İndirim modu: Tutar (som)» konumuna getirin.\nШаг 4. İndirim yüzdesini veya tutarını girin.\nШаг 5. «Uygula» düğmesine basın. İndirimi kaldırmak için pencereyi tekrar açın ve «Sıfırla» düğmesine basın.\nВажно: İndirim yapma yetkisi ve en fazla indirim miktarı her personel için NurCRM'de belirlenir; yetki yoksa kasa indirim uygulamanıza izin vermez.",
+       "keywords": [
+        "indirim",
+        "ürün indirimi",
+        "yüzde",
+        "fiyat düşürme",
+        "fiyat indirmek",
+        "iskonto",
+        "скидка",
+        "скидка на товар",
+        "процент",
+        "уценка",
+        "скинуть цену",
+        "дисконт"
+       ],
+       "images": [
+        {
+         "file": "kassa-line-discount.png",
+         "caption": "«Ürün indirimi» penceresi (satırdaki % düğmesi)"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-сделать-скидку-на-весь-чек",
+       "title": "Tüm fişe nasıl indirim yapılır",
+       "text": "Шаг 1. Tüm ürünleri fişe ekleyin.\nШаг 2. Fişin altındaki «⋮ Daha fazla» düğmesine, ardından «İndirim %» düğmesine basın (veya Ctrl+D tuşlarına basın).\nШаг 3. Anahtarı «İndirim modu: Yüzde (%)» veya «İndirim modu: Tutar (som)» konumuna getirin.\nШаг 4. Değeri girin ve «Uygula» düğmesine basın.\nШаг 5. Fişin toplamı düşer; indirimi aynı penceredeki «Sıfırla» düğmesiyle kaldırabilirsiniz.",
+       "keywords": [
+        "fiş indirimi",
+        "tüm fişe indirim",
+        "genel indirim",
+        "indirim %",
+        "herkese indirim",
+        "indirim yapmak",
+        "скидка на чек",
+        "скидка на весь чек",
+        "общая скидка",
+        "скидка %",
+        "скидка всем",
+        "скинуть"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Ödeme",
+     "articles": [
+      {
+       "id": "продажи-как-принять-оплату-наличными-и-посчитать-сдачу",
+       "title": "Nakit ödeme nasıl alınır ve para üstü nasıl hesaplanır",
+       "text": "Шаг 1. Fişin altındaki «Öde» düğmesine basın.\nШаг 2. «Ödeme» penceresinde «Nakit» yöntemini seçin.\nШаг 3. «Alınan nakit» alanına müşteriden alınan tutarı girin veya 100 / 200 / 500 hızlı düğmesine basın.\nШаг 4. Kasa «Para üstü» tutarını gösterir — müşteriye bu tutarı geri verin.\nШаг 5. Gerekirse «Fişi yazdır» seçeneğini açın veya kapatın.\nШаг 6. «Öde N som» düğmesine basın.\nВажно: Para çekmecesi bağlıysa ve «Nakit ödemede açılsın» açıksa (Ayarlar → «Yazdır»), çekmece kendiliğinden açılır.",
+       "keywords": [
+        "nakit",
+        "para üstü",
+        "nakit ödeme",
+        "peşin",
+        "ne kadar para üstü",
+        "alınan para",
+        "nakit para",
+        "наличные",
+        "сдача",
+        "оплата наличными",
+        "нал",
+        "сколько сдачи",
+        "получено",
+        "кэш"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment.png",
+         "caption": "Ödeme penceresi: nakit ve para üstü"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-принять-безналичную-оплату-или-оплату-по-qr",
+       "title": "Nakitsiz ödeme veya QR ile ödeme nasıl alınır",
+       "text": "Шаг 1. «Öde» düğmesine basın.\nШаг 2. «Ödeme» penceresinde «Nakitsiz» yöntemini seçin.\nШаг 3. «Banka seçin» bölümünde istediğiniz bankaya basın — ekranda o bankanın QR kodu görünür.\nШаг 4. Müşteri QR kodu banka uygulamasıyla okutur ve ödemeyi yapar.\nШаг 5. Paranın geldiğinden emin olun ve «Öde N som» düğmesine basın.\nВажно: Kasa paranın hesaba geçtiğini kendisi göremez — ödemeyi kasiyer onaylar. QR yüklenmemişse kasa, işletmenize ait QR kodunu yüklemenizi ister: Ayarlar → «İşlemler».",
+       "keywords": [
+        "kartla",
+        "qr",
+        "kare kod",
+        "kart",
+        "havale",
+        "mbank",
+        "qr ile ödeme",
+        "nakitsiz",
+        "kartla ödeme",
+        "pos cihazı",
+        "безнал",
+        "кьюар",
+        "карта",
+        "перевод",
+        "мбанк",
+        "оплата по qr",
+        "безналичные",
+        "картой",
+        "терминал"
+       ]
+      },
+      {
+       "id": "продажи-как-принять-смешанную-оплату-часть-наличными-часть-б",
+       "title": "Karışık ödeme nasıl alınır (bir kısmı nakit, bir kısmı nakitsiz)",
+       "text": "Шаг 1. «Öde» düğmesine basın.\nШаг 2. «Karışık» yöntemini seçin.\nШаг 3. «Nakit» alanına nakit verilen tutarı girin.\nШаг 4. «Nakitsiz» alanı kalan tutarla kendiliğinden dolar; nakitsiz ödenecek kısım için bankayı seçin.\nШаг 5. Kasanın «Tutar uyuşuyor» yazdığını kontrol edin ve «Öde N som» düğmesine basın.",
+       "keywords": [
+        "karışık",
+        "parça parça",
+        "yarısı nakit",
+        "nakit ve kart",
+        "kombine ödeme",
+        "karışık ödeme",
+        "смешанная",
+        "частями",
+        "половина наличными",
+        "наличные и карта",
+        "комбинированная оплата",
+        "смешанная оплата"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-mixed.png",
+         "caption": "Karışık ödeme"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-продать-в-долг",
+       "title": "Veresiye nasıl satılır",
+       "text": "Шаг 1. «Öde» düğmesine basın.\nШаг 2. «Veresiye» yöntemini seçin.\nШаг 3. «Müşteri seç» düğmesine basın, müşteriyi adına veya telefon numarasına göre bulun ya da yeni müşteri oluşturun («Yeni müşteri» bölümü: ad, telefon → «+ Müşteri ekle»).\nШаг 4. «Şimdi alınan (0 — tüm borç)» alanına müşterinin hemen ödediği tutarı girin veya 0 bırakın — o zaman tutarın tamamı borca yazılır.\nШаг 5. Kasa, borca kalacak tutarı «Borç olarak kalacak» satırında gösterir.\nШаг 6. «Öde N som» düğmesine basın.\nВажно: Müşteri seçilmeden veresiye satış yapılamaz. Borç daha sonra «Borç ödeme» ile kapatılır.",
+       "keywords": [
+        "borç",
+        "veresiye",
+        "nasiye",
+        "veresiye satış",
+        "borca yazmak",
+        "borçlu",
+        "kredi",
+        "sonra ödeyecek",
+        "долг",
+        "в долг",
+        "насия",
+        "продать в долг",
+        "запись в долг",
+        "должник",
+        "кредит",
+        "потом отдаст"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-debt.png",
+         "caption": "«Veresiye» ödeme: müşteriyi seçin"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-указать-консультанта-продавца-в-продаже",
+       "title": "Satışta danışman (satıcı) nasıl belirtilir",
+       "text": "Шаг 1. Giyim modunu açın: ☰ → «Ayarlar» → «İşlemler» → «Mağaza türü» → «Giyim ve benzeri».\nШаг 2. Fişi hazırlayın ve «Öde» düğmesine basın.\nШаг 3. «DANIŞMAN» bölümünde «Danışman belirt» seçeneğini açın.\nШаг 4. «Ad soyada göre ara…» alanında personeli bulun ve üzerine basın.\nШаг 5. Danışmana satıştan yüzde (prim) yazmak için «Satıştan yüzde payı hesapla» seçeneğini açın ve «Yüzde (%)» alanını doldurun — kasa «Komisyon ≈ N som» tutarını gösterir.\nШаг 6. Ödemeyi «Öde N som» düğmesiyle tamamlayın.\nВажно: Danışman komisyonları «Maaş» penceresinde görünür.",
+       "keywords": [
+        "danışman",
+        "satıcı",
+        "satıcıya yüzde",
+        "komisyon",
+        "kim sattı",
+        "giyim",
+        "консультант",
+        "продавец",
+        "процент продавцу",
+        "комиссия",
+        "кто продал",
+        "одежда"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Fişler",
+     "articles": [
+      {
+       "id": "продажи-как-вести-несколько-чеков-одновременно",
+       "title": "Aynı anda birden fazla fişle nasıl çalışılır",
+       "text": "Шаг 1. Fişin üstündeki «+ Yeni fiş» düğmesine basın — yeni bir fiş sekmesi açılır.\nШаг 2. Yeni sekmeye başka bir müşterinin ürünlerini ekleyin.\nШаг 3. Fişler arasında geçiş yapmak için sekmelerine basın.\nШаг 4. Her fiş «Öde» düğmesiyle ayrı ayrı ödenir.\nШаг 5. Artık gerekmeyen sekmeyi «Fişi sil» düğmesiyle kapatın.\nВажно: «Ana fiş» silinemez — yalnızca ek sekmeler silinir.",
+       "keywords": [
+        "yeni fiş",
+        "birden fazla fiş",
+        "ikinci fiş",
+        "iki müşteri",
+        "fiş sekmesi",
+        "sıra",
+        "новый чек",
+        "несколько чеков",
+        "второй чек",
+        "два покупателя",
+        "вкладка чека",
+        "очередь"
+       ]
+      },
+      {
+       "id": "продажи-как-отложить-чек-и-вернуться-к-нему",
+       "title": "Fiş nasıl bekletilir ve sonra nasıl geri açılır",
+       "text": "Шаг 1. Müşteri kasadan kısa süreliğine ayrıldığında fişin altındaki «Fişi beklet» düğmesine basın — fiş kaydedilir ve ekrandaki fiş boşaltılır.\nШаг 2. Sonraki müşterilere her zamanki gibi hizmet verin.\nШаг 3. Son bekletilen fişi geri getirmek için «⋮ Daha fazla» → «Geri getir» düğmesine basın (mevcut fişte ürün varsa iki fiş yer değiştirir).\nШаг 4. Bekletilen herhangi bir fişi seçmek için «⋮ Daha fazla» → «Bekleyenler» düğmesine basın — «Bekleyen sepetler» penceresi açılır.\nШаг 5. İstediğiniz fişleri işaretleyin ve «Ayrı fiş olarak aç» veya «Mevcut fişe ekle» düğmesine basın; gerekmeyenleri «Seçilenleri sil» düğmesiyle silin.\nВажно: Mevcut fiş ödendikten sonra, bekletilen fiş varsa kasa en eskisini kendisi açar.",
+       "keywords": [
+        "beklet",
+        "bekletilen fiş",
+        "fişi geri getir",
+        "müşteri ayrıldı",
+        "bekleyenler",
+        "beklemek",
+        "отложить",
+        "отложенный чек",
+        "вернуть чек",
+        "покупатель отошёл",
+        "список отложенных",
+        "подождать"
+       ]
+      },
+      {
+       "id": "продажи-как-удалить-товар-из-чека-или-очистить-чек",
+       "title": "Fişten ürün nasıl silinir veya fiş nasıl temizlenir",
+       "text": "Шаг 1. Tek bir kalemi çıkarmak için satırındaki çöp kutusu simgesine («Fişten çıkar») basın.\nШаг 2. Kasa isterse kendi personel erişim kodunuzu girin.\nШаг 3. Mevcut fişin tamamını temizlemek için Ctrl+F1 tuşlarına basın ve «Mevcut sepet temizlensin mi?» sorusunu onaylayın.\nШаг 4. Gereksiz bir fiş sekmesini tamamen kapatmak için «Fişi sil» düğmesine basın (birden fazla fiş açıkken çalışır).\nВажно: Erişim kodları Ayarlar → «Personel» bölümünde belirlenir. Mağaza sahibi kod girmeden silebilir.",
+       "keywords": [
+        "ürün sil",
+        "fişten çıkar",
+        "fişi sil",
+        "sepeti temizle",
+        "fişi iptal et",
+        "yanlış ürün",
+        "удалить товар",
+        "убрать из чека",
+        "удалить чек",
+        "очистить корзину",
+        "отменить чек",
+        "ошибся"
+       ]
+      },
+      {
+       "id": "продажи-как-добавить-доп-услугу-или-расход-в-чек",
+       "title": "Fişe ek hizmet veya gider nasıl eklenir",
+       "text": "Шаг 1. Fişin altındaki «Ek hizmet» düğmesine basın.\nШаг 2. «Ek hizmet» penceresinde «Tür» olarak «Gelir» (teslimat, hizmet — fişe eklenir) veya «Gider» (fişten düşülür) seçin.\nШаг 3. «Ad» ve «Tutar» alanlarını, gerekirse «Miktar» alanını doldurun.\nШаг 4. «Ekle» düğmesine basın — satır fişte görünür.\nШаг 5. Fişi her zamanki gibi ödeyin.\nВажно: Fiş boşken eklenen «Gider», kasadan para çıkışı olarak kaydedilir ve gider fişi yazdırılır.",
+       "keywords": [
+        "ek hizmet",
+        "teslimat",
+        "fişe hizmet",
+        "gider",
+        "gelir",
+        "serbest tutar",
+        "keyfi tutar",
+        "доп услуга",
+        "доставка",
+        "услуга в чек",
+        "расход",
+        "доход",
+        "свободная сумма",
+        "произвольная сумма"
+       ],
+       "images": [
+        {
+         "file": "kassa-custom-service.png",
+         "caption": "«Ek hizmet» penceresi"
+        }
+       ]
+      },
+      {
+       "id": "продажи-как-напечатать-или-повторно-напечатать-чек",
+       "title": "Fiş nasıl yazdırılır veya tekrar yazdırılır",
+       "text": "Шаг 1. Fişin satış sırasında yazdırılması için ödeme penceresinde «Fişi yazdır» seçeneğini açık bırakın.\nШаг 2. Tekrar yazdırmak için ☰ → «Bilgi ve müşteriler» → «Satışlar» bölümünü açın.\nШаг 3. Dönemi seçin («Bugün», «Dün», «Hafta», «Ay», «Özel tarih») ve fişi listede bulun.\nШаг 4. Fişe iki kez basın — fişin içeriği açılır.\nШаг 5. «Fişi yazdır» düğmesine basın.\nВажно: Fişin her ödemeden sonra yazdırılması için Ayarlar → «Yazdır» → «Ödemeden sonra fişi yazdır» seçeneğini açın.",
+       "keywords": [
+        "fiş yazdır",
+        "yazdırmak",
+        "tekrar",
+        "fiş kopyası",
+        "kopya",
+        "yeniden yazdır",
+        "печать чека",
+        "распечатать",
+        "повторно",
+        "копия чека",
+        "дубликат",
+        "перепечатать"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "İşletme sahibi programı",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
+       "title": "«NurMarket İşletme Sahibi» nedir ve nerede bulunur",
+       "text": "Шаг 1. «NurMarket İşletme Sahibi» programı kasayla birlikte kurulur: güncellemeden sonra masaüstünde ve «Başlat» menüsünde programın kısayolu görünür (kısayolun adı: «NurMarket Владелец»).\nШаг 2. Programı açın ve NurCRM'deki mağaza sahibi veya yönetici hesabınızla giriş yapın.\nШаг 3. Solda bölüm menüsü, sağda «Özet» bulunur: bugün, bu hafta veya bu ay için ciro, fiş sayısı, ortalama fiş ve kâr; günlere göre ciro, ödeme yöntemleri, son satışlar ve en çok satan ürünler.\nШаг 4. Özet her 20 saniyede bir kendiliğinden yenilenir — kasada yapılan satış, programı yeniden başlatmadan burada görünür.\nВажно: Program başka bir bilgisayarda da çalışabilir: kasa ve işletme sahibi programı verileri aynı NurCRM sunucusundan alır.",
+       "keywords": [
+        "sahip",
+        "yönetim paneli",
+        "sahip programı",
+        "işletme sahibi",
+        "özet",
+        "kısayol",
+        "nurmarket işletme sahibi",
+        "владелец",
+        "админка",
+        "программа владельца",
+        "сводка",
+        "ярлык"
+       ],
+       "images": [
+        {
+         "file": "owner-overview.png",
+         "caption": "İşletme sahibi programında özet"
+        },
+        {
+         "file": "anim-owner.gif",
+         "caption": "Animasyon: sahip programı nasıl açılır"
+        }
+       ]
+      },
+      {
+       "id": "программа-владельца-как-открыть-раздел-и-свернуть-меню",
+       "title": "Bölüm nasıl açılır ve menü nasıl daraltılır",
+       "text": "Шаг 1. Soldaki menüde bir bölüme basın — bölüm sağdaki alanın tamamında açılır; üstte bölümün adı görünür.\nШаг 2. Geri dönmek için «Özet» bölümüne veya başka bir bölüme basın — daha önce açtığınız bölümler hatırlanır.\nШаг 3. Logonun yanındaki ☰ düğmesi menüyü yalnızca simgeler kalacak şekilde daraltır; bölümün adı, fareyle simgenin üzerine gelince görünür.\nШаг 4. «Masaüstüne çık» düğmesi menünün en altındadır.",
+       "keywords": [
+        "bölüm",
+        "menü",
+        "daraltmak",
+        "hamburger menü",
+        "simgeler",
+        "çıkış",
+        "раздел",
+        "меню",
+        "свернуть",
+        "бургер",
+        "иконки",
+        "выйти"
+       ]
+      },
+      {
+       "id": "программа-владельца-калькуляция-как-рассчитать-цену-продажи",
+       "title": "Hesaplama: satış fiyatı nasıl hesaplanır",
+       "text": "Шаг 1. «Hesaplama» → «Fiyat ve kâr oranı» sekmesini açın.\nШаг 2. Katalogdan ürün seçin (alış fiyatı ve güncel satış fiyatı otomatik doldurulur) veya alış fiyatını elle girin.\nШаг 3. Hesaplama yöntemini seçin: «Kâr oranına göre %» (fiyat = alış + kâr oranı) veya «Marja göre %» (marj — fiyatın içindeki kâr payı) ya da «Fiyatı kontrol et».\nШаг 4. Gerekirse ciro üzerinden alınan vergiyi ve fiyat yuvarlamasını belirtin.\nШаг 5. Sağda satış fiyatı, birim başına kâr, vergi, kâr oranı ve marj görünür.\nВажно: %30 kâr oranı, %23 marja denk gelir. Örnek: alış 35 som, kâr oranı %30 → fiyat 45,50 som.",
+       "keywords": [
+        "hesaplama",
+        "kâr oranı",
+        "marj",
+        "satış fiyatı",
+        "fiyat hesaplama",
+        "калькуляция",
+        "наценка",
+        "маржа",
+        "цена продажи",
+        "рассчитать цену"
+       ],
+       "images": [
+        {
+         "file": "owner-calc-price.png",
+         "caption": "Alış 35 som, kâr oranı %30 — fiyat 45,50 som"
+        },
+        {
+         "file": "owner-calc-margin.png",
+         "caption": "%1 vergiyle marjdan hesaplama"
+        }
+       ]
+      },
+      {
+       "id": "программа-владельца-калькуляция-себестоимость-партии-проверк",
+       "title": "Hesaplama: parti maliyeti, fiyat kontrolü, başabaş noktası, indirimler",
+       "text": "Шаг 1. «Parti maliyeti»: irsaliyedeki ürünleri, nakliyeyi ve diğer giderleri girin — kasa bunları ürünlere (tutara, miktara veya ağırlığa göre) dağıtır ve satış fiyatı önerir.\nШаг 2. «Fiyat kontrolü»: depodaki tüm ürünlerin alış ve satış fiyatları ile ortalama marj; «Zararına veya sıfır kârla», «Marj eşiğin altında», «Alış fiyatı yok», «Eksi stok» filtreleri.\nШаг 3. «Başabaş noktası ve hedef»: aylık giderler, marj ve ortalama fiş → ayda ve günde ne kadar satış yapmanız gerektiği; bir düğmeyle marj ve ortalama fiş son 30 günün satışlarından alınır.\nШаг 4. «İndirim ve kampanya»: indirimin kârı düşürmemesi için kaç kat daha fazla satmanız gerektiğini gösterir.",
+       "keywords": [
+        "parti",
+        "maliyet",
+        "başabaş",
+        "fiyat kontrolü",
+        "indirim",
+        "kampanya",
+        "başabaş noktası",
+        "партия",
+        "себестоимость",
+        "безубыточность",
+        "проверка цен",
+        "скидка",
+        "акция"
+       ],
+       "images": [
+        {
+         "file": "owner-calculator.png",
+         "caption": "Hesaplama"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "İadeler",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "возвраты-как-вернуть-весь-чек",
+       "title": "Fişin tamamı nasıl iade edilir",
+       "text": "Шаг 1. ☰ → «Çalışma» bölümü → «İade» öğesine basın.\nШаг 2. «Fişten ürün iadesi» penceresinde fişi listede bulun (arama kullanılabilir) ve «Seç» düğmesine basın. Fiş listede yoksa «Satış ID'sini elle gir» bölümünü açın, numarayı girin ve «Fişi yükle» düğmesine basın.\nШаг 3. «Tüm fişi iade et» düğmesine basın.\nШаг 4. «İade sebebini girin» penceresine sebebi yazın ve «Geri getir» düğmesine basın.\nШаг 5. «Tam iade» işlemini «Evet» düğmesiyle onaylayın.\nШаг 6. Kasa «Fişin tam iadesi tamamlandı.» mesajını gösterir. Parayı müşteriye geri verin.",
+       "keywords": [
+        "iade",
+        "fişi iade et",
+        "para iadesi",
+        "satış iptali",
+        "tam iade",
+        "fiş iadesi",
+        "alışverişi iptal et",
+        "возврат",
+        "вернуть чек",
+        "вернуть деньги",
+        "отмена продажи",
+        "полный возврат",
+        "возврат чека",
+        "отменить покупку"
+       ],
+       "images": [
+        {
+         "file": "kassa-return.png",
+         "caption": "İade: fiş listesi"
+        },
+        {
+         "file": "anim-return.gif",
+         "caption": "Animasyon: tüm fişin iadesi"
+        }
+       ]
+      },
+      {
+       "id": "возвраты-как-вернуть-часть-товаров-из-чека",
+       "title": "Fişteki ürünlerin bir kısmı nasıl iade edilir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «İade» öğesine basın.\nШаг 2. Fişi bulun ve «Seç» düğmesine basın — fişin içeriği aşağıda görünür.\nШаг 3. İade edilecek ürünleri onay kutusuyla işaretleyin («Tümü» — hepsini işaretle, «Temizle» — işaretleri kaldır).\nШаг 4. «Seçilenleri iade et» düğmesine basın.\nШаг 5. İade sebebini girin ve onaylayın.",
+       "keywords": [
+        "kısmi iade",
+        "ürün iadesi",
+        "tek ürün iadesi",
+        "kısmen iade",
+        "kusurlu ürün iadesi",
+        "частичный возврат",
+        "вернуть товар",
+        "вернуть один товар",
+        "возврат части",
+        "брак вернули"
+       ],
+       "images": [
+        {
+         "file": "kassa-return-selected.png",
+         "caption": "Ürünleri işaretleyin ve «Seçilenleri iade et» düğmesine basın"
+        }
+       ]
+      },
+      {
+       "id": "возвраты-где-посмотреть-оформленные-возвраты",
+       "title": "Yapılan iadeler nerede görülür",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Finans» bölümünü açın.\nШаг 2. Dönemi seçin: «Bugün», «Dün», «Hafta», «Ay» veya «Özel tarih».\nШаг 3. İadelerin toplam tutarı «İadeler» kutucuğunda görünür.\nШаг 4. Ayrıntılı liste «İadeler» sekmesindedir (tarih, saat, ürün, miktar, tutar, iadeyi yapan kişi).\nВажно: Vardiya boyunca yapılan iadeler vardiya raporunda da görünür («Vardiyayı görüntüle»).",
+       "keywords": [
+        "iadeler nerede",
+        "iade listesi",
+        "iade geçmişi",
+        "ne kadar iade",
+        "iade raporu",
+        "где возвраты",
+        "список возвратов",
+        "история возвратов",
+        "сколько вернули",
+        "отчёт по возвратам"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Vardiya ve kasa",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "смена-и-касса-как-открыть-смену",
+       "title": "Vardiya nasıl açılır",
+       "text": "Шаг 1. Üst panelde «Vardiyayı aç» düğmesine basın.\nШаг 2. Pencerede «Sistem bakiyesi» görünür — bu, kasada olması gereken para miktarıdır.\nШаг 3. «Açılış tutarı» alanına şu anda kasada bulunan nakit tutarını girin.\nШаг 4. «Vardiyayı aç» düğmesine basın.\nШаг 5. Paneldeki düğme «Vardiyayı kapat» olur; ☰ menüsünde vardiyanın açık olduğunu gösteren yeşil işaret belirir.\nВажно: Mevcut vardiya kapatılmadan ikinci bir vardiya açılamaz.",
+       "keywords": [
+        "vardiyayı aç",
+        "vardiya başlat",
+        "vardiya",
+        "gün başı",
+        "kasa açılışı",
+        "işe başla",
+        "открыть смену",
+        "начать смену",
+        "смена",
+        "начало дня",
+        "открытие кассы",
+        "начать работу"
+       ],
+       "images": [
+        {
+         "file": "kassa-open-shift.png",
+         "caption": "«Vardiyayı aç» penceresi"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-закрыть-смену-и-что-показывает-отчёт",
+       "title": "Vardiya nasıl kapatılır ve rapor neyi gösterir",
+       "text": "Шаг 1. Üst panelde «Vardiyayı kapat» düğmesine basın (fişte ürün kaldıysa kasa onay ister).\nШаг 2. «Vardiyayı kapat (Z raporu)» penceresi açılır: «Açılış tutarı», «Toplam satış», «Nakit», «Nakitsiz», «Sistem bakiyesi».\nШаг 3. Kasadaki nakit parayı sayın ve tutarı «Gerçek kasa bakiyesi» alanına girin — kasa «Fark» değerini gösterir.\nШаг 4. «Vardiyayı kapat» düğmesine basın.\nШаг 5. «Vardiyayı görüntüle» penceresi açılır: ciro, satışlar, nakit, nakitsiz ödemeler, borç, iadeler, düşümler, giderler, borç ödemeleri, indirimler, «Vardiya boyunca para çekmecesi» (para girişleri ve çıkışları) ve satılan ürünler.\nШаг 6. Raporu yazdırmak için «Yazdır», çıkmak için «Kapat» düğmesine basın.\nВажно: Mağaza sahibinin Telegram botu bağlıysa vardiya özeti ona otomatik olarak gönderilir. Raporun ayrıntılı satırları (iadeler, düşümler, giderler, indirimler) «Start» planında «Pazaryeri» → «Ek özellikler» bölümünden açılır.",
+       "keywords": [
+        "vardiyayı kapat",
+        "z raporu",
+        "z-raporu",
+        "gün sonu",
+        "vardiya raporu",
+        "günün özeti",
+        "kasa kapanışı",
+        "закрыть смену",
+        "z-отчёт",
+        "z отчет",
+        "конец дня",
+        "отчёт смены",
+        "итоги дня",
+        "закрытие кассы"
+       ],
+       "images": [
+        {
+         "file": "kassa-close-shift.png",
+         "caption": "Vardiya kapanışı (Z raporu)"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-изъять-деньги-из-кассы",
+       "title": "Kasadan para nasıl çekilir",
+       "text": "Шаг 1. Vardiya açık ve mevcut fiş boş olmalıdır.\nШаг 2. Fişin altındaki «Ek hizmet» düğmesine basın.\nШаг 3. «Tür» olarak «Gider» seçin.\nШаг 4. «Ad» alanına sebebi (örneğin «para bozdurma» veya «tedarikçiye ödeme»), «Tutar» alanına aldığınız tutarı yazın.\nШаг 5. «Ekle» düğmesine basın — kasa para çıkışını kaydeder («Çekim kaydedildi») ve gider fişini yazdırır.\nВажно: Para çıkışları vardiya raporunda («Para çıkışları (gider)») ve «Finans» → «Analiz» → «Giderler (para çıkışları)» bölümünde görünür. Kasa ekranında ayrı bir «Para girişi» düğmesi yoktur.",
+       "keywords": [
+        "para çıkışı",
+        "para çekme",
+        "kasadan gider",
+        "kasadan para almak",
+        "para verme",
+        "kasa boşaltma",
+        "изъятие",
+        "забрать деньги",
+        "расход из кассы",
+        "взять из кассы",
+        "выдача",
+        "инкассация"
+       ],
+       "images": [
+        {
+         "file": "kassa-cash-ops.png",
+         "caption": "☰ → «Para girişi / çıkışı»"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-посмотреть-сколько-денег-в-кассе",
+       "title": "Kasada ne kadar para olduğu nasıl görülür",
+       "text": "Шаг 1. Üst panele bakın — orada «Kasa: N som» yazar.\nШаг 2. Ya da ☰ menüsünü açın: menünün üstünde vardiya durumu, tutar ve kasiyerin adı gösterilir.\nШаг 3. Kesin sayımı vardiyayı kapatırken «Sistem bakiyesi» satırına göre yapın.",
+       "keywords": [
+        "ne kadar para",
+        "kasadaki bakiye",
+        "kasa bakiyesi",
+        "kasa som",
+        "kasadaki nakit",
+        "çekmecedeki para",
+        "сколько денег",
+        "остаток в кассе",
+        "баланс кассы",
+        "касса сом",
+        "наличные в кассе",
+        "деньги в ящике"
+       ],
+       "images": [
+        {
+         "file": "kassa-menu.png",
+         "caption": "Kasa bakiyesi — ☰ menüsünde ve üst panelde"
+        }
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-посмотреть-прошлые-смены-и-их-отчёты",
+       "title": "Geçmiş vardiyalar ve raporları nasıl görülür",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Finans» bölümünü açın.\nШаг 2. «Finans» penceresinde sol üstteki ☰ düğmesine basın ve «Vardiya» öğesini seçin.\nШаг 3. «Açık» ve «Kapalı» sekmeleri arasında geçiş yapın.\nШаг 4. Vardiya kartına basın — toplamları ve «Yazdır» düğmesini içeren «Vardiyayı görüntüle» penceresi açılır.\nШаг 5. Geri dönmek için «←» düğmesine basın.\nВажно: Başka bir kasanın açık vardiyası burada, kartındaki «Vardiyayı kapat» düğmesiyle kapatılabilir.",
+       "keywords": [
+        "vardiya geçmişi",
+        "geçmiş vardiyalar",
+        "kapalı vardiyalar",
+        "vardiya raporu",
+        "vardiyalar",
+        "dünkü vardiya",
+        "история смен",
+        "прошлые смены",
+        "закрытые смены",
+        "отчёт за смену",
+        "смены",
+        "вчерашняя смена"
+       ]
+      },
+      {
+       "id": "смена-и-касса-как-сменить-кассира",
+       "title": "Kasiyer nasıl değiştirilir",
+       "text": "Шаг 1. ☰ → «Kasiyer değiştir» öğesine basın.\nШаг 2. «Kasiyer değiştir» penceresinde vardiyayı devralacak kasiyerin «E-posta» ve «Şifre» bilgilerini girin.\nШаг 3. «Değiştir» düğmesine basın.\nШаг 4. Mevcut vardiya normal kapanıştaki gibi kapanır; yeni kasiyer kendi vardiyasında çalışır.\nВажно: Doğru bilgiler girilene kadar hiçbir şey değişmez. Kasa yeni kasiyerin girişini hatırlar — program yeniden başlatıldığında tekrar giriş yapmak gerekmez.",
+       "keywords": [
+        "kasiyer değiştir",
+        "vardiya devri",
+        "başka kasiyer",
+        "kasiyer değişimi",
+        "kasayı devretmek",
+        "vardiya arkadaşı",
+        "сменить кассира",
+        "пересменка",
+        "другой кассир",
+        "смена кассира",
+        "передать кассу",
+        "сменщик"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Ürünler",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "товары-как-найти-товар",
+       "title": "Ürün nasıl bulunur",
+       "text": "Шаг 1. Ana ekranda kataloğun üstündeki «Ürün ara…» alanına basın (veya Ctrl+F tuşlarına basın).\nШаг 2. Ürün adını, barkodu veya stok kodunu yazın — liste hemen filtrelenir.\nШаг 3. Daha ayrıntılı seçim için «Filtre» düğmesine basın: «Ürün türü», «Kategori», «Marka», «Fiyat (min)» / «Fiyat (max)», «Sadece stokta olanlar» → «Uygula».\nШаг 4. «Tüm ürünler», «Tartılı», «Adetli», «Tek tek satış», «Setler», «Hizmetler» sekmeleri yalnızca ilgili türdeki ürünleri gösterir.\nШаг 5. Stoğu ve barkodu liste halinde görmek için aramanın yanındaki «Ürün görünümü» düğmesine basın ve «Tablo görünümü» modunu seçin.\nВажно: Esc tuşu arama satırını temizler ve kasayı yeniden barkod okutmaya hazır hale getirir.",
+       "keywords": [
+        "ürün bul",
+        "arama",
+        "filtre",
+        "ürün nerede",
+        "ara",
+        "barkodla arama",
+        "ürün kodu",
+        "stok kodu",
+        "найти товар",
+        "поиск",
+        "фильтр",
+        "где товар",
+        "искать",
+        "поиск по штрихкоду",
+        "артикул"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-новый-товар",
+       "title": "Yeni ürün nasıl eklenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. «+ Ürün oluştur» düğmesine basın.\nШаг 3. Üstte türü seçin: «Ürün», «Hizmet» veya «Set».\nШаг 4. «Ad», «Stok kodu», «Barkod» (okutun veya «Oluştur» düğmesine basın), «Birim», «Stok» alanlarını doldurun; tartılı ürün için «Tartılı ürün» seçeneğini açın.\nШаг 5. «Fiyatlar» bölümünde «Alış fiyatı», «Kâr payı, %» ve «Satış fiyatı» değerlerini girin.\nШаг 6. Gerekirse «Kategori, marka ve ek barkodlar» ve «Diğer (toptan fiyat, indirim, kısayol, özellikler)» bölümlerini açın.\nШаг 7. «Ekle» düğmesine basın.\nВажно: «Ürün ekleme kodu» tanımlanmamış personel (Ayarlar → «Personel») ürün ekleyemez. Kasada bilinmeyen bir barkod okutulursa kasa kendisi «Depoya ekle» seçeneğini sunar.",
+       "keywords": [
+        "ürün ekle",
+        "yeni ürün",
+        "ürün oluştur",
+        "ürün kaydet",
+        "ürün kartı",
+        "yeni ürün girişi",
+        "добавить товар",
+        "новый товар",
+        "создать товар",
+        "завести товар",
+        "карточка товара",
+        "оприходовать новый"
+       ]
+      },
+      {
+       "id": "товары-как-изменить-цену-или-карточку-товара",
+       "title": "Ürün fiyatı veya ürün kartı nasıl değiştirilir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü «Ürün adına göre ara…» alanıyla bulun.\nШаг 3. «İşlemler» sütunundaki «Düzenle» (kalem) düğmesine basın.\nШаг 4. «Satış fiyatı» alanını değiştirin (gerekirse diğer alanları da: ad, barkod, stok, kategori).\nШаг 5. «Kaydet» düğmesine basın.\nШаг 6. Personele erişim kodu tanımlıysa kasa bu kodu sorar.\nВажно: «Ürün düzenleme kodu» gerekir. Yeni fiyat, kaydettikten hemen sonra kasa kataloğuna yansır.",
+       "keywords": [
+        "fiyat değiştir",
+        "fiyatı değiştir",
+        "fiyat",
+        "yeniden fiyatlandırma",
+        "ürünü düzenle",
+        "ürünü düzelt",
+        "изменить цену",
+        "поменять цену",
+        "цена",
+        "переоценка",
+        "редактировать товар",
+        "исправить товар"
+       ]
+      },
+      {
+       "id": "товары-как-удалить-товар",
+       "title": "Ürün nasıl silinir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Sil» (çöp kutusu) düğmesine basın.\nШаг 3. «Ürünü sil» sorusunu onaylayın.\nШаг 4. Kasa isterse erişim kodunuzu girin.\nВажно: Ürün NurCRM kataloğundan ve kasadan kaldırılır, bu işlem geri alınamaz. «Depodan silme kodu» gerekir.",
+       "keywords": [
+        "ürün sil",
+        "ürünü kaldır",
+        "depodan sil",
+        "fazla ürün",
+        "mükerrer ürün",
+        "удалить товар",
+        "убрать товар",
+        "удалить со склада",
+        "лишний товар",
+        "дубль товара"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-фото-товара",
+       "title": "Ürün fotoğrafı nasıl eklenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Fotoğraf» düğmesine basın.\nШаг 3. Bilgisayarınızdan bir resim dosyası seçin.\nШаг 4. Fotoğraf, katalogdaki ürün kutucuğunda görünür.\nВажно: Fotoğrafların katalogda görünmesi için Ayarlar → «Ekran» → «Katalogda ürün fotoğraflarını göster» seçeneğini açın.",
+       "keywords": [
+        "fotoğraf",
+        "resim",
+        "ürün görseli",
+        "foto",
+        "fotoğraf yükle",
+        "фото",
+        "картинка",
+        "изображение товара",
+        "фотография",
+        "загрузить фото"
+       ]
+      },
+      {
+       "id": "товары-как-завести-услугу",
+       "title": "Hizmet nasıl oluşturulur",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» → «+ Ürün oluştur» yolunu izleyin.\nШаг 2. Üstte «Hizmet» türünü seçin.\nШаг 3. «Ad» ve «Satış fiyatı» alanlarını doldurun.\nШаг 4. «Ekle» düğmesine basın.\nШаг 5. Hizmet, kasa kataloğunda «Hizmetler» sekmesinde görünür.\nВажно: Hizmetler stok olmadan satılır — kasa stok eklemenizi istemez. Kartı olmayan tek seferlik bir hizmeti fişin altındaki «Ek hizmet» düğmesiyle ekleyebilirsiniz.",
+       "keywords": [
+        "hizmet",
+        "hizmetler",
+        "hizmet oluştur",
+        "iş",
+        "servis",
+        "stoksuz",
+        "услуга",
+        "услуги",
+        "создать услугу",
+        "работа",
+        "сервис",
+        "без остатка"
+       ]
+      },
+      {
+       "id": "товары-как-создать-комплект",
+       "title": "Set nasıl oluşturulur",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» → «+ Ürün oluştur» yolunu izleyin.\nШаг 2. Üstte «Set» türünü seçin.\nШаг 3. «Ad» alanını ve fiyatı doldurun.\nШаг 4. «Set içeriği» bölümünde «Ürünleri seçin» düğmesine basın, ürünleri işaretleyin (arama ve «Tümünü seç» kullanılabilir) ve «Ekle» düğmesine basın.\nШаг 5. Kartın altındaki «Ekle» düğmesine basın.\nШаг 6. Set, katalogdaki «Setler» sekmesinden satılır.",
+       "keywords": [
+        "set",
+        "paket",
+        "hediye seti",
+        "bundle",
+        "set içeriği",
+        "ürün seti",
+        "комплект",
+        "набор",
+        "подарочный набор",
+        "бандл",
+        "состав комплекта",
+        "набор товаров"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-категорию-или-бренд",
+       "title": "Kategori veya marka nasıl eklenir",
+       "text": "Шаг 1. Ürün kartını açın: ☰ → «Depo» → «+ Ürün oluştur» ya da ürün satırındaki «Düzenle».\nШаг 2. «Kategori, marka ve ek barkodlar» bölümünü açın.\nШаг 3. ▾ oklu «Kategori» (veya «Marka») düğmesine basın — liste açılır.\nШаг 4. Mevcut bir kaydı seçin ya da «Yeni kategori» / «Yeni marka» alanına yenisini yazıp «+ Oluştur» düğmesine basın.\nШаг 5. Ürünü kaydedin.\nВажно: Daha sonra kataloğu «Filtre» düğmesiyle kategoriye ve markaya göre kolayca filtreleyebilirsiniz.",
+       "keywords": [
+        "kategori",
+        "marka",
+        "kategori oluştur",
+        "ürün grubu",
+        "üretici",
+        "bölüm",
+        "категория",
+        "бренд",
+        "создать категорию",
+        "группа товаров",
+        "производитель",
+        "раздел"
+       ]
+      },
+      {
+       "id": "товары-как-добавить-дополнительный-штрихкод-вариант-товара",
+       "title": "Ek barkod nasıl eklenir (ürün çeşidi)",
+       "text": "Шаг 1. Depoda «Düzenle» düğmesiyle ürün kartını açın.\nШаг 2. «Kategori, marka ve ek barkodlar» bölümünü açın.\nШаг 3. «Ek barkodlar» bölümünde «Ek barkod» alanını, çeşit adını (örneğin «çilekli») ve «Paket miktarı» alanını doldurun.\nШаг 4. «Barkod ekle» düğmesine, ardından «Kaydet» düğmesine basın.\nВажно: Yeni ürün oluşturulmaz: bu barkod okutulduğunda fişteki ad birleştirilir, örneğin «Asu su» + «Çilekli».",
+       "keywords": [
+        "ek barkod",
+        "ikinci barkod",
+        "çeşit",
+        "tat",
+        "birkaç barkod",
+        "başka barkod",
+        "доп штрихкод",
+        "второй штрихкод",
+        "вариант",
+        "вкус",
+        "несколько штрихкодов",
+        "другой штрихкод"
+       ]
+      },
+      {
+       "id": "товары-как-настроить-поштучную-продажу-из-упаковки",
+       "title": "Paketten tek tek satış nasıl ayarlanır",
+       "text": "Шаг 1. Depoda «Düzenle» düğmesiyle ürün kartını açın.\nШаг 2. «Paketten tek tek satış» kutusunu işaretleyin.\nШаг 3. «Paket başına miktar» ve «Adet fiyatı» değerlerini girin.\nШаг 4. «Kaydet» düğmesine basın — ürün «Tek tek satış» sekmesinde görünür.",
+       "keywords": [
+        "adet adet",
+        "tek tek",
+        "paket",
+        "ambalaj",
+        "adet fiyatı",
+        "tane tane satmak",
+        "adetli satış",
+        "поштучно",
+        "пачка",
+        "упаковка",
+        "цена за штуку",
+        "продавать по штуке",
+        "штучная продажа"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Etiketler ve fiyat etiketleri",
+     "articles": [
+      {
+       "id": "товары-как-напечатать-этикетку-со-штрихкодом",
+       "title": "Barkodlu etiket nasıl yazdırılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın; «Ürünler» sekmesinde «Liste» görünümünü seçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Yazdır» düğmesine basın.\nШаг 3. «Etiket yazdır» penceresinde «Yazıcı» ve «Kopya sayısı» alanlarını doldurun.\nШаг 4. «Yazdır» düğmesine basın.\nВажно: Ürünün barkodu yoksa pencerede «Yazdırılacak barkod yok» yazısı çıkar — barkodu ürün kartında tanımlayın («Oluştur»).",
+       "keywords": [
+        "etiket",
+        "barkod yazdır",
+        "yapışkan etiket",
+        "etiket yazdırma",
+        "sticker",
+        "barkod bas",
+        "этикетка",
+        "штрихкод печать",
+        "наклейка",
+        "печать этикетки",
+        "стикер",
+        "распечатать штрихкод"
+       ]
+      },
+      {
+       "id": "товары-как-напечатать-ценник",
+       "title": "Fiyat etiketi nasıl yazdırılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. Ürünü bulun ve «İşlemler» sütunundaki «Fiyat etiketi» düğmesine basın.\nШаг 3. «Fiyat etiketi şablonu» alanından şablonu seçin; gerekirse «Eski fiyat (üstü çizili)» ve «İndirim (örn. -20%)» alanlarını doldurun.\nШаг 4. «Nereye yazdırılsın» bölümünde «Termal etiket yazıcısı» veya «Normal yazıcı (A4)» seçeneğini seçin; «Yazıcı» ve «Kopya sayısı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nВажно: Fiyat etiketi yazdırma ücretli bir ek özelliktir: düğmeye ilk bastığınızda kasa «Fiyat etiketi düzenleyici» için seri numarası ister.",
+       "keywords": [
+        "fiyat etiketi",
+        "fiyat etiketi yazdır",
+        "etiketler",
+        "kampanya etiketi",
+        "eski fiyat",
+        "raf fiyatı",
+        "ценник",
+        "печать ценника",
+        "ценники",
+        "акция ценник",
+        "старая цена",
+        "прайс на полку"
+       ]
+      },
+      {
+       "id": "товары-как-напечатать-ценники-сразу-на-много-товаров",
+       "title": "Birçok ürünün fiyat etiketi tek seferde nasıl yazdırılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesine geçin.\nШаг 2. «Toplu fiyat etiketi yazdır» düğmesine basın.\nШаг 3. Ürünleri bulup işaretleyin («Tümünü seç» / «Seçimi kaldır»).\nШаг 4. «Fiyat etiketi şablonu», «Nereye yazdırılsın», «Ürün başına kopya» ve «Yazıcı» alanlarını doldurun.\nШаг 5. «Yazdır» düğmesine basın.\nВажно: «Toplu fiyat etiketi yazdırma» ayrı bir ücretli ek özelliktir ve seri numarasıyla etkinleştirilir.",
+       "keywords": [
+        "toplu yazdırma",
+        "çok sayıda fiyat etiketi",
+        "tüm fiyat etiketleri",
+        "toplu fiyat etiketi",
+        "fiyat değişikliği etiketleri",
+        "массовая печать",
+        "много ценников",
+        "все ценники",
+        "ценники пачкой",
+        "переоценка ценники"
+       ]
+      },
+      {
+       "id": "товары-как-изменить-внешний-вид-этикетки",
+       "title": "Etiketin görünümü nasıl değiştirilir",
+       "text": "Шаг 1. ☰ → «Depo» → «Etiket editörü» sekmesi → «Editörü aç» yolunu izleyin (veya etiket yazdırma penceresindeki «Etiket editörü» düğmesine basın).\nШаг 2. «Etiket genişliği, mm», «Etiket yüksekliği, mm» değerlerini girin veya bir «Şablon» seçin.\nШаг 3. Öğeleri fareyle sürükleyin; boyutlarını öğenin koyu köşesinden tutarak değiştirin. Gerekli öğeleri açın: «Barkod», «Stok kodu», «Ölçü birimi», «Mağaza adı».\nШаг 4. Sonucu «Baskı önizleme» bölümünde veya «Test baskısı» düğmesiyle kontrol edin.\nШаг 5. «Varsayılana sıfırla» düğmesi etiketin ilk görünümünü geri getirir.\nВажно: Etiket editörü ücretli bir ek özelliktir: editörü ilk açtığınızda kasa seri numarası ister. Normal etiket yazdırma ücretsizdir.",
+       "keywords": [
+        "etiket editörü",
+        "etiket boyutu",
+        "etiket şablonu",
+        "tasarım",
+        "etiket 58",
+        "etiket tasarımı",
+        "редактор этикетки",
+        "размер этикетки",
+        "шаблон этикетки",
+        "макет",
+        "этикетка 58",
+        "дизайн этикетки"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-label.png",
+         "caption": "Depo → «Etiket editörü»"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+  },
+  {
+   "title": "Depo",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "склад-как-посмотреть-остатки-товаров",
+       "title": "Ürün stokları nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın.\nШаг 2. «Ürünler» sekmesindeki «Stok» sütununda her ürünün stoğu görünür.\nШаг 3. «Ürün adına göre ara…» alanıyla arayın, «Satış birimi» ile filtreleyin: «Tümü», «Tartılı», «Adetli», «Paketten tek tek».\nШаг 4. «Liste» / «Kutucuklar» görünümleri arasında geçiş yapın.\nВажно: Stok, ana ekrandaki katalogda da «Tablo görünümü» modunda görünür.",
+       "keywords": [
+        "stok",
+        "stoklar",
+        "ne kadar kaldı",
+        "depo",
+        "mevcut",
+        "ürün miktarı",
+        "остаток",
+        "остатки",
+        "сколько осталось",
+        "склад",
+        "наличие",
+        "сколько товара"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse.png",
+         "caption": "Depo → «Ürünler»"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-оформить-приёмку-товара-от-поставщика",
+       "title": "Tedarikçiden mal kabulü nasıl yapılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Mal kabul» sekmesine geçin.\nШаг 2. «Tedarikçi» ▾ düğmesine basıp tedarikçiyi seçin, ardından «Hemen ödendi» veya «Tedarikçiye borç» seçeneğini işaretleyin.\nШаг 3. İrsaliyedeki ürünleri okutun veya barkodu «Barkodu okutun veya yazın…» alanına girin (miktarı yanındaki alana yazın); «Listeden seç» düğmesini de kullanabilirsiniz.\nШаг 4. Bilinmeyen barkod yeni satır olarak eklenir — ürünün adını yazın.\nШаг 5. Tabloda «Kabul edilen», «Alış fiyatı» ve «Satış fiyatı» değerlerini kontrol edin; fazla satırı «Kaldır» düğmesiyle silin.\nШаг 6. «Stoğa al» düğmesine basın — kasa «Kabul edildi: N kalem, … som» mesajını gösterir.\nВажно: Stoğa giriş işlemi yeni ürünleri oluşturur, stoğu artırır ve fiyatları alım geçmişine kaydeder.",
+       "keywords": [
+        "mal kabul",
+        "giriş",
+        "stok girişi",
+        "irsaliye",
+        "tedarikçi",
+        "sevkiyat",
+        "ürün teslim al",
+        "alım",
+        "приёмка",
+        "приход",
+        "оприходовать",
+        "накладная",
+        "поставщик",
+        "завоз",
+        "принять товар",
+        "закупка"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-receiving.png",
+         "caption": "Depo → «Mal kabul»"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-провести-ревизию-инвентаризацию",
+       "title": "Sayım (envanter) nasıl yapılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Sayım (Envanter)» sekmesine geçin.\nШаг 2. Ürünleri barkod okuyucuyla okutun veya «Sayıma eklemek için ürün adına göre ara…» alanıyla bulun.\nШаг 3. Her ürünün satırında «Beklenen stok» görünür; «Gerçek stok» değerini girin — kasa «Fark» değerini hesaplar.\nШаг 4. Tüm ürünleri saydıktan sonra «Sayımı onayla» düğmesine basın.\nШаг 5. Kasa «Sayım tamamlandı.» mesajını gösterir, stoklar güncellenir.\nВажно: Sayım için internet gerekir.",
+       "keywords": [
+        "sayım",
+        "envanter",
+        "yeniden sayım",
+        "ürün say",
+        "stok kontrolü",
+        "eksik",
+        "ревизия",
+        "инвентаризация",
+        "пересчёт",
+        "пересчитать товар",
+        "учёт остатков",
+        "недостача"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-revision.png",
+         "caption": "Depo → «Sayım»"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-списать-товар",
+       "title": "Ürün stoktan nasıl düşülür",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Düşüm» sekmesine geçin.\nШаг 2. Ürünü «Ürün adını yazmaya başlayın…» alanında bulun veya barkodunu okutun.\nШаг 3. «Düşülecek miktar» değerini girin.\nШаг 4. «Düşüm sebebi» düğmesine basın ve sebebi seçin: «Kusurlu», «Son kullanma tarihi geçmiş», «Ambalaj hasarlı», «Kişisel kullanım» veya «Diğer».\nШаг 5. «Düşümü onayla» düğmesine basın — kasa «Düşüm yapıldı.» mesajını gösterir.\nВажно: İnternet gerekir; stoktan fazlası düşülemez. Önceki düşümler «Düşüm geçmişi» bölümündedir («Tamamını aç ⤢» düğmesi).",
+       "keywords": [
+        "düşüm",
+        "zayiat",
+        "stoktan düş",
+        "kusurlu",
+        "son kullanma tarihi geçmiş",
+        "bozuk",
+        "hasarlı",
+        "kendim için",
+        "списание",
+        "списать",
+        "брак",
+        "просрочка",
+        "испорчен",
+        "порча",
+        "для себя"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-writeoff.png",
+         "caption": "Depo → «Düşüm»"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-оформить-перемещение-товара-между-точками",
+       "title": "Şubeler arası ürün transferi nasıl yapılır",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın; «Transfer» sekmesinde «Belgeler» bölümüne geçin.\nШаг 2. «+ Yeni transfer» düğmesine basın.\nШаг 3. «Nereden», «Nereye», «Sorumlu» alanlarını, gerekirse «Taşıyıcı», «Takip numarası», «Parti ağırlığı» alanlarını doldurun.\nШаг 4. «İçerik» bölümüne ürünleri ekleyin: barkodu veya adı yazıp «+ Ekle» düğmesine basın ya da «Listeden seç» düğmesini kullanın.\nШаг 5. «Gönder» düğmesine basın — durum «Yolda» olur; ürünler ulaştığında «Teslim al» düğmesine basın — durum «Teslim edildi» olur. Transferi «İptal et» düğmesiyle iptal edebilirsiniz.\nШаг 6. İrsaliyeyi «Excel», «Word» veya «CSV» düğmeleriyle dışa aktarabilir, belgeleri «Belgeler» sekmesine ekleyebilirsiniz.\nВажно: Transfer yalnızca bu kasadaki bir kayıttır: sunucudaki stokları değiştirmez ve başka kasada görünmez.",
+       "keywords": [
+        "transfer",
+        "ürün taşı",
+        "başka mağaza",
+        "şube",
+        "şubeler arası",
+        "irsaliye",
+        "sevk",
+        "перемещение",
+        "переместить",
+        "другой магазин",
+        "филиал",
+        "между точками",
+        "накладная",
+        "трансфер"
+       ],
+       "images": [
+        {
+         "file": "owner-warehouse-transfer.png",
+         "caption": "Depo → «Transfer»"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-посмотреть-движение-товара-и-историю-закупок",
+       "title": "Ürün hareketi ve alım geçmişi nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın; «Transfer» sekmesinde «Stok hareketi» bölümüne geçin.\nШаг 2. «Hafta», «Ay» veya «Çeyrek» dönemini seçin ve ürünü «Ürün adına göre ara…» alanıyla bulun.\nШаг 3. Tabloda «Satış» ve «Düşüm» işlemleri tarih ve miktarla görünür.\nШаг 4. Belirli bir ürünün alım geçmişini ürün kartında görebilirsiniz: «Düzenle» → «Alım geçmişi» bölümü.",
+       "keywords": [
+        "ürün hareketi",
+        "alım geçmişi",
+        "alımlar",
+        "ürün nereye gitti",
+        "ürün satışları",
+        "alış fiyatı",
+        "движение товара",
+        "история закупок",
+        "закупки",
+        "куда ушёл товар",
+        "продажи товара",
+        "цена закупки"
+       ]
+      },
+      {
+       "id": "склад-как-загрузить-много-товаров-из-csv-файла",
+       "title": "CSV dosyasından çok sayıda ürün nasıl yüklenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Ürünler» sekmesinde «Toplu yükleme» düğmesine basın.\nШаг 2. «CSV şablonunu indir» düğmesine basın ve şablonu (örneğin Excel'de) ürün listesiyle doldurun.\nШаг 3. «Dosya seç…» düğmesine basın ve doldurduğunuz dosyayı seçin.\nШаг 4. Tabloyu kontrol edin: her satırda yeni ürün mü oluşturulacağı («Yeni ürün») yoksa mevcut ürünün mü güncelleneceği görünür.\nШаг 5. «Yüklemeyi başlat» düğmesine basın ve «Tamamlandı: oluşturulan …, güncellenen …, hata …» mesajı çıkana kadar bekleyin.\nВажно: Ürünler barkoda göre eşleştirilir. Dosyadaki miktar sütunu yeni stok miktarıdır, mevcut stoğa eklenmez; dosyadaki boş sütunlar ürün bilgilerini değiştirmez.",
+       "keywords": [
+        "csv",
+        "ürün yükleme",
+        "içe aktarma",
+        "toplu yükleme",
+        "excel",
+        "tedarikçi listesi",
+        "çok sayıda ürün",
+        "загрузка товаров",
+        "импорт",
+        "массовая загрузка",
+        "список от поставщика",
+        "много товаров"
+       ]
+      },
+      {
+       "id": "склад-как-узнать-что-пора-заказать-и-следить-за-сроками-годн",
+       "title": "Sipariş zamanı nasıl anlaşılır ve son kullanma tarihleri nasıl takip edilir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Stok yenileme ve son kullanma» bölümünü açın.\nШаг 2. «Stok yenileme» sekmesinde satış hızının hangi döneme göre hesaplanacağını seçin («Hafta» veya «Ay»).\nШаг 3. «Stok», «Satış/gün» ve «Yeteceği süre» sütunlarına bakın.\nШаг 4. Satış geçmişi azsa «Sunucudan geçmişi çek» düğmesine basın.\nШаг 5. «Son kullanma tarihleri» sekmesinde «Giriş tarihi», «Son kullanma» ve kalan gün sayısı görünür.\nВажно: Son kullanma tarihi ürün kategorisine göre yapılan yaklaşık bir tahmindir, ambalajdaki bilgi değildir.",
+       "keywords": [
+        "stok yenileme",
+        "ne sipariş edilmeli",
+        "son kullanma tarihleri",
+        "bitiyor",
+        "tahmin",
+        "tarihi yakında geçecek",
+        "пополнение",
+        "что заказать",
+        "сроки годности",
+        "заканчивается",
+        "прогноз",
+        "просрочка скоро"
+       ],
+       "images": [
+        {
+         "file": "owner-restock.png",
+         "caption": "«Stok yenileme ve son kullanma» bölümü"
+        }
+       ]
+      },
+      {
+       "id": "склад-как-посмотреть-аналитику-склада",
+       "title": "Depo analizi nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın, «Analiz» sekmesine geçin.\nШаг 2. «Toplam ürün (SKU)», «Stokta yok», «Düşük stok», «Stok değeri (alış)», «Stok değeri (satış)» değerlerine bakın.\nШаг 3. Aşağıda «Stok değerine göre en yüksek 10 ürün» listesi ve «Kategoriye göre» dağılım yer alır.\nВажно: Depo analizi ücretli bir ek özelliktir; seri numarasıyla etkinleştirilir («Etkinleştir» düğmesi).",
+       "keywords": [
+        "depo analizi",
+        "depo değeri",
+        "üründe ne kadar para var",
+        "stokta yok",
+        "düşük stok",
+        "stok değeri",
+        "аналитика склада",
+        "стоимость склада",
+        "сколько денег в товаре",
+        "нет в наличии",
+        "низкий остаток"
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+  },
+  {
+   "title": "Müşteriler ve borçlar",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "клиенты-и-долги-как-добавить-клиента",
+       "title": "Müşteri nasıl eklenir",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Müşteriler» bölümünü açın.\nШаг 2. «Yeni müşteri» bölümünde «Ad / ad soyad» ve «Telefon» alanlarını, isterseniz adres ve e-postayı doldurun.\nШаг 3. «+ Ekle» düğmesine basın.\nШаг 4. Müşteri listede görünür; «Müşteri kartı» penceresini açmak için satıra basın, bilgileri değiştirin ve «Kaydet» düğmesine basın.\nВажно: Müşteriyi doğrudan ödeme sırasında da ekleyebilirsiniz: «Müşteri seç» → «Yeni müşteri» → «+ Müşteri ekle». «Müşteriler» bölümü «Standart» ve üzeri planlarda kullanılabilir.",
+       "keywords": [
+        "müşteri ekle",
+        "yeni müşteri",
+        "müşteri",
+        "alıcı",
+        "müşteri listesi",
+        "kişi",
+        "добавить клиента",
+        "новый клиент",
+        "клиент",
+        "покупатель",
+        "база клиентов",
+        "контакт"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-посмотреть-покупки-клиента",
+       "title": "Müşterinin alışverişleri nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Müşteriler» bölümünü açın.\nШаг 2. Arama alanında müşteriyi adına veya telefon numarasına göre bulun.\nШаг 3. Müşterinin satırına basın — «Müşteri kartı» açılır.\nШаг 4. «Alışverişler» bölümünde «Alışveriş geçmişi» düğmesine basın.",
+       "keywords": [
+        "satın alma geçmişi",
+        "ne satın aldı",
+        "müşteri alışverişleri",
+        "müşteri kartı",
+        "müşteri aldı",
+        "история покупок",
+        "что покупал",
+        "покупки клиента",
+        "карточка клиента",
+        "клиент купил"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-принять-оплату-долга",
+       "title": "Borç ödemesi nasıl alınır",
+       "text": "Шаг 1. Fişin altındaki «⋮ Daha fazla» → «Borç ödeme» düğmesine basın (veya ☰ → «Bilgi ve müşteriler» → «Borç ödeme»).\nШаг 2. Müşteriyi adına veya telefon numarasına göre bulun.\nШаг 3. «Ödenmemiş» sekmesinde müşterinin veresiye satışları ve «Ödenecek tutar» görünür.\nШаг 4. Müşteri borcun tamamını ödemiyorsa «Ödenecek tutar» sütunundaki tutarı düzeltin.\nШаг 5. İlgili satırdaki «Öde» düğmesine basın.\nШаг 6. Önceki ödemeleri «Geçmiş» sekmesinde görebilirsiniz.\nВажно: Tutar kalan borçtan fazla olamaz.",
+       "keywords": [
+        "borç ödeme",
+        "borcu kapat",
+        "borcunu ödedi",
+        "borç tahsilatı",
+        "borçlu ödedi",
+        "veresiye",
+        "müşteri borçları",
+        "borçlular",
+        "borç listesi",
+        "оплата долга",
+        "погасить долг",
+        "вернул долг",
+        "принять долг",
+        "должник заплатил",
+        "насия",
+        "долги клиентов",
+        "должники",
+        "список долгов"
+       ],
+       "images": [
+        {
+         "file": "kassa-pay-debt.png",
+         "caption": "☰ → «Bilgi ve müşteriler» → «Borç ödeme»"
+        }
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-отправить-клиенту-напоминание-о-долге-в-",
+       "title": "Müşteriye Telegram'dan borç hatırlatması nasıl gönderilir",
+       "text": "Шаг 1. ☰ → «Müşteriler» bölümünü açın ve müşteriye basın.\nШаг 2. «Telegram botu» bölümünde «Bağlantıyı kopyala» düğmesine basın ve bağlantıyı müşteriye gönderin (WhatsApp, SMS).\nШаг 3. Müşteri bağlantıyı açar ve «Başlat» düğmesine basar.\nШаг 4. Ardından Ayarlar → «İşlemler» → «Sahibin Telegram botu» bölümünde «Borç hatırlatmalarını gönder» düğmesine basın.\nВажно: Telegram, telefon numarasıyla mesaj göndermeye izin vermez: hatırlatmayı yalnızca bota abone olmuş müşteriler alır; diğerleri için bot size WhatsApp bağlantılarından oluşan bir liste gönderir.",
+       "keywords": [
+        "borç hatırlatması",
+        "müşteriye telegram",
+        "borçlular",
+        "toplu mesaj",
+        "borcu hatırlat",
+        "whatsapp",
+        "напоминание о долге",
+        "telegram клиенту",
+        "должники",
+        "рассылка",
+        "напомнить долг"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-подключить-бонусную-программу",
+       "title": "Puan (sadakat) programı nasıl etkinleştirilir",
+       "text": "Шаг 1. ☰ → «Sistem» → «Pazaryeri» bölümünü açın, «Ek özellikler» sekmesine geçin.\nШаг 2. «Sadakat programı» kartında «Etkinleştir» düğmesine basın ve seri numarasını girin.\nШаг 3. Ardından Ayarlar → «İşlemler» → «Sadakat programı» bölümünü açın.\nШаг 4. «Fiş tutarından kazanılan puan yüzdesi» değerini girin.\nВажно: 1 puan = 1 som. Puanlar indirimlerden sonraki fiş toplamı üzerinden verilir ve yalnızca bu kasada saklanır. Müşterinin puan bakiyesi «Müşteriler» bölümündeki «Puanlar» sütununda görünür.",
+       "keywords": [
+        "puan",
+        "puan programı",
+        "sadakat",
+        "bonus",
+        "cashback",
+        "birikimli puan",
+        "бонусы",
+        "бонусная программа",
+        "лояльность",
+        "баллы",
+        "кешбэк",
+        "накопительная"
+       ]
+      },
+      {
+       "id": "клиенты-и-долги-как-списать-бонусы-клиента-при-оплате",
+       "title": "Ödeme sırasında müşterinin puanları nasıl kullanılır",
+       "text": "Шаг 1. Fişi hazırlayın ve «Öde» düğmesine basın.\nШаг 2. «Müşteri seç» düğmesine basıp müşteriyi seçin.\nШаг 3. «Kullanılabilir puan: N som» satırı görünür.\nШаг 4. «Puan kullan (som)» alanına harcanacak puan miktarını girin.\nШаг 5. «Öde N som» düğmesine basın — bu alışveriş için yeni puanlar otomatik olarak eklenir.",
+       "keywords": [
+        "puan kullan",
+        "puanla öde",
+        "bonus",
+        "puan harca",
+        "puan",
+        "списать бонусы",
+        "оплатить бонусами",
+        "баллы",
+        "потратить бонусы",
+        "бонус"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Raporlar ve analiz",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-выручку-в-финансы",
+       "title": "«Finans» bölümünde ciro nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Finans» bölümünü açın.\nШаг 2. Dönemi seçin: «Bugün», «Dün», «Hafta», «Ay» veya «Özel tarih» («Başlangıç» ve «Bitiş» tarihleri → «Uygula»).\nШаг 3. Üstteki kutucuklar: «Ciro», «İadeler», «Nakit», «Nakitsiz», «Ortalama fiş», «Fişler».\nШаг 4. Sekmeler: «Satışlar» (fiş listesi), «Analiz» (kâr, marj, giderler, grafikler), «ABC analizi», «İadeler», «Geçmiş».\nШаг 5. Güncel verileri almak için «Yenile» düğmesine basın.\nВажно: «Finans» penceresinde ☰ üzerinden ayrıca «Vardiya» (açık ve kapalı vardiyalar) ve «Ürünler» (popüler, az satan ve tüm ürünler) bölümleri vardır.",
+       "keywords": [
+        "finans",
+        "ciro",
+        "rapor",
+        "kâr",
+        "ne kadar kazandık",
+        "günlük kasa",
+        "marj",
+        "финансы",
+        "выручка",
+        "отчёт",
+        "прибыль",
+        "сколько заработали",
+        "касса за день",
+        "маржа"
+       ],
+       "images": [
+        {
+         "file": "owner-finance.png",
+         "caption": "«Finans» bölümü"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-историю-чеков-продажи",
+       "title": "Fiş geçmişi nasıl görüntülenir (Satışlar)",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Satışlar» bölümünü açın.\nШаг 2. Dönemi seçin: «Bugün», «Dün», «Hafta», «Ay» veya «Özel tarih».\nШаг 3. Üstte toplamlar: «Ciro», «İadeler», «Nakit», «Nakitsiz», «Ortalama fiş», «Fişler», «İndirimler», «Puanla ödenen».\nШаг 4. İçeriğini görmek için fişe iki kez basın; «Fişi yazdır» düğmesi de oradadır.",
+       "keywords": [
+        "satışlar",
+        "fiş geçmişi",
+        "fiş listesi",
+        "fiş bul",
+        "günlük fişler",
+        "satış kaydı",
+        "продажи",
+        "история чеков",
+        "список чеков",
+        "найти чек",
+        "чеки за день",
+        "журнал продаж"
+       ],
+       "images": [
+        {
+         "file": "owner-sales.png",
+         "caption": "«Satışlar» bölümü"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-сделать-abc-анализ",
+       "title": "ABC analizi nasıl yapılır",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «ABC analizi» bölümünü açın.\nШаг 2. Dönemi seçin: «Bugün», «Hafta», «Ay» veya «Çeyrek».\nШаг 3. A grubu — sonucun ilk %80'ini sağlayan ürünler, B — sonraki %15, C — kalan %5.\nШаг 4. Dışa aktarmak için «Excel» veya «Word» düğmesine basın.",
+       "keywords": [
+        "abc",
+        "abc analizi",
+        "hangi ürünler kârlı",
+        "satış liderleri",
+        "az satılanlar",
+        "ürün yelpazesi analizi",
+        "abc-анализ",
+        "какие товары выгодные",
+        "лидеры продаж",
+        "плохо продаются",
+        "анализ ассортимента"
+       ],
+       "images": [
+        {
+         "file": "owner-abc.png",
+         "caption": "«ABC analizi» bölümü"
+        }
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-зарплату-сотрудников",
+       "title": "Personel maaşları nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Maaş» bölümünü açın.\nШаг 2. Dönemi seçin: «Bu ay», «Geçen ay» veya «7 gün».\nШаг 3. Üstte toplamlar: «Dönem için ödenecek», «Dönemin sabit maaşları», «Yüzdeler ve komisyonlar», «Personel satışları».\nШаг 4. Tabloda her personel için: «Şema», «Dönem sabit maaşı», «Kasiyer olarak satış», «Danışman olarak satış», «Danışman komisyonu», «Ödenecek».\nВажно: Personelin maaş hesaplama şeması bu penceredeki «Şema» düğmesiyle değiştirilir.",
+       "keywords": [
+        "maaş",
+        "ücret",
+        "sabit maaş",
+        "ödenecek",
+        "satıcı yüzdesi",
+        "personel ne kadar kazandı",
+        "зарплата",
+        "зп",
+        "оклад",
+        "к выплате",
+        "процент продавцу",
+        "сколько заработал сотрудник"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-выгрузить-отчёт-в-excel-или-word",
+       "title": "Rapor Excel veya Word'e nasıl aktarılır",
+       "text": "Шаг 1. «Finans», «Satışlar» veya «ABC analizi» bölümünü açın (☰ → «Bilgi ve müşteriler»).\nШаг 2. İstediğiniz dönemi seçin.\nШаг 3. Üst satırdaki «Excel» veya «Word» düğmesine basın.\nШаг 4. Dosyanın kaydedileceği klasörü seçin.\nВажно: «Start» planında Excel ve Word'e aktarma «Pazaryeri» → «Ek özellikler» bölümünden etkinleştirilir.",
+       "keywords": [
+        "excel",
+        "word",
+        "dışa aktar",
+        "aktarma",
+        "rapor indir",
+        "raporu dosyaya kaydet",
+        "выгрузить",
+        "экспорт",
+        "скачать отчёт",
+        "отчёт в файл"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-подключить-телеграм-бот-отчётов-владе",
+       "title": "Mağaza sahibinin Telegram rapor botu nasıl bağlanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «İşlemler» → «Sahibin Telegram botu» → «Botu bağla (adım adım)» yolunu izleyin.\nШаг 2. Sihirbazın 1. adımı: «BotFather'ı aç» düğmesine basın, /newbot komutunu gönderin, bota bir ad verin ve token'ı alın.\nШаг 3. Token'ı yapıştırın («Panodan yapıştır») ve «Token'ı kontrol et» düğmesine basın.\nШаг 4. «Botumu aç» düğmesine basın, Telegram'da «Başlat» düğmesine, ardından «Alıcıyı belirle» düğmesine basın.\nШаг 5. «Deneme mesajı gönder» düğmesine basın, «Vardiya kapanışında özet gönder» ve «Telegram'daki komutlara yanıt ver» seçeneklerini açın, «Tamam» düğmesine basın.\nВажно: Komutlar: /segodnya, /nedelya, /top, /abc, /sezon, /soveti, /zakaz, /ostatki, /dolgi. Bot yalnızca kasa programı çalışırken yanıt verir. «Start» planında bot «Pazaryeri» → «Ek özellikler» bölümünden etkinleştirilir.",
+       "keywords": [
+        "telegram",
+        "bot",
+        "telegram raporu",
+        "telegram'a rapor",
+        "vardiya özeti",
+        "sahibe bildirimler",
+        "телеграм",
+        "бот",
+        "отчёт в телеграм",
+        "сводка смены",
+        "уведомления владельцу"
+       ]
+      },
+      {
+       "id": "отчёты-и-аналитика-как-посмотреть-некорректные-чеки",
+       "title": "Sorunlu fişler nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Sorunlu fişler» bölümünü açın.\nШаг 2. Listede olağan şekilde işlenmemiş fişler yer alır: «Stok yetersiz», «Sunucuya gönderme hatası», «İşlemde (gönderilmeyi bekliyor)».\nШаг 3. Fişi açmak için «Görüntüle», yazdırmak için «Fişi yazdır» düğmesine basın.\nШаг 4. Gönderilmemiş fişleri yeniden göndermek için «Tekrar gönder» düğmesine basın.",
+       "keywords": [
+        "sorunlu fişler",
+        "gönderme hatası",
+        "fiş gönderilmedi",
+        "hatalı fişler",
+        "mutabakat",
+        "некорректные чеки",
+        "ошибка отправки",
+        "не отправился чек",
+        "проблемные чеки",
+        "сверка"
+       ]
+      }
+     ]
+    }
+   ],
+   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+  },
+  {
+   "title": "Personel",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "сотрудники-как-добавить-сотрудника",
+       "title": "Personel nasıl eklenir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Personel» bölümünü açın.\nШаг 2. Henüz rol yoksa «+ Rol ekle» düğmesine basın ve «Rol adı» alanını doldurun.\nШаг 3. «+ Personel ekle» düğmesine basın ve «E-posta», «Ad», «Soyad» ve «Rol» alanlarını doldurun (tüm alanlar zorunludur).\nШаг 4. «Oluştur» düğmesine basın — kasa personelin kullanıcı adını ve şifresini gösterir; bunları kopyalayın («Kopyala») ve «Tamam» düğmesine basın.\nШаг 5. Personelin erişim kodlarını girin ve «Kaydet» düğmesine basın.\nВажно: Şifre yalnızca bir kez gösterilir — hemen personele iletin. Sitede daha önce oluşturulmuş personeli kasaya aktarmak için «Siteden yükle» düğmesine basın.",
+       "keywords": [
+        "personel ekle",
+        "yeni personel",
+        "kasiyer",
+        "satıcı",
+        "çalışan",
+        "kasiyer girişi",
+        "добавить сотрудника",
+        "новый сотрудник",
+        "кассир",
+        "продавец",
+        "работник",
+        "логин кассира"
+       ]
+      },
+      {
+       "id": "сотрудники-как-задать-коды-доступа-сотруднику",
+       "title": "Personel için erişim kodları nasıl belirlenir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Personel» bölümünü açın.\nШаг 2. Personelin kartına basın.\nШаг 3. «Sepetten silme kodu», «Depodan silme kodu», «Ürün düzenleme kodu», «Ürün ekleme kodu» alanlarını doldurun.\nШаг 4. «Tamam» düğmesine, ardından «Kaydet» düğmesine basın.\nВажно: Kod alanı boş bırakılırsa bu işlem o personel için engellenir. Mağaza sahibi ve yönetici kod girmeden çalışır. Bölümlere erişim yetkileri (personel kartının yanındaki kilitli «Erişimler» düğmesi) NurCRM'de de verilir.",
+       "keywords": [
+        "erişim kodu",
+        "pin kodu",
+        "personel şifresi",
+        "yetkiler",
+        "silmeyi yasakla",
+        "silme kodu",
+        "код доступа",
+        "пин код",
+        "пароль сотрудника",
+        "права",
+        "запретить удаление",
+        "код на удаление"
+       ]
+      },
+      {
+       "id": "сотрудники-как-посмотреть-табель-сотрудников",
+       "title": "Personel çizelgesi nasıl görüntülenir",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Personel çizelgesi» bölümünü açın.\nШаг 2. Dönemi seçip («Başlangıç tarihi…» — «Bitiş tarihi…») «Yenile» düğmesine basın ya da «Tüm dönem» düğmesini kullanın.\nШаг 3. Tabloda her kasiyer için: «Vardiya», «Gün», «Toplam saat», «Ortalama vardiya», «Ciro», «İlk — son vardiya».\nВажно: Yalnızca kapatılmış vardiyalar sayılır. Çizelge, ücretli «Personel takibi» ek özelliğine dahildir («Pazaryeri» → «Ek özellikler»).",
+       "keywords": [
+        "çizelge",
+        "çalışma saatleri",
+        "personel vardiyaları",
+        "zaman takibi",
+        "ne kadar çalıştı",
+        "çalışma programı",
+        "табель",
+        "часы работы",
+        "смены сотрудников",
+        "учёт времени",
+        "сколько отработал",
+        "график"
+       ]
+      },
+      {
+       "id": "сотрудники-как-настроить-схему-зарплаты-сотрудника",
+       "title": "Personel maaş şeması nasıl ayarlanır",
+       "text": "Шаг 1. ☰ → «Bilgi ve müşteriler» → «Maaş» bölümünü açın.\nШаг 2. İlgili personelin yanındaki «Şema» düğmesine basın.\nШаг 3. «Satışa göre maaş» penceresinde «Sabit maaş», «Satış yüzdesi» veya «Sabit maaş + satış yüzdesi» seçeneklerinden birini seçin.\nШаг 4. «Aylık maaş» ve/veya «Kişisel satışlardan yüzde» alanlarını doldurun.\nШаг 5. «Kaydet» düğmesine basın.",
+       "keywords": [
+        "maaş şeması",
+        "sabit maaş",
+        "satış yüzdesi",
+        "hakediş",
+        "personel maaşı",
+        "ücret oranı",
+        "схема зарплаты",
+        "оклад",
+        "процент от продаж",
+        "начисление",
+        "зарплата сотруднику",
+        "ставка"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Ayarlar ve donanım",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "настройки-и-оборудование-как-подключить-принтер-чеков",
+       "title": "Fiş yazıcısı nasıl bağlanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Yazdır» bölümünü açın.\nШаг 2. «Bul» düğmesine basın ve «Bulunan yazıcılar ve portlar» listesinden yazıcıyı seçin (veya portu «LPT portu veya yazıcı yolu» alanına yazın).\nШаг 3. «Kâğıt genişliği» alanında «58 mm (32 karakter)» veya «80 mm (48 karakter)» seçeneğini seçin.\nШаг 4. «Test» düğmesine basın — deneme fişi çıkmalıdır.\nШаг 5. «Ödemeden sonra fişi yazdır» seçeneğini açın ve «Kaydet» düğmesine basın.\nВажно: Rusça (Kiril) harfler yerine anlamsız karakterler veya işaretler basılıyorsa «ESC/POS parametreleri» bölümünde «Kodlama» ve «ESC t tablosu» ayarlarını değiştirin; «0 — PC437 (Kiril harfleri yok)» seçeneği Rusça metni yazdıramaz.",
+       "keywords": [
+        "yazıcı",
+        "fiş yazıcısı",
+        "yazıcı bağlama",
+        "fiş yazdırma",
+        "xprinter",
+        "58 mm",
+        "80 mm",
+        "принтер",
+        "чековый принтер",
+        "подключить принтер",
+        "печать чеков",
+        "58 мм",
+        "80 мм"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-print.png",
+         "caption": "Ayarlar → «Yazdır»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-денежный-ящик",
+       "title": "Para çekmecesi nasıl ayarlanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Yazdır» bölümünü açın ve «Para çekmecesi» kısmına gidin.\nШаг 2. «Nakit ödemede açılsın» seçeneğini açın.\nШаг 3. «Konnektör pini» alanında «Pin 2 (genelde)» veya «Pin 5» seçeneğini seçin.\nШаг 4. Kontrol için «Aç» düğmesine, ardından «Kaydet» düğmesine basın.\nВажно: Çekmece fiş yazıcısına bağlanır ve onun üzerinden açılır.",
+       "keywords": [
+        "para çekmecesi",
+        "kasa çekmecesi",
+        "çekmece açılmıyor",
+        "nakit çekmecesi",
+        "cash drawer",
+        "денежный ящик",
+        "ящик для денег",
+        "не открывается ящик",
+        "купюрник"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-print.png",
+         "caption": "Para çekmecesi: Ayarlar → «Yazdır»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-весы-к-кассе",
+       "title": "Tartı kasaya nasıl bağlanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünü açın.\nШаг 2. «Tartı sorgulamasını etkinleştir» seçeneğini açın.\nШаг 3. «COM portu» alanında portu seçin, «Hız (baud)» değerini girin (genelde 9600), gerekirse «Ağırlık sorgusu (hex)» ve «Sorgulama aralığı (ms)» alanlarını doldurun.\nШаг 4. Ürünü tartıya koyun ve «Tartıyı test et» düğmesine basın.\nШаг 5. «Kaydet» düğmesine basın.\nВажно: Bundan sonra «Ürünü tart» penceresindeki «Tartıdan al» düğmesi çalışır. Birden fazla tartınız varsa «Birden fazla tartı aynı anda nasıl bağlanır» makalesine bakın.",
+       "keywords": [
+        "terazi",
+        "tartı",
+        "terazi bağlama",
+        "tartı bağlama",
+        "com port",
+        "terazi göstermiyor",
+        "tartı göstermiyor",
+        "elektronik terazi",
+        "elektronik tartı",
+        "ağırlık gelmiyor",
+        "весы",
+        "подключить весы",
+        "com порт",
+        "весы не показывают",
+        "электронные весы",
+        "вес не идёт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "Ayarlar → «Tartılar»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-отправить-весовые-товары-на-вес",
+       "title": "Tartılı ürünler etiket basan tartıya nasıl gönderilir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünü açın; «Ağ tartıları (ürün aktarımı)» bölümünde «Tartı IP adresi», «Port», «Şifre» alanlarını doldurun ve «Tartı bağlantısını kontrol et» düğmesine basın.\nШаг 2. «Shtrikh-M tartılarında PLU» bölümünde «Tartı modeli:» alanından modeli seçin («Shtrikh-M», «Rongta» veya «AI tartı»).\nШаг 3. «Ürünleri tartıya gönder →» düğmesine basın.\nШаг 4. «Tartılar» penceresinde ürünleri işaretleyin («Tümünü seç» / «Seçimi kaldır»), gerekirse «Başlangıç PLU:» değerini girin.\nШаг 5. «Tartıya gönder» düğmesine basın ya da dosyayı tartıya elle yüklemek için «CSV'ye aktar» düğmesine basın.\nВажно: «Start» planında ağ tartısına ürün gönderme ücretli bir ek özelliktir («Pazaryeri» → «Ek özellikler»).",
+       "keywords": [
+        "plu",
+        "shtrikh terazi",
+        "shtrikh tartı",
+        "rongta",
+        "teraziye aktarım",
+        "tartıya aktarım",
+        "etiketli terazi",
+        "etiketli tartı",
+        "ürünleri teraziye gönder",
+        "ürünleri tartıya gönder",
+        "весы штрих",
+        "выгрузка на весы",
+        "весы с этикеткой",
+        "товары на весы"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-экран-покупателя-втор",
+       "title": "Müşteri ekranı (ikinci monitör) nasıl ayarlanır",
+       "text": "Шаг 1. İkinci monitörü bilgisayara bağlayın.\nШаг 2. ☰ → «Ayarlar» → «Monitör» bölümünü açın.\nШаг 3. «Müşteri monitörünü kullan» seçeneğini açın; «Monitör» ve «Pencere modu» ayarlarını seçin.\nШаг 4. Ürünlerin görünümünü, ekran içeriğini, reklam alanını ve tasarımı ayarlayın.\nШаг 5. Kontrol için «Aç» veya «Önizleme» düğmesine, ardından «Kaydet» düğmesine basın.\nШаг 6. Müşteriye dönük ekran kasiyer ekranıyla aynı görüntüyü gösteriyorsa Windows «Çoğalt» modunda çalışıyor demektir. Kasa, ekranları «Genişlet» moduna geçirmeyi kendisi önerir — kabul edin. Elle yapmak için: Win+P → «Genişlet».\nВажно: Hızlı kontrol için kasanın üst panelindeki «Ekran» düğmesini kullanın (Ctrl+M).",
+       "keywords": [
+        "müşteri ekranı",
+        "ikinci monitör",
+        "müşteri göstergesi",
+        "müşteri monitörü",
+        "alıcı ekranı",
+        "экран покупателя",
+        "второй монитор",
+        "дисплей покупателя",
+        "монитор клиента",
+        "экран клиента"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-дисплей-цены-покупат",
+       "title": "Müşteri fiyat ekranı (gösterge) nasıl bağlanır",
+       "text": "Шаг 1. Göstergeyi bilgisayara bağlayın. POS monoblok cihazlarda (örneğin CY25) «0.00» sayısal göstergesi gövdeye zaten yerleşiktir ve COM portlarından birine bağlıdır.\nШаг 2. ☰ → «Ayarlar» → «Tartılar» bölümünü açın ve «Müşteri fiyat ekranı» bölümünde ekranı etkinleştirin.\nШаг 3. «Ekran türü» alanında «Sayısal ekran «0.00» (8 hane, LED)» seçeneğini seçin; göstergeniz harf de gösteriyorsa «Metin ekranı, 2 satır (CD5220)» seçeneğini seçin.\nШаг 4. Portu bilmiyorsanız «Ekranı bul» düğmesine basın: kasa her COM portuna sırayla 3.2400 gibi bir sayı gönderir (port 3, hız 2400). Göstergeye bakın ve üzerinde kalan sayının yazılı olduğu düğmeye basın.\nШаг 5. «Kaydet», ardından «Ekranı test et» düğmesine basın — göstergede 1234.56 görünür.\nВажно: Sayısal göstergeler genelde 2400 baud hızında çalışır. Fişte ürün varken gösterge toplam tutarı gösterir ve «Toplam» lambası yanar.",
+       "keywords": [
+        "gösterge",
+        "fiyat ekranı",
+        "müşteri göstergesi",
+        "vfd",
+        "fiyat göstergesi",
+        "pole display",
+        "табло",
+        "дисплей цены",
+        "дисплей покупателя",
+        "индикатор цены"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Müşteri fiyat ekranı» bölümü: ekran türü ve «Ekranı bul»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-загрузить-qr-код-банка-для-безн",
+       "title": "Nakitsiz ödeme için banka QR kodu nasıl yüklenir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «İşlemler» bölümünü açın.\nШаг 2. İstediğiniz banka listede yoksa «Banka ekle» düğmesine basın ve adını girin.\nШаг 3. Bankanın yanındaki «QR yükle» düğmesine basın ve işletmenize ait QR kodunun resmini seçin; gerekirse «Kırp» düğmesiyle resmi kırpın.\nШаг 4. «Ödemede göster» seçeneğini işaretleyin.\nВажно: «Müşteriye fiş tutarlı QR göster» anahtarı, fiş tutarı önceden yazılmış bir QR kodu gösterir; bu anahtarı açmadan önce QR kodu birkaç bankanın uygulamasıyla deneyin.",
+       "keywords": [
+        "qr",
+        "banka qr kodu",
+        "qr yükle",
+        "mbank qr",
+        "optima qr",
+        "banka bilgileri",
+        "banka ekle",
+        "qr код банка",
+        "загрузить qr",
+        "мбанк qr",
+        "оптима qr",
+        "реквизиты",
+        "добавить банк"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-выбрать-сферу-магазина",
+       "title": "Mağaza türü nasıl seçilir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «İşlemler» bölümünü açın.\nШаг 2. «Mağaza türü» bölümünde «Market (gıda)», «Giyim ve benzeri» veya «Hizmetler» seçeneğini seçin.\nШаг 3. «Giyim ve benzeri», ödeme penceresine «DANIŞMAN» bölümünü ekler; «Hizmetler» ise kataloğu «Hizmetler» sekmesinde açar.\nВажно: Mağaza türünü istediğiniz zaman değiştirebilirsiniz; bu, satışları ve raporları etkilemez.",
+       "keywords": [
+        "mağaza türü",
+        "giyim",
+        "hizmetler",
+        "market",
+        "gıda",
+        "mağaza tipi",
+        "danışman",
+        "сфера магазина",
+        "одежда",
+        "услуги",
+        "продуктовый",
+        "тип магазина",
+        "консультант"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-operations.png",
+         "caption": "Ayarlar → «İşlemler»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-сменить-язык-интерфейса",
+       "title": "Arayüz dili nasıl değiştirilir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Ekran» bölümünü açın.\nШаг 2. «Kasiyer ekranı dili» alanında «Rusça», «Kırgızca», «Türkçe», «Özbekçe» veya «İngilizce» seçeneğini seçin.\nШаг 3. Dil, programı yeniden başlatmaya gerek kalmadan hemen değişir.\nВажно: Rusça ve Kırgızca ücretsizdir; İngilizce, Türkçe ve Özbekçe ücretli «Dil paketi» ile açılır («Pazaryeri» → «Ek özellikler»).",
+       "keywords": [
+        "dil",
+        "türkçe",
+        "kırgızca",
+        "rusça",
+        "ingilizce",
+        "dil değiştir",
+        "language",
+        "язык",
+        "кыргызча",
+        "русский",
+        "английский",
+        "сменить язык",
+        "тилди өзгөртүү"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-screen.png",
+         "caption": "Ayarlar → «Ekran»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-настроить-вид-главного-экрана",
+       "title": "Ana ekranın görünümü nasıl ayarlanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Ekran» bölümünü açın.\nШаг 2. «Ana ekran düzeni» alanında «Standart» veya «1C tarzı» seçeneğini seçin.\nШаг 3. «Ölçek», «Ürün kartı boyutu», «Katalogda ürün fotoğraflarını göster» ayarlarını yapın.\nШаг 4. «Ürüne tıklama» alanında «Tek» veya «Çift» seçeneğini seçin — bu, ürünün fişe eklenmesi için kaç kez basmanız gerektiğini belirler.\nШаг 5. «Kaydet» düğmesine basın.\nВажно: Aynı bölümde ayrıca «Tam ekran modu», «Windows ile başlat», «Zayıf cihaz modu» ile fiş için «Mağaza adı» ve «Mağaza adresi» ayarları vardır. Açık veya koyu tema için üst paneldeki «Tema» düğmesini kullanın.",
+       "keywords": [
+        "kasa görünümü",
+        "1c",
+        "ölçek",
+        "daha büyük",
+        "çift tıklama",
+        "tam ekran",
+        "düğme boyutu",
+        "вид кассы",
+        "1с",
+        "масштаб",
+        "крупнее",
+        "двойной клик",
+        "полный экран",
+        "размер кнопок"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-screen.png",
+         "caption": "Ayarlar → «Ekran»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-изменить-горячие-клавиши",
+       "title": "Kısayol tuşları nasıl değiştirilir",
+       "text": "Шаг 1. Kasanın üst panelindeki «Kısayol» düğmesine basın.\nШаг 2. «Kasa kısayol tuşları» penceresinde ilgili işlemin alanına basın.\nШаг 3. Klavyede yeni tuş kombinasyonuna basın.\nШаг 4. «Kaydet» düğmesine basın. «Varsayılan» düğmesi standart tuş kombinasyonlarını geri yükler.\nВажно: Ctrl olmadan F1–F12 tuşları ürün grupları için ayrılmıştır.",
+       "keywords": [
+        "kısayol tuşları",
+        "tuş kombinasyonu",
+        "ctrl",
+        "tuş atama",
+        "kısayol",
+        "горячие клавиши",
+        "сочетание клавиш",
+        "назначить клавишу",
+        "шорткат"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-обновить-программу",
+       "title": "Program nasıl güncellenir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Güncellemeler» bölümünü açın.\nШаг 2. «Güncellemeleri kontrol et» düğmesine basın.\nШаг 3. Kasa «Yeni sürüm mevcut» yazarsa «Güncelle» düğmesine basın.\nШаг 4. İndirmenin bitmesini bekleyin — kasa kendiliğinden yeniden başlar.\nВажно: Kasa her açılışta güncellemeleri kendisi kontrol eder; yeni sürüm çıktığında üst panelde bunu hatırlatan bir düğme görünür. Kullandığınız sürüm «Mevcut uygulama sürümü» satırında yazılıdır.",
+       "keywords": [
+        "güncelle",
+        "güncelleme",
+        "yeni sürüm",
+        "program sürümü",
+        "update",
+        "обновить",
+        "обновление",
+        "новая версия",
+        "версия программы",
+        "апдейт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-updates.png",
+         "caption": "Ayarlar → «Güncellemeler»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-вернуть-прошлую-версию-программ",
+       "title": "Programın önceki sürümüne nasıl dönülür",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Güncellemeler» bölümünü açın ve «Önceki sürüme geri dön» kısmını bulun.\nШаг 2. «Sürümleri göster» düğmesine basın.\nШаг 3. İstediğiniz sürümün yanındaki «Geri al» düğmesine basın.\nШаг 4. «Sürümü geri alma» penceresinde işlemi onaylayın — kasa paketi indirir ve yeniden başlar.",
+       "keywords": [
+        "geri alma",
+        "eski sürüm",
+        "önceki sürüm",
+        "sürüme dön",
+        "güncellemeden sonra bozuldu",
+        "geri al",
+        "откат",
+        "старая версия",
+        "прошлая версия",
+        "вернуть версию",
+        "после обновления сломалось",
+        "откатить"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-rollback.png",
+         "caption": "«Sürümleri göster» → «Geri al»"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-активировать-платную-доп-функци",
+       "title": "Ücretli ek özellik nasıl etkinleştirilir",
+       "text": "Шаг 1. ☰ → «Sistem» → «Pazaryeri» bölümünü açın ve «Ek özellikler» sekmesine geçin.\nШаг 2. İstediğiniz kartı bulun (örneğin «Sadakat programı», «Personel takibi», «Dil paketi», «Sahibin Telegram botu»).\nШаг 3. «Etkinleştir» düğmesine basın ve NMK-XXXX-XXXX-XXXX biçimindeki seri numarasını girin.\nШаг 4. «Etkinleştir» düğmesine basın — kartta «Etkinleştirildi» işareti görünür.",
+       "keywords": [
+        "mağaza",
+        "pazaryeri",
+        "marketplace",
+        "seri numarası",
+        "etkinleştir",
+        "ek özellikler",
+        "ücretli özellik",
+        "anahtar",
+        "маркетплейс",
+        "серийный номер",
+        "активировать",
+        "доп функции",
+        "платная функция",
+        "ключ"
+       ],
+       "images": [
+        {
+         "file": "owner-marketplace.png",
+         "caption": "Pazaryeri"
+        }
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-получить-удалённую-помощь-подде",
+       "title": "Destek ekibinden uzaktan yardım nasıl alınır",
+       "text": "Шаг 1. ☰ → «Sistem» → «NurCRM destek» bölümünü açın.\nШаг 2. «AnyDesk'i başlat» düğmesine basın (program yüklü değilse «AnyDesk'i indir» düğmesine basın).\nШаг 3. AnyDesk'in gösterdiği adresi (ID) destek operatörüne söyleyin.\nШаг 4. AnyDesk sorduğunda bağlantıya izin verin.\nВажно: Hata günlüğüne ☰ → «Sistem» → «Günlükler ve hatalar» bölümündeki «Günlük klasörünü aç» düğmesiyle ulaşabilirsiniz.",
+       "keywords": [
+        "destek",
+        "anydesk",
+        "uzaktan",
+        "yardım",
+        "teknik destek",
+        "bilgisayara bağlanma",
+        "поддержка",
+        "удалённо",
+        "помощь",
+        "техподдержка",
+        "подключиться к компьютеру"
+       ]
+      },
+      {
+       "id": "настройки-и-оборудование-как-подключить-несколько-весов-одно",
+       "title": "Birden fazla tartı aynı anda nasıl bağlanır",
+       "text": "Шаг 1. Ana tartıyı «Tartı kasaya nasıl bağlanır» makalesinde anlatıldığı gibi bağlayın.\nШаг 2. Aynı «Tartılar» penceresinde «Ek tartılar» bölümünü bulun.\nШаг 3. «Tartı 2» seçeneğini (gerekirse «Tartı 3» seçeneğini de) açın, her biri için kendi COM portunu ve hızını seçin.\nШаг 4. «Kaydet» düğmesine basın.\nШаг 5. Tartım sırasında kasa, ağırlığı ürünün konduğu tartıdan kendisi alır. Ürün birden fazla tartıdaysa ağırlık, en son ağırlığın göründüğü tartıdan alınır.\nВажно: Ek tartıların ağırlık sorgusu ve sorgulama aralığı ana tartınınkiyle aynıdır; her tartının kendi portu olmalıdır.",
+       "keywords": [
+        "terazi",
+        "tartı",
+        "birden fazla terazi",
+        "birden fazla tartı",
+        "iki terazi",
+        "iki tartı",
+        "üç terazi",
+        "üç tartı",
+        "terazi 2",
+        "tartı 2",
+        "весы",
+        "несколько весов",
+        "двое весов",
+        "три весов",
+        "весы 2"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Ek tartılar» bölümü"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Sık sorulan sorular",
+   "groups": [
+    {
+     "title": "",
+     "articles": [
+      {
+       "id": "частые-вопросы-не-печатается-чек-что-делать",
+       "title": "Fiş yazdırılmıyor — ne yapmalı?",
+       "text": "Шаг 1. Yazıcının açık olduğunu, kâğıt olduğunu, kapağın kapalı ve kablonun takılı olduğunu kontrol edin.\nШаг 2. Ödeme penceresinde «Fişi yazdır» seçeneğinin açık olduğundan emin olun.\nШаг 3. ☰ → «Ayarlar» → «Yazdır» bölümünü açın, «Bul» düğmesine basın, listeden yazıcıyı seçin ve «Test» düğmesine basın.\nШаг 4. Anlaşılmaz karakterler basılıyorsa «Kodlama» ve «ESC t tablosu» ayarlarını değiştirin («0 — PC437 (Kiril harfleri yok)» seçeneğini kullanmayın) ve «Kaydet» düğmesine basın.\nШаг 5. Kasa «Yazıcı yazdırmıyor…» yazarsa satış zaten kaydedilmiştir — yazıcıdaki sorunu giderin ve fişi «Satışlar» → «Fişi yazdır» yoluyla yazdırın.\nШаг 6. Sorun devam ederse «NurCRM destek» üzerinden destek ekibine başvurun.\nВажно: 1.17.16 sürümünden itibaren kasa, Windows yazdırma kuyruğunda takılı kalan kendi eski fişlerini kendisi temizler — bu fişler artık yeni fişlerin yazdırılmasını engellemez ve sonradan kendiliğinden çıkmaz.",
+       "keywords": [
+        "yazdırmıyor",
+        "fiş yazdırılmıyor",
+        "yazıcı çalışmıyor",
+        "hiyeroglif",
+        "bozuk karakterler",
+        "yazıcı bağlı değil",
+        "не печатает",
+        "чек не печатается",
+        "принтер не работает",
+        "иероглифы",
+        "кракозябры",
+        "принтер не подключен"
+       ]
+      },
+      {
+       "id": "частые-вопросы-касса-пишет-нет-остатка-или-просит-пополнить-",
+       "title": "Kasa «stok yok» yazıyor veya stok eklemenizi istiyor — ne yapmalı?",
+       "text": "Шаг 1. «Ürün depoda tükendi» penceresi çıktıysa, depo verilerine göre ürün yok demektir.\nШаг 2. Ürün aslında elinizde varsa «Onayla ve ekle» düğmesine basın.\nШаг 3. «Stok yenileme» penceresinde gerçekte kaç adet olduğunu girin ve «Ekle ve sat» düğmesine basın.\nШаг 4. Ürün yoksa «Benzer ürünleri göster» düğmesine basın ve yerine başka bir ürün önerin.\nШаг 5. Daha sonra stokları «Depo» → «Mal kabul» veya «Sayım (Envanter)» üzerinden düzeltin.\nВажно: Bu tür satışlar kontrol için «Sorunlu fişler» listesine düşer. Hizmetler stok olmadan satılır.",
+       "keywords": [
+        "stok yok",
+        "ürün tükendi",
+        "depoyu yenile",
+        "sıfır stok",
+        "satışa izin vermiyor",
+        "stok 0",
+        "нет остатка",
+        "товар закончился",
+        "пополнить склад",
+        "нулевой остаток",
+        "не даёт продать",
+        "остаток 0"
+       ]
+      },
+      {
+       "id": "частые-вопросы-товар-не-находится-по-штрихкоду-что-делать",
+       "title": "Ürün barkodla bulunamıyor — ne yapmalı?",
+       "text": "Шаг 1. İmlecin arama alanında olmadığını (Esc tuşuna basın) ve barkod okuyucunun kodu okuduğunu kontrol edin.\nШаг 2. Yeni ürünleri sunucudan çekmek için katalogdaki «Kataloğu yenile» düğmesine basın.\nШаг 3. Ürünü adıyla bulun ve kartındaki «Barkod» alanını kontrol edin (☰ → «Depo» → «Düzenle»).\nШаг 4. Ürün yoksa «Ürün bulunamadı» penceresinde «Depoya ekle» düğmesine basın ve ürünü oluşturun.\nШаг 5. Ürünün birden fazla barkodu varsa eksik olanı «Ek barkodlar» bölümüne ekleyin.\nВажно: Tartı etiketleri (13 haneli, 20–29 ile başlayan) ürünün PLU koduyla aranır — karttaki «PLU kodu (tartılar için)» alanını ve NurCRM sitesindeki şirket ayarlarında tartı barkodu biçimini kontrol edin.",
+       "keywords": [
+        "bulmuyor",
+        "barkod bulunamadı",
+        "ürün bulunamadı",
+        "okutmuyor",
+        "okuyucu görmüyor",
+        "veritabanında yok",
+        "не находит",
+        "штрихкод не найден",
+        "товар не найден",
+        "не сканирует",
+        "сканер не видит",
+        "нет в базе"
+       ]
+      },
+      {
+       "id": "частые-вопросы-нет-интернета-можно-ли-продавать",
+       "title": "İnternet yok — satış yapılabilir mi?",
+       "text": "Шаг 1. Evet, her zamanki gibi satışa devam edin: fişler kasada kaydedilir.\nШаг 2. Üst panelde «Çevrimdışı» yazısı ve «Sırada: N» sayacı görünür — bunlar gönderilmemiş fişlerdir.\nШаг 3. Bağlantı geri geldiğinde fişler sunucuya kendiliğinden gönderilir.\nШаг 4. Gönderilmemiş fişleri ☰ → «Çalışma» → «Sorunlu fişler» bölümünde kontrol edip «Tekrar gönder» düğmesiyle yeniden gönderebilirsiniz.\nВажно: İnternet olmadan sayım ve düşüm işlemleri yapılamaz. NurCRM hesabı olmadan tamamen çevrimdışı çalışma, giriş ekranındaki «Çevrimdışı çalış (internetsiz)» seçeneğinden bir anahtar girilerek açılır.",
+       "keywords": [
+        "internet yok",
+        "çevrimdışı",
+        "internetsiz",
+        "internet gitti",
+        "kuyruk",
+        "bağımsız çalışma",
+        "sırada",
+        "нет интернета",
+        "офлайн",
+        "без интернета",
+        "пропал интернет",
+        "очередь",
+        "автономно"
+       ]
+      },
+      {
+       "id": "частые-вопросы-не-открывается-смена-что-делать",
+       "title": "Vardiya açılmıyor — ne yapmalı?",
+       "text": "Шаг 1. Kasa «Vardiya zaten açık» yazarsa, önce mevcut vardiyayı «Vardiyayı kapat» düğmesiyle kapatın.\nШаг 2. İnterneti kontrol edin: bağlantı yoksa sunucu vardiya açılışını kabul etmeyebilir.\nШаг 3. Ödeme sırasında «Vardiya açık değil» mesajı çıktıysa «Öde» düğmesine bir kez daha basmanız yeterlidir: kasa sunucuyla kontrol eder ve vardiyayı açmayı önerir — bu sırada fiş kaybolmaz.\nШаг 4. Kasa «Zaten … kasasında açık bir vardiyanız var» yazarsa o vardiyayı o kasada veya NurCRM sitesinde kapatın ya da Ayarlar → «Ekran» → «Kasa» alanında bu kasayı seçin.\nШаг 5. Kasa, şube için uygun hiçbir kasa olmadığını yazarsa, yöneticiden NurCRM sitesinde kasanın şubeye bağlantısını kontrol etmesini isteyin.\nВажно: Kasa yalnızca giriş yapan kasiyerin kendi vardiyasında çalışır. Aynı kasada başka bir kasiyerin açık vardiyası engel değildir — kasa sizin vardiyanızı açar.",
+       "keywords": [
+        "vardiya açılmıyor",
+        "vardiya hatası",
+        "vardiya zaten açık",
+        "vardiya başlatamıyorum",
+        "vardiya aç",
+        "не открывается смена",
+        "смена не открывается",
+        "ошибка смены",
+        "смена уже открыта",
+        "не могу начать смену"
+       ],
+       "images": [
+        {
+         "file": "kassa-payment-failed.png",
+         "caption": "Ödeme sırasında bu mesaj çıktıysa «Öde» düğmesine bir kez daha basın"
+        },
+        {
+         "file": "kassa-open-shift.png",
+         "caption": "Kasa vardiyayı açmayı önerir"
+        }
+       ]
+      },
+      {
+       "id": "частые-вопросы-как-обновить-программу",
+       "title": "Program nasıl güncellenir?",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Güncellemeler» bölümünü açın.\nШаг 2. «Güncellemeleri kontrol et» düğmesine basın.\nШаг 3. Yeni sürüm varsa «Güncelle» düğmesine basın ve programın yeniden başlamasını bekleyin.\nШаг 4. Güncellemeden sonra bir sorun çıkarsa aynı yerdeki «Önceki sürüme geri dön» bölümünde «Sürümleri göster» → «Geri al» düğmesine basın.",
+       "keywords": [
+        "programı güncelle",
+        "yeni sürüm",
+        "güncelleme",
+        "nasıl güncellenir",
+        "sürüm",
+        "обновить программу",
+        "новая версия",
+        "обновление",
+        "как обновить",
+        "версия"
+       ]
+      },
+      {
+       "id": "частые-вопросы-услуга-требует-остаток-что-делать",
+       "title": "Hizmet stok istiyor — ne yapmalı?",
+       "text": "Шаг 1. ☰ → «Çalışma» → «Depo» bölümünü açın ve bu kalemi bulun.\nШаг 2. «Düzenle» düğmesine basın ve kartın üst kısmındaki türü kontrol edin: «Ürün» değil «Hizmet» seçili olmalıdır.\nШаг 3. «Hizmet» türünü seçin ve «Kaydet» düğmesine basın.\nШаг 4. Ana ekranda «Kataloğu yenile» düğmesine basın ve satışı tekrar deneyin.\nВажно: Hizmetler stok olmadan satılır. Kartı olmayan tek seferlik bir hizmet gerekiyorsa, fişin altındaki «Ek hizmet» düğmesini kullanın. Sorun devam ederse programı güncelleyin.",
+       "keywords": [
+        "hizmet stok",
+        "hizmet satılmıyor",
+        "hizmet depo istiyor",
+        "hizmet stok yok",
+        "servis",
+        "услуга остаток",
+        "услуга не продаётся",
+        "услуга просит склад",
+        "нет остатка услуга",
+        "сервис"
+       ]
+      },
+      {
+       "id": "частые-вопросы-почему-цифры-в-кассе-и-на-сайте-не-совпадают",
+       "title": "Kasadaki ve sitedeki rakamlar neden farklı?",
+       "text": "Шаг 1. Kasada ve sitede aynı dönemin (gün, hafta, ay) seçildiğini kontrol edin.\nШаг 2. Tüm fişlerin gönderildiğini kontrol edin: üst panelde «Sırada: N» yazısı olmamalı, «Sorunlu fişler» listesinde de fiş bulunmamalıdır.\nШаг 3. Unutmayın: veresiye satışlar fiş listesinde görünür ama «Ciro» kutucuğuna dahil edilmez; kısmi iadeler cirodan düşülmez — site de aynı şekilde hesaplar.\nШаг 4. «Finans» veya «Satışlar» penceresinde «Yenile» düğmesine basın.\nШаг 5. Kasayı en son sürüme güncelleyin (Ayarlar → «Güncellemeler»).\nВажно: Fark devam ederse, aynı döneme ait kasa ve site ekran görüntülerini destek ekibine gönderin.",
+       "keywords": [
+        "rakamlar uyuşmuyor",
+        "sitede farklı tutar",
+        "ciro farkı",
+        "tutarsızlık",
+        "rapor tutmuyor",
+        "цифры не совпадают",
+        "на сайте другая сумма",
+        "разница выручки",
+        "расхождение",
+        "отчёт не сходится"
+       ]
+      },
+      {
+       "id": "частые-вопросы-кассир-не-видит-раздел-меню-почему",
+       "title": "Kasiyer menüdeki bir bölümü görmüyor — neden?",
+       "text": "Шаг 1. «Standart» planından itibaren depo, satışlar, finans, maaş, ABC, müşteriler ve stok yenileme bölümleri kasada değil, «NurMarket İşletme Sahibi» programındadır (masaüstündeki kısayoldan açılır).\nШаг 2. Diğer bölümler yalnızca personelin yetkisi varsa gösterilir — yetkiler NurCRM'de (web panelinde) her personel için ayrı verilir.\nШаг 3. Bazı bölümler yalnızca ek özellik etkinleştirildikten sonra açılır («Pazaryeri» → «Ek özellikler»).\nШаг 4. Yetkiler değiştirildikten sonra kasaya yeniden giriş yapın.",
+       "keywords": [
+        "bölüm yok",
+        "menüyü görmüyor",
+        "yetkiler",
+        "erişim",
+        "gizli bölüm",
+        "erişim yok",
+        "нет раздела",
+        "не видит меню",
+        "права",
+        "доступ",
+        "скрыт раздел",
+        "нет доступа"
+       ],
+       "images": [
+        {
+         "file": "kassa-menu.png",
+         "caption": "«Standart» planında kasa menüsü"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

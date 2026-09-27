@@ -58,19 +58,19 @@ public sealed class EmployeeDetailDialog : Window
         panel.Children.Add(nameBox);
 
         if (!string.IsNullOrWhiteSpace(employee.Email))
-            panel.Children.Add(BuildCopyableField(Tr.T("Логин", "Логин", "Login", "Giriş", "Login"), employee.Email));
+            panel.Children.Add(BuildCopyableField(Tr.T("Логин", "Логин", "Login", "Kullanıcı adı", "Login"), employee.Email));
 
         if (!string.IsNullOrWhiteSpace(employee.LoginPassword))
         {
-            panel.Children.Add(BuildCopyableField(Tr.T("Пароль", "Пароль", "Password", "Şifre", "Parol"), employee.LoginPassword));
+            panel.Children.Add(BuildCopyableField(Tr.T("Пароль", "Сырсөз", "Password", "Şifre", "Parol"), employee.LoginPassword));
             panel.Children.Add(new TextBlock
             {
                 Text = Tr.T(
                     "Пароль, который сервер выдал при создании — на сайте он больше не показывается.",
-                    "Сервер түзгөндө берген пароль — сайтта ал кайра көрсөтүлбөйт.",
+                    "Кызматкер түзүлгөндө сервер берген сырсөз — сайтта ал мындан ары көрсөтүлбөйт.",
                     "The password the server issued at creation — it's no longer shown on the website.",
-                    "Sunucunun oluşturma sırasında verdiği şifre — site üzerinde artık gösterilmiyor.",
-                    "Server yaratishda bergan parol — saytda endi ko'rsatilmaydi."),
+                    "Sunucunun oluşturma sırasında verdiği şifre — sitede artık gösterilmiyor.",
+                    "Yaratishda server bergan parol — saytda u endi ko'rsatilmaydi."),
                 FontSize = 11,
                 Foreground = Brushes.Gray,
                 TextWrapping = TextWrapping.Wrap,
@@ -79,16 +79,16 @@ public sealed class EmployeeDetailDialog : Window
         }
 
         CodeField(
-            Tr.T("Код на удаление из корзины", "Себеттен өчүрүү коду", "Cart-delete code", "Sepetten silme kodu", "Savatdan o'chirish kodi"),
+            Tr.T("Код на удаление из корзины", "Себеттен өчүрүү коду", "Cart item removal code", "Sepetten silme kodu", "Savatdan o'chirish kodi"),
             employee.CartDeleteCode, v => employee.CartDeleteCode = v);
         CodeField(
-            Tr.T("Код на удаление со склада", "Кампадан өчүрүү коду", "Warehouse-delete code", "Depodan silme kodu", "Ombordan o'chirish kodi"),
+            Tr.T("Код на удаление со склада", "Кампадан өчүрүү коду", "Warehouse deletion code", "Depodan silme kodu", "Ombordan o'chirish kodi"),
             employee.WarehouseDeleteCode, v => employee.WarehouseDeleteCode = v);
         CodeField(
-            Tr.T("Код на редактирование товара", "Товарды түзөтүү коду", "Product-edit code", "Ürün düzenleme kodu", "Mahsulotni tahrirlash kodi"),
+            Tr.T("Код на редактирование товара", "Товарды түзөтүү коду", "Product editing code", "Ürün düzenleme kodu", "Mahsulotni tahrirlash kodi"),
             employee.ProductEditCode, v => employee.ProductEditCode = v);
         CodeField(
-            Tr.T("Код на добавление товара", "Товар кошуу коду", "Product-add code", "Ürün ekleme kodu", "Mahsulot qo'shish kodi"),
+            Tr.T("Код на добавление товара", "Товар кошуу коду", "Product adding code", "Ürün ekleme kodu", "Mahsulot qo'shish kodi"),
             employee.ProductAddCode, v => employee.ProductAddCode = v);
 
         _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };

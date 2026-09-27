@@ -32,10 +32,10 @@
                 FontSize="16"
                 Margin="0,0,0,10"
                 HorizontalAlignment="Stretch"
-                PlaceholderText="Выберите банк из списка"
+                PlaceholderText="{DynamicResource loc.kassa.addBank.pickPlaceholder}"
                 SelectionChanged="KnownBox_SelectionChanged"/>
 
-      <TextBlock Text="или впишите своё название"
+      <TextBlock Text="{DynamicResource loc.kassa.addBank.orTypeName}"
                  FontSize="12"
                  Foreground="{DynamicResource BrushTextSoft}"
                  Margin="0,0,0,6"/>

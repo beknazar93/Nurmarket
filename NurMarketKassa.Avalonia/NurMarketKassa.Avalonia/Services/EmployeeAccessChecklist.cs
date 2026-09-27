@@ -42,7 +42,7 @@ internal static class EmployeeAccessChecklist
 
         var boxes = new Boxes
         {
-            Cashbox = Check(Tr.T("Касса", "Касса", "Cashbox", "Kasa", "Kassa"), flags.CanViewCashbox),
+            Cashbox = Check(Tr.T("Касса", "Касса", "Till", "Kasa", "Kassa"), flags.CanViewCashbox),
             Analytics = Check(Tr.T("Аналитика", "Аналитика", "Analytics", "Analitik", "Analitika"), flags.CanViewAnalytics),
             Products = Check(Tr.T("Склад", "Склад", "Warehouse", "Depo", "Ombor"), flags.CanViewProducts),
             Sale = Check(Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv"), flags.CanViewSale),
@@ -50,7 +50,7 @@ internal static class EmployeeAccessChecklist
             BrandCategory = Check(Tr.T("Бренд, Категория", "Бренд, Категория", "Brand, Category", "Marka, Kategori", "Brend, Kategoriya"), flags.CanViewBrandCategory),
             Employees = Check(Tr.T("Сотрудники", "Кызматкерлер", "Employees", "Personel", "Xodimlar"), flags.CanViewEmployees),
             Settings = Check(Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), flags.CanViewSettings),
-            MarketProcurement = Check(Tr.T("Закупки", "Сатып алуулар", "Procurement", "Satın almalar", "Xaridlar"), flags.CanViewMarketProcurement),
+            MarketProcurement = Check(Tr.T("Закупки", "Сатып алуулар", "Purchasing", "Satın almalar", "Xaridlar"), flags.CanViewMarketProcurement),
             MarketSupplier = Check(Tr.T("Поставщики", "Жеткирүүчүлөр", "Suppliers", "Tedarikçiler", "Yetkazib beruvchilar"), flags.CanViewMarketSupplier),
 
             Cashier = Check(Tr.T("Интерфейс кассира", "Кассир интерфейси", "Cashier interface", "Kasiyer arayüzü", "Kassir interfeysi"), flags.CanViewCashier),
@@ -58,11 +58,11 @@ internal static class EmployeeAccessChecklist
             Document = Check(Tr.T("Документы", "Документтер", "Documents", "Belgeler", "Hujjatlar"), flags.CanViewDocument),
 
             MarketDiscount = Check(Tr.T("Скидка в кассе", "Кассадагы арзандатуу", "Discount at checkout", "Kasada indirim", "Kassada chegirma"), flags.CanViewMarketDiscount),
-            MarketEditPrice = Check(Tr.T("Изменение цены в кассе", "Кассада баасын өзгөртүү", "Change price at checkout", "Kasada fiyat değiştirme", "Kassada narxni o'zgartirish"), flags.CanViewMarketEditPrice),
-            MarketDeleteCartItem = Check(Tr.T("Удаление позиций из корзины", "Себеттен позицияларды өчүрүү", "Delete cart items", "Sepetten ürün silme", "Savatdan pozitsiyalarni o'chirish"), flags.CanViewMarketDeleteCartItem),
-            MarketEmployeeReturn = Check(Tr.T("Возврат продаж сотрудником", "Кызматкер тарабынан кайтаруу", "Return sales by employee", "Personel tarafından iade", "Xodim tomonidan qaytarish"), flags.CanViewMarketEmployeeReturn),
+            MarketEditPrice = Check(Tr.T("Изменение цены в кассе", "Кассада баасын өзгөртүү", "Price change at checkout", "Kasada fiyat değiştirme", "Kassada narxni o'zgartirish"), flags.CanViewMarketEditPrice),
+            MarketDeleteCartItem = Check(Tr.T("Удаление позиций из корзины", "Себеттен позицияларды өчүрүү", "Removing items from the cart", "Sepetten ürün silme", "Savatdan pozitsiyalarni o'chirish"), flags.CanViewMarketDeleteCartItem),
+            MarketEmployeeReturn = Check(Tr.T("Возврат продаж сотрудником", "Кызматкер тарабынан кайтаруу", "Sales returns by employee", "Personel tarafından iade", "Xodim tomonidan sotuvlarni qaytarish"), flags.CanViewMarketEmployeeReturn),
 
-            MarketLabel = Check(Tr.T("Печать штрих-кодов", "Штрихкод басып чыгаруу", "Print barcodes", "Barkod yazdırma", "Shtrix-kod chop etish"), flags.CanViewMarketLabel),
+            MarketLabel = Check(Tr.T("Печать штрих-кодов", "Штрихкод басып чыгаруу", "Barcode printing", "Barkod yazdırma", "Shtrix-kod chop etish"), flags.CanViewMarketLabel),
             MarketScales = Check(Tr.T("Интеграция с весами", "Тараза менен интеграция", "Scale integration", "Tartı entegrasyonu", "Tarozi bilan integratsiya"), flags.CanViewMarketScales),
             Whatsapp = Check("WhatsApp", flags.CanViewWhatsapp),
             Telegram = Check("Telegram", flags.CanViewTelegram),
@@ -79,13 +79,13 @@ internal static class EmployeeAccessChecklist
         }
 
         var panel = new StackPanel { Spacing = 0 };
-        panel.Children.Add(GroupHeader(Tr.T("Базовые доступы", "Негизги доступтар", "Basic access", "Temel erişimler", "Asosiy huquqlar")));
+        panel.Children.Add(GroupHeader(Tr.T("Базовые доступы", "Негизги укуктар", "Basic permissions", "Temel erişimler", "Asosiy huquqlar")));
         panel.Children.Add(Row(boxes.Cashbox, boxes.Analytics, boxes.Products, boxes.Sale, boxes.Clients, boxes.BrandCategory, boxes.Employees, boxes.Settings, boxes.MarketProcurement, boxes.MarketSupplier));
 
-        panel.Children.Add(GroupHeader(Tr.T("Секторные доступы", "Секторлук доступтар", "Sector access", "Sektör erişimleri", "Sektor huquqlari")));
+        panel.Children.Add(GroupHeader(Tr.T("Секторные доступы", "Секторлук укуктар", "Sector permissions", "Sektör erişimleri", "Sektor huquqlari")));
         panel.Children.Add(Row(boxes.Cashier, boxes.Shifts, boxes.Document));
 
-        panel.Children.Add(GroupHeader(Tr.T("Касса Маркета", "Маркеттин кассасы", "Market checkout", "Market kasası", "Market kassasi")));
+        panel.Children.Add(GroupHeader(Tr.T("Касса Маркета", "Маркеттин кассасы", "Market till", "Market kasası", "Market kassasi")));
         panel.Children.Add(Row(boxes.MarketDiscount, boxes.MarketEditPrice, boxes.MarketDeleteCartItem, boxes.MarketEmployeeReturn));
 
         panel.Children.Add(GroupHeader(Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar")));

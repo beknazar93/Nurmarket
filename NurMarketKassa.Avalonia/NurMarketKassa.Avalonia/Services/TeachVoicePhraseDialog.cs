@@ -36,16 +36,16 @@ public sealed class TeachVoicePhraseDialog : Window
         {
             Text = Tr.T(
                 "Голос не нашёл товар по этой фразе. Привяжите её к товару сейчас — можно сразу дописать ещё варианты, как ещё могут это сказать (по одной фразе на строку, лучше от 3) — чем больше вариантов, тем надёжнее распознавание в следующий раз.",
-                "Үн бул фраза боюнча товарды таппады. Аны товарга азыр байланыштырыңыз — дагы башка варианттарды дароо кошуп жазсаңыз болот (ар бир саптка бирден, 3төн кем эмес) — канчалык көп вариант болсо, кийинки жолу ошончолук ишенимдүү таанылат.",
-                "Voice couldn't find a product for this phrase. Bind it now — feel free to add more variants right away (one per line, ideally 3+): the more variants, the more reliable recognition will be next time.",
-                "Sesli komut bu ifade için ürün bulamadı. Şimdi bağlayın — hemen daha fazla varyant ekleyebilirsiniz (her satıra bir tane, tercihen 3+) — ne kadar çok varyant olursa, bir dahaki sefere tanıma o kadar güvenilir olur.",
-                "Ovoz bu ibora bo'yicha mahsulotni topa olmadi. Uni hozir bog'lang — darhol yana variantlar qo'shishingiz mumkin (har qatorga bittadan, tavsiya etiladi 3+) — variantlar qancha ko'p bo'lsa, keyingi safar tanish shuncha ishonchli bo'ladi."),
+                "Үн боюнча бул фраза менен товар табылган жок. Аны азыр товарга байланыштырыңыз — ошол эле жерде аны башкача кантип айтышы мүмкүн болгон варианттарды да кошуп жазсаңыз болот (ар бир сапка бир фраза, 3 же андан көп болгону жакшы) — варианттар канча көп болсо, кийинки жолу ошончолук так таанылат.",
+                "Voice search couldn't match this phrase to a product. Link it now and add other ways people might say it (one per line, ideally 3+) — the more variants, the better recognition next time.",
+                "Sesli komut bu ifadeyle bir ürün bulamadı. İfadeyi şimdi bir ürüne bağlayın — söylenebilecek başka varyantları da hemen ekleyebilirsiniz (her satıra bir ifade, tercihen 3 veya daha fazla). Varyant ne kadar çoksa, bir dahaki sefere tanıma o kadar güvenilir olur.",
+                "Ovozli qidiruv bu ibora bo'yicha mahsulotni topmadi. Iborani hozir mahsulotga bog'lang — darhol boshqa aytilish variantlarini ham yozib qo'yish mumkin (har qatorga bitta ibora, yaxshisi kamida 3 ta) — variantlar qancha ko'p bo'lsa, keyingi safar tanib olish shuncha ishonchli bo'ladi."),
             FontSize = 12,
             Foreground = Brushes.Gray,
             TextWrapping = TextWrapping.Wrap,
         });
 
-        panel.Children.Add(new TextBlock { Text = Tr.T("Фразы (по одной на строку)", "Фразалар (ар бир саптка бирден)", "Phrases (one per line)", "İfadeler (her satıra bir tane)", "Iboralar (har qatorga bittadan)"), FontSize = 12, Foreground = Brushes.Gray });
+        panel.Children.Add(new TextBlock { Text = Tr.T("Фразы (по одной на строку)", "Фразалар (ар бир сапка бирден)", "Phrases (one per line)", "İfadeler (her satıra bir tane)", "Iboralar (har qatorga bittadan)"), FontSize = 12, Foreground = Brushes.Gray });
         _phraseBox = new TextBox { Text = phrase, AcceptsReturn = true, Height = 70, TextWrapping = TextWrapping.Wrap };
         panel.Children.Add(_phraseBox);
 
@@ -76,7 +76,7 @@ public sealed class TeachVoicePhraseDialog : Window
         btnCancel.Click += (_, _) => Close(false);
         _saveButton = new Button
         {
-            Content = Tr.T("Привязать", "Байланыштыруу", "Bind", "Bağla", "Bog'lash"),
+            Content = Tr.T("Привязать", "Байланыштыруу", "Link", "Bağla", "Bog'lash"),
             IsDefault = true,
             Classes = { "btn-primary" },
         };

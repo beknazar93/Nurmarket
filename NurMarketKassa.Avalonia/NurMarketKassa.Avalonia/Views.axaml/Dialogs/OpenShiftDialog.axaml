@@ -57,12 +57,12 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
                 <Button IsCancel="True" Content="{DynamicResource common.cancel}"
                         Classes="btn-secondary"
-                        Width="110" Height="40"
+                        MinWidth="110" Padding="16,0" Height="40"
                         Click="Cancel_Click"/>
 
                 <Button Content="{DynamicResource csh.toolbar.openShift}"
                         Classes="btn-primary"
-                        Width="150" Height="40"
+                        MinWidth="150" Padding="16,0" Height="40"
                         IsDefault="True"
                         Click="Ok_Click"/>
             </StackPanel>

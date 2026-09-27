@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.VoiceControlTestWindow"
         x:CompileBindings="False"
-        Title="Проверка голосового управления"
+        Title="{DynamicResource loc.owner.voice.title}"
         Height="860" Width="960" MinHeight="480" MinWidth="700"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI, Inter, Noto Sans"
@@ -61,10 +61,10 @@
                 <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
                     <TextBlock Text="🎙️" FontSize="18" VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="Проверка голосового управления" FontSize="20" FontWeight="Bold"
+                <TextBlock Text="{DynamicResource loc.owner.voice.title}" FontSize="20" FontWeight="Bold"
                            Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
             </StackPanel>
-            <Button IsCancel="True" Grid.Column="1" Content="Закрыть" Classes="SecondaryButton" Click="Close_Click"/>
+            <Button IsCancel="True" Grid.Column="1" Content="{DynamicResource common.close}" Classes="SecondaryButton" Click="Close_Click"/>
         </Grid>
 
         <!-- Всё остальное — раньше не помещалось на маленьком экране/окне и низ (Живой поток)
@@ -81,35 +81,35 @@
                 <!-- Обучение: примеры команд -->
                 <Border Classes="Card">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Как пользоваться" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="Всегда начинайте с ключевого слова «касса», затем сразу команда — микрофон слушает постоянно, отдельную кнопку нажимать не нужно."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.howTo}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.howToBody}"
                                    FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <StackPanel Spacing="3">
-                            <TextBlock Text="• «касса картошка два килограмма» — добавит 2 кг картошки в чек" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса молоко» — добавит 1 шт молока (без числа — по умолчанию 1)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса манго 20 штук» — если у товара есть цена за штуку, добавит сразу поштучно, без вопроса" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса манго 2 пачки» — сразу целыми пачками; если сказать просто число без «штук»/«пачки» — переспросит" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса найди сахар» — найдёт и покажет товар, не добавляя его" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса убери последнюю» — удалит последнюю добавленную позицию (спросит подтверждение)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса очисти чек» — очистит весь чек (спросит подтверждение)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса повтори» — повторит последнее добавление товара" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса оплата» — перейдёт к оплате чека" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса отмена» — отменит текущую операцию" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu1}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu2}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu3}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu4}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu5}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu6}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu7}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu8}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu9}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exRu10}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
                         </StackPanel>
-                        <TextBlock Text="Кыргызча команда (Кыргызча буйруктар)" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushText}" Margin="0,6,0,0"/>
-                        <TextBlock Text="Кыргызча буйруктар жакшыраак таанылат, эгер Тил Кыргызча коюлса (Настройки → Экран) — андай учурда касса кыргыз тилине окутулган моделди колдонот."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.kyHeader}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushText}" Margin="0,6,0,0"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.kyNote}"
                                    FontSize="11" FontStyle="Italic" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <StackPanel Spacing="3">
-                            <TextBlock Text="• «касса нан эки даана» — 2 даана нанды чекке кошот" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса сүт» — 1 шт сүттү кошот (сан айтылбаса — 1)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса кант тап» — товарды таап көрсөтөт, кошпойт" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса акыркысын өчүр» — акыркы кошулган товарды өчүрөт (ырастоону сурайт)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса чекти тазала» — бүт чекти тазалайт (ырастоону сурайт)" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса кайтала» — акыркы кошулган товарды кайталайт" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса төлө» — чекти төлөөгө өтөт" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            <TextBlock Text="• «касса жокко чыгар» — учурдагы аракетти жокко чыгарат" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy1}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy2}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy3}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy4}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy5}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy6}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy7}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="{DynamicResource loc.owner.voice.exKy8}" FontSize="12" Foreground="{DynamicResource BrushText}"/>
                         </StackPanel>
-                        <TextBlock Text="Не расслышало? Попробуйте фразу через поле «Проверить текст без микрофона» ниже — так видно, как её разберёт программа, без микрофона и без реального добавления в чек."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.notHeard}"
                                    FontSize="11" FontStyle="Italic" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
@@ -117,12 +117,12 @@
                 <!-- Ручная проверка текста без микрофона -->
                 <Border Classes="Card">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Проверить текст без микрофона" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="Введите фразу так, будто её уже распознал микрофон (со словом «касса» или без) — увидите, как её разберёт парсер."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.manualTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.manualHint}"
                                    FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox x:Name="ManualTextBox" Grid.Column="0" Watermark="касса картошка два килограмма" KeyDown="ManualTextBox_KeyDown"/>
-                            <Button Grid.Column="1" Content="Разобрать" Classes="PrimaryButton" Margin="8,0,0,0" Click="ParseManual_Click"/>
+                            <Button Grid.Column="1" Content="{DynamicResource loc.owner.voice.parse}" Classes="PrimaryButton" Margin="8,0,0,0" Click="ParseManual_Click"/>
                         </Grid>
                         <TextBlock x:Name="ManualResultText" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
                     </StackPanel>
@@ -131,16 +131,16 @@
                 <!-- Голосовой замок -->
                 <Border Classes="Card">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Голосовой замок" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="Записывает голос кассира — потом каждая голосовая команда сверяется с ним. Если голос не совпал, команда НЕ выполняется, появляется предупреждение (в том числе голосом). Это не пароль: простуда, шум или другой микрофон иногда могут ошибочно не совпасть — тогда просто повторите команду или воспользуйтесь мышью/клавиатурой."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.lockTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.lockBody}"
                                    FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <TextBlock x:Name="VoiceLockStatusText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
                         <ProgressBar x:Name="VoiceLockProgress" Height="6" IsVisible="False" IsIndeterminate="True"/>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button x:Name="VoiceLockDownloadButton" Content="Скачать модуль (~27 МБ)" Classes="PrimaryButton" Click="VoiceLockDownload_Click"/>
-                            <Button x:Name="VoiceLockEnrollButton" Content="🎙 Записать голос (3 фразы)" Classes="PrimaryButton" Click="VoiceLockEnroll_Click"/>
-                            <CheckBox x:Name="VoiceLockEnabledCheck" Content="Замок включён" VerticalAlignment="Center" Click="VoiceLockEnabledCheck_Click"/>
-                            <Button x:Name="VoiceLockClearButton" Content="Сбросить" Classes="SecondaryButton" Click="VoiceLockClear_Click"/>
+                            <Button x:Name="VoiceLockDownloadButton" Content="{DynamicResource loc.owner.voice.download}" Classes="PrimaryButton" Click="VoiceLockDownload_Click"/>
+                            <Button x:Name="VoiceLockEnrollButton" Content="{DynamicResource loc.owner.voice.enroll}" Classes="PrimaryButton" Click="VoiceLockEnroll_Click"/>
+                            <CheckBox x:Name="VoiceLockEnabledCheck" Content="{DynamicResource loc.owner.voice.lockOn}" VerticalAlignment="Center" Click="VoiceLockEnabledCheck_Click"/>
+                            <Button x:Name="VoiceLockClearButton" Content="{DynamicResource csh.filter.reset}" Classes="SecondaryButton" Click="VoiceLockClear_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -152,8 +152,8 @@
                         <TextBlock x:Name="CustomPromptsTitle" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
                         <TextBlock x:Name="CustomPromptsHint" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Spacing="16">
-                            <RadioButton x:Name="PromptLangRu" GroupName="PromptLang" Content="Русский" Click="PromptLang_Click"/>
-                            <RadioButton x:Name="PromptLangKy" GroupName="PromptLang" Content="Кыргызча" Click="PromptLang_Click"/>
+                            <RadioButton x:Name="PromptLangRu" GroupName="PromptLang" Content="{DynamicResource posSettings.screen.langRussian}" Click="PromptLang_Click"/>
+                            <RadioButton x:Name="PromptLangKy" GroupName="PromptLang" Content="{DynamicResource posSettings.screen.langKyrgyz}" Click="PromptLang_Click"/>
                         </StackPanel>
                         <StackPanel x:Name="CustomPromptsPanel" Spacing="6"/>
                         <TextBlock x:Name="CustomPromptsStatus" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
@@ -163,14 +163,14 @@
                 <!-- Словарь единиц измерения -->
                 <Border Classes="Card">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Словарь единиц измерения" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="Встроены русские и кыргызские единицы (кг, л, шт, даана, бөтөлкө и т.п.) — здесь можно добавить свои, если в магазине используются другие (например «мешок», «ящик»). Слово — то, что кассир СКАЖЕТ вслух; сокращение — только для показа в списке."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.unitsTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.unitsBody}"
                                    FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="2*,Auto,1*,Auto">
-                            <TextBox x:Name="NewUnitWordBox" Grid.Column="0" Watermark="Слово, например: мешок"/>
+                            <TextBox x:Name="NewUnitWordBox" Grid.Column="0" Watermark="{DynamicResource loc.owner.voice.unitWordHint}"/>
                             <TextBlock Grid.Column="1" Text="(" VerticalAlignment="Center" Margin="8,0,4,0" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBox x:Name="NewUnitAbbreviationBox" Grid.Column="2" Watermark="сокращение, напр. меш"/>
-                            <Button Grid.Column="3" Content="Добавить" Classes="PrimaryButton" Margin="8,0,0,0" Click="AddUnitWord_Click"/>
+                            <TextBox x:Name="NewUnitAbbreviationBox" Grid.Column="2" Watermark="{DynamicResource loc.owner.voice.unitAbbrHint}"/>
+                            <Button Grid.Column="3" Content="{DynamicResource common.add}" Classes="PrimaryButton" Margin="8,0,0,0" Click="AddUnitWord_Click"/>
                         </Grid>
                         <ItemsControl x:Name="UnitWordsList"/>
                     </StackPanel>
@@ -179,13 +179,13 @@
                 <!-- Обучение товарам -->
                 <Border Classes="Card">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Обучение товарам" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="Если распознавание речи стабильно не понимает название товара (или кассиры называют его разговорным словом, которого нет в самой карточке) — привяжите к товару сразу НЕСКОЛЬКО фраз (лучше от 3): чем больше вариантов, как может прозвучать название, тем надёжнее распознавание. Одна фраза на строку — то, что кассир СКАЖЕТ после «касса» (без количества/единицы), например «кола» / «кокакола» / «чёрный напиток»."
+                        <TextBlock Text="{DynamicResource loc.owner.voice.aliasTitle}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="{DynamicResource loc.owner.voice.aliasBody}"
                                    FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-                        <AutoCompleteBox x:Name="NewAliasProductBox" Watermark="Товар: начните вводить название…"/>
+                        <AutoCompleteBox x:Name="NewAliasProductBox" Watermark="{DynamicResource loc.owner.voice.aliasProductHint}"/>
                         <TextBox x:Name="NewAliasPhraseBox" AcceptsReturn="True" Height="70" TextWrapping="Wrap"
                                  Watermark="Фразы, по одной на строку, например:&#10;кола&#10;кокакола&#10;чёрный напиток"/>
-                        <Button Content="Добавить фразы" Classes="PrimaryButton" HorizontalAlignment="Left" Click="AddProductAlias_Click"/>
+                        <Button Content="{DynamicResource loc.owner.voice.aliasAdd}" Classes="PrimaryButton" HorizontalAlignment="Left" Click="AddProductAlias_Click"/>
                         <TextBlock x:Name="AliasErrorText" FontSize="12" Foreground="{DynamicResource BrushDanger}" IsVisible="False" TextWrapping="Wrap"/>
                         <ItemsControl x:Name="ProductAliasesList"/>
                     </StackPanel>
@@ -195,7 +195,7 @@
                 <Grid ColumnDefinitions="*,12,*" Height="320">
                     <Border Grid.Column="0" Classes="Card">
                         <Grid RowDefinitions="Auto,*">
-                            <TextBlock Grid.Row="0" Text="Услышано (вживую)" FontWeight="Bold" FontSize="14"
+                            <TextBlock Grid.Row="0" Text="{DynamicResource loc.owner.voice.heardLive}" FontWeight="Bold" FontSize="14"
                                        Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
                             <ScrollViewer Grid.Row="1" x:Name="RawScroll">
                                 <ItemsControl x:Name="RawTextList"/>
@@ -205,7 +205,7 @@
 
                     <Border Grid.Column="2" Classes="Card">
                         <Grid RowDefinitions="Auto,*">
-                            <TextBlock Grid.Row="0" Text="Распознанные команды" FontWeight="Bold" FontSize="14"
+                            <TextBlock Grid.Row="0" Text="{DynamicResource loc.owner.voice.recognized}" FontWeight="Bold" FontSize="14"
                                        Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
                             <ScrollViewer Grid.Row="1" x:Name="CommandScroll">
                                 <ItemsControl x:Name="CommandList"/>

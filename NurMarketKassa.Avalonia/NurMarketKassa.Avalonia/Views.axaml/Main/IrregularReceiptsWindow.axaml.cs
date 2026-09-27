@@ -50,14 +50,22 @@ public partial class IrregularReceiptsWindow : Window
         {
             var count = OfflinePendingSalesStore.RequeueFailed();
             ShowMessage(count > 0
-                ? $"Возвращено в очередь: {count}. Касса отправит их при ближайшей синхронизации."
-                : "Нечего отправлять повторно: отклонённых чеков нет.");
+                ? Tr.T($"Возвращено в очередь: {count}. Касса отправит их при ближайшей синхронизации.",
+                    $"Кезекке кайтарылды: {count}. Касса аларды жакынкы синхрондоштурууда жөнөтөт.",
+                    $"Returned to the queue: {count}. The till will send them at the next sync.",
+                    $"Kuyruğa geri alındı: {count}. Kasa bunları bir sonraki senkronizasyonda gönderecek.",
+                    $"Navbatga qaytarildi: {count}. Kassa ularni keyingi sinxronlashda yuboradi.")
+                : Tr.T("Нечего отправлять повторно: отклонённых чеков нет.",
+                    "Кайра жөнөтүүгө эч нерсе жок: четке кагылган чектер жок.",
+                    "Nothing to resend: there are no rejected receipts.",
+                    "Yeniden gönderilecek bir şey yok: reddedilen fiş yok.",
+                    "Qayta yuboriladigan hech narsa yo'q: rad etilgan cheklar yo'q."));
             LoadRows();
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Повторная отправка чеков не удалась: {ex}", "WARNING");
-            ShowMessage("Не удалось вернуть чеки в очередь: " + ex.Message);
+            ShowMessage(Tr.T("Не удалось вернуть чеки в очередь: ", "Чектерди кезекке кайтаруу мүмкүн болгон жок: ", "Could not return the receipts to the queue: ", "Fişler kuyruğa geri alınamadı: ", "Cheklarni navbatga qaytarib bo'lmadi: ") + ex.Message);
         }
     }
 
@@ -77,7 +85,7 @@ public partial class IrregularReceiptsWindow : Window
             {
                 CreatedAt = entry.CreatedAt,
                 IsInsufficientStock = true,
-                StatusText = Tr.T("Не хватило остатка", "Калдык жетишсиз болду", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
+                StatusText = Tr.T("Не хватило остатка", "Калдык жетпей калды", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
                 Note = entry.Note ?? "",
                 TotalText = FormatMoney(entry.Total),
             });
@@ -96,7 +104,7 @@ public partial class IrregularReceiptsWindow : Window
                 IsError = isFailed,
                 StatusText = isFailed
                     ? Tr.T("Ошибка отправки на сервер", "Серверге жиберүү катасы", "Error sending to the server", "Sunucuya gönderme hatası", "Serverga yuborishda xato")
-                    : Tr.T("В процессе (ожидает выгрузку)", "Жүрүп жатат (жүктөлүүнү күтүүдө)", "In progress (awaiting upload)", "İşleniyor (yüklenmeyi bekliyor)", "Jarayonda (yuklashni kutmoqda)"),
+                    : Tr.T("В процессе (ожидает выгрузку)", "Жүрүп жатат (жүктөлүүнү күтүүдө)", "In progress (awaiting upload)", "İşlemde (gönderilmeyi bekliyor)", "Jarayonda (yuklashni kutmoqda)"),
                 Note = sale.LastError ?? "",
                 TotalText = TryComputeTotalText(sale.CartJson),
                 Id = sale.Id,
@@ -110,8 +118,10 @@ public partial class IrregularReceiptsWindow : Window
         EmptyText.IsVisible = rows.Count == 0;
     }
 
+    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
+
     private static string FormatMoney(double value) =>
-        value.ToString("0.## сом", CultureInfo.InvariantCulture);
+        value.ToString("0.##", CultureInfo.InvariantCulture) + " " + Som;
 
     /// <summary>Сумма чека для строки грида — считаем из уже сохранённого локального CartJson
     /// (тот же разбор, что и в SalesWindow.ShowReceiptDetailsByIdAsync), сеть не нужна.</summary>
@@ -127,7 +137,7 @@ public partial class IrregularReceiptsWindow : Window
                 if (decimal.TryParse(totalStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var lineTotal))
                     total += lineTotal;
             }
-            return total.ToString("0.## сом", CultureInfo.InvariantCulture);
+            return total.ToString("0.##", CultureInfo.InvariantCulture) + " " + Som;
         }
         catch
         {
@@ -164,7 +174,7 @@ public partial class IrregularReceiptsWindow : Window
                 items.Add($"• {name} — {qty:0.###} × {unitPrice:N2} = {lineTotalStr}");
             }
             items.Add(new string('-', 24));
-            items.Add($"ИТОГО: {previewTotal:N2} сом");
+            items.Add(Tr.T($"ИТОГО: {previewTotal:N2} сом", $"ЖЫЙЫНТЫК: {previewTotal:N2} сом", $"TOTAL: {previewTotal:N2} som", $"TOPLAM: {previewTotal:N2} som", $"JAMI: {previewTotal:N2} so'm"));
 
             _currentReceiptJson = json;
             _currentReceiptTitle = Tr.T("Чек (офлайн)", "Чек (офлайн)", "Receipt (offline)", "Fiş (çevrimdışı)", "Chek (oflayn)")
@@ -176,7 +186,7 @@ public partial class IrregularReceiptsWindow : Window
         }
         catch (Exception ex)
         {
-            ErrorText.Text = "Не удалось загрузить детали чека: " + ex.Message;
+            ErrorText.Text = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ex.Message;
             ErrorText.IsVisible = true;
         }
     }
@@ -212,7 +222,7 @@ public partial class IrregularReceiptsWindow : Window
         }
         catch (Exception ex)
         {
-            ErrorText.Text = "Не удалось напечатать чек: " + ex.Message;
+            ErrorText.Text = Tr.T("Не удалось напечатать чек: ", "Чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the receipt: ", "Fiş yazdırılamadı: ", "Chekni chop etib bo'lmadi: ") + ex.Message;
             ErrorText.IsVisible = true;
         }
     }

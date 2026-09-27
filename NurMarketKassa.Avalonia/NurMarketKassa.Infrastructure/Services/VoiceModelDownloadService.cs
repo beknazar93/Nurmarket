@@ -165,17 +165,32 @@ public static class VoiceModelDownloadService
             // Самый частый случай на практике: ссылка ведёт на релиз, которого нет. Интернет
             // при этом работает — и советовать его проверить бессмысленно.
             PosLogger.Log($"Voice model download failed ({language}), файл недоступен: {ex.StatusCode} {Models[language].Url}", "ERROR");
-            return (false, "Пакет распознавания речи не найден на сервере. Это не проблема интернета — обратитесь в поддержку.");
+            return (false, Tr.T(
+                "Пакет распознавания речи не найден на сервере. Это не проблема интернета — обратитесь в поддержку.",
+                "Кепти таануу пакети серверден табылган жок. Бул интернеттин көйгөйү эмес — колдоо кызматына кайрылыңыз.",
+                "The speech recognition pack wasn't found on the server. This isn't an internet problem — please contact support.",
+                "Ses tanıma paketi sunucuda bulunamadı. Bu bir internet sorunu değil — destek ekibine başvurun.",
+                "Nutqni tanish paketi serverda topilmadi. Bu internet muammosi emas — yordam xizmatiga murojaat qiling."));
         }
         catch (HttpRequestException ex)
         {
             PosLogger.Log($"Voice model download failed ({language}): {ex}", "ERROR");
-            return (false, "Не удалось связаться с сервером. Проверьте интернет и попробуйте снова.");
+            return (false, Tr.T(
+                "Не удалось связаться с сервером. Проверьте интернет и попробуйте снова.",
+                "Сервер менен байланышуу мүмкүн болгон жок. Интернетти текшерип, кайра аракет кылыңыз.",
+                "Couldn't reach the server. Check your internet connection and try again.",
+                "Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.",
+                "Server bilan bog'lanib bo'lmadi. Internetni tekshiring va qayta urinib ko'ring."));
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
             PosLogger.Log($"Voice model download timed out ({language})", "ERROR");
-            return (false, "Загрузка прервалась по таймауту. Проверьте скорость соединения и попробуйте снова.");
+            return (false, Tr.T(
+                "Загрузка прервалась по таймауту. Проверьте скорость соединения и попробуйте снова.",
+                "Жүктөө убакыт чегинен ашып, үзүлүп калды. Байланыштын ылдамдыгын текшерип, кайра аракет кылыңыз.",
+                "The download timed out. Check your connection speed and try again.",
+                "İndirme zaman aşımına uğradı. Bağlantı hızınızı kontrol edip tekrar deneyin.",
+                "Yuklash vaqt tugagani sababli uzildi. Ulanish tezligini tekshiring va qayta urinib ko'ring."));
         }
         catch (OperationCanceledException)
         {
@@ -184,12 +199,22 @@ public static class VoiceModelDownloadService
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
             PosLogger.Log($"Voice model install failed ({language}): {ex}", "ERROR");
-            return (false, "Не удалось записать пакет на диск: нет места или нет прав на папку.");
+            return (false, Tr.T(
+                "Не удалось записать пакет на диск: нет места или нет прав на папку.",
+                "Пакетти дискке жазуу мүмкүн болгон жок: орун жок же папкага укук жок.",
+                "Couldn't write the pack to disk: not enough space or no write access to the folder.",
+                "Paket diske yazılamadı: diskte yer yok veya klasöre yazma izni yok.",
+                "Paketni diskka yozib bo'lmadi: joy yo'q yoki papkaga ruxsat yo'q."));
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Voice model download failed ({language}): {ex}", "ERROR");
-            return (false, "Не удалось установить пакет распознавания речи: " + ex.Message);
+            return (false, Tr.T(
+                "Не удалось установить пакет распознавания речи: ",
+                "Кепти таануу пакетин орнотуу мүмкүн болгон жок: ",
+                "Couldn't install the speech recognition pack: ",
+                "Ses tanıma paketi kurulamadı: ",
+                "Nutqni tanish paketini o'rnatib bo'lmadi: ") + ex.Message);
         }
         finally
         {

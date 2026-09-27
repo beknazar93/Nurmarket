@@ -150,17 +150,17 @@ public sealed class ClientPurchasesWindow : Window
                     ReceiptText = ReadReceiptNumber(sale) ?? ShortId(ReadString(sale, "id")),
                     PaymentText = DescribePayment(ReadString(sale, "payment_method")),
                     AmountText = amount.ToString("N2", CultureInfo.CurrentCulture) + " "
-                                 + Tr.T("сом", "сом", "KGS", "KGS", "KGS"),
+                                 + Tr.T("сом", "сом", "som", "som", "so'm"),
                 });
             }
 
             _grid.ItemsSource = rows;
             _summary.Text = rows.Count == 0
                 ? Tr.T("Покупок пока нет.", "Азырынча сатып алуу жок.", "No purchases yet.",
-                       "Henüz satın alma yok.", "Hozircha xarid yo'q.")
-                : Tr.T("Покупок", "Сатып алуулар", "Purchases", "Satın almalar", "Xaridlar")
-                  + $": {rows.Count} · " + Tr.T("на сумму", "суммасы", "for", "tutarı", "summasi")
-                  + $" {total:N2} " + Tr.T("сом", "сом", "KGS", "KGS", "KGS");
+                       "Henüz satın alma yok.", "Hozircha xaridlar yo'q.")
+                : Tr.T("Покупок", "Сатып алуулар", "Purchases", "Satın alma", "Xaridlar")
+                  + $": {rows.Count} · " + Tr.T("на сумму", "суммасы", "total", "toplam", "jami")
+                  + $" {total:N2} " + Tr.T("сом", "сом", "som", "som", "so'm");
         }
         catch (OperationCanceledException)
         {
@@ -168,7 +168,7 @@ public sealed class ClientPurchasesWindow : Window
         catch (Exception ex)
         {
             _summary.Text = Tr.T("Не удалось загрузить покупки", "Сатып алууларды жүктөө мүмкүн болгон жок",
-                "Could not load the purchases", "Satın almalar yüklenemedi",
+                "Could not load purchases", "Satın almalar yüklenemedi",
                 "Xaridlarni yuklab bo'lmadi") + ": " + ex.Message;
         }
     }
@@ -194,8 +194,8 @@ public sealed class ClientPurchasesWindow : Window
         }
         catch (Exception ex)
         {
-            _receipt.Text = Tr.T("Чек не загрузился", "Чек жүктөлгөн жок", "The receipt did not load",
-                "Fiş yüklenmedi", "Chek yuklanmadi") + ": " + ex.Message;
+            _receipt.Text = Tr.T("Чек не загрузился", "Чек жүктөлгөн жок", "Could not load the receipt",
+                "Fiş yüklenemedi", "Chek yuklanmadi") + ": " + ex.Message;
         }
     }
 
@@ -266,7 +266,7 @@ public sealed class ClientPurchasesWindow : Window
         "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
         "transfer" or "card" or "noncash" => Tr.T("Безнал", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
         "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
-        "mixed" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karma", "Aralash"),
+        "mixed" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karışık", "Aralash"),
         "" => "—",
         _ => method!,
     };

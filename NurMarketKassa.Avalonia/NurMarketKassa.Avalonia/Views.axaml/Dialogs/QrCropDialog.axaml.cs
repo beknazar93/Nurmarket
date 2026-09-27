@@ -22,7 +22,7 @@ public partial class QrCropDialog : Window
     public QrCropDialog(string imagePath, string bankName) : this()
     {
         _bankName = bankName;
-        SubtitleText.Text = $"{bankName}: уберите лишние поля по краям. Оставьте небольшую белую рамку, чтобы QR надёжно сканировался. Исходный файл изменён не будет.";
+        SubtitleText.Text = Tr.T($"{bankName}: уберите лишние поля по краям. Оставьте небольшую белую рамку, чтобы QR надёжно сканировался. Исходный файл изменён не будет.", $"{bankName}: четтериндеги ашыкча боштукту кесип салыңыз. QR ишенимдүү сканерленышы үчүн кичинекей ак алкак калтырыңыз. Баштапкы файл өзгөрбөйт.", $"{bankName}: trim the extra margins around the edges. Leave a small white border so the QR code scans reliably. The original file will not be changed.", $"{bankName}: kenarlardaki fazla boşlukları kırpın. QR kodunun sorunsuz okunması için küçük bir beyaz çerçeve bırakın. Orijinal dosya değiştirilmeyecek.", $"{bankName}: chetlardagi ortiqcha joylarni olib tashlang. QR ishonchli skanerlanishi uchun kichik oq hoshiya qoldiring. Asl fayl o'zgartirilmaydi.");
 
         try
         {
@@ -32,7 +32,7 @@ public partial class QrCropDialog : Window
         }
         catch (Exception ex)
         {
-            ShowError("Не удалось открыть изображение: " + ex.Message);
+            ShowError(Tr.T("Не удалось открыть изображение: ", "Сүрөттү ачуу мүмкүн болгон жок: ", "Could not open the image: ", "Görsel açılamadı: ", "Rasmni ochib bo'lmadi: ") + ex.Message);
         }
     }
 
@@ -80,7 +80,7 @@ public partial class QrCropDialog : Window
         if (RightValueText is not null) RightValueText.Text = $"{RightSlider.Value:0}%";
         if (TopValueText is not null) TopValueText.Text = $"{TopSlider.Value:0}%";
         if (BottomValueText is not null) BottomValueText.Text = $"{BottomSlider.Value:0}%";
-        if (SizeText is not null) SizeText.Text = $"Результат: {width} × {height} px";
+        if (SizeText is not null) SizeText.Text = Tr.T($"Результат: {width} × {height} px", $"Натыйжа: {width} × {height} px", $"Result: {width} × {height} px", $"Sonuç: {width} × {height} px", $"Natija: {width} × {height} px");
         if (ErrorText is not null) ErrorText.IsVisible = false;
     }
 
@@ -104,7 +104,7 @@ public partial class QrCropDialog : Window
     {
         if (_preview is null || _source is null)
         {
-            ShowError("Изображение не загружено.");
+            ShowError(Tr.T("Изображение не загружено.", "Сүрөт жүктөлгөн жок.", "No image loaded.", "Görsel yüklenmedi.", "Rasm yuklanmagan."));
             return;
         }
 
@@ -139,7 +139,7 @@ public partial class QrCropDialog : Window
         }
         catch (Exception ex)
         {
-            ShowError("Не удалось сохранить QR-код: " + ex.Message);
+            ShowError(Tr.T("Не удалось сохранить QR-код: ", "QR-кодду сактоо мүмкүн болгон жок: ", "Could not save the QR code: ", "QR kodu kaydedilemedi: ", "QR-kodni saqlab bo'lmadi: ") + ex.Message);
         }
     }
 

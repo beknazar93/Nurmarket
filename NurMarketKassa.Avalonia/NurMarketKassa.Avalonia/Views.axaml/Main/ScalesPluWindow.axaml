@@ -61,7 +61,7 @@
             <TextBlock Grid.Column="0" Text="{DynamicResource scalesPlu.title}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="ExportCsvButton" Content="Экспорт в CSV" Classes="SecondaryActionButton"
+                <Button x:Name="ExportCsvButton" Content="{DynamicResource loc.owner.scales.exportCsv}" Classes="SecondaryActionButton"
                         Margin="0,0,8,0" Click="ExportCsv_Click"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
                         Margin="0,0,10,0" Click="Refresh_Click"/>
@@ -78,7 +78,7 @@
             <RadioButton x:Name="BrandRongtaRadio" GroupName="ScaleBrand"
                          Content="{DynamicResource scalesPlu.brandRongta}" Click="BrandRadio_Click"/>
             <RadioButton x:Name="BrandAiRadio" GroupName="ScaleBrand" Margin="16,0,0,0"
-                         Content="AI весы" Click="BrandRadio_Click"/>
+                         Content="{DynamicResource loc.owner.scales.brandAi}" Click="BrandRadio_Click"/>
         </StackPanel>
 
         <Grid Grid.Row="3" x:Name="RongtaSourceRow" IsVisible="False" ColumnDefinitions="Auto,Auto,Auto,Auto"
@@ -108,19 +108,19 @@
                            Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
                 <TextBox Margin="0,2,8,2" x:Name="PluStartBox" Width="70" Text="1"/>
 
-                <CheckBox x:Name="SequentialPluCheck" Content="Нумеровать под клавиши весов"
+                <CheckBox x:Name="SequentialPluCheck" Content="{DynamicResource loc.owner.scales.sequentialPlu}"
                           IsChecked="True"
                           Margin="12,2,0,2"
-                          ToolTip.Tip="Клавиши на панели весов вызывают ПЛУ по его НОМЕРУ: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2 и так далее. Если записать товар под его собственным номером (например 10007), ни одна клавиша его не найдёт. С этой галочкой товары получают номера подряд, начиная с указанного, и порядок в списке ниже — это порядок клавиш."/>
+                          ToolTip.Tip="{DynamicResource loc.owner.scales.sequentialPluTip}"/>
 
-                <CheckBox x:Name="DirectLanCheck" Content="Напрямую по кабелю"
+                <CheckBox x:Name="DirectLanCheck" Content="{DynamicResource loc.owner.scales.directLan}"
                           VerticalAlignment="Center" Margin="16,0,0,0"
                           IsCheckedChanged="DirectLan_Changed"
-                          ToolTip.Tip="Касса сама говорит с весами по локальной сети, без сервера. Не проверено на живых весах — сверьте порт в системном меню весов."/>
+                          ToolTip.Tip="{DynamicResource loc.owner.scales.directLanTip}"/>
                 <Button x:Name="LanSettingsButton" Margin="8,2,0,2"
-                        Content="Настройки подключения…"
+                        Content="{DynamicResource loc.owner.scales.lanSettings}"
                         Click="LanSettings_Click"
-                        ToolTip.Tip="Адрес, порт и пароль весов — в отдельном окне, там же проверка связи."/>
+                        ToolTip.Tip="{DynamicResource loc.owner.scales.lanSettingsTip}"/>
             </WrapPanel>
         </Grid>
 
@@ -136,7 +136,7 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="*" Binding="{ReflectionBinding Name}"/>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="90" Binding="{ReflectionBinding PluText}"/>
-                    <DataGridTextColumn Header="Ед." Width="70" Binding="{ReflectionBinding Unit}"/>
+                    <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="70" Binding="{ReflectionBinding Unit}"/>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="140" Binding="{ReflectionBinding PriceLine}"/>
                 </DataGrid.Columns>
             </DataGrid>

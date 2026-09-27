@@ -51,7 +51,7 @@ public sealed class SalarySchemeDialog : Window
         };
         panel.Children.Add(_statusText);
 
-        panel.Children.Add(Label(Tr.T("Схема начисления", "Эсептөө схемасы", "Pay scheme", "Ödeme şeması", "Hisoblash sxemasi")));
+        panel.Children.Add(Label(Tr.T("Схема начисления", "Эсептөө схемасы", "Pay scheme", "Hesaplama şeması", "Hisoblash sxemasi")));
         _salaryRadio = SchemeRadio(SalaryWindow.SchemeName("salary"));
         _percentRadio = SchemeRadio(SalaryWindow.SchemeName("percent"));
         _bothRadio = SchemeRadio(SalaryWindow.SchemeName("salary_plus_percent"));
@@ -62,22 +62,22 @@ public sealed class SalarySchemeDialog : Window
 
         _monthlyBox = new TextBox { Watermark = "0" };
         _monthlyPanel = new StackPanel { Spacing = 4 };
-        _monthlyPanel.Children.Add(Label(Tr.T("Оклад в месяц, сом", "Айына айлык, сом", "Monthly salary, som", "Aylık maaş, som", "Oylik maosh, so'm")));
+        _monthlyPanel.Children.Add(Label(Tr.T("Оклад в месяц, сом", "Айлык маяна, сом", "Monthly salary, som", "Aylık maaş, som", "Oylik maosh, so'm")));
         _monthlyPanel.Children.Add(_monthlyBox);
         panel.Children.Add(_monthlyPanel);
 
         _percentBox = new TextBox { Watermark = "0" };
         _percentPanel = new StackPanel { Spacing = 4 };
         _percentPanel.Children.Add(Label(Tr.T("Процент от личных продаж, %", "Жеке сатуудан пайыз, %", "Percentage of own sales, %",
-            "Kişisel satışlardan yüzde, %", "Shaxsiy sotuvdan foiz, %")));
+            "Kişisel satış yüzdesi, %", "Shaxsiy sotuvdan foiz, %")));
         _percentPanel.Children.Add(_percentBox);
         _percentPanel.Children.Add(new TextBlock
         {
             Text = Tr.T(
                 "Этот же процент подставляется консультанту в окне оплаты.",
-                "Ушул эле пайыз төлөө терезесинде консультантка коюлат.",
+                "Ушул эле пайыз төлөм терезесинде консультантка коюлат.",
                 "The same percentage is suggested for the consultant in the payment window.",
-                "Aynı yüzde ödeme penceresinde danışmana önerilir.",
+                "Aynı yüzde ödeme penceresinde danışmana otomatik olarak girilir.",
                 "Xuddi shu foiz to'lov oynasida maslahatchiga qo'yiladi."),
             FontSize = 11,
             Foreground = Brushes.Gray,
@@ -161,7 +161,7 @@ public sealed class SalarySchemeDialog : Window
             }
             else
             {
-                _statusText.Text = Tr.T("Схема ещё не настроена — будет создана.", "Схема азырынча орнотулган эмес — түзүлөт.",
+                _statusText.Text = Tr.T("Схема ещё не настроена — будет создана.", "Схема азырынча жөндөлгөн эмес — ал түзүлөт.",
                     "No scheme yet — it will be created.", "Henüz şema yok — oluşturulacak.", "Sxema hali sozlanmagan — yaratiladi.");
             }
             _saveButton.IsEnabled = true;
@@ -183,28 +183,28 @@ public sealed class SalarySchemeDialog : Window
         if (scheme == "salary" && monthly <= 0)
         {
             ShowError(Tr.T("Для схемы «Оклад» укажите оклад больше 0.", "«Айлык» схемасы үчүн 0дөн чоң айлык көрсөтүңүз.",
-                "For the «Salary» scheme enter a salary above 0.", "«Maaş» şeması için 0'dan büyük maaş girin.",
+                "For the “Salary” scheme, enter a salary greater than 0.", "«Maaş» şeması için 0'dan büyük maaş girin.",
                 "«Maosh» sxemasi uchun 0 dan katta maosh kiriting."));
             return;
         }
         if (scheme == "percent" && percent <= 0)
         {
             ShowError(Tr.T("Для схемы «Процент от продаж» укажите процент больше 0.", "«Сатуудан пайыз» схемасы үчүн 0дөн чоң пайыз көрсөтүңүз.",
-                "For the «Sales percentage» scheme enter a percentage above 0.", "«Satış yüzdesi» şeması için 0'dan büyük yüzde girin.",
+                "For the “Sales percentage” scheme, enter a percentage greater than 0.", "«Satış yüzdesi» şeması için 0'dan büyük yüzde girin.",
                 "«Sotuvdan foiz» sxemasi uchun 0 dan katta foiz kiriting."));
             return;
         }
         if (scheme == "salary_plus_percent" && (monthly <= 0 || percent <= 0))
         {
-            ShowError(Tr.T("Для схемы «Оклад + процент» заполните оба поля больше 0.", "«Айлык + пайыз» схемасы үчүн эки талааны тең 0дөн чоң толтуруңуз.",
-                "For «Salary + percentage» fill in both fields above 0.", "«Maaş + yüzde» için her iki alanı 0'dan büyük doldurun.",
-                "«Maosh + foiz» uchun ikkala maydonni 0 dan katta to'ldiring."));
+            ShowError(Tr.T("Для схемы «Оклад + процент» заполните оба поля больше 0.", "«Айлык + пайыз» схемасы үчүн эки талаага тең 0дөн чоң маани жазыңыз.",
+                "For the “Salary + percentage” scheme, fill in both fields with values greater than 0.", "«Maaş + yüzde» şeması için her iki alana 0'dan büyük değer girin.",
+                "«Maosh + foiz» sxemasi uchun ikkala maydonga 0 dan katta qiymat kiriting."));
             return;
         }
         if (percent > 100)
         {
-            ShowError(Tr.T("Процент от продаж не может быть больше 100.", "Сатуудан пайыз 100дөн ашпайт.",
-                "The sales percentage cannot exceed 100.", "Satış yüzdesi 100'ü geçemez.", "Sotuvdan foiz 100 dan oshmaydi."));
+            ShowError(Tr.T("Процент от продаж не может быть больше 100.", "Сатуудан пайыз 100дөн ашпашы керек.",
+                "The sales percentage cannot exceed 100.", "Satış yüzdesi 100'ü geçemez.", "Sotuvdan foiz 100 dan oshmasligi kerak."));
             return;
         }
 

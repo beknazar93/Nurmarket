@@ -43,7 +43,7 @@ public partial class ReturnLineReasonDialog : Window
                     "Yorum, kalem iadesiyle birlikte CRM'e gönderilecektir.",
                     "Izoh pozitsiyani qaytarish bilan birga CRM'ga yuboriladi.")
                 : Tr.T($"Одна и та же причина будет указана для {selectedItemCount} выбранных позиций и передана в CRM.",
-                    $"Ошол эле себеп {selectedItemCount} тандалган позиция үчүн көрсөтүлүп, CRMге өткөрүлөт.",
+                    $"Бир эле себеп тандалган {selectedItemCount} позиция үчүн көрсөтүлүп, CRMге өткөрүлөт.",
                     $"The same reason will be recorded for all {selectedItemCount} selected items and sent to the CRM.",
                     $"Seçilen {selectedItemCount} kalem için aynı neden belirtilip CRM'e gönderilecektir.",
                     $"{selectedItemCount} ta tanlangan pozitsiya uchun bir xil sabab ko'rsatilib, CRM'ga yuboriladi.");

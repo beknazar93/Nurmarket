@@ -96,8 +96,8 @@ public partial class RestockSuggestionsWindow : Window
         }
 
         var sorted = rows.OrderBy(r => r.DaysLeft).Take(60).ToList();
-        ReorderSubtitle.Text = Tr.T("Что пора заказать", "Эмнени заказ кылуу керек", "What to reorder",
-            "Neyi yeniden sipariş etmeli", "Nimani qayta buyurtma qilish kerak");
+        ReorderSubtitle.Text = Tr.T("Что пора заказать", "Эмнеге буйрутма берүү керек", "What to reorder",
+            "Sipariş edilmesi gerekenler", "Nimalarni buyurtma qilish vaqti keldi");
         ReorderGrid.ItemsSource = sorted;
         ReorderEmptyText.IsVisible = sorted.Count == 0;
     }
@@ -143,8 +143,8 @@ public partial class RestockSuggestionsWindow : Window
                     ? Tr.T($"Готово: добавлено записей — {count}.", $"Даяр: {count} жазуу кошулду.",
                         $"Done: {count} entries added.", $"Tamamlandı: {count} kayıt eklendi.", $"Tayyor: {count} ta yozuv qo'shildi.")
                     : Tr.T("Новых записей не найдено (либо истории продаж на сервере нет, либо она уже подтянута).",
-                           "Жаңы жазуулар табылган жок (сервердеги сатуу тарыхы жок же ал мурунтан эле тартылган)."),
-                Tr.T("Пополнение склада", "Складды толуктоо", "Warehouse restock", "Depo ikmali", "Omborni to'ldirish"));
+                           "Жаңы жазуулар табылган жок (сервердеги сатуу тарыхы жок же ал мурунтан эле тартылган).", "No new entries found (either there is no sales history on the server, or it has already been loaded).", "Yeni kayıt bulunamadı (sunucuda satış geçmişi yok ya da zaten alınmış).", "Yangi yozuvlar topilmadi (serverda sotuvlar tarixi yo'q yoki u allaqachon yuklangan)."),
+                Tr.T("Пополнение склада", "Кампаны толуктоо", "Warehouse restock", "Stok yenileme", "Omborni to'ldirish"));
             LoadReorderTab();
         }
         catch (Exception ex)
@@ -169,7 +169,7 @@ public partial class RestockSuggestionsWindow : Window
         public string StockText { get; set; } = "";
         public string DailyRateText { get; set; } = "";
         public double DaysLeft { get; set; }
-        public string DaysLeftText => $"{DaysLeft:0.#} дн.";
+        public string DaysLeftText => Tr.T($"{DaysLeft:0.#} дн.", $"{DaysLeft:0.#} күн", $"{DaysLeft:0.#} days", $"{DaysLeft:0.#} gün", $"{DaysLeft:0.#} kun");
         public bool IsUrgent => DaysLeft <= 2;
         public bool IsSoon => DaysLeft > 2 && DaysLeft <= 7;
         public bool IsOk => DaysLeft > 7;
@@ -182,7 +182,9 @@ public partial class RestockSuggestionsWindow : Window
         public string IntakeDateText { get; set; } = "";
         public string ExpiryDateText { get; set; } = "";
         public double DaysLeft { get; set; }
-        public string DaysLeftText => DaysLeft < 0 ? "Истёк" : $"{DaysLeft:0} дн.";
+        public string DaysLeftText => DaysLeft < 0
+            ? Tr.T("Истёк", "Мөөнөтү өттү", "Expired", "Süresi doldu", "Muddati o'tgan")
+            : Tr.T($"{DaysLeft:0} дн.", $"{DaysLeft:0} күн", $"{DaysLeft:0} days", $"{DaysLeft:0} gün", $"{DaysLeft:0} kun");
         public bool IsUrgent => DaysLeft <= 2;
         public bool IsSoon => DaysLeft > 2 && DaysLeft <= 7;
         public bool IsOk => DaysLeft > 7;

@@ -20,7 +20,7 @@ public sealed class EmployeeAccessDialog : Window
 
     public EmployeeAccessDialog(string employeeName, EmployeeAccessFlags current)
     {
-        Title = Tr.T($"Доступы: {employeeName}", $"Доступтар: {employeeName}", $"Access: {employeeName}", $"Erişimler: {employeeName}", $"Huquqlar: {employeeName}");
+        Title = Tr.T($"Доступы: {employeeName}", $"Укуктар: {employeeName}", $"Permissions: {employeeName}", $"Erişimler: {employeeName}", $"Huquqlar: {employeeName}");
         Width = 560;
         Height = 620;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -41,7 +41,7 @@ public sealed class EmployeeAccessDialog : Window
         btnCancel.Click += (_, _) => Close(false);
         var btnSave = new Button
         {
-            Content = Tr.T("Сохранить доступы", "Доступторду сактоо", "Save access", "Erişimleri kaydet", "Huquqlarni saqlash"),
+            Content = Tr.T("Сохранить доступы", "Укуктарды сактоо", "Save permissions", "Erişimleri kaydet", "Huquqlarni saqlash"),
             IsDefault = true,
             Width = 160,
             Height = 28,

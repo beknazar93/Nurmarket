@@ -68,8 +68,16 @@ public sealed class VelopackUpdateService : IAppUpdateService
         if (!manager.IsInstalled)
         {
             return new AppUpdateCheckResult(true, false, currentVersion, null,
-                "приложение запущено не из установленной копии (папка сборки или переносимый " +
-                "режим). Обновления работают только в версии, установленной через установщик.");
+                Tr.T("приложение запущено не из установленной копии (папка сборки или переносимый " +
+                "режим). Обновления работают только в версии, установленной через установщик.",
+                    "программа орнотулган нускадан ишке киргизилген эмес (жыйноо папкасы же көчмө " +
+                    "режим). Жаңыртуулар орнотуучу аркылуу орнотулган версияда гана иштейт.",
+                    "the app isn't running from an installed copy (build folder or portable " +
+                    "mode). Updates only work in a version installed with the installer.",
+                    "uygulama kurulu bir kopyadan çalıştırılmıyor (derleme klasörü veya taşınabilir " +
+                    "mod). Güncellemeler yalnızca kurulum programıyla yüklenen sürümde çalışır.",
+                    "dastur o'rnatilgan nusxadan ishga tushirilmagan (yig'ish papkasi yoki ko'chma " +
+                    "rejim). Yangilanishlar faqat o'rnatuvchi orqali o'rnatilgan versiyada ishlaydi."));
         }
 
         try
@@ -120,13 +128,27 @@ public sealed class VelopackUpdateService : IAppUpdateService
     public async Task DownloadAsync(Action<int> onProgress, CancellationToken cancellationToken = default)
     {
         var manager = _pendingManager ?? GetOrCreateManager()
-            ?? throw new InvalidOperationException("Обновление не настроено (нет адреса манифеста).");
+            ?? throw new InvalidOperationException(Tr.T("Обновление не настроено (нет адреса манифеста).",
+                "Жаңыртуу жөндөлгөн эмес (манифесттин дареги жок).", "Updates are not configured (no manifest address).",
+                "Güncelleme yapılandırılmamış (manifest adresi yok).", "Yangilanish sozlanmagan (manifest manzili yo'q)."));
         if (!manager.IsInstalled)
             throw new InvalidOperationException(
-                "Приложение запущено не из установленной копии — скачивать обновление некуда. " +
-                "Установите кассу через установщик и повторите.");
+                Tr.T("Приложение запущено не из установленной копии — скачивать обновление некуда. " +
+                "Установите кассу через установщик и повторите.",
+                    "Программа орнотулган нускадан ишке киргизилген эмес — жаңыртууну жүктөөгө жер жок. " +
+                    "Кассаны орнотуучу аркылуу орнотуп, кайра аракет кылыңыз.",
+                    "The app isn't running from an installed copy — there's nowhere to download the update. " +
+                    "Install the till with the installer and try again.",
+                    "Uygulama kurulu bir kopyadan çalıştırılmıyor — güncellemenin indirileceği bir yer yok. " +
+                    "Kasayı kurulum programıyla yükleyip tekrar deneyin.",
+                    "Dastur o'rnatilgan nusxadan ishga tushirilmagan — yangilanishni yuklab olib bo'lmaydi. " +
+                    "Kassani o'rnatuvchi orqali o'rnating va qayta urinib ko'ring."));
         var update = _pendingUpdate
-            ?? throw new InvalidOperationException("Сначала нужно проверить обновления — нечего скачивать.");
+            ?? throw new InvalidOperationException(Tr.T("Сначала нужно проверить обновления — нечего скачивать.",
+                "Адегенде жаңыртууларды текшериңиз — жүктөй турган эч нерсе жок.",
+                "Check for updates first — there's nothing to download.",
+                "Önce güncellemeleri kontrol edin — indirilecek bir şey yok.",
+                "Avval yangilanishlarni tekshiring — yuklab olinadigan narsa yo'q."));
 
         await manager.DownloadUpdatesAsync(update, onProgress, cancellationToken).ConfigureAwait(false);
     }
@@ -134,17 +156,29 @@ public sealed class VelopackUpdateService : IAppUpdateService
     public void ApplyUpdateAndRestart()
     {
         var manager = _pendingManager ?? GetOrCreateManager()
-            ?? throw new InvalidOperationException("Обновление не настроено (нет адреса манифеста).");
+            ?? throw new InvalidOperationException(Tr.T("Обновление не настроено (нет адреса манифеста).",
+                "Жаңыртуу жөндөлгөн эмес (манифесттин дареги жок).", "Updates are not configured (no manifest address).",
+                "Güncelleme yapılandırılmamış (manifest adresi yok).", "Yangilanish sozlanmagan (manifest manzili yo'q)."));
         var update = _pendingUpdate
-            ?? throw new InvalidOperationException("Сначала нужно скачать обновление.");
+            ?? throw new InvalidOperationException(Tr.T("Сначала нужно скачать обновление.",
+                "Адегенде жаңыртууну жүктөп алыңыз.", "Download the update first.",
+                "Önce güncellemeyi indirin.", "Avval yangilanishni yuklab oling."));
 
         // Установщик обновления закрывает все процессы из папки программы, а касса и программа
         // владельца, поставленные вместе, — один exe: обновление из программы владельца закрыло бы
         // кассу на этом компьютере посреди продажи.
         if (AppMode.IsOwner && !AppMode.IsSeparateOwnerPackage && OtherCopyOfThisExeRunning())
             throw new InvalidOperationException(
-                "На этом компьютере открыта касса — обновление закрыло бы её. Обновите программу из кассы " +
-                "(программа владельца обновится вместе с ней) или закройте кассу и повторите.");
+                Tr.T("На этом компьютере открыта касса — обновление закрыло бы её. Обновите программу из кассы " +
+                "(программа владельца обновится вместе с ней) или закройте кассу и повторите.",
+                    "Бул компьютерде касса ачык — жаңыртуу аны жаап салмак. Программаны кассадан жаңыртыңыз " +
+                    "(ээсинин программасы аны менен кошо жаңырат) же кассаны жаап, кайра аракет кылыңыз.",
+                    "The till is open on this computer — updating would close it. Update from the till " +
+                    "(the owner app will be updated along with it) or close the till and try again.",
+                    "Bu bilgisayarda kasa açık — güncelleme onu kapatırdı. Programı kasadan güncelleyin " +
+                    "(sahip programı da onunla birlikte güncellenir) veya kasayı kapatıp tekrar deneyin.",
+                    "Bu kompyuterda kassa ochiq — yangilash uni yopib qo'yardi. Dasturni kassadan yangilang " +
+                    "(do'kon egasi dasturi ham u bilan birga yangilanadi) yoki kassani yopib, qayta urinib ko'ring."));
 
         // Не возвращает управление — Velopack сам завершает процесс и запускает новую версию.
         // Программа владельца из общей установки после обновления должна открыться снова владельцем.

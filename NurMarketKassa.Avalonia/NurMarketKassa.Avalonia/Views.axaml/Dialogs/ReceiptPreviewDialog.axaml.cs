@@ -13,7 +13,7 @@ public partial class ReceiptPreviewDialog : Window
     {
         InitializeComponent();
         ReceiptText.Text = string.IsNullOrWhiteSpace(content)
-            ? "Данные чека недоступны."
+            ? Tr.T("Данные чека недоступны.", "Чектин маалыматтары жеткиликсиз.", "Receipt data is unavailable.", "Fiş verileri kullanılamıyor.", "Chek ma'lumotlari mavjud emas.")
             : content;
     }
 
@@ -21,7 +21,7 @@ public partial class ReceiptPreviewDialog : Window
         TitleText.Text = title;
 
     public ReceiptPreviewDialog(object? title, object? content)
-        : this(title?.ToString() ?? "Предпросмотр чека", content?.ToString() ?? "")
+        : this(title?.ToString() ?? Tr.T("Предпросмотр чека", "Чекти алдын ала көрүү", "Receipt preview", "Fiş önizleme", "Chekni oldindan ko'rish"), content?.ToString() ?? "")
     {
     }
 

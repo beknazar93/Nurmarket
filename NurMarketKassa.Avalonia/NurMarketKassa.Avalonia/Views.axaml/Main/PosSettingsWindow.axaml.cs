@@ -204,8 +204,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Табло цены для покупателя на COM-порту (не второй монитор). Цифровое табло «0.00» (как на моноблоках CY25) обычно работает на 2400 бод; если не знаете порт — нажмите «Найти табло».",
                 "COM-порттогу сатып алуучу үчүн баа таблосу (экинчи монитор эмес). «0.00» сандык таблосу (CY25 моноблокторундагыдай) адатта 2400 бод менен иштейт; портту билбесеңиз — «Таблону табуу» баскычын басыңыз.",
                 "Customer price display on a COM port (not a second monitor). A numeric “0.00” display (as on CY25 terminals) usually runs at 2400 baud; if you don't know the port, press “Find display”.",
-                "COM portundaki müşteri fiyat ekranı (ikinci monitör değil). “0.00” sayısal ekran (CY25 cihazlarındaki gibi) genellikle 2400 baud ile çalışır; portu bilmiyorsanız “Ekranı bul”a basın.",
-                "COM portdagi xaridor narx tablosi (ikkinchi monitor emas). «0.00» raqamli tablo (CY25 monobloklaridagidek) odatda 2400 bod tezlikda ishlaydi; portni bilmasangiz — «Tabloni topish»ni bosing.");
+                "COM portundaki müşteri fiyat ekranı (ikinci monitör değil). «0.00» sayısal ekran (CY25 hepsi bir arada cihazlardaki gibi) genellikle 2400 baud ile çalışır; portu bilmiyorsanız «Ekranı bul» düğmesine basın.",
+                "COM portga ulangan xaridor narx tablosi (ikkinchi monitor emas). «0.00» raqamli tablo (CY25 monobloklaridagi kabi) odatda 2400 bod tezlikda ishlaydi; portni bilmasangiz — «Tabloni topish» tugmasini bosing.");
             FindPoleDisplayButton.Content = Tr.T("Найти табло", "Таблону табуу", "Find display", "Ekranı bul", "Tabloni topish");
             PoleDisplayProtocolCombo.ItemsSource = new[]
             {
@@ -213,7 +213,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Tag = PoleDisplayService.ProtocolLed,
                     Content = Tr.T("Цифровое табло «0.00» (8 цифр, LED)", "Сандык табло «0.00» (8 сан, LED)",
-                        "Numeric display “0.00” (8 digits, LED)", "Sayısal ekran “0.00” (8 hane, LED)", "Raqamli tablo «0.00» (8 raqam, LED)"),
+                        "Numeric display “0.00” (8 digits, LED)", "Sayısal ekran «0.00» (8 hane, LED)", "Raqamli tablo «0.00» (8 raqam, LED)"),
                 },
                 new ComboBoxItem
                 {
@@ -276,15 +276,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             RefreshScalePortStatus();
 
             // Дополнительные весы (2026-09-26): тот же список COM-портов, свой выбор у каждых.
-            _scaleView.ExtraScalesTitle.Text = Tr.T("Дополнительные весы", "Кошумча таразалар", "Additional scales", "Ek teraziler", "Qo'shimcha tarozilar");
+            _scaleView.ExtraScalesTitle.Text = Tr.T("Дополнительные весы", "Кошумча таразалар", "Additional scales", "Ek tartılar", "Qo'shimcha tarozilar");
             _scaleView.ExtraScalesDesc.Text = Tr.T(
                 "До трёх весов одновременно. Касса берёт вес с тех весов, на которых лежит товар. Запрос веса и интервал — как у основных весов.",
                 "Бир убакта үч таразага чейин. Касса товар турган таразадан салмакты алат. Салмак суроосу жана аралык — негизги таразадагыдай.",
-                "Up to three scales at once. The register takes the weight from the scale the goods are on. Weight request and interval are the same as for the main scale.",
-                "Aynı anda üç teraziye kadar. Kasa, ürünün bulunduğu teraziden ağırlığı alır. Ağırlık isteği ve aralık ana terazi ile aynıdır.",
-                "Bir vaqtda uchtagacha tarozi. Kassa mahsulot turgan tarozidan og'irlikni oladi. Og'irlik so'rovi va oraliq — asosiy tarozidagidek.");
-            _scaleView.Scale2Label.Text = Tr.T("Весы 2", "Тараза 2", "Scale 2", "Terazi 2", "Tarozi 2");
-            _scaleView.Scale3Label.Text = Tr.T("Весы 3", "Тараза 3", "Scale 3", "Terazi 3", "Tarozi 3");
+                "Up to three scales at once. The till reads the weight from whichever scale the item is on. Weight request and polling interval are the same as for the main scale.",
+                "Aynı anda üç tartıya kadar. Kasa, ağırlığı ürünün üzerinde durduğu tartıdan alır. Ağırlık sorgusu ve sorgulama aralığı ana tartıdakiyle aynıdır.",
+                "Bir vaqtning o'zida uchtagacha tarozi. Kassa og'irlikni mahsulot turgan tarozidan oladi. Og'irlik so'rovi va interval — asosiy tarozidagi kabi.");
+            _scaleView.Scale2Label.Text = Tr.T("Весы 2", "Тараза 2", "Scale 2", "Tartı 2", "Tarozi 2");
+            _scaleView.Scale3Label.Text = Tr.T("Весы 3", "Тараза 3", "Scale 3", "Tartı 3", "Tarozi 3");
             FillExtraScale(Scale2ComCombo, _scaleView.Scale2EnabledCheck, _scaleView.Scale2BaudBox, prefs.Scale2Enabled, prefs.Scale2ComPort, prefs.Scale2BaudRate);
             FillExtraScale(Scale3ComCombo, _scaleView.Scale3EnabledCheck, _scaleView.Scale3BaudBox, prefs.Scale3Enabled, prefs.Scale3ComPort, prefs.Scale3BaudRate);
 
@@ -341,9 +341,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SelectGraphicFontSizeCombo(fontSize);
 
             if (!string.IsNullOrEmpty(prefs.QrCodePath))
-                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {Path.GetFileName(prefs.QrCodePath)}";
+                GraphicQrStatusText.Text = Tr.T(
+                    $"✅ QR-код сохранён: {Path.GetFileName(prefs.QrCodePath)}",
+                    $"✅ QR-код сакталды: {Path.GetFileName(prefs.QrCodePath)}",
+                    $"✅ QR code saved: {Path.GetFileName(prefs.QrCodePath)}",
+                    $"✅ QR kodu kaydedildi: {Path.GetFileName(prefs.QrCodePath)}",
+                    $"✅ QR-kod saqlandi: {Path.GetFileName(prefs.QrCodePath)}");
             else
-                GraphicQrStatusText.Text = "QR-код не загружен";
+                GraphicQrStatusText.Text = Tr.T("QR-код не загружен", "QR-код жүктөлгөн эмес", "QR code not uploaded", "QR kodu yüklenmedi", "QR-kod yuklanmagan");
 
             // Метка "Текущая версия:" уже выводится отдельным TextBlock над этим ("currentVersionLabel") —
             // здесь только само значение, без повторения подписи и без языка, привязанного к коду.
@@ -362,7 +367,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "";
             WhatsNewTitleText.Text = Tr.T(
                 $"Что нового в версии {version}",
-                $"{version} версиясында эмне жаңы",
+                $"{version} версиясындагы жаңылыктар",
                 $"What's new in version {version}",
                 $"{version} sürümünde neler yeni",
                 $"{version} versiyasida nima yangi");
@@ -545,17 +550,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Порт: {devicePath}");
+            sb.AppendLine(Tr.T($"Порт: {devicePath}", $"Порт: {devicePath}", $"Port: {devicePath}", $"Port: {devicePath}", $"Port: {devicePath}"));
 
             var current = ex;
             int level = 0;
             while (current != null)
             {
-                var prefix = level == 0 ? "Ошибка: " : new string(' ', level * 2) + "↳ ";
+                var prefix = level == 0 ? Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") : new string(' ', level * 2) + "↳ ";
                 sb.AppendLine($"{prefix}{current.GetType().Name}: {current.Message}");
 
                 if (current is System.ComponentModel.Win32Exception w32)
-                    sb.AppendLine($"  Win32-код: {w32.NativeErrorCode}");
+                    sb.AppendLine(Tr.T($"  Win32-код: {w32.NativeErrorCode}", $"  Win32 коду: {w32.NativeErrorCode}", $"  Win32 code: {w32.NativeErrorCode}", $"  Win32 kodu: {w32.NativeErrorCode}", $"  Win32 kodi: {w32.NativeErrorCode}"));
 
                 current = current.InnerException;
                 level++;
@@ -575,7 +580,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var devicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
             if (string.IsNullOrWhiteSpace(devicePath))
             {
-                StatusText.Text = "❌ Сначала укажите порт принтера — ящик открывается через него.";
+                StatusText.Text = Tr.T(
+                    "❌ Сначала укажите порт принтера — ящик открывается через него.",
+                    "❌ Адегенде принтердин портун көрсөтүңүз — акча кутусу ал аркылуу ачылат.",
+                    "❌ Specify the printer port first — the cash drawer opens through it.",
+                    "❌ Önce yazıcı portunu belirtin — para çekmecesi onun üzerinden açılır.",
+                    "❌ Avval printer portini ko'rsating — pul qutisi u orqali ochiladi.");
                 return;
             }
 
@@ -588,12 +598,27 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 ReceiptPrintService.OpenCashDrawer(pin, devicePath);
                 StatusText.Text = pin == 0
-                    ? "✅ Команда отправлена. Если ящик не открылся — выберите «Контакт 5» и нажмите ещё раз."
-                    : "✅ Команда отправлена. Если ящик не открылся — выберите «Контакт 2 (обычно)» и нажмите ещё раз.";
+                    ? Tr.T(
+                        "✅ Команда отправлена. Если ящик не открылся — выберите «Контакт 5» и нажмите ещё раз.",
+                        "✅ Буйрук жөнөтүлдү. Эгер акча кутусу ачылбаса — «5-контакт» вариантын тандап, дагы бир жолу басыңыз.",
+                        "✅ Command sent. If the drawer didn't open, select “Pin 5” and press again.",
+                        "✅ Komut gönderildi. Çekmece açılmadıysa «Pin 5» seçeneğine geçip tekrar basın.",
+                        "✅ Buyruq yuborildi. Agar pul qutisi ochilmasa — «5-kontakt» variantini tanlang va yana bir marta bosing.")
+                    : Tr.T(
+                        "✅ Команда отправлена. Если ящик не открылся — выберите «Контакт 2 (обычно)» и нажмите ещё раз.",
+                        "✅ Буйрук жөнөтүлдү. Эгер акча кутусу ачылбаса — «2-контакт (көбүнчө)» вариантын тандап, дагы бир жолу басыңыз.",
+                        "✅ Command sent. If the drawer didn't open, select “Pin 2 (standard)” and press again.",
+                        "✅ Komut gönderildi. Çekmece açılmadıysa «Pin 2 (genelde)» seçeneğine geçip tekrar basın.",
+                        "✅ Buyruq yuborildi. Agar pul qutisi ochilmasa — «2-kontakt (odatda)» variantini tanlang va yana bir marta bosing.");
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"❌ Не удалось открыть ящик: {ex.Message}";
+                StatusText.Text = Tr.T(
+                    $"❌ Не удалось открыть ящик: {ex.Message}",
+                    $"❌ Акча кутусун ачуу мүмкүн болгон жок: {ex.Message}",
+                    $"❌ Couldn't open the cash drawer: {ex.Message}",
+                    $"❌ Para çekmecesi açılamadı: {ex.Message}",
+                    $"❌ Pul qutisini ochib bo'lmadi: {ex.Message}");
             }
         }
 
@@ -602,14 +627,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var devicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
             if (string.IsNullOrWhiteSpace(devicePath))
             {
-                StatusText.Text = "❌ Укажите порт принтера (LPT1, COM3 или имя очереди Windows).";
+                StatusText.Text = Tr.T(
+                    "❌ Укажите порт принтера (LPT1, COM3 или имя очереди Windows).",
+                    "❌ Принтердин портун көрсөтүңүз (LPT1, COM3 же Windows кезегинин аты).",
+                    "❌ Specify the printer port (LPT1, COM3 or a Windows print queue name).",
+                    "❌ Yazıcı portunu belirtin (LPT1, COM3 veya Windows yazdırma kuyruğu adı).",
+                    "❌ Printer portini ko'rsating (LPT1, COM3 yoki Windows navbati nomi).");
                 return;
             }
 
             var probe = PrinterPortService.ProbePort(devicePath);
             if (!probe.IsAvailable)
             {
-                StatusText.Text = $"❌ Порт недоступен: {probe.Message}";
+                StatusText.Text = Tr.T($"❌ Порт недоступен: {probe.Message}", $"❌ Порт жеткиликсиз: {probe.Message}", $"❌ Port unavailable: {probe.Message}", $"❌ Port kullanılamıyor: {probe.Message}", $"❌ Port mavjud emas: {probe.Message}");
                 RefreshPrinterPortStatus();
                 return;
             }
@@ -627,14 +657,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     if (GraphicReceiptEnabledCheck.IsChecked != true)
                     {
-                        StatusText.Text = "❌ Графический чек выключен. Включите «Включить графический чек».";
+                        StatusText.Text = Tr.T(
+                            "❌ Графический чек выключен. Включите «Включить графический чек».",
+                            "❌ Графикалык чек өчүк. «Макетти күйгүзүү» которгучун күйгүзүңүз.",
+                            "❌ Graphic receipt is off. Turn on “Enable layout”.",
+                            "❌ Grafik fiş kapalı. «Yerleşimi etkinleştir» anahtarını açın.",
+                            "❌ Grafik chek o'chirilgan. «Maketni yoqish» almashtirgichini yoqing.");
                         return;
                     }
 
                     var settings = BuildGraphicSettingsFromUi(devicePath);
                     var bytes = GraphicReceiptGenerator.GenerateTestReceiptImage(settings, storeName);
                     ReceiptPrintService.SendRawBytes(devicePath, bytes, retry);
-                    StatusText.Text = $"✅ Графический чек ({bytes.Length} байт) отправлен на {devicePath}";
+                    StatusText.Text = Tr.T(
+                        $"✅ Графический чек ({bytes.Length} байт) отправлен на {devicePath}",
+                        $"✅ Графикалык чек ({bytes.Length} байт) жөнөтүлдү: {devicePath}",
+                        $"✅ Graphic receipt ({bytes.Length} bytes) sent to {devicePath}",
+                        $"✅ Grafik fiş ({bytes.Length} bayt) gönderildi: {devicePath}",
+                        $"✅ Grafik chek ({bytes.Length} bayt) yuborildi: {devicePath}");
                 }
                 else
                 {
@@ -642,14 +682,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     var charWidth = ReceiptPaperProfile.GetCharWidth(ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo));
                     var payload = EscPosTextReceiptPrinter.BuildEscPosPayload(cfg, testText, charWidth);
                     ReceiptPrintService.SendRawBytes(devicePath, payload, retry);
-                    StatusText.Text = $"✅ Текстовый ESC/POS чек ({payload.Length} байт) отправлен на {devicePath}";
+                    StatusText.Text = Tr.T(
+                        $"✅ Текстовый ESC/POS чек ({payload.Length} байт) отправлен на {devicePath}",
+                        $"✅ Тексттик ESC/POS чек ({payload.Length} байт) жөнөтүлдү: {devicePath}",
+                        $"✅ Text ESC/POS receipt ({payload.Length} bytes) sent to {devicePath}",
+                        $"✅ Metin ESC/POS fişi ({payload.Length} bayt) gönderildi: {devicePath}",
+                        $"✅ Matnli ESC/POS chek ({payload.Length} bayt) yuborildi: {devicePath}");
                 }
 
                 RefreshPrinterPortStatus();
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"❌ Ошибка печати в порт: {ex.Message}";
+                StatusText.Text = Tr.T(
+                    $"❌ Ошибка печати в порт: {ex.Message}",
+                    $"❌ Портко басып чыгаруу катасы: {ex.Message}",
+                    $"❌ Error printing to the port: {ex.Message}",
+                    $"❌ Porta yazdırma hatası: {ex.Message}",
+                    $"❌ Portga chop etishda xato: {ex.Message}");
                 ShowPrintError(ex, devicePath);
                 PosLogger.Log($"Физическая печать: {ex}", "PRINTER");
                 RefreshPrinterPortStatus();
@@ -678,7 +728,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             UpdateProgressBar.IsVisible = true;
             UpdateProgressBar.IsIndeterminate = true;
             UpdateStatusText.IsVisible = true;
-            UpdateStatusText.Text = "Проверка обновлений…";
+            UpdateStatusText.Text = Tr.T("Проверка обновлений…", "Жаңыртуулар текшерилүүдө…", "Checking for updates…", "Güncellemeler kontrol ediliyor…", "Yangilanishlar tekshirilmoqda…");
 
             try
             {
@@ -686,14 +736,34 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     .CheckAsync().ConfigureAwait(true);
 
                 UpdateStatusText.Text = !result.IsConfigured
-                    ? "Проверка обновлений не настроена (не задан адрес манифеста)."
+                    ? Tr.T(
+                        "Проверка обновлений не настроена (не задан адрес манифеста).",
+                        "Жаңыртууларды текшерүү жөндөлгөн эмес (манифесттин дареги көрсөтүлгөн эмес).",
+                        "Update checking is not configured (no manifest address set).",
+                        "Güncelleme kontrolü yapılandırılmamış (manifest adresi belirtilmemiş).",
+                        "Yangilanishlarni tekshirish sozlanmagan (manifest manzili ko'rsatilmagan).")
                     : result.ErrorMessage != null
-                        ? $"Не удалось проверить обновления: {result.ErrorMessage}"
+                        ? Tr.T(
+                            $"Не удалось проверить обновления: {result.ErrorMessage}",
+                            $"Жаңыртууларды текшерүү мүмкүн болгон жок: {result.ErrorMessage}",
+                            $"Couldn't check for updates: {result.ErrorMessage}",
+                            $"Güncellemeler kontrol edilemedi: {result.ErrorMessage}",
+                            $"Yangilanishlarni tekshirib bo'lmadi: {result.ErrorMessage}")
                         : result.IsUpdateAvailable
-                            ? $"Доступна новая версия {result.LatestVersion}."
+                            ? Tr.T(
+                                $"Доступна новая версия {result.LatestVersion}.",
+                                $"Жаңы версия жеткиликтүү: {result.LatestVersion}.",
+                                $"New version {result.LatestVersion} is available.",
+                                $"Yeni sürüm mevcut: {result.LatestVersion}.",
+                                $"Yangi versiya mavjud: {result.LatestVersion}.")
                             : result.TestingVersion is { } testing
-                                ? $"Версия {testing} сейчас находится в тестировании. По его завершении можно будет обновиться."
-                                : "У вас установлена последняя версия.";
+                                ? Tr.T(
+                                    $"Версия {testing} сейчас находится в тестировании. По его завершении можно будет обновиться.",
+                                    $"{testing} версиясы азыр текшерүүдөн өтүүдө. Текшерүү бүткөндөн кийин жаңыртууга болот.",
+                                    $"Version {testing} is currently being tested. You'll be able to update once testing is complete.",
+                                    $"{testing} sürümü şu anda test ediliyor. Test tamamlandığında güncelleyebileceksiniz.",
+                                    $"{testing} versiyasi hozir sinovdan o'tmoqda. Sinov tugagach yangilash mumkin bo'ladi.")
+                                : Tr.T("У вас установлена последняя версия.", "Сизде акыркы версия орнотулган.", "You have the latest version.", "En son sürüm yüklü.", "Sizda eng so'nggi versiya o'rnatilgan.");
 
                 UpdateNowButton.IsVisible = result.IsUpdateAvailable;
             }
@@ -721,7 +791,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             UpdateProgressBar.IsIndeterminate = false;
             UpdateProgressBar.Value = 0;
             UpdateStatusText.IsVisible = true;
-            UpdateStatusText.Text = "Скачивание обновления… 0%";
+            UpdateStatusText.Text = Tr.T("Скачивание обновления… 0%", "Жаңыртуу жүктөлүүдө… 0%", "Downloading update… 0%", "Güncelleme indiriliyor… %0", "Yangilanish yuklab olinmoqda… 0%");
 
             try
             {
@@ -731,11 +801,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Dispatcher.UIThread.Post(() =>
                     {
                         UpdateProgressBar.Value = percent;
-                        UpdateStatusText.Text = $"Скачивание обновления… {percent}%";
+                        UpdateStatusText.Text = Tr.T($"Скачивание обновления… {percent}%", $"Жаңыртуу жүктөлүүдө… {percent}%", $"Downloading update… {percent}%", $"Güncelleme indiriliyor… %{percent}", $"Yangilanish yuklab olinmoqda… {percent}%");
                     });
                 }).ConfigureAwait(true);
 
-                UpdateStatusText.Text = "Обновление скачано. Касса сейчас перезапустится…";
+                UpdateStatusText.Text = Tr.T("Обновление скачано. Касса сейчас перезапустится…", "Жаңыртуу жүктөлдү. Касса азыр кайра ачылат…", "Update downloaded. The till will now restart…", "Güncelleme indirildi. Kasa şimdi yeniden başlatılacak…", "Yangilanish yuklab olindi. Kassa hozir qayta ishga tushadi…");
                 await Task.Delay(1200).ConfigureAwait(true);
 
                 // Не возвращает управление — Velopack завершает процесс изнутри.
@@ -744,7 +814,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             catch (Exception ex)
             {
                 PosLogger.Log($"Update download/apply failed: {ex}", "WARNING");
-                UpdateStatusText.Text = $"Не удалось обновить: {ex.Message}";
+                UpdateStatusText.Text = Tr.T($"Не удалось обновить: {ex.Message}", $"Жаңыртуу мүмкүн болгон жок: {ex.Message}", $"Could not update: {ex.Message}", $"Güncellenemedi: {ex.Message}", $"Yangilab bo'lmadi: {ex.Message}");
                 UpdateProgressBar.IsVisible = false;
                 CheckUpdateButton.IsEnabled = true;
                 UpdateNowButton.IsEnabled = true;
@@ -759,13 +829,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (VersionsListPanel.IsVisible)
             {
                 VersionsListPanel.IsVisible = false;
-                ShowVersionsButton.Content = "Показать версии";
+                ShowVersionsButton.Content = Tr.T("Показать версии", "Версияларды көрсөтүү", "Show versions", "Sürümleri göster", "Versiyalarni ko'rsatish");
                 return;
             }
 
             ShowVersionsButton.IsEnabled = false;
             UpdateStatusText.IsVisible = true;
-            UpdateStatusText.Text = "Загрузка списка версий…";
+            UpdateStatusText.Text = Tr.T("Загрузка списка версий…", "Версиялардын тизмеси жүктөлүүдө…", "Loading the list of versions…", "Sürüm listesi yükleniyor…", "Versiyalar ro'yxati yuklanmoqda…");
 
             try
             {
@@ -775,7 +845,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 VersionsListPanel.Children.Clear();
                 if (versions.Count == 0)
                 {
-                    UpdateStatusText.Text = "Не удалось получить список версий (нет связи с GitHub или релизы недоступны).";
+                    UpdateStatusText.Text = Tr.T(
+                        "Не удалось получить список версий (нет связи с GitHub или релизы недоступны).",
+                        "Версиялардын тизмесин алуу мүмкүн болгон жок (GitHub менен байланыш жок же релиздер жеткиликсиз).",
+                        "Couldn't get the list of versions (no connection to GitHub or releases are unavailable).",
+                        "Sürüm listesi alınamadı (GitHub'a bağlantı yok veya sürümlere erişilemiyor).",
+                        "Versiyalar ro'yxatini olib bo'lmadi (GitHub bilan aloqa yo'q yoki relizlar mavjud emas).");
                     return;
                 }
 
@@ -783,14 +858,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     VersionsListPanel.Children.Add(BuildVersionRow(version, updateService));
 
                 VersionsListPanel.IsVisible = true;
-                ShowVersionsButton.Content = "Скрыть версии";
+                ShowVersionsButton.Content = Tr.T("Скрыть версии", "Версияларды жашыруу", "Hide versions", "Sürümleri gizle", "Versiyalarni yashirish");
                 UpdateStatusText.Text = "";
                 UpdateStatusText.IsVisible = false;
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Version list load failed: {ex}", "WARNING");
-                UpdateStatusText.Text = $"Не удалось получить список версий: {ex.Message}";
+                UpdateStatusText.Text = Tr.T(
+                    $"Не удалось получить список версий: {ex.Message}",
+                    $"Версиялардын тизмесин алуу мүмкүн болгон жок: {ex.Message}",
+                    $"Couldn't get the list of versions: {ex.Message}",
+                    $"Sürüm listesi alınamadı: {ex.Message}",
+                    $"Versiyalar ro'yxatini olib bo'lmadi: {ex.Message}");
             }
             finally
             {
@@ -800,7 +880,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private Control BuildVersionRow(AppReleaseVersion version, IAppUpdateService updateService)
         {
-            var label = version.IsCurrent ? $"{version.Version} (текущая)" : version.Version;
+            var label = version.IsCurrent ? Tr.T($"{version.Version} (текущая)", $"{version.Version} (учурдагы)", $"{version.Version} (current)", $"{version.Version} (mevcut)", $"{version.Version} (joriy)") : version.Version;
             var versionText = new TextBlock
             {
                 Text = label,
@@ -811,7 +891,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var rollbackButton = new Button
             {
                 Classes = { "SettingsFlatButton" },
-                Content = "Откатить",
+                Content = Tr.T("Откатить", "Кайтаруу", "Roll back", "Geri al", "Qaytarish"),
                 IsEnabled = !version.IsCurrent,
             };
             rollbackButton.Click += async (_, _) => await RollbackToVersion_Click(version, updateService).ConfigureAwait(true);
@@ -840,14 +920,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // Вопрос — первым: описание версии бывает длинным, и раньше вопрос с кнопками
             // оказывался где-то под ним (2026-09-24, «не видна кнопка»).
             var message = string.IsNullOrWhiteSpace(notes)
-                ? $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится."
-                : $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится."
-                  + $"\n\nЧто было в версии {version.Version}:\n\n{notes}";
+                ? Tr.T(
+                    $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится.",
+                    $"Учурдагы версиянын ордуна {version.Version} версиясын орнотосузбу? Касса пакетти жүктөп алып, кайра ачылат.",
+                    $"Install version {version.Version} instead of the current one? The till will download the package and restart.",
+                    $"Mevcut sürüm yerine {version.Version} sürümü kurulsun mu? Kasa paketi indirip yeniden başlayacak.",
+                    $"Joriy versiya o'rniga {version.Version} versiyasini o'rnatasizmi? Kassa paketni yuklab oladi va qayta ishga tushadi.")
+                : Tr.T(
+                    $"Установить версию {version.Version} вместо текущей? Касса скачает пакет и перезапустится.",
+                    $"Учурдагы версиянын ордуна {version.Version} версиясын орнотосузбу? Касса пакетти жүктөп алып, кайра ачылат.",
+                    $"Install version {version.Version} instead of the current one? The till will download the package and restart.",
+                    $"Mevcut sürüm yerine {version.Version} sürümü kurulsun mu? Kasa paketi indirip yeniden başlayacak.",
+                    $"Joriy versiya o'rniga {version.Version} versiyasini o'rnatasizmi? Kassa paketni yuklab oladi va qayta ishga tushadi.")
+                  + Tr.T(
+                      $"\n\nЧто было в версии {version.Version}:\n\n{notes}",
+                      $"\n\n{version.Version} версиясындагы өзгөрүүлөр:\n\n{notes}",
+                      $"\n\nWhat's new in version {version.Version}:\n\n{notes}",
+                      $"\n\n{version.Version} sürümünde neler vardı:\n\n{notes}",
+                      $"\n\n{version.Version} versiyasida nimalar bor edi:\n\n{notes}");
 
             var confirmed = PosMessageBox.Show(
                 this,
                 message,
-                "Откат версии",
+                Tr.T("Откат версии", "Версияны кайтаруу", "Version rollback", "Sürümü geri alma", "Versiyani qaytarish"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) == MessageBoxResult.Yes;
             if (!confirmed)
@@ -856,7 +951,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (!updateService.PrepareRollback(version.Version))
             {
                 UpdateStatusText.IsVisible = true;
-                UpdateStatusText.Text = $"Версия {version.Version} больше не найдена в списке релизов.";
+                UpdateStatusText.Text = Tr.T(
+                    $"Версия {version.Version} больше не найдена в списке релизов.",
+                    $"{version.Version} версиясы релиздердин тизмесинен табылган жок.",
+                    $"Version {version.Version} is no longer in the list of releases.",
+                    $"{version.Version} sürümü artık sürüm listesinde yok.",
+                    $"{version.Version} versiyasi relizlar ro'yxatida endi yo'q.");
                 return;
             }
 
@@ -960,8 +1060,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                _scaleView.SaveStatusText.Text = "Настройки не сохранены.";
-                PosMessageBox.Show(ex.Message, "Настройки весов", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                _scaleView.SaveStatusText.Text = Tr.T("Настройки не сохранены.", "Жөндөөлөр сакталган жок.", "Settings not saved.", "Ayarlar kaydedilmedi.", "Sozlamalar saqlanmadi.");
+                PosMessageBox.Show(ex.Message, Tr.T("Настройки весов", "Тараза жөндөөлөрү", "Scale settings", "Tartı ayarları", "Tarozi sozlamalari"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 return false;
             }
 
@@ -972,8 +1072,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 usedPorts.Add(prefs.ScaleComPort);
             var extras = new[]
             {
-                (Name: Tr.T("Весы 2", "Тараза 2", "Scale 2", "Terazi 2", "Tarozi 2"), Scale: scale2),
-                (Name: Tr.T("Весы 3", "Тараза 3", "Scale 3", "Terazi 3", "Tarozi 3"), Scale: scale3),
+                (Name: Tr.T("Весы 2", "Тараза 2", "Scale 2", "Tartı 2", "Tarozi 2"), Scale: scale2),
+                (Name: Tr.T("Весы 3", "Тараза 3", "Scale 3", "Tartı 3", "Tarozi 3"), Scale: scale3),
             };
             foreach (var (name, extra) in extras)
             {
@@ -981,11 +1081,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     continue;
                 if (extra.Port.Length == 0 || usedPorts.Contains(extra.Port, StringComparer.OrdinalIgnoreCase))
                 {
-                    _scaleView.SaveStatusText.Text = "Настройки не сохранены.";
+                    _scaleView.SaveStatusText.Text = Tr.T("Настройки не сохранены.", "Жөндөөлөр сакталган жок.", "Settings not saved.", "Ayarlar kaydedilmedi.", "Sozlamalar saqlanmadi.");
                     PosMessageBox.Show(extra.Port.Length == 0
-                            ? $"{name}: выберите COM-порт."
-                            : $"{name}: порт {extra.Port} уже занят другими весами — у каждых весов свой порт.",
-                        "Настройки весов", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                            ? Tr.T($"{name}: выберите COM-порт.", $"{name}: COM-портту тандаңыз.", $"{name}: select a COM port.", $"{name}: bir COM portu seçin.", $"{name}: COM portni tanlang.")
+                            : Tr.T(
+                                $"{name}: порт {extra.Port} уже занят другими весами — у каждых весов свой порт.",
+                                $"{name}: {extra.Port} портун башка тараза колдонуп жатат — ар бир таразанын өз порту болушу керек.",
+                                $"{name}: port {extra.Port} is already used by another scale — each scale needs its own port.",
+                                $"{name}: {extra.Port} portu zaten başka bir tartı tarafından kullanılıyor — her tartının kendi portu olmalı.",
+                                $"{name}: {extra.Port} portini boshqa tarozi band qilgan — har bir tarozining o'z porti bo'lishi kerak."),
+                        Tr.T("Настройки весов", "Тараза жөндөөлөрү", "Scale settings", "Tartı ayarları", "Tarozi sozlamalari"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
                     return false;
                 }
                 usedPorts.Add(extra.Port);
@@ -1006,7 +1111,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // Recreate the singleton reader so the new COM settings are used immediately.
             App.GetRequiredService<NurMarketKassa.Services.Hardware.IWeightScaleService>().Start();
             NurMarketKassa.Services.Hardware.PoleDisplayService.Instance.Start();
-            _scaleView.SaveStatusText.Text = "Настройки весов сохранены.";
+            _scaleView.SaveStatusText.Text = Tr.T("Настройки весов сохранены.", "Тараза жөндөөлөрү сакталды.", "Scale settings saved.", "Tartı ayarları kaydedildi.", "Tarozi sozlamalari saqlandi.");
             RefreshScalePortStatus();
             return true;
         }
@@ -1055,8 +1160,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                _printView.SaveStatusText.Text = "Настройки не сохранены.";
-                PosMessageBox.Show(ex.Message, "Настройки печати", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                _printView.SaveStatusText.Text = Tr.T("Настройки не сохранены.", "Жөндөөлөр сакталган жок.", "Settings not saved.", "Ayarlar kaydedilmedi.", "Sozlamalar saqlanmadi.");
+                PosMessageBox.Show(ex.Message, Tr.T("Настройки печати", "Басып чыгаруу жөндөөлөрү", "Print settings", "Yazdırma ayarları", "Chop etish sozlamalari"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 return false;
             }
 
@@ -1082,7 +1187,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.GraphicFontFamily = fontItem?.Tag?.ToString() ?? "Consolas";
 
             prefs.SaveToDisk();
-            _printView.SaveStatusText.Text = "Настройки печати сохранены.";
+            _printView.SaveStatusText.Text = Tr.T("Настройки печати сохранены.", "Басып чыгаруу жөндөөлөрү сакталды.", "Print settings saved.", "Yazdırma ayarları kaydedildi.", "Chop etish sozlamalari saqlandi.");
             RefreshPrinterPortStatus();
             return true;
         }
@@ -1129,7 +1234,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             else if (cashboxChanged)
             {
                 App.GetRequiredService<IUserPrompts>()
-                    .ShowToast("Касса изменена. Применится после перезапуска смены/кассы.");
+                    .ShowToast(Tr.T(
+                        "Касса изменена. Применится после перезапуска смены/кассы.",
+                        "Касса өзгөртүлдү. Смена же касса кайра ачылгандан кийин күчүнө кирет.",
+                        "Till changed. It takes effect after the shift or the till is restarted.",
+                        "Kasa değiştirildi. Vardiya veya kasa yeniden başlatıldıktan sonra geçerli olur.",
+                        "Kassa o'zgartirildi. Smena yoki kassa qayta ishga tushirilgandan keyin kuchga kiradi."));
             }
             prefs.SingleClickToCart = SingleClickToCartRadio.IsChecked == true;
             prefs.ResetManualAddQtyAfterAdd = ResetManualAddQtyCheck.IsChecked == true;
@@ -1143,20 +1253,30 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
             AutostartHelper.SyncFromPreference(prefs.Autostart);
             _screenView.SaveStatusText.Text = lowPerfChanged
-                ? "Настройки экрана сохранены. Перезапустите кассу, чтобы применить режим слабого устройства."
-                : "Настройки экрана сохранены.";
+                ? Tr.T(
+                    "Настройки экрана сохранены. Перезапустите кассу, чтобы применить режим слабого устройства.",
+                    "Экран жөндөөлөрү сакталды. Алсыз түзмөк режимин колдонуу үчүн кассаны кайра иштетиңиз.",
+                    "Screen settings saved. Restart the till to apply low-power device mode.",
+                    "Ekran ayarları kaydedildi. Zayıf cihaz modunu uygulamak için kasayı yeniden başlatın.",
+                    "Ekran sozlamalari saqlandi. Zaif qurilma rejimini qo'llash uchun kassani qayta ishga tushiring.")
+                : Tr.T("Настройки экрана сохранены.", "Экран жөндөөлөрү сакталды.", "Screen settings saved.", "Ekran ayarları kaydedildi.", "Ekran sozlamalari saqlandi.");
             return true;
         }
 
         private async void LoadGraphicQrCode_Click(object? sender, RoutedEventArgs e)
         {
-            var path = await PickImagePathAsync("Выберите QR-код (сохранится для будущего)");
+            var path = await PickImagePathAsync(Tr.T("Выберите QR-код (сохранится для будущего)", "QR-кодду тандаңыз (кийинкиге сакталат)", "Select a QR code (it will be saved for later)", "QR kodu seçin (sonraki kullanımlar için kaydedilir)", "QR-kodni tanlang (keyingi safar uchun saqlanadi)"));
             if (!string.IsNullOrEmpty(path))
             {
                 var prefs = UserPreferences.Instance;
                 prefs.QrCodePath = path;
                 prefs.SaveToDisk();
-                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {Path.GetFileName(path)}";
+                GraphicQrStatusText.Text = Tr.T(
+                    $"✅ QR-код сохранён: {Path.GetFileName(path)}",
+                    $"✅ QR-код сакталды: {Path.GetFileName(path)}",
+                    $"✅ QR code saved: {Path.GetFileName(path)}",
+                    $"✅ QR kodu kaydedildi: {Path.GetFileName(path)}",
+                    $"✅ QR-kod saqlandi: {Path.GetFileName(path)}");
             }
         }
 
@@ -1165,20 +1285,30 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var prefs = UserPreferences.Instance;
             prefs.QrCodePath = "";
             prefs.SaveToDisk();
-            GraphicQrStatusText.Text = "QR-код не загружен";
+            GraphicQrStatusText.Text = Tr.T("QR-код не загружен", "QR-код жүктөлгөн эмес", "QR code not uploaded", "QR kodu yüklenmedi", "QR-kod yuklanmagan");
         }
 
         private async void TestGraphicPrint_Click(object? sender, RoutedEventArgs e)
         {
             if (!GraphicReceiptEnabledCheck.IsChecked == true)
             {
-                StatusText.Text = "❌ Графический чек выключен. Включите его в настройках (чекбокс «Включить графический чек»).";
+                StatusText.Text = Tr.T(
+                    "❌ Графический чек выключен. Включите его в настройках (чекбокс «Включить графический чек»).",
+                    "❌ Графикалык чек өчүк. Аны жөндөөлөрдөн күйгүзүңүз («Макетти күйгүзүү» которгучу).",
+                    "❌ Graphic receipt is off. Turn it on in the settings (the “Enable layout” switch).",
+                    "❌ Grafik fiş kapalı. Ayarlardan açın («Yerleşimi etkinleştir» anahtarı).",
+                    "❌ Grafik chek o'chirilgan. Uni sozlamalarda yoqing («Maketni yoqish» almashtirgichi).");
                 return;
             }
 
             if (GraphicModeRadio.IsChecked != true)
             {
-                StatusText.Text = "❌ Сейчас выбран текстовый режим. Переключите на графический в настройках.";
+                StatusText.Text = Tr.T(
+                    "❌ Сейчас выбран текстовый режим. Переключите на графический в настройках.",
+                    "❌ Азыр тексттик режим тандалган. Жөндөөлөрдөн графикалык режимге которуңуз.",
+                    "❌ Text mode is currently selected. Switch to graphics mode in the settings.",
+                    "❌ Şu anda metin modu seçili. Ayarlardan grafik moduna geçin.",
+                    "❌ Hozir matn rejimi tanlangan. Sozlamalarda grafik rejimga o'tkazing.");
                 return;
             }
 
@@ -1192,11 +1322,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ReceiptPdfPreviewService.GenerateGraphicReceiptPdf(tempPdfPath, settings, storeName);
 
                 Process.Start(new ProcessStartInfo(tempPdfPath) { UseShellExecute = true });
-                StatusText.Text = "Предпросмотр графического чека открыт в программе для просмотра PDF. Для физической печати нажмите «Печать в сам порт».";
+                StatusText.Text = Tr.T(
+                    "Предпросмотр графического чека открыт в программе для просмотра PDF. Для физической печати нажмите «Печать в сам порт».",
+                    "Графикалык чектин алдын ала көрүнүшү PDF көрүүчү программада ачылды. Кагазга басып чыгаруу үчүн порттун жанындагы «Текшерүү» баскычын басыңыз.",
+                    "The graphic receipt preview is open in your PDF viewer. To print on paper, press “Test” next to the printer port.",
+                    "Grafik fiş önizlemesi PDF görüntüleyicide açıldı. Kâğıda yazdırmak için yazıcı portunun yanındaki «Test» düğmesine basın.",
+                    "Grafik chekning oldindan ko'rinishi PDF ko'ruvchi dasturda ochildi. Qog'ozga chop etish uchun printer porti yonidagi «Test» tugmasini bosing.");
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"❌ Ошибка: {ex.Message}";
+                StatusText.Text = Tr.T($"❌ Ошибка: {ex.Message}", $"❌ Ката: {ex.Message}", $"❌ Error: {ex.Message}", $"❌ Hata: {ex.Message}", $"❌ Xato: {ex.Message}");
             }
         }
 
@@ -1220,13 +1355,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 ReceiptPdfPreviewService.GenerateTextReceiptPdf(tempPdfPath, testText, encoding, escTable);
 
-                var dialog = new ReceiptPreviewDialog("Предпросмотр: Текстовый чек (ESC/POS)", testText);
+                var dialog = new ReceiptPreviewDialog(Tr.T("Предпросмотр: Текстовый чек (ESC/POS)", "Алдын ала көрүү: тексттик чек (ESC/POS)", "Preview: text receipt (ESC/POS)", "Önizleme: metin fişi (ESC/POS)", "Oldindan ko'rish: matnli chek (ESC/POS)"), testText);
                 await dialog.ShowDialog<bool>(this);
-                StatusText.Text = "Предпросмотр текстового чека готов. Для физической печати нажмите «Печать в сам порт».";
+                StatusText.Text = Tr.T(
+                    "Предпросмотр текстового чека готов. Для физической печати нажмите «Печать в сам порт».",
+                    "Тексттик чектин алдын ала көрүнүшү даяр. Кагазга басып чыгаруу үчүн порттун жанындагы «Текшерүү» баскычын басыңыз.",
+                    "The text receipt preview is ready. To print on paper, press “Test” next to the printer port.",
+                    "Metin fişi önizlemesi hazır. Kâğıda yazdırmak için yazıcı portunun yanındaki «Test» düğmesine basın.",
+                    "Matnli chekning oldindan ko'rinishi tayyor. Qog'ozga chop etish uchun printer porti yonidagi «Test» tugmasini bosing.");
             }
             catch (Exception ex)
             {
-                StatusText.Text = $"❌ Ошибка текстовой печати: {ex.Message}";
+                StatusText.Text = Tr.T(
+                    $"❌ Ошибка текстовой печати: {ex.Message}",
+                    $"❌ Тексттик басып чыгаруу катасы: {ex.Message}",
+                    $"❌ Text printing error: {ex.Message}",
+                    $"❌ Metin yazdırma hatası: {ex.Message}",
+                    $"❌ Matnli chop etishda xato: {ex.Message}");
             }
         }
 
@@ -1347,7 +1492,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     HardwarePortHelper.NormalizeComPort(port),
                     StringComparison.OrdinalIgnoreCase))
             {
-                StatusScalePortText.Text = $"Порт используется весами. {activeScale.Status}";
+                StatusScalePortText.Text = Tr.T(
+                    $"Порт используется весами. {activeScale.Status}",
+                    $"Портту тараза колдонуп жатат. {activeScale.Status}",
+                    $"The port is in use by the scale. {activeScale.Status}",
+                    $"Port tartı tarafından kullanılıyor. {activeScale.Status}",
+                    $"Portdan tarozi foydalanmoqda. {activeScale.Status}");
                 StatusScalePortText.Foreground = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
                 return;
             }
@@ -1368,7 +1518,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var prefs = UserPreferences.Instance;
             if (!prefs.ScaleEnabled)
             {
-                ShowScaleAlert("Весы выключены. Включите на вкладке «Весы».", true);
+                ShowScaleAlert(Tr.T(
+                    "Весы выключены. Включите на вкладке «Весы».",
+                    "Тараза өчүк. Аны «Тараза» өтмөгүндө күйгүзүңүз.",
+                    "The scale is turned off. Turn it on in the “Scales” tab.",
+                    "Tartı kapalı. «Tartılar» sekmesinden açın.",
+                    "Tarozi o'chirilgan. Uni «Tarozilar» bo'limida yoqing."), true);
                 return;
             }
             try
@@ -1379,12 +1534,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 await Task.Delay(2000);
                 double? weight = scale.LastWeight;
                 string status = scale.Status;
-                string msg = weight.HasValue ? $"Текущий вес: {weight.Value:F3} кг. Статус: {status}." : $"Статус: {status}. Данные не получены.";
+                string msg = weight.HasValue
+                    ? Tr.T(
+                        $"Текущий вес: {weight.Value:F3} кг. Статус: {status}.",
+                        $"Учурдагы салмак: {weight.Value:F3} кг. Абалы: {status}.",
+                        $"Current weight: {weight.Value:F3} kg. Status: {status}.",
+                        $"Mevcut ağırlık: {weight.Value:F3} kg. Durum: {status}.",
+                        $"Joriy og'irlik: {weight.Value:F3} kg. Holat: {status}.")
+                    : Tr.T(
+                        $"Статус: {status}. Данные не получены.",
+                        $"Абалы: {status}. Маалымат алынган жок.",
+                        $"Status: {status}. No data received.",
+                        $"Durum: {status}. Veri alınamadı.",
+                        $"Holat: {status}. Ma'lumot olinmadi.");
                 ShowScaleAlert(msg, false);
             }
             catch (Exception ex)
             {
-                ShowScaleAlert("Ошибка весов: " + ex.Message, true);
+                ShowScaleAlert(Tr.T("Ошибка весов: ", "Тараза катасы: ", "Scale error: ", "Tartı hatası: ", "Tarozi xatosi: ") + ex.Message, true);
             }
             finally
             {
@@ -1400,19 +1567,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var prefs = UserPreferences.Instance;
             if (!prefs.PoleDisplayEnabled)
             {
-                ShowPoleDisplayAlert("Дисплей выключен. Включите и нажмите «Сохранить», затем «Тест».", true);
+                ShowPoleDisplayAlert(Tr.T(
+                    "Дисплей выключен. Включите и нажмите «Сохранить», затем «Тест».",
+                    "Дисплей өчүк. Аны күйгүзүп, «Сактоо», андан кийин «Дисплейди текшерүү» баскычын басыңыз.",
+                    "The display is turned off. Turn it on and press “Save”, then “Test display”.",
+                    "Ekran kapalı. Açın ve «Kaydet»e, ardından «Ekranı test et»e basın.",
+                    "Displey o'chirilgan. Uni yoqing va «Saqlash», so'ng «Displeyni sinash» tugmasini bosing."), true);
                 return;
             }
 
             var display = NurMarketKassa.Services.Hardware.PoleDisplayService.Instance;
             if (!display.IsAvailable)
             {
-                ShowPoleDisplayAlert($"Порт не открыт: {display.Status}. Сохраните настройки и попробуйте снова.", true);
+                ShowPoleDisplayAlert(Tr.T(
+                    $"Порт не открыт: {display.Status}. Сохраните настройки и попробуйте снова.",
+                    $"Порт ачылган жок: {display.Status}. Жөндөөлөрдү сактап, кайра аракет кылыңыз.",
+                    $"The port isn't open: {display.Status}. Save the settings and try again.",
+                    $"Port açık değil: {display.Status}. Ayarları kaydedip tekrar deneyin.",
+                    $"Port ochilmagan: {display.Status}. Sozlamalarni saqlang va qayta urinib ko'ring."), true);
                 return;
             }
 
             var (sent, message) = display.ShowTest();
-            ShowPoleDisplayAlert(sent ? message : $"Не удалось отправить: {message}", !sent);
+            ShowPoleDisplayAlert(sent ? message : Tr.T($"Не удалось отправить: {message}", $"Жөнөтүү мүмкүн болгон жок: {message}", $"Couldn't send: {message}", $"Gönderilemedi: {message}", $"Yuborib bo'lmadi: {message}"), !sent);
         }
 
         private CancellationTokenSource? _poleProbeCts;
@@ -1444,21 +1621,35 @@ namespace NurMarketKassa.AvaloniaHost.Views
             try
             {
                 var probes = await PoleDisplayService.ProbeLedAsync(skip,
-                    status => Dispatcher.UIThread.Post(() => ShowPoleDisplayAlert("Идёт поиск: " + status, false)),
+                    status => Dispatcher.UIThread.Post(() => ShowPoleDisplayAlert(Tr.T("Идёт поиск: ", "Издөө жүрүп жатат: ", "Searching: ", "Aranıyor: ", "Qidirilmoqda: ") + status, false)),
                     _poleProbeCts.Token).ConfigureAwait(true);
 
                 var reachable = probes.Where(p => p.Error == null).ToList();
                 if (reachable.Count == 0)
                 {
                     ShowPoleDisplayAlert(probes.Count == 0
-                        ? "COM-портов не найдено (кроме портов принтера и весов). Табло подключено по USB? Выберите его в списке «Устройство»."
-                        : "Ни один COM-порт не открылся: " + string.Join("; ", probes.Select(p => $"{p.Port}: {p.Error}").Distinct()), true);
+                        ? Tr.T(
+                            "COM-портов не найдено (кроме портов принтера и весов). Табло подключено по USB? Выберите его в списке «Устройство».",
+                            "COM-порттор табылган жок (принтер менен таразанын порттору эсепке алынган жок). Табло USB аркылуу туташканбы? Аны «Түзмөк» тизмесинен тандаңыз.",
+                            "No COM ports found (other than the printer and scale ports). Is the display connected via USB? Select it in the “Device” list.",
+                            "COM portu bulunamadı (yazıcı ve tartı portları hariç). Ekran USB ile mi bağlı? «Cihaz» listesinden seçin.",
+                            "COM portlar topilmadi (printer va tarozi portlaridan tashqari). Tablo USB orqali ulanganmi? Uni «Qurilma» ro'yxatidan tanlang.")
+                        : Tr.T("Ни один COM-порт не открылся: ", "Бир да COM-порт ачылган жок: ", "None of the COM ports opened: ", "Hiçbir COM portu açılmadı: ", "Birorta ham COM port ochilmadi: ") + string.Join("; ", probes.Select(p => $"{p.Port}: {p.Error}").Distinct()), true);
                     return;
                 }
 
                 ShowPoleDisplayAlert(
-                    "Посмотрите на табло: на нём осталось число подошедшего варианта (например, 3.2400 — это COM3, 2400 бод). " +
-                    "Нажмите кнопку с этим числом, затем «Сохранить». Если табло так и показывает 0.00 — выберите «Текстовый дисплей» и попробуйте «Тест».",
+                    Tr.T(
+                        "Посмотрите на табло: на нём осталось число подошедшего варианта (например, 3.2400 — это COM3, 2400 бод). " +
+                        "Нажмите кнопку с этим числом, затем «Сохранить». Если табло так и показывает 0.00 — выберите «Текстовый дисплей» и попробуйте «Тест».",
+                        "Таблону караңыз: анда ылайык келген вариант сан менен көрүнүп турат (мисалы, 3.2400 — бул COM3, 2400 бод). " +
+                        "Ошол сан жазылган баскычты, андан кийин «Сактоо» баскычын басыңыз. Эгер табло мурдагыдай эле 0.00 көрсөтсө — «Тексттик дисплей» вариантын тандап, «Дисплейди текшерүү» баскычын басып көрүңүз.",
+                        "Look at the display: it now shows the number of the matching option (for example, 3.2400 means COM3, 2400 baud). " +
+                        "Press the button with that number, then “Save”. If the display still shows 0.00, select “Text display” and try “Test display”.",
+                        "Ekrana bakın: üzerinde çalışan seçeneğin numarası kalmıştır (örneğin 3.2400 — COM3, 2400 baud demektir). " +
+                        "Bu numaranın yazılı olduğu düğmeye, ardından «Kaydet»e basın. Ekran hâlâ 0.00 gösteriyorsa «Metin ekranı» seçeneğine geçin ve «Ekranı test et» düğmesini deneyin.",
+                        "Tabloga qarang: unda mos kelgan variant raqami qoldi (masalan, 3.2400 — bu COM3, 2400 bod). " +
+                        "Shu raqamli tugmani, so'ng «Saqlash»ni bosing. Agar tablo hamon 0.00 ko'rsatsa — «Matnli displey» variantini tanlang va «Displeyni sinash» tugmasini bosib ko'ring."),
                     false);
                 foreach (var probe in reachable)
                 {
@@ -1476,12 +1667,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (OperationCanceledException)
             {
-                ShowPoleDisplayAlert("Поиск остановлен.", false);
+                ShowPoleDisplayAlert(Tr.T("Поиск остановлен.", "Издөө токтотулду.", "Search stopped.", "Arama durduruldu.", "Qidiruv to'xtatildi."), false);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Дисплей цены: поиск не удался: {ex}", "POLE_DISPLAY");
-                ShowPoleDisplayAlert("Поиск не удался: " + ex.Message, true);
+                ShowPoleDisplayAlert(Tr.T("Поиск не удался: ", "Издөө ишке ашкан жок: ", "Search failed: ", "Arama başarısız: ", "Qidiruv amalga oshmadi: ") + ex.Message, true);
             }
             finally
             {
@@ -1512,7 +1703,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 PoleDisplayComCombo.SelectedItem = match;
             }
 
-            ShowPoleDisplayAlert($"Выбрано: {probe.Port}, {probe.BaudRate} бод, цифровое табло. Нажмите «Сохранить».", false);
+            ShowPoleDisplayAlert(Tr.T(
+                $"Выбрано: {probe.Port}, {probe.BaudRate} бод, цифровое табло. Нажмите «Сохранить».",
+                $"Тандалды: {probe.Port}, {probe.BaudRate} бод, сандык табло. «Сактоо» баскычын басыңыз.",
+                $"Selected: {probe.Port}, {probe.BaudRate} baud, numeric display. Press “Save”.",
+                $"Seçildi: {probe.Port}, {probe.BaudRate} baud, sayısal ekran. «Kaydet»e basın.",
+                $"Tanlandi: {probe.Port}, {probe.BaudRate} bod, raqamli tablo. «Saqlash» tugmasini bosing."), false);
         }
 
         private void ShowPoleDisplayAlert(string message, bool isError)
@@ -1532,24 +1728,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (CatalogDiagnosticsText == null)
                 return;
 
-            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "неизвестно";
+            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? Tr.T("неизвестно", "белгисиз", "unknown", "bilinmiyor", "noma'lum");
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             var dbPath = DatabaseService.Instance.DatabasePath;
             var dbSizeText = File.Exists(dbPath)
-                ? $"{new FileInfo(dbPath).Length / 1024.0 / 1024.0:F2} МБ"
-                : "файл не найден";
+                ? $"{new FileInfo(dbPath).Length / 1024.0 / 1024.0:F2} {Tr.T("МБ", "МБ", "MB", "MB", "MB")}"
+                : Tr.T("файл не найден", "файл табылган жок", "file not found", "dosya bulunamadı", "fayl topilmadi");
             var lastSync = CatalogCacheService.LastSyncTime is { } syncedAt
                 ? syncedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
-                : "ещё не выполнялась";
+                : Tr.T("ещё не выполнялась", "азырынча аткарыла элек", "never", "henüz yapılmadı", "hali bajarilmagan");
             var crashReportsCount = CrashReportService.PendingReportCount();
 
             CatalogDiagnosticsText.Text =
-                $"Версия приложения: {version}\n" +
-                $"Рабочая директория: {baseDir}\n" +
-                $"Локальная база: {dbPath} ({dbSizeText})\n" +
-                $"Товаров в кэше каталога: {CatalogCacheService.Products.Count}\n" +
-                $"Последняя синхронизация каталога: {lastSync}\n" +
-                $"Необработанных отчётов об ошибках: {crashReportsCount}";
+                Tr.T($"Версия приложения: {version}\n", $"Колдонмонун версиясы: {version}\n", $"App version: {version}\n", $"Uygulama sürümü: {version}\n", $"Dastur versiyasi: {version}\n") +
+                Tr.T($"Рабочая директория: {baseDir}\n", $"Иштөө директориясы: {baseDir}\n", $"Working directory: {baseDir}\n", $"Çalışma dizini: {baseDir}\n", $"Ish katalogi: {baseDir}\n") +
+                Tr.T($"Локальная база: {dbPath} ({dbSizeText})\n", $"Жергиликтүү база: {dbPath} ({dbSizeText})\n", $"Local database: {dbPath} ({dbSizeText})\n", $"Yerel veritabanı: {dbPath} ({dbSizeText})\n", $"Mahalliy baza: {dbPath} ({dbSizeText})\n") +
+                Tr.T($"Товаров в кэше каталога: {CatalogCacheService.Products.Count}\n", $"Каталог кэшиндеги товарлар: {CatalogCacheService.Products.Count}\n", $"Products in catalog cache: {CatalogCacheService.Products.Count}\n", $"Katalog önbelleğindeki ürünler: {CatalogCacheService.Products.Count}\n", $"Katalog keshidagi mahsulotlar: {CatalogCacheService.Products.Count}\n") +
+                Tr.T($"Последняя синхронизация каталога: {lastSync}\n", $"Каталогдун акыркы синхрондоштуруусу: {lastSync}\n", $"Last catalog sync: {lastSync}\n", $"Son katalog senkronizasyonu: {lastSync}\n", $"Katalogning oxirgi sinxronlanishi: {lastSync}\n") +
+                Tr.T($"Необработанных отчётов об ошибках: {crashReportsCount}", $"Иштетиле элек ката отчёттору: {crashReportsCount}", $"Unprocessed error reports: {crashReportsCount}", $"İşlenmemiş hata raporları: {crashReportsCount}", $"Ko'rib chiqilmagan xato hisobotlari: {crashReportsCount}");
         }
 
         private void ShowScaleAlert(string message, bool isError)
@@ -1578,7 +1774,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new FilePickerFileType("Изображения") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
+                    new FilePickerFileType(Tr.T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
                 }
             });
             return files.Count > 0 ? files[0].TryGetLocalPath() : null;

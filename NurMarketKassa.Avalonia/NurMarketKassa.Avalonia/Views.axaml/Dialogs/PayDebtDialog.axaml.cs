@@ -90,7 +90,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
 
     public bool ShowUnpaid => !ShowHistory;
 
-    public string UnpaidTabLabel => Tr.T("Непогашенные", "Төлөнбөгөндөр", "Unsettled", "Kapatılmamış", "Yopilmagan");
+    public string UnpaidTabLabel => Tr.T("Непогашенные", "Төлөнбөгөндөр", "Unpaid", "Ödenmemiş", "To'lanmagan");
     public string HistoryTabLabel => Tr.T("История", "Тарых", "History", "Geçmiş", "Tarix");
 
     public ICommand SelectClientCommand { get; }
@@ -121,7 +121,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         HeaderTitleText.Text = Tr.T("Оплата долга", "Карыз төлөө", "Debt payment", "Borç ödemesi", "Qarzni to'lash");
         ClientLabelText.Text = Tr.T("Клиент", "Клиент", "Client", "Müşteri", "Mijoz");
         ClientSearchBox.Watermark = Tr.T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "İsim veya telefonla ara…", "Ism yoki telefon bo'yicha qidirish…");
-        DebtSalesTitleText.Text = Tr.T("Непогашенные продажи", "Төлөнбөгөн сатуулар", "Unsettled sales", "Kapatılmamış satışlar", "Yopilmagan sotuvlar");
+        DebtSalesTitleText.Text = Tr.T("Непогашенные продажи", "Төлөнбөгөн сатуулар", "Unpaid sales", "Ödenmemiş satışlar", "To'lanmagan sotuvlar");
         MinimizeButton.SetValue(ToolTip.TipProperty, Tr.T("Свернуть", "Кичирейтүү", "Minimize", "Küçült", "Yig'ish"));
         CloseWindowButton.SetValue(ToolTip.TipProperty, Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
 
@@ -159,8 +159,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     public bool HasClientSearchResults => ClientSearchResults.Count > 0;
 
     public string TotalOwedText =>
-        $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "To'lov uchun jami")}: " +
-        $"{DebtSales.Sum(s => s.Amount).ToString("0.00", CultureInfo.InvariantCulture)} сом";
+        $"{Tr.T("Итого к оплате", "Жалпы төлөнө турган сумма", "Total due", "Ödenecek toplam", "Jami to'lanadigan summa")}: " +
+        $"{DebtSales.Sum(s => s.Amount).ToString("0.00", CultureInfo.InvariantCulture)}" + Tr.T(" сом", " сом", " som", " som", " so'm");
 
     public string ErrorMessage
     {
@@ -292,7 +292,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 return;
 
             row.Amount = remaining;
-            row.AmountDisplay = remaining.ToString("0.00", CultureInfo.InvariantCulture) + " сом";
+            row.AmountDisplay = remaining.ToString("0.00", CultureInfo.InvariantCulture) + Tr.T(" сом", " сом", " som", " som", " so'm");
             row.AmountToPayText = remaining.ToString("0.00", CultureInfo.InvariantCulture);
         }
         catch (Exception ex)
@@ -311,7 +311,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         var raw = (row.AmountToPayText ?? "").Trim().Replace(',', '.');
         if (!double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
         {
-            ErrorMessage = Tr.T("Укажите сумму оплаты.", "Төлөм суммасын көрсөтүңүз.", "Specify the payment amount.", "Ödeme tutarını belirtin.", "To'lov summasini ko'rsating.");
+            ErrorMessage = Tr.T("Укажите сумму оплаты.", "Төлөм суммасын көрсөтүңүз.", "Enter the payment amount.", "Ödeme tutarını belirtin.", "To'lov summasini ko'rsating.");
             return;
         }
 
@@ -319,7 +319,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         {
             ErrorMessage = Tr.T(
                 $"Сумма не может превышать остаток долга ({row.AmountDisplay}).",
-                $"Сумма карыздын калдыгынан ({row.AmountDisplay}) ашык болбошу керек.",
+                $"Сумма карыздын калдыгынан ({row.AmountDisplay}) ашпашы керек.",
                 $"The amount cannot exceed the remaining debt ({row.AmountDisplay}).",
                 $"Tutar, kalan borcu ({row.AmountDisplay}) aşamaz.",
                 $"Summa qarz qoldig'idan ({row.AmountDisplay}) oshib ketmasligi kerak.");
@@ -411,10 +411,10 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 {
                     ErrorMessage = Tr.T(
                         $"Погашено {paidCount} из {unpaidInstallmentIds.Count} взносов — слишком много для одного клика. Нажмите «Оплатить» ещё раз для остальных.",
-                        $"{unpaidInstallmentIds.Count} төлөмдүн {paidCount} өтөлдү — бир басууга өтө көп. Калгандары үчүн «Төлөө» дагы басыңыз.",
-                        $"Paid off {paidCount} of {unpaidInstallmentIds.Count} installments — too many for one click. Click «Pay» again for the rest.",
-                        $"{unpaidInstallmentIds.Count} taksitten {paidCount} tanesi ödendi — tek tıklama için çok fazla. Kalanlar için «Öde»ye tekrar tıklayın.",
-                        $"{unpaidInstallmentIds.Count} ta bo'lib to'lashdan {paidCount} tasi to'landi — bitta bosish uchun juda ko'p. Qolganlari uchun «To'lash»ni yana bosing.");
+                        $"{unpaidInstallmentIds.Count} төлөмдүн {paidCount} төлөндү — бир басуу үчүн өтө көп. Калгандары үчүн «Төлөө» баскычын дагы бир жолу басыңыз.",
+                        $"Paid off {paidCount} of {unpaidInstallmentIds.Count} installments — too many for one click. Click “Pay” again for the rest.",
+                        $"{unpaidInstallmentIds.Count} taksitten {paidCount} tanesi ödendi — tek seferde ödenemeyecek kadar çok. Kalanlar için «Öde»ye tekrar basın.",
+                        $"{unpaidInstallmentIds.Count} ta to'lovdan {paidCount} tasi to'landi — bir bosishga bu juda ko'p. Qolganlari uchun «To'lash»ni yana bosing.");
                 }
             }
             else
@@ -495,9 +495,9 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             DateDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
             FirstItemName = TryGetString(element, "first_item_name") ?? "",
             Amount = amount,
-            AmountDisplay = amountText + " сом",
+            AmountDisplay = amountText + Tr.T(" сом", " сом", " som", " som", " so'm"),
             AmountToPayText = amountText,
-            OriginalAmountDisplay = amountText + " сом",
+            OriginalAmountDisplay = amountText + Tr.T(" сом", " сом", " som", " som", " so'm"),
         };
     }
 

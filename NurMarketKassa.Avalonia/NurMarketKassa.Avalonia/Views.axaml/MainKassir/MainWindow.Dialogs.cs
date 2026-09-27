@@ -135,7 +135,7 @@ public partial class MainWindow
             qtyToAdd = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false);
             if (qtyToAdd <= 0)
             {
-                PosMessageBox.Show(this, "Укажите корректное количество.", "Количество",
+                PosMessageBox.Show(this, Tr.T("Укажите корректное количество.", "Туура санды көрсөтүңүз.", "Enter a valid quantity.", "Geçerli bir miktar girin.", "To'g'ri miqdorni kiriting."), Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -293,10 +293,10 @@ public partial class MainWindow
         {
             _viewModel.Basket.CartMessage = Tr.T(
                 "Изъятие можно оформить только при открытой смене.",
-                "Изъятимди ачык смена учурунда гана жасаса болот.",
-                "A withdrawal can only be recorded while a shift is open.",
-                "Bir çekim yalnızca vardiya açıkken kaydedilebilir.",
-                "Chiqim faqat smena ochiq bo'lganda amalga oshirilishi mumkin.");
+                "Акча алып коюуну ачык смена учурунда гана жасоого болот.",
+                "Cash out can only be recorded while a shift is open.",
+                "Para çıkışı yalnızca vardiya açıkken yapılabilir.",
+                "Chiqimni faqat smena ochiq bo'lganda rasmiylashtirish mumkin.");
             return;
         }
 
@@ -322,10 +322,10 @@ public partial class MainWindow
         {
             _prompts.ShowWarning(Tr.T(
                 "Внесение и изъятие можно оформить только при открытой смене.",
-                "Акча салууну жана алууну ачык смена учурунда гана жасаса болот.",
+                "Акча салууну жана алып коюуну ачык смена учурунда гана жасоого болот.",
                 "Cash in and cash out can only be recorded while a shift is open.",
-                "Para girişi ve çıkışı yalnızca vardiya açıkken kaydedilebilir.",
-                "Kirim va chiqim faqat smena ochiq bo'lganda amalga oshirilishi mumkin."));
+                "Para girişi ve çıkışı yalnızca vardiya açıkken yapılabilir.",
+                "Kirim va chiqimni faqat smena ochiq bo'lganda rasmiylashtirish mumkin."));
             return;
         }
 
@@ -389,16 +389,16 @@ public partial class MainWindow
         _viewModel.Basket.CartMessage = isWithdrawal
             ? Tr.T(
                 $"Изъятие оформлено: {op.Amount:0.00} сом.",
-                $"Изъятим жасалды: {op.Amount:0.00} сом.",
-                $"Withdrawal recorded: {op.Amount:0.00} som.",
-                $"Çekim kaydedildi: {op.Amount:0.00} som.",
-                $"Chiqim amalga oshirildi: {op.Amount:0.00} som.")
+                $"Акча алынды: {op.Amount:0.00} сом.",
+                $"Cash out recorded: {op.Amount:0.00} som.",
+                $"Para çıkışı kaydedildi: {op.Amount:0.00} som.",
+                $"Chiqim rasmiylashtirildi: {op.Amount:0.00} so'm.")
             : Tr.T(
                 $"Внесение оформлено: {op.Amount:0.00} сом.",
                 $"Акча салынды: {op.Amount:0.00} сом.",
                 $"Cash in recorded: {op.Amount:0.00} som.",
                 $"Para girişi kaydedildi: {op.Amount:0.00} som.",
-                $"Kirim amalga oshirildi: {op.Amount:0.00} som.");
+                $"Kirim rasmiylashtirildi: {op.Amount:0.00} so'm.");
     }
 
     /// <summary>Неизвестный штрих-код при сканировании (2026-09-07, по просьбе владельца): вместо
@@ -413,7 +413,7 @@ public partial class MainWindow
             this,
             Tr.T("Товар не найден", "Товар табылган жок", "Product not found", "Ürün bulunamadı", "Mahsulot topilmadi"),
             Tr.T($"Штрих-код {code} не найден в каталоге. Добавить новый товар на склад?",
-                 $"{code} штрих-коду каталогдон табылган жок. Кампага жаңы товар кошолубу?"),
+                 $"{code} штрих-коду каталогдон табылган жок. Кампага жаңы товар кошолубу?", $"Barcode {code} was not found in the catalog. Add a new product to the warehouse?", $"Barkod {code} katalogda bulunamadı. Depoya yeni ürün eklensin mi?", $"{code} shtrix-kodi katalogda topilmadi. Omborga yangi mahsulot qo'shilsinmi?"),
             Tr.T("Добавить на склад", "Кампага кошуу", "Add to warehouse", "Depoya ekle", "Omborga qo'shish"),
             Tr.T("Пропустить", "Өткөрүп жиберүү", "Skip", "Atla", "O'tkazib yuborish"));
         if (!confirmed)
@@ -456,15 +456,15 @@ public partial class MainWindow
         if (dlg.ClearRequested)
         {
             if (_viewModel.Basket.ApplyOrderDiscount(null, null, clear: true))
-                _viewModel.Basket.CartMessage = "Скидка сброшена.";
+                _viewModel.Basket.CartMessage = Tr.T("Скидка сброшена.", "Арзандатуу алынып салынды.", "Discount cleared.", "İndirim kaldırıldı.", "Chegirma bekor qilindi.");
             return Task.CompletedTask;
         }
 
         if (_viewModel.Basket.ApplyOrderDiscount(dlg.DiscountMode, dlg.DiscountValue))
         {
             _viewModel.Basket.CartMessage = dlg.DiscountMode == "percent"
-                ? $"Скидка {dlg.DiscountValue}% применена."
-                : $"Скидка {dlg.DiscountValue} сом применена.";
+                ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
+                : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
         }
         return Task.CompletedTask;
     }
@@ -481,7 +481,7 @@ public partial class MainWindow
             : null;
         var dialog = new WeighedProductDialog(
             line.Title,
-            $"{line.UnitPrice:0.00} сом",
+            Tr.T($"{line.UnitPrice:0.00} сом", $"{line.UnitPrice:0.00} сом", $"{line.UnitPrice:0.00} som", $"{line.UnitPrice:0.00} som", $"{line.UnitPrice:0.00} so'm"),
             scale,
             line.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
             Tr.T("Обновить", "Жаңылоо", "Update", "Güncelle", "Yangilash"));
@@ -493,7 +493,7 @@ public partial class MainWindow
 
         ResolveCartService().UpdateQuantity(line.ItemId, quantity);
         _viewModel.Basket.RefreshFromCart();
-        _viewModel.Basket.CartMessage = $"Вес «{line.Title}» обновлён: {quantity:0.###} кг.";
+        _viewModel.Basket.CartMessage = Tr.T($"Вес «{line.Title}» обновлён: {quantity:0.###} кг.", $"«{line.Title}» салмагы жаңыртылды: {quantity:0.###} кг.", $"Weight of “{line.Title}” updated: {quantity:0.###} kg.", $"«{line.Title}» ağırlığı güncellendi: {quantity:0.###} kg.", $"«{line.Title}» og'irligi yangilandi: {quantity:0.###} kg.");
         return Task.CompletedTask;
     }
 
@@ -526,7 +526,7 @@ public partial class MainWindow
                 $"Скидка не может превышать {lineLimitPercent:0.##}% — таково ограничение для сотрудников.",
                 $"Арзандатуу {lineLimitPercent:0.##}%дан ашпашы керек — бул кызматкерлер үчүн чектөө.",
                 $"The discount can't exceed {lineLimitPercent:0.##}% — that's the limit set for employees.",
-                $"İndirim %{lineLimitPercent:0.##}'i geçemez — personel için belirlenen sınır budur.",
+                $"İndirim en fazla %{lineLimitPercent:0.##} olabilir — personel için belirlenen sınır budur.",
                 $"Chegirma {lineLimitPercent:0.##}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara."));
             return Task.CompletedTask;
         }
@@ -550,7 +550,7 @@ public partial class MainWindow
                         $"Скидка не может превышать {lineLimitForSum:0.##}% — это {allowedSum:0.00} сом для этой позиции.",
                         $"Арзандатуу {lineLimitForSum:0.##}%дан ашпашы керек — бул позиция үчүн {allowedSum:0.00} сом.",
                         $"The discount can't exceed {lineLimitForSum:0.##}% — that is {allowedSum:0.00} som for this line.",
-                        $"İndirim %{lineLimitForSum:0.##}'i geçemez — bu satır için {allowedSum:0.00} som eder.",
+                        $"İndirim en fazla %{lineLimitForSum:0.##} olabilir — bu satır için {allowedSum:0.00} som.",
                         $"Chegirma {lineLimitForSum:0.##}%dan oshmasligi kerak — bu qator uchun {allowedSum:0.00} so'm."));
                     return Task.CompletedTask;
                 }
@@ -564,8 +564,8 @@ public partial class MainWindow
             dialog.ClearRequested ? null : dialog.DiscountValue);
         _viewModel.Basket.RefreshFromCart();
         _viewModel.Basket.CartMessage = dialog.ClearRequested
-            ? $"Скидка на «{line.Title}» удалена."
-            : $"Скидка на «{line.Title}» применена.";
+            ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
+            : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");
         return Task.CompletedTask;
     }
 
@@ -609,7 +609,7 @@ public partial class MainWindow
         }
 
         _viewModel.Basket.RefreshFromCart();
-        _viewModel.Basket.CartMessage = $"Позиции из {entries.Count} отложенных чеков добавлены в текущий чек.";
+        _viewModel.Basket.CartMessage = Tr.T($"Позиции из {entries.Count} отложенных чеков добавлены в текущий чек.", $"{entries.Count} калтырылган чектин позициялары учурдагы чекке кошулду.", $"Items from {entries.Count} held receipt(s) added to the current receipt.", $"{entries.Count} bekletilen fişin kalemleri mevcut fişe eklendi.", $"{entries.Count} ta kechiktirilgan chekdagi pozitsiyalar joriy chekka qo'shildi.");
         return true;
     }
 
@@ -633,8 +633,8 @@ public partial class MainWindow
                 .ConfigureAwait(true);
             if (!deferResult.IsSuccess)
             {
-                PosMessageBox.Show(this, deferResult.ErrorMessage ?? "Не удалось сохранить текущий чек.",
-                    "Отложенные", MessageBoxButton.OK, MessageBoxImage.Warning);
+                PosMessageBox.Show(this, deferResult.ErrorMessage ?? Tr.T("Не удалось сохранить текущий чек.", "Учурдагы чекти сактоо мүмкүн болгон жок.", "Could not save the current receipt.", "Mevcut fiş kaydedilemedi.", "Joriy chekni saqlab bo'lmadi."),
+                    Tr.T("Отложенные", "Калтырылган себеттер", "Held carts", "Bekleyen sepetler", "Kechiktirilgan savatlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }
         }
@@ -643,7 +643,7 @@ public partial class MainWindow
         OpenReceiptSnapshot.ApplyDeferredStaging(cart, entry.CartJson);
         DeferredCartsStore.RemoveIds(new[] { entry.Id });
         _viewModel.Basket.RefreshFromCart();
-        _viewModel.Basket.CartMessage = $"Открыт отложенный чек «{entry.Label}».";
+        _viewModel.Basket.CartMessage = Tr.T($"Открыт отложенный чек «{entry.Label}».", $"Калтырылган «{entry.Label}» чеги ачылды.", $"Opened held receipt “{entry.Label}”.", $"Bekletilen fiş açıldı: «{entry.Label}».", $"Kechiktirilgan chek ochildi: «{entry.Label}».");
         return true;
     }
 
@@ -935,9 +935,9 @@ public partial class MainWindow
             _prompts.ShowError(Tr.T(
                 "Товар не найден в каталоге — пополнение недоступно.",
                 "Товар каталогдон табылган жок — толуктоо мүмкүн эмес.",
-                "Product not found in the catalog - replenishment unavailable.",
-                "Ürün katalogda bulunamadı - stok ekleme kullanılamıyor.",
-                "Mahsulot katalogda topilmadi - toldirish mumkin emas."));
+                "Product not found in the catalog — restocking is unavailable.",
+                "Ürün katalogda bulunamadı — stok eklenemiyor.",
+                "Mahsulot katalogda topilmadi — to'ldirish mumkin emas."));
             return false;
         }
 
@@ -979,10 +979,10 @@ public partial class MainWindow
             {
                 _prompts.ShowError(Tr.T(
                     "Сервер не вернул остаток товара. Пополнение отменено.",
-                    "Сервер товардын калдыгын кайтарган жок. Толуктоо жокко чыгарылды.",
-                    "The server did not return the product stock. Replenishment canceled.",
-                    "Sunucu ürün stokunu döndürmedi. Stok ekleme iptal edildi.",
-                    "Server mahsulot qoldigini qaytarmadi. Toldirish bekor qilindi."));
+                    "Сервер товардын калдыгын берген жок. Толуктоо жокко чыгарылды.",
+                    "The server did not return the product's stock. Restocking canceled.",
+                    "Sunucu ürünün stok miktarını döndürmedi. Stok ekleme iptal edildi.",
+                    "Server mahsulot qoldig'ini qaytarmadi. To'ldirish bekor qilindi."));
                 return false;
             }
 
@@ -994,10 +994,10 @@ public partial class MainWindow
             PosLogger.Log($"Пополнение при продаже: не удалось перечитать остаток: {ex.Message}", "WARNING");
             _prompts.ShowError(Tr.T(
                 "Нет связи с сервером — пополнение склада отменено.",
-                "Сервер менен байланыш жок — складды толуктоо жокко чыгарылды.",
-                "No connection to the server - replenishment canceled.",
-                "Sunucuya bağlanılamadı - stok ekleme iptal edildi.",
-                "Server bilan aloqa yo'q - toldirish bekor qilindi."));
+                "Сервер менен байланыш жок — кампаны толуктоо жокко чыгарылды.",
+                "No connection to the server — restocking canceled.",
+                "Sunucuyla bağlantı yok — stok ekleme iptal edildi.",
+                "Server bilan aloqa yo'q — omborni to'ldirish bekor qilindi."));
             return false;
         }
 
@@ -1016,7 +1016,7 @@ public partial class MainWindow
             {
                 _prompts.ShowError(Tr.T(
                     "Не удалось создать акт пополнения склада на сервере.",
-                    "Кампаны толуктоо актысын серверде түзүү мүмкүн болгон жок."));
+                    "Кампаны толуктоо актысын серверде түзүү мүмкүн болгон жок.", "Could not create the restock document on the server.", "Sunucuda stok giriş belgesi oluşturulamadı.", "Serverda omborni to'ldirish dalolatnomasini yaratib bo'lmadi."));
                 return false;
             }
 
@@ -1047,14 +1047,14 @@ public partial class MainWindow
         {
             _prompts.ShowError(Tr.T(
                 $"Не удалось пополнить склад: {ex.Message}",
-                $"Кампаны толуктоо мүмкүн болгон жок: {ex.Message}"));
+                $"Кампаны толуктоо мүмкүн болгон жок: {ex.Message}", $"Could not restock: {ex.Message}", $"Stok eklenemedi: {ex.Message}", $"Omborni to'ldirib bo'lmadi: {ex.Message}"));
             return false;
         }
         catch (HttpRequestException)
         {
             _prompts.ShowError(Tr.T(
                 "Не удалось пополнить склад — нет сети.",
-                "Кампаны толуктоо мүмкүн болгон жок — тармак жок."));
+                "Кампаны толуктоо мүмкүн болгон жок — тармак жок.", "Could not restock — no network connection.", "Stok eklenemedi — ağ bağlantısı yok.", "Omborni to'ldirib bo'lmadi — tarmoq yo'q."));
             return false;
         }
     }

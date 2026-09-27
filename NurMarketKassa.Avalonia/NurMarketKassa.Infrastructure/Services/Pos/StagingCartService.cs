@@ -36,7 +36,8 @@ public static class StagingCartService
         bool force = false)
     {
         if (!cart.HasCart)
-            throw new ApiException("Нет данных чека для оплаты.", 400);
+            throw new ApiException(Tr.T("Нет данных чека для оплаты.", "Төлөм үчүн чектин маалыматы жок.",
+                "No receipt data to pay for.", "Ödeme için fiş verisi yok.", "To'lov uchun chek ma'lumotlari yo'q."), 400);
 
         var snapshotJson = cart.Root.GetRawText();
         var wasStaging = cart.IsStaging;
@@ -57,7 +58,9 @@ public static class StagingCartService
         PosLogger.Log($"STAGING materialize: sales/start done at {sw.ElapsedMilliseconds}ms", "PAYMENT");
 
         if (!cart.CanRefresh || string.IsNullOrEmpty(cart.CartId))
-            throw new ApiException("Не удалось получить серверную корзину для оплаты.", 409);
+            throw new ApiException(Tr.T("Не удалось получить серверную корзину для оплаты.",
+                "Төлөм үчүн сервердеги себетти алуу мүмкүн болгон жок.", "Could not get the server cart for payment.",
+                "Ödeme için sunucu sepeti alınamadı.", "To'lov uchun server savatini olib bo'lmadi."), 409);
 
         var cartId = cart.CartId!;
         await CartSaleSessionHelper.EnsureServerCartEmptyAsync(api, cart, cancellationToken).ConfigureAwait(false);

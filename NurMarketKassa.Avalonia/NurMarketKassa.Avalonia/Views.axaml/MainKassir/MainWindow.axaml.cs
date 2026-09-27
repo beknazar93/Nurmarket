@@ -177,12 +177,12 @@ public partial class MainWindow : Window
             App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous;
         _viewModel.SideMenu.RefreshEntitlements();
 
-        progress?.Report("Загрузка кассы...");
+        progress?.Report(Tr.T("Загрузка кассы...", "Касса жүктөлүүдө...", "Loading the till…", "Kasa yükleniyor...", "Kassa yuklanmoqda..."));
 
         if (AccountCatalogIsolation.RequireForcedCatalogSync)
-            _viewModel.Catalog.StatusText = "Требуется синхронизация каталога для нового пользователя.";
+            _viewModel.Catalog.StatusText = Tr.T("Требуется синхронизация каталога для нового пользователя.", "Жаңы колдонуучу үчүн каталогду синхрондоштуруу керек.", "Catalog sync is required for the new user.", "Yeni kullanıcı için katalog senkronizasyonu gerekiyor.", "Yangi foydalanuvchi uchun katalogni sinxronlash kerak.");
 
-        progress?.Report("Загрузка профиля...");
+        progress?.Report(Tr.T("Загрузка профиля...", "Профиль жүктөлүүдө...", "Loading profile…", "Profil yükleniyor...", "Profil yuklanmoqda..."));
         // 2026-09-10: автономный (офлайн) режим — компании на сервере не существует вообще,
         // этот вызов раньше всё равно уходил в сеть при КАЖДОМ запуске (падал в catch ниже, не
         // ронял кассу, но тратил время на заведомо обречённый запрос и логировал лишнее
@@ -216,10 +216,10 @@ public partial class MainWindow : Window
             }
         }
 
-        progress?.Report("Обновление смены...");
+        progress?.Report(Tr.T("Обновление смены...", "Смена жаңыртылууда...", "Updating the shift…", "Vardiya güncelleniyor...", "Smena yangilanmoqda..."));
         await RefreshShiftStateAsync(cancellationToken).ConfigureAwait(true);
 
-        progress?.Report("Подготовка рабочего места...");
+        progress?.Report(Tr.T("Подготовка рабочего места...", "Жумуш орду даярдалууда...", "Preparing the workstation…", "Çalışma alanı hazırlanıyor...", "Ish joyi tayyorlanmoqda..."));
         await _viewModel.InitializeAsync(cancellationToken).ConfigureAwait(true);
 
         // 2026-09-12: НАЙДЕН реальный источник дублирующего текста под жёлтым баннером каталога
@@ -276,8 +276,8 @@ public partial class MainWindow : Window
                     $"Версия {currentVersion}. Эмне өзгөрдү:\n\n{AppChangelog.LatestAsBulletedText()}",
                     $"Version {currentVersion}. What's new:\n\n{AppChangelog.LatestAsBulletedText()}",
                     $"Sürüm {currentVersion}. Neler değişti:\n\n{AppChangelog.LatestAsBulletedText()}",
-                    $"Versiya {currentVersion}. Nima o'zgardi:\n\n{AppChangelog.LatestAsBulletedText()}"),
-                Tr.T("Касса обновлена", "Касса жаңырды", "POS updated", "Kasa güncellendi", "Kassa yangilandi"),
+                    $"Versiya {currentVersion}. Nimalar o'zgardi:\n\n{AppChangelog.LatestAsBulletedText()}"),
+                Tr.T("Касса обновлена", "Касса жаңыртылды", "Till updated", "Kasa güncellendi", "Kassa yangilandi"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -300,7 +300,7 @@ public partial class MainWindow : Window
                 Tr.T("Подписка не оплачена", "Жазылуу төлөнгөн эмес", "Subscription not paid", "Abonelik ödenmedi", "Obuna to'lanmagan"),
                 Tr.T(
                     $"Срок действия компании истёк ({subscription.EndDate:dd.MM.yyyy}). Пожалуйста, оплатите!",
-                    $"Компаниянын мөөнөтү бүттү ({subscription.EndDate:dd.MM.yyyy}). Сураныч, төлөңүз!"),
+                    $"Компаниянын мөөнөтү бүттү ({subscription.EndDate:dd.MM.yyyy}). Сураныч, төлөңүз!", $"Your company's subscription has expired ({subscription.EndDate:dd.MM.yyyy}). Please make a payment.", $"Şirketin abonelik süresi doldu ({subscription.EndDate:dd.MM.yyyy}). Lütfen ödeme yapın!", $"Kompaniya obunasi muddati tugadi ({subscription.EndDate:dd.MM.yyyy}). Iltimos, to'lovni amalga oshiring!"),
                 PosAlertKind.Error,
                 buttonText: Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash"));
             OpenPaymentSite();
@@ -322,9 +322,9 @@ public partial class MainWindow : Window
                     $"Подписка NurCRM истекает {subscription.EndDate:dd.MM.yyyy} (осталось {subscription.DaysRemaining} дн.).\n" +
                     "Пожалуйста, оплатите абонентскую плату заранее.",
                     $"NurCRM жазылуусунун мөөнөтү {subscription.EndDate:dd.MM.yyyy} бүтөт ({subscription.DaysRemaining} күн калды).\n" +
-                    "Абоненттик төлөмдү мөөнөтүнөн мурда төлөңүз."),
+                    "Абоненттик төлөмдү мөөнөтүнөн мурда төлөңүз.", $"Your NurCRM subscription expires on {subscription.EndDate:dd.MM.yyyy} ({subscription.DaysRemaining} days left).\nPlease pay the subscription fee in advance.", $"NurCRM aboneliğiniz {subscription.EndDate:dd.MM.yyyy} tarihinde sona eriyor (kalan gün: {subscription.DaysRemaining}).\nLütfen abonelik ücretini önceden ödeyin.", $"NurCRM obunasi muddati tugaydi: {subscription.EndDate:dd.MM.yyyy} ({subscription.DaysRemaining} kun qoldi).\nIltimos, abonent to'lovini oldindan to'lang."),
                 PosAlertKind.Warning,
-                buttonText: Tr.T("Пропустить", "Өткөрүү", "Skip", "Atla", "O'tkazish"));
+                buttonText: Tr.T("Пропустить", "Өткөрүп жиберүү", "Skip", "Atla", "O'tkazib yuborish"));
         }
 
         return true;
@@ -455,9 +455,9 @@ public partial class MainWindow : Window
                         $"Подписка NurCRM истекает {status.EndDate:dd.MM.yyyy} (осталось {status.DaysRemaining} дн.).\n" +
                         "Пожалуйста, оплатите абонентскую плату.",
                         $"NurCRM жазылуусунун мөөнөтү {status.EndDate:dd.MM.yyyy} бүтөт ({status.DaysRemaining} күн калды).\n" +
-                        "Абоненттик төлөмдү төлөңүз."),
+                        "Абоненттик төлөмдү төлөңүз.", $"Your NurCRM subscription expires on {status.EndDate:dd.MM.yyyy} ({status.DaysRemaining} days left).\nPlease pay the subscription fee.", $"NurCRM aboneliğiniz {status.EndDate:dd.MM.yyyy} tarihinde sona eriyor (kalan gün: {status.DaysRemaining}).\nLütfen abonelik ücretini ödeyin.", $"NurCRM obunasi muddati tugaydi: {status.EndDate:dd.MM.yyyy} ({status.DaysRemaining} kun qoldi).\nIltimos, abonent to'lovini to'lang."),
                     PosAlertKind.Warning,
-                    buttonText: Tr.T("Пропустить", "Өткөрүү", "Skip", "Atla", "O'tkazish")).ConfigureAwait(true);
+                    buttonText: Tr.T("Пропустить", "Өткөрүп жиберүү", "Skip", "Atla", "O'tkazib yuborish")).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -833,7 +833,7 @@ public partial class MainWindow : Window
         if (_customerDisplay.IsOpen)
         {
             _ = _customerDisplay.CloseAsync(true);
-            _prompts.ShowToast("Экран покупателя скрыт.");
+            _prompts.ShowToast(Tr.T("Экран покупателя скрыт.", "Сатып алуучунун экраны жашырылды.", "Customer display hidden.", "Müşteri ekranı gizlendi.", "Xaridor ekrani yashirildi."));
             RestoreScannerFocus();
             return;
         }
@@ -926,7 +926,7 @@ public partial class MainWindow : Window
                 VoicePromptPlayer.PlayVoiceMismatch();
                 _prompts.ShowToast(
                     Tr.T("Голосовой замок: команда не выполнена — голос не совпадает с зарегистрированным.",
-                        "Үндүк кулпу: буйрук аткарылган жок — үн катталган үн менен дал келбейт."),
+                        "Үн кулпусу: буйрук аткарылган жок — үн катталган үнгө дал келбейт.", "Voice lock: command not executed — the voice does not match the registered one.", "Ses kilidi: komut yerine getirilmedi — ses, kayıtlı sesle eşleşmiyor.", "Ovozli qulf: buyruq bajarilmadi — ovoz ro'yxatdan o'tgan ovozga mos kelmadi."),
                     isWarning: true);
                 return;
             }
@@ -949,7 +949,7 @@ public partial class MainWindow : Window
                         VoicePromptPlayer.PlayClarifyProduct();
                         _prompts.ShowToast(
                             Tr.T($"Голос: уточните товар — «{result.ProductQuery}» подходит нескольким: {names}.",
-                                $"Үн: товарды тактаңыз — «{result.ProductQuery}» бир нече товарга дал келет: {names}."),
+                                $"Үн: товарды тактаңыз — «{result.ProductQuery}» бир нече товарга дал келет: {names}.", $"Voice: please specify the product — “{result.ProductQuery}” matches several: {names}.", $"Sesli komut: ürünü netleştirin — «{result.ProductQuery}» birden fazla ürüne uyuyor: {names}.", $"Ovoz: mahsulotni aniqlashtiring — «{result.ProductQuery}» bir nechta mahsulotga mos keladi: {names}."),
                             isWarning: true);
                     }
                     else if (string.IsNullOrWhiteSpace(result.ProductQuery) && result.UnitKind != VoiceUnitKind.None)
@@ -970,8 +970,8 @@ public partial class MainWindow : Window
                             // Учить нечему (пустая фраза) — тогда хотя бы обычное предупреждение.
                             _prompts.ShowToast(
                                 Tr.T($"Голос: товар не найден («{result.RawText}»).", $"Үн: товар табылган жок («{result.RawText}»).",
-                                    $"Voice: product not found (“{result.RawText}”).", $"Sesli komut: ürün bulunamadı (“{result.RawText}”).",
-                                    $"Ovoz: mahsulot topilmadi (“{result.RawText}”)."),
+                                    $"Voice: product not found (“{result.RawText}”).", $"Sesli komut: ürün bulunamadı («{result.RawText}»).",
+                                    $"Ovoz: mahsulot topilmadi («{result.RawText}»)."),
                                 isWarning: true);
                         }
                     }
@@ -984,12 +984,12 @@ public partial class MainWindow : Window
                         if (!OfferTeachVoicePhrase(result.ProductQuery))
                         {
                             _prompts.ShowToast(Tr.T($"Голос: ничего не найдено по «{result.ProductQuery}».", $"Үн: «{result.ProductQuery}» боюнча эч нерсе табылган жок.",
-                                $"Voice: nothing found for “{result.ProductQuery}”.", $"Sesli komut: “{result.ProductQuery}” için bir şey bulunamadı.",
-                                $"Ovoz: “{result.ProductQuery}” bo'yicha hech narsa topilmadi."), isWarning: true);
+                                $"Voice: nothing found for “{result.ProductQuery}”.", $"Sesli komut: «{result.ProductQuery}» için hiçbir şey bulunamadı.",
+                                $"Ovoz: «{result.ProductQuery}» bo'yicha hech narsa topilmadi."), isWarning: true);
                         }
                     }
                     else
-                        _prompts.ShowToast(Tr.T($"Найдено: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Табылды: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}."));
+                        _prompts.ShowToast(Tr.T($"Найдено: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Табылды: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Found: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Bulunanlar: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}.", $"Topildi: {string.Join(", ", result.Candidates.Take(5).Select(p => p.Title))}."));
                     break;
 
                 case VoiceIntent.RemoveLastItem:
@@ -998,7 +998,7 @@ public partial class MainWindow : Window
                     if (lastLine is null)
                     {
                         VoicePromptPlayer.PlayCartEmpty();
-                        _prompts.ShowToast(Tr.T("Голос: чек пуст, удалять нечего.", "Үн: чек бош, өчүрүүчү нерсе жок.", "Voice: the receipt is empty, nothing to remove.", "Sesli komut: fiş boş, silinecek bir şey yok.", "Ovoz: chek bo'sh, o'chirish uchun hech narsa yo'q."), isWarning: true);
+                        _prompts.ShowToast(Tr.T("Голос: чек пуст, удалять нечего.", "Үн: чек бош, өчүрө турган эч нерсе жок.", "Voice: the receipt is empty, nothing to remove.", "Sesli komut: fiş boş, silinecek bir şey yok.", "Ovoz: chek bo'sh, o'chiradigan narsa yo'q."), isWarning: true);
                         break;
                     }
                     if (basket.RemoveLineCommand.CanExecute(lastLine))
@@ -1014,7 +1014,7 @@ public partial class MainWindow : Window
                     if (!basket.HasItems)
                     {
                         VoicePromptPlayer.PlayCartEmpty();
-                        _prompts.ShowToast(Tr.T("Голос: чек пуст, оплачивать нечего.", "Үн: чек бош, төлөөчү нерсе жок.", "Voice: the receipt is empty, nothing to pay.", "Sesli komut: fiş boş, ödenecek bir şey yok.", "Ovoz: chek bo'sh, to'lov uchun hech narsa yo'q."), isWarning: true);
+                        _prompts.ShowToast(Tr.T("Голос: чек пуст, оплачивать нечего.", "Үн: чек бош, төлөй турган эч нерсе жок.", "Voice: the receipt is empty, nothing to pay.", "Sesli komut: fiş boş, ödenecek bir şey yok.", "Ovoz: chek bo'sh, to'lanadigan narsa yo'q."), isWarning: true);
                     }
                     else
                         ExecuteCommand(basket.PayCommand);
@@ -1141,7 +1141,7 @@ public partial class MainWindow : Window
         if (_session.IsShiftOpen)
         {
             // Вторая смена поверх незакрытой осиротила бы продажи прежней смены.
-            _prompts.ShowWarning("Смена уже открыта. Закройте текущую смену перед открытием новой.");
+            _prompts.ShowWarning(Tr.T("Смена уже открыта. Закройте текущую смену перед открытием новой.", "Смена мурунтан эле ачык. Жаңысын ачуудан мурун учурдагы сменаны жабыңыз.", "A shift is already open. Close the current shift before opening a new one.", "Vardiya zaten açık. Yeni bir vardiya açmadan önce mevcut vardiyayı kapatın.", "Smena allaqachon ochiq. Yangisini ochishdan oldin joriy smenani yoping."));
             return Task.CompletedTask;
         }
 
@@ -1219,8 +1219,8 @@ public partial class MainWindow : Window
         _extendDisplayOffered = true;
 
         var ok = await _prompts.ConfirmAsync(
-            "Задний экран сейчас повторяет экран кассы, поэтому покупатель не видит цену.\n\n" +
-            "Переключить экраны Windows в режим «Расширить», чтобы на заднем экране показывался экран покупателя?")
+            Tr.T("Задний экран сейчас повторяет экран кассы, поэтому покупатель не видит цену.\n\n" +
+            "Переключить экраны Windows в режим «Расширить», чтобы на заднем экране показывался экран покупателя?", "Арткы экран азыр кассанын экранын кайталап жатат, ошондуктан сатып алуучу бааны көрбөйт.\n\nАрткы экранда сатып алуучунун экраны көрүнүшү үчүн Windows экрандарын «Расширить» режимине которосузбу?", "The rear screen is currently mirroring the till screen, so the customer can't see the price.\n\nSwitch Windows displays to “Extend” mode so the customer display appears on the rear screen?", "Arka ekran şu anda kasa ekranını yansıtıyor, bu yüzden müşteri fiyatı göremiyor.\n\nArka ekranda müşteri ekranının görünmesi için Windows ekranları «Genişlet» moduna geçirilsin mi?", "Orqa ekran hozir kassa ekranini takrorlayapti, shuning uchun xaridor narxni ko'rmaydi.\n\nOrqa ekranda xaridor ekrani ko'rinishi uchun Windows ekranlari «Расширить» rejimiga o'tkazilsinmi?"))
             .ConfigureAwait(true);
         if (ok)
             AvaloniaCustomerDisplayService.TryExtendWindowsDisplays();
@@ -1235,7 +1235,7 @@ public partial class MainWindow : Window
             return true;
 
         return await _prompts
-            .ConfirmAsync("В текущем чеке есть незавершённые позиции. Закрыть смену и потерять чек?")
+            .ConfirmAsync(Tr.T("В текущем чеке есть незавершённые позиции. Закрыть смену и потерять чек?", "Учурдагы чекте аягына чыкпаган позициялар бар. Сменаны жаап, чекти жоготосузбу?", "The current receipt has unfinished items. Close the shift and lose the receipt?", "Mevcut fişte tamamlanmamış kalemler var. Vardiyayı kapatıp fişi kaybetmek istiyor musunuz?", "Joriy chekda yakunlanmagan pozitsiyalar bor. Smenani yopib, chekni yo'qotasizmi?"))
             .ConfigureAwait(true);
     }
 
@@ -1257,8 +1257,8 @@ public partial class MainWindow : Window
         _prompts.ShowToast(Tr.T(
             "Этот раздел — в программе «NurMarket Владелец».",
             "Бул бөлүм «NurMarket Ээси» программасында.",
-            "This section is in the «NurMarket Owner» program.",
-            "Bu bölüm «NurMarket Sahibi» programında.",
+            "This section is in the “NurMarket Owner” program.",
+            "Bu bölüm «NurMarket İşletme Sahibi» programında yer alır.",
             "Bu bo'lim «NurMarket Egasi» dasturida."), isWarning: true);
         return false;
     }
@@ -1388,7 +1388,7 @@ public partial class MainWindow : Window
         if (_permissions.HasPermission(permission))
             return true;
         PosLogger.Log($"Permission denied: {permission}", "WARNING");
-        _prompts.ShowWarning("Недостаточно прав для выполнения этой операции.");
+        _prompts.ShowWarning(Tr.T("Недостаточно прав для выполнения этой операции.", "Бул операцияны аткарууга укук жетишсиз.", "Insufficient permissions to perform this operation.", "Bu işlemi gerçekleştirmek için yetkiniz yok.", "Bu amalni bajarish uchun huquq yetarli emas."));
         return false;
     }
 
@@ -1608,7 +1608,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Window close flow failed: {ex}", "ERROR");
-            _prompts.ShowError("Не удалось корректно завершить текущую операцию.");
+            _prompts.ShowError(Tr.T("Не удалось корректно завершить текущую операцию.", "Учурдагы операцияны туура аяктоо мүмкүн болгон жок.", "Could not complete the current operation properly.", "Mevcut işlem düzgün şekilde tamamlanamadı.", "Joriy amalni to'g'ri yakunlab bo'lmadi."));
         }
         finally
         {
@@ -1781,7 +1781,7 @@ public partial class MainWindow : Window
                     App.PosCashboxId = localCashboxId;
                     NurMarketKassa.App.PosCashboxId = localCashboxId;
                     _session.ActiveTerminal = localCashboxId;
-                    _session.PosCashboxDisplayName = Tr.T("Локальная касса", "Жергиликтүү касса", "Local register", "Yerel kasa", "Mahalliy kassa");
+                    _session.PosCashboxDisplayName = Tr.T("Локальная касса", "Жергиликтүү касса", "Local till", "Yerel kasa", "Mahalliy kassa");
                     NurMarketKassa.App.PosCashboxDisplayName = _session.PosCashboxDisplayName;
                 }
             }
@@ -1957,7 +1957,7 @@ public partial class MainWindow : Window
             _viewModel.Toolbar.NotifyShiftStateChanged();
 
             if (_session.IsShiftOpen)
-                _viewModel.Catalog.StatusText = "Смена открыта";
+                _viewModel.Catalog.StatusText = Tr.T("Смена открыта", "Смена ачык", "Shift open", "Vardiya açık", "Smena ochiq");
 
             // Остались внесения/изъятия, не дошедшие до сервера в прошлый раз (касса была без
             // сети или её закрыли раньше) — дошлём в фоне.
@@ -1981,7 +1981,7 @@ public partial class MainWindow : Window
         var result = await _cashShiftService.OpenShiftAsync(openingCash, _windowCts.Token).ConfigureAwait(true);
         if (!result.IsSuccess)
         {
-            _prompts.ShowError(result.ErrorMessage ?? "Не удалось открыть смену.");
+            _prompts.ShowError(result.ErrorMessage ?? Tr.T("Не удалось открыть смену.", "Сменаны ачуу мүмкүн болгон жок.", "Could not open the shift.", "Vardiya açılamadı.", "Smenani ochib bo'lmadi."));
             return;
         }
 
@@ -1995,7 +1995,7 @@ public partial class MainWindow : Window
         UpdateShiftBalanceUi();
         _viewModel.Toolbar.NotifyShiftStateChanged();
         _viewModel.SideMenu.ShiftBalanceText = ShiftBalanceHelper.FormatBalance(EffectiveShiftCashBalance);
-        _viewModel.Catalog.StatusText = $"Смена открыта. Остаток: {openingCash:0.00} сом";
+        _viewModel.Catalog.StatusText = Tr.T($"Смена открыта. Остаток: {openingCash:0.00} сом", $"Смена ачылды. Калдык: {openingCash:0.00} сом", $"Shift opened. Opening balance: {openingCash:0.00} som", $"Vardiya açıldı. Bakiye: {openingCash:0.00} som", $"Smena ochildi. Qoldiq: {openingCash:0.00} so'm");
         if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
         {
             var displayResult = _customerDisplay.OpenForSession(this);
@@ -2019,7 +2019,7 @@ public partial class MainWindow : Window
         var result = await _cashShiftService.CloseShiftAsync(closingCash, _windowCts.Token).ConfigureAwait(true);
         if (!result.IsSuccess)
         {
-            _prompts.ShowError(result.ErrorMessage ?? "Не удалось закрыть смену.");
+            _prompts.ShowError(result.ErrorMessage ?? Tr.T("Не удалось закрыть смену.", "Сменаны жабуу мүмкүн болгон жок.", "Could not close the shift.", "Vardiya kapatılamadı.", "Smenani yopib bo'lmadi."));
             return;
         }
 
@@ -2032,8 +2032,8 @@ public partial class MainWindow : Window
         _shiftCashBalance = result.Balance ?? closingCash ?? 0m;
         UpdateShiftBalanceUi();
         _viewModel.Toolbar.NotifyShiftStateChanged();
-        _viewModel.SideMenu.ShiftBalanceText = "Смена не открыта";
-        _viewModel.Catalog.StatusText = "Смена закрыта.";
+        _viewModel.SideMenu.ShiftBalanceText = Tr.T("Смена не открыта", "Смена ачылган эмес", "Shift not open", "Vardiya açık değil", "Smena ochilmagan");
+        _viewModel.Catalog.StatusText = Tr.T("Смена закрыта.", "Смена жабылды.", "Shift closed.", "Vardiya kapatıldı.", "Smena yopildi.");
         _customerDisplay.CloseForSession();
 
         ShowShiftClosedReport(shiftIdBeforeClose, totalsBeforeClose, result.Totals, _shiftCashBalance ?? 0m);
@@ -2148,8 +2148,8 @@ public partial class MainWindow : Window
         _shiftCashBalance = 0m;
         UpdateShiftBalanceUi();
         _viewModel.Toolbar.NotifyShiftStateChanged();
-        _viewModel.SideMenu.ShiftBalanceText = "Смена не открыта";
-        _viewModel.Catalog.StatusText = "Смена закрыта на сервере — откройте смену заново.";
+        _viewModel.SideMenu.ShiftBalanceText = Tr.T("Смена не открыта", "Смена ачылган эмес", "Shift not open", "Vardiya açık değil", "Smena ochilmagan");
+        _viewModel.Catalog.StatusText = Tr.T("Смена закрыта на сервере — откройте смену заново.", "Смена серверде жабылган — сменаны кайра ачыңыз.", "The shift was closed on the server — open the shift again.", "Vardiya sunucuda kapatıldı — vardiyayı yeniden açın.", "Smena serverda yopilgan — smenani qaytadan oching.");
         _customerDisplay.CloseForSession();
 
         _ = ResyncShiftAfterDesyncAsync(rejectedShiftId);
@@ -2208,13 +2208,13 @@ public partial class MainWindow : Window
     {
         var balance = EffectiveShiftCashBalance;
         var balanceText = _session.IsShiftOpen
-            ? $"Касса: {ShiftBalanceHelper.FormatBalance(balance)}"
-            : "Касса: 0.00 сом";
+            ? Tr.T($"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Till: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kasa: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kassa: {ShiftBalanceHelper.FormatBalance(balance)}")
+            : Tr.T("Касса: 0.00 сом", "Касса: 0.00 сом", "Till: 0.00 som", "Kasa: 0.00 som", "Kassa: 0.00 so'm");
 
         _viewModel.Toolbar.Status.SetShiftBalance(balance ?? 0m);
         _viewModel.SideMenu.ShiftBalanceText = _session.IsShiftOpen
             ? ShiftBalanceHelper.FormatBalance(balance)
-            : "Смена не открыта";
+            : Tr.T("Смена не открыта", "Смена ачылган эмес", "Shift not open", "Vardiya açık değil", "Smena ochilmagan");
         _viewModel.SideMenu.RefreshSessionInfo();
 
         if (_viewModel.Toolbar.Status.ShiftBalanceText != balanceText)

@@ -111,7 +111,7 @@ public partial class CloseShiftDialog : Window
 
         var discrepancy = actual - SuggestedBalance.Value;
         DiscrepancyBorder.IsVisible = true;
-        DiscrepancyText.Text = (discrepancy >= 0 ? "+" : "") + discrepancy.ToString("0.00", CultureInfo.InvariantCulture) + " сом";
+        DiscrepancyText.Text = (discrepancy >= 0 ? "+" : "") + discrepancy.ToString("0.00", CultureInfo.InvariantCulture) + Tr.T(" сом", " сом", " som", " som", " so'm");
 
         var (background, foreground) = discrepancy switch
         {
@@ -135,7 +135,7 @@ public partial class CloseShiftDialog : Window
             !decimal.TryParse(ClosingCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
         {
             PosMessageBox.Show(this,
-                Tr.T("Введите корректную сумму.", "Туура суманы киргизиңиз.", "Enter a valid amount.",
+                Tr.T("Введите корректную сумму.", "Туура сумманы киргизиңиз.", "Enter a valid amount.",
                     "Geçerli bir tutar girin.", "To'g'ri summani kiriting."),
                 Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);

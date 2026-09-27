@@ -17,19 +17,19 @@ public partial class PrinterNotConnectedDialog : Window
 
         if (checkoutMode)
         {
-            Title = "Чековый аппарат не подключен";
-            TitleText.Text = "Чековый аппарат не подключен";
+            Title = Tr.T("Чековый аппарат не подключен", "Чек аппараты туташтырылган эмес", "Receipt printer not connected", "Fiş yazıcısı bağlı değil", "Chek apparati ulanmagan");
+            TitleText.Text = Tr.T("Чековый аппарат не подключен", "Чек аппараты туташтырылган эмес", "Receipt printer not connected", "Fiş yazıcısı bağlı değil", "Chek apparati ulanmagan");
             MessageText.Text =
-                "Вы выбрали печать чека, однако чековый аппарат не подключён.\n" +
-                "Подключите чековый аппарат либо отключите печать чека и продолжите без печати.";
-            CancelButton.Content = "Отмена";
-            ProceedButton.Content = "Отключить печать и продолжить";
+                Tr.T("Вы выбрали печать чека, однако чековый аппарат не подключён.\n" +
+                "Подключите чековый аппарат либо отключите печать чека и продолжите без печати.", "Сиз чекти басып чыгарууну тандадыңыз, бирок чек аппараты туташтырылган эмес.\nЧек аппаратын туташтырыңыз же чек басып чыгарууну өчүрүп, басып чыгарбай эле улантыңыз.", "You chose to print the receipt, but the receipt printer is not connected.\nConnect the receipt printer, or turn off receipt printing and continue without printing.", "Fiş yazdırmayı seçtiniz, ancak fiş yazıcısı bağlı değil.\nFiş yazıcısını bağlayın ya da fiş yazdırmayı kapatıp yazdırmadan devam edin.", "Siz chekni chop etishni tanladingiz, lekin chek apparati ulanmagan.\nChek apparatini ulang yoki chek chop etishni o'chirib, chop etmasdan davom eting.");
+            CancelButton.Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish");
+            ProceedButton.Content = Tr.T("Отключить печать и продолжить", "Басып чыгарууну өчүрүп, улантуу", "Turn off printing and continue", "Yazdırmayı kapat ve devam et", "Chop etishni o'chirib, davom etish");
             return;
         }
 
-        Title = "Принтер не подключен";
-        TitleText.Text = "Принтер не подключён";
-        MessageText.Text = "Чековый аппарат не подключен.";
+        Title = Tr.T("Принтер не подключен", "Принтер туташтырылган эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
+        TitleText.Text = Tr.T("Принтер не подключён", "Принтер туташтырылган эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
+        MessageText.Text = Tr.T("Чековый аппарат не подключен.", "Чек аппараты туташтырылган эмес.", "The receipt printer is not connected.", "Fiş yazıcısı bağlı değil.", "Chek apparati ulanmagan.");
         TwoButtonRow.IsVisible = false;
         OkButton.IsVisible = true;
     }

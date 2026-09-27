@@ -23,6 +23,10 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// обновлениями этой версии; картинки — снимки настоящих окон кассы и программы владельца на
 /// тестовой компании (Assets/kb/*.png, личные данные на них размыты). Слева поиск и разделы,
 /// справа статья: шаги с номерами, «Важно» отдельно, снимки с подписями (нажатие — крупнее).
+///
+/// 2026-09-26, «баг с языком»: статьи на языке интерфейса — kb.ky.json / kb.en.json / kb.tr.json /
+/// kb.uz.json (та же структура и те же id, что у kb.json); статья, которой нет в переводе, берётся
+/// по-русски. При смене языка окно перечитывает статьи и остаётся на той же статье.
 /// </summary>
 public partial class KnowledgeBaseWindow : Window
 {
@@ -30,7 +34,14 @@ public partial class KnowledgeBaseWindow : Window
     private static readonly Regex StepPattern = new(@"^Шаг\s+(\d+)\.\s*(.*)$", RegexOptions.CultureInvariant);
 
     private sealed record KbImage(string File, string Caption);
-    private sealed record KbArticle(string Id, string Title, string Text, List<string> Keywords, List<KbImage> Images, string Section, string Group, string Note);
+    private sealed record KbArticle(string Id, string Title, string Text, List<string> Keywords, List<KbImage> Images, string Section, string Group, string Note)
+    {
+        /// <summary>Русские название и ключевые слова — чтобы поиск по-русски находил статью и
+        /// при другом языке интерфейса.</summary>
+        public string RussianSearch { get; init; } = "";
+    }
+
+    private const string StartArticleId = "продажи-как-создать-продажу";
 
     private readonly List<KbArticle> _articles = new();
     private readonly Dictionary<string, Button> _navButtons = new();
@@ -39,27 +50,60 @@ public partial class KnowledgeBaseWindow : Window
     public KnowledgeBaseWindow()
     {
         InitializeComponent();
-        SubtitleText.Text = Tr.T(
-            "Вопросы и пошаговое обучение со скриншотами кассы и программы владельца",
-            "Суроолор жана кассанын, ээсинин программасынын скриншоттору менен кадам-кадам окутуу",
-            "Questions and step-by-step training with screenshots of the register and owner program",
-            "Kasa ve sahip programının ekran görüntüleriyle sorular ve adım adım eğitim",
-            "Kassa va ega dasturining skrinshotlari bilan savollar va bosqichma-bosqich o'qitish");
-        SearchBox.Watermark = Tr.T("Поиск: например, «возврат» или «весы»", "Издөө: мисалы, «кайтаруу» же «тараза»",
-            "Search: e.g. “return” or “scale”", "Ara: örneğin «iade» veya «terazi»", "Qidiruv: masalan, «qaytarish» yoki «tarozi»");
         SearchBox.TextChanged += (_, _) => BuildNav(SearchBox.Text);
-
-        LoadArticles();
-        BuildNav(null);
-        if (_articles.Count > 0)
-            ShowArticle(_articles.FirstOrDefault(a => a.Title == "Как создать продажу") ?? _articles[0]);
+        ApplyLanguage(StartArticleId);
+        Tr.LanguageChanged += OnLanguageChanged;
+        Closed += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
     }
 
-    private void LoadArticles()
+    private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(() => ApplyLanguage(_current?.Id));
+
+    private void ApplyLanguage(string? articleId)
     {
+        SubtitleText.Text = Tr.T(
+            "Вопросы и пошаговое обучение со скриншотами кассы и программы владельца",
+            "Кассанын жана ээсинин программасынын скриншоттору менен суроолор жана кадам-кадам окутуу",
+            "Questions and step-by-step guides with screenshots of the till and the owner program",
+            "Sorular ve kasa ile sahip programının ekran görüntüleriyle adım adım eğitim",
+            "Kassa va ega dasturi skrinshotlari bilan savollar va bosqichma-bosqich qo'llanma");
+        SearchBox.Watermark = Tr.T("Поиск: например, «возврат» или «весы»", "Издөө: мисалы, «кайтаруу» же «тараза»",
+            "Search: e.g. “return” or “scale”", "Ara: örneğin «iade» veya «tartı»", "Qidiruv: masalan, «qaytarish» yoki «tarozi»");
+
+        _current = null;
+        _articles.Clear();
+        var russian = ReadArticles("kb.json");
+        var language = Tr.T("ru", "ky", "en", "tr", "uz");
+        var translated = language == "ru"
+            ? new Dictionary<string, KbArticle>()
+            : ReadArticles($"kb.{language}.json").GroupBy(a => a.Id).ToDictionary(g => g.Key, g => g.First());
+        foreach (var article in russian)
+        {
+            var shown = translated.TryGetValue(article.Id, out var t) ? t : article;
+            _articles.Add(shown with
+            {
+                // Снимки одни на все языки: файлы — из русской базы, подписи — из перевода.
+                Images = article.Images.Select((image, i) => image with
+                {
+                    Caption = i < shown.Images.Count && shown.Images[i].Caption.Length > 0 ? shown.Images[i].Caption : image.Caption,
+                }).ToList(),
+                RussianSearch = article.Title + " " + string.Join(" ", article.Keywords),
+            });
+        }
+
+        BuildNav(SearchBox.Text);
+        if (_articles.Count > 0)
+            ShowArticle(_articles.FirstOrDefault(a => a.Id == articleId) ?? _articles[0]);
+    }
+
+    private static List<KbArticle> ReadArticles(string fileName)
+    {
+        var articles = new List<KbArticle>();
         try
         {
-            using var stream = AssetLoader.Open(new Uri(AssetRoot + "kb.json"));
+            var uri = new Uri(AssetRoot + fileName);
+            if (!AssetLoader.Exists(uri))
+                return articles;
+            using var stream = AssetLoader.Open(uri);
             using var doc = JsonDocument.Parse(stream);
             foreach (var section in doc.RootElement.GetProperty("sections").EnumerateArray())
             {
@@ -70,7 +114,7 @@ public partial class KnowledgeBaseWindow : Window
                     var groupTitle = group.TryGetProperty("title", out var g) ? g.GetString() ?? "" : "";
                     foreach (var a in group.GetProperty("articles").EnumerateArray())
                     {
-                        _articles.Add(new KbArticle(
+                        articles.Add(new KbArticle(
                             a.GetProperty("id").GetString() ?? "",
                             a.GetProperty("title").GetString() ?? "",
                             a.GetProperty("text").GetString() ?? "",
@@ -85,8 +129,10 @@ public partial class KnowledgeBaseWindow : Window
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"База знаний не загружена: {ex.Message}", "WARNING");
+            PosLogger.Log($"База знаний {fileName} не загружена: {ex.Message}", "WARNING");
         }
+
+        return articles;
     }
 
     private void BuildNav(string? query)
@@ -98,7 +144,7 @@ public partial class KnowledgeBaseWindow : Window
         {
             if (words.Length == 0)
                 return true;
-            var hay = (a.Title + " " + a.Text + " " + string.Join(" ", a.Keywords) + " " + a.Section + " " + a.Group).ToLowerInvariant();
+            var hay = (a.Title + " " + a.Text + " " + string.Join(" ", a.Keywords) + " " + a.Section + " " + a.Group + " " + a.RussianSearch).ToLowerInvariant();
             return words.All(hay.Contains);
         }
 
@@ -115,7 +161,7 @@ public partial class KnowledgeBaseWindow : Window
 
                 var label = new TextBlock { Text = article.Title };
                 if (article.Images.Count > 0)
-                    label.Text = article.Title + "  📷";
+                    label.Text = article.Title + (article.Images.Any(i => i.File.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)) ? "  🎬" : "  📷");
                 var button = new Button { Content = label, Classes = { "kbItem" } };
                 if (ReferenceEquals(article, _current))
                     button.Classes.Add("active");
@@ -248,18 +294,75 @@ public partial class KnowledgeBaseWindow : Window
             },
         };
 
-    /// <summary>Снимок окна с подписью. Нажатие — во всю ширину статьи и без ограничения высоты.</summary>
-    private Control? ImageBlock(KbImage image)
+    /// <summary>Снимок на языке программы: «kassa-main.ky.png» рядом с «kassa-main.png»; своего нет —
+    /// русский (2026-09-27, «скрины у тебя на русском, их язык тоже поменяй»).</summary>
+    private static string LocalizedAsset(string file)
     {
-        Bitmap bitmap;
+        var language = Tr.T("ru", "ky", "en", "tr", "uz");
+        if (language == "ru")
+            return file;
+        var candidate = Path.GetFileNameWithoutExtension(file) + "." + language + Path.GetExtension(file);
         try
         {
-            using var stream = AssetLoader.Open(new Uri(AssetRoot + image.File));
-            bitmap = new Bitmap(stream);
+            return AssetLoader.Exists(new Uri(AssetRoot + candidate)) ? candidate : file;
+        }
+        catch
+        {
+            return file;
+        }
+    }
+
+    /// <summary>Кадры анимации GIF (обучающие «гифки»): Avalonia сама GIF не проигрывает, поэтому
+    /// кадры раскладываются через SkiaSharp и сменяются таймером. Кадры в файлах — полные (без
+    /// наложения на предыдущий), так их сохраняет наш сборщик анимаций.</summary>
+    private static List<(Bitmap Frame, TimeSpan Delay)> ReadGifFrames(Stream stream)
+    {
+        var frames = new List<(Bitmap, TimeSpan)>();
+        using var codec = SkiaSharp.SKCodec.Create(stream);
+        if (codec == null)
+            return frames;
+        var info = new SkiaSharp.SKImageInfo(codec.Info.Width, codec.Info.Height, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul);
+        using var buffer = new SkiaSharp.SKBitmap(info);
+        var count = Math.Max(1, codec.FrameCount);
+        for (var i = 0; i < count; i++)
+        {
+            var required = codec.FrameCount > 0 ? codec.FrameInfo[i].RequiredFrame : -1;
+            codec.GetPixels(info, buffer.GetPixels(), new SkiaSharp.SKCodecOptions(i, required));
+            using var image = SkiaSharp.SKImage.FromBitmap(buffer);
+            using var png = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            using var pngStream = png.AsStream();
+            var delay = codec.FrameCount > 0 ? codec.FrameInfo[i].Duration : 0;
+            frames.Add((new Bitmap(pngStream), TimeSpan.FromMilliseconds(Math.Max(delay, 300))));
+        }
+
+        return frames;
+    }
+
+    /// <summary>Снимок окна с подписью. Нажатие — во всю ширину статьи и без ограничения высоты.
+    /// GIF проигрывается по кругу, пока статья открыта.</summary>
+    private Control? ImageBlock(KbImage image)
+    {
+        var file = LocalizedAsset(image.File);
+        Bitmap bitmap;
+        List<(Bitmap Frame, TimeSpan Delay)>? frames = null;
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri(AssetRoot + file));
+            if (file.EndsWith(".gif", StringComparison.OrdinalIgnoreCase))
+            {
+                frames = ReadGifFrames(stream);
+                if (frames.Count == 0)
+                    return null;
+                bitmap = frames[0].Frame;
+            }
+            else
+            {
+                bitmap = new Bitmap(stream);
+            }
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"База знаний: нет картинки {image.File}: {ex.Message}", "WARNING");
+            PosLogger.Log($"База знаний: нет картинки {file}: {ex.Message}", "WARNING");
             return null;
         }
 
@@ -280,6 +383,20 @@ public partial class KnowledgeBaseWindow : Window
                 return;
             picture.MaxHeight = double.IsPositiveInfinity(picture.MaxHeight) ? compactHeight : double.PositiveInfinity;
         };
+
+        if (frames is { Count: > 1 })
+        {
+            var index = 0;
+            var timer = new Avalonia.Threading.DispatcherTimer { Interval = frames[0].Delay };
+            timer.Tick += (_, _) =>
+            {
+                index = (index + 1) % frames.Count;
+                picture.Source = frames[index].Frame;
+                timer.Interval = frames[index].Delay;
+            };
+            picture.AttachedToVisualTree += (_, _) => timer.Start();
+            picture.DetachedFromVisualTree += (_, _) => timer.Stop();
+        }
 
         var frame = new Border
         {

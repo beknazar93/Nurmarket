@@ -44,14 +44,19 @@ public sealed class CashShiftService : ICashShiftService
     {
         // Вторая смена поверх незакрытой затирает ActiveShiftId прежней и осиротляет её продажи.
         if (!string.IsNullOrWhiteSpace(PosApp.ActiveShiftId))
-            return CashShiftOperationResult.Failed("Смена уже открыта. Закройте текущую смену перед открытием новой.");
+            return CashShiftOperationResult.Failed(Tr.T("Смена уже открыта. Закройте текущую смену перед открытием новой.",
+                "Смена мурунтан эле ачык. Жаңысын ачуудан мурун учурдагы сменаны жабыңыз.",
+                "A shift is already open. Close the current shift before opening a new one.",
+                "Vardiya zaten açık. Yeni bir vardiya açmadan önce mevcut vardiyayı kapatın.",
+                "Smena allaqachon ochiq. Yangisini ochishdan oldin joriy smenani yoping."));
 
         if (OfflineModeHelper.UseLocalOperations)
         {
             PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
             ShiftService.IsShiftOpen = true;
             _offlinePosStateStore.SaveFromApp(openingCash);
-            return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: "Смена открыта офлайн.");
+            return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T("Смена открыта офлайн.",
+                "Смена офлайн режимде ачылды.", "Shift opened offline.", "Vardiya çevrimdışı açıldı.", "Smena oflayn rejimda ochildi."));
         }
 
         var opening = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
@@ -63,7 +68,8 @@ public sealed class CashShiftService : ICashShiftService
             // Теперь ошибки этого вызова обрабатываются теми же catch, что и ниже.
             var cashboxId = await EnsurePosCashboxIdAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(cashboxId))
-                return CashShiftOperationResult.Failed("Не удалось определить кассу.");
+                return CashShiftOperationResult.Failed(Tr.T("Не удалось определить кассу.", "Кассаны аныктоо мүмкүн болгон жок.",
+                    "Could not determine the till.", "Kasa belirlenemedi.", "Kassani aniqlab bo'lmadi."));
 
             var response = await _shiftApi
                 .ConstructionShiftOpenAsync(cashboxId, opening, cancellationToken)
@@ -89,9 +95,17 @@ public sealed class CashShiftService : ICashShiftService
                 {
                     PosLogger.Log($"Открытие смены: у кассира уже открыта смена на другой кассе ({openedCashboxName ?? openedCashboxId}), эта касса закреплена в настройках.", "SHIFT");
                     var otherName = openedCashboxName ?? openedCashboxId;
-                    return CashShiftOperationResult.Failed(
+                    return CashShiftOperationResult.Failed(Tr.T(
                         $"У вас уже открыта смена на кассе «{otherName}». Вторую смену сервер не открывает: " +
-                        $"закройте ту смену (на той кассе или на сайте) либо выберите в настройках кассу «{otherName}».");
+                        $"закройте ту смену (на той кассе или на сайте) либо выберите в настройках кассу «{otherName}».",
+                        $"Сизде «{otherName}» кассасында смена мурунтан эле ачык. Сервер экинчи сменаны ачпайт: " +
+                        $"ал сменаны (ошол кассада же сайтта) жабыңыз же жөндөөлөрдөн «{otherName}» кассасын тандаңыз.",
+                        $"You already have a shift open on till “{otherName}”. The server won't open a second one: " +
+                        $"close that shift (on that till or on the website) or select till “{otherName}” in settings.",
+                        $"«{otherName}» kasasında zaten açık bir vardiyanız var. Sunucu ikinci bir vardiya açmaz: " +
+                        $"o vardiyayı kapatın (o kasada veya web sitesinde) ya da ayarlardan «{otherName}» kasasını seçin.",
+                        $"Sizda «{otherName}» kassasida smena allaqachon ochiq. Server ikkinchi smenani ochmaydi: " +
+                        $"o'sha smenani yoping (o'sha kassada yoki saytda) yoki sozlamalarda «{otherName}» kassasini tanlang."));
                 }
 
                 PosLogger.Log($"Открытие смены: сервер вернул уже открытую смену кассира на кассе {openedCashboxName ?? openedCashboxId} — касса переключена на неё.", "SHIFT");
@@ -125,7 +139,9 @@ public sealed class CashShiftService : ICashShiftService
             return CashShiftOperationResult.Success(
                 openingCash,
                 isOffline: true,
-                infoMessage: $"Смена открыта офлайн ({ex.Message}).");
+                infoMessage: Tr.T($"Смена открыта офлайн ({ex.Message}).", $"Смена офлайн режимде ачылды ({ex.Message}).",
+                    $"Shift opened offline ({ex.Message}).", $"Vardiya çevrimdışı açıldı ({ex.Message}).",
+                    $"Smena oflayn rejimda ochildi ({ex.Message})."));
         }
         catch (Exception ex) when (IsCashboxRejectedError(ex.Message))
         {
@@ -135,13 +151,26 @@ public sealed class CashShiftService : ICashShiftService
             // Реальный отказ сервера при открытии смены — надёжный сигнал переподобрать кассу.
             var reassigned = await TryReassignCashboxAsync(cancellationToken).ConfigureAwait(false);
             return CashShiftOperationResult.Failed(reassigned
-                ? "Касса была переназначена (старая не подходит для вашего филиала). Откройте смену ещё раз."
-                : "Ни одна касса компании не подходит для вашего филиала. Обратитесь к администратору NurCRM — " +
-                  "проверьте привязку кассы к филиалу в веб-версии.");
+                ? Tr.T("Касса была переназначена (старая не подходит для вашего филиала). Откройте смену ещё раз.",
+                    "Касса алмаштырылды (мурункусу филиалыңызга туура келбейт). Сменаны кайра ачыңыз.",
+                    "The till was reassigned (the old one doesn't match your branch). Open the shift again.",
+                    "Kasa yeniden atandı (eskisi şubenize uymuyor). Vardiyayı tekrar açın.",
+                    "Kassa qayta tayinlandi (eskisi filialingizga mos emas). Smenani qaytadan oching.")
+                : Tr.T("Ни одна касса компании не подходит для вашего филиала. Обратитесь к администратору NurCRM — " +
+                  "проверьте привязку кассы к филиалу в веб-версии.",
+                    "Компаниянын бир да кассасы филиалыңызга туура келбейт. NurCRM администраторуна кайрылыңыз — " +
+                    "веб-версияда кассанын филиалга байланышын текшериңиз.",
+                    "None of the company's tills match your branch. Contact your NurCRM administrator — " +
+                    "check the till's branch assignment in the web version.",
+                    "Şirketin hiçbir kasası şubenize uymuyor. NurCRM yöneticinize başvurun — " +
+                    "web sürümünde kasanın şubeye bağlantısını kontrol edin.",
+                    "Kompaniyaning birorta kassasi filialingizga mos emas. NurCRM administratoriga murojaat qiling — " +
+                    "veb-versiyada kassaning filialga bog'lanishini tekshiring."));
         }
         catch (Exception ex)
         {
-            return CashShiftOperationResult.Failed("Ошибка открытия смены: " + ex.Message);
+            return CashShiftOperationResult.Failed(Tr.T("Ошибка открытия смены: ", "Сменаны ачууда ката кетти: ",
+                "Error opening the shift: ", "Vardiya açılırken hata oluştu: ", "Smenani ochishda xato: ") + ex.Message);
         }
     }
 
@@ -194,7 +223,8 @@ public sealed class CashShiftService : ICashShiftService
     public async Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(PosApp.ActiveShiftId))
-            return CashShiftOperationResult.Failed("Смена уже закрыта.");
+            return CashShiftOperationResult.Failed(Tr.T("Смена уже закрыта.", "Смена мурунтан эле жабык.",
+                "The shift is already closed.", "Vardiya zaten kapalı.", "Smena allaqachon yopilgan."));
 
         var shiftId = PosApp.ActiveShiftId;
         var closing = closingCash?.ToString("0.00", CultureInfo.InvariantCulture);
@@ -263,7 +293,9 @@ public sealed class CashShiftService : ICashShiftService
             return CashShiftOperationResult.Success(
                 closingCash,
                 isOffline: true,
-                infoMessage: $"Смена закрыта офлайн ({ex.Message}).");
+                infoMessage: Tr.T($"Смена закрыта офлайн ({ex.Message}).", $"Смена офлайн режимде жабылды ({ex.Message}).",
+                    $"Shift closed offline ({ex.Message}).", $"Vardiya çevrimdışı kapatıldı ({ex.Message}).",
+                    $"Smena oflayn rejimda yopildi ({ex.Message})."));
         }
         catch (Exception ex) when (ex.Message.Contains("уже закрыта", StringComparison.OrdinalIgnoreCase))
         {
@@ -279,7 +311,11 @@ public sealed class CashShiftService : ICashShiftService
             _auditDb.LogShift("close_already_closed", closingCash, shiftId);
             return CashShiftOperationResult.Success(
                 closingCash,
-                infoMessage: "Смена уже была закрыта (например, на сайте) — состояние кассы синхронизировано.");
+                infoMessage: Tr.T("Смена уже была закрыта (например, на сайте) — состояние кассы синхронизировано.",
+                    "Смена мурда эле жабылган (мисалы, сайтта) — кассанын абалы шайкештирилди.",
+                    "The shift was already closed (for example, on the website) — the till's state has been synced.",
+                    "Vardiya zaten kapatılmıştı (örneğin web sitesinde) — kasa durumu senkronize edildi.",
+                    "Smena allaqachon yopilgan edi (masalan, saytda) — kassa holati sinxronlandi."));
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
         {
@@ -295,8 +331,12 @@ public sealed class CashShiftService : ICashShiftService
             PosLogger.Log($"Shift close 404 for id={shiftId}, attempting recovery.", "SHIFT");
             var freshId = await TryRecoverActiveShiftIdAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(freshId) || string.Equals(freshId, shiftId, StringComparison.Ordinal))
-                return CashShiftOperationResult.Failed(
-                    "Не удалось закрыть смену: сервер не находит эту смену. Перезайдите в кассу и попробуйте снова.");
+                return CashShiftOperationResult.Failed(Tr.T(
+                    "Не удалось закрыть смену: сервер не находит эту смену. Перезайдите в кассу и попробуйте снова.",
+                    "Сменаны жабуу мүмкүн болгон жок: сервер бул сменаны таппай жатат. Кассага кайра кирип, дагы аракет кылыңыз.",
+                    "Could not close the shift: the server can't find it. Sign in to the till again and retry.",
+                    "Vardiya kapatılamadı: sunucu bu vardiyayı bulamıyor. Kasaya yeniden giriş yapıp tekrar deneyin.",
+                    "Smenani yopib bo'lmadi: server bu smenani topa olmayapti. Kassaga qayta kiring va yana urinib ko'ring."));
 
             try
             {
@@ -360,14 +400,35 @@ public sealed class CashShiftService : ICashShiftService
     private static string DescribeCloseFailure(Exception ex)
     {
         if (!LooksLikeDecimalPlacesError(ex.Message))
-            return "Ошибка закрытия смены: " + ex.Message;
+            return Tr.T("Ошибка закрытия смены: ", "Сменаны жабууда ката кетти: ",
+                "Error closing the shift: ", "Vardiya kapatılırken hata oluştu: ", "Smenani yopishda xato: ") + ex.Message;
 
-        return "Смену не удаётся закрыть из-за ошибки на стороне сервера NurCRM: он хранит сумму "
-             + "смены с лишними знаками после запятой и сам же её не принимает при закрытии. "
-             + "Из кассы это не исправить — поле доступно только для чтения."
+        return Tr.T("Смену не удаётся закрыть из-за ошибки на стороне сервера NurCRM: он хранит сумму "
+                + "смены с лишними знаками после запятой и сам же её не принимает при закрытии. "
+                + "Из кассы это не исправить — поле доступно только для чтения.",
+                "NurCRM серверинин катасынан улам сменаны жабуу мүмкүн эмес: сервер сменанын суммасын "
+                + "үтүрдөн кийин ашыкча цифралар менен сактайт жана жабууда аны өзү кабыл албайт. "
+                + "Муну кассадан оңдоого болбойт — бул талаа окуу үчүн гана.",
+                "The shift can't be closed because of an error on the NurCRM server side: it stores the shift "
+                + "total with extra decimal places and then rejects it itself when closing. "
+                + "This can't be fixed from the till — the field is read-only.",
+                "Vardiya, NurCRM sunucusundaki bir hata nedeniyle kapatılamıyor: sunucu vardiya tutarını "
+                + "virgülden sonra fazla basamakla saklıyor ve kapatırken bunu kendisi kabul etmiyor. "
+                + "Bu sorun kasadan düzeltilemez — alan salt okunurdur.",
+                "NurCRM serveridagi xato tufayli smenani yopib bo'lmayapti: server smena summasini "
+                + "verguldan keyin ortiqcha raqamlar bilan saqlaydi va yopishda uni o'zi qabul qilmaydi. "
+                + "Buni kassadan tuzatib bo'lmaydi — maydon faqat o'qish uchun.")
              + Environment.NewLine + Environment.NewLine
-             + "Что делать: попробуйте закрыть смену в веб-панели NurCRM. Если и там не выйдет — "
-             + "обратитесь в поддержку NurCRM и передайте им это сообщение вместе с ответом сервера:"
+             + Tr.T("Что делать: попробуйте закрыть смену в веб-панели NurCRM. Если и там не выйдет — "
+                + "обратитесь в поддержку NurCRM и передайте им это сообщение вместе с ответом сервера:",
+                "Эмне кылуу керек: сменаны NurCRM веб-панелинде жабып көрүңүз. Ал жерде да болбосо — "
+                + "NurCRM колдоо кызматына кайрылып, бул билдирүүнү сервердин жообу менен кошо жибериңиз:",
+                "What to do: try closing the shift in the NurCRM web panel. If that doesn't work either, "
+                + "contact NurCRM support and send them this message together with the server response:",
+                "Ne yapmalı: vardiyayı NurCRM web panelinden kapatmayı deneyin. Orada da olmazsa "
+                + "NurCRM desteğine başvurun ve bu mesajı sunucu yanıtıyla birlikte iletin:",
+                "Nima qilish kerak: smenani NurCRM veb-panelida yopib ko'ring. U yerda ham bo'lmasa, "
+                + "NurCRM yordam xizmatiga murojaat qiling va ushbu xabarni server javobi bilan birga yuboring:")
              + Environment.NewLine + ex.Message;
     }
 

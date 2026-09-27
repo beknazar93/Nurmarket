@@ -71,7 +71,7 @@ public partial class PasswordPromptDialog : Window
             return;
         }
 
-        ErrorText.Text = Tr.T("Неверный пароль.", "Пароль туура эмес.", "Incorrect password.", "Yanlış şifre.", "Parol noto'g'ri.");
+        ErrorText.Text = Tr.T("Неверный пароль.", "Сырсөз туура эмес.", "Incorrect password.", "Yanlış şifre.", "Parol noto'g'ri.");
         ErrorText.IsVisible = true;
         PasswordBox.Text = "";
         PasswordBox.Focus();

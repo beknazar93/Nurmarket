@@ -21,16 +21,16 @@ public partial class PosConfirmDialog : Window
     public PosConfirmDialog(
         string title,
         string message,
-        string confirmText = "Да",
-        string cancelText = "Нет",
+        string? confirmText = null,
+        string? cancelText = null,
         PosConfirmAccent accent = PosConfirmAccent.Primary)
     {
         InitializeComponent();
         Title = title;
         TitleText.Text = title;
         MessageText.Text = message;
-        CancelButton.Content = cancelText;
-        ConfirmButton.Content = confirmText;
+        CancelButton.Content = cancelText ?? Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q");
+        ConfirmButton.Content = confirmText ?? Tr.T("Да", "Ооба", "Yes", "Evet", "Ha");
 
         if (accent == PosConfirmAccent.Danger)
         {
@@ -43,8 +43,8 @@ public partial class PosConfirmDialog : Window
         Window? owner,
         string title,
         string message,
-        string confirmText = "Да",
-        string cancelText = "Нет",
+        string? confirmText = null,
+        string? cancelText = null,
         PosConfirmAccent accent = PosConfirmAccent.Primary) =>
         PosDialogHost.Show(new PosConfirmDialog(title, message, confirmText, cancelText, accent), owner) == true;
 

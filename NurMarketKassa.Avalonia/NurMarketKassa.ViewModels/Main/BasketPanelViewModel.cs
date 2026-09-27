@@ -173,6 +173,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
         Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
         {
             OnPropertyChanged(nameof(PayButtonText));
+            OnPropertyChanged(nameof(SubtotalDisplay));
+            OnPropertyChanged(nameof(DiscountDisplay));
+            OnPropertyChanged(nameof(TotalDisplay));
+            // Названия вкладок чеков («Основной чек», «Чек 2») тоже собираются в коде.
+            RenameReceiptSessions();
             SyncLinesFromCart();
         });
         ReturnPreviousReceiptCommand = new AsyncRelayCommand(RestoreLastHeldReceiptAsync, () => !IsBusy && HasHeldReceipts);
@@ -306,9 +311,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
         private set => SetProperty(ref _totalQuantity, value);
     }
 
-    public string SubtotalDisplay => $"{Subtotal.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-    public string DiscountDisplay => $"{Discount.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-    public string TotalDisplay => $"{Total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+    public string SubtotalDisplay => $"{Subtotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+    public string DiscountDisplay => $"{Discount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+    public string TotalDisplay => $"{Total.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
     public string TotalAmount => Total.ToString("0.00", CultureInfo.InvariantCulture);
     public string PayButtonText =>
         Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash");
@@ -481,7 +486,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     $"Скидка не может превышать {limitPercent:0.##}% — таково ограничение для сотрудников.",
                     $"Арзандатуу {limitPercent:0.##}%дан ашпашы керек — бул кызматкерлер үчүн чектөө.",
                     $"The discount can't exceed {limitPercent:0.##}% — that's the limit set for employees.",
-                    $"İndirim %{limitPercent:0.##}'i geçemez — personel için belirlenen sınır budur.",
+                    $"İndirim en fazla %{limitPercent:0.##} olabilir — personel için belirlenen sınır budur.",
                     $"Chegirma {limitPercent:0.##}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara."));
                 return false;
             }
@@ -495,7 +500,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 {
                     _prompts.ShowWarning(Tr.T(
                         $"Скидка не может превышать сумму товаров: {maximum:0.00} сом.",
-                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {maximum:0.00} сом."));
+                        $"Арзандатуу товарлардын суммасынан ашпашы керек: {maximum:0.00} сом.", $"The discount can't exceed the total of the items: {maximum:0.00} som.", $"İndirim, ürünlerin toplam tutarını aşamaz: {maximum:0.00} som.", $"Chegirma mahsulotlar summasidan oshmasligi kerak: {maximum:0.00} so'm."));
                     return false;
                 }
 
@@ -514,7 +519,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                             $"Скидка не может превышать {limitForSum:0.##}% — это {allowedSum:0.00} сом для текущего чека.",
                             $"Арзандатуу {limitForSum:0.##}%дан ашпашы керек — учурдагы чек үчүн бул {allowedSum:0.00} сом.",
                             $"The discount can't exceed {limitForSum:0.##}% — that is {allowedSum:0.00} som for this receipt.",
-                            $"İndirim %{limitForSum:0.##}'i geçemez — bu fiş için {allowedSum:0.00} som eder.",
+                            $"İndirim en fazla %{limitForSum:0.##} olabilir — bu fiş için {allowedSum:0.00} som.",
                             $"Chegirma {limitForSum:0.##}%dan oshmasligi kerak — bu chek uchun {allowedSum:0.00} so'm."));
                         return false;
                     }
@@ -630,7 +635,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         SyncLinesFromCart();
         UpdateCartTotals();
         CartMessage = Tr.T($"Открыт «{session.BaseName}».", $"«{session.BaseName}» ачылды.",
-            $"Opened “{session.BaseName}”.", $"“{session.BaseName}” açıldı.", $"“{session.BaseName}” ochildi.");
+            $"Opened “{session.BaseName}”.", $"«{session.BaseName}» açıldı.", $"«{session.BaseName}» ochildi.");
         RaiseCartCommands();
     }
 
@@ -663,7 +668,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         SyncLinesFromCart();
         UpdateCartTotals();
         CartMessage = Tr.T($"Активен «{target.BaseName}».", $"«{target.BaseName}» активдүү.",
-            $"Active: “{target.BaseName}”.", $"Etkin: “{target.BaseName}”.", $"Faol: “{target.BaseName}”.");
+            $"Active: “{target.BaseName}”.", $"Etkin: «{target.BaseName}».", $"Faol: «{target.BaseName}».");
         RaiseCartCommands();
     }
 
@@ -765,7 +770,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     await RunOnUiThreadAsync(() =>
                         _prompts.ShowWarning(Tr.T(
                             $"Товар с кодом {weighted.ProductCode} не найден в каталоге.",
-                            $"{weighted.ProductCode} коду менен товар каталогдон табылган жок."))).ConfigureAwait(false);
+                            $"{weighted.ProductCode} коддуу товар каталогдон табылган жок.", $"Product with code {weighted.ProductCode} was not found in the catalog.", $"Kodu {weighted.ProductCode} olan ürün katalogda bulunamadı.", $"{weighted.ProductCode} kodli mahsulot katalogda topilmadi."))).ConfigureAwait(false);
                     return;
                 }
 
@@ -802,7 +807,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             PosLogger.Log($"CART barcode add failed: {ex}", "CART");
             await RunOnUiThreadAsync(() =>
-                _prompts.ShowError(Tr.T("Ошибка добавления товара.", "Товарды кошууда ката кетти.", "Error adding the product.", "Ürün eklenirken hata oluştu.", "Mahsulot qo'shishda xato."))).ConfigureAwait(false);
+                _prompts.ShowError(Tr.T("Ошибка добавления товара.", "Товарды кошууда ката кетти.", "Error adding the product.", "Ürün eklenirken hata oluştu.", "Mahsulotni qo'shishda xato."))).ConfigureAwait(false);
         }
         finally
         {
@@ -900,10 +905,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             CartMessage = Tr.T(
                 "Итог чека отрицательный из-за «Расхода» — добавьте товар или уменьшите сумму расхода.",
-                "Чек жыйынтыгы «Чыгаша» себептүү терс — товар кошуңуз же чыгаша суммасын азайтыңыз.",
-                "The receipt total is negative because of an \"Expense\" line — add a product or reduce the expense amount.",
-                "\"Gider\" satırı yüzünden fiş toplamı negatif — bir ürün ekleyin veya gider tutarını azaltın.",
-                "Chek jami \"Xarajat\" tufayli manfiy — mahsulot qo'shing yoki xarajat summasini kamaytiring.");
+                "«Чыгаша» себебинен чектин жыйынтыгы терс болуп калды — товар кошуңуз же чыгаша суммасын азайтыңыз.",
+                "The receipt total is negative because of an “Expense” line — add a product or reduce the expense amount.",
+                "«Gider» satırı yüzünden fiş toplamı negatif — bir ürün ekleyin veya gider tutarını azaltın.",
+                "Chek summasi «Xarajat» sababli manfiy — mahsulot qo'shing yoki xarajat summasini kamaytiring.");
             return;
         }
 
@@ -1040,7 +1045,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 var successMessage = result.SavedOffline
                     ? Tr.T(
                         "Оплата сохранена. Данные будут отправлены при восстановлении связи.",
-                        "Төлөм сакталды. Байланыш калыбына келгенде маалымат жиберилет.")
+                        "Төлөм сакталды. Байланыш калыбына келгенде маалымат жиберилет.", "Payment saved. The data will be sent once the connection is restored.", "Ödeme kaydedildi. Veriler bağlantı yeniden kurulunca gönderilecek.", "To'lov saqlandi. Ma'lumotlar aloqa tiklanganda yuboriladi.")
                     : Tr.T("Платёж принят. Открываем новый чек.", "Төлөм кабыл алынды. Жаңы чек ачылууда.", "Payment accepted. Opening a new receipt.", "Ödeme alındı. Yeni fiş açılıyor.", "To'lov qabul qilindi. Yangi chek ochilmoqda.");
                 await _checkoutUiFlow.ShowPaymentResultAsync(true, successMessage).ConfigureAwait(false);
                 paymentStatusActive = false;
@@ -1071,7 +1076,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 UpdateCartTotals();
                 CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
                 CartMessage = result.SavedOffline
-                    ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм жергиликтүү сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov mahalliy saqlandi.")
+                    ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
                     : result.InfoMessage ?? Tr.T("Оплата выполнена. Новый чек открыт.", "Төлөм аткарылды. Жаңы чек ачылды.", "Payment completed. A new receipt has been opened.", "Ödeme tamamlandı. Yeni fiş açıldı.", "To'lov amalga oshirildi. Yangi chek ochildi.");
             }).ConfigureAwait(false);
 
@@ -1359,7 +1364,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             if (!HasItems)
             {
                 await RunOnUiThreadAsync(() =>
-                    _prompts.ShowWarning(Tr.T("Корзина пуста — нечего откладывать.", "Себет бош — калтырууга эч нерсе жок.", "The cart is empty — nothing to hold.", "Sepet boş — beklemeye alınacak bir şey yok.", "Savat bo'sh — kutish uchun hech narsa yo'q."))).ConfigureAwait(false);
+                    _prompts.ShowWarning(Tr.T("Корзина пуста — нечего откладывать.", "Себет бош — калтырууга эч нерсе жок.", "The cart is empty — nothing to hold.", "Sepet boş — beklemeye alınacak bir şey yok.", "Savat bo'sh — kutishga qo'yadigan narsa yo'q."))).ConfigureAwait(false);
                 return;
             }
 
@@ -1382,8 +1387,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 SyncLinesFromCart();
                 UpdateCartTotals();
                 CartMessage = Tr.T($"Отложено: «{result.Label}». Текущий чек очищен.", $"Калтырылды: «{result.Label}». Учурдагы чек тазаланды.",
-                    $"Held: “{result.Label}”. Current receipt cleared.", $"Beklemeye alındı: “{result.Label}”. Geçerli fiş temizlendi.",
-                    $"Kutishga qo'yildi: “{result.Label}”. Joriy chek tozalandi.");
+                    $"Held: “{result.Label}”. Current receipt cleared.", $"Beklemeye alındı: «{result.Label}». Mevcut fiş temizlendi.",
+                    $"Kutishga qo'yildi: «{result.Label}». Joriy chek tozalandi.");
                 NotifyHeldReceiptsChanged();
                 RaiseCartCommands();
             }).ConfigureAwait(false);
@@ -1409,7 +1414,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             if (latest is null)
             {
                 await RunOnUiThreadAsync(() =>
-                    _prompts.ShowWarning(Tr.T("Нет отложенных чеков для возврата.", "Кайтаруу үчүн калтырылган чектер жок.", "No held receipts to restore.", "Geri getirilecek bekletilen fiş yok.", "Qaytarish uchun kutilayotgan chek yo'q."))).ConfigureAwait(false);
+                    _prompts.ShowWarning(Tr.T("Нет отложенных чеков для возврата.", "Кайтаруу үчүн калтырылган чектер жок.", "No held receipts to restore.", "Geri getirilecek bekletilen fiş yok.", "Qayta ochish uchun kutishdagi cheklar yo'q."))).ConfigureAwait(false);
                 return;
             }
 
@@ -1435,10 +1440,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 SyncLinesFromCart();
                 UpdateCartTotals();
                 CartMessage = currentHasItems
-                    ? Tr.T("Чеки обменяны с последним отложенным.", "Чектер акыркы калтырылган менен алмаштырылды.", "Receipts swapped with the last held one.", "Fişler son bekletilenle değiştirildi.", "Cheklar oxirgi kutilayotgan bilan almashtirildi.")
-                    : Tr.T($"Возвращён отложенный чек «{latest.Label}».", $"«{latest.Label}» калтырылган чеги кайтарылды.",
-                        $"Restored held receipt “{latest.Label}”.", $"Bekletilen fiş geri getirildi: “{latest.Label}”.",
-                        $"Kutilayotgan chek qaytarildi: “{latest.Label}”.");
+                    ? Tr.T("Чеки обменяны с последним отложенным.", "Чектер акыркы калтырылган менен алмаштырылды.", "Receipts swapped with the last held one.", "Mevcut fiş, son bekletilen fişle yer değiştirdi.", "Cheklar oxirgi kutishdagi chek bilan almashtirildi.")
+                    : Tr.T($"Возвращён отложенный чек «{latest.Label}».", $"Калтырылган «{latest.Label}» чеги кайтарылды.",
+                        $"Restored held receipt “{latest.Label}”.", $"Bekletilen fiş geri getirildi: «{latest.Label}».",
+                        $"Kutishdagi chek qayta ochildi: «{latest.Label}».");
                 NotifyHeldReceiptsChanged();
                 RaiseCartCommands();
             }).ConfigureAwait(false);
@@ -1447,7 +1452,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             PosLogger.Log($"RESTORE held failed: {ex}", "DEFER");
             await RunOnUiThreadAsync(() =>
-                _prompts.ShowError(Tr.T("Не удалось вернуть отложенный чек.", "Калтырылган чекти кайтаруу мүмкүн болгон жок.", "Could not restore the held receipt.", "Bekletilen fiş geri getirilemedi.", "Kutilayotgan chekni qaytarib bo'lmadi."))).ConfigureAwait(false);
+                _prompts.ShowError(Tr.T("Не удалось вернуть отложенный чек.", "Калтырылган чекти кайтаруу мүмкүн болгон жок.", "Could not restore the held receipt.", "Bekletilen fiş geri getirilemedi.", "Kutishdagi chekni qayta ochib bo'lmadi."))).ConfigureAwait(false);
         }
         finally
         {
@@ -1465,7 +1470,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
         if (_sessions.Count <= 1)
         {
-            _prompts.ShowWarning(Tr.T("«Основной чек» удалить нельзя.", "«Негизги чекти» өчүрүүгө болбойт.", "The “Main receipt” cannot be deleted.", "“Ana fiş” silinemez.", "“Asosiy chek”ni o'chirib bo'lmaydi."));
+            _prompts.ShowWarning(Tr.T("«Основной чек» удалить нельзя.", "«Негизги чек» өчүрүлбөйт.", "The “Main receipt” cannot be deleted.", "«Ana fiş» silinemez.", "«Asosiy chek»ni o'chirib bo'lmaydi."));
             return;
         }
 
@@ -1483,7 +1488,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         SyncLinesFromCart();
         UpdateCartTotals();
         CartMessage = Tr.T($"Чек удалён. Активен «{next.BaseName}».", $"Чек өчүрүлдү. «{next.BaseName}» активдүү.",
-            $"Receipt deleted. Active: “{next.BaseName}”.", $"Fiş silindi. Etkin: “{next.BaseName}”.", $"Chek o'chirildi. Faol: “{next.BaseName}”.");
+            $"Receipt deleted. Active: “{next.BaseName}”.", $"Fiş silindi. Etkin: «{next.BaseName}».", $"Chek o'chirildi. Faol: «{next.BaseName}».");
         RaiseCartCommands();
     }
 
@@ -1502,7 +1507,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         if (!HasItems || IsBusy)
             return;
 
-        if (!await _prompts.ConfirmAsync(Tr.T("Очистить текущую корзину?", "Учурдагы себетти тазалайсызбы?", "Clear the current cart?", "Mevcut sepeti temizle?", "Joriy savatni tozalaysizmi?")).ConfigureAwait(false))
+        if (!await _prompts.ConfirmAsync(Tr.T("Очистить текущую корзину?", "Учурдагы себетти тазалайсызбы?", "Clear the current cart?", "Mevcut sepet temizlensin mi?", "Joriy savatni tozalaysizmi?")).ConfigureAwait(false))
             return;
 
         // 2026-09-16, живой баг аудита ("обход PIN на очистку корзины") — удаление ОДНОЙ позиции
@@ -1513,7 +1518,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             return;
         if (!await DemandEmployeeAccessCodeAsync(
                 NurMarketKassa.Services.EmployeeAccessGate.CartDelete,
-                Tr.T("Очистка корзины", "Себетти тазалоо", "Clearing the cart", "Sepeti temizleme", "Savatni tozalash"),
+                Tr.T("Очистка корзины", "Себетти тазалоо", "Clearing the cart", "Sepet temizleme", "Savatni tozalash"),
                 Tr.T("Введите свой код доступа, чтобы очистить корзину.",
                     "Себетти тазалоо үчүн жеке кодуңузду киргизиңиз.",
                     "Enter your access code to clear the cart.",
@@ -1534,12 +1539,12 @@ public sealed class BasketPanelViewModel : ViewModelBase
             return;
         if (!await DemandEmployeeAccessCodeAsync(
                 NurMarketKassa.Services.EmployeeAccessGate.CartDelete,
-                Tr.T("Удаление товара", "Товарды өчүрүү", "Deleting product", "Ürün silme", "Mahsulotni o'chirish"),
+                Tr.T("Удаление товара", "Товарды өчүрүү", "Removing an item", "Ürün silme", "Mahsulotni o'chirish"),
                 Tr.T($"Введите свой код доступа, чтобы удалить «{line.Title}» из чека.",
                     $"«{line.Title}» товарын чектен өчүрүү үчүн жеке кодуңузду киргизиңиз.",
                     $"Enter your access code to remove \"{line.Title}\" from the receipt.",
-                    $"\"{line.Title}\" ürününü fişten silmek için erişim kodunuzu girin.",
-                    $"\"{line.Title}\" mahsulotini chekdan o'chirish uchun kirish kodingizni kiriting."))
+                    $"«{line.Title}» ürününü fişten silmek için erişim kodunuzu girin.",
+                    $"«{line.Title}» mahsulotini chekdan o'chirish uchun kirish kodingizni kiriting."))
                 .ConfigureAwait(false))
             return;
 
@@ -1585,7 +1590,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
     private async Task OfferReplenishThenSetQuantityAsync(CartLineItemVm line, double desired, double limit)
     {
         var formattedLimit = limit.ToString(line.IsWeight ? "0.###" : "0", CultureInfo.InvariantCulture);
-        CartMessage = Tr.T($"Достигнут лимит остатка: {formattedLimit} {line.Unit}.", $"Калдык чеги жетти: {formattedLimit} {line.Unit}.",
+        CartMessage = Tr.T($"Достигнут лимит остатка: {formattedLimit} {line.Unit}.", $"Калдык чегине жетти: {formattedLimit} {line.Unit}.",
             $"Stock limit reached: {formattedLimit} {line.Unit}.", $"Stok sınırına ulaşıldı: {formattedLimit} {line.Unit}.",
             $"Qoldiq chegarasiga yetildi: {formattedLimit} {line.Unit}.");
 
@@ -1597,9 +1602,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
         var confirmed = await _prompts.ConfirmAsync(Tr.T(
             $"На складе только {formattedLimit} {line.Unit}. Продолжить и пополнить склад?",
-            $"Кампада бары {formattedLimit} {line.Unit}. Улантып, кампаны толуктайсызбы?",
-            $"Only {formattedLimit} {line.Unit} in stock. Continue and replenish?",
-            $"Stokta yalnızca {formattedLimit} {line.Unit} var. Devam edip stok eklensin mi?",
+            $"Кампада болгону {formattedLimit} {line.Unit} бар. Улантып, кампаны толуктайсызбы?",
+            $"Only {formattedLimit} {line.Unit} in stock. Continue and restock?",
+            $"Stokta yalnızca {formattedLimit} {line.Unit} var. Devam edip depoya stok eklemek ister misiniz?",
             $"Omborda faqat {formattedLimit} {line.Unit} bor. Davom etib, omborni to'ldirasizmi?"))
             .ConfigureAwait(false);
         if (!confirmed)
@@ -1631,7 +1636,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             CartMessage = line.IsWeight
                 ? Tr.T("Минимальный вес — 0,1 кг.", "Минималдуу салмак — 0,1 кг.", "Minimum weight is 0.1 kg.", "Minimum ağırlık 0,1 kg'dır.", "Minimal og'irlik — 0,1 kg.")
-                : Tr.T("Меньше 1 нельзя.", "1ден аз болбойт.", "Cannot be less than 1.", "1'den az olamaz.", "1 dan kam bo'lishi mumkin emas.");
+                : Tr.T("Меньше 1 нельзя.", "1ден аз болушу мүмкүн эмес.", "Cannot be less than 1.", "1'den az olamaz.", "1 dan kam bo'lishi mumkin emas.");
             return;
         }
 
@@ -1716,9 +1721,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
         if (!DemandPermission(PosPermissions.ApplyDiscount))
             return;
         if (!await DemandCashierPasswordAsync(
-                Tr.T("Изменение позиции", "Позицияны өзгөртүү", "Editing line item", "Kalem düzenleme", "Pozitsiyani tahrirlash"),
+                Tr.T("Изменение позиции", "Позицияны өзгөртүү", "Editing line item", "Kalem düzenleme", "Pozitsiyani o'zgartirish"),
                 Tr.T($"Введите пароль кассы, чтобы изменить «{line.Title}» в чеке.",
-                    $"«{line.Title}» товарын чекте өзгөртүү үчүн касса паролун киргизиңиз."))
+                    $"«{line.Title}» товарын чекте өзгөртүү үчүн касса сырсөзүн киргизиңиз.", $"Enter the till password to change “{line.Title}” in the receipt.", $"«{line.Title}» ürününü fişte değiştirmek için kasa şifresini girin.", $"Chekdagi «{line.Title}» pozitsiyasini o'zgartirish uchun kassa parolini kiriting."))
                 .ConfigureAwait(false))
             return;
 
@@ -1849,7 +1854,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
     private void RenameReceiptSessions()
     {
         for (var index = 0; index < _sessions.Count; index++)
-            _sessions[index].BaseName = index == 0 ? Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek") : $"Чек {index + 1}";
+            _sessions[index].BaseName = index == 0
+                ? Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek")
+                : Tr.T($"Чек {index + 1}", $"Чек {index + 1}", $"Receipt {index + 1}", $"Fiş {index + 1}", $"Chek {index + 1}");
 
         var active = GetActiveSession();
         if (active != null)
@@ -1935,7 +1942,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
     {
         var message = Tr.T(
             "Достигнут лимит открытых чеков (максимум 10). Завершите или удалите существующие чеки.",
-            "Ачык чектердин чеги жетти (максимум 10). Учурдагы чектерди бүтүрүңүз же өчүрүңүз.");
+            "Ачык чектердин саны чегине жетти (эң көбү 10). Учурдагы чектерди аяктаңыз же өчүрүңүз.", "Open receipt limit reached (maximum 10). Complete or delete existing receipts.", "Açık fiş sınırına ulaşıldı (en fazla 10). Mevcut fişleri tamamlayın veya silin.", "Ochiq cheklar chegarasiga yetildi (ko'pi bilan 10 ta). Mavjud cheklarni yakunlang yoki o'chiring.");
         _prompts.ShowWarning(message);
         _ = _dialogService.ShowInfoAsync(message);
     }
@@ -1969,7 +1976,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
     }
 
     private static string FormatTabTitle(string baseName, int lineCount, double total) =>
-        $"{baseName} • {lineCount} тов. • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+        Tr.T($"{baseName} • {lineCount} тов. • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
+            $"{baseName} • {lineCount} товар • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом",
+            $"{baseName} • Items: {lineCount} • {total.ToString("0.00", CultureInfo.InvariantCulture)} som",
+            $"{baseName} • {lineCount} ürün • {total.ToString("0.00", CultureInfo.InvariantCulture)} som",
+            $"{baseName} • {lineCount} ta mahsulot • {total.ToString("0.00", CultureInfo.InvariantCulture)} so'm");
 
     private void EnsureCartInitialized()
     {
@@ -1990,7 +2001,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
             tile = _catalogLookup?.Invoke(barcode);
 
         var unit = tile?.Unit?.Trim();
-        return string.IsNullOrEmpty(unit) || unit is "кг" or "kg" ? "шт" : unit;
+        // «шт» — служебное значение кассы (см. ProductUnitNormalizer), на экран — на языке интерфейса;
+        // единицы с сервера («м», «л», «уп») показываются как есть.
+        return string.IsNullOrEmpty(unit) || unit is "кг" or "kg" or "шт"
+            ? Tr.T("шт", "даана", "pcs", "adet", "dona")
+            : unit;
     }
 
     private void SyncLinesFromCart()
@@ -2015,7 +2030,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                         ? ""
                         : _catalogLookup?.Invoke(item.Barcode)?.Article ?? "",
                     Title = item.Name,
-                    Unit = item.MustWeigh ? "кг" : LineUnit(item.ProductId, item.Barcode),
+                    Unit = item.MustWeigh ? Tr.T("кг", "кг", "kg", "kg", "kg") : LineUnit(item.ProductId, item.Barcode),
                     UnitPrice = (double)item.UnitPrice,
                     IsWeight = item.MustWeigh,
                     SalePackageId = item.SalePackageId,

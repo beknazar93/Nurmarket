@@ -33,7 +33,7 @@ public sealed class CashOperationModel
         _ => Brushes.Gray,
     };
     public string AmountDisplay => Kind is CashOperationKind.Withdrawal or CashOperationKind.ShiftClose
-        ? $"-{Amount:N2} сом" : $"+{Amount:N2} сом";
+        ? Tr.T($"-{Amount:N2} сом", $"-{Amount:N2} сом", $"-{Amount:N2} som", $"-{Amount:N2} som", $"-{Amount:N2} so'm") : Tr.T($"+{Amount:N2} сом", $"+{Amount:N2} сом", $"+{Amount:N2} som", $"+{Amount:N2} som", $"+{Amount:N2} so'm");
     public IBrush AmountBrush => Kind is CashOperationKind.Withdrawal or CashOperationKind.ShiftClose
         ? Brushes.Firebrick : Brushes.SeaGreen;
     public static CashOperationKind ResolveKind(string? type)

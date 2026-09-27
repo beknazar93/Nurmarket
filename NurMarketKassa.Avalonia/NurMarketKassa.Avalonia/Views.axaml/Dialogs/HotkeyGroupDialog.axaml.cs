@@ -25,16 +25,16 @@ public partial class HotkeyGroupDialog : Window
 
         GroupKeyText.Text = groupKey;
         TitleText.Text = Tr.T("Товары горячей клавиши", "Ыкчам баскычтын товарлары", "Hotkey products",
-            "Kısayol ürünleri", "Tezkor tugma mahsulotlari");
+            "Kısayol ürünleri", "Tezkor tugmadagi mahsulotlar");
 
         ProductsPanel.ItemsSource = products;
 
         HintText.Text = products.Count == 0
             ? Tr.T($"К клавише {groupKey} пока не привязан ни один товар. Привязать можно в карточке товара на складе — поле «Горячая клавиша».",
-                   $"{groupKey} баскычына азырынча бир да товар байланган эмес. Кампадагы товардын карточкасынан байлоого болот.",
-                   $"No products are assigned to {groupKey} yet. Assign them in the product card in the warehouse.",
-                   $"{groupKey} tuşuna henüz ürün atanmadı. Depodaki ürün kartından atayabilirsiniz.",
-                   $"{groupKey} tugmasiga hali mahsulot bog'lanmagan. Ombordagi mahsulot kartasidan bog'lash mumkin.")
+                   $"{groupKey} баскычына азырынча бир да товар байланган эмес. Аны кампадагы товардын карточкасынан — «Ыкчам баскыч» талаасынан байласа болот.",
+                   $"No products are assigned to {groupKey} yet. You can assign them in the product card in the warehouse — the “Hotkey” field.",
+                   $"{groupKey} tuşuna henüz ürün atanmadı. Depodaki ürün kartından, «Kısayol tuşu» alanından atayabilirsiniz.",
+                   $"{groupKey} tugmasiga hali birorta mahsulot bog'lanmagan. Uni ombordagi mahsulot kartasida — «Tezkor tugma» maydonida bog'lash mumkin.")
             : Tr.T("Нажмите на товар — он добавится в чек.", "Товарды басыңыз — ал чекке кошулат.",
                    "Tap a product to add it to the receipt.", "Ürüne dokunun — fişe eklenir.",
                    "Mahsulotni bosing — chekka qo'shiladi.");

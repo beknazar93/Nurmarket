@@ -18,9 +18,9 @@ public partial class PaymentStatusDialog : Window
     public PaymentStatusDialog(double totalAmount)
     {
         InitializeComponent();
-        AmountText.Text = $"{totalAmount:0.00} сом";
+        AmountText.Text = Tr.T($"{totalAmount:0.00} сом", $"{totalAmount:0.00} сом", $"{totalAmount:0.00} som", $"{totalAmount:0.00} som", $"{totalAmount:0.00} so'm");
         StatusTitle.Text = Tr.T("Проводим оплату…", "Төлөм өтүп жатат…", "Processing the payment…", "Ödeme gerçekleştiriliyor…", "To'lov amalga oshirilmoqda…");
-        StatusMessage.Text = Tr.T("Пожалуйста, подождите. Не закрывайте кассу.", "Күтө туруңуз. Кассаны жаппаңыз.", "Please wait. Do not close the POS.", "Lütfen bekleyin. Kasayı kapatmayın.", "Iltimos, kuting. Kassani yopmang.");
+        StatusMessage.Text = Tr.T("Пожалуйста, подождите. Не закрывайте кассу.", "Күтө туруңуз. Кассаны жаппаңыз.", "Please wait. Don't close the till.", "Lütfen bekleyin. Kasayı kapatmayın.", "Iltimos, kuting. Kassani yopmang.");
         CloseButton.Content = Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
 
         // 30fps вместо 60fps — визуально неотличимо для простого вращения,
@@ -65,10 +65,10 @@ public partial class PaymentStatusDialog : Window
 
         StatusMessage.Text = Tr.T(
             "Сервер отвечает дольше обычного. Оплата может быть уже проведена — проверьте чек в «Продажах», прежде чем пробивать заново.",
-            "Сервер адаттагыдан узак жооп берүүдө. Төлөм өтүп кеткен болушу мүмкүн — кайра урунаардан мурун «Сатуулар» бөлүмүнөн чекти текшериңиз.",
-            "The server is taking longer than usual. The payment may already have gone through — check the receipt in Sales before charging again.",
-            "Sunucu normalden uzun sürüyor. Ödeme zaten geçmiş olabilir — yeniden tahsil etmeden önce fişi Satışlar'da kontrol edin.",
-            "Server odatdagidan uzoqroq javob bermoqda. To'lov allaqachon o'tgan bo'lishi mumkin — qaytadan urinishdan oldin chekni «Sotuvlar»da tekshiring.");
+            "Сервер адаттагыдан узак жооп берип жатат. Төлөм өтүп кеткен болушу мүмкүн — кайра өткөрүүдөн мурун «Сатуулар» бөлүмүнөн чекти текшериңиз.",
+            "The server is taking longer than usual. The payment may already have gone through — check the receipt in “Sales” before charging again.",
+            "Sunucu normalden geç yanıt veriyor. Ödeme zaten geçmiş olabilir — yeniden tahsil etmeden önce fişi «Satışlar» bölümünde kontrol edin.",
+            "Server odatdagidan uzoqroq javob bermoqda. To'lov allaqachon o'tgan bo'lishi mumkin — chekni qayta o'tkazishdan oldin uni «Sotuvlar»da tekshiring.");
 
         CloseButton.Content = Tr.T("Закрыть окно", "Терезени жабуу", "Close window", "Pencereyi kapat", "Oynani yopish");
         CloseButton.IsVisible = true;
@@ -112,7 +112,7 @@ public partial class PaymentStatusDialog : Window
             ResultCircle.Background = ThemeBrush("BrushSuccessSoft", Brushes.DarkGreen);
             ResultIcon.Foreground = ThemeBrush("BrushUiStatusOk", Brushes.Green);
             ResultIcon.Text = "✓";
-            StatusTitle.Text = Tr.T("Оплата успешно", "Төлөм ийгиликтүү", "Payment successful", "Ödeme başarılı", "To'lov muvaffaqiyatli");
+            StatusTitle.Text = Tr.T("Оплата успешно", "Төлөм ийгиликтүү өттү", "Payment successful", "Ödeme başarılı", "To'lov muvaffaqiyatli");
             StatusTitle.Foreground = ThemeBrush("BrushUiStatusOk", Brushes.Green);
             StatusMessage.Text = string.IsNullOrWhiteSpace(message)
                 ? Tr.T("Платёж принят. Открываем новый чек.", "Төлөм кабыл алынды. Жаңы чек ачылууда.", "Payment accepted. Opening a new receipt.", "Ödeme alındı. Yeni fiş açılıyor.", "To'lov qabul qilindi. Yangi chek ochilmoqda.")

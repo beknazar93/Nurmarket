@@ -18,13 +18,13 @@ public static class PrinterPortService
     {
         var port = NormalizePort(rawPort);
         if (string.IsNullOrWhiteSpace(port))
-            return new PortProbeResult(false, "Порт не указан", "none");
+            return new PortProbeResult(false, Tr.T("Порт не указан", "Порт көрсөтүлгөн эмес", "No port specified", "Port belirtilmedi", "Port ko'rsatilmagan"), "none");
 
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
             return WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid) && WinUsbPrinterPort.Probe(vid, pid)
-                ? new PortProbeResult(true, "● Доступен (WinUSB)", "winusb")
-                : new PortProbeResult(false, "○ Устройство WinUSB не найдено", "winusb");
+                ? new PortProbeResult(true, Tr.T("● Доступен (WinUSB)", "● Жеткиликтүү (WinUSB)", "● Available (WinUSB)", "● Kullanılabilir (WinUSB)", "● Mavjud (WinUSB)"), "winusb")
+                : new PortProbeResult(false, Tr.T("○ Устройство WinUSB не найдено", "○ WinUSB түзмөгү табылган жок", "○ WinUSB device not found", "○ WinUSB cihazı bulunamadı", "○ WinUSB qurilmasi topilmadi"), "winusb");
         }
 
         if (HardwarePortHelper.LooksLikeComPort(port))
@@ -32,8 +32,8 @@ public static class PrinterPortService
             var names = SerialPort.GetPortNames();
             var found = names.Any(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase));
             return found
-                ? new PortProbeResult(true, "● Доступен (COM)", "com")
-                : new PortProbeResult(false, "○ COM не найден в системе", "com");
+                ? new PortProbeResult(true, Tr.T("● Доступен (COM)", "● Жеткиликтүү (COM)", "● Available (COM)", "● Kullanılabilir (COM)", "● Mavjud (COM)"), "com")
+                : new PortProbeResult(false, Tr.T("○ COM не найден в системе", "○ COM системада табылган жок", "○ No COM port found in the system", "○ Sistemde COM bulunamadı", "○ Tizimda COM topilmadi"), "com");
         }
 
         if (HardwarePortHelper.LooksLikeLptPort(port))
@@ -41,17 +41,17 @@ public static class PrinterPortService
             // Проверяем существование устройства через QueryDosDevice — без открытия
             // дескриптора, поэтому порт не блокируется для последующей печати.
             return LptDeviceExists(port)
-                ? new PortProbeResult(true, "● Доступен (LPT)", "lpt")
-                : new PortProbeResult(false, "○ LPT не найден в системе (нет физического порта)", "lpt");
+                ? new PortProbeResult(true, Tr.T("● Доступен (LPT)", "● Жеткиликтүү (LPT)", "● Available (LPT)", "● Kullanılabilir (LPT)", "● Mavjud (LPT)"), "lpt")
+                : new PortProbeResult(false, Tr.T("○ LPT не найден в системе (нет физического порта)", "○ LPT системада табылган жок (физикалык порт жок)", "○ No LPT port found (no physical port)", "○ Sistemde LPT bulunamadı (fiziksel port yok)", "○ Tizimda LPT topilmadi (fizik port yo'q)"), "lpt");
         }
 
         if (RawPrinterHelper.TryOpen(port, out var handle, out var win32Error))
         {
             handle.Dispose();
-            return new PortProbeResult(true, "● Доступен (очередь Windows)", "spooler");
+            return new PortProbeResult(true, Tr.T("● Доступен (очередь Windows)", "● Жеткиликтүү (Windows кезеги)", "● Available (Windows print queue)", "● Kullanılabilir (Windows yazdırma kuyruğu)", "● Mavjud (Windows navbati)"), "spooler");
         }
 
-        return new PortProbeResult(false, $"○ Недоступен (код Win32: {win32Error})", "unknown");
+        return new PortProbeResult(false, Tr.T($"○ Недоступен (код Win32: {win32Error})", $"○ Жеткиликсиз (Win32 коду: {win32Error})", $"○ Unavailable (Win32 code: {win32Error})", $"○ Kullanılamıyor (Win32 kodu: {win32Error})", $"○ Mavjud emas (Win32 kodi: {win32Error})"), "unknown");
     }
 
     // 2026-09-16, живой баг из журнала кассы ("не отправляет печать ценника — код ошибки 5",

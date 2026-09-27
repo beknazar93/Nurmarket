@@ -48,10 +48,10 @@ public partial class MigrateToOfflineDialog : Window
         if (key.Length == 0 || email.Length == 0 || password.Length == 0)
         {
             ShowError(Tr.T("Заполните ключ активации, email и пароль.",
-                "Активация ачкычын, email жана паролду толтуруңуз.",
+                "Активация ачкычын, email жана сырсөздү толтуруңуз.",
                 "Fill in the activation key, email and password.",
                 "Etkinleştirme anahtarını, e-postayı ve şifreyi doldurun.",
-                "Faollashtirish kalitini, emailni va parolni to'ldiring."));
+                "Faollashtirish kaliti, email va parolni kiriting."));
             return;
         }
 
@@ -105,10 +105,10 @@ public partial class MigrateToOfflineDialog : Window
         CancelButton.IsVisible = false;
         ShowStatus(Tr.T(
             $"Каталог подготовлен ({syncResult.Added + syncResult.Changed} товаров). Нажмите «Готово — выйти», затем на экране входа выберите «Работать автономно» и войдите этим email и паролем.",
-            $"Каталог даяр ({syncResult.Added + syncResult.Changed} товар). «Бүттү — чыгуу» баскычын басып, кирүү экранында «Автономдук иштөөнү» тандап, ушул email жана пароль менен кириңиз.",
-            $"Catalog prepared ({syncResult.Added + syncResult.Changed} products). Click \"Done — log out\", then on the login screen choose \"Work autonomously\" and sign in with this email and password.",
-            $"Katalog hazır ({syncResult.Added + syncResult.Changed} ürün). \"Tamamlandı — çıkış yap\"a tıklayın, ardından giriş ekranında \"Bağımsız çalış\"ı seçip bu e-posta ve şifreyle giriş yapın.",
-            $"Katalog tayyor ({syncResult.Added + syncResult.Changed} mahsulot). \"Tayyor — chiqish\"ni bosing, so'ng kirish ekranida \"Avtonom ishlash\"ni tanlab shu email va parol bilan kiring."));
+            $"Каталог даяр ({syncResult.Added + syncResult.Changed} товар). «Бүттү — чыгуу» баскычын басып, андан кийин кирүү экранында «Автономдук иштөө» баскычын тандап, ушул email жана сырсөз менен кириңиз.",
+            $"Catalog prepared ({syncResult.Added + syncResult.Changed} products). Click “Done — log out”, then on the login screen choose “Work offline” and sign in with this email and password.",
+            $"Katalog hazır ({syncResult.Added + syncResult.Changed} ürün). «Tamamlandı — çıkış yap» düğmesine basın, ardından giriş ekranında «Çevrimdışı çalış»ı seçip bu e-posta ve şifreyle giriş yapın.",
+            $"Katalog tayyor ({syncResult.Added + syncResult.Changed} ta mahsulot). «Tayyor — chiqish»ni bosing, so'ng kirish ekranida «Oflayn ishlash»ni tanlang va shu email hamda parol bilan kiring."));
     }
 
     private void SetRunning(bool running)

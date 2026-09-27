@@ -68,7 +68,7 @@ public partial class StaffTimesheetWindow : Window
                 _rows.Add(new TimesheetRowVm(row));
 
             StatusText.Text = rows.Count == 0
-                ? Tr.T("Нет закрытых смен за выбранный период.", "Тандалган мезгил үчүн жабылган кезектер жок.",
+                ? Tr.T("Нет закрытых смен за выбранный период.", "Тандалган мезгилде жабылган сменалар жок.",
                     "No closed shifts for the selected period.", "Seçilen dönem için kapatılmış vardiya yok.",
                     "Tanlangan davr uchun yopilgan smenalar yo'q.")
                 : Tr.T($"Кассиров: {rows.Count}.", $"Кассирлер: {rows.Count}.", $"Cashiers: {rows.Count}.",
@@ -99,6 +99,6 @@ public partial class StaffTimesheetWindow : Window
             : "—";
 
         private static string FormatHours(TimeSpan span) =>
-            $"{(int)span.TotalHours} {Tr.T("ч", "с", "h", "sa", "soat")} {span.Minutes} {Tr.T("мин", "мүн", "min", "dk", "daq")}";
+            $"{(int)span.TotalHours} {Tr.T("ч", "саат", "h", "sa", "soat")} {span.Minutes} {Tr.T("мин", "мүн", "min", "dk", "daq.")}";
     }
 }

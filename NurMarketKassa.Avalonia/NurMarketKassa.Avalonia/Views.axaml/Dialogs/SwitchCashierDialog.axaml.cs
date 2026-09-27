@@ -72,7 +72,7 @@ public partial class SwitchCashierDialog : Window
         var password = PasswordBox.Text ?? "";
         if (email.Length == 0 || password.Length == 0)
         {
-            ShowError(Tr.T("Введите логин и пароль.", "Логин менен паролду киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting."));
+            ShowError(Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter the login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting."));
             return;
         }
 
@@ -111,7 +111,7 @@ public partial class SwitchCashierDialog : Window
         ConfirmButton.IsEnabled = !busy;
         CancelButton.IsEnabled = !busy;
         ConfirmButton.Content = busy
-            ? Tr.T("Проверка…", "Текшерүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…")
+            ? Tr.T("Проверка…", "Текшерилүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…")
             : Tr.T("Сменить", "Алмаштыруу", "Switch", "Değiştir", "Almashtirish");
     }
 

@@ -99,16 +99,16 @@ public partial class ScaleSettingsView : UserControl
             {
                 ShowPluIpAlert(Tr.T(
                     $"Весы не отвечают ({reply.Status}). Проверьте IP и что весы включены и в той же сети.",
-                    $"Тараза жооп бербейт ({reply.Status}). IP жана тараза күйгүзүлгөнүн текшериңиз.",
-                    $"The scale is not responding ({reply.Status}). Check the IP and that the scale is powered on and on the same network.",
-                    $"Tartı yanıt vermiyor ({reply.Status}). IP'yi ve tartının açık olduğunu kontrol edin.",
-                    $"Tarozi javob bermayapti ({reply.Status}). IP va tarozi yoqilganini tekshiring."), true);
+                    $"Тараза жооп бербейт ({reply.Status}). IP-даректи, тараза күйүк экенин жана ошол эле тармакта турганын текшериңиз.",
+                    $"The scale is not responding ({reply.Status}). Check the IP and make sure the scale is on and connected to the same network.",
+                    $"Tartı yanıt vermiyor ({reply.Status}). IP adresini, tartının açık ve aynı ağda olduğunu kontrol edin.",
+                    $"Tarozi javob bermayapti ({reply.Status}). IP manzilni, tarozi yoqilganini va shu tarmoqda ekanini tekshiring."), true);
             }
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Scale IP ping failed: {ex.Message}", "SCALES");
-            ShowPluIpAlert(Tr.T("Ошибка проверки: ", "Текшерүү катасы: ", "Check error: ", "Kontrol hatası: ", "Tekshirish xatosi: ") + ex.Message, true);
+            ShowPluIpAlert(Tr.T("Ошибка проверки: ", "Текшерүү катасы: ", "Check failed: ", "Kontrol hatası: ", "Tekshirish xatosi: ") + ex.Message, true);
         }
         finally
         {
@@ -194,7 +194,7 @@ public partial class ScaleSettingsView : UserControl
         SaveLanScaleSettings();
         TestLanScaleButton.IsEnabled = false;
         LanScaleAlert.IsVisible = true;
-        LanScaleAlertText.Text = "Проверяю связь с весами…";
+        LanScaleAlertText.Text = Tr.T("Проверяю связь с весами…", "Тараза менен байланыш текшерилүүдө…", "Checking the connection to the scale…", "Tartı bağlantısı kontrol ediliyor…", "Tarozi bilan aloqa tekshirilmoqda…");
 
         try
         {
@@ -203,7 +203,7 @@ public partial class ScaleSettingsView : UserControl
                 prefs.ScaleNetworkIp ?? "", prefs.ScaleLanPort, prefs.ScaleLanPassword);
 
             var info = await scale.TestConnectionAsync(beep: true, CancellationToken.None).ConfigureAwait(true);
-            LanScaleAlertText.Text = "Весы на связи: " + info;
+            LanScaleAlertText.Text = Tr.T("Весы на связи: ", "Тараза байланышта: ", "Scale connected: ", "Tartı bağlı: ", "Tarozi aloqada: ") + info;
         }
         catch (Exception ex)
         {

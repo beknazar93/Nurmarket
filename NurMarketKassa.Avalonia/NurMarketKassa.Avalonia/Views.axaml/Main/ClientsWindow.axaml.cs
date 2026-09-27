@@ -91,8 +91,12 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         var link = TelegramSubscriberStore.BuildInviteLink(clientId!);
         if (link == null)
         {
-            TelegramInviteHint.Text =
-                "Сначала подключите бота в «Настройки → Операции»: имя бота касса узнаёт при определении получателя.";
+            TelegramInviteHint.Text = Tr.T(
+                "Сначала подключите бота в «Настройки → Операции»: имя бота касса узнаёт при определении получателя.",
+                "Адегенде ботту «Жөндөөлөр → Операциялар» бөлүмүндө туташтырыңыз: боттун атын касса алуучуну аныктаганда билет.",
+                "First connect the bot in “Settings → Operations”: the till learns the bot's name when it detects the recipient.",
+                "Önce botu «Ayarlar → İşlemler» bölümünden bağlayın: kasa, botun adını alıcıyı belirlerken öğrenir.",
+                "Avval botni «Sozlamalar → Operatsiyalar» bo'limida ulang: kassa bot nomini qabul qiluvchini aniqlashda bilib oladi.");
             return;
         }
 
@@ -100,8 +104,12 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         if (clipboard != null)
             await clipboard.SetTextAsync(link).ConfigureAwait(true);
 
-        TelegramInviteHint.Text = $"Ссылка скопирована: {link}\n"
-            + "Отправьте её клиенту. После нажатия «Старт» он начнёт получать напоминания.";
+        TelegramInviteHint.Text = Tr.T($"Ссылка скопирована: {link}\n", $"Шилтеме көчүрүлдү: {link}\n", $"Link copied: {link}\n", $"Bağlantı kopyalandı: {link}\n", $"Havola nusxalandi: {link}\n")
+            + Tr.T("Отправьте её клиенту. После нажатия «Старт» он начнёт получать напоминания.",
+                "Аны клиентке жөнөтүңүз. «Старт» баскычын баскандан кийин ал эскертмелерди ала баштайт.",
+                "Send it to the client. Once they press “Start”, they'll begin receiving reminders.",
+                "Bunu müşteriye gönderin. «Başlat»a bastıktan sonra hatırlatmaları almaya başlar.",
+                "Uni mijozga yuboring. «Start» tugmasini bosgach, u eslatmalarni ola boshlaydi.");
     }
 
     /// <summary>Открывает историю покупок выбранного клиента отдельным окном. В карточке для
@@ -195,7 +203,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         private set { _errorMessage = value; OnPropertyChanged(); }
     }
 
-    public string CountText => $"Клиентов: {_allClients.Count}";
+    public string CountText => Tr.T($"Клиентов: {_allClients.Count}", $"Клиенттер: {_allClients.Count}", $"Clients: {_allClients.Count}", $"Müşteri sayısı: {_allClients.Count}", $"Mijozlar: {_allClients.Count}");
 
     public ClientRow? SelectedClient
     {
@@ -253,7 +261,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
         _purchasesCts = cts;
-        PurchasesSummary = "Загружаем покупки…";
+        PurchasesSummary = Tr.T("Загружаем покупки…", "Сатып алуулар жүктөлүүдө…", "Loading purchases…", "Alışverişler yükleniyor…", "Xaridlar yuklanmoqda…");
 
         try
         {
@@ -292,19 +300,23 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
                     DateDisplay = hasDate
                         ? when.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)
                         : "—",
-                    AmountDisplay = $"{amount:0.00} сом",
+                    AmountDisplay = $"{amount:0.00} {Som}",
                 });
             }
 
             PurchasesSummary = ClientPurchases.Count == 0
-                ? "Покупок пока нет."
-                : $"Покупок: {ClientPurchases.Count} · на сумму {total:0.00} сом";
+                ? Tr.T("Покупок пока нет.", "Азырынча сатып алуулар жок.", "No purchases yet.", "Henüz alışveriş yok.", "Hali xaridlar yo'q.")
+                : Tr.T($"Покупок: {ClientPurchases.Count} · на сумму {total:0.00} сом",
+                    $"Сатып алуулар: {ClientPurchases.Count} · суммасы {total:0.00} сом",
+                    $"Purchases: {ClientPurchases.Count} · total {total:0.00} som",
+                    $"Alışveriş: {ClientPurchases.Count} · toplam {total:0.00} som",
+                    $"Xaridlar: {ClientPurchases.Count} · jami {total:0.00} so'm");
             OnPropertyChanged(nameof(HasClientPurchases));
         }
         catch (Exception ex)
         {
             if (ReferenceEquals(_selectedClient, client))
-                PurchasesSummary = "Не удалось загрузить покупки.";
+                PurchasesSummary = Tr.T("Не удалось загрузить покупки.", "Сатып алууларды жүктөө мүмкүн болгон жок.", "Could not load purchases.", "Alışverişler yüklenemedi.", "Xaridlarni yuklab bo'lmadi.");
             PosLogger.Log($"Client purchases load failed: {ex.Message}", "WARNING");
         }
     }
@@ -444,7 +456,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            ErrorMessage = "Не удалось загрузить клиентов: " + ex.Message;
+            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ex.Message;
             PosLogger.Log($"Clients load failed: {ex}", "WARNING");
         }
         finally
@@ -474,7 +486,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             var row = ToClientRow(created);
             if (string.IsNullOrWhiteSpace(row.Id))
             {
-                ErrorMessage = "Не удалось добавить клиента.";
+                ErrorMessage = Tr.T("Не удалось добавить клиента.", "Клиентти кошуу мүмкүн болгон жок.", "Could not add the client.", "Müşteri eklenemedi.", "Mijozni qo'shib bo'lmadi.");
                 return;
             }
 
@@ -492,7 +504,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            ErrorMessage = "Не удалось добавить клиента: " + ex.Message;
+            ErrorMessage = Tr.T("Не удалось добавить клиента: ", "Клиентти кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ex.Message;
             PosLogger.Log($"Client create failed: {ex}", "WARNING");
         }
         finally
@@ -559,7 +571,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            CardErrorMessage = "Не удалось сохранить клиента: " + ex.Message;
+            CardErrorMessage = Tr.T("Не удалось сохранить клиента: ", "Клиентти сактоо мүмкүн болгон жок: ", "Could not save the client: ", "Müşteri kaydedilemedi: ", "Mijozni saqlab bo'lmadi: ") + ex.Message;
             PosLogger.Log($"Client update failed: {ex}", "WARNING");
         }
         finally
@@ -576,7 +588,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
 
         var confirmed = NurMarketKassa.AvaloniaHost.Services.PosDialogs.ConfirmYesNo(
             this,
-            $"Удалить клиента «{client.FullName}»?");
+            Tr.T($"Удалить клиента «{client.FullName}»?", $"«{client.FullName}» клиентин өчүрөсүзбү?", $"Delete client “{client.FullName}”?", $"«{client.FullName}» müşterisi silinsin mi?", $"«{client.FullName}» mijozini o'chirasizmi?"));
         if (!confirmed)
             return;
 
@@ -596,7 +608,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            CardErrorMessage = "Не удалось удалить клиента: " + ex.Message;
+            CardErrorMessage = Tr.T("Не удалось удалить клиента: ", "Клиентти өчүрүү мүмкүн болгон жок: ", "Could not delete the client: ", "Müşteri silinemedi: ", "Mijozni o'chirib bo'lmadi: ") + ex.Message;
             PosLogger.Log($"Client delete failed: {ex}", "WARNING");
         }
         finally
@@ -638,9 +650,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged
             CreatedAt = created,
             CreatedAtDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
             LoyaltyBalance = loyaltyBalance,
-            LoyaltyBalanceDisplay = $"{loyaltyBalance:0.##} сом",
+            LoyaltyBalanceDisplay = $"{loyaltyBalance:0.##} {Som}",
         };
     }
+
+    private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
     private static string? TryGetString(JsonElement element, string property)
     {

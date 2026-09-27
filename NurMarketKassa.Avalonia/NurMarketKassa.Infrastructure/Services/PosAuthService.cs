@@ -18,7 +18,7 @@ public sealed class PosAuthService : IAuthService
     {
         var email = username.Trim();
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-            return AuthResult.Failure("Введите логин и пароль.");
+            return AuthResult.Failure(Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting."));
 
         try
         {
@@ -28,7 +28,9 @@ public sealed class PosAuthService : IAuthService
             var session = _authService.TryLoadOfflineSession();
             var userId = session?.UserId;
             if (string.IsNullOrWhiteSpace(userId))
-                return AuthResult.Failure("Не удалось получить идентификатор пользователя.");
+                return AuthResult.Failure(Tr.T("Не удалось получить идентификатор пользователя.",
+                    "Колдонуучунун идентификаторун алуу мүмкүн болгон жок.", "Could not get the user ID.",
+                    "Kullanıcı kimliği alınamadı.", "Foydalanuvchi identifikatorini olib bo'lmadi."));
 
             return AuthResult.Success(
                 userId,
@@ -41,11 +43,14 @@ public sealed class PosAuthService : IAuthService
         catch (HttpRequestException ex)
         {
             return AuthResult.Failure(
-                string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message);
+                string.IsNullOrWhiteSpace(ex.Message)
+                    ? Tr.T("Нет подключения.", "Байланыш жок.", "No connection.", "Bağlantı yok.", "Aloqa yo'q.")
+                    : ex.Message);
         }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return AuthResult.Failure("Превышено время ожидания.");
+            return AuthResult.Failure(Tr.T("Превышено время ожидания.", "Күтүү убактысы бүттү.",
+                "The request timed out.", "Bekleme süresi aşıldı.", "Kutish vaqti tugadi."));
         }
     }
 }

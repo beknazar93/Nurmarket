@@ -147,7 +147,7 @@
         <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="returns" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="Возвраты" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource sales.returns}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ReturnsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
@@ -155,7 +155,7 @@
         <Border Grid.Column="2" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="writeoffs" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="Списания" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource loc.owner.shift.writeOffs}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="WriteOffsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
@@ -163,7 +163,7 @@
         <Border Grid.Column="4" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="expense" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="Расход" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource customService.typeExpense}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ExpenseText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
@@ -171,7 +171,7 @@
         <Border Grid.Column="6" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="debtpaid" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="Оплата долгов" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource loc.owner.shift.debtPayments}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DebtPaidText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
           </StackPanel>
@@ -179,7 +179,7 @@
         <Border Grid.Column="8" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="discounts" PointerReleased="Tile_PointerReleased">
           <StackPanel>
-            <TextBlock Text="Скидки" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock Text="{DynamicResource sales.discounts}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="DiscountsText" FontSize="15" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
             <TextBlock x:Name="PointsRedeemedText" FontSize="10"
@@ -195,18 +195,18 @@
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
-          <TextBlock Text="Денежный ящик за смену" FontSize="11"
+          <TextBlock Text="{DynamicResource loc.owner.shift.cashDrawerTitle}" FontSize="11"
                      Foreground="{DynamicResource BrushTextSoft}"/>
           <Grid ColumnDefinitions="*,*">
             <StackPanel Grid.Column="0">
-              <TextBlock Text="Внесения" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="{DynamicResource loc.owner.shift.deposits}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock x:Name="DepositsText" FontSize="16" FontWeight="Bold"
-                         Foreground="{DynamicResource BrushUiStatusOk}" Text="0,00 сом"/>
+                         Foreground="{DynamicResource BrushUiStatusOk}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
             <StackPanel Grid.Column="1">
-              <TextBlock Text="Изъятия (расход)" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="{DynamicResource loc.owner.shift.withdrawalsExpense}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock x:Name="WithdrawalsText" FontSize="16" FontWeight="Bold"
-                         Foreground="{DynamicResource BrushDanger}" Text="0,00 сом"/>
+                         Foreground="{DynamicResource BrushDanger}" Text="{DynamicResource loc.owner.zeroMoney}"/>
             </StackPanel>
           </Grid>
         </StackPanel>
