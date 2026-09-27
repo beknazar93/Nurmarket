@@ -13,47 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "База знаний на языке программы: все 97 статей, снимки экранов и подписи — на русском, кыргызском, английском, турецком и узбекском",
-        "В базе знаний появились обучающие анимации: как открыть программу владельца, как провести продажу и как вернуть чек",
-        "Переведены около 900 надписей, которые раньше показывались только по-русски: главный экран кассы, оплата, смена, настройки, окна программы владельца",
-        "Исправлены переводы на кыргызский, английский, турецкий и узбекский: грамматика, падежи, опечатки, единые названия (две проверки, около 2200 исправлений)",
-        "Кнопки в окнах смены и скидки больше не обрезаются на длинных языках; программа владельца после смены языка открывает разделы заново на новом языке, а её экран входа называется «Вход в программу владельца»",
+        "История чеков для кассира (☰ → Работа): чеки смены, за сегодня и вчера, состав чека и «Печать копии»; в «⋮ Ещё» — «Печать последнего чека» и «Списание» товара",
+        "«Отложить чек» оставляет чек вкладкой «Отложен ЧЧ:ММ» и сразу открывает новый; после оплаты лишняя пустая вкладка сама закрывается",
+        "Клавиатура: стрелками двигается рамка по каталогу, Num + добавляет товар, Num − убавляет или убирает строку, Enter всегда оплачивает; в окне оплаты стрелки переключают способ оплаты",
+        "Настройки → «Клавиши»: любое действие можно переназначить на свою клавишу, есть значения по умолчанию",
+        "Работа без интернета: кассы и программа владельца обмениваются продажами по локальной сети или внутри одного компьютера — остаток и выручка видны сразу",
+        "Программа владельца: новый раздел «Аналитика», ABC-анализ в каждом разделе по смыслу и полный ABC в «Сводке», «Финансы» без второго меню, разделы без повторяющихся заголовков, отчёт смены открывается мгновенно",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Билим базасы программанын тилинде: бардык 97 макала, экран сүрөттөрү жана жазуулар — орус, кыргыз, англис, түрк жана өзбек тилдеринде",
-        "Билим базасында окутуучу анимациялар пайда болду: ээсинин программасын кантип ачуу, сатууну кантип жүргүзүү жана чекти кантип кайтаруу",
-        "Мурда орусча гана көрүнгөн 900гө жакын жазуу которулду: кассанын башкы экраны, төлөө, смена, жөндөөлөр, ээсинин программасынын терезелери",
-        "Кыргыз, англис, түрк жана өзбек тилдериндеги котормолор оңдолду: грамматика, жөндөмөлөр, ката жазуулар, бирдиктүү аттар (эки текшерүү, 2200гө жакын оңдоо)",
-        "Смена жана арзандатуу терезелериндеги баскычтар узун тилдерде кесилбей калды; ээсинин программасы тил алмашкандан кийин бөлүмдөрдү жаңы тилде кайра ачат, анын кирүү экраны «Ээсинин программасына кирүү» деп аталат",
+        "Кассир үчүн чектердин тарыхы (☰ → Жумуш): сменанын, бүгүнкү жана кечээки чектер, чектин курамы жана «Көчүрмөсүн басып чыгаруу»; «⋮ Дагы» ичинде — «Акыркы чекти басып чыгаруу» жана товарды «Эсептен чыгаруу»",
+        "«Чекти калтыруу» чекти «Калтырылган СС:ММ» өтмөгү катары калтырып, дароо жаңы чек ачат; төлөгөндөн кийин ашыкча бош өтмөк өзү жабылат",
+        "Баскычтоп: жебелер менен каталогдо алкак жылат, Num + товар кошот, Num − санын азайтат же сапты алып салат, Enter дайыма төлөйт; төлөм терезесинде жебелер төлөм ыкмасын алмаштырат",
+        "Жөндөөлөр → «Баскычтар»: каалаган аракетти өз баскычына кайра дайындаса болот, демейки маанилер бар",
+        "Интернетсиз иштөө: кассалар жана ээсинин программасы сатууларды жергиликтүү тармак аркылуу же бир компьютердин ичинде алмашат — калдык жана түшкөн акча дароо көрүнөт",
+        "Ээсинин программасы: жаңы «Талдоо» бөлүмү, ар бир бөлүмдө маанисине жараша ABC-талдоо жана «Жыйынтыкта» толук ABC, «Финансы» экинчи менюсуз, бөлүмдөр кайталанган аталышсыз, сменанын отчёту заматта ачылат",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "The knowledge base follows the program language: all 97 articles, screenshots and captions in Russian, Kyrgyz, English, Turkish and Uzbek",
-        "The knowledge base now has tutorial animations: how to open the owner program, make a sale and return a receipt",
-        "About 900 texts that used to appear only in Russian are now translated: the main till screen, payment, shifts, settings and owner program windows",
-        "Kyrgyz, English, Turkish and Uzbek translations corrected: grammar, cases, typos, consistent names (two review passes, about 2,200 fixes)",
-        "Buttons in the shift and discount windows are no longer cut off in longer languages; the owner program reopens sections in the new language after a language change, and its sign-in screen now says “Sign in to the owner program”",
+        "Receipt history for cashiers (☰ → Work): receipts of the shift, today and yesterday, receipt contents and “Print copy”; “⋮ More” now has “Print last receipt” and product “Write-off”",
+        "“Hold receipt” keeps the receipt as a “Held HH:MM” tab and opens a new one right away; after payment the extra empty tab closes by itself",
+        "Keyboard: arrow keys move a frame through the catalog, Num + adds the product, Num − decreases or removes the line, Enter always pays; in the payment window the arrow keys switch the payment method",
+        "Settings → “Keys”: any action can be reassigned to your own key, with defaults",
+        "Working without internet: tills and the owner program exchange sales over the local network or within one computer — stock and revenue are visible right away",
+        "Owner program: new “Analytics” section, ABC analysis in each section by meaning and a full ABC in the “Overview”, “Finance” without a second menu, sections without repeated titles, the shift report opens instantly",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Bilgi bankası programın dilinde: 97 makalenin tamamı, ekran görüntüleri ve açıklamalar Rusça, Kırgızca, İngilizce, Türkçe ve Özbekçe",
-        "Bilgi bankasına eğitim animasyonları eklendi: sahip programı nasıl açılır, satış nasıl yapılır ve fiş nasıl iade edilir",
-        "Daha önce yalnızca Rusça görünen yaklaşık 900 metin çevrildi: kasanın ana ekranı, ödeme, vardiya, ayarlar ve sahip programının pencereleri",
-        "Kırgızca, İngilizce, Türkçe ve Özbekçe çeviriler düzeltildi: dil bilgisi, hâl ekleri, yazım hataları, tutarlı adlar (iki kontrol, yaklaşık 2.200 düzeltme)",
-        "Vardiya ve indirim pencerelerindeki düğmeler uzun dillerde artık kesilmiyor; sahip programı dil değiştikten sonra bölümleri yeni dilde yeniden açar, giriş ekranı artık «Sahip programına giriş» diyor",
+        "Kasiyer için fiş geçmişi (☰ → İş): vardiyanın, bugünün ve dünün fişleri, fiş içeriği ve «Kopya yazdır»; «⋮ Daha fazla» menüsünde «Son fişi yazdır» ve ürün «Düşümü»",
+        "«Fişi beklet» fişi «Bekleyen SS:DD» sekmesi olarak bırakır ve hemen yeni fiş açar; ödemeden sonra fazladan boş sekme kendiliğinden kapanır",
+        "Klavye: ok tuşlarıyla katalogda çerçeve hareket eder, Num + ürünü ekler, Num − miktarı azaltır veya satırı kaldırır, Enter her zaman öder; ödeme penceresinde ok tuşları ödeme yöntemini değiştirir",
+        "Ayarlar → «Tuşlar»: her eylem kendi tuşunuza yeniden atanabilir, varsayılan değerler mevcut",
+        "İnternetsiz çalışma: kasalar ve sahip programı satışları yerel ağ üzerinden veya tek bilgisayar içinde paylaşır — stok ve ciro hemen görünür",
+        "Sahip programı: yeni «Analiz» bölümü, her bölümde anlamına göre ABC analizi ve «Özet»te tam ABC, ikinci menüsüz «Finans», tekrarlanan başlıklar olmadan bölümler, vardiya raporu anında açılır",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Bilimlar bazasi dastur tilida: barcha 97 ta maqola, ekran suratlari va izohlar — rus, qirg'iz, ingliz, turk va o'zbek tillarida",
-        "Bilimlar bazasida o'quv animatsiyalari paydo bo'ldi: ega dasturini qanday ochish, sotuvni qanday o'tkazish va chekni qanday qaytarish",
-        "Ilgari faqat ruscha ko'ringan 900 ga yaqin yozuv tarjima qilindi: kassaning asosiy ekrani, to'lov, smena, sozlamalar va ega dasturi oynalari",
-        "Qirg'iz, ingliz, turk va o'zbek tillaridagi tarjimalar tuzatildi: grammatika, kelishiklar, imlo xatolari, yagona nomlar (ikki tekshiruv, 2200 ga yaqin tuzatish)",
-        "Smena va chegirma oynalaridagi tugmalar uzun tillarda endi kesilmaydi; ega dasturi til almashtirilgandan keyin bo'limlarni yangi tilda qayta ochadi, kirish oynasi endi «Ega dasturiga kirish» deb nomlanadi",
+        "Kassir uchun cheklar tarixi (☰ → Ish): smenadagi, bugungi va kechagi cheklar, chek tarkibi va «Nusxani chop etish»; «⋮ Yana» menyusida «Oxirgi chekni chop etish» va mahsulotni «Hisobdan chiqarish»",
+        "«Chekni kutishga qo'yish» chekni «Kutishda SS:DD» yorlig'i sifatida qoldiradi va darhol yangi chek ochadi; to'lovdan keyin ortiqcha bo'sh yorliq o'zi yopiladi",
+        "Klaviatura: strelkalar bilan katalogda ramka suriladi, Num + mahsulot qo'shadi, Num − miqdorni kamaytiradi yoki qatorni olib tashlaydi, Enter doim to'laydi; to'lov oynasida strelkalar to'lov usulini almashtiradi",
+        "Sozlamalar → «Tugmalar»: istalgan amalni o'z tugmangizga qayta tayinlash mumkin, standart qiymatlar bor",
+        "Internetsiz ishlash: kassalar va ega dasturi sotuvlarni mahalliy tarmoq orqali yoki bitta kompyuter ichida almashadi — qoldiq va tushum darhol ko'rinadi",
+        "Ega dasturi: yangi «Tahlil» bo'limi, har bir bo'limda ma'nosiga ko'ra ABC tahlili va «Umumiy»da to'liq ABC, ikkinchi menyusiz «Moliya», takrorlanuvchi sarlavhalarsiz bo'limlar, smena hisoboti bir zumda ochiladi",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>
