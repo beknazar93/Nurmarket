@@ -42,9 +42,17 @@ public sealed class ShiftApiService : IShiftApiService
     private DateTime _recentListAtUtc = DateTime.MinValue;
     private string? _recentListToken;
 
+    /// <summary>Сколько страниц списка смен читаем максимум (по 100 смен — 3000 смен).</summary>
+    private const int MaxShiftPages = 30;
+
+    /// <summary>Сколько страниц качаем одновременно: каждая отвечает 2–3 с, подряд это было бы
+    /// слишком долго, а заваливать сервер ради истории смен незачем.</summary>
+    private const int ShiftPagesParallelism = 3;
+
     private async Task<JsonElement> FetchFullShiftsListAsync(CancellationToken ct)
     {
         var payload = await _client.RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, null, ct).ConfigureAwait(false);
+        payload = await AppendRemainingShiftPagesAsync(payload, ct).ConfigureAwait(false);
         lock (_recentListSync)
         {
             _recentList = payload;
@@ -54,6 +62,129 @@ public sealed class ShiftApiService : IShiftApiService
         }
 
         return payload;
+    }
+
+    /// <summary>2026-09-28, сверка с сайтом: сервер отдаёт смены страницами по 100 ({count, next,
+    /// results}), а касса читала только первую — «Финансы → Смены» показывали 99 закрытых смен
+    /// из 201 (всего 202 на тестовой компании), история смен и табель теряли всё старше двух
+    /// недель. Теперь дочитываем остальные страницы (?page=2, 3, …; страница за последней
+    /// отвечает 404 «Неправильная страница») и отдаём тот же объект, но со всеми сменами в
+    /// results — разбор у всех вызывающих прежний. Не пришла какая-то страница — отдаём то, что
+    /// есть: неполный список лучше пустого.</summary>
+    private async Task<JsonElement> AppendRemainingShiftPagesAsync(JsonElement first, CancellationToken ct)
+    {
+        if (first.ValueKind != JsonValueKind.Object
+            || !first.TryGetProperty("results", out var firstRows)
+            || firstRows.ValueKind != JsonValueKind.Array
+            || !first.TryGetProperty("next", out var next)
+            || next.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(next.GetString()))
+            return first;
+
+        var perPage = firstRows.GetArrayLength();
+        var total = first.TryGetProperty("count", out var countProp) && countProp.ValueKind == JsonValueKind.Number
+            && countProp.TryGetInt32(out var count) ? count : 0;
+        if (perPage <= 0)
+            return first;
+
+        // Число страниц известно из count — качаем их параллельно (по 2–3 с на страницу). Без
+        // count идём по одной, пока сервер отдаёт next.
+        var pageRows = new SortedDictionary<int, JsonElement>();
+        if (total > perPage)
+        {
+            var pages = Math.Min((int)Math.Ceiling(total / (double)perPage), MaxShiftPages);
+            using var gate = new SemaphoreSlim(ShiftPagesParallelism);
+            var fetched = await Task.WhenAll(Enumerable.Range(2, pages - 1).Select(async page =>
+            {
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    return (Page: page, Data: await FetchShiftPageAsync(page, ct).ConfigureAwait(false));
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            })).ConfigureAwait(false);
+            foreach (var (page, data) in fetched)
+            {
+                if (data is { } rows)
+                    pageRows[page] = rows;
+            }
+        }
+        else
+        {
+            for (var page = 2; page <= MaxShiftPages; page++)
+            {
+                if (await FetchShiftPageAsync(page, ct).ConfigureAwait(false) is not { } rows || rows.GetArrayLength() == 0)
+                    break;
+                pageRows[page] = rows;
+                if (rows.GetArrayLength() < perPage)
+                    break;
+            }
+        }
+
+        if (pageRows.Count == 0)
+            return first;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var stream = new System.IO.MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("count", Math.Max(total, perPage));
+            writer.WriteNull("next");
+            writer.WriteNull("previous");
+            writer.WritePropertyName("results");
+            writer.WriteStartArray();
+            foreach (var rows in new[] { firstRows }.Concat(pageRows.Values))
+            {
+                foreach (var row in rows.EnumerateArray())
+                {
+                    // Пока листали, могла открыться новая смена и сдвинуть страницы — без
+                    // повторов одной и той же смены.
+                    var id = row.ValueKind == JsonValueKind.Object && row.TryGetProperty("id", out var idProp)
+                        ? idProp.ToString()
+                        : null;
+                    if (!string.IsNullOrEmpty(id) && !seen.Add(id))
+                        continue;
+                    row.WriteTo(writer);
+                }
+            }
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        using var merged = JsonDocument.Parse(stream.ToArray());
+        return merged.RootElement.Clone();
+    }
+
+    /// <summary>results одной страницы списка смен; null — страницы нет (404) или она не пришла.</summary>
+    private async Task<JsonElement?> FetchShiftPageAsync(int page, CancellationToken ct)
+    {
+        try
+        {
+            var data = await _client.RequestAsync(
+                HttpMethod.Get,
+                "api/construction/shifts/",
+                null,
+                new Dictionary<string, string> { ["page"] = page.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                ct).ConfigureAwait(false);
+            return data.ValueKind == JsonValueKind.Object
+                   && data.TryGetProperty("results", out var rows)
+                   && rows.ValueKind == JsonValueKind.Array
+                ? rows.Clone()
+                : null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Смены: страница {page} списка не получена: {ex.Message}", "SHIFTS");
+            return null;
+        }
     }
 
     public bool TryGetRecentShiftsList(TimeSpan maxAge, out JsonElement payload)

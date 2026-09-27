@@ -1,4 +1,7 @@
-﻿using NurMarketKassa.Models.Pos;
+﻿using System.Globalization;
+using System.Text.Json;
+using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
@@ -116,6 +119,224 @@ public sealed class AnalyticsReportData
     public double StockValue { get; init; }
     public int StockPositions { get; init; }
 
+    /// <summary>Цифры периода с сервера — те же, что показывает сайт (2026-09-28, сверка с вебом).
+    ///
+    /// Раньше выгрузка Excel/Word, ABC в «Сводке» программы владельца и раздел «ABC-анализ»
+    /// считались только по локальной истории кассы (SoldLineItems), а экраны «Финансы» и «Сводка» —
+    /// по серверу. За 28.09 выгрузка дала 153 052,97 / 40 чеков против 152 992,47 / 39 на экране:
+    /// в локальную историю попадают продажи в долг (сервер их в выручку не берёт), строки,
+    /// подтянутые с сервера, записывались по цене ДО скидки на строку (205 вместо 184,50), а
+    /// «Скидки» брались только из локальной таблицы скидок на весь чек и показывали 0,00. ABC по
+    /// локальной истории расходился с сайтом ещё сильнее (440 тыс. против 586 тыс.): история
+    /// добиралась с сервера лишь по первой странице продаж.
+    ///
+    /// Теперь, когда сервер доступен, выручка, чеки, выручка по дням и возвраты берутся из вкладки
+    /// «Продажи» сайта (tab=sales), товары, категории и бренды для топа и ABC — из вкладки «Товары»
+    /// (tab=products), скидки — сумма discount_total оплаченных чеков периода. Без связи отчёт,
+    /// как и раньше, считается по локальной истории.</summary>
+    public sealed class ServerFigures
+    {
+        /// <param name="ProductId">Пусто у товаров, удалённых из каталога после продажи.</param>
+        public sealed record Product(string? ProductId, string Name, double Quantity, double Revenue, double PurchasePrice);
+
+        /// <summary>Выручка периода — cards.revenue вкладки «Продажи»; null — вкладку не запрашивали.</summary>
+        public double? Revenue { get; init; }
+
+        public int? ReceiptCount { get; init; }
+
+        /// <summary>«Документы» → «Возврат продажи»: возвраты, сделанные где угодно — на сайте, на
+        /// любой кассе. Локальный журнал знает только свои.</summary>
+        public double? Returns { get; init; }
+
+        public IReadOnlyList<(DateTime Day, double Revenue)>? ByDay { get; init; }
+
+        /// <summary>Сумма discount_total оплаченных чеков периода (скидки на строку и на весь чек, с
+        /// любой кассы); null — не считали.</summary>
+        public double? Discounts { get; init; }
+
+        /// <summary>Все проданные за период товары (top_by_revenue без ограничения числа строк).</summary>
+        public IReadOnlyList<Product> Products { get; init; } = [];
+
+        public IReadOnlyList<(string Name, double Quantity, double Revenue)> Categories { get; init; } = [];
+
+        public IReadOnlyList<(string Name, double Quantity, double Revenue)> Brands { get; init; } = [];
+
+        /// <summary>Скачивает цифры периода [from; to] (дни включительно).</summary>
+        /// <param name="full">false — только товары (для ABC: один запрос, его можно делать
+        /// после каждой продажи); true — ещё выручка, чеки, возвраты и скидки (для выгрузки).</param>
+        public static async Task<ServerFigures?> FetchAsync(
+            ISalesApiService api, DateTime fromLocal, DateTime toLocal, bool full, CancellationToken ct)
+        {
+            var from = fromLocal.Date;
+            var to = toLocal.Date;
+
+            var productsReport = await api.MarketProductsReportAsync(from, to, ct).ConfigureAwait(false);
+            if (productsReport.ValueKind != JsonValueKind.Object
+                || !productsReport.TryGetProperty("tables", out var tables)
+                || tables.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var products = new List<Product>();
+            foreach (var row in Rows(tables, "top_by_revenue"))
+            {
+                var name = Text(row, "name");
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                products.Add(new Product(
+                    Text(row, "product_id"),
+                    name,
+                    Num(row, "qty_sold"),
+                    Num(row, "revenue"),
+                    Num(row, "purchase_price")));
+            }
+
+            var categories = Rows(tables, "categories")
+                .Select(r => (Name: Text(r, "category") ?? "", Quantity: Num(r, "qty_sold"), Revenue: Num(r, "revenue")))
+                .Where(r => r.Name.Length > 0)
+                .ToList();
+            var brands = Rows(tables, "brands")
+                .Select(r => (Name: Text(r, "brand") ?? "", Quantity: Num(r, "qty_sold"), Revenue: Num(r, "revenue")))
+                .Where(r => r.Name.Length > 0)
+                .ToList();
+
+            if (!full)
+                return new ServerFigures { Products = products, Categories = categories, Brands = brands };
+
+            var salesReport = await api.MarketSalesReportAsync(from, to, ct).ConfigureAwait(false);
+            if (salesReport.ValueKind != JsonValueKind.Object
+                || !salesReport.TryGetProperty("cards", out var cards)
+                || cards.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var byDay = new List<(DateTime Day, double Revenue)>();
+            if (salesReport.TryGetProperty("charts", out var charts) && charts.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var point in Rows(charts, "sales_dynamics"))
+                {
+                    if (DateTime.TryParse(Text(point, "date"), CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+                        byDay.Add((day.Date, Num(point, "value")));
+                }
+            }
+
+            double? returns = null;
+            if (salesReport.TryGetProperty("tables", out var salesTables) && salesTables.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var doc in Rows(salesTables, "documents"))
+                {
+                    if (string.Equals(Text(doc, "name"), "Возврат продажи", StringComparison.OrdinalIgnoreCase))
+                        returns = Num(doc, "sum");
+                }
+            }
+
+            return new ServerFigures
+            {
+                Revenue = Num(cards, "revenue"),
+                ReceiptCount = (int)Math.Round(Num(cards, "transactions")),
+                Returns = returns,
+                ByDay = byDay.OrderBy(d => d.Day).ToList(),
+                Discounts = await SumDiscountsAsync(api, from, to, ct).ConfigureAwait(false),
+                Products = products,
+                Categories = categories,
+                Brands = brands,
+            };
+        }
+
+        /// <summary>Скидки периода: у сайта отдельной цифры нет, поэтому складываем discount_total
+        /// чеков, которые сайт считает выручкой (paid и partially_returned), — как плитка «Скидки»
+        /// в «Продажах». null — список продаж не дочитан (тогда в отчёте останется локальная цифра).</summary>
+        private static async Task<double?> SumDiscountsAsync(ISalesApiService api, DateTime from, DateTime to, CancellationToken ct)
+        {
+            const int pageSize = 80;
+            const int maxPages = 60;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var sum = 0.0;
+            try
+            {
+                for (var page = 1; page <= maxPages; page++)
+                {
+                    var rows = await api.PosSalesListAsync(page, pageSize, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))
+                        .ConfigureAwait(false);
+                    var added = 0;
+                    foreach (var row in rows)
+                    {
+                        var id = Text(row, "id") ?? "";
+                        if (id.Length > 0 && !seen.Add(id))
+                            continue;
+                        added++;
+                        var status = (Text(row, "status") ?? "").ToLowerInvariant();
+                        if (status is "paid" or "partially_returned")
+                            sum += Num(row, "discount_total");
+                    }
+
+                    if (added == 0 || rows.Count < pageSize)
+                        return sum;
+                }
+
+                return sum;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"Аналитика: скидки периода с сервера не получены: {ex.Message}", "WARNING");
+                return null;
+            }
+        }
+
+        private static IEnumerable<JsonElement> Rows(JsonElement parent, string name) =>
+            parent.TryGetProperty(name, out var list) && list.ValueKind == JsonValueKind.Array
+                ? list.EnumerateArray()
+                : [];
+
+        private static string? Text(JsonElement obj, string name) =>
+            obj.ValueKind == JsonValueKind.Object && obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+                ? v.GetString()
+                : null;
+
+        private static double Num(JsonElement obj, string name)
+        {
+            if (obj.ValueKind != JsonValueKind.Object || !obj.TryGetProperty(name, out var v))
+                return 0;
+            return v.ValueKind switch
+            {
+                JsonValueKind.Number => v.GetDouble(),
+                JsonValueKind.String when double.TryParse(v.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) => d,
+                _ => 0,
+            };
+        }
+    }
+
+    /// <summary>Отчёт с цифрами сервера (как на сайте), если он доступен; без связи — по локальной
+    /// истории, как <see cref="Build"/>. См. <see cref="ServerFigures"/>.</summary>
+    /// <param name="full">true — для выгрузки (выручка, чеки, скидки, возвраты с сервера); false —
+    /// только товары для ABC.</param>
+    public static async Task<AnalyticsReportData> BuildAsync(
+        ISalesApiService api, DateTime fromLocal, DateTime toLocal,
+        bool includeSeasonality = true, bool full = false, CancellationToken ct = default)
+    {
+        ServerFigures? server = null;
+        // Касса работает без сервера — не ждём ответа, которого не будет.
+        if (!OfflineModeHelper.UseLocalOperations)
+        {
+            // Не дольше 20 с: ABC и выгрузка без сервера всё равно строятся — по истории кассы,
+            // а общий тайм-аут запроса (55 с) заставил бы ждать почти минуту.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            try
+            {
+                server = await ServerFigures.FetchAsync(api, fromLocal, toLocal, full, timeout.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Аналитика: сервер недоступен ({ex.Message}) — считаю по истории кассы.", "WARNING");
+            }
+        }
+
+        return await Task.Run(() => Build(fromLocal, toLocal, includeSeasonality, server), ct).ConfigureAwait(false);
+    }
+
     /// <summary>Собирает отчёт из локальных данных кассы. Всё считается на месте, без сети:
     /// выгрузку часто просят тогда, когда интернет уже недоступен, а цифры нужны те же, что
     /// на экране «Отчёты».</summary>
@@ -123,8 +344,11 @@ public sealed class AnalyticsReportData
     /// а не выбранный период, поэтому нужна только там, где её показывают. Телеграм-бот и
     /// выгрузка ABC запрашивают отчёт часто и без неё — лишний полный проход по базе на каждый
     /// запрос там ни к чему.</param>
+    /// <param name="server">Цифры сервера за тот же период (см. <see cref="BuildAsync"/>): чем они
+    /// есть, тем и заменяют локальный расчёт. Бонусы, списания, расходы, оплаты долгов, остатки,
+    /// прогноз пополнения и сезонность сервер не отдаёт — они всегда локальные.</param>
     public static AnalyticsReportData Build(
-        DateTime fromLocal, DateTime toLocal, bool includeSeasonality = true)
+        DateTime fromLocal, DateTime toLocal, bool includeSeasonality = true, ServerFigures? server = null)
     {
         var fromUtc = fromLocal.Date.ToUniversalTime();
         var toUtc = toLocal.Date.AddDays(1).ToUniversalTime();
@@ -142,17 +366,23 @@ public sealed class AnalyticsReportData
             .OrderBy(x => x.Day)
             .ToList();
 
-        var top = lines
-            .GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
-            .Select(g => (
-                Name: g.First().ProductName,
-                Quantity: g.Sum(x => x.Quantity),
-                Sum: g.Sum(x => x.Quantity * x.UnitPrice)))
-            .OrderByDescending(x => x.Sum)
-            .Take(20)
-            .ToList();
+        var top = server != null
+            ? server.Products
+                .Select(p => (Name: p.Name, Quantity: p.Quantity, Sum: p.Revenue))
+                .OrderByDescending(x => x.Sum)
+                .Take(20)
+                .ToList()
+            : lines
+                .GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (
+                    Name: g.First().ProductName,
+                    Quantity: g.Sum(x => x.Quantity),
+                    Sum: g.Sum(x => x.Quantity * x.UnitPrice)))
+                .OrderByDescending(x => x.Sum)
+                .Take(20)
+                .ToList();
 
-        var slices = BuildAbcSlices(lines);
+        var slices = server != null ? BuildServerAbcSlices(server) : BuildAbcSlices(lines);
         // Срез склада считается и без продаж за период, поэтому первым в списке может оказаться
         // он — сводку «по выручке» берём по коду, а не по номеру.
         var revenueSlice = slices.FirstOrDefault(s => s.Key == KeyRevenue);
@@ -162,16 +392,21 @@ public sealed class AnalyticsReportData
         {
             FromLocal = fromLocal.Date,
             ToLocal = toLocal.Date,
-            Revenue = Math.Max(0, gross - adjustments.Discounts),
-            Discounts = adjustments.Discounts,
+            // С сервером — выручка сайта: уже за вычетом всех скидок, без долгов и отмен.
+            Revenue = server?.Revenue ?? Math.Max(0, gross - adjustments.Discounts),
+            // Сервер пишет оплату бонусами в ту же скидку чека — вычитаем её, как плитка «Скидки»
+            // в «Продажах»: бонусы в отчёте отдельной строкой.
+            Discounts = server?.Discounts is { } serverDiscounts
+                ? Math.Max(0, serverDiscounts - adjustments.PointsRedeemed)
+                : adjustments.Discounts,
             PointsRedeemed = adjustments.PointsRedeemed,
-            Returns = Event(ShiftEventsStore.KindReturn),
+            Returns = server?.Returns ?? Event(ShiftEventsStore.KindReturn),
             WriteOffs = Event(ShiftEventsStore.KindWriteOff),
             Expenses = Event(ShiftEventsStore.KindExpense),
             DebtPayments = Event(ShiftEventsStore.KindDebtPayment),
             // Чек — это одна отметка времени: все строки одной продажи пишутся одним моментом.
-            ReceiptCount = lines.Select(l => l.SoldAt).Distinct().Count(),
-            ByDay = byDay,
+            ReceiptCount = server?.ReceiptCount ?? lines.Select(l => l.SoldAt).Distinct().Count(),
+            ByDay = server?.ByDay ?? byDay,
             TopProducts = top,
             Abc = abc,
             AbcSummary = revenueSlice?.Summary ?? [],
@@ -398,16 +633,100 @@ public sealed class AnalyticsReportData
         if (lines.Count == 0)
             return [];
 
+        var catalog = CatalogById();
+        CatalogProductTileVm? Card(string productId) =>
+            catalog.TryGetValue(productId, out var card) ? card : null;
+
+        return SalesSlices(
+            lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (
+                    Name: g.First().ProductName,
+                    Quantity: g.Sum(x => x.Quantity),
+                    Value: g.Sum(x => x.Quantity * x.UnitPrice))),
+            lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
+                .Where(g => Card(g.Key) is { PurchasePrice: > 0 })
+                .Select(g =>
+                {
+                    var purchase = Card(g.Key)!.PurchasePrice;
+                    return (
+                        Name: g.First().ProductName,
+                        Quantity: g.Sum(x => x.Quantity),
+                        Value: g.Sum(x => x.Quantity * (x.UnitPrice - purchase)));
+                }),
+            lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (
+                    Name: g.First().ProductName,
+                    Quantity: g.Sum(x => x.Quantity),
+                    Value: g.Sum(x => x.Quantity))),
+            lines.GroupBy(
+                    l => Card(l.ProductId)?.Category is { Length: > 0 } c ? c : "Без категории",
+                    StringComparer.OrdinalIgnoreCase)
+                .Select(g => (
+                    Name: g.Key,
+                    Quantity: g.Sum(x => x.Quantity),
+                    Value: g.Sum(x => x.Quantity * x.UnitPrice))),
+            lines.GroupBy(
+                    l => Card(l.ProductId)?.Brand is { Length: > 0 } b ? b : "Без бренда",
+                    StringComparer.OrdinalIgnoreCase)
+                .Select(g => (
+                    Name: g.Key,
+                    Quantity: g.Sum(x => x.Quantity),
+                    Value: g.Sum(x => x.Quantity * x.UnitPrice))));
+    }
+
+    /// <summary>Те же пять срезов, но по цифрам сервера — вкладке «Товары» сайта (2026-09-28): ABC
+    /// в программе владельца и на сайте теперь считаются по одному правилу — только оплаченные
+    /// чеки, выручка строки после скидки, все кассы компании. Категории и бренды — таблицы сайта
+    /// как есть (сайт не относит к ним товары, удалённые из каталога). Прибыль — выручка минус
+    /// количество × закупочная цена товара (с сервера, иначе из каталога кассы); товар без
+    /// закупочной цены в срез прибыли не входит — как и в локальном расчёте. Плюс срез склада.</summary>
+    private static List<AbcSlice> BuildServerAbcSlices(ServerFigures server)
+    {
+        var slices = new List<AbcSlice>();
+        if (server.Products.Count > 0)
+        {
+            var catalog = CatalogById();
+            double Purchase(ServerFigures.Product p) =>
+                p.PurchasePrice > 0 ? p.PurchasePrice
+                : !string.IsNullOrEmpty(p.ProductId) && catalog.TryGetValue(p.ProductId, out var card) ? card.PurchasePrice
+                : 0;
+
+            slices = SalesSlices(
+                server.Products.Select(p => (Name: p.Name, Quantity: p.Quantity, Value: p.Revenue)),
+                server.Products
+                    .Where(p => Purchase(p) > 0)
+                    .Select(p => (Name: p.Name, Quantity: p.Quantity, Value: p.Revenue - p.Quantity * Purchase(p))),
+                server.Products.Select(p => (Name: p.Name, Quantity: p.Quantity, Value: p.Quantity)),
+                server.Categories.Select(c => (Name: c.Name, Quantity: c.Quantity, Value: c.Revenue)),
+                server.Brands.Select(b => (Name: b.Name, Quantity: b.Quantity, Value: b.Revenue)));
+        }
+
+        if (BuildStockSlice() is { } stock)
+            slices.Add(stock);
+        return slices;
+    }
+
+    private static Dictionary<string, CatalogProductTileVm> CatalogById()
+    {
         var catalog = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
-        foreach (var product in CatalogCacheService.Products)
+        // Копия массивом: каталог обновляется в UI-потоке, а расчёт идёт в фоне.
+        foreach (var product in CatalogCacheService.Products.ToArray())
         {
             if (!string.IsNullOrEmpty(product.Id))
                 catalog[product.Id] = product;
         }
 
-        CatalogProductTileVm? Card(string productId) =>
-            catalog.TryGetValue(productId, out var card) ? card : null;
+        return catalog;
+    }
 
+    /// <summary>Заголовки и пояснения пяти срезов продаж — общие для локального и серверного расчёта.</summary>
+    private static List<AbcSlice> SalesSlices(
+        IEnumerable<(string Name, double Quantity, double Value)> byRevenue,
+        IEnumerable<(string Name, double Quantity, double Value)> byProfit,
+        IEnumerable<(string Name, double Quantity, double Value)> byQuantity,
+        IEnumerable<(string Name, double Quantity, double Value)> byCategory,
+        IEnumerable<(string Name, double Quantity, double Value)> byBrand)
+    {
         return
         [
             BuildSlice(
@@ -415,64 +734,35 @@ public sealed class AnalyticsReportData
                 Tr.T("Товары по выручке", "Түшүм боюнча товарлар", "Products by revenue", "Ciroya göre ürünler", "Tushum bo'yicha mahsulotlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Классический ABC: где сосредоточены деньги магазина.", "Классикалык ABC: дүкөндүн акчасы кайда топтолгон.", "Classic ABC: where the shop's money is concentrated.", "Klasik ABC: mağazanın parası nerede toplanıyor.", "Klassik ABC: do'kon pullari qayerda jamlangan."),
-                lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
-                    .Select(g => (
-                        Name: g.First().ProductName,
-                        Quantity: g.Sum(x => x.Quantity),
-                        Value: g.Sum(x => x.Quantity * x.UnitPrice)))),
+                byRevenue),
 
             BuildSlice(
                 KeyProfit,
                 Tr.T("Товары по прибыли", "Пайда боюнча товарлар", "Products by profit", "Kâra göre ürünler", "Foyda bo'yicha mahsulotlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Выручка минус закупочная цена. Товар из группы A по выручке легко оказывается в C по прибыли.", "Түшүм минус сатып алуу баасы. Түшүм боюнча A тобундагы товар пайда боюнча оңой эле C тобуна түшүп калышы мүмкүн.", "Revenue minus the purchase price. A product in group A by revenue can easily end up in group C by profit.", "Ciro eksi alış fiyatı. Ciroda A grubundaki bir ürün, kârda kolayca C grubuna düşebilir.", "Tushum minus xarid narxi. Tushum bo'yicha A guruhidagi mahsulot foyda bo'yicha osongina C guruhiga tushib qolishi mumkin."),
-                lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
-                    .Where(g => Card(g.Key) is { PurchasePrice: > 0 })
-                    .Select(g =>
-                    {
-                        var purchase = Card(g.Key)!.PurchasePrice;
-                        return (
-                            Name: g.First().ProductName,
-                            Quantity: g.Sum(x => x.Quantity),
-                            Value: g.Sum(x => x.Quantity * (x.UnitPrice - purchase)));
-                    })),
+                byProfit),
 
             BuildSlice(
                 KeyQuantity,
                 Tr.T("Товары по количеству", "Саны боюнча товарлар", "Products by quantity", "Adede göre ürünler", "Miqdor bo'yicha mahsulotlar"),
                 Tr.T("шт.", "даана", "pcs", "adet", "dona"), isMoney: false,
                 Tr.T("ABC по штукам, а не по деньгам: показывает товары, которые держат поток покупателей.", "Акча эмес, даана боюнча ABC: сатып алуучулардын агымын кармаган товарларды көрсөтөт.", "ABC by units rather than money: shows the products that keep customers coming.", "Para yerine adede göre ABC: müşteri akışını sağlayan ürünleri gösterir.", "Pul emas, dona bo'yicha ABC: xaridorlar oqimini ushlab turadigan mahsulotlarni ko'rsatadi."),
-                lines.GroupBy(l => l.ProductId, StringComparer.OrdinalIgnoreCase)
-                    .Select(g => (
-                        Name: g.First().ProductName,
-                        Quantity: g.Sum(x => x.Quantity),
-                        Value: g.Sum(x => x.Quantity)))),
+                byQuantity),
 
             BuildSlice(
                 KeyCategory,
                 Tr.T("Категории", "Категориялар", "Categories", "Kategoriler", "Kategoriyalar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Те же 80/15/5, но по категориям каталога — что нельзя допускать до пустых полок.", "Ошол эле 80/15/5, бирок каталогдун категориялары боюнча — кайсы категориялардын текчелери бош калбашы керек.", "The same 80/15/5, but by catalog category — what must never run out on the shelf.", "Aynı 80/15/5, ama katalog kategorilerine göre — hangi kategorilerin rafta tükenmemesi gerektiğini gösterir.", "Xuddi shu 80/15/5, lekin katalog kategoriyalari bo'yicha: qaysi kategoriyalarni javonda tugatib qo'ymaslik kerak."),
-                lines.GroupBy(
-                        l => Card(l.ProductId)?.Category is { Length: > 0 } c ? c : "Без категории",
-                        StringComparer.OrdinalIgnoreCase)
-                    .Select(g => (
-                        Name: g.Key,
-                        Quantity: g.Sum(x => x.Quantity),
-                        Value: g.Sum(x => x.Quantity * x.UnitPrice)))),
+                byCategory),
 
             BuildSlice(
                 KeyBrand,
                 Tr.T("Бренды", "Бренддер", "Brands", "Markalar", "Brendlar"),
                 Tr.T("сом", "сом", "som", "som", "so'm"), isMoney: true,
                 Tr.T("Кто из поставщиков-брендов реально делает выручку.", "Кайсы бренддер чындыгында түшүм алып келет.", "Which brands actually bring in the revenue.", "Hangi markalar gerçekten ciro getiriyor.", "Qaysi brend-yetkazib beruvchilar haqiqatan tushum keltiradi."),
-                lines.GroupBy(
-                        l => Card(l.ProductId)?.Brand is { Length: > 0 } b ? b : "Без бренда",
-                        StringComparer.OrdinalIgnoreCase)
-                    .Select(g => (
-                        Name: g.Key,
-                        Quantity: g.Sum(x => x.Quantity),
-                        Value: g.Sum(x => x.Quantity * x.UnitPrice)))),
+                byBrand),
         ];
     }
 

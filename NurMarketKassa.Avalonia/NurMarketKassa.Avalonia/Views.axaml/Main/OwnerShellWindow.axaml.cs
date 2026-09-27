@@ -772,6 +772,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _lastSuccess = DateTime.Now;
             _offline = false;
             ApplyLanSales(online: true);
+            if (DateTime.UtcNow - _abcRefreshedUtc > TimeSpan.FromMinutes(1))
+                RefreshAbcWhenVisible();
 
             UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
             ToolTip.SetTip(UpdatedText, Tr.T($"Обновляется само каждые {RefreshInterval.TotalSeconds:0} с",
@@ -1020,6 +1022,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             ["total"] = s.Sale.Total,
             ["created_at"] = s.Sale.CreatedAtUtc.ToString("o", CultureInfo.InvariantCulture),
             ["first_item_name"] = s.Sale.Items.FirstOrDefault()?.Name ?? "",
+            // Для «+ ещё N» в «Последних продажах» (2026-09-28): состав чека кассы уже известен.
+            ["items_count"] = s.Sale.Items.Count,
             ["user_display"] = s.Sale.CashierName ?? "",
             ["cashbox_name"] = place,
         };
@@ -1344,10 +1348,72 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
     }
 
+    // 2026-09-28, сверка с сайтом: в «Последних продажах» был виден только первый товар чека
+    // (first_item_name) — чек из трёх позиций выглядел как продажа одного товара. Списка позиций в
+    // списке продаж сервер не отдаёт (у сайта там тоже только первый товар), поэтому число позиций
+    // берём из деталей чека: SaleDetailCache качает каждый чек один раз за сеанс, при
+    // 20-секундном обновлении запрашиваются только новые чеки.
+    private readonly Dictionary<string, int> _saleItemCounts = new(StringComparer.OrdinalIgnoreCase);
+    private List<JsonElement>? _recentShown;
+    private bool _itemCountsLoading;
+
+    private async Task LoadRecentItemCountsAsync()
+    {
+        if (_itemCountsLoading || _recentShown is not { } rows)
+            return;
+
+        var ids = rows
+            .Where(r => Num(r, "items_count") <= 0)
+            .Select(r => Str(r, "id"))
+            .Where(id => id.Length > 0 && !_saleItemCounts.ContainsKey(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (ids.Count == 0)
+            return;
+
+        _itemCountsLoading = true;
+        var changed = false;
+        try
+        {
+            foreach (var id in ids)
+            {
+                if (_cts.IsCancellationRequested || _loggingOut)
+                    return;
+                try
+                {
+                    var detail = await SaleDetailCache.GetAsync(id, _cts.Token).ConfigureAwait(true);
+                    _saleItemCounts[id] = detail.ValueKind == JsonValueKind.Object
+                        && detail.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array
+                            ? items.GetArrayLength()
+                            : 0;
+                    changed = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    // Без состава чек просто покажется без «+ ещё N» — повторно не спрашиваем.
+                    _saleItemCounts[id] = 0;
+                    PosLogger.Log($"Owner app: состав чека {id} не получен: {ex.Message}", "DEBUG");
+                }
+            }
+        }
+        finally
+        {
+            _itemCountsLoading = false;
+        }
+
+        if (changed && _recentShown != null)
+            ApplyRecent(_recentShown);
+    }
+
     private void ApplyRecent(List<JsonElement> rows)
     {
         RecentList.Children.Clear();
         var shown = rows.Take(RecentRows).ToList();
+        _recentShown = shown;
         RecentEmptyText.IsVisible = shown.Count == 0;
 
         for (var i = 0; i < shown.Count; i++)
@@ -1372,12 +1438,29 @@ public partial class OwnerShellWindow : Window, IMainShell
             var itemName = Str(sale, "first_item_name");
             var title = new TextBlock
             {
-                Text = string.IsNullOrWhiteSpace(itemName) ? Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv") : itemName,
                 FontSize = 14,
                 FontWeight = FontWeight.SemiBold,
                 TextTrimming = TextTrimming.CharacterEllipsis,
             };
-            UseBrush(title, TextBlock.ForegroundProperty, "BrushText");
+            var nameRun = new Run(string.IsNullOrWhiteSpace(itemName) ? Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv") : itemName);
+            UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText");
+            var titleInlines = new InlineCollection { nameRun };
+            var saleId = Str(sale, "id");
+            var itemsCount = (int)Math.Round(Num(sale, "items_count"));
+            if (itemsCount <= 0 && saleId.Length > 0 && _saleItemCounts.TryGetValue(saleId, out var known))
+                itemsCount = known;
+            if (itemsCount > 1 && !string.IsNullOrWhiteSpace(itemName))
+            {
+                var more = itemsCount - 1;
+                var moreRun = new Run(Tr.T($"  + ещё {more}", $"  + дагы {more}", $"  + {more} more", $"  + {more} ürün daha", $"  + yana {more} ta"))
+                {
+                    FontWeight = FontWeight.Normal,
+                    FontSize = 12.5,
+                };
+                UseBrush(moreRun, TextElement.ForegroundProperty, "BrushTextSoft");
+                titleInlines.Add(moreRun);
+            }
+            title.Inlines = titleInlines;
             middle.Children.Add(title);
             var who = string.Join(" · ", new[] { Str(sale, "user_display"), Str(sale, "cashbox_name") }.Where(s => !string.IsNullOrWhiteSpace(s)));
             if (who.Length > 0)
@@ -1424,6 +1507,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             line.Child = row;
             RecentList.Children.Add(line);
         }
+
+        _ = LoadRecentItemCountsAsync();
     }
 
     private static string PaymentLabel(string method) => (method ?? "").Trim().ToLowerInvariant() switch
@@ -1597,6 +1682,11 @@ public partial class OwnerShellWindow : Window, IMainShell
     // нужно: при открытии, смене периода, «Обновить», смене языка и после новых продаж (с
     // задержкой, пачкой). Двадцатисекундное обновление сводки его не трогает: оно ходит за цифрами
     // сервера, а локальные строки продаж меняются только вместе с сигналом SalesChanged.
+    // 2026-09-28, сверка с сайтом: ABC считается по вкладке «Товары» сайта (локальная история
+    // кассы — только без связи): по ней ABC расходился с сайтом (440 тыс. против 586 тыс.). Раз
+    // цифры теперь серверные, продажи других касс меняют их без сигнала SalesChanged — поэтому
+    // обновление сводки заодно освежает ABC, но не чаще раза в минуту (один запрос к серверу).
+    private DateTime _abcRefreshedUtc = DateTime.MinValue;
 
     private readonly DispatcherTimer _abcDebounce;
     private AbcSectionView? _abcView;
@@ -1663,6 +1753,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             return;
 
         _abcStale = false;
+        _abcRefreshedUtc = DateTime.UtcNow;
         _abcCts?.Cancel();
         var cts = new CancellationTokenSource();
         _abcCts = cts;
@@ -1670,7 +1761,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         AbcLoadingText.IsVisible = _abcView == null;
         try
         {
-            var data = await Task.Run(() => AnalyticsReportData.Build(from, to, includeSeasonality: false), cts.Token)
+            // 2026-09-28: ABC — по вкладке «Товары» сайта (как на сайте), без связи — по истории кассы.
+            var data = await AnalyticsReportData.BuildAsync(App.SalesApi, from, to, includeSeasonality: false, full: false, cts.Token)
                 .ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;

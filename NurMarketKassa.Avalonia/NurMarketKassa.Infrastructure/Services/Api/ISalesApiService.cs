@@ -137,6 +137,12 @@ public interface ISalesApiService
     /// — выручка, чеки, способы оплаты и «Документы» (в т.ч. «Возврат продажи»).</summary>
     Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
 
+    /// <summary>Аналитика товаров сайта за дни [from; to] (2026-09-28, сверка ABC с вебом):
+    /// GET api/main/analytics/market/?tab=products — вкладка «Товары» сайта: выручка и количество
+    /// по КАЖДОМУ проданному товару (top_by_revenue, без ограничения числа строк), категории и
+    /// бренды. Правила те же, что у выручки: только оплаченные чеки, долг и отмена не в счёт.</summary>
+    Task<JsonElement> MarketProductsReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
+
     /// <summary>Профили выплат сотрудника (схема зарплаты) — то же, что окно сайта «Зарплата по
     /// продажам»: GET api/main/market-sale-employee-pay-profiles/?user=….</summary>
     Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default);

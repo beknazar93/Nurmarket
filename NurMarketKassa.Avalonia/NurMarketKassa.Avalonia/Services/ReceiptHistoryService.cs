@@ -165,13 +165,17 @@ public static class ReceiptHistoryService
         result.Entries.AddRange(serverEntries);
         result.Entries.AddRange(localEntries);
 
-        // Номера без номера с сервера — порядковые за период, по времени, как в «Продажах».
+        // 2026-09-28: чеки с сервера уже с номером, как на сайте (см. LoadServerAsync). У чека из
+        // офлайн-очереди, которого сервер ещё не видел, номера на сайте нет — «—». Без сервера
+        // (нет связи, автономный режим) — как раньше: порядковые за период, по времени.
         var position = 0;
         foreach (var entry in result.Entries.OrderBy(e => e.CreatedAt))
         {
             position++;
             if (string.IsNullOrWhiteSpace(entry.ReceiptNumber))
-                entry.ReceiptNumber = "№" + position.ToString(CultureInfo.InvariantCulture);
+                entry.ReceiptNumber = serverEntries.Count > 0
+                    ? "—"
+                    : "№" + position.ToString(CultureInfo.InvariantCulture);
             entry.SearchText = entry.ReceiptNumber + " " + entry.SearchText;
         }
 
@@ -211,6 +215,23 @@ public static class ReceiptHistoryService
 
             if (added == 0 || items.Count < PageSize)
                 break;
+        }
+
+        // 2026-09-28, сверка с сайтом: номер чека — как в «Продажах» сайта и в окне «Возврат»:
+        // место продажи в общем списке компании, новые первыми («№ 1» — последняя продажа, все
+        // кассы и все статусы, нумерация сквозная по страницам). Своего номера чека у сервера нет.
+        // Раньше здесь был порядковый номер за период по времени (первый чек дня — №1), и одна и та
+        // же продажа была №9 в «Истории чеков» и №5 в «Возврате». Сервер отдаёт список новыми
+        // первыми; продажи новее конца окна (для «Вчера» — всё, что продано сегодня) считаем
+        // отдельно и прибавляем.
+        var newerCount = toExclusive <= DateTime.Today
+            ? await CountServerSalesAsync(toExclusive, DateTime.Today.AddDays(1), ct).ConfigureAwait(false)
+            : 0;
+        var webPositions = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (PosSaleRowFormatter.TrySaleId(rows[i]) is { Length: > 0 } rowId)
+                webPositions[rowId] = newerCount + i + 1;
         }
 
         var cashboxId = (PosApp.PosCashboxId ?? "").Trim();
@@ -256,7 +277,11 @@ public static class ReceiptHistoryService
             {
                 Id = id,
                 CreatedAt = createdAt.Value,
-                ReceiptNumber = SalesWindow.TryReceiptNumber(row) ?? "",
+                ReceiptNumber = SalesWindow.TryReceiptNumber(row) is { Length: > 0 } serverNumber
+                    ? serverNumber
+                    : webPositions.TryGetValue(id, out var webPosition)
+                        ? "№" + webPosition.ToString(CultureInfo.InvariantCulture)
+                        : "",
                 Total = RowTotal(row),
                 PaymentMethod = Str(row, "payment_method") ?? "",
                 Status = status,
@@ -284,6 +309,32 @@ public static class ReceiptHistoryService
         }
 
         return result;
+    }
+
+    /// <summary>Сколько продаж компании (все кассы, все статусы) за [from; toExclusive) — для
+    /// номера чека «как на сайте» у чеков вчерашнего дня. Ошибка — 0: номер съедет, но список
+    /// чеков из-за этого не пропадёт.</summary>
+    private static async Task<int> CountServerSalesAsync(DateTime from, DateTime toExclusive, CancellationToken ct)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            for (var page = 1; page <= MaxPages; page++)
+            {
+                var items = await App.SalesApi
+                    .PosSalesListAsync(page, PageSize, null, ct, dateFrom: from, dateToExclusive: toExclusive)
+                    .ConfigureAwait(false);
+                var added = items.Count(row => PosSaleRowFormatter.TrySaleId(row) is { Length: > 0 } id && seen.Add(id));
+                if (added == 0 || items.Count < PageSize)
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"История чеков: продажи после периода не посчитаны: {ex.Message}", "SALES");
+        }
+
+        return seen.Count;
     }
 
     private static List<ReceiptHistoryEntry> LoadLocal(

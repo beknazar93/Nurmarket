@@ -177,7 +177,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 // Сезонность читает всю историю продаж — без её вкладки (программа владельца) не считаем.
                 var withSeasonality = AbcSection.ShowSeasonality;
-                var data = await Task.Run(() => AnalyticsReportData.Build(from, to, withSeasonality), token)
+                // 2026-09-28: ABC — по вкладке «Товары» сайта (как на сайте), без связи — по истории кассы.
+                var data = await AnalyticsReportData.BuildAsync(App.SalesApi, from, to, withSeasonality, full: false, token)
                     .ConfigureAwait(true);
                 token.ThrowIfCancellationRequested();
 
@@ -731,7 +732,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             try
             {
                 ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
-                var data = await Task.Run(() => AnalyticsReportData.Build(_historyFrom, _historyTo)).ConfigureAwait(true);
+                // 2026-09-28: цифры выгрузки — те же, что на экране и на сайте (см. AnalyticsReportData.ServerFigures).
+                var data = await AnalyticsReportData.BuildAsync(App.SalesApi, _historyFrom, _historyTo, full: true).ConfigureAwait(true);
                 var shop = UserPreferences.Instance.StoreName;
 
                 await Task.Run(() =>
@@ -792,7 +794,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal debtSales = sales
                 .Where(s => string.Equals(s.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
                 .Sum(s => s.TotalAmount);
-            decimal nonCash = totalSales - cashSales - debtSales;
+            // 2026-09-28: смешанная оплата — отдельно, как на сайте и в «Финансах» (см.
+            // FinanceWindow.UpdateStats): сервер не хранит, какая часть такого чека была наличными.
+            decimal mixedSales = sales.Where(s => FinanceWindow.IsMixedPayment(s.PaymentMethod)).Sum(s => s.TotalAmount);
+            decimal nonCash = totalSales - cashSales - debtSales - mixedSales;
             int totalCount = sales.Count;
             // Выручка — как у сайта: сумма входящих в выручку чеков без вычета частичных возвратов
             // (сайт берёт частично возвращённый чек полной суммой, сверено 2026-09-25 за день,
@@ -804,6 +809,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} {Som}";
             CashText.Text = $"{cashSales:N2} {Som}";
             NonCashText.Text = $"{nonCash:N2} {Som}";
+            FinanceWindow.ShowMixedPayments(NonCashBreakdownText, mixedSales);
             AvgReceiptText.Text = $"{avg:N2} {Som}";
             ReceiptCountText.Text = totalCount.ToString();
 
