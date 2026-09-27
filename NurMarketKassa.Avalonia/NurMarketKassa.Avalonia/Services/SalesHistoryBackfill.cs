@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -27,8 +28,13 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public static class SalesHistoryBackfill
 {
-    private const int PageSize = 200;
-    private const int MaxPages = 3;   // до 600 чеков — тот же порядок, что и в «Финансах»
+    // 2026-09-28, сверка ABC с сайтом: сервер отдаёт не больше 80 продаж на страницу
+    // (SalesApiService.PosSalesListAsync урезает page_size до 80), а цикл ниже ждал 200 и после
+    // первой же страницы считал список законченным — история добиралась только по 80 последним
+    // продажам, и всё, что старше, в ABC и сезонность не попадало никогда. Теперь страница — 80,
+    // страниц — 8 (те же ~600 чеков, что и задумывались).
+    private const int PageSize = 80;
+    private const int MaxPages = 8;   // до 640 чеков — тот же порядок, что и в «Финансах»
 
     /// <summary>Сколько чеков дочитываем за один проход.
     ///
@@ -162,11 +168,21 @@ public static class SalesHistoryBackfill
                     continue;
 
                 var name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
+                // 2026-09-28: цена — фактическая, после скидки на строку (line_total / количество),
+                // как пишет свои продажи сама касса (BasketPanelViewModel.RecordSoldLineItemsForHistory).
+                // Раньше бралась unit_price — цена ДО скидки, и выгрузка считала «Проверку товара
+                // 18+» по 205 вместо 184,50, завышая выручку ровно на сумму скидок.
+                var quantity = CartDisplayHelper.LineQuantity(line);
+                var unitPrice = CartDisplayHelper.UnitPrice(line);
+                if (quantity > 1e-9
+                    && double.TryParse(CartDisplayHelper.LineTotal(line), NumberStyles.Number, CultureInfo.InvariantCulture, out var lineTotal)
+                    && lineTotal >= 0)
+                    unitPrice = lineTotal / quantity;
                 lines.Add((
                     productId,
                     name,
-                    CartDisplayHelper.LineQuantity(line),
-                    CartDisplayHelper.UnitPrice(line),
+                    quantity,
+                    unitPrice,
                     createdAt));
             }
 

@@ -195,6 +195,8 @@
                 <StackPanel>
                     <TextBlock Text="{DynamicResource sales.nonCashShort}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                     <TextBlock x:Name="NonCashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
+                    <!-- 2026-09-28: смешанная оплата отдельно, как на сайте (см. UpdateStats). -->
+                    <TextBlock x:Name="NonCashBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" />
                 </StackPanel>
             </Border>
             <Border Classes="KpiCard">

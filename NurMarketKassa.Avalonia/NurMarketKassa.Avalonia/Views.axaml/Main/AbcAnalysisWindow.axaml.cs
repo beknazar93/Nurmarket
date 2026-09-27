@@ -14,7 +14,9 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// окна рядом с таблицей чеков, а у него пять срезов, по три диаграммы и полный список товаров в
 /// каждом — на такое нужно всё окно, иначе всё время приходится скроллить.
 ///
-/// Данные считаются локально (AnalyticsReportData), поэтому раздел работает и без интернета.</summary>
+/// Данные считаются локально (AnalyticsReportData), поэтому раздел работает и без интернета.
+/// 2026-09-28: при связи с сервером — по вкладке «Товары» сайта (те же цифры, что на сайте),
+/// локальная история остаётся запасным вариантом.</summary>
 public partial class AbcAnalysisWindow : Window, IOwnerSection
 {
     private DateTime _from = DateTime.Today.AddDays(-30);
@@ -213,7 +215,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             var to = _to;
             // Расчёт читает всю историю продаж за период — на большом магазине в UI-потоке это
             // заметно подвесило бы окно.
-            var data = await Task.Run(() => AnalyticsReportData.Build(from, to), cts.Token)
+            var data = await AnalyticsReportData.BuildAsync(AvaloniaHost.App.SalesApi, from, to, ct: cts.Token)
                 .ConfigureAwait(true);
             cts.Token.ThrowIfCancellationRequested();
 
@@ -278,7 +280,8 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         try
         {
             ShowError(Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…"));
-            var data = await Task.Run(() => AnalyticsReportData.Build(_from, _to)).ConfigureAwait(true);
+            // 2026-09-28: цифры выгрузки — те же, что на экране и на сайте (см. AnalyticsReportData.ServerFigures).
+            var data = await AnalyticsReportData.BuildAsync(AvaloniaHost.App.SalesApi, _from, _to, full: true).ConfigureAwait(true);
             var shop = UserPreferences.Instance.StoreName;
 
             await Task.Run(() =>

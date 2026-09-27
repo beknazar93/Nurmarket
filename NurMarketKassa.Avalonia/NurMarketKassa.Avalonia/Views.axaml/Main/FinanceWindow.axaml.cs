@@ -1038,7 +1038,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var withSeasonality = AbcSection.ShowSeasonality;
             try
             {
-                var data = await Task.Run(() => AnalyticsReportData.Build(from, to, withSeasonality), cts.Token)
+                // 2026-09-28: ABC — по вкладке «Товары» сайта (как на сайте), без связи — по истории кассы.
+                var data = await AnalyticsReportData.BuildAsync(App.SalesApi, from, to, withSeasonality, full: false, cts.Token)
                     .ConfigureAwait(true);
                 if (cts.IsCancellationRequested)
                     return;
@@ -1062,7 +1063,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         }
 
         /// <summary>Выгрузка аналитики за выбранный период — те же файлы, что и на экране
-        /// «Продажи». Отчёт строится из локальных данных кассы, интернет не нужен.</summary>
+        /// «Продажи». 2026-09-28: цифры — те же, что на этом экране и на сайте (выручка, чеки,
+        /// скидки, возвраты, товары — с сервера, см. AnalyticsReportData.ServerFigures); без связи
+        /// отчёт строится из локальных данных кассы, как раньше.</summary>
         private async void ExportExcel_Click(object? sender, RoutedEventArgs e) =>
             await ExportAnalyticsAsync(toWord: false).ConfigureAwait(true);
 
@@ -1100,7 +1103,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             try
             {
                 ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
-                var data = await Task.Run(() => AnalyticsReportData.Build(_historyFrom, _historyTo)).ConfigureAwait(true);
+                var data = await AnalyticsReportData.BuildAsync(App.SalesApi, _historyFrom, _historyTo, full: true).ConfigureAwait(true);
                 var shop = UserPreferences.Instance.StoreName;
 
                 await Task.Run(() =>
@@ -1846,7 +1849,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal debtSales = sales
                 .Where(s => string.Equals(s.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
                 .Sum(s => s.TotalAmount);
-            decimal nonCash = totalSales - cashSales - debtSales;
+            // 2026-09-28, сверка с сайтом: смешанная оплата — отдельно, как на сайте (вкладки
+            // «Продажи» и «Кассы»: cash / transfer / mixed) и в «Сводке». Разложить её на нал и
+            // безнал нельзя: сервер хранит у такого чека только сумму и способ «mixed»
+            // (cash_received = 0, payments = [{mixed, сумма}]) — сколько было наличными, он не
+            // знает, хотя касса передаёт это при оплате. Раньше «Безнал» включал смешанную целиком
+            // (509 = 469 + 40), а «Сводка» показывала её отдельной строкой — экраны расходились.
+            decimal mixedSales = sales.Where(s => IsMixedPayment(s.PaymentMethod)).Sum(s => s.TotalAmount);
+            decimal nonCash = totalSales - cashSales - debtSales - mixedSales;
             int totalCount = sales.Count;
             // Выручка — как у сайта: сумма входящих в выручку чеков без вычета частичных возвратов
             // (сайт берёт частично возвращённый чек полной суммой, сверено 2026-09-25 за день,
@@ -1859,6 +1869,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             TotalRefundsText.Text = $"{_serverSummary?.Returns ?? realReturns:N2} {Som}";
             CashText.Text = $"{cashSales:N2} {Som}";
             NonCashText.Text = $"{nonCash:N2} {Som}";
+            ShowMixedPayments(NonCashBreakdownText, mixedSales);
             AvgReceiptText.Text = $"{avg:N2} {Som}";
             ReceiptCountText.Text = totalCount.ToString();
 
@@ -1902,6 +1913,30 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             if (ProfitAfterExpensesText != null)
                 ProfitAfterExpensesText.Text = $"{netProfit - withdrawals:N2} {Som}";
+        }
+
+        internal static bool IsMixedPayment(string method) =>
+            string.Equals(method, "mixed", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(method, "split", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Строка под плиткой «Безнал»: смешанная оплата за период (см. UpdateStats).
+        /// Наличные + безнал + смешанная = выручка.</summary>
+        internal static void ShowMixedPayments(TextBlock target, decimal mixedSales)
+        {
+            if (target == null)
+                return;
+
+            target.IsVisible = mixedSales > 0;
+            target.Text = mixedSales > 0
+                ? Tr.T($"+ смешанная: {mixedSales:N2} сом", $"+ аралаш: {mixedSales:N2} сом", $"+ mixed: {mixedSales:N2} som",
+                    $"+ karışık: {mixedSales:N2} som", $"+ aralash: {mixedSales:N2} so'm")
+                : "";
+            ToolTip.SetTip(target, Tr.T(
+                "Смешанная оплата (часть наличными, часть безналом) показана отдельно, как на сайте: сервер не хранит, какая часть чека была наличными.",
+                "Аралаш төлөм (бир бөлүгү накталай, бир бөлүгү накталай эмес) сайттагыдай өзүнчө көрсөтүлдү: сервер чектин кайсы бөлүгү накталай болгонун сактабайт.",
+                "Mixed payments (part cash, part cashless) are shown separately, as on the website: the server does not store how much of the receipt was paid in cash.",
+                "Karışık ödeme (bir kısmı nakit, bir kısmı nakitsiz) sitedeki gibi ayrı gösterilir: sunucu fişin ne kadarının nakit ödendiğini saklamaz.",
+                "Aralash to'lov (bir qismi naqd, bir qismi naqdsiz) saytdagidek alohida ko'rsatildi: server chekning qancha qismi naqd to'langanini saqlamaydi."));
         }
 
         /// <summary>Внесения и изъятия из денежного ящика за период. Операции хранятся локально

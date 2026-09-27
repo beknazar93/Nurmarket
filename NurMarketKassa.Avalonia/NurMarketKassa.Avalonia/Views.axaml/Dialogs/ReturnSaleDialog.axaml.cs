@@ -643,7 +643,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (string.IsNullOrEmpty(saleId))
             return "—";
         var row = FilteredSales.FirstOrDefault(r => string.Equals(r.SaleId, saleId, StringComparison.OrdinalIgnoreCase));
-        return row?.DisplayNumber ?? TruncateId(saleId);
+        if (row != null)
+            return row.DisplayNumber;
+        // 2026-09-28: чек открыт из «Истории чеков», а в загруженные страницы списка он не попал
+        // (старше первых 35 продаж) — номер тот же, что показала история (он считается по тому
+        // же правилу, что и здесь, — как на сайте), а не обрезанный код продажи.
+        return string.Equals(saleId, InitialSaleId?.Trim(), StringComparison.OrdinalIgnoreCase)
+               && !string.IsNullOrWhiteSpace(InitialReceiptNumber)
+            ? InitialReceiptNumber!
+            : TruncateId(saleId);
     }
 
     private static string TruncateId(string? id)
@@ -781,6 +789,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         /// <summary>
         /// Читаемый номер вместо серверного GUID: настоящий номер чека, если сервер
         /// его прислал (receipt_number), иначе порядковый номер в списке.
+        /// 2026-09-28: список — все продажи компании, новые первыми, страницы подряд, то есть
+        /// номер совпадает с «№» в «Продажах» сайта и в «Истории чеков» кассы
+        /// (ReceiptHistoryService.LoadServerAsync считает так же).
         /// </summary>
         public string DisplayNumber => !string.IsNullOrWhiteSpace(Item.ReceiptNumber)
             ? Item.ReceiptNumber!
