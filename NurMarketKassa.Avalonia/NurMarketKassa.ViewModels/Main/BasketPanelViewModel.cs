@@ -365,6 +365,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
             .Where(session => session.Id != _activeSessionId)
             .Sum(session => OpenReceiptSnapshot.SumProductQuantity(session.CartJson, productId));
 
+    /// <summary>Способ оплаты, который окно оплаты выберет сразу, — для кнопок «Наличные» и
+    /// «Безнал» в раскладках кассы (2026-09-28): "cash" или "transfer". null — как всегда
+    /// (наличные). Сбрасывается в начале каждой оплаты, поэтому обычное «Оплатить» его не видит.</summary>
+    public string? PreferredPaymentMethod { get; set; }
+
     public ICommand AddByBarcodeCommand { get; }
     public ICommand PayCommand { get; }
     public ICommand DeferCartCommand { get; }
@@ -904,6 +909,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     private async Task PayAsync()
     {
+        // Способ оплаты от кнопок «Наличные»/«Безнал» раскладки (2026-09-28) — одноразовый:
+        // забираем сразу, чтобы следующее обычное «Оплатить» открылось как всегда.
+        var preferredMethod = PreferredPaymentMethod;
+        PreferredPaymentMethod = null;
+
         if (Lines.Count == 0)
             return;
 
@@ -974,6 +984,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             // Диалог оплаты всегда открывается через AvaloniaWindowService на UI-потоке.
             var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum, _clientsApi, _customerDisplay);
+            if (preferredMethod == "transfer")
+                checkoutVm.IsTransfer = true;
             var confirmed = await _windowService
                 .ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm)
                 .ConfigureAwait(false);

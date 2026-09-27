@@ -130,6 +130,74 @@
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
 
+        <!-- Редизайн 2026-09-28. Выбранная вкладка «выключена» (её нельзя выбрать ещё раз), и тема
+             Fluent красила её серым, как недоступную: чек, с которым работает кассир, выглядел
+             неактивным. Выбранная вкладка теперь всегда цвета темы. -->
+        <Style Selector="Button.receipt-tab.active:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.receipt-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.receipt-tab.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
+        <!-- Наведение, нажатие и недоступность кнопок чека — в цветах темы, а не серым Fluent. -->
+        <Style Selector="Button.cart-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.cart-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+        </Style>
+        <Style Selector="Button.cart-action:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Button.cart-accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.cart-accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.cart-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.cart-accent:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Button.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter, RepeatButton.cart-qty:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.cart-qty:pressed /template/ ContentPresenter#PART_ContentPresenter, RepeatButton.cart-qty:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.cart-qty:disabled, RepeatButton.cart-qty:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+        <Style Selector="Button.cart-qty PathIcon, RepeatButton.cart-qty PathIcon">
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
+        </Style>
+        <Style Selector="Button.cart-delete:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Button.cart-delete:pointerover PathIcon">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
         <Style Selector="Button.new-receipt-tab">
             <Setter Property="MinHeight" Value="34"/>
             <Setter Property="Padding" Value="9,7"/>
@@ -359,6 +427,7 @@
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Right">
                                             <TextBlock Text="{Binding LineTotalAmount}"
+                                                       Classes="num"
                                                        FontSize="18"
                                                        FontWeight="Bold"
                                                        Foreground="{DynamicResource BrushMoney}"
@@ -372,24 +441,27 @@
                                                     Margin="0,0,6,0"
                                                     VerticalAlignment="Center">
                                             <Button Classes="cart-qty"
-                                                    Content="%"
                                                     Focusable="False"
                                                     ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}"
                                                     Command="{Binding DiscountCommand}"
-                                                    CommandParameter="{Binding}"/>
+                                                    CommandParameter="{Binding}">
+                                                <PathIcon Data="{StaticResource IconPercent}"/>
+                                            </Button>
                                             <Button Classes="cart-qty"
-                                                    Content="⚖"
                                                     Focusable="False"
                                                     IsVisible="{Binding IsWeight}"
                                                     ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}"
                                                     Command="{Binding WeighCommand}"
-                                                    CommandParameter="{Binding}"/>
+                                                    CommandParameter="{Binding}">
+                                                <PathIcon Data="{StaticResource IconScale}"/>
+                                            </Button>
                                             <RepeatButton Classes="cart-qty"
-                                                          Content="−"
                                                           Focusable="False"
                                                           ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}"
                                                           Command="{Binding DecreaseCommand}"
-                                                          CommandParameter="{Binding}"/>
+                                                          CommandParameter="{Binding}">
+                                                <PathIcon Data="{StaticResource IconMinus}"/>
+                                            </RepeatButton>
                                             <TextBox Text="{Binding QuantityInput, Mode=TwoWay}"
                                                      MinWidth="42" Height="32"
                                                      Background="{DynamicResource BrushInputAlt}"
@@ -410,12 +482,13 @@
                                                 </TextBox.KeyBindings>
                                             </TextBox>
                                             <RepeatButton Classes="cart-qty"
-                                                          Content="+"
                                                           Focusable="False"
                                                           IsEnabled="{Binding CanIncrease}"
                                                           ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}"
                                                           Command="{Binding IncreaseCommand}"
-                                                          CommandParameter="{Binding}"/>
+                                                          CommandParameter="{Binding}">
+                                                <PathIcon Data="{StaticResource IconPlus}"/>
+                                            </RepeatButton>
                                         </StackPanel>
 
                                         <Button Grid.Row="1"
@@ -489,8 +562,9 @@
                                           HorizontalContentAlignment="Center"
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
-                                          Content="−"
-                                          Command="{Binding DecreaseManualQuantityCommand}"/>
+                                          Command="{Binding DecreaseManualQuantityCommand}">
+                                <PathIcon Data="{StaticResource IconMinus}" Width="13" Height="13"/>
+                            </RepeatButton>
                             <TextBox Grid.Column="1"
                                      Text="{Binding ManualQuantity}"
                                      BorderThickness="0"
@@ -511,8 +585,9 @@
                                           HorizontalContentAlignment="Center"
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
-                                          Content="+"
-                                          Command="{Binding IncreaseManualQuantityCommand}"/>
+                                          Command="{Binding IncreaseManualQuantityCommand}">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="13" Height="13"/>
+                            </RepeatButton>
                         </Grid>
                     </Border>
 
@@ -692,39 +767,44 @@
                            IsVisible="{Binding HasCartMessage}"/>
 
                 <!-- Итоговая сумма -->
+                <!-- Редизайн 2026-09-28: подпись «Итого» слева, сумма с валютой вплотную справа —
+                     как итог на бумажном чеке; сумма крупнее всего остального на экране. -->
                 <Grid Grid.Row="5"
                       ColumnDefinitions="*,Auto"
                       Margin="0,8,0,10"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Bottom">
-                    <StackPanel Grid.Column="0" Spacing="2">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Bottom" Margin="0,0,0,8">
                         <!-- Подпись именно «Итого»: TotalAmount — это ИТОГОВАЯ сумма к оплате
                              (BasketPanelViewModel.Total), а ключ csh.cart.subtotal означает
                              «Промежуточный итог» — подпись противоречила числу под ней.
                              В 1С-раскладке та же цифра всегда была подписана верно. -->
                         <TextBlock Text="{DynamicResource onecLayout.totalLabel}"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
                         <!-- 40px вместо 30: цена товара на плитке каталога — 22px и повторяется
                              на экране десятки раз, из-за чего итог чека почти не выделялся. -->
                         <TextBlock Text="{Binding TotalAmount}"
+                                   Classes="num"
                                    FontSize="40"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource BrushMoney}"/>
+                        <TextBlock Text="{DynamicResource csh.catalog.currency}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushTextSoft}"
+                                   VerticalAlignment="Bottom"
+                                   Margin="0,0,0,8"/>
                     </StackPanel>
-                    <TextBlock Grid.Column="1"
-                               Text="{DynamicResource csh.catalog.currency}"
-                               FontSize="16"
-                               FontWeight="Bold"
-                               Foreground="{DynamicResource BrushText}"
-                               VerticalAlignment="Bottom"
-                               Margin="8,0,0,5"/>
                 </Grid>
 
                 <!-- Кнопка оплаты -->
                 <Button Grid.Row="6"
                         Classes="cart-accent"
-                        Height="52"
+                        Height="56"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
@@ -738,7 +818,7 @@
                                   Foreground="{DynamicResource BrushAccentForeground}"
                                   Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
                         <TextBlock Text="{Binding PayButtonText}"
-                                   FontSize="18"
+                                   FontSize="19"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource BrushAccentForeground}"
                                    VerticalAlignment="Center"/>

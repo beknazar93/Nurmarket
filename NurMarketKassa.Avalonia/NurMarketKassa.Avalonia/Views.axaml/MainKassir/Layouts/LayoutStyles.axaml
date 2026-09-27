@@ -1,0 +1,398 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Общие стили раскладок кассы (2026-09-28): «Табличная», «Карточки», «Минимал», «Профи».
+         Все цвета — DynamicResource кисти темы, поэтому раскладки перекрашиваются вместе с темой
+         и редактором тем. Сетка отступов — 8 px (4 / 8 / 12 / 16 / 24), шкала шрифта —
+         11 / 12 / 13 / 14 / 16 / 20 / 28 / 40.
+
+         Все кнопки раскладок НЕ берут фокус (Focusable=False): касса живёт со сканером, а сканер
+         заканчивает каждый код клавишей Enter. Кнопка, оставшаяся в фокусе после клика мышью,
+         нажалась бы этим Enter ещё раз (так уже было с +/− в корзине, см. BasketPanelView).
+         Фокус остаётся на окне — там его ждут сканер, стрелки, Num +/− и Enter-оплата.
+
+         Состояния наведения/нажатия задаются на части шаблона (ContentPresenter#PART_ContentPresenter):
+         иначе тема Fluent поверх любого своего фона рисует серый ButtonBackgroundPointerOver. -->
+
+    <!-- ============================ поверхности ============================ -->
+    <Style Selector="Border.lx-card">
+        <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+        <Setter Property="BoxShadow" Value="0 1 2 0 #0F101828"/>
+    </Style>
+
+    <Style Selector="Border.lx-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+
+    <!-- Поле ввода с иконкой: рамка рисуется снаружи, у самого TextBox её нет. -->
+    <Style Selector="Border.lx-field">
+        <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="MinHeight" Value="44"/>
+    </Style>
+    <Style Selector="Border.lx-field:focus-within">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Border.lx-field TextBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Border.lx-field TextBox:focus">
+        <Setter Property="RenderTransform" Value="scale(1)"/>
+    </Style>
+    <Style Selector="Border.lx-field TextBox:focus /template/ Border#PART_BorderElement, Border.lx-field TextBox:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Border.lx-field PathIcon">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ============================ текст ============================ -->
+    <Style Selector="TextBlock.lx-title">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.lx-caption">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="TextBlock.lx-colhead">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.lx-muted">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <!-- Деньги: всегда контрастный нейтральный цвет (BrushMoney), выравнивание по правому краю. -->
+    <Style Selector="TextBlock.lx-money">
+        <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushMoney}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="TextAlignment" Value="Right"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.lx-price">
+        <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushCatalogPrice}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
+    <!-- ============================ кнопки ============================ -->
+    <Style Selector="Button.lx-btn, Button.lx-accent, Button.lx-success, Button.lx-ghost, Button.lx-chip, Button.lx-step, Button.lx-soft-success, Button.lx-soft-warning, Button.lx-soft-danger, Button.lx-soft-accent, Button.lx-tile">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+    </Style>
+    <Style Selector="Button.lx-btn:disabled, Button.lx-accent:disabled, Button.lx-success:disabled, Button.lx-ghost:disabled, Button.lx-chip:disabled, Button.lx-step:disabled, Button.lx-soft-success:disabled, Button.lx-soft-warning:disabled, Button.lx-soft-danger:disabled, Button.lx-soft-accent:disabled">
+        <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+
+    <!-- Обычная кнопка: панель с рамкой. -->
+    <Style Selector="Button.lx-btn">
+        <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="Button.lx-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.lx-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+    <Style Selector="Button.lx-btn:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+
+    <!-- Прозрачная кнопка (иконки, второстепенные действия). -->
+    <Style Selector="Button.lx-ghost">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="MinHeight" Value="36"/>
+    </Style>
+    <Style Selector="Button.lx-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.lx-ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+    <Style Selector="Button.lx-ghost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+
+    <!-- Главное действие цветом темы. -->
+    <Style Selector="Button.lx-accent">
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="MinHeight" Value="44"/>
+    </Style>
+    <Style Selector="Button.lx-accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.lx-accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Opacity" Value="0.9"/>
+    </Style>
+    <Style Selector="Button.lx-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+
+    <!-- «Оплатить» зелёным: цвет успеха, текст — цвет фона окна. На светлой теме это светлый
+         текст по тёмно-зелёному (#047857), на тёмной — тёмный текст по светло-зелёному
+         (#34D399): контраст выше 5:1 в обоих режимах. -->
+    <Style Selector="Button.lx-success">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="MinHeight" Value="52"/>
+    </Style>
+    <Style Selector="Button.lx-success:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
+        <Setter Property="Opacity" Value="0.9"/>
+    </Style>
+    <Style Selector="Button.lx-success:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="Opacity" Value="0.8"/>
+    </Style>
+    <Style Selector="Button.lx-success:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushWindow}"/>
+    </Style>
+
+    <!-- Мягкие цветные кнопки: светлая заливка + цветной текст и рамка. -->
+    <Style Selector="Button.lx-soft-success">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-warning">
+        <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-danger">
+        <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-accent">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-success, Button.lx-soft-warning, Button.lx-soft-danger, Button.lx-soft-accent">
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="MinHeight" Value="48"/>
+    </Style>
+    <Style Selector="Button.lx-soft-success:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-success:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-success:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-warning:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-warning:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-warning:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-danger:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+    </Style>
+    <Style Selector="Button.lx-soft-accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-accent:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.lx-soft-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <!-- Наведение на мягкие кнопки — рамка толще, нажатие — чуть прозрачнее. -->
+    <Style Selector="Button.lx-soft-success:pointerover, Button.lx-soft-warning:pointerover, Button.lx-soft-danger:pointerover, Button.lx-soft-accent:pointerover">
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <Style Selector="Button.lx-soft-success:pressed, Button.lx-soft-warning:pressed, Button.lx-soft-danger:pressed, Button.lx-soft-accent:pressed">
+        <Setter Property="Opacity" Value="0.8"/>
+    </Style>
+
+    <!-- Чипы категорий / вкладок. -->
+    <Style Selector="Button.lx-chip">
+        <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="CornerRadius" Value="18"/>
+    </Style>
+    <Style Selector="Button.lx-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.lx-chip.active">
+        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+    <Style Selector="Button.lx-chip.active:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-chip.active:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+    </Style>
+
+    <!-- +/− у строки чека. -->
+    <Style Selector="Button.lx-step">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector="Button.lx-step:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.lx-step:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
+    </Style>
+    <Style Selector="Button.lx-step:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="Button.lx-step PathIcon">
+        <Setter Property="Width" Value="12"/>
+        <Setter Property="Height" Value="12"/>
+    </Style>
+
+    <!-- Плитка товара: вся отрисовка — внутри шаблона данных, кнопка только ловит нажатие. -->
+    <Style Selector="Button.lx-tile">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="VerticalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.lx-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="Button.lx-tile:pointerover Border.lx-tile-face">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Button.lx-tile:pressed Border.lx-tile-face">
+        <Setter Property="Opacity" Value="0.85"/>
+    </Style>
+
+    <Style Selector="UniformGrid > Button">
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+
+    <!-- ============================ списки ============================ -->
+    <!-- Сетка плиток каталога: рамка-курсор там, где клавиатурный фокус (как в обычном виде). -->
+    <Style Selector="ListBox.lx-tiles">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="ListBox.lx-tiles ListBoxItem">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+        <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="ListBox.lx-tiles ListBoxItem:pointerover /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ListBox.lx-tiles ListBoxItem:focus-visible">
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
+    <Style Selector="ScrollViewer.lx-scroll">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+    </Style>
+
+    <!-- Бейдж скидки у строки чека. -->
+    <Style Selector="Border.lx-badge-danger">
+        <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="6,1"/>
+    </Style>
+    <Style Selector="Border.lx-badge-danger TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- Меню «Ещё». -->
+    <Style Selector="MenuFlyoutPresenter">
+        <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+    </Style>
+    <Style Selector="MenuFlyoutPresenter MenuItem">
+        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="MinHeight" Value="36"/>
+    </Style>
+</Styles>

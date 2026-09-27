@@ -19,7 +19,7 @@ using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 
-public partial class CatalogPanelView : UserControl
+public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
 {
     private CatalogPanelViewModel? _boundViewModel;
 
@@ -28,9 +28,10 @@ public partial class CatalogPanelView : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         // Tunnel: стрелки внутри списка разбираем сами раньше встроенной обработки ListBox —
-        // она умеет только Влево/Вправо в пределах страницы (см. ProductsList_ArrowKeyTunnel).
-        CardsListBox.AddHandler(KeyDownEvent, ProductsList_ArrowKeyTunnel, RoutingStrategies.Tunnel);
-        TableListBox.AddHandler(KeyDownEvent, ProductsList_ArrowKeyTunnel, RoutingStrategies.Tunnel);
+        // она умеет только Влево/Вправо в пределах страницы. Сама логика с 2026-09-28 — в
+        // CatalogKeyboardNavigation: её же используют остальные раскладки кассы.
+        CatalogKeyboardNavigation.Attach(CardsListBox, () => DataContext as CatalogPanelViewModel);
+        CatalogKeyboardNavigation.Attach(TableListBox, () => DataContext as CatalogPanelViewModel);
     }
 
     /// <summary>Клавиатурный курсор стоит на плитке каталога (кассир ведёт его стрелками, рамка
@@ -42,11 +43,7 @@ public partial class CatalogPanelView : UserControl
 
     /// <summary>Товар под клавиатурной рамкой; null — рамки нет.</summary>
     public CatalogProductTileVm? HighlightedProduct =>
-        TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is ListBoxItem item
-        && item.Classes.Contains(":focus-visible")
-        && (CardsListBox.IndexFromContainer(item) >= 0 || TableListBox.IndexFromContainer(item) >= 0)
-            ? item.DataContext as CatalogProductTileVm
-            : null;
+        CatalogKeyboardNavigation.GetHighlightedProduct(this, CardsListBox, TableListBox);
 
     /// <summary>Добавляет в чек товар под рамкой — то же, что клик по плитке мышью. false — рамки нет.</summary>
     public bool TryAddHighlightedProduct()
@@ -64,6 +61,10 @@ public partial class CatalogPanelView : UserControl
         ProductSearchBox.SelectAll();
     }
 
+    /// <summary>Фокус где-то внутри каталога (после клика по плитке реальный фокус часто оседает
+    /// на кнопке самой плитки, а не на ListBox) — стрелки тогда разбирает сам список.</summary>
+    public bool ContainsFocus(Control? focused) => CatalogKeyboardNavigation.IsWithin(focused, this);
+
     /// <summary>2026-09-10: пустой каталог (обычно — свежий автономный режим без единого
     /// добавленного товара, или локальная база без последнего sync) — вместо только «Обновить»
     /// (бесполезно без сервера) сразу ведём в Склад, где «Добавить товар» уже умеет писать
@@ -75,7 +76,7 @@ public partial class CatalogPanelView : UserControl
     /// каталоге не стоял (обычное состояние покоя — фокус на самом окне, чтобы сканер
     /// штрихкодов работал). "Входит" в сетку товаров: ставит курсор на товар, где он стоял
     /// в прошлый раз, или на первую плитку и передаёт клавиатурный фокус самой плитке —
-    /// дальше стрелками управляет ProductsList_ArrowKeyTunnel.
+    /// дальше стрелками управляет CatalogKeyboardNavigation.
     ///
     /// 2026-09-27, живой баг («нажимаешь стрелку — товар выделяется и не двигается»): раньше
     /// здесь фокус передавался самому ListBox, но ListBox в Avalonia 11 не фокусируемый
@@ -88,9 +89,7 @@ public partial class CatalogPanelView : UserControl
         if (!IsEffectivelyVisible || DataContext is not CatalogPanelViewModel catalog || catalog.Products.Count == 0)
             return false;
 
-        var listBox = catalog.IsCardView ? CardsListBox : TableListBox;
-        var index = catalog.SelectedProduct is { } selected ? catalog.Products.IndexOf(selected) : -1;
-        return FocusTile(listBox, index >= 0 ? index : 0);
+        return CatalogKeyboardNavigation.TryEnter(catalog, catalog.IsCardView ? CardsListBox : TableListBox);
     }
 
     private void OpenFilter_Click(object? sender, RoutedEventArgs e)
@@ -114,126 +113,6 @@ public partial class CatalogPanelView : UserControl
     {
         if (DataContext is CatalogPanelViewModel catalog)
             catalog.SetViewMode(CatalogViewMode.Table);
-    }
-
-    /// <summary>Стрелки по плиткам каталога. Встроенная навигация ListBox + WrapPanel умеет только
-    /// Влево/Вправо и только в пределах страницы, поэтому считаем сами по индексу: Влево/Вправо —
-    /// соседняя плитка (с переносом через конец ряда), Вверх/Вниз — плитка того же столбца в
-    /// соседнем ряду; число столбцов берётся из фактической раскладки. Шаг за первую/последнюю
-    /// плитку страницы листает на соседнюю страницу. Стрелки с Ctrl/Shift/Alt не трогаем.</summary>
-    private void ProductsList_ArrowKeyTunnel(object? sender, KeyEventArgs e)
-    {
-        if (e.KeyModifiers != KeyModifiers.None || e.Key is not (Key.Left or Key.Right or Key.Up or Key.Down))
-            return;
-        if (sender is not ListBox listBox || DataContext is not CatalogPanelViewModel catalog || listBox.ItemCount == 0)
-            return;
-
-        // Даже когда двигаться некуда (первая плитка первой страницы), стрелку забираем: иначе её
-        // подхватит встроенная навигация и курсор уйдёт туда, где его не ждут.
-        e.Handled = true;
-        MoveKeyboardCursor(listBox, catalog, e.Key, e.Source as Visual);
-    }
-
-    private void MoveKeyboardCursor(ListBox listBox, CatalogPanelViewModel catalog, Key key, Visual? source)
-    {
-        var count = listBox.ItemCount;
-        var current = IndexOfTileContaining(listBox, source);
-        if (current < 0)
-            current = listBox.SelectedIndex;
-        if (current < 0 || current >= count)
-        {
-            FocusTile(listBox, 0);
-            return;
-        }
-
-        var columns = listBox == CardsListBox ? CountColumns(listBox) : 1;
-        var column = current % columns;
-        var target = key switch
-        {
-            Key.Left => current - 1,
-            Key.Right => current + 1,
-            Key.Up => current - columns,
-            _ => current + columns,
-        };
-
-        if (target >= 0 && target < count)
-        {
-            FocusTile(listBox, target);
-            return;
-        }
-
-        // Вниз, а под плиткой пусто, потому что последний ряд неполный, — на последнюю плитку,
-        // листать страницу ещё рано.
-        if (key == Key.Down && current / columns < (count - 1) / columns)
-        {
-            FocusTile(listBox, count - 1);
-            return;
-        }
-
-        var forward = target >= count;
-        var pageCommand = forward ? catalog.NextPageCommand : catalog.PreviousPageCommand;
-        if (!pageCommand.CanExecute(null))
-            return;
-
-        pageCommand.Execute(null);
-        // Плитки новой страницы должны получить размеры до того, как на них ставить фокус и
-        // прокручивать к ним.
-        listBox.UpdateLayout();
-        var newCount = listBox.ItemCount;
-        if (newCount == 0)
-            return;
-
-        var lastRowStart = (newCount - 1) / columns * columns;
-        FocusTile(listBox, key switch
-        {
-            Key.Right => 0,
-            Key.Left => newCount - 1,
-            Key.Down => Math.Min(column, newCount - 1),
-            _ => Math.Min(lastRowStart + column, newCount - 1),
-        });
-    }
-
-    /// <summary>Ставит курсор на плитку: выделение (оно же SelectedProduct) и клавиатурный фокус
-    /// на саму плитку, а не на кнопку внутри неё; прокручивает сетку так, чтобы плитку было видно.</summary>
-    private static bool FocusTile(ListBox listBox, int index)
-    {
-        if (index < 0 || index >= listBox.ItemCount)
-            return false;
-
-        listBox.SelectedIndex = index;
-        listBox.ScrollIntoView(index);
-        if (listBox.ContainerFromIndex(index) is not { } tile || !tile.Focus(NavigationMethod.Directional))
-            return false;
-
-        tile.BringIntoView();
-        return true;
-    }
-
-    private static int IndexOfTileContaining(ListBox listBox, Visual? source)
-    {
-        for (var visual = source; visual is not null && !ReferenceEquals(visual, listBox); visual = visual.GetVisualParent())
-        {
-            if (visual is ListBoxItem tile)
-                return listBox.IndexFromContainer(tile);
-        }
-        return -1;
-    }
-
-    /// <summary>Сколько плиток в ряду сейчас: считаем плитки первого ряда по их координатам —
-    /// ширина плитки зависит от темы, а ширина каталога от окна и разделителя.</summary>
-    private static int CountColumns(ListBox listBox)
-    {
-        if (listBox.ContainerFromIndex(0) is not { } first)
-            return 1;
-
-        var columns = 0;
-        for (var i = 0; i < listBox.ItemCount; i++)
-        {
-            if (listBox.ContainerFromIndex(i) is not { } tile || Math.Abs(tile.Bounds.Y - first.Bounds.Y) > 1)
-                break;
-            columns++;
-        }
-        return Math.Max(1, columns);
     }
 
     private void OnDataContextChanged(object? sender, System.EventArgs e)

@@ -86,7 +86,17 @@
              между шестью оформлениями не передать. -->
         <Border x:Name="ThemesPanel" Classes="SettingsCard" Padding="14">
           <StackPanel Spacing="8">
-            <TextBlock Text="{DynamicResource marketplace.themeTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+            <!-- Редактор своих тем (2026-09-28): своя тема на основе любой встроенной. -->
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{DynamicResource marketplace.themeTitle}" Classes="SettingsCardTitle" FontSize="14" VerticalAlignment="Center"/>
+              <Button x:Name="ThemeEditorButton" Grid.Column="1" Classes="btn-primary" Height="36" Padding="14,4"
+                      Click="OpenThemeEditor_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconPalette}" Width="16" Height="16"/>
+                  <TextBlock Text="{DynamicResource marketplace.themeEditorButton}" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+            </Grid>
             <TextBlock Text="{DynamicResource marketplace.themeDesc}"
                        Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}"/>

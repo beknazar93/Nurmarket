@@ -163,7 +163,16 @@ public partial class MarketplaceView : UserControl
         var current = AccentThemeService.Normalize(prefs.AccentTheme);
         var dark = prefs.DarkTheme;
 
-        foreach (var theme in AccentThemeService.AvailableThemes)
+        // Встроенные темы, за ними — свои (редактор тем, 2026-09-28) с пометкой «Своя».
+        var entries = AccentThemeService.AvailableThemes
+            .Select(t => (t.Id, t.Label, t.Icon, t.Description, IsCustom: false))
+            .Concat(CustomThemeStore.All.Select(t => (t.Id, Label: t.Name, Icon: "",
+                Description: Tr.T("Своя тема. Изменить — кнопка «Редактор тем».", "Өз темаңыз. Өзгөртүү — «Темалар редактору» баскычы.",
+                    "Your own theme. To change it, use the “Theme editor” button.", "Kendi temanız. Değiştirmek için «Tema düzenleyici» düğmesi.",
+                    "O'z mavzuingiz. O'zgartirish — «Mavzu muharriri» tugmasi."), IsCustom: true)))
+            .ToList();
+
+        foreach (var theme in entries)
         {
             bool isActive = string.Equals(theme.Id, current, System.StringComparison.OrdinalIgnoreCase);
             var preview = AccentThemeService.GetPreview(theme.Id, dark);
@@ -276,6 +285,26 @@ public partial class MarketplaceView : UserControl
             Grid.SetColumn(nameText, 1);
             titleRow.Children.Add(nameText);
 
+            if (theme.IsCustom && !isActive)
+            {
+                var customBadge = new Border
+                {
+                    Background = ThemeBrush("BrushPanelSoft", Brushes.LightGray),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(7, 2),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock
+                    {
+                        Text = Tr.T("Своя", "Өзүңүздүкү", "Custom", "Özel", "O'zingizniki"),
+                        FontSize = 10,
+                        FontWeight = FontWeight.SemiBold,
+                        Foreground = ThemeBrush("BrushTextMuted", Brushes.Gray),
+                    },
+                };
+                Grid.SetColumn(customBadge, 2);
+                titleRow.Children.Add(customBadge);
+            }
+
             if (isActive)
             {
                 var badge = new Border
@@ -314,6 +343,86 @@ public partial class MarketplaceView : UserControl
             card.Content = rows;
             card.Click += ThemeCard_Click;
             ThemeGalleryPanel.Items.Add(card);
+        }
+
+        ThemeGalleryPanel.Items.Add(BuildNewCustomThemeCard());
+    }
+
+    /// <summary>Последняя карточка галереи — вход в редактор: создать свою тему.</summary>
+    private Button BuildNewCustomThemeCard()
+    {
+        var card = new Button
+        {
+            Width = 250,
+            MinHeight = 150,
+            Margin = new Thickness(0, 0, 10, 10),
+            Padding = new Thickness(12),
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            Background = ThemeBrush("BrushPanel", Brushes.White),
+            BorderBrush = ThemeBrush("BrushBorderStrong", Brushes.Gray),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Content = new StackPanel
+            {
+                Spacing = 6,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Children =
+                {
+                    new PathIcon
+                    {
+                        Data = Application.Current?.TryFindResource("IconPalette", out var icon) == true ? icon as Geometry : null,
+                        Width = 28,
+                        Height = 28,
+                        Foreground = ThemeBrush("BrushAccentStrong", Brushes.Goldenrod),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    },
+                    new TextBlock
+                    {
+                        Text = Tr.T("+ Своя тема", "+ Өз темаңыз", "+ Custom theme", "+ Özel tema", "+ O'z mavzuingiz"),
+                        FontSize = 14,
+                        FontWeight = FontWeight.SemiBold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Foreground = ThemeBrush("BrushText", Brushes.Black),
+                    },
+                    new TextBlock
+                    {
+                        Text = Tr.T("Цвета, скругление и шрифт на основе любой темы",
+                            "Каалаган темага негизделген түстөр, тегеректик жана шрифт",
+                            "Colors, rounding and font based on any theme",
+                            "Herhangi bir temaya dayalı renkler, yuvarlaklık ve yazı tipi",
+                            "Istalgan mavzu asosidagi ranglar, yumaloqlik va shrift"),
+                        FontSize = 11,
+                        TextWrapping = TextWrapping.Wrap,
+                        TextAlignment = TextAlignment.Center,
+                        Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
+                    },
+                },
+            },
+        };
+        card.Click += OpenThemeEditor_Click;
+        return card;
+    }
+
+    /// <summary>«Редактор тем» (2026-09-28). Окно модальное: после закрытия галерея
+    /// перестраивается — там могли появиться, измениться или исчезнуть свои темы.</summary>
+    private async void OpenThemeEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(this) is not Window owner)
+                return;
+            var editor = new ThemeEditorWindow();
+            await editor.ShowDialog<bool?>(owner).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Редактор тем не открылся: {ex}", "WARNING");
+        }
+        finally
+        {
+            BuildThemeGallery();
         }
     }
 
