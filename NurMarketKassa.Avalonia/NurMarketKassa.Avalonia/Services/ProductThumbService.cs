@@ -107,6 +107,27 @@ internal sealed class ProductThumbService
         return new Uri(baseUri, imageUrl.TrimStart('/'));
     }
 
+    /// <summary>Уже скачанная миниатюра товара или null — без скачивания (2026-09-28): экран
+    /// покупателя показывает фото позиций чека из того же кэша, что и плитки каталога.</summary>
+    public static string? TryGetCachedPath(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+        try
+        {
+            var local = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                NurMarketKassa.Services.AppMode.DataFolderName,
+                "product_thumbs",
+                Sha256Hex(imageUrl) + GuessExt(imageUrl));
+            return File.Exists(local) ? local : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     private static string GuessExt(string url)
     {
         try

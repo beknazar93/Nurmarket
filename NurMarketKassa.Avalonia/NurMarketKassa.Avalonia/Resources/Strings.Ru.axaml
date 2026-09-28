@@ -1403,4 +1403,17 @@
   <x:String x:Key="lx.railSettings">Настройки</x:String>
   <x:String x:Key="lx.weigh">Взвесить</x:String>
   <x:String x:Key="marketplace.themeEditorButton">Редактор тем</x:String>
+  <!-- 2026-09-28: виды кассы в Маркетплейсе, виды и редактор экрана покупателя -->
+  <x:String x:Key="csh.customer.colItem">Товар</x:String>
+  <x:String x:Key="csh.customer.colName">Наименование</x:String>
+  <x:String x:Key="csh.customer.colQty">Кол-во</x:String>
+  <x:String x:Key="csh.customer.colPrice">Цена</x:String>
+  <x:String x:Key="csh.customer.colAmount">Сумма</x:String>
+  <x:String x:Key="marketplace.layoutsTab">Виды кассы</x:String>
+  <x:String x:Key="marketplace.layoutsTitle">Вид главного экрана кассы</x:String>
+  <x:String x:Key="marketplace.layoutsDesc">Шесть раскладок главного экрана. Нажмите на карточку — касса перестроится сразу, без перезапуска, а экран покупателя сменит вид вместе с ней.</x:String>
+  <x:String x:Key="marketplace.customerDisplayTitle">Экран покупателя</x:String>
+  <x:String x:Key="marketplace.customerDisplayEditorButton">Редактор экрана покупателя</x:String>
+  <x:String x:Key="posSettings.monitor.styleTitle">Вид экрана покупателя</x:String>
+  <x:String x:Key="posSettings.monitor.openEditor">Открыть редактор</x:String>
 </ResourceDictionary>

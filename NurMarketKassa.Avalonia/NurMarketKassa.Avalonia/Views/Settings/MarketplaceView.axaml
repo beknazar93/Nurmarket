@@ -1,5 +1,7 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:NurMarketKassa.AvaloniaHost.Views.Settings"
+             xmlns:customer="using:NurMarketKassa.AvaloniaHost.Views.Customer"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.MarketplaceView"
              x:CompileBindings="False"
              VerticalAlignment="Stretch"
@@ -79,6 +81,10 @@
           <Button x:Name="ExtrasTabButton" Classes="btn-secondary"
                   Content="{DynamicResource marketplace.extrasTab}"
                   Height="38" Padding="16,6" Click="ExtrasTab_Click"/>
+          <!-- 2026-09-28, «виды касс в маркетплейс добавь» -->
+          <Button x:Name="LayoutsTabButton" Classes="btn-secondary"
+                  Content="{DynamicResource marketplace.layoutsTab}"
+                  Height="38" Padding="16,6" Click="LayoutsTab_Click"/>
         </StackPanel>
 
         <!-- Темы. Карточки собираются в коде (BuildThemeGallery): у каждой свой живой
@@ -110,6 +116,48 @@
           </StackPanel>
         </Border>
 
+
+        <!-- Виды кассы (2026-09-28): те же шесть карточек с миниатюрами, что в Настройки → Экран
+             (общий KassaLayoutPicker), и экран покупателя, который меняется вместе с видом кассы. -->
+        <StackPanel x:Name="LayoutsPanel" Spacing="10" IsVisible="False">
+          <Border Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{DynamicResource marketplace.layoutsTitle}" Classes="SettingsCardTitle" FontSize="14"/>
+              <TextBlock Text="{DynamicResource marketplace.layoutsDesc}"
+                         Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
+                         Foreground="{DynamicResource BrushTextSoft}"/>
+              <local:KassaLayoutPicker x:Name="LayoutPicker" Margin="0,8,0,0"/>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="SettingsCard" Padding="14">
+            <Grid ColumnDefinitions="Auto,16,*">
+              <!-- Живой предпросмотр экрана покупателя в нынешнем виде -->
+              <Border Width="320" Height="180" CornerRadius="8" ClipToBounds="True" VerticalAlignment="Top"
+                      BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
+                <Viewbox Stretch="Uniform">
+                  <customer:CustomerDisplayView x:Name="CustomerPreviewView" Width="1280" Height="720"/>
+                </Viewbox>
+              </Border>
+              <StackPanel Grid.Column="2" Spacing="8" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconMonitor}" Width="18" Height="18" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock Text="{DynamicResource marketplace.customerDisplayTitle}" Classes="SettingsCardTitle" FontSize="14"
+                             VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock x:Name="CustomerDisplayModeText" Classes="SettingsCardBody" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <Button x:Name="CustomerDisplayEditorButton" Classes="btn-primary" Height="36" Padding="14,4"
+                        HorizontalAlignment="Left" Click="OpenCustomerDisplayEditor_Click">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Data="{StaticResource IconPencil}" Width="15" Height="15"/>
+                    <TextBlock Text="{DynamicResource marketplace.customerDisplayEditorButton}" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
 
         <!-- Доп. функции -->
         <Border x:Name="ExtrasPanel" Classes="SettingsCard" Padding="14" IsVisible="False">

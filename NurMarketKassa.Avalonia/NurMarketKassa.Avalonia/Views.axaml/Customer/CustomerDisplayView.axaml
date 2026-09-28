@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             xmlns:conv="using:NurMarketKassa.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.CustomerDisplayView"
+             x:DataType="vm:CustomerDisplayViewModel">
+  <!-- Содержимое экрана покупателя (2026-09-28): фон и один из шести видов. Одно и то же — в окне
+       второго монитора (CustomerDisplayWindow) и в предпросмотре редактора экрана покупателя. -->
+  <UserControl.Resources>
+    <conv:PathToImageConverter x:Key="PathToImageConverter"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Customer/CustomerDisplayStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Panel Background="{DynamicResource CustomerDisplayBackgroundBrush}" ClipToBounds="True">
+    <Image Source="{Binding Settings.BackgroundImagePath, Converter={StaticResource PathToImageConverter}}"
+           Stretch="UniformToFill"
+           IsVisible="{Binding HasBackgroundImage}"/>
+    <Border Background="{DynamicResource CustomerDisplayBackgroundBrush}"
+            Opacity="{Binding Settings.BackgroundOverlayOpacity}"
+            IsVisible="{Binding HasBackgroundImage}"/>
+    <ContentControl x:Name="LayoutHost"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"/>
+  </Panel>
+</UserControl>

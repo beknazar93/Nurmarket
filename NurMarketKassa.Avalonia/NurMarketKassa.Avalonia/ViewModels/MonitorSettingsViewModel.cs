@@ -28,6 +28,8 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
     private readonly AvaloniaCustomerDisplayService _service;
     private DisplayScreenOption? _selectedScreen;
     private string _statusMessage = "";
+    private string _openedBackground;
+    private string _openedAccent;
 
     public MonitorSettingsViewModel(Window owner, AvaloniaCustomerDisplayService service)
     {
@@ -35,6 +37,8 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
         _service = service;
         Settings = UserPreferences.Instance.CustomerDisplay.Clone();
         Settings.Normalize();
+        _openedBackground = Settings.BackgroundColor;
+        _openedAccent = Settings.AccentColor;
 
         var labels = new Dictionary<string, string>
         {
@@ -128,6 +132,40 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
 
     public bool RequiresDisableConfirmation => !Settings.IsEnabled && _service.IsDisplayVisible;
 
+    /// <summary>Какой вид у экрана покупателя сейчас (2026-09-28): «как у кассы» или свой.</summary>
+    public string DisplayStyleSummary
+    {
+        get
+        {
+            var effective = CustomerDisplayViewModel.ResolveStyle(Settings.DisplayStyle);
+            var name = KassaLayouts.All.FirstOrDefault(o => o.Id == effective)?.Label() ?? effective;
+            var follows = string.IsNullOrWhiteSpace(Settings.DisplayStyle)
+                          || string.Equals(Settings.DisplayStyle, CustomerDisplaySettings.StyleAuto, StringComparison.OrdinalIgnoreCase);
+            return follows
+                ? Tr.T($"Меняется вместе с видом кассы. Сейчас: «{name}». Надписи, цвета и что показывать — в редакторе.",
+                    $"Кассанын көрүнүшү менен бирге өзгөрөт. Азыр: «{name}». Жазуулар, түстөр жана эмнени көрсөтүү — редактордо.",
+                    $"Changes together with the till layout. Now: “{name}”. Captions, colors and what to show are set in the editor.",
+                    $"Kasa görünümüyle birlikte değişir. Şu an: «{name}». Yazılar, renkler ve neyin gösterileceği düzenleyicide.",
+                    $"Kassa ko'rinishi bilan birga o'zgaradi. Hozir: «{name}». Yozuvlar, ranglar va nimani ko'rsatish — muharrirda.")
+                : Tr.T($"Всегда в виде «{name}». Надписи, цвета и что показывать — в редакторе.",
+                    $"Дайыма «{name}» көрүнүшүндө. Жазуулар, түстөр жана эмнени көрсөтүү — редактордо.",
+                    $"Always uses the “{name}” layout. Captions, colors and what to show are set in the editor.",
+                    $"Her zaman «{name}» görünümünde. Yazılar, renkler ve neyin gösterileceği düzenleyicide.",
+                    $"Doim «{name}» ko'rinishida. Yozuvlar, ranglar va nimani ko'rsatish — muharrirda.");
+        }
+    }
+
+    /// <summary>Редактор экрана покупателя сохранил внешний вид (2026-09-28) — переносим эти поля
+    /// в копию настроек страницы, чтобы её «Сохранить» их не затёрло, и обновляем поля на экране.</summary>
+    public void ReloadAppearanceFrom(CustomerDisplaySettings saved)
+    {
+        Settings.CopyAppearanceFrom(saved);
+        _openedBackground = Settings.BackgroundColor;
+        _openedAccent = Settings.AccentColor;
+        OnPropertyChanged(nameof(Settings));
+        OnPropertyChanged(nameof(DisplayStyleSummary));
+    }
+
     public void RefreshScreens()
     {
         var savedId = Settings.SelectedScreenId;
@@ -201,6 +239,14 @@ public sealed class MonitorSettingsViewModel : INotifyPropertyChanged
 
     private void SyncColumns()
     {
+        // 2026-09-28: цвета экрана покупателя по умолчанию берутся из темы кассы. Кто поменял
+        // фон или акцент здесь, в «Внешнем виде», тот хочет свои — иначе правка ничего бы не дала.
+        // Сравниваем с тем, что было при открытии страницы (а не с настройками: акцент в них
+        // подменяется при смене темы кассы, App.SyncCustomerDisplayAccent).
+        if (!string.Equals(Settings.BackgroundColor, _openedBackground, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(Settings.AccentColor, _openedAccent, StringComparison.OrdinalIgnoreCase))
+            Settings.UseThemeColors = false;
+
         Settings.TableColumnOrder = TableColumns.Select(x => x.Key).ToList();
         Settings.ShowTableProduct = TableColumns.First(x => x.Key == "Product").IsEnabled;
         Settings.ShowTableQuantity = TableColumns.First(x => x.Key == "Quantity").IsEnabled;

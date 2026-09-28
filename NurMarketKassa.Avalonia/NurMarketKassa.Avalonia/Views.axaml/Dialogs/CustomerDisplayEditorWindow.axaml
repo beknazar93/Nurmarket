@@ -1,0 +1,238 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:pickers="using:NurMarketKassa.AvaloniaHost.Views.Controls"
+        xmlns:customer="using:NurMarketKassa.AvaloniaHost.Views.Customer"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CustomerDisplayEditorWindow"
+        x:CompileBindings="False"
+        Width="1180" Height="760"
+        MinWidth="900" MinHeight="580"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        SystemDecorations="None"
+        TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
+        Background="{DynamicResource DialogWindowBackground}">
+
+    <!-- Редактор экрана покупателя (2026-09-28, «редактор 2 экран покупателя тоже добавь»). Слева —
+         вид экрана («как у кассы» или один из шести), надписи, цвета, размер суммы и что показывать;
+         справа — живой предпросмотр: тот же CustomerDisplayView, что на втором мониторе, с образцом
+         чека. Настоящий экран покупателя меняется только по «Сохранить»; «Отмена» ничего не меняет.
+         Окно собрано из кистей темы кассы (DynamicResource), как редактор тем. -->
+
+    <Window.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/MainKassir/Layouts/LayoutStyles.axaml"/>
+
+        <Style Selector="TextBlock.ce-section">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector="TextBlock.ce-label">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="Margin" Value="0,6,0,3"/>
+        </Style>
+        <Style Selector="TextBox.ce-input">
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox.ce-input:focus">
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+        </Style>
+        <Style Selector="Border.ce-group">
+            <Setter Property="Background" Value="{DynamicResource BrushSurfaceSubtle}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+
+        <!-- Кнопки-«чипы» выбора (вид экрана, цвета, вариант, состояние предпросмотра) -->
+        <Style Selector="Button.ce-chip">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.ce-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.ce-chip.active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.ce-chip.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
+        <Style Selector="Border.ce-row">
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.ce-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+        </Style>
+        <Style Selector="Border.ce-row.selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+            Background="{DynamicResource BrushDialogPanel}"
+            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828">
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- ============ шапка ============ -->
+            <Border Grid.Row="0" Padding="24,18,16,14" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
+                    PointerPressed="Header_PointerPressed" Background="Transparent">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,14,0">
+                        <PathIcon Data="{StaticResource IconMonitor}" Width="20" Height="20" Foreground="{DynamicResource BrushText}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock x:Name="SubtitleText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" VerticalAlignment="Top" Click="Cancel_Click">
+                        <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ============ содержимое ============ -->
+            <Grid Grid.Row="1" Margin="24,16,24,8" ColumnDefinitions="390,20,*">
+
+                <!-- Настройки -->
+                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="14" Margin="0,0,12,8">
+
+                        <!-- Вид экрана -->
+                        <StackPanel>
+                            <TextBlock x:Name="StyleLabel" Classes="ce-section"/>
+                            <WrapPanel x:Name="StylePanel"/>
+                            <TextBlock x:Name="StyleHintText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
+
+                        <!-- Надписи -->
+                        <Border Classes="ce-group">
+                            <StackPanel>
+                                <TextBlock x:Name="TextsLabel" Classes="ce-section" Margin="0"/>
+                                <TextBlock x:Name="StoreTitleLabel" Classes="ce-label"/>
+                                <TextBox x:Name="StoreTitleBox" Classes="ce-input" MaxLength="60" TextChanged="Text_Changed"/>
+                                <TextBlock x:Name="GreetingLabel" Classes="ce-label"/>
+                                <TextBox x:Name="GreetingTitleBox" Classes="ce-input" MaxLength="60" TextChanged="Text_Changed"/>
+                                <TextBlock x:Name="GreetingDescLabel" Classes="ce-label"/>
+                                <TextBox x:Name="GreetingDescBox" Classes="ce-input" MaxLength="120" TextChanged="Text_Changed"/>
+                                <TextBlock x:Name="SuccessLabel" Classes="ce-label"/>
+                                <TextBox x:Name="SuccessTextBox" Classes="ce-input" MaxLength="80" TextChanged="Text_Changed"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Цвета -->
+                        <Border Classes="ce-group">
+                            <StackPanel>
+                                <TextBlock x:Name="ColorsLabel" Classes="ce-section"/>
+                                <WrapPanel>
+                                    <Button x:Name="ThemeColorsButton" Classes="ce-chip" Click="ThemeColors_Click"/>
+                                    <Button x:Name="CustomColorsButton" Classes="ce-chip" Click="CustomColors_Click"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="ColorsHintText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                <TextBlock x:Name="VariantLabel" Classes="ce-label" Margin="0,4,0,4"/>
+                                <WrapPanel>
+                                    <Button x:Name="LightVariantButton" Classes="ce-chip" Tag="Light" Click="Variant_Click"/>
+                                    <Button x:Name="DarkVariantButton" Classes="ce-chip" Tag="Dark" Click="Variant_Click"/>
+                                    <Button x:Name="SystemVariantButton" Classes="ce-chip" Tag="System" Click="Variant_Click"/>
+                                </WrapPanel>
+                                <StackPanel x:Name="CustomColorsPanel" Spacing="6" Margin="0,6,0,0">
+                                    <StackPanel x:Name="ColorRowsPanel" Spacing="2"/>
+                                    <pickers:PhotoshopColorPicker x:Name="ColorPicker" HorizontalAlignment="Left" Margin="4,6,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Размер суммы -->
+                        <Border Classes="ce-group">
+                            <StackPanel Spacing="2">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="TotalSizeLabel" Classes="ce-section" Margin="0"/>
+                                    <TextBlock x:Name="TotalSizeValueText" Grid.Column="1" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                                </Grid>
+                                <Slider x:Name="TotalSizeSlider" Minimum="60" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="True"
+                                        ValueChanged="TotalSizeSlider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Что показывать -->
+                        <Border Classes="ce-group">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="ShowLabel" Classes="ce-section"/>
+                                <CheckBox x:Name="ShowListCheck" Classes="ToggleSwitch" Click="Toggle_Click"/>
+                                <CheckBox x:Name="ShowPhotosCheck" Classes="ToggleSwitch" Click="Toggle_Click"/>
+                                <CheckBox x:Name="ShowQrCheck" Classes="ToggleSwitch" Click="Toggle_Click"/>
+                                <CheckBox x:Name="ShowClockCheck" Classes="ToggleSwitch" Click="Toggle_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Предпросмотр -->
+                <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock x:Name="PreviewLabel" Classes="ce-section" VerticalAlignment="Center" Margin="0"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="SampleReceiptButton" Classes="ce-chip" Tag="receipt" Click="SampleState_Click"/>
+                            <Button x:Name="SampleEmptyButton" Classes="ce-chip" Tag="empty" Click="SampleState_Click"/>
+                            <Button x:Name="SamplePaidButton" Classes="ce-chip" Tag="paid" Click="SampleState_Click"/>
+                        </StackPanel>
+                    </Grid>
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1"
+                            CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True" Background="Black"
+                            VerticalAlignment="Top">
+                        <Viewbox Stretch="Uniform">
+                            <customer:CustomerDisplayView x:Name="PreviewView" Width="1280" Height="720"/>
+                        </Viewbox>
+                    </Border>
+                    <TextBlock x:Name="PreviewHintText" Grid.Row="2" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </Grid>
+            </Grid>
+
+            <!-- ============ низ ============ -->
+            <Border Grid.Row="2" Padding="24,12" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto,8,Auto">
+                    <Button x:Name="ResetButton" Classes="lx-btn" MinHeight="36" Click="Reset_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="{StaticResource IconUndo}" Width="14" Height="14"/>
+                            <TextBlock x:Name="ResetText" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="StatusText" Grid.Column="1" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" Margin="14,0"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                    <Button x:Name="CancelButton" Grid.Column="2" Classes="lx-btn" MinWidth="110" MinHeight="36" Click="Cancel_Click"/>
+                    <Button x:Name="SaveButton" Grid.Column="4" Classes="lx-accent" MinWidth="150" MinHeight="36" Click="Save_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

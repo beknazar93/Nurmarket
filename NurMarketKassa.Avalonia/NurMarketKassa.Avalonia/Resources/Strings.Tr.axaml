@@ -1403,4 +1403,17 @@
   <x:String x:Key="lx.railSettings">Ayarlar</x:String>
   <x:String x:Key="lx.weigh">Tart</x:String>
   <x:String x:Key="marketplace.themeEditorButton">Tema düzenleyici</x:String>
+  <!-- 2026-09-28: виды кассы в Маркетплейсе, виды и редактор экрана покупателя -->
+  <x:String x:Key="csh.customer.colItem">Ürün</x:String>
+  <x:String x:Key="csh.customer.colName">Ürün adı</x:String>
+  <x:String x:Key="csh.customer.colQty">Miktar</x:String>
+  <x:String x:Key="csh.customer.colPrice">Fiyat</x:String>
+  <x:String x:Key="csh.customer.colAmount">Tutar</x:String>
+  <x:String x:Key="marketplace.layoutsTab">Kasa görünümleri</x:String>
+  <x:String x:Key="marketplace.layoutsTitle">Ana kasa ekranı görünümü</x:String>
+  <x:String x:Key="marketplace.layoutsDesc">Ana ekran için altı görünüm. Bir karta tıklayın; kasa yeniden başlatmadan anında değişir, müşteri ekranı da onunla birlikte değişir.</x:String>
+  <x:String x:Key="marketplace.customerDisplayTitle">Müşteri ekranı</x:String>
+  <x:String x:Key="marketplace.customerDisplayEditorButton">Müşteri ekranı düzenleyici</x:String>
+  <x:String x:Key="posSettings.monitor.styleTitle">Müşteri ekranı görünümü</x:String>
+  <x:String x:Key="posSettings.monitor.openEditor">Düzenleyiciyi aç</x:String>
 </ResourceDictionary>

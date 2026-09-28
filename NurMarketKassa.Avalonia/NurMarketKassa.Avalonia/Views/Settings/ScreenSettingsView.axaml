@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:NurMarketKassa.AvaloniaHost.Views.Settings"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScreenSettingsView"
              x:CompileBindings="False"
              VerticalAlignment="Stretch"
@@ -49,14 +50,6 @@
       <Setter Property="Background" Value="{DynamicResource BrushBorderStrong}"/>
     </Style>
 
-    <!-- Карточка выбора вида кассы (BuildLayoutPicker): своё наведение вместо серого Fluent. -->
-    <Style Selector="Button.LayoutCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-    </Style>
-    <Style Selector="Button.LayoutCard:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
-    </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost" Padding="16">
@@ -82,14 +75,14 @@
 
         <!-- Вид кассы (2026-09-28): шесть раскладок карточками с миниатюрами. Отдельной всегда
              открытой карточкой, а не в свёрнутой группе, — это первое, что хотят поменять.
-             Карточки собираются в коде (BuildLayoutPicker): миниатюра рисуется цветами текущей
-             темы. Выбор применяется сразу, без перезапуска. -->
+             Карточки — общий элемент KassaLayoutPicker (он же в Маркетплейсе → «Виды кассы»):
+             миниатюра рисуется цветами текущей темы. Выбор применяется сразу, без перезапуска. -->
         <Border Classes="SettingsCard" Padding="14">
           <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
                        FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
-            <WrapPanel x:Name="LayoutPickerPanel" Orientation="Horizontal" Margin="0,8,0,0"/>
+            <local:KassaLayoutPicker x:Name="LayoutPicker" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
 

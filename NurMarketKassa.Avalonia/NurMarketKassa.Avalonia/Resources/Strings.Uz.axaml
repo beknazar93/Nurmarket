@@ -1403,4 +1403,17 @@
   <x:String x:Key="lx.railSettings">Sozlamalar</x:String>
   <x:String x:Key="lx.weigh">Tortish</x:String>
   <x:String x:Key="marketplace.themeEditorButton">Mavzu muharriri</x:String>
+  <!-- 2026-09-28: виды кассы в Маркетплейсе, виды и редактор экрана покупателя -->
+  <x:String x:Key="csh.customer.colItem">Mahsulot</x:String>
+  <x:String x:Key="csh.customer.colName">Nomi</x:String>
+  <x:String x:Key="csh.customer.colQty">Miqdor</x:String>
+  <x:String x:Key="csh.customer.colPrice">Narx</x:String>
+  <x:String x:Key="csh.customer.colAmount">Summa</x:String>
+  <x:String x:Key="marketplace.layoutsTab">Kassa ko'rinishlari</x:String>
+  <x:String x:Key="marketplace.layoutsTitle">Kassa bosh ekranining ko'rinishi</x:String>
+  <x:String x:Key="marketplace.layoutsDesc">Bosh ekran uchun oltita ko'rinish. Kartochkani bosing — kassa qayta ishga tushirmasdan darhol o'zgaradi, xaridor ekrani ham u bilan birga o'zgaradi.</x:String>
+  <x:String x:Key="marketplace.customerDisplayTitle">Xaridor ekrani</x:String>
+  <x:String x:Key="marketplace.customerDisplayEditorButton">Xaridor ekrani muharriri</x:String>
+  <x:String x:Key="posSettings.monitor.styleTitle">Xaridor ekrani ko'rinishi</x:String>
+  <x:String x:Key="posSettings.monitor.openEditor">Muharrirni ochish</x:String>
 </ResourceDictionary>

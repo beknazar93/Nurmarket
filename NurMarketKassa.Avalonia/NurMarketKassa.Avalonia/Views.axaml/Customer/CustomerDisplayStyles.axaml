@@ -1,0 +1,48 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Экран покупателя (2026-09-28): общие стили шести видов экрана. Цвета — кисти
+         CustomerDisplay*Brush, которые CustomerDisplayView кладёт в свои ресурсы из палитры
+         CustomerDisplayViewModel (тема кассы или свои цвета); размеры шрифта — CdFont* уже с учётом
+         «Масштаба» экрана покупателя. Поэтому виды не зависят от темы самой кассы напрямую: у экрана
+         покупателя свой светлый/тёмный вариант. -->
+
+    <Style Selector="Border.cd-card">
+        <Setter Property="Background" Value="{DynamicResource CustomerDisplaySurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CustomerDisplayBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{DynamicResource CustomerDisplayCornerRadius}"/>
+    </Style>
+
+    <Style Selector="Border.cd-divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource CustomerDisplayBorderBrush}"/>
+    </Style>
+
+    <Style Selector="TextBlock.cd-text">
+        <Setter Property="Foreground" Value="{DynamicResource CustomerDisplayTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.cd-soft">
+        <Setter Property="Foreground" Value="{DynamicResource CustomerDisplaySecondaryTextBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.cd-eyebrow">
+        <Setter Property="FontSize" Value="{DynamicResource CdFont12}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource CustomerDisplayAccentInkBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.cd-caption">
+        <Setter Property="FontSize" Value="{DynamicResource CdFont12}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource CustomerDisplaySecondaryTextBrush}"/>
+    </Style>
+    <!-- Деньги: цифры одинаковой ширины, чтобы столбцы сумм не «плясали». -->
+    <Style Selector="TextBlock.cd-num">
+        <Setter Property="FontFeatures" Value="{DynamicResource TabularNumbers}"/>
+    </Style>
+
+    <!-- Строки чека без выделения и наведения: экран покупателя только показывает. -->
+    <Style Selector="ScrollViewer.cd-list">
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
+    </Style>
+</Styles>

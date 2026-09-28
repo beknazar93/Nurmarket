@@ -1,0 +1,18 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.KassaLayoutPicker">
+  <!-- Выбор вида кассы (2026-09-28): карточки шести раскладок с миниатюрами. Один и тот же элемент
+       в Настройки → Экран и в Маркетплейс → «Виды кассы». -->
+  <UserControl.Styles>
+    <!-- Своё наведение вместо серого Fluent. -->
+    <Style Selector="Button.LayoutCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+    </Style>
+    <Style Selector="Button.LayoutCard:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
+    </Style>
+  </UserControl.Styles>
+
+  <WrapPanel x:Name="LayoutPickerPanel" Orientation="Horizontal"/>
+</UserControl>
