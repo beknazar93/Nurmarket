@@ -141,6 +141,7 @@ public static class CompanyInfoService
         NurMarketKassa.Core.Application.WeightBarcodeParser.Layout = prefs.ScaleBarcodeLayout;
         NurMarketKassa.Core.Application.WeightBarcodeParser.Mode = prefs.ScaleBarcodeMode;
         NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit = prefs.ScaleBarcodeAmountUnit;
+        NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
     }
 
     private static SubscriptionStatus? ComputeSubscriptionStatus(CompanyDto? company) =>

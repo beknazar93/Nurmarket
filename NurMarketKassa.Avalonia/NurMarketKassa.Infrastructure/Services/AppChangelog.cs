@@ -13,6 +13,8 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Весы TM-30F: этикетка с суммой в штрихкоде (формат FFWWWWWEEEEEC) теперь читается верно — было 3,520 кг × 160 = 563,20 вместо 35,20",
+        "Настройка: «Настройки весов TM-30F» → «Штрих-код» → выберите формат, который стоит на весах, и префикс → «Сохранить»",
         "Оплата быстрее: продажа проводится одним запросом к серверу (0,3–0,4 с вместо 1,5–1,9 с), без двойных чеков при повторе",
         "Смешанная оплата уходит на сервер с разбивкой на наличные и безнал",
         "Отчёт смены и Z-отчёт — с сервера (смешанная раздельно, возвраты, внесения); внесение входит в сумму смены; постоянный номер чека, как на сайте",
@@ -24,6 +26,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "TM-30F таразасы: штрих-коддо сумма бар этикетка (FFWWWWWEEEEEC) эми туура окулат — мурун 35,20 ордуна 3,520 кг × 160 = 563,20 болчу",
+        "Жөндөө: «TM-30F таразасынын жөндөөлөрү» → «Штрих-код» → таразадагы форматты жана префиксти тандап → «Сактоо»",
         "Төлөм тезирээк: сатуу серверге бир суроо менен өтөт (1,5–1,9 с ордуна 0,3–0,4 с), кайталаганда эки чек түзүлбөйт",
         "Аралаш төлөм серверге накталай жана накталай эмес болуп бөлүнүп кетет",
         "Сменанын отчёту жана Z-отчёт серверден; салуу сменанын суммасына кирет; чектин туруктуу номери сайттагыдай",
@@ -35,6 +39,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "TM-30F scales: a label with the total price in the barcode (FFWWWWWEEEEEC) is now read correctly — it was 3.520 kg × 160 = 563.20 instead of 35.20",
+        "Setup: “TM-30F scale settings” → “Barcode” → pick the format set on the scale and the prefix → “Save”",
         "Faster payment: a sale is made with one server request (0.3–0.4 s instead of 1.5–1.9 s), no duplicate receipts on retry",
         "Mixed payment is sent to the server split into cash and card",
         "Shift and Z reports from the server; cash deposits count in the shift total; permanent receipt number as on the website",
@@ -46,6 +52,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "TM-30F teraziler: barkodunda tutar olan etiket (FFWWWWWEEEEEC) artık doğru okunuyor — 35,20 yerine 3,520 kg × 160 = 563,20 idi",
+        "Ayar: «TM-30F terazi ayarları» → «Barkod» → terazideki biçimi ve öneki seçin → «Kaydet»",
         "Daha hızlı ödeme: satış sunucuya tek istekle yapılır (1,5–1,9 sn yerine 0,3–0,4 sn), tekrarda çift fiş olmaz",
         "Karışık ödeme sunucuya nakit ve kart olarak ayrılmış gider",
         "Vardiya ve Z raporu sunucudan; para girişi vardiya toplamına dahil; sitedeki gibi kalıcı fiş numarası",
@@ -57,6 +65,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "TM-30F tarozilari: shtrix-kodida summa bor yorliq (FFWWWWWEEEEEC) endi to'g'ri o'qiladi — 35,20 o'rniga 3,520 kg × 160 = 563,20 edi",
+        "Sozlash: «TM-30F tarozi sozlamalari» → «Shtrix-kod» → tarozidagi format va prefiksni tanlab → «Saqlash»",
         "Tezroq to'lov: savdo serverga bitta so'rov bilan o'tadi (1,5–1,9 s o'rniga 0,3–0,4 s), qaytarilganda ikki chek bo'lmaydi",
         "Aralash to'lov serverga naqd va karta bo'yicha ajratilib yuboriladi",
         "Smena va Z hisobot serverdan; kiritish smena summasiga kiradi; saytdagidek doimiy chek raqami",

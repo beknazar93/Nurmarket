@@ -379,6 +379,20 @@ public partial class TmScaleSettingsWindow : Window
         var prefs = UserPreferences.Instance;
         prefs.TmScaleDahuaBarcode = SelectedFormat;
         prefs.TmScaleBarcodePrefix = (int)(_flag.Value ?? 20);
+
+        // 2026-09-28, живая проверка владельца: весы с форматом FFWWWWWEEEEEC (сумма) отправляли
+        // товары, касса находила товар, но сумма в чеке была неверной — сумму из штрихкода она
+        // читала как вес. Формат с суммой (E без N) → префикс в список «в штрихкоде сумма»,
+        // формат с весом → убираем префикс из списка.
+        var prefix = prefs.TmScaleBarcodePrefix.ToString("00", System.Globalization.CultureInfo.InvariantCulture);
+        var amountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
+        var format = SelectedFormat;
+        if (format.Contains('E') && !format.Contains('N'))
+            amountPrefixes.Add(prefix);
+        else
+            amountPrefixes.Remove(prefix);
+        prefs.ScaleAmountPrefixes = string.Join(",", amountPrefixes.OrderBy(p => p, StringComparer.Ordinal));
+        WeightBarcodeParser.AmountPrefixes = amountPrefixes;
         prefs.SaveToDisk();
     }
 

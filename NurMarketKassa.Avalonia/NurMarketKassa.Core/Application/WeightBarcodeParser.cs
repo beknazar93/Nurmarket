@@ -30,6 +30,12 @@ public static class WeightBarcodeParser
     /// получали сумму (а значит и вес весового товара) в 100 раз меньше настоящей.</summary>
     public static string AmountUnit { get; set; } = "tiyin";
 
+    /// <summary>2026-09-28: префиксы, у которых в штрихкоде записана СУММА, а не вес — например,
+    /// весы TM-30F (Dahua) владельца печатают формат FFWWWWWEEEEEC с префиксом 21, а режим компании
+    /// «По весу». Без этого касса находила товар, но читала сумму 12,07 как вес 1,207 кг.
+    /// Задаётся в окне «Настройки весов TM-30F» → «Штрих-код»; важнее режима компании.</summary>
+    public static IReadOnlySet<string> AmountPrefixes { get; set; } = new HashSet<string>();
+
     public static bool IsEmbeddedWeightBarcode(string barcode) => TryParse(barcode, out _);
 
     public static bool TryParse(string barcode, out WeightBarcodeParseResult result)
@@ -90,6 +96,8 @@ public static class WeightBarcodeParser
 
     private static WeightBarcodeValueKind ResolveKind(string prefix)
     {
+        if (AmountPrefixes.Contains(prefix))
+            return WeightBarcodeValueKind.Amount;
         if (string.Equals(Mode, "weight", StringComparison.OrdinalIgnoreCase))
             return WeightBarcodeValueKind.Weight;
         if (string.Equals(Mode, "amount", StringComparison.OrdinalIgnoreCase))

@@ -115,6 +115,19 @@ public sealed class UserPreferences
     /// TmScalePriceDecimals успело сохраниться в файлах нулём (ошибочное допущение), поэтому новое поле.</summary>
     public int TmScalePricePoint { get; set; } = 2;
 
+    /// <summary>Разбирает <see cref="ScaleAmountPrefixes"/> в набор двузначных префиксов 20–29.</summary>
+    public static HashSet<string> ParseAmountPrefixes(string? text)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var part in (text ?? "").Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var p = part.Trim();
+            if (p.Length == 2 && p[0] == '2' && char.IsDigit(p[1]))
+                set.Add(p);
+        }
+        return set;
+    }
+
     /// <summary>«Префикс штрихкода» товара (F/FF в формате ШК весов). 20 — вес в режиме «авто» кассы.</summary>
     public int TmScaleBarcodePrefix { get; set; } = 20;
 
@@ -509,6 +522,10 @@ public sealed class UserPreferences
     public string ScaleBarcodeLayout { get; set; } = "plu";
     /// <summary>Режим значения весового штрих-кода: "auto"/"weight"/"amount".</summary>
     public string ScaleBarcodeMode { get; set; } = "auto";
+
+    /// <summary>Префиксы весового штрихкода через запятую, где записана сумма (см.
+    /// WeightBarcodeParser.AmountPrefixes), например «21» для TM-30F с форматом FFWWWWWEEEEEC. 2026-09-28.</summary>
+    public string ScaleAmountPrefixes { get; set; } = "";
     /// <summary>2026-09-14: единица суммы в весовом штрих-коде для mode="amount" (или "auto" с
     /// суммовым префиксом) — "tiyin" (значение ÷100) или "som" (значение как есть). Раньше не
     /// запрашивалась и не хранилась вовсе — касса всегда считала как "tiyin", хотя NurCRM
@@ -844,6 +861,8 @@ public sealed class UserPreferences
                 p.ScaleBarcodeLayout = fromFile.ScaleBarcodeLayout;
             if (fromFile.ScaleBarcodeMode is not null)
                 p.ScaleBarcodeMode = fromFile.ScaleBarcodeMode;
+            if (fromFile.ScaleAmountPrefixes is not null)
+                p.ScaleAmountPrefixes = fromFile.ScaleAmountPrefixes;
             if (fromFile.ScaleBarcodeAmountUnit is not null)
                 p.ScaleBarcodeAmountUnit = fromFile.ScaleBarcodeAmountUnit;
             if (fromFile.ToolsPanelExpanded is not null)
@@ -1113,6 +1132,7 @@ public sealed class UserPreferences
                 PreserveCatalogOnNextAutonomousLogin = PreserveCatalogOnNextAutonomousLogin,
                 ScaleBarcodeLayout = ScaleBarcodeLayout,
                 ScaleBarcodeMode = ScaleBarcodeMode,
+                ScaleAmountPrefixes = ScaleAmountPrefixes,
                 ScaleBarcodeAmountUnit = ScaleBarcodeAmountUnit,
                 ToolsPanelExpanded = ToolsPanelExpanded,
                 DynamicPaymentQrEnabled = DynamicPaymentQrEnabled,
@@ -1353,6 +1373,7 @@ public sealed class UserPreferences
         public bool? PreserveCatalogOnNextAutonomousLogin { get; set; }
         public string? ScaleBarcodeLayout { get; set; }
         public string? ScaleBarcodeMode { get; set; }
+        public string? ScaleAmountPrefixes { get; set; }
         public string? ScaleBarcodeAmountUnit { get; set; }
         public bool? ToolsPanelExpanded { get; set; }
         public bool? DynamicPaymentQrEnabled { get; set; }
