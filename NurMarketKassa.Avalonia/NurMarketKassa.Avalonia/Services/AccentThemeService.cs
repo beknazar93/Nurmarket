@@ -676,6 +676,18 @@ public static class AccentThemeService
     public static CustomThemeColors GetBaseColors(string baseThemeId, bool dark) =>
         GetEffectiveColors(new CustomThemeDefinition { BaseThemeId = baseThemeId }, dark);
 
+    /// <summary>Ключевые цвета любой темы — встроенной или своей — для светлого или тёмного
+    /// варианта (2026-09-28). Экран покупателя красится ими, когда в его настройках выбраны цвета
+    /// «как тема кассы»: вариант у него свой (Настройки → Монитор → «Тема»), поэтому брать готовые
+    /// кисти из ресурсов программы нельзя — там всегда вариант самой кассы.</summary>
+    public static CustomThemeColors GetThemeColors(string? themeId, bool dark) =>
+        CustomThemeStore.Find(themeId) is { } custom
+            ? GetEffectiveColors(custom, dark)
+            : GetBaseColors(Normalize(themeId), dark);
+
+    /// <summary>Смесь двух цветов (t = 0 — первый, 1 — второй), для оттенков экрана покупателя.</summary>
+    public static string MixHex(string hexA, string hexB, double t) => Mix(hexA, hexB, t);
+
     public static double GetBaseCornerRadius(string baseThemeId) => Resolve(baseThemeId).ButtonRadius;
 
     public static double GetBaseFontSize(string baseThemeId) => Resolve(baseThemeId).FontSize;

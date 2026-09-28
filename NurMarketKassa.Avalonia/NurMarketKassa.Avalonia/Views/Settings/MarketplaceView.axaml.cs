@@ -33,6 +33,17 @@ public partial class MarketplaceView : UserControl
         RefreshAnalyticsExportCard();
         RefreshScalesCard();
 
+        // Вкладка «Виды кассы» (2026-09-28): выбор вида обновляет карточку «1С» в «Доп. функциях»
+        // и предпросмотр экрана покупателя — он меняется вместе с видом кассы.
+        LayoutPicker.LayoutApplied += _ =>
+        {
+            RefreshLayoutModeCard();
+            RefreshCustomerDisplayCard();
+        };
+        AttachedToVisualTree += (_, _) => RefreshCustomerDisplayCard();
+        DetachedFromVisualTree += (_, _) => DisposeCustomerPreview();
+        RefreshCustomerDisplayCard();
+
         // "Список" новых тем/доп. услуг — это, по сути, новая версия кассы (Velopack/GitHub
         // Releases): отдельного каталога на сервере нет, все карточки зашиты в код. Поэтому
         // "обновить список при открытии Маркетплейса" (2026-09-05, по просьбе пользователя)
@@ -134,24 +145,106 @@ public partial class MarketplaceView : UserControl
         }
     }
 
-    private void ThemesTab_Click(object? sender, RoutedEventArgs e)
+    private void ThemesTab_Click(object? sender, RoutedEventArgs e) => ShowTab(0);
+
+    private void ExtrasTab_Click(object? sender, RoutedEventArgs e) => ShowTab(1);
+
+    private void LayoutsTab_Click(object? sender, RoutedEventArgs e) => ShowTab(2);
+
+    /// <summary>Вкладка «Виды кассы» (2026-09-28) — программно, например из карточки «1С».</summary>
+    public void ShowLayoutsTab() => ShowTab(2);
+
+    /// <summary>Три вкладки: 0 — «Темы», 1 — «Доп. функции», 2 — «Виды кассы» (2026-09-28).</summary>
+    private void ShowTab(int index)
     {
-        ThemesPanel.IsVisible = true;
-        ExtrasPanel.IsVisible = false;
-        ThemesTabButton.Classes.Remove("btn-secondary");
-        ThemesTabButton.Classes.Add("btn-primary");
-        ExtrasTabButton.Classes.Remove("btn-primary");
-        ExtrasTabButton.Classes.Add("btn-secondary");
+        ThemesPanel.IsVisible = index == 0;
+        ExtrasPanel.IsVisible = index == 1;
+        LayoutsPanel.IsVisible = index == 2;
+        var buttons = new[] { ThemesTabButton, ExtrasTabButton, LayoutsTabButton };
+        for (var i = 0; i < buttons.Length; i++)
+        {
+            buttons[i].Classes.Remove(i == index ? "btn-secondary" : "btn-primary");
+            if (!buttons[i].Classes.Contains(i == index ? "btn-primary" : "btn-secondary"))
+                buttons[i].Classes.Add(i == index ? "btn-primary" : "btn-secondary");
+        }
+
+        if (index == 2)
+        {
+            // Вид мог смениться в другом месте (карточка «1С», Настройки → Экран).
+            LayoutPicker.Rebuild();
+            RefreshCustomerDisplayCard();
+        }
     }
 
-    private void ExtrasTab_Click(object? sender, RoutedEventArgs e)
+    // ------------------------------------------------------------------ экран покупателя (2026-09-28)
+
+    private NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel? _customerPreviewVm;
+
+    /// <summary>Карточка «Экран покупателя» на вкладке «Виды кассы»: живой предпросмотр в нынешнем
+    /// виде (со своей моделью и образцом чека — настоящий экран не трогается) и подпись, какой вид
+    /// у экрана сейчас.</summary>
+    private void RefreshCustomerDisplayCard()
     {
-        ThemesPanel.IsVisible = false;
-        ExtrasPanel.IsVisible = true;
-        ExtrasTabButton.Classes.Remove("btn-secondary");
-        ExtrasTabButton.Classes.Add("btn-primary");
-        ThemesTabButton.Classes.Remove("btn-primary");
-        ThemesTabButton.Classes.Add("btn-secondary");
+        try
+        {
+            var settings = UserPreferences.Instance.CustomerDisplay;
+            if (_customerPreviewVm is null)
+            {
+                var sample = new CustomerDisplayStateService();
+                sample.UpdateCart(NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.BuildSampleSnapshot(paid: false));
+                _customerPreviewVm = NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.CreateDesignPreview(sample, settings);
+                CustomerPreviewView.DataContext = _customerPreviewVm;
+            }
+            else
+            {
+                _customerPreviewVm.ApplySettings(settings);
+            }
+
+            var effective = NurMarketKassa.AvaloniaHost.ViewModels.CustomerDisplayViewModel.ResolveStyle(settings.DisplayStyle);
+            var name = KassaLayouts.All.FirstOrDefault(o => o.Id == effective)?.Label() ?? effective;
+            var follows = string.IsNullOrWhiteSpace(settings.DisplayStyle)
+                          || string.Equals(settings.DisplayStyle, CustomerDisplaySettings.StyleAuto, StringComparison.OrdinalIgnoreCase);
+            CustomerDisplayModeText.Text = follows
+                ? Tr.T($"Второй экран покупателя меняется вместе с видом кассы. Сейчас: «{name}». В редакторе — надписи, цвета и что показывать.",
+                    $"Сатып алуучунун экинчи экраны кассанын көрүнүшү менен бирге өзгөрөт. Азыр: «{name}». Редактордо — жазуулар, түстөр жана эмнени көрсөтүү.",
+                    $"The customer's second screen changes together with the till layout. Now: “{name}”. The editor sets captions, colors and what to show.",
+                    $"Müşterinin ikinci ekranı kasa görünümüyle birlikte değişir. Şu an: «{name}». Düzenleyicide yazılar, renkler ve neyin gösterileceği ayarlanır.",
+                    $"Xaridorning ikkinchi ekrani kassa ko'rinishi bilan birga o'zgaradi. Hozir: «{name}». Muharrirda — yozuvlar, ranglar va nimani ko'rsatish.")
+                : Tr.T($"Второй экран покупателя всегда в виде «{name}» — так выбрано в редакторе.",
+                    $"Сатып алуучунун экинчи экраны дайыма «{name}» көрүнүшүндө — редактордо ушундай тандалган.",
+                    $"The customer's second screen always uses the “{name}” layout — as chosen in the editor.",
+                    $"Müşterinin ikinci ekranı her zaman «{name}» görünümünde — düzenleyicide böyle seçildi.",
+                    $"Xaridorning ikkinchi ekrani doim «{name}» ko'rinishida — muharrirda shunday tanlangan.");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Карточка экрана покупателя в Маркетплейсе: {ex.Message}", "WARNING");
+        }
+    }
+
+    private void DisposeCustomerPreview()
+    {
+        CustomerPreviewView.DataContext = null;
+        _customerPreviewVm?.Dispose();
+        _customerPreviewVm = null;
+    }
+
+    private async void OpenCustomerDisplayEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(this) is not Window owner)
+                return;
+            await new CustomerDisplayEditorWindow().ShowDialog<bool?>(owner).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Редактор экрана покупателя не открылся: {ex}", "WARNING");
+        }
+        finally
+        {
+            RefreshCustomerDisplayCard();
+        }
     }
 
     /// <summary>Галерея тем. Карточки собираются в коде, а не через ItemsControl+Binding:
@@ -1795,7 +1888,21 @@ public partial class MarketplaceView : UserControl
         {
             App.ApplyMainLayoutMode(isOneC ? "standard" : "onec");
             RefreshLayoutModeCard();
+            LayoutPicker.Rebuild();
+            RefreshCustomerDisplayCard();
         };
+
+        // 2026-09-28: видов кассы теперь шесть — отсюда одна ссылка на вкладку «Виды кассы».
+        var allLayoutsButton = new Button
+        {
+            Classes = { "btn-secondary" },
+            Content = Tr.T("Все виды кассы →", "Кассанын бардык түрлөрү →", "All till layouts →", "Tüm kasa görünümleri →", "Kassaning barcha ko'rinishlari →"),
+            Height = 34,
+            Padding = new Thickness(14, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+        };
+        allLayoutsButton.Click += (_, _) => ShowLayoutsTab();
 
         var content = new StackPanel { Spacing = 10 };
         content.Children.Add(headerRow);
@@ -1803,6 +1910,7 @@ public partial class MarketplaceView : UserControl
         content.Children.Add(descText);
         content.Children.Add(hintText);
         content.Children.Add(toggleButton);
+        content.Children.Add(allLayoutsButton);
 
         _layoutModeCard = new Border
         {

@@ -1403,4 +1403,17 @@
   <x:String x:Key="lx.railSettings">Жөндөөлөр</x:String>
   <x:String x:Key="lx.weigh">Таразалоо</x:String>
   <x:String x:Key="marketplace.themeEditorButton">Темалар редактору</x:String>
+  <!-- 2026-09-28: виды кассы в Маркетплейсе, виды и редактор экрана покупателя -->
+  <x:String x:Key="csh.customer.colItem">Товар</x:String>
+  <x:String x:Key="csh.customer.colName">Аталышы</x:String>
+  <x:String x:Key="csh.customer.colQty">Саны</x:String>
+  <x:String x:Key="csh.customer.colPrice">Баасы</x:String>
+  <x:String x:Key="csh.customer.colAmount">Суммасы</x:String>
+  <x:String x:Key="marketplace.layoutsTab">Кассанын түрлөрү</x:String>
+  <x:String x:Key="marketplace.layoutsTitle">Кассанын башкы экранынын көрүнүшү</x:String>
+  <x:String x:Key="marketplace.layoutsDesc">Башкы экрандын алты түрү. Карточканы басыңыз — касса кайра ачылбастан дароо өзгөрөт, сатып алуучунун экраны да аны менен кошо өзгөрөт.</x:String>
+  <x:String x:Key="marketplace.customerDisplayTitle">Сатып алуучунун экраны</x:String>
+  <x:String x:Key="marketplace.customerDisplayEditorButton">Сатып алуучунун экранынын редактору</x:String>
+  <x:String x:Key="posSettings.monitor.styleTitle">Сатып алуучунун экранынын көрүнүшү</x:String>
+  <x:String x:Key="posSettings.monitor.openEditor">Редакторду ачуу</x:String>
 </ResourceDictionary>

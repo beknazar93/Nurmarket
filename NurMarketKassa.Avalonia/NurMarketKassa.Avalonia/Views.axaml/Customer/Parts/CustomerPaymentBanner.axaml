@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.Parts.CustomerPaymentBanner"
+             x:DataType="vm:CustomerDisplayViewModel"
+             IsVisible="{Binding HasPaymentStatus}">
+  <!-- Состояние оплаты на экране покупателя (2026-09-28): «Обработка оплаты», «Оплата принята —
+       Спасибо за покупку!» (текст из редактора), «Оплата не прошла». Общее для видов экрана;
+       в «Классике» по-прежнему отдельная карточка состояния сканера. -->
+  <Border CornerRadius="{DynamicResource CustomerDisplayCornerRadius}" Padding="18,14"
+          Background="{Binding ScannerStatusSoftBrush}" BorderBrush="{Binding ScannerStatusBrush}" BorderThickness="1">
+    <Grid ColumnDefinitions="Auto,*">
+      <Border Width="44" Height="44" CornerRadius="22" Margin="0,0,14,0" VerticalAlignment="Center"
+              Background="{Binding ScannerStatusBrush}">
+        <Panel>
+          <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPaymentSuccess}"/>
+          <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsProcessing}"/>
+          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPaymentFailed}"/>
+        </Panel>
+      </Border>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+        <TextBlock Classes="cd-text" Text="{Binding ScannerStatusText}" FontSize="{DynamicResource CdFont20}" FontWeight="Bold"
+                   TextWrapping="Wrap"/>
+        <TextBlock Classes="cd-text" Text="{Binding ScannerStatusDescription}" FontSize="{DynamicResource CdFont16}"
+                   TextWrapping="Wrap" Opacity="0.85"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

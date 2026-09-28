@@ -41,6 +41,19 @@
             </Grid>
           </Border>
 
+          <!-- Вид экрана покупателя (2026-09-28): меняется вместе с видом кассы; вид, надписи,
+               цвета и что показывать — в отдельном редакторе с живым предпросмотром. -->
+          <Border Classes="SettingsCard">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="6" Margin="0,0,12,0">
+                <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.styleTitle}"/>
+                <TextBlock Classes="SettingsCardBody" Text="{Binding DisplayStyleSummary}" TextWrapping="Wrap"/>
+              </StackPanel>
+              <Button Grid.Column="1" Classes="SettingsFlatButton" VerticalAlignment="Center" Click="OpenEditor_Click"
+                      Content="{DynamicResource posSettings.monitor.openEditor}"/>
+            </Grid>
+          </Border>
+
           <Border Classes="SettingsCard">
             <StackPanel Spacing="14">
               <TextBlock Classes="SettingsCardTitle" Text="{DynamicResource posSettings.monitor.mainSettingsTitle}"/>

@@ -41,111 +41,14 @@ public partial class ScreenSettingsView : UserControl
         TileSizeValueText.Text = $"{UserPreferences.Instance.CatalogTileScalePercent:F0}%";
         _suppressUiScaleChange = false;
 
-        BuildLayoutPicker();
-        // Миниатюры нарисованы цветами темы и подписаны на языке программы — после смены
-        // языка перестраиваем.
-        Tr.LanguageChanged += OnLanguageChanged;
-        DetachedFromVisualTree += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
+        // Выбор вида кассы (карточки с миниатюрами) — общий элемент KassaLayoutPicker
+        // (2026-09-28, он же в Маркетплейсе → «Виды кассы»); язык и тему он отслеживает сам.
         AttachedToVisualTree += (_, _) =>
         {
-            Tr.LanguageChanged -= OnLanguageChanged;
-            Tr.LanguageChanged += OnLanguageChanged;
-            BuildLayoutPicker();
             // Окно настроек подгоняется под экран уже после конструктора — подпись с реальным
             // масштабом обновляем, когда страница оказалась на экране.
             UpdateUiScaleValueText(UiScaleSlider.Value);
         };
-    }
-
-    private void OnLanguageChanged() =>
-        Avalonia.Threading.Dispatcher.UIThread.Post(BuildLayoutPicker);
-
-    /// <summary>Выбор вида кассы (2026-09-28): карточка на каждую раскладку — миниатюра цветами
-    /// текущей темы, название и одна строка о том, чем она отличается. Нажатие применяет раскладку
-    /// сразу (App.ApplyMainLayoutMode) — касса за окном настроек перестраивается на глазах.</summary>
-    private void BuildLayoutPicker()
-    {
-        LayoutPickerPanel.Children.Clear();
-        var current = KassaLayouts.Normalize(UserPreferences.Instance.MainLayoutMode);
-
-        foreach (var option in KassaLayouts.All)
-        {
-            var isActive = option.Id == current;
-            var title = new Avalonia.Controls.TextBlock
-            {
-                Text = option.Label(),
-                FontSize = 14,
-                FontWeight = Avalonia.Media.FontWeight.SemiBold,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            };
-            title.Bind(Avalonia.Controls.TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-
-            var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Avalonia.Thickness(0, 10, 0, 4) };
-            header.Children.Add(title);
-            if (isActive)
-            {
-                var badgeText = new Avalonia.Controls.TextBlock
-                {
-                    Text = Tr.T("✓ Выбрана", "✓ Тандалган", "✓ Selected", "✓ Seçili", "✓ Tanlangan"),
-                    FontSize = 11,
-                    FontWeight = Avalonia.Media.FontWeight.SemiBold,
-                };
-                badgeText.Bind(Avalonia.Controls.TextBlock.ForegroundProperty, this.GetResourceObservable("BrushAccentForeground"));
-                var badge = new Border
-                {
-                    CornerRadius = new Avalonia.CornerRadius(6),
-                    Padding = new Avalonia.Thickness(8, 2),
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    Child = badgeText,
-                };
-                badge.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushAccent"));
-                Grid.SetColumn(badge, 1);
-                header.Children.Add(badge);
-            }
-
-            var description = new Avalonia.Controls.TextBlock
-            {
-                Text = option.Description(),
-                FontSize = 11.5,
-                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                MaxLines = 5,
-                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis,
-            };
-            ToolTip.SetTip(description, option.Description());
-            description.Bind(Avalonia.Controls.TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-
-            var card = new Button
-            {
-                Tag = option.Id,
-                Width = 252,
-                Margin = new Avalonia.Thickness(0, 0, 10, 10),
-                Padding = new Avalonia.Thickness(12),
-                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Top,
-                BorderThickness = new Avalonia.Thickness(isActive ? 2 : 1),
-                CornerRadius = new Avalonia.CornerRadius(12),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-                Content = new StackPanel
-                {
-                    Children = { KassaLayouts.BuildPreview(option.Id, 226, 134), header, description },
-                },
-            };
-            card.Classes.Add("LayoutCard");
-            card.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-            card.Bind(Button.BorderBrushProperty, this.GetResourceObservable(isActive ? "BrushAccentStrong" : "BrushBorder"));
-            Avalonia.Automation.AutomationProperties.SetName(card, option.Label());
-            card.Click += LayoutCard_Click;
-            LayoutPickerPanel.Children.Add(card);
-        }
-    }
-
-    private void LayoutCard_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string id })
-            return;
-
-        App.ApplyMainLayoutMode(id);
-        BuildLayoutPicker();
     }
 
     private void Save_Click(object? sender, RoutedEventArgs e) =>

@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.Parts.CustomerGreeting"
+             x:DataType="vm:CustomerDisplayViewModel"
+             HorizontalAlignment="Center" VerticalAlignment="Center">
+  <!-- Пустой чек (2026-09-28): приветствие из редактора экрана покупателя; текст по умолчанию —
+       на языке программы. Общее для всех видов экрана. -->
+  <StackPanel Spacing="12" MaxWidth="640">
+    <Border x:Name="IconCircle" Width="88" Height="88" CornerRadius="44" HorizontalAlignment="Center"
+            Background="{DynamicResource CustomerDisplayAccentSoftBrush}">
+      <TextBlock Text="&#xE7BF;" FontFamily="Segoe MDL2 Assets" FontSize="38"
+                 Foreground="{DynamicResource CustomerDisplayAccentInkBrush}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <TextBlock x:Name="TitleText" Classes="cd-text" Text="{Binding GreetingTitle}" FontSize="{DynamicResource CdFont36}"
+               FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+    <TextBlock Classes="cd-soft" Text="{Binding GreetingDescription}" FontSize="{DynamicResource CdFont18}"
+               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"/>
+  </StackPanel>
+</UserControl>

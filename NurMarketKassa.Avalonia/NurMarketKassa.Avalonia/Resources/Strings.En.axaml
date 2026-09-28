@@ -1403,4 +1403,17 @@
   <x:String x:Key="lx.railSettings">Settings</x:String>
   <x:String x:Key="lx.weigh">Weigh</x:String>
   <x:String x:Key="marketplace.themeEditorButton">Theme editor</x:String>
+  <!-- 2026-09-28: виды кассы в Маркетплейсе, виды и редактор экрана покупателя -->
+  <x:String x:Key="csh.customer.colItem">Item</x:String>
+  <x:String x:Key="csh.customer.colName">Name</x:String>
+  <x:String x:Key="csh.customer.colQty">Qty</x:String>
+  <x:String x:Key="csh.customer.colPrice">Price</x:String>
+  <x:String x:Key="csh.customer.colAmount">Amount</x:String>
+  <x:String x:Key="marketplace.layoutsTab">Till layouts</x:String>
+  <x:String x:Key="marketplace.layoutsTitle">Main till screen layout</x:String>
+  <x:String x:Key="marketplace.layoutsDesc">Six layouts for the main screen. Click a card and the till switches instantly, no restart needed; the customer display changes along with it.</x:String>
+  <x:String x:Key="marketplace.customerDisplayTitle">Customer display</x:String>
+  <x:String x:Key="marketplace.customerDisplayEditorButton">Customer display editor</x:String>
+  <x:String x:Key="posSettings.monitor.styleTitle">Customer display layout</x:String>
+  <x:String x:Key="posSettings.monitor.openEditor">Open editor</x:String>
 </ResourceDictionary>

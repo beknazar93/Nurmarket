@@ -86,6 +86,9 @@ public partial class App : Application
         SyncCustomerDisplayAccent(themeId);
         UserPreferences.Instance.SaveToDisk();
         AccentThemeService.Apply(themeId, UserPreferences.Instance.DarkTheme);
+        // Цвета «как тема кассы» у экрана покупателя (2026-09-28): фон, панели и текст — не только
+        // акцент, поэтому перекрашиваем его при любой смене темы, а не только при смене акцента.
+        GetRequiredService<AvaloniaCustomerDisplayService>().RefreshStyle();
 
         // "Жидкое стекло" включает имитацию живого блюра на кассе автоматически (без ручной
         // настройки обоев в Кастомизации) — остальные темы её выключают, если фото не выбрано.
@@ -101,6 +104,9 @@ public partial class App : Application
         UserPreferences.Instance.MainLayoutMode = mode;
         UserPreferences.Instance.SaveToDisk();
         GetRequiredService<MainWindowHostBridge>().Window?.RefreshLayoutMode();
+        // 2026-09-28, «при смене вида кассы меняй и 2 экран покупателя тоже»: открытый экран
+        // покупателя с видом «как у кассы» перестраивается сразу, без перезапуска.
+        GetRequiredService<AvaloniaCustomerDisplayService>().RefreshStyle();
     }
 
     /// <summary>Экран покупателя (2-й экран) подхватывает акцентный цвет выбранной темы кассы —

@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             xmlns:parts="using:NurMarketKassa.AvaloniaHost.Views.Customer.Parts"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.Layouts.OneCCustomerLayout"
+             x:DataType="vm:CustomerDisplayViewModel">
+  <!-- Экран покупателя, вид «1С» (2026-09-28) — пара к раскладке кассы «1С»: строгий экран. Сверху
+       кремовая строка с названием, под ней крупная активная строка — только что пробитый товар (как
+       у кассира), ниже строгая таблица позиций с сеткой, справа сводка «Промежуточный итог / Скидка
+       / Итого» и QR оплаты. -->
+  <Grid Margin="16" RowDefinitions="Auto,*">
+    <!-- Строка с названием -->
+    <Border Grid.Row="0" CornerRadius="8" Padding="20,12" Margin="0,0,0,12"
+            Background="{DynamicResource CustomerDisplayStripBrush}" BorderBrush="{DynamicResource CustomerDisplayStripBorderBrush}"
+            BorderThickness="1">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="cd-text" Text="{Binding HeaderTitle}" FontSize="{DynamicResource CdFont22}" FontWeight="Bold"
+                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding DateTimeText}" FontSize="{DynamicResource CdFont18}"
+                   VerticalAlignment="Center" IsVisible="{Binding ShowClock}"/>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,12,360">
+      <Grid Grid.Column="0" RowDefinitions="Auto,*">
+        <!-- Активная строка: последний пробитый товар -->
+        <Border Grid.Row="0" CornerRadius="8" Padding="20,16" Margin="0,0,0,12" IsVisible="{Binding HasLastLine}"
+                Background="{DynamicResource CustomerDisplaySuccessSoftBrush}" BorderBrush="{DynamicResource CustomerDisplaySuccessBrush}"
+                BorderThickness="1">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="6" Margin="0,0,16,0">
+              <TextBlock Text="{Binding LastLine.Title}" FontSize="{DynamicResource CdFont32}" FontWeight="Bold"
+                         Foreground="{DynamicResource CustomerDisplaySuccessInkBrush}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Classes="cd-soft cd-num" Text="{Binding LastLine.QuantityTimesPriceText}" FontSize="{DynamicResource CdFont18}"/>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Classes="cd-num" FontSize="{DynamicResource CdFont32}" FontWeight="Bold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource CustomerDisplayWarningInkBrush}">
+              <Run Text="{Binding LastLine.TotalNumberText}"/>
+              <Run Text="{Binding CurrencyText}" FontSize="{DynamicResource CdFont20}"/>
+            </TextBlock>
+          </Grid>
+        </Border>
+
+        <!-- Таблица -->
+        <Border Grid.Row="1" CornerRadius="8" ClipToBounds="True" Background="{DynamicResource CustomerDisplaySurfaceBrush}"
+                BorderBrush="{DynamicResource CustomerDisplayBorderBrush}" BorderThickness="1">
+          <!-- Столбцы цена / кол-во / сумма — по самому широкому значению (SharedSizeGroup). -->
+          <Grid RowDefinitions="Auto,*" Grid.IsSharedSizeScope="True">
+            <Border Background="{DynamicResource CustomerDisplaySurfaceAltBrush}" BorderBrush="{DynamicResource CustomerDisplayBorderBrush}"
+                    BorderThickness="0,0,0,1" Padding="14,8">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdPrice" MinWidth="90"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdQty" MinWidth="60"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdTotal" MinWidth="110"/></Grid.ColumnDefinitions>
+                <TextBlock Classes="cd-caption" Text="№"/>
+                <TextBlock Grid.Column="1" Classes="cd-caption" Text="{DynamicResource csh.customer.colName}"/>
+                <TextBlock Grid.Column="2" Classes="cd-caption" Text="{DynamicResource csh.customer.colPrice}" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+                <TextBlock Grid.Column="3" Classes="cd-caption" Text="{DynamicResource csh.customer.colQty}" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+                <TextBlock Grid.Column="4" Classes="cd-caption" Text="{DynamicResource csh.customer.colAmount}" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+              </Grid>
+            </Border>
+            <Grid Grid.Row="1">
+              <parts:CustomerGreeting IsVisible="{Binding IsEmpty}"/>
+              <TextBlock Classes="cd-soft" Text="{Binding ItemCountText}" FontSize="{DynamicResource CdFont24}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowTotalOnly}"/>
+              <ScrollViewer Classes="cd-list" IsVisible="{Binding ShowLines}">
+                <ItemsControl ItemsSource="{Binding Lines}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CustomerDisplayItemViewModel">
+                      <Border BorderBrush="{DynamicResource CustomerDisplayBorderBrush}" BorderThickness="0,0,0,1" Padding="14,9">
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdPrice" MinWidth="90"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdQty" MinWidth="60"/><ColumnDefinition Width="Auto" SharedSizeGroup="cdTotal" MinWidth="110"/></Grid.ColumnDefinitions>
+                          <TextBlock Classes="cd-soft cd-num" Text="{Binding Number}" FontSize="{DynamicResource CdFont14}" VerticalAlignment="Center"/>
+                          <TextBlock Grid.Column="1" Classes="cd-text" Text="{Binding Title}" FontSize="{DynamicResource CdFont20}"
+                                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                          <TextBlock Grid.Column="2" Classes="cd-text cd-num" Text="{Binding UnitPriceNumberText}" FontSize="{DynamicResource CdFont16}"
+                                     VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+                          <TextBlock Grid.Column="3" Classes="cd-text cd-num" Text="{Binding QuantityValueText}" FontSize="{DynamicResource CdFont16}"
+                                     VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+                          <TextBlock Grid.Column="4" Classes="cd-num" Text="{Binding TotalNumberText}" FontSize="{DynamicResource CdFont18}"
+                                     FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0"
+                                     Foreground="{DynamicResource CustomerDisplayWarningInkBrush}"/>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Сводка -->
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
+        <Border CornerRadius="8" Padding="20,16" Background="{DynamicResource CustomerDisplaySurfaceBrush}"
+                BorderBrush="{DynamicResource CustomerDisplayBorderBrush}" BorderThickness="1">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="cd-soft" Text="{Binding SubtotalLabel}" FontSize="{DynamicResource CdFont16}"/>
+              <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding SubtotalNumberText}" FontSize="{DynamicResource CdFont16}"/>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="cd-soft" Text="{Binding DiscountLabel}" FontSize="{DynamicResource CdFont16}"/>
+              <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding DiscountNumberText}" FontSize="{DynamicResource CdFont16}"/>
+            </Grid>
+            <Border Classes="cd-divider"/>
+            <TextBlock Classes="cd-text" Text="{Binding TotalLabel}" FontSize="{DynamicResource CdFont24}" FontWeight="Bold"/>
+            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Right">
+              <TextBlock Classes="cd-num" FontWeight="Bold" Foreground="{DynamicResource CustomerDisplayWarningInkBrush}">
+                <Run Text="{Binding TotalNumberText}" FontSize="{Binding BigTotalFontSize}"/>
+                <Run Text="{Binding CurrencyText}" FontSize="{Binding CurrencyFontSize}"/>
+              </TextBlock>
+            </Viewbox>
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowPaidAmountColumn}">
+              <TextBlock Classes="cd-soft" Text="{Binding ReceivedLabel}" FontSize="{DynamicResource CdFont16}"/>
+              <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding CashReceivedNumberText}" FontSize="{DynamicResource CdFont16}"/>
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowChangeColumn}">
+              <TextBlock Classes="cd-text" Text="{Binding ChangeLabel}" FontSize="{DynamicResource CdFont18}" FontWeight="Bold"/>
+              <TextBlock Grid.Column="1" Classes="cd-num" Text="{Binding ChangeDueNumberText}" FontSize="{DynamicResource CdFont22}"
+                         FontWeight="Bold" Foreground="{DynamicResource CustomerDisplaySuccessInkBrush}"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+        <parts:CustomerPaymentBanner Grid.Row="1" Margin="0,12,0,0"/>
+        <parts:CustomerInfoCard Grid.Row="2" Margin="0,12,0,0" ImageSize="170" VerticalAlignment="Top"
+                                IsVisible="{Binding ShowInformationCard}"/>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

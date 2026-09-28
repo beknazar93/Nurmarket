@@ -2213,6 +2213,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             {
                 Title = line.Title,
                 Barcode = line.Barcode,
+                ImageUrl = CustomerDisplayImageUrl(line.ProductId),
                 Quantity = line.Quantity,
                 Unit = line.Unit,
                 LineTotal = line.LineTotal,
@@ -2227,6 +2228,24 @@ public sealed class BasketPanelViewModel : ViewModelBase
         // Отдельный дисплей цены на COM-порту (2026-09-04, не второй монитор) — тот же хук,
         // что обновляет второй монитор покупателя, чтобы оба всегда показывали одну сумму.
         PoleDisplayService.Instance.ShowTotal(Total, Lines.Count);
+    }
+
+    /// <summary>Фото позиции для экрана покупателя (2026-09-28, виды «Карточки» и «Профи» показывают
+    /// позиции с фото): локальный файл, если каталог его уже скачал, иначе адрес картинки — экран
+    /// сам найдёт её в кэше миниатюр. Ошибка здесь не должна мешать продаже — тогда просто без фото.</summary>
+    private static string? CustomerDisplayImageUrl(string? productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return null;
+        try
+        {
+            var tile = LocalProductRepository.Instance.TryGetTileById(productId);
+            return string.IsNullOrWhiteSpace(tile?.ProductImagePath) ? tile?.ImageUrl : tile!.ProductImagePath;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static double ParseQuantity(string? raw, bool mustWeigh)

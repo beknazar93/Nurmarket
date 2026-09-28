@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             xmlns:conv="using:NurMarketKassa.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.Parts.CustomerInfoCard"
+             x:DataType="vm:CustomerDisplayViewModel">
+  <!-- Блок «QR оплаты / реклама» экрана покупателя (2026-09-28, вынесен из CustomerDisplayWindow,
+       чтобы все шесть видов показывали одно и то же): пока в чеке есть товары — QR выбранного банка
+       (или динамический QR с суммой), иначе реклама; GIF и видео — через WebView2 (AnimatedHost). -->
+  <UserControl.Resources>
+    <conv:PathToImageConverter x:Key="PathToImageConverter"/>
+  </UserControl.Resources>
+
+  <Border x:Name="CardBorder" Classes="cd-card" Padding="18">
+    <StackPanel Spacing="12">
+      <TextBlock Classes="cd-eyebrow" Text="{Binding InformationEyebrow}"/>
+      <TextBlock x:Name="TitleText" Classes="cd-text" Text="{Binding InformationTitle}" FontSize="{DynamicResource CdFont22}"
+                 FontWeight="Bold" TextWrapping="Wrap"/>
+      <Border x:Name="StaticFrame" Background="White" CornerRadius="16" Padding="12"
+              HorizontalAlignment="Center" IsVisible="{Binding IsStaticInformationImage}">
+        <Image x:Name="StaticImage"
+               Source="{Binding InformationImagePath, Converter={StaticResource PathToImageConverter}}"
+               Width="210" Height="210" Stretch="Uniform"/>
+      </Border>
+      <Border x:Name="AnimatedHost" Background="White" CornerRadius="16" Width="210" Height="210"
+              ClipToBounds="True" HorizontalAlignment="Center" IsVisible="{Binding IsAnimatedInformationMedia}"/>
+      <Border x:Name="Placeholder" Height="190" CornerRadius="16" Background="{DynamicResource CustomerDisplayAccentSoftBrush}"
+              IsVisible="{Binding !HasInformationImage}">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="12">
+          <TextBlock Text="&#xE16F;" FontFamily="Segoe MDL2 Assets" FontSize="52"
+                     Foreground="{DynamicResource CustomerDisplayAccentInkBrush}" HorizontalAlignment="Center"/>
+          <TextBlock Classes="cd-soft" Text="{DynamicResource csh.customer.adPlaceholder}"
+                     TextAlignment="Center" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Border>
+      <TextBlock Classes="cd-soft" Text="{Binding InformationDescription}" FontSize="{DynamicResource CdFont14}"
+                 TextWrapping="Wrap" TextAlignment="Center"/>
+    </StackPanel>
+  </Border>
+</UserControl>

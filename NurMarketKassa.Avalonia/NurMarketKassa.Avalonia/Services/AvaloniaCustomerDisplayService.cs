@@ -311,6 +311,27 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     public void CloseDisplay() => _ = CloseAsync(true);
 
+    /// <summary>Вид кассы или её тема поменялись (2026-09-28): экран покупателя перестраивается
+    /// сразу — вид «как у кассы» и цвета «как тема кассы» берутся в момент перерисовки. Если окно
+    /// закрыто, модель всё равно обновляется: при открытии оно уже будет в нужном виде.</summary>
+    public void RefreshStyle()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshStyle);
+            return;
+        }
+
+        try
+        {
+            _viewModel.RefreshPresentation();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Экран покупателя не перестроился: {ex.Message}", "CUSTOMER_DISPLAY");
+        }
+    }
+
     private void CaptureWindowBounds()
     {
         if (_window is null ||

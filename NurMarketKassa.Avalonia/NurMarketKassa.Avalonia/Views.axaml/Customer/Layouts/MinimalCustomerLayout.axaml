@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             xmlns:parts="using:NurMarketKassa.AvaloniaHost.Views.Customer.Parts"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Customer.Layouts.MinimalCustomerLayout"
+             x:DataType="vm:CustomerDisplayViewModel">
+  <!-- Экран покупателя, вид «Минимал» (2026-09-28) — пара к раскладке кассы «Минимал»: много
+       воздуха, огромная сумма «К оплате» и только что пробитый товар; справа — короткий список
+       без рамок и QR. Без карточек и теней: одна ровная поверхность. -->
+  <Border Background="{DynamicResource CustomerDisplaySurfaceBrush}">
+    <Grid Margin="56,36,56,40" RowDefinitions="Auto,*">
+      <!-- Верхняя строка: название и часы, тихим цветом -->
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+        <TextBlock Classes="cd-soft" Text="{Binding HeaderTitle}" FontSize="{DynamicResource CdFont20}" FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Classes="cd-soft cd-num" Text="{Binding ClockText}" FontSize="{DynamicResource CdFont20}"
+                   VerticalAlignment="Center" IsVisible="{Binding ShowClock}"/>
+      </Grid>
+
+      <Grid Grid.Row="1" ColumnDefinitions="1.3*,48,*">
+        <!-- Пустой чек -->
+        <parts:CustomerGreeting Grid.ColumnSpan="3" IsVisible="{Binding IsEmpty}"/>
+
+        <!-- Сумма -->
+        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="14" IsVisible="{Binding HasItems}">
+          <TextBlock Classes="cd-soft" Text="{Binding TotalDueLabel}" FontSize="{DynamicResource CdFont24}"/>
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left">
+            <TextBlock Classes="cd-text cd-num" FontWeight="Bold">
+              <Run Text="{Binding TotalNumberText}" FontSize="{Binding HugeTotalFontSize}"/>
+              <Run Text="{Binding CurrencyText}" FontSize="{Binding CurrencyFontSize}" FontWeight="SemiBold"
+                   Foreground="{DynamicResource CustomerDisplaySecondaryTextBrush}"/>
+            </TextBlock>
+          </Viewbox>
+          <Border Width="96" Height="6" CornerRadius="3" HorizontalAlignment="Left"
+                  Background="{DynamicResource CustomerDisplayAccentBrush}"/>
+          <StackPanel Orientation="Horizontal" Spacing="28" Margin="0,6,0,0">
+            <TextBlock Classes="cd-soft cd-num" FontSize="{DynamicResource CdFont18}">
+              <Run Text="{Binding SubtotalLabel}"/>
+              <Run Text="{Binding SubtotalNumberText}" Foreground="{DynamicResource CustomerDisplayTextBrush}"/>
+            </TextBlock>
+            <TextBlock Classes="cd-soft cd-num" FontSize="{DynamicResource CdFont18}" IsVisible="{Binding HasDiscount}">
+              <Run Text="{Binding DiscountLabel}"/>
+              <Run Text="{Binding DiscountNumberText}" Foreground="{DynamicResource CustomerDisplayDiscountBrush}"/>
+            </TextBlock>
+          </StackPanel>
+          <TextBlock Classes="cd-num" FontSize="{DynamicResource CdFont22}" FontWeight="SemiBold"
+                     Foreground="{DynamicResource CustomerDisplaySuccessInkBrush}" IsVisible="{Binding ShowChangeColumn}">
+            <Run Text="{Binding ChangeLabel}"/>
+            <Run Text="{Binding ChangeDueNumberText}"/>
+            <Run Text="{Binding CurrencyText}"/>
+          </TextBlock>
+
+          <!-- Только что пробитый товар -->
+          <StackPanel Spacing="4" Margin="0,22,0,0" MaxWidth="640" HorizontalAlignment="Left" IsVisible="{Binding HasLastLine}">
+            <TextBlock Classes="cd-eyebrow" Text="{Binding LastAddedCaption}"/>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="cd-text" Text="{Binding LastLine.Title}" FontSize="{DynamicResource CdFont26}" FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis" Margin="0,0,16,0"/>
+              <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding LastLine.TotalNumberText}" FontSize="{DynamicResource CdFont26}"
+                         FontWeight="SemiBold"/>
+            </Grid>
+            <TextBlock Classes="cd-soft cd-num" Text="{Binding LastLine.QuantityTimesPriceText}" FontSize="{DynamicResource CdFont16}"/>
+          </StackPanel>
+
+          <parts:CustomerPaymentBanner Margin="0,18,0,0" HorizontalAlignment="Left" MinWidth="360"/>
+        </StackPanel>
+
+        <!-- Короткий список и QR -->
+        <Grid Grid.Column="2" RowDefinitions="*,Auto" IsVisible="{Binding HasItems}">
+          <ScrollViewer Classes="cd-list" IsVisible="{Binding ShowLines}" VerticalAlignment="Center">
+            <ItemsControl ItemsSource="{Binding Lines}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CustomerDisplayItemViewModel">
+                  <Border BorderBrush="{DynamicResource CustomerDisplayBorderBrush}" BorderThickness="0,0,0,1" Padding="0,12">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel Spacing="2" Margin="0,0,16,0">
+                        <TextBlock Classes="cd-text" Text="{Binding Title}" FontSize="{DynamicResource CdFont18}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Classes="cd-soft cd-num" Text="{Binding QuantityTimesPriceText}" FontSize="{DynamicResource CdFont13}"/>
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Classes="cd-text cd-num" Text="{Binding TotalNumberText}" FontSize="{DynamicResource CdFont18}"
+                                 FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <parts:CustomerInfoCard Grid.Row="1" Flat="True" ImageSize="170" Margin="0,20,0,0"
+                                  IsVisible="{Binding ShowPaymentQrCard}"/>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

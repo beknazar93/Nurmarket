@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.ViewModels;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
@@ -39,6 +40,26 @@ public partial class MonitorSettingsView : UserControl
         ViewModel.Save();
     }
     private void CloseDisplay_Click(object? sender, RoutedEventArgs e) => ViewModel?.CloseDisplay();
+
+    /// <summary>Редактор экрана покупателя (2026-09-28). Он сохраняет сам; после сохранения поля
+    /// внешнего вида подтягиваются в копию настроек этой страницы — иначе её «Сохранить» вернуло бы
+    /// их к прежним значениям.</summary>
+    private async void OpenEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        try
+        {
+            var editor = new CustomerDisplayEditorWindow();
+            await editor.ShowDialog<bool?>(owner).ConfigureAwait(true);
+            if (editor.Saved)
+                ViewModel?.ReloadAppearanceFrom(NurMarketKassa.Services.UserPreferences.Instance.CustomerDisplay);
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Редактор экрана покупателя не открылся: {ex}", "WARNING");
+        }
+    }
     private void ColumnUp_Click(object? sender, RoutedEventArgs e) =>
         ViewModel?.MoveColumn(TableColumnsList.SelectedItem as MonitorColumnOption, -1);
     private void ColumnDown_Click(object? sender, RoutedEventArgs e) =>
