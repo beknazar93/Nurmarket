@@ -526,6 +526,10 @@ public sealed class UserPreferences
     /// <summary>Префиксы весового штрихкода через запятую, где записана сумма (см.
     /// WeightBarcodeParser.AmountPrefixes), например «21» для TM-30F с форматом FFWWWWWEEEEEC. 2026-09-28.</summary>
     public string ScaleAmountPrefixes { get; set; } = "";
+
+    /// <summary>2026-09-28: префиксы, про которые кассир уже ответил «в штрихкоде ВЕС» — чтобы касса
+    /// больше не спрашивала при скане (см. BasketPanelViewModel.ConfirmWeightBarcodeKindAsync).</summary>
+    public string ScaleWeightPrefixes { get; set; } = "";
     /// <summary>2026-09-14: единица суммы в весовом штрих-коде для mode="amount" (или "auto" с
     /// суммовым префиксом) — "tiyin" (значение ÷100) или "som" (значение как есть). Раньше не
     /// запрашивалась и не хранилась вовсе — касса всегда считала как "tiyin", хотя NurCRM
@@ -863,6 +867,8 @@ public sealed class UserPreferences
                 p.ScaleBarcodeMode = fromFile.ScaleBarcodeMode;
             if (fromFile.ScaleAmountPrefixes is not null)
                 p.ScaleAmountPrefixes = fromFile.ScaleAmountPrefixes;
+            if (fromFile.ScaleWeightPrefixes is not null)
+                p.ScaleWeightPrefixes = fromFile.ScaleWeightPrefixes;
             if (fromFile.ScaleBarcodeAmountUnit is not null)
                 p.ScaleBarcodeAmountUnit = fromFile.ScaleBarcodeAmountUnit;
             if (fromFile.ToolsPanelExpanded is not null)
@@ -1133,6 +1139,7 @@ public sealed class UserPreferences
                 ScaleBarcodeLayout = ScaleBarcodeLayout,
                 ScaleBarcodeMode = ScaleBarcodeMode,
                 ScaleAmountPrefixes = ScaleAmountPrefixes,
+                ScaleWeightPrefixes = ScaleWeightPrefixes,
                 ScaleBarcodeAmountUnit = ScaleBarcodeAmountUnit,
                 ToolsPanelExpanded = ToolsPanelExpanded,
                 DynamicPaymentQrEnabled = DynamicPaymentQrEnabled,
@@ -1374,6 +1381,7 @@ public sealed class UserPreferences
         public string? ScaleBarcodeLayout { get; set; }
         public string? ScaleBarcodeMode { get; set; }
         public string? ScaleAmountPrefixes { get; set; }
+        public string? ScaleWeightPrefixes { get; set; }
         public string? ScaleBarcodeAmountUnit { get; set; }
         public bool? ToolsPanelExpanded { get; set; }
         public bool? DynamicPaymentQrEnabled { get; set; }

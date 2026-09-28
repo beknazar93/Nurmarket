@@ -65,6 +65,8 @@ public partial class ShiftDetailsDialog : Window
         // Список продаж смены нужен любой плитке «Продажи/Наличные/…» — к нажатию он уже здесь.
         SaleRows();
         _ = ShowServerDiscountsAsync();
+        // «Товары за смену» — с сервера, по тем же чекам смены (2026-09-28).
+        _ = LoadServerProductsAsync();
         // Отчёт смены сервера — и для отчёта закрытия (RefreshFromServer=false): после закрытия
         // он уже с пересчитанной суммой и расхождением, а внесения/возвраты касса сама не знает,
         // если их делали на другом компьютере.
@@ -143,9 +145,54 @@ public partial class ShiftDetailsDialog : Window
 
     private sealed record ShiftProductRow(string Name, string QuantityText, string RevenueText);
 
-    /// <summary>Товары за время смены — из локальной истории продаж, по убыванию выручки.</summary>
+    /// <summary>2026-09-28: «Товары за смену» серверной смены — с сервера (позиции продаж смены,
+    /// см. ShiftProductsSummary); null — ещё не загружены или сервер недоступен.</summary>
+    private ShiftProductsSummary.Result? _serverProducts;
+
+    /// <summary>Сервер не дал товары смены — показываем локальную историю с пометкой.</summary>
+    private bool _serverProductsFailed;
+
+    /// <summary>2026-09-28: товары смены с сервера. Раньше список считался только по локальной
+    /// истории кассы за время смены и расходился с выручкой (смена d723b36b: 2 930 против
+    /// 2 534,50 — чужие чеки того же времени, офлайн-чек дважды, скидка сервера, см.
+    /// ShiftProductsSummary). Локальная история — запасом, если сервер не ответил.</summary>
+    private async Task LoadServerProductsAsync()
+    {
+        try
+        {
+            var sales = await SaleRows().ConfigureAwait(true);
+            var result = await ShiftReportData.LoadProductsAsync(sales, _cts.Token).ConfigureAwait(true);
+            if (_cts.IsCancellationRequested)
+                return;
+            _serverProducts = result;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Отчёт смены: товары смены с сервера не получены, показываю историю кассы: {ex.Message}", "SHIFTS");
+            _serverProductsFailed = true;
+        }
+
+        if (_shift is { } shown)
+            BindShiftProducts(shown);
+    }
+
+    /// <summary>Товары за смену, по убыванию выручки: у серверной смены — с сервера, иначе (и если
+    /// сервер не ответил) — из локальной истории продаж за время смены.</summary>
     private void BindShiftProducts(ShiftModel shift)
     {
+        if (IsServerShift(shift.Id) && !_serverProductsFailed)
+        {
+            // Пока товары с сервера грузятся, список не показываем: локальные цифры, сменившиеся
+            // через секунду на другие, только сбивали бы с толку.
+            if (_serverProducts is { } fromServer)
+                ShowServerProducts(fromServer);
+            return;
+        }
+
         if (shift.OpenedAt is not { } opened)
             return;
 
@@ -170,12 +217,59 @@ public partial class ShiftDetailsDialog : Window
             ShiftProductsList.ItemsSource = rows
                 .Select(r => new ShiftProductRow(r.Name, $"{r.Qty:0.###}", $"{r.Revenue:N2} {Som}"))
                 .ToList();
+            // 2026-09-28: локальная история — только запас (смена без связи или сервер не ответил):
+            // в ней чеки всех касс за это время и офлайн-чеки, поэтому сумма может не совпасть.
+            ShiftProductsNote.Text = Tr.T("По истории этой кассы: сервер недоступен, сумма может не совпасть с выручкой.",
+                "Ушул кассанын тарыхы боюнча: сервер жеткиликсиз, сумма түшкөн акчага дал келбеши мүмкүн.",
+                "From this till's history: the server is unavailable, the sum may differ from revenue.",
+                "Bu kasanın geçmişine göre: sunucuya ulaşılamıyor, toplam ciroyla uyuşmayabilir.",
+                "Shu kassa tarixi bo'yicha: server mavjud emas, summa tushumga mos kelmasligi mumkin.");
+            ShiftProductsNote.IsVisible = true;
             ShiftProductsPanel.IsVisible = true;
         }
         catch (Exception ex)
         {
             NurMarketKassa.Services.PosLogger.Log($"Shift details: products list skipped: {ex.Message}", "SHIFTS");
         }
+    }
+
+    /// <summary>2026-09-28: товары смены с сервера и итог под заголовком: сумма строк (уже со
+    /// скидками на строку) минус скидка на чек = выручка смены; долг и возвраты — отдельно.</summary>
+    private void ShowServerProducts(ShiftProductsSummary.Result result)
+    {
+        if (result.Rows.Count == 0)
+        {
+            ShiftProductsPanel.IsVisible = false;
+            return;
+        }
+
+        var count = result.Rows.Count;
+        var totalQty = result.Rows.Sum(r => r.Quantity);
+        ShiftProductsTitle.Text = Tr.T($"Товары за смену: {count} поз., {totalQty:0.###} ед.",
+            $"Сменадагы товарлар: {count} поз., {totalQty:0.###} бирд.",
+            $"Products this shift: {count} item(s), {totalQty:0.###} unit(s)",
+            $"Vardiyadaki ürünler: {count} kalem, {totalQty:0.###} birim",
+            $"Smenadagi mahsulotlar: {count} ta pozitsiya, {totalQty:0.###} birlik");
+        ShiftProductsList.ItemsSource = result.Rows
+            .Select(r => new ShiftProductRow(r.Name, $"{r.Quantity:0.###}", $"{r.Revenue:N2} {Som}"))
+            .ToList();
+
+        var lines = $"{result.LinesTotal:N2}";
+        var discount = $"{result.OrderDiscount:N2}";
+        var total = $"{result.SalesTotal:N2}";
+        ShiftProductsNote.Text = result.OrderDiscount > 0.005m
+            ? Tr.T($"По товарам {lines} − скидка на чек {discount} = {total} {Som}. Продажи в долг и возвраты сюда не входят.",
+                $"Товарлар боюнча {lines} − чекке арзандатуу {discount} = {total} {Som}. Карызга сатуу жана кайтаруулар кирбейт.",
+                $"Products {lines} − receipt discount {discount} = {total} {Som}. Credit sales and returns are not included.",
+                $"Ürünler {lines} − fiş indirimi {discount} = {total} {Som}. Veresiye satışlar ve iadeler dahil değildir.",
+                $"Mahsulotlar {lines} − chekka chegirma {discount} = {total} {Som}. Qarzga sotuvlar va qaytarishlar kirmaydi.")
+            : Tr.T($"Итого по товарам: {total} {Som}. Продажи в долг и возвраты сюда не входят.",
+                $"Товарлар боюнча жыйынтык: {total} {Som}. Карызга сатуу жана кайтаруулар кирбейт.",
+                $"Products total: {total} {Som}. Credit sales and returns are not included.",
+                $"Ürünler toplamı: {total} {Som}. Veresiye satışlar ve iadeler dahil değildir.",
+                $"Mahsulotlar bo'yicha jami: {total} {Som}. Qarzga sotuvlar va qaytarishlar kirmaydi.");
+        ShiftProductsNote.IsVisible = true;
+        ShiftProductsPanel.IsVisible = true;
     }
 
     private void BindShift(ShiftModel shift)

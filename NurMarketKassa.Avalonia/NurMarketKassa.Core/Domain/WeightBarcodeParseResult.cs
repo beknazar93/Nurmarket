@@ -39,7 +39,17 @@ public sealed record WeightBarcodeParseResult(string ProductCode, double Value, 
     private static double ResolveWeightFromAmount(double amount, double pricePerKg)
     {
         var minWeight = amount / pricePerKg;
-        var maxWeight = (amount + 1.0) / pricePerKg; // "+1" сом — следующее значение на этикетке
+
+        // 2026-09-28, живая проверка владельца (весы TM-30F): эти весы печатают сумму С ТЫЙЫНАМИ
+        // (13,20 = 0,220 кг × 60), а «+1 сом» ниже рассчитан на весы, отбрасывающие дробь. Для
+        // 16,00 при цене 123 он давал 0,135 кг = 16,61 вместо 16,00 на этикетке. Если сумма
+        // ровно делится на цену по сетке 5 г — это и есть вес; если в сумме есть тыйыны — сумма
+        // точная, следующее значение на этикетке +0,01, а не +1.
+        var exactIndex = Math.Round(minWeight / ScaleWeightStepKg);
+        if (exactIndex > 0 && Math.Abs(exactIndex * ScaleWeightStepKg * pricePerKg - amount) < 0.005)
+            return exactIndex * ScaleWeightStepKg;
+        var hasTiyin = Math.Abs(amount * 100 - Math.Round(amount) * 100) > 0.5;
+        var maxWeight = (amount + (hasTiyin ? 0.01 : 1.0)) / pricePerKg; // следующее значение на этикетке
 
         var firstIndex = (long)Math.Ceiling(minWeight / ScaleWeightStepKg - 1e-9);
         var lastIndex = (long)Math.Floor(maxWeight / ScaleWeightStepKg - 1e-9);

@@ -908,10 +908,22 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // самой корзины. Кладём его в снимок корзины, чтобы печать чека и повторный предпросмотр
         // после оплаты могли найти "Чек №" через тот же TryReceiptNumber, что уже используется
         // в Продажах/Финансах для поиска receipt_number/sale_id/order_id.
-        if (!string.IsNullOrWhiteSpace(saleId))
+        //
+        // 2026-09-28, BE-08: постоянный номер продажи (sale.number) печатается на чеке сразу после
+        // оплаты. Раньше чек при оплате выходил без «Чек №»: номер сервера в снимок корзины не
+        // попадал, и номер был только у копии из «Истории чеков». Быстрый путь получает номер в
+        // ответе POST pos/checkout/; старый checkout может его не прислать — тогда один короткий
+        // GET продажи. Кладём под «receipt_number» — первое поле, которое ищет
+        // CartReceiptTextBuilder.TryReceiptNumber (оттуда же предпросмотр чека после оплаты).
+        var saleNumber = TryReadCheckoutSaleNumber(checkoutResponse)
+            ?? await TryFetchSaleNumberAsync(saleId, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(saleId) || saleNumber is not null)
         {
             var enrichedCart = CartJsonHelper.ParseObjectOrEmpty(cartJsonSnapshot);
-            enrichedCart["sale_id"] = saleId;
+            if (!string.IsNullOrWhiteSpace(saleId))
+                enrichedCart["sale_id"] = saleId;
+            if (saleNumber is { } number)
+                enrichedCart["receipt_number"] = number.ToString(CultureInfo.InvariantCulture);
             cartJsonSnapshot = enrichedCart.ToJsonString();
         }
         cartJsonSnapshot = WithConsultantForReceipt(cartJsonSnapshot, request);
@@ -1185,6 +1197,51 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         {
             await _mediator.Publish(new SaleFinalizedNotification(saleId, saleLines), CancellationToken.None)
                 .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>2026-09-28, BE-08: постоянный номер продажи из ответа оплаты — «number» на верхнем
+    /// уровне (быстрый путь, проверено: 1123–1136) или внутри «sale»/«data». null — не прислан.</summary>
+    private static long? TryReadCheckoutSaleNumber(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object)
+            return null;
+        if (NurCrmReportsApi.TryReadSaleNumber(response) is { } number)
+            return number;
+        foreach (var key in new[] { "sale", "data" })
+        {
+            if (response.TryGetProperty(key, out var nested)
+                && nested.ValueKind == JsonValueKind.Object
+                && NurCrmReportsApi.TryReadSaleNumber(nested) is { } nestedNumber)
+                return nestedNumber;
+        }
+
+        return null;
+    }
+
+    /// <summary>2026-09-28, BE-08: номер продажи, если ответ checkout его не прислал (старый путь) —
+    /// GET api/main/pos/sales/{id}/. Не дольше 3 с: продажа уже проведена, и чек без номера лучше,
+    /// чем кассир, который ждёт сеть. Любая ошибка — null (чек печатается как раньше).</summary>
+    private async Task<long?> TryFetchSaleNumberAsync(string saleId, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(saleId, out _))
+            return null;
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(3));
+            var sale = await _salesApi.PosSaleGetAsync(saleId, timeout.Token).ConfigureAwait(false);
+            return NurCrmReportsApi.TryReadSaleNumber(sale);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Номер продажи {saleId} для чека не получен: {ex.Message}", "PAYMENT");
+            return null;
         }
     }
 

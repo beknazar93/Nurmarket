@@ -13,8 +13,8 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Весы TM-30F: этикетка с суммой в штрихкоде (формат FFWWWWWEEEEEC) теперь читается верно — было 3,520 кг × 160 = 563,20 вместо 35,20",
-        "Настройка: «Настройки весов TM-30F» → «Штрих-код» → выберите формат, который стоит на весах, и префикс → «Сохранить»",
+        "Весы TM-30F и другие: сумма из этикетки больше не читается как вес — «Алма» 0,220 кг × 60 = 13,20 было в чеке 1,320 кг = 79,20, теперь 0,220 кг = 13,20",
+        "При первом скане этикетки с префиксом 21–24 или 26–29 касса один раз спросит: «на этикетке СУММА или ВЕС?» и покажет оба варианта в деньгах — ответ запоминается",
         "Оплата быстрее: продажа проводится одним запросом к серверу (0,3–0,4 с вместо 1,5–1,9 с), без двойных чеков при повторе",
         "Смешанная оплата уходит на сервер с разбивкой на наличные и безнал",
         "Отчёт смены и Z-отчёт — с сервера (смешанная раздельно, возвраты, внесения); внесение входит в сумму смены; постоянный номер чека, как на сайте",
@@ -26,8 +26,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
-        "TM-30F таразасы: штрих-коддо сумма бар этикетка (FFWWWWWEEEEEC) эми туура окулат — мурун 35,20 ордуна 3,520 кг × 160 = 563,20 болчу",
-        "Жөндөө: «TM-30F таразасынын жөндөөлөрү» → «Штрих-код» → таразадагы форматты жана префиксти тандап → «Сактоо»",
+        "TM-30F жана башка таразалар: этикеткадагы сумма салмак катары окулбайт — «Алма» 0,220 кг × 60 = 13,20 чекте 1,320 кг = 79,20 болчу, эми 0,220 кг = 13,20",
+        "21–24 же 26–29 префикстүү этикетканы биринчи сканерлегенде касса бир жолу сурайт: «этикеткада СУММА же САЛМАК?» жана эки вариантты акча менен көрсөтөт — жооп эсте калат",
         "Төлөм тезирээк: сатуу серверге бир суроо менен өтөт (1,5–1,9 с ордуна 0,3–0,4 с), кайталаганда эки чек түзүлбөйт",
         "Аралаш төлөм серверге накталай жана накталай эмес болуп бөлүнүп кетет",
         "Сменанын отчёту жана Z-отчёт серверден; салуу сменанын суммасына кирет; чектин туруктуу номери сайттагыдай",
@@ -39,8 +39,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
-        "TM-30F scales: a label with the total price in the barcode (FFWWWWWEEEEEC) is now read correctly — it was 3.520 kg × 160 = 563.20 instead of 35.20",
-        "Setup: “TM-30F scale settings” → “Barcode” → pick the format set on the scale and the prefix → “Save”",
+        "TM-30F and other scales: the total from the label is no longer read as weight — “Alma” 0.220 kg × 60 = 13.20 was 1.320 kg = 79.20 in the receipt, now 0.220 kg = 13.20",
+        "On the first scan of a label with prefix 21–24 or 26–29 the till asks once: “TOTAL or WEIGHT on the label?” and shows both options in money — the answer is remembered",
         "Faster payment: a sale is made with one server request (0.3–0.4 s instead of 1.5–1.9 s), no duplicate receipts on retry",
         "Mixed payment is sent to the server split into cash and card",
         "Shift and Z reports from the server; cash deposits count in the shift total; permanent receipt number as on the website",
@@ -52,8 +52,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
-        "TM-30F teraziler: barkodunda tutar olan etiket (FFWWWWWEEEEEC) artık doğru okunuyor — 35,20 yerine 3,520 kg × 160 = 563,20 idi",
-        "Ayar: «TM-30F terazi ayarları» → «Barkod» → terazideki biçimi ve öneki seçin → «Kaydet»",
+        "TM-30F ve diğer teraziler: etiketteki tutar artık ağırlık olarak okunmuyor — «Alma» 0,220 kg × 60 = 13,20 fişte 1,320 kg = 79,20 idi, şimdi 0,220 kg = 13,20",
+        "21–24 veya 26–29 önekli etiketin ilk taramasında kasa bir kez sorar: «etikette TUTAR mı AĞIRLIK mı?» ve iki seçeneği parayla gösterir — cevap hatırlanır",
         "Daha hızlı ödeme: satış sunucuya tek istekle yapılır (1,5–1,9 sn yerine 0,3–0,4 sn), tekrarda çift fiş olmaz",
         "Karışık ödeme sunucuya nakit ve kart olarak ayrılmış gider",
         "Vardiya ve Z raporu sunucudan; para girişi vardiya toplamına dahil; sitedeki gibi kalıcı fiş numarası",
@@ -65,8 +65,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
-        "TM-30F tarozilari: shtrix-kodida summa bor yorliq (FFWWWWWEEEEEC) endi to'g'ri o'qiladi — 35,20 o'rniga 3,520 kg × 160 = 563,20 edi",
-        "Sozlash: «TM-30F tarozi sozlamalari» → «Shtrix-kod» → tarozidagi format va prefiksni tanlab → «Saqlash»",
+        "TM-30F va boshqa tarozilar: yorliqdagi summa endi vazn deb o'qilmaydi — «Alma» 0,220 kg × 60 = 13,20 chekda 1,320 kg = 79,20 edi, endi 0,220 kg = 13,20",
+        "21–24 yoki 26–29 prefiksli yorliqni birinchi skanerlashda kassa bir marta so'raydi: «yorliqda SUMMA yoki VAZN?» va ikkala variantni pulda ko'rsatadi — javob eslab qolinadi",
         "Tezroq to'lov: savdo serverga bitta so'rov bilan o'tadi (1,5–1,9 s o'rniga 0,3–0,4 s), qaytarilganda ikki chek bo'lmaydi",
         "Aralash to'lov serverga naqd va karta bo'yicha ajratilib yuboriladi",
         "Smena va Z hisobot serverdan; kiritish smena summasiga kiradi; saytdagidek doimiy chek raqami",

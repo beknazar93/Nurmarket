@@ -151,6 +151,37 @@ public static class ShiftReportData
             .ToList();
     }
 
+    /// <summary>2026-09-28: «Товары за смену» с сервера — позиции продаж смены, входящих в выручку
+    /// (paid, partially_returned), см. <see cref="ShiftProductsSummary"/>. Раньше список считался по
+    /// локальной истории за время смены и не сходился с выручкой (чужие чеки того же времени,
+    /// офлайн-чек дважды, скидка сервера). Детали чеков — из общего кэша отчётов, по шесть сразу.
+    /// Бросает исключение, если хоть один чек не прочитан: неполный список хуже запасного.</summary>
+    public static async Task<ShiftProductsSummary.Result> LoadProductsAsync(
+        IReadOnlyList<ShiftSale> sales, CancellationToken ct = default)
+    {
+        var ids = sales
+            .Where(s => ShiftProductsSummary.IsRevenueStatus(s.Status) && !string.IsNullOrEmpty(s.Id))
+            .Select(s => s.Id)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var gate = new SemaphoreSlim(Parallelism);
+        var details = await Task.WhenAll(ids.Select(async id =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                return await SaleDetailCache.GetWithRetryAsync(id, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        })).ConfigureAwait(false);
+
+        return ShiftProductsSummary.Build(details);
+    }
+
     private static string? Str(JsonElement obj, string key)
     {
         if (obj.ValueKind != JsonValueKind.Object || !obj.TryGetProperty(key, out var v))

@@ -219,13 +219,17 @@
       </Border>
 
       <!-- Товары за смену (2026-09-24): что и на сколько продали, по локальной истории продаж
-           кассы — та же, что у ABC и «Финансов». Считается по времени смены. -->
+           кассы — та же, что у ABC и «Финансов». Считается по времени смены.
+           2026-09-28: у серверной смены — позиции её продаж с сервера (сходится с выручкой),
+           локальная история — только запасом без связи; ShiftProductsNote — итог и пояснение. -->
       <Border x:Name="ShiftProductsPanel" IsVisible="False"
               Background="{DynamicResource BrushSurfaceSubtle}"
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
           <TextBlock x:Name="ShiftProductsTitle" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+          <TextBlock x:Name="ShiftProductsNote" FontSize="11" TextWrapping="Wrap" IsVisible="False"
+                     Foreground="{DynamicResource BrushTextSoft}"/>
           <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="ShiftProductsList">
               <ItemsControl.ItemTemplate>

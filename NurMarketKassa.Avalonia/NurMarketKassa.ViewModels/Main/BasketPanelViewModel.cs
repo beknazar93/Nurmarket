@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows.Input;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Core.Domain;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
@@ -747,6 +748,64 @@ public sealed class BasketPanelViewModel : ViewModelBase
         }
     }
 
+    /// <summary>2026-09-28, срочно (живая проверка владельца): весы TM-30F печатают этикетку с
+    /// префиксом 21 и СУММОЙ в штрихкоде (2101003013207 = «Алма» 0,220 кг × 60 = 13,20), а режим
+    /// компании с сервера «по весу» — касса читала 01320 как 1,320 кг и брала 79,20. Ручная
+    /// настройка в окне TM-30F оказалась незаметной. Теперь при ПЕРВОМ скане этикетки с
+    /// нестандартным префиксом (не 20 и не 25) касса один раз спрашивает, что напечатано, показывает
+    /// оба варианта в деньгах и запоминает ответ для этого префикса на этом компьютере.</summary>
+    private async Task<WeightBarcodeParseResult> ConfirmWeightBarcodeKindAsync(
+        string barcode, WeightBarcodeParseResult weighted, CatalogProductTileVm product)
+    {
+        var code = barcode.Trim();
+        var prefix = code[..2];
+        if (prefix is "20" or "25")
+            return weighted;
+        var prefs = UserPreferences.Instance;
+        var amountSet = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
+        var weightSet = UserPreferences.ParseAmountPrefixes(prefs.ScaleWeightPrefixes);
+        if (amountSet.Contains(prefix) || weightSet.Contains(prefix))
+            return weighted;
+
+        var useCodeLayout = string.Equals(WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase);
+        if (!int.TryParse(useCodeLayout ? code.Substring(8, 4) : code.Substring(7, 5), out var raw) || raw <= 0)
+            return weighted;
+        var price = LocalCartService.ParsePrice(product.PriceLine);
+        var asWeight = new WeightBarcodeParseResult(weighted.ProductCode, raw / 1000.0, WeightBarcodeValueKind.Weight);
+        var amountValue = string.Equals(WeightBarcodeParser.AmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? raw : raw / 100.0;
+        var asAmount = new WeightBarcodeParseResult(weighted.ProductCode, amountValue, WeightBarcodeValueKind.Amount);
+        var inv = CultureInfo.InvariantCulture;
+        var wKg = asWeight.Value.ToString("0.000", inv);
+        var wSum = (asWeight.Value * price).ToString("0.00", inv);
+        var aSum = asAmount.Value.ToString("0.00", inv);
+        var aKg = price > 0 ? asAmount.ResolveWeightKg(price).ToString("0.000", inv) : "?";
+        var name = product.Title;
+
+        var isAmount = await _prompts.ConfirmAsync(Tr.T(
+            $"Этикетка весов с префиксом {prefix} ({name}). Что напечатано на этикетке?\n\nДА — СУММА {aSum} сом (вес {aKg} кг)\nНЕТ — ВЕС {wKg} кг (сумма {wSum} сом)\n\nСверьте с этикеткой. Ответ запомнится для префикса {prefix}; поменять — Настройки → Весы.",
+            $"{prefix} префикстүү тараза этикеткасы ({name}). Этикеткада эмне басылган?\n\nООБА — СУММА {aSum} сом (салмагы {aKg} кг)\nЖОК — САЛМАК {wKg} кг (суммасы {wSum} сом)\n\nЭтикетка менен салыштырыңыз. Жооп {prefix} префикси үчүн эсте калат; өзгөртүү — Жөндөөлөр → Таразалар.",
+            $"Scale label with prefix {prefix} ({name}). What is printed on the label?\n\nYES — TOTAL {aSum} som (weight {aKg} kg)\nNO — WEIGHT {wKg} kg (total {wSum} som)\n\nCompare with the label. The answer is remembered for prefix {prefix}; change it in Settings → Scales.",
+            $"{prefix} önekli terazi etiketi ({name}). Etikette ne basılı?\n\nEVET — TUTAR {aSum} som (ağırlık {aKg} kg)\nHAYIR — AĞIRLIK {wKg} kg (tutar {wSum} som)\n\nEtiketle karşılaştırın. Cevap {prefix} öneki için hatırlanır; değiştirmek için Ayarlar → Teraziler.",
+            $"{prefix} prefiksli tarozi yorlig'i ({name}). Yorliqda nima bosilgan?\n\nHA — SUMMA {aSum} so'm (vazn {aKg} kg)\nYO'Q — VAZN {wKg} kg (summa {wSum} so'm)\n\nYorliq bilan solishtiring. Javob {prefix} prefiksi uchun eslab qolinadi; o'zgartirish — Sozlamalar → Tarozilar.")).ConfigureAwait(true);
+
+        if (isAmount)
+        {
+            amountSet.Add(prefix);
+            weightSet.Remove(prefix);
+        }
+        else
+        {
+            weightSet.Add(prefix);
+            amountSet.Remove(prefix);
+        }
+        prefs.ScaleAmountPrefixes = string.Join(",", amountSet.OrderBy(p => p, StringComparer.Ordinal));
+        prefs.ScaleWeightPrefixes = string.Join(",", weightSet.OrderBy(p => p, StringComparer.Ordinal));
+        WeightBarcodeParser.AmountPrefixes = amountSet;
+        prefs.SaveToDisk();
+        PosLogger.Log($"[SCALE] prefix {prefix} confirmed as {(isAmount ? "amount" : "weight")} by cashier", "CART");
+        return isAmount ? asAmount : asWeight;
+    }
+
     private async Task AddByBarcodeAsync(string barcode)
     {
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
@@ -793,6 +852,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     return;
                 }
 
+                weighted = await ConfirmWeightBarcodeKindAsync(barcode, weighted, weighedProduct).ConfigureAwait(true);
                 var weightKg = weighted.ResolveWeightKg(LocalCartService.ParsePrice(weighedProduct.PriceLine));
                 if (_addWeighedProductWithKnownWeight != null)
                     await _addWeighedProductWithKnownWeight(weighedProduct, weightKg).ConfigureAwait(true);
