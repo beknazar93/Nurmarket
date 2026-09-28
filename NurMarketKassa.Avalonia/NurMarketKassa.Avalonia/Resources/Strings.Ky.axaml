@@ -1359,6 +1359,11 @@
     <x:String x:Key="loc.settings.lanScale.passwordHint">Сырсөз — так 4 цифра, адатта 0030. Эгер ал туура эмес болсо, бир нече аракеттен кийин тараза кирүүнү бөгөттөйт: анда таразаны өчүрүп-күйгүзүп, туура сырсөздү киргизиңиз. Порт адатта 1111.</x:String>
     <x:String x:Key="loc.settings.lanScale.openDialog">Туташуу жөндөөлөрүнүн терезесин ачуу…</x:String>
     <x:String x:Key="loc.settings.lanScale.test">Тараза менен байланышты текшерүү</x:String>
+    <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
+    <x:String x:Key="loc.settings.lanScale.deviceSettings">Тараза жөндөөлөрү (клавиатура, этикетка, штрих-код)…</x:String>
+    <x:String x:Key="loc.settings.shtrikhSettings.title">Штрих-ПРИНТ таразасынын жөндөөлөрү</x:String>
+    <x:String x:Key="loc.owner.scales.barcodeSettings">Этикетканын штрих-коду…</x:String>
+    <x:String x:Key="loc.owner.scales.colBarcodeCode">ШКдагы код</x:String>
     <x:String x:Key="loc.settings.scale.aiScales">AI тараза</x:String>
     <x:String x:Key="loc.settings.scaleConn.title">Таразаны туташтыруу</x:String>
     <x:String x:Key="loc.settings.scaleConn.desc">Касса тараза менен локалдык тармак аркылуу серверсиз түз байланышат. Даректи, портту жана сырсөздү таразанын өзүнүн системалык менюсунан алыңыз.</x:String>

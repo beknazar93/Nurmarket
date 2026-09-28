@@ -183,6 +183,15 @@
                                         Click="TestLanScale_Click"/>
                             </StackPanel>
 
+                            <!-- 2026-09-28: настройки самих весов (как в программе Штрих-М «Тест
+                                 драйвера весов»): клавиатура, система, товары, печать, штрих-код,
+                                 тексты. Отдельной строкой — в ряд с двумя кнопками выше не влезала. -->
+                            <Button Content="{DynamicResource loc.settings.lanScale.deviceSettings}"
+                                    Classes="ScaleGoldButton"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Click="OpenShtrikhDeviceSettings_Click"/>
+
                             <Border x:Name="LanScaleAlert" x:FieldModifier="public" Classes="AlertBlock"
                                     IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
                                 <TextBlock x:Name="LanScaleAlertText" x:FieldModifier="public"

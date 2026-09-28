@@ -186,6 +186,21 @@ public partial class ScaleSettingsView : UserControl
         LoadLanScaleSettings();
     }
 
+    /// <summary>2026-09-28: «Настройки весов (клавиатура, этикетка, штрих-код)…» — окно с
+    /// настройками самих весов ШТРИХ-ПРИНТ (просьба владельца перенести их из тестовой
+    /// программы Штрих-М). Адрес/порт/пароль берутся из полей выше — сохраняем их перед
+    /// открытием, чтобы окно говорило ровно с теми весами, что введены.</summary>
+    private async void OpenShtrikhDeviceSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        SaveLanScaleSettings();
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var window = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ShtrikhScaleSettingsWindow();
+        if (owner != null)
+            await window.ShowDialog(owner).ConfigureAwait(true);
+        else
+            window.Show();
+    }
+
     /// <summary>«Проверить связь» — опознаёт весы и подаёт гудок. Намеренно использует только
     /// команды БЕЗ пароля, поэтому отвечает даже тогда, когда весы заблокировали доступ из-за
     /// неудачных попыток: владелец видит, что связь есть, а дело именно в пароле.</summary>

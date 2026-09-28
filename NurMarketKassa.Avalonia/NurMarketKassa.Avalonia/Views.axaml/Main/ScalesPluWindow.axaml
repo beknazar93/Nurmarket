@@ -136,6 +136,17 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="*" Binding="{ReflectionBinding Name}"/>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="90" Binding="{ReflectionBinding PluText}"/>
+                    <!-- 2026-09-28: «Код в штрих-коде» — число, которое весы напечатают в ШК
+                         этикетки (поле «Код товара» записи ПЛУ). Правится перед отправкой;
+                         только для «Напрямую по кабелю» — серверный путь пишет код сам. -->
+                    <DataGridTemplateColumn Tag="BarcodeCode" Header="{DynamicResource loc.owner.scales.colBarcodeCode}" Width="140" IsVisible="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{ReflectionBinding BarcodeCode, Mode=TwoWay}" MaxLength="6"
+                                         VerticalAlignment="Center" Margin="4,2" LostFocus="BarcodeCode_LostFocus"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="70" Binding="{ReflectionBinding Unit}"/>
                     <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="140" Binding="{ReflectionBinding PriceLine}"/>
                 </DataGrid.Columns>
@@ -146,10 +157,22 @@
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Grid>
 
-        <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-            <TextBlock Grid.Column="0" x:Name="StatusText" VerticalAlignment="Center" FontSize="12"
-                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-            <Button Grid.Column="1" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
+        <Grid Grid.Row="6" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
+                <!-- 2026-09-28: живой пример весового штрих-кода, который ждёт касса. -->
+                <TextBlock x:Name="BarcodeExampleText" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushText}" IsVisible="False"/>
+                <TextBlock x:Name="StatusText" FontSize="12"
+                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            </StackPanel>
+            <!-- 2026-09-28: штрих-код этикетки весов — пример и настройка (окно «Настройки весов
+                 Штрих-ПРИНТ», вкладка «Штрих-код»). Здесь, а не в ряду над таблицей: там уже
+                 нет места, и кнопка уезжала за правый край. -->
+            <Button Grid.Column="1" x:Name="BarcodeSettingsButton" Classes="SecondaryActionButton"
+                    Margin="12,0,10,0" VerticalAlignment="Center"
+                    Content="{DynamicResource loc.owner.scales.barcodeSettings}"
+                    Click="BarcodeSettings_Click"/>
+            <Button Grid.Column="2" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
                     Classes="PrimaryActionButton" Padding="16,0" Click="Send_Click"/>
         </Grid>
     </Grid>

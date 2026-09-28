@@ -1359,6 +1359,11 @@
     <x:String x:Key="loc.settings.lanScale.passwordHint">The password is exactly 4 digits, usually 0030. If it's wrong, the scale blocks access after several attempts: then turn the scale off and on again and enter the correct password. The port is usually 1111.</x:String>
     <x:String x:Key="loc.settings.lanScale.openDialog">Open connection settings…</x:String>
     <x:String x:Key="loc.settings.lanScale.test">Test scale connection</x:String>
+    <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
+    <x:String x:Key="loc.settings.lanScale.deviceSettings">Scale settings (keyboard, label, barcode)…</x:String>
+    <x:String x:Key="loc.settings.shtrikhSettings.title">ShTRIH-PRINT scale settings</x:String>
+    <x:String x:Key="loc.owner.scales.barcodeSettings">Label barcode…</x:String>
+    <x:String x:Key="loc.owner.scales.colBarcodeCode">Barcode code</x:String>
     <x:String x:Key="loc.settings.scale.aiScales">AI scales</x:String>
     <x:String x:Key="loc.settings.scaleConn.title">Scale connection</x:String>
     <x:String x:Key="loc.settings.scaleConn.desc">The till will talk to the scale directly over the local network, without a server. Get the address, port and password from the scale's own system menu.</x:String>

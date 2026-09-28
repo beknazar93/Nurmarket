@@ -699,6 +699,139 @@ public sealed class ShtrikhPrintLanScaleService : IDisposable
         };
     }
 
+    // ---------------------------------------------------------------- настройки весов
+    // 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» (просьба владельца — перенести в кассу
+    // настройки тестовой программы Штрих-М, в первую очередь вкладку «Клавиатура»). Все
+    // команды ниже — с паролем администратора; спецпароль Штрих-М (эмуляция клавиатуры, ноль,
+    // тара, выбор товара, печать этикетки) не используется — см. шапку ShtrikhPrintProtocol.
+
+    /// <summary>Параметр «1 байт» (все пары «Получить/Записать параметр …» вида 70h/71h).</summary>
+    public async Task<byte> GetByteParamAsync(byte command, CancellationToken ct = default)
+    {
+        var response = await SendCheckedAsync(command, WithPassword(), false, ct).ConfigureAwait(false);
+        if (response.Payload.Length < 1)
+            throw new ShtrikhScaleException($"Весы вернули пустой ответ на команду {command:X2}h.");
+        return response.Payload[0];
+    }
+
+    public Task SetByteParamAsync(byte command, int value, CancellationToken ct = default) =>
+        SendCheckedAsync(command, WithPassword((byte)Math.Clamp(value, 0, 255)), false, ct);
+
+    /// <summary>Параметр-число шириной <paramref name="width"/> байт (GS1: 6Ch — 4 байта,
+    /// 6Eh — 2 байта).</summary>
+    public async Task<long> GetIntParamAsync(byte command, int width, CancellationToken ct = default)
+    {
+        var response = await SendCheckedAsync(command, WithPassword(), false, ct).ConfigureAwait(false);
+        if (response.Payload.Length < width)
+            throw new ShtrikhScaleException($"Весы вернули короткий ответ на команду {command:X2}h.");
+        return ShtrikhPrintProtocol.ReadLittleEndian(response.Payload, 0, width);
+    }
+
+    public Task SetIntParamAsync(byte command, long value, int width, CancellationToken ct = default)
+    {
+        var tail = new byte[width];
+        ShtrikhPrintProtocol.WriteLittleEndian(tail, value, width);
+        return SendCheckedAsync(command, WithPassword(tail), false, ct);
+    }
+
+    /// <summary>Текстовый параметр (заголовки, реклама). <paramref name="index"/> — номер
+    /// строки названия магазина (94h) или номер текста (99h); null — без номера.</summary>
+    public async Task<string> GetTextParamAsync(byte command, int width, int? index = null, CancellationToken ct = default)
+    {
+        var parameters = index is { } i ? WithPassword((byte)i) : WithPassword();
+        var response = await SendCheckedAsync(command, parameters, false, ct).ConfigureAwait(false);
+        var length = Math.Min(width, response.Payload.Length);
+        return ShtrikhPrintProtocol.DecodeText(response.Payload.AsSpan(0, length));
+    }
+
+    public Task SetTextParamAsync(byte command, string? text, int width, int? index = null, CancellationToken ct = default)
+    {
+        var body = ShtrikhPrintProtocol.EncodeZeroPaddedText(text, width);
+        byte[] tail;
+        if (index is { } i)
+        {
+            tail = new byte[1 + width];
+            tail[0] = (byte)i;
+            body.CopyTo(tail, 1);
+        }
+        else
+        {
+            tail = body;
+        }
+        return SendCheckedAsync(command, WithPassword(tail), false, ct);
+    }
+
+    /// <summary>B0h «Получить значение клавиши быстрого доступа».</summary>
+    public async Task<ShtrikhHotkey> GetHotkeyAsync(int keyNumber, CancellationToken ct = default)
+    {
+        var response = await SendCheckedAsync(ShtrikhPrintProtocol.CmdGetHotkey,
+            WithPassword((byte)Math.Clamp(keyNumber, 1, 255)), false, ct).ConfigureAwait(false);
+        if (response.Payload.Length < 5)
+            throw new ShtrikhScaleException("Весы вернули короткий ответ на запрос клавиши быстрого доступа.");
+        return new ShtrikhHotkey(keyNumber, response.Payload[0], ShtrikhPrintProtocol.ReadLittleEndian(response.Payload, 1, 4));
+    }
+
+    /// <summary>B1h «Записать значение клавиши быстрого доступа».</summary>
+    public Task SetHotkeyAsync(int keyNumber, byte functionCode, long value, CancellationToken ct = default) =>
+        SendCheckedAsync(ShtrikhPrintProtocol.CmdSetHotkey,
+            WithPassword(ShtrikhPrintProtocol.EncodeHotkey(keyNumber, functionCode, value)), false, ct);
+
+    /// <summary>09h «Блокировка / разблокировка клавиатуры» весов (например, на время заливки
+    /// товаров). Текущее состояние — бит 3 «Состояния клавиатуры» в ответе 11h.</summary>
+    public Task SetKeyboardLockedAsync(bool locked, CancellationToken ct = default) =>
+        SendCheckedAsync(ShtrikhPrintProtocol.CmdLockKeyboard, WithPassword((byte)(locked ? 1 : 0)), false, ct);
+
+    /// <summary>21h + 22h: часы весов по часам компьютера (дата и время на этикетке).</summary>
+    public async Task SetClockAsync(DateTime now, CancellationToken ct = default)
+    {
+        await SendCheckedAsync(ShtrikhPrintProtocol.CmdSetTime,
+            WithPassword((byte)now.Hour, (byte)now.Minute, (byte)now.Second), false, ct).ConfigureAwait(false);
+        await SendCheckedAsync(ShtrikhPrintProtocol.CmdSetDate,
+            WithPassword((byte)now.Day, (byte)now.Month, (byte)(now.Year % 100)), false, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>76h «Получить параметры "Префиксы ШК"».</summary>
+    public async Task<ShtrikhBarcodePrefixes> GetBarcodePrefixesAsync(CancellationToken ct = default)
+    {
+        var response = await SendCheckedAsync(ShtrikhPrintProtocol.CmdGetBarcodePrefixes, WithPassword(), false, ct).ConfigureAwait(false);
+        if (response.Payload.Length < 3)
+            throw new ShtrikhScaleException("Весы вернули короткий ответ на запрос префиксов штрих-кода.");
+        return new ShtrikhBarcodePrefixes(response.Payload[0], response.Payload[1], response.Payload[2]);
+    }
+
+    /// <summary>77h «Записать параметр "Префикс ШК"»: тип 0 — весовой, 1 — штучный,
+    /// 2 — итоговый; значение 0..99.</summary>
+    public Task SetBarcodePrefixAsync(int type, int value, CancellationToken ct = default) =>
+        SendCheckedAsync(ShtrikhPrintProtocol.CmdSetBarcodePrefix,
+            WithPassword((byte)Math.Clamp(type, 0, 2), (byte)Math.Clamp(value, 0, 99)), false, ct);
+
+    /// <summary>98h «Показать срочное сообщение» на дисплее весов (до 22 символов; убирается
+    /// нажатием любой клавиши на весах).</summary>
+    public Task ShowUrgentMessageAsync(string? text, CancellationToken ct = default) =>
+        SendCheckedAsync(ShtrikhPrintProtocol.CmdShowUrgentMessage,
+            WithPassword(ShtrikhPrintProtocol.EncodeZeroPaddedText(text, ShtrikhPrintProtocol.AdvertFieldLength)), false, ct);
+
+    /// <summary>40h «Промотка» — прогон ленты до начала следующей этикетки.</summary>
+    public Task FeedAsync(CancellationToken ct = default) =>
+        SendCheckedAsync(ShtrikhPrintProtocol.CmdFeed, WithPassword(), false, ct);
+
+    /// <summary>44h «Печать тестовой этикетки» («шахматка» для проверки головки). Код 9
+    /// («неполная печать») протокол считает предупреждением — этикетка напечатана.</summary>
+    public async Task PrintTestLabelAsync(CancellationToken ct = default)
+    {
+        var response = await SendAsync(ShtrikhPrintProtocol.CmdPrintTestLabel, WithPassword(), false, ct).ConfigureAwait(false);
+        if (!response.Ok && response.ErrorCode != 9)
+            throw new ShtrikhScaleException($"Весы не напечатали тестовую этикетку: {response.ErrorText}.", response.ErrorCode);
+    }
+
+    /// <summary>38h «Запрос массы», граммы. Ошибка 152 «Вес не фиксирован» — вес ещё не
+    /// успокоился; это не сбой связи.</summary>
+    public async Task<int> GetWeightGramsAsync(CancellationToken ct = default)
+    {
+        var response = await SendCheckedAsync(ShtrikhPrintProtocol.CmdGetWeight, WithPassword(), false, ct).ConfigureAwait(false);
+        return response.Payload.Length < 2 ? 0 : ShtrikhPrintProtocol.ReadInt16(response.Payload, 0);
+    }
+
     // ---------------------------------------------------------------- поиск весов в сети
 
     /// <summary>Ищет весы в локальной подсети /24, опрашивая каждый адрес командой FCh
@@ -804,4 +937,8 @@ public sealed class ShtrikhScaleException : Exception
 
     /// <summary>Код ошибки весов (0 — ошибка связи, а не ответ весов).</summary>
     public byte ErrorCode { get; }
+
+    /// <summary>2026-09-28: пароль не подошёл или весы уже заблокировали доступ — окну настроек
+    /// после этого нельзя продолжать читать/писать параметры (каждая команда — ещё попытка).</summary>
+    public bool IsPasswordError => ShtrikhPasswordErrors.IsPasswordError(ErrorCode);
 }

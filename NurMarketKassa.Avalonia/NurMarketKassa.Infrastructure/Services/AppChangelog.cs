@@ -13,52 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Выгрузки в Excel и Word и ABC-анализ считаются по данным сервера — цифры совпадают с сайтом и экраном «Финансы»",
-        "Смешанная оплата показывается отдельно («+ смешанная»), как на сайте, а не внутри безнала",
-        "«Финансы → Смены» показывают все смены, а не только первые 100",
-        "Номер чека в «Истории чеков» и в «Возврате» одинаковый и совпадает с сайтом",
-        "«Последние продажи» в «Сводке» показывают «+ ещё N», если в чеке несколько товаров",
-        "Ранее в 1.17.19–1.17.21: шесть видов кассы, редактор своих тем, оформленные выгрузки, ценники через драйвер, масштаб на квадратных экранах, история чеков",
+        "Весы Штрих-ПРИНТ: новое окно настроек (Настройки → Весы → «Настройки весов…») — клавиатура, этикетка, штрих-код, тексты, часы — как в тест-драйвере Штрих-М",
+        "При отправке на весы можно поправить код в штрих-коде у каждого товара и сразу видно пример этикетки, например 2000001003923",
+        "Касса предупреждает, если формат штрих-кода на весах не совпадёт с настройкой компании и товар не найдётся при скане",
+        "Виды кассы появились в Маркетплейсе (вкладка «Виды кассы»)",
+        "Экран покупателя меняется вместе с видом кассы; добавлен редактор экрана покупателя",
+        "Исправлено: короткий пароль весов и номер товара в штрих-коде при прямой отправке на весы",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Excel жана Word'го жүктөө жана ABC-талдоо сервердин маалыматы боюнча эсептелет — сандар сайт жана «Каржы» экраны менен дал келет",
-        "Аралаш төлөм сайттагыдай өзүнчө көрсөтүлөт («+ аралаш»), накталай эмес төлөмдүн ичинде эмес",
-        "«Каржы → Сменалар» биринчи 100 эмес, бардык сменаларды көрсөтөт",
-        "«Чектердин тарыхы» жана «Кайтаруу» терезелериндеги чектин номери бирдей жана сайт менен дал келет",
-        "«Жыйынтыктагы» «Акыркы сатуулар» чекте бир нече товар болсо «+ дагы N» деп көрсөтөт",
-        "Мурда 1.17.19–1.17.21де: кассанын алты көрүнүшү, темалардын редактору, жасалгаланган жүктөөлөр, драйвер аркылуу баа белгилери, чарчы экрандагы масштаб, чектердин тарыхы",
+        "Штрих-ПРИНТ таразасы: жаңы жөндөөлөр терезеси (Жөндөөлөр → Таразалар → «Таразанын жөндөөлөрү…») — баскычтар, этикетка, штрих-код, тексттер, саат — Штрих-М тест-драйвериндегидей",
+        "Таразага жөнөтүүдө ар бир товардын штрих-коддогу кодун оңдоого болот жана этикетканын үлгүсү дароо көрүнөт, мисалы 2000001003923",
+        "Таразадагы штрих-коддун форматы компаниянын жөндөөсү менен дал келбесе жана товар сканерде табылбаса, касса эскертет",
+        "Кассанын көрүнүштөрү Маркетплейске кошулду («Кассанын көрүнүштөрү» өтмөгү)",
+        "Сатып алуучунун экраны кассанын көрүнүшү менен кошо өзгөрөт; сатып алуучунун экранынын редактору кошулду",
+        "Оңдолду: таразанын кыска сырсөзү жана таразага түз жөнөтүүдө штрих-коддогу товардын номери",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Excel and Word exports and ABC analysis use server data — the numbers match the website and the “Finance” screen",
-        "Mixed payment is shown separately (“+ mixed”), as on the website, not inside card payments",
-        "“Finance → Shifts” shows all shifts, not only the first 100",
-        "The receipt number in “Receipt history” and “Return” is the same and matches the website",
-        "“Recent sales” in the “Overview” shows “+ N more” when a receipt has several products",
-        "Earlier in 1.17.19–1.17.21: six till layouts, your own theme editor, formatted exports, price tags through the driver, scaling on square screens, receipt history",
+        "Shtrikh-PRINT scales: a new settings window (Settings → Scales → “Scale settings…”) — keyboard, label, barcode, texts, clock — like the Shtrikh-M test driver",
+        "When sending to scales you can edit the code inside each product's barcode and see a sample label right away, e.g. 2000001003923",
+        "The till warns you if the barcode format on the scales does not match the company setting and the product would not be found when scanned",
+        "Till layouts are now in the Marketplace (“Till layouts” tab)",
+        "The customer display changes together with the till layout; a customer display editor was added",
+        "Fixed: short scale password and the product number in the barcode when sending directly to scales",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Excel ve Word dışa aktarımları ve ABC analizi sunucu verileriyle hesaplanır — rakamlar site ve «Finans» ekranıyla aynı",
-        "Karışık ödeme sitedeki gibi ayrı gösterilir («+ karışık»), kartlı ödemelerin içinde değil",
-        "«Finans → Vardiyalar» ilk 100'ü değil, tüm vardiyaları gösterir",
-        "«Fiş geçmişi» ve «İade» pencerelerindeki fiş numarası aynı ve siteyle eşleşiyor",
-        "«Özet»teki «Son satışlar» fişte birden çok ürün varsa «+ N daha» gösterir",
-        "Önceki 1.17.19–1.17.21: altı kasa görünümü, tema düzenleyici, biçimli dışa aktarımlar, sürücüyle etiketler, kare ekranlarda ölçek, fiş geçmişi",
+        "Shtrikh-PRINT teraziler: yeni ayarlar penceresi (Ayarlar → Teraziler → «Terazi ayarları…») — tuş takımı, etiket, barkod, metinler, saat — Shtrikh-M test sürücüsündeki gibi",
+        "Teraziye gönderirken her ürünün barkodundaki kodu düzenleyebilir ve örnek etiketi hemen görebilirsiniz, örneğin 2000001003923",
+        "Terazideki barkod biçimi şirket ayarıyla uyuşmazsa ve ürün taramada bulunamayacaksa kasa uyarır",
+        "Kasa görünümleri artık Pazaryeri'nde («Kasa görünümleri» sekmesi)",
+        "Müşteri ekranı kasa görünümüyle birlikte değişir; müşteri ekranı düzenleyicisi eklendi",
+        "Düzeltildi: kısa terazi şifresi ve teraziye doğrudan gönderimde barkoddaki ürün numarası",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Excel va Word'ga eksport va ABC tahlili server ma'lumotlari bo'yicha hisoblanadi — raqamlar sayt va «Moliya» ekrani bilan mos",
-        "Aralash to'lov saytdagidek alohida ko'rsatiladi («+ aralash»), naqdsiz to'lov ichida emas",
-        "«Moliya → Smenalar» birinchi 100 tasini emas, barcha smenalarni ko'rsatadi",
-        "«Cheklar tarixi» va «Qaytarish» oynalaridagi chek raqami bir xil va sayt bilan mos",
-        "«Umumiy»dagi «So'nggi sotuvlar» chekda bir nechta mahsulot bo'lsa «+ yana N» deb ko'rsatadi",
-        "Avval 1.17.19–1.17.21 da: kassaning oltita ko'rinishi, mavzular muharriri, bezatilgan eksportlar, drayver orqali narx yorliqlari, kvadrat ekranlarda masshtab, cheklar tarixi",
+        "Shtrix-PRINT tarozilari: yangi sozlamalar oynasi (Sozlamalar → Tarozilar → «Tarozi sozlamalari…») — klaviatura, yorliq, shtrix-kod, matnlar, soat — Shtrix-M test drayveridagidek",
+        "Taroziga yuborishda har bir mahsulotning shtrix-kodidagi kodni tahrirlash mumkin va yorliq namunasi darhol ko'rinadi, masalan 2000001003923",
+        "Tarozidagi shtrix-kod formati kompaniya sozlamasiga mos kelmasa va mahsulot skanerda topilmasa, kassa ogohlantiradi",
+        "Kassa ko'rinishlari Marketpleysga qo'shildi («Kassa ko'rinishlari» yorlig'i)",
+        "Xaridor ekrani kassa ko'rinishi bilan birga o'zgaradi; xaridor ekrani muharriri qo'shildi",
+        "Tuzatildi: tarozining qisqa paroli va taroziga to'g'ridan-to'g'ri yuborishda shtrix-koddagi mahsulot raqami",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

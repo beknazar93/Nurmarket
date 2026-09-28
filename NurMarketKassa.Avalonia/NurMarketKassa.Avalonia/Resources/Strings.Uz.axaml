@@ -1359,6 +1359,11 @@
     <x:String x:Key="loc.settings.lanScale.passwordHint">Parol — aniq 4 ta raqam, odatda 0030. Agar u noto'g'ri bo'lsa, tarozi bir necha urinishdan keyin kirishni bloklaydi: unda tarozini o'chirib-yoqing va to'g'ri parolni kiriting. Port odatda 1111.</x:String>
     <x:String x:Key="loc.settings.lanScale.openDialog">Ulanish sozlamalari oynasini ochish…</x:String>
     <x:String x:Key="loc.settings.lanScale.test">Tarozi bilan aloqani tekshirish</x:String>
+    <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
+    <x:String x:Key="loc.settings.lanScale.deviceSettings">Tarozi sozlamalari (klaviatura, yorliq, shtrix-kod)…</x:String>
+    <x:String x:Key="loc.settings.shtrikhSettings.title">ShTRIX-PRINT tarozi sozlamalari</x:String>
+    <x:String x:Key="loc.owner.scales.barcodeSettings">Yorliq shtrix-kodi…</x:String>
+    <x:String x:Key="loc.owner.scales.colBarcodeCode">ShKdagi kod</x:String>
     <x:String x:Key="loc.settings.scale.aiScales">AI tarozi</x:String>
     <x:String x:Key="loc.settings.scaleConn.title">Tarozini ulash</x:String>
     <x:String x:Key="loc.settings.scaleConn.desc">Kassa tarozi bilan serversiz, to'g'ridan-to'g'ri lokal tarmoq orqali bog'lanadi. Manzil, port va parolni tarozining o'z tizim menyusidan oling.</x:String>

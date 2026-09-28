@@ -1359,6 +1359,11 @@
     <x:String x:Key="loc.settings.lanScale.passwordHint">Şifre tam 4 hanelidir, genellikle 0030. Yanlışsa tartı birkaç denemeden sonra erişimi engeller: bu durumda tartıyı kapatıp açın ve doğru şifreyi girin. Port genellikle 1111'dir.</x:String>
     <x:String x:Key="loc.settings.lanScale.openDialog">Bağlantı ayarları penceresini aç…</x:String>
     <x:String x:Key="loc.settings.lanScale.test">Tartı bağlantısını test et</x:String>
+    <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
+    <x:String x:Key="loc.settings.lanScale.deviceSettings">Tartı ayarları (klavye, etiket, barkod)…</x:String>
+    <x:String x:Key="loc.settings.shtrikhSettings.title">ŞTRİH-PRİNT tartı ayarları</x:String>
+    <x:String x:Key="loc.owner.scales.barcodeSettings">Etiket barkodu…</x:String>
+    <x:String x:Key="loc.owner.scales.colBarcodeCode">Barkod kodu</x:String>
     <x:String x:Key="loc.settings.scale.aiScales">AI tartı</x:String>
     <x:String x:Key="loc.settings.scaleConn.title">Tartı bağlantısı</x:String>
     <x:String x:Key="loc.settings.scaleConn.desc">Kasa, tartıyla sunucu olmadan doğrudan yerel ağ üzerinden haberleşir. Adresi, portu ve şifreyi tartının kendi sistem menüsünden alın.</x:String>

@@ -150,6 +150,33 @@ public sealed class ShtrikhScaleStatus
     public int SelectedPlu { get; init; }
     public bool SelectedIsPiece { get; init; }
 
+    // 2026-09-28: поля 11h, нужные окну «Настройки весов Штрих-ПРИНТ» — системные параметры
+    // (номер весов, звук, фасовка, режим печати, порог автопечати, формат даты/времени) не
+    // имеют своих команд чтения: их текущие значения весы отдают только в этом пакете.
+    public int SoftwareVersionMajor { get; init; }
+    public int SoftwareVersionMinor { get; init; }
+    public int LabelNumber { get; init; }
+
+    /// <summary>«Состояние клавиатуры»: бит 0 — регистр, бит 1 — раскладка, бит 2 —
+    /// клавиши быстрого доступа, бит 3 — клавиатура заблокирована.</summary>
+    public byte KeyboardState { get; init; }
+    public bool KeyboardLocked => (KeyboardState & 0x08) != 0;
+
+    /// <summary>Часы весов (null — пришёл мусор, например при сбое часов, код 165).</summary>
+    public DateTime? ScaleClock { get; init; }
+
+    /// <summary>0 — ДД ММ ГГ, 1 — ГГ ММ ДД, 2 — ММ ДД ГГ.</summary>
+    public int DateFormat { get; init; }
+
+    /// <summary>0 — 12-часовой, 1 — 24-часовой.</summary>
+    public int TimeFormat { get; init; }
+
+    public bool PackagingOn { get; init; }
+    public bool SoundOn { get; init; }
+
+    /// <summary>Порог автопечати, граммы (0 — автопечать фактически выключена).</summary>
+    public int AutoPrintThresholdGrams { get; init; }
+
     // Разбор байта «Состояние печатающего устройства».
     public bool HasPaper => (PrinterState & 0x01) != 0;
     public bool LabelPrinted => (PrinterState & 0x02) != 0;
@@ -244,7 +271,52 @@ public sealed class ShtrikhScaleStatus
             TotalMde = ShtrikhPrintProtocol.ReadLittleEndian(payload, 46, 4),
             SelectedPlu = (int)ShtrikhPrintProtocol.ReadLittleEndian(payload, 50, 2),
             SelectedIsPiece = payload[52] == 1,
+            // 2026-09-28: смещения по порядку полей 11h (см. шапку метода): 13 — дискретность,
+            // 14 — номер весов, 15..16 — номер этикетки, 20 — клавиатура, 21..23 — дата
+            // ДД ММ ГГ, 24..26 — время ЧЧ ММ СС, 27/28 — форматы, 31 — фасовка, 32 — звук,
+            // 34..35 — порог автопечати.
+            SoftwareVersionMajor = payload[0] - '0',
+            SoftwareVersionMinor = payload[1] - '0',
+            LabelNumber = (int)ShtrikhPrintProtocol.ReadLittleEndian(payload, 15, 2),
+            KeyboardState = payload[20],
+            ScaleClock = TryMakeClock(payload[21], payload[22], payload[23], payload[24], payload[25], payload[26]),
+            DateFormat = payload[27],
+            TimeFormat = payload[28],
+            PackagingOn = payload[31] == 1,
+            SoundOn = payload[32] == 1,
+            AutoPrintThresholdGrams = (int)ShtrikhPrintProtocol.ReadLittleEndian(payload, 34, 2),
         };
+    }
+
+    private static DateTime? TryMakeClock(byte day, byte month, byte year, byte hour, byte minute, byte second)
+    {
+        try
+        {
+            return new DateTime(2000 + year, month, day, hour, minute, second);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Сколько клавиш быстрого доступа у весов — Приложение 8 протокола (зависит от
+    /// исполнения и версии ПО). 0 — клавиш нет или исполнение неизвестно.</summary>
+    public int HotkeyCount
+    {
+        get
+        {
+            var v45 = SoftwareVersionMajor > 4 || (SoftwareVersionMajor == 4 && SoftwareVersionMinor >= 5);
+            return HardwareVariant switch
+            {
+                0 => 90,
+                1 => v45 ? 240 : 64,
+                2 => v45 ? 90 : 80,
+                3 => v45 ? 36 : 0,
+                4 => v45 ? 36 : 0,
+                _ => 0,
+            };
+        }
     }
 
     /// <summary>Название конструктивного исполнения по Приложению 8.</summary>
@@ -267,3 +339,10 @@ public sealed record ShtrikhUploadResult(int Sent, int Failed, IReadOnlyList<str
 
 /// <summary>Ход выгрузки — для прогресса в окне «Весы».</summary>
 public readonly record struct ShtrikhUploadProgress(int Done, int Total, string Stage);
+
+/// <summary>2026-09-28: клавиша быстрого доступа — ответ B0h: код функции (Приложение 7) и
+/// её значение (цена в МДЕ, номер ПЛУ, код товара, 0/1…).</summary>
+public readonly record struct ShtrikhHotkey(int KeyNumber, byte FunctionCode, long Value);
+
+/// <summary>2026-09-28: префиксы весового штрих-кода — ответ 76h.</summary>
+public readonly record struct ShtrikhBarcodePrefixes(int Weight, int Piece, int Total);

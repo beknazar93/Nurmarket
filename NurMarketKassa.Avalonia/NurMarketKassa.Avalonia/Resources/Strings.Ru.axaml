@@ -1359,6 +1359,11 @@
     <x:String x:Key="loc.settings.lanScale.passwordHint">Пароль — ровно 4 цифры, обычно 0030. Если он неверный, весы блокируют доступ после нескольких попыток: тогда выключите и включите весы и введите правильный пароль. Порт обычно 1111.</x:String>
     <x:String x:Key="loc.settings.lanScale.openDialog">Открыть окно настроек подключения…</x:String>
     <x:String x:Key="loc.settings.lanScale.test">Проверить связь с весами</x:String>
+    <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
+    <x:String x:Key="loc.settings.lanScale.deviceSettings">Настройки весов (клавиатура, этикетка, штрих-код)…</x:String>
+    <x:String x:Key="loc.settings.shtrikhSettings.title">Настройки весов Штрих-ПРИНТ</x:String>
+    <x:String x:Key="loc.owner.scales.barcodeSettings">Штрих-код этикетки…</x:String>
+    <x:String x:Key="loc.owner.scales.colBarcodeCode">Код в ШК</x:String>
     <x:String x:Key="loc.settings.scale.aiScales">AI весы</x:String>
     <x:String x:Key="loc.settings.scaleConn.title">Подключение весов</x:String>
     <x:String x:Key="loc.settings.scaleConn.desc">Касса будет говорить с весами напрямую по локальной сети, без сервера. Адрес, порт и пароль возьмите из системного меню самих весов.</x:String>

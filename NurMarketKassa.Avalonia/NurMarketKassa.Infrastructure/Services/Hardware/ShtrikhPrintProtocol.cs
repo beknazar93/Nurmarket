@@ -73,6 +73,103 @@ public static class ShtrikhPrintProtocol
     public const byte CmdGetMessageLineCount = 0xD2;
     public const byte CmdGetDeviceType = 0xFC;
 
+    // 2026-09-28: команды для окна «Настройки весов Штрих-ПРИНТ» — по просьбе владельца
+    // перенесены все настройки тестовой программы «Тест драйвера весов "ШТРИХ-ПРИНТ"»,
+    // которые протокол позволяет менять по сети. Коды и длины — из «Протокол весов
+    // Штрих-Принт v1.6 rel 1» (раздел «Поддерживаемые команды»); байты каждой команды сверены
+    // с тем, что шлёт сам драйвер Штрих-М (DrvLP через TestLP.exe) на эмулятор весов.
+    // Клавиатура.
+    public const byte CmdLockKeyboard = 0x09;          // 0 — разблокировать, 1 — заблокировать
+    public const byte CmdGetHotkey = 0xB0;             // клавиша быстрого доступа: код функции + значение
+    public const byte CmdSetHotkey = 0xB1;
+    public const byte CmdGetFunctionKeys = 0xB2;       // битовая маска функциональных клавиш
+    public const byte CmdSetFunctionKeys = 0xB3;
+    // Системные параметры (текущие значения отдаёт 11h).
+    public const byte CmdSetTime = 0x21;
+    public const byte CmdSetDate = 0x22;
+    public const byte CmdSetTimeFormat = 0x23;
+    public const byte CmdSetDateFormat = 0x24;
+    public const byte CmdSetScaleNumber = 0x25;
+    public const byte CmdSetPrintMode = 0x27;
+    public const byte CmdSetAutoPrintThreshold = 0x28;
+    public const byte CmdSetPackaging = 0x29;
+    public const byte CmdSetSound = 0x2A;
+    // Вес.
+    public const byte CmdGetWeight = 0x38;
+    public const byte CmdGetWeightDeviceState = 0x3A;
+    // Печать и этикетка.
+    public const byte CmdGetUseEan5 = 0x3C;
+    public const byte CmdSetUseEan5 = 0x3D;
+    public const byte CmdGetTurnPrint = 0x3E;
+    public const byte CmdSetTurnPrint = 0x3F;
+    public const byte CmdFeed = 0x40;
+    public const byte CmdPrintTestLabel = 0x44;
+    public const byte CmdGetPrintOffset = 0x46;
+    public const byte CmdSetPrintOffset = 0x47;
+    public const byte CmdGetContrast = 0x48;
+    public const byte CmdSetContrast = 0x49;
+    public const byte CmdGetGs1PlantNumber = 0x6C;
+    public const byte CmdSetGs1PlantNumber = 0x6D;
+    public const byte CmdGetGs1Prefix = 0x6E;
+    public const byte CmdSetGs1Prefix = 0x6F;
+    public const byte CmdGetLabelFormat = 0x70;
+    public const byte CmdSetLabelFormat = 0x71;
+    public const byte CmdGetBarcodePrefixType = 0x72;
+    public const byte CmdSetBarcodePrefixType = 0x73;
+    public const byte CmdGetPrintByPPlus = 0x78;
+    public const byte CmdSetPrintByPPlus = 0x79;
+    public const byte CmdGetPrintType = 0x7A;
+    public const byte CmdSetPrintType = 0x7B;
+    public const byte CmdGetLabelSensor = 0x7C;
+    public const byte CmdSetLabelSensor = 0x7D;
+    public const byte CmdGetPrintableFields = 0x7E;
+    public const byte CmdSetPrintableFields = 0x7F;
+    // Работа с товарами.
+    public const byte CmdGetChangePluPrice = 0x80;
+    public const byte CmdSetChangePluPrice = 0x81;
+    public const byte CmdGetWritePluPrice = 0x82;
+    public const byte CmdSetWritePluPrice = 0x83;
+    public const byte CmdGetResetPluAfterPrint = 0x84;
+    public const byte CmdSetResetPluAfterPrint = 0x85;
+    public const byte CmdGetRecordKeeping = 0x86;
+    public const byte CmdSetRecordKeeping = 0x87;
+    public const byte CmdGetFreePrice = 0x88;          // 0 — разрешена, 1 — запрещена (инверсия!)
+    public const byte CmdSetFreePrice = 0x89;
+    public const byte CmdGetPrintOnPluSelect = 0x8A;
+    public const byte CmdSetPrintOnPluSelect = 0x8B;
+    public const byte CmdGetGroupCodeUse = 0x8C;
+    public const byte CmdSetGroupCodeUse = 0x8D;
+    public const byte CmdGetResetPluByTimer = 0x8E;
+    public const byte CmdSetResetPluByTimer = 0x8F;
+    // Тексты на этикетке и дисплее.
+    public const byte CmdGetLabelTitle = 0x90;
+    public const byte CmdSetLabelTitle = 0x91;
+    public const byte CmdGetTotalLabelTitle = 0x92;
+    public const byte CmdSetTotalLabelTitle = 0x93;
+    public const byte CmdGetShopName = 0x94;           // + номер строки 1..2
+    public const byte CmdSetShopName = 0x95;
+    public const byte CmdGetAdvert = 0x96;
+    public const byte CmdSetAdvert = 0x97;
+    public const byte CmdShowUrgentMessage = 0x98;
+    public const byte CmdGetUserText = 0x99;           // + номер текста 1..5
+    public const byte CmdSetUserText = 0x9A;
+    public const byte CmdGetNameLines = 0xD3;
+    public const byte CmdSetNameLines = 0xD4;
+
+    /// <summary>Ширины текстовых параметров (байты) — из описаний команд 90h..9Ah.</summary>
+    public const int TitleFieldLength = 28;
+    public const int AdvertFieldLength = 22;
+    public const int UserTextFieldLength = 30;
+
+    /// <summary>Коды функций клавиш быстрого доступа — Приложение 7 протокола. Значение
+    /// передаётся 4 байтами (little-endian): цена в МДЕ, номер ПЛУ, код товара или 0/1/…
+    /// для функций-переключателей. Байты сверены с драйвером Штрих-М: «Установить цену
+    /// 12,34» → B1h … 00 D2 04 00 00, «Выбрать товар ПЛУ 5» → 01 05 00 00 00.</summary>
+    public const byte HotkeyPrice = 0x00;
+    public const byte HotkeyPluNumber = 0x01;
+    public const byte HotkeyProductCode = 0x02;
+    public const byte HotkeyNone = 0xFF;
+
     /// <summary>Длина одной записи ПЛУ расширенного формата без пароля — общая часть команд
     /// 55h (блок) и 57h (одиночная запись).</summary>
     public const int PluRecordLength = 82;
@@ -171,6 +268,13 @@ public static class ShtrikhPrintProtocol
         if (text.Length == 0)
             text = "0000";
 
+        // 2026-09-28: короткий пароль дополняем нулями СЛЕВА, как драйвер Штрих-М. Сверено
+        // на эмуляторе: тестовая программа с паролем «30» шлёт 30 30 33 30 («0030»). Раньше
+        // здесь нули шли справа («30» → «3000») — весы сочли бы это неверным паролем и после
+        // пяти попыток заблокировали доступ. Пароль весов — число 0..9999.
+        if (text.Length < 4)
+            text = text.PadLeft(4, '0');
+
         var bytes = new byte[4];
         for (var i = 0; i < 4; i++)
         {
@@ -198,6 +302,36 @@ public static class ShtrikhPrintProtocol
         var count = Math.Min(encoded.Length, width);
         encoded.AsSpan(0, count).CopyTo(buffer);
         return buffer;
+    }
+
+    /// <summary>2026-09-28: текст для параметров «Название магазина», «Заголовок», «Рекламное
+    /// сообщение», «Срочное сообщение», «Текст 1..5» — добивка байтами 00, а не пробелами.
+    /// Так делает драйвер Штрих-М (сверено на эмуляторе: «Магазин Нур» → CC E0 … F0 00 00 …),
+    /// и так весы не печатают хвост пробелов там, где текст выравнивается по центру.</summary>
+    public static byte[] EncodeZeroPaddedText(string? text, int width)
+    {
+        var buffer = new byte[width];
+        if (string.IsNullOrEmpty(text))
+            return buffer;
+
+        var encoded = DeviceEncoding.GetBytes(text);
+        var count = Math.Min(encoded.Length, width);
+        encoded.AsSpan(0, count).CopyTo(buffer);
+        return buffer;
+    }
+
+    /// <summary>Кадр «Записать значение клавиши быстрого доступа» (B1h) без пароля: номер
+    /// клавиши, код функции, значение (4 байта LE). Вынесено в кодек, чтобы стенд мог сверить
+    /// байты с драйвером Штрих-М, не открывая сокет.</summary>
+    public static byte[] EncodeHotkey(int keyNumber, byte functionCode, long value)
+    {
+        if (keyNumber is < 1 or > 255)
+            throw new ArgumentOutOfRangeException(nameof(keyNumber), keyNumber, "Номер клавиши быстрого доступа — 1..255.");
+        var tail = new byte[6];
+        tail[0] = (byte)keyNumber;
+        tail[1] = functionCode;
+        WriteLittleEndian(tail.AsSpan(2), value, 4);
+        return tail;
     }
 
     /// <summary>Обратное преобразование для ответов весов (наименование, название устройства).</summary>

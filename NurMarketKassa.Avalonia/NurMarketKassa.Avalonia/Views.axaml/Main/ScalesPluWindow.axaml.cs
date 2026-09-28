@@ -100,10 +100,67 @@ public partial class ScalesPluWindow : Window
     /// <summary>Кнопка настроек подключения нужна только для Штрих-М и только когда владелец
     /// выбрал работу без сервера. Сами поля живут в отдельном окне (ScaleConnectionDialog):
     /// в строке они не помещались и уезжали за край экрана.</summary>
-    private void ApplyDirectLanVisibility() =>
+    private void ApplyDirectLanVisibility()
+    {
         LanSettingsButton.IsVisible = BrandRongtaRadio.IsChecked != true
                                       && BrandAiRadio.IsChecked != true
                                       && DirectLanCheck.IsChecked == true;
+        // 2026-09-28: код в ШК правится только при прямой выгрузке — серверный путь
+        // (send-products) записывает на весы свои данные, и эта колонка на них не влияет.
+        // Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.
+        var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
+        if (barcodeColumn is not null)
+            barcodeColumn.IsVisible = LanSettingsButton.IsVisible;
+        BarcodeSettingsButton.IsVisible = LanSettingsButton.IsVisible;
+        UpdateBarcodeExample();
+    }
+
+    /// <summary>2026-09-28, просьба владельца «2000001003923 — добавь возможность редактировать
+    /// штрих-код при отправке на весы». Показывает, какой весовой ШК ждёт касса по настройке
+    /// компании (раскладка «по PLU» 2+5+5+1 или «по коду» 2+6+4+1), на примере первого
+    /// отмеченного товара и массы 0,392 кг. Сам формат на весах меняется в окне «Настройки весов
+    /// Штрих-ПРИНТ» → «Штрих-код» (кнопка «Штрих-код этикетки…»), где пример проверяется тем же
+    /// разбором, что и скан этикетки.</summary>
+    private void UpdateBarcodeExample()
+    {
+        if (BarcodeExampleText is null)
+            return;
+        var visible = BrandRongtaRadio.IsChecked != true && BrandAiRadio.IsChecked != true;
+        BarcodeExampleText.IsVisible = visible;
+        if (!visible || ProductsGrid.ItemsSource is not IEnumerable<ScalePluRowVm> rows)
+            return;
+
+        var row = rows.FirstOrDefault(r => r.IsSelected) ?? rows.FirstOrDefault();
+        var layout = NurMarketKassa.Core.Application.WeightBarcodeParser.Layout;
+        var byWeight = !string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Mode, "amount", StringComparison.OrdinalIgnoreCase);
+        var structure = ShtrikhBarcodeFormat.RecommendedStructure(layout, byWeight);
+        var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
+        const int grams = 392;
+        var cost = ShtrikhPrintProtocol.PriceToMde((decimal)(row?.Price ?? 100) * grams / 1000m, 2);
+        var sample = ShtrikhBarcodeFormat.BuildSample(structure, byWeight ? 20 : 25, code, grams, cost);
+        var isCode = string.Equals(layout, "code", StringComparison.OrdinalIgnoreCase);
+        BarcodeExampleText.Text = Tr.T(
+            $"Штрих-код на этикетке весов для «{row?.Name}» (0,392 кг): {sample}. Так его ждёт касса — раскладка компании «{(isCode ? "по коду" : "по PLU")}»; на весах Штрих-ПРИНТ нужна структура {structure} ({ShtrikhBarcodeFormat.Structures[structure]}) и префикс {(byWeight ? 20 : 25)}.",
+            $"«{row?.Name}» үчүн тараза этикеткасындагы штрих-код (0,392 кг): {sample}. Касса аны ушундай күтөт — компаниянын раскладкасы «{(isCode ? "код боюнча" : "PLU боюнча")}»; ШТРИХ-ПРИНТ таразасында {structure} түзүлүш ({ShtrikhBarcodeFormat.Structures[structure]}) жана {(byWeight ? 20 : 25)} префикс керек.",
+            $"Scale label barcode for “{row?.Name}” (0.392 kg): {sample}. This is what the till expects — company layout “{(isCode ? "by code" : "by PLU")}”; the ShTRIH-PRINT scale needs structure {structure} ({ShtrikhBarcodeFormat.Structures[structure]}) and prefix {(byWeight ? 20 : 25)}.",
+            $"“{row?.Name}” için tartı etiketi barkodu (0,392 kg): {sample}. Kasa bunu böyle bekler — şirket düzeni “{(isCode ? "koda göre" : "PLU’ya göre")}”; ŞTRİH-PRİNT tartıda yapı {structure} ({ShtrikhBarcodeFormat.Structures[structure]}) ve önek {(byWeight ? 20 : 25)} gerekir.",
+            $"«{row?.Name}» uchun tarozi yorlig‘idagi shtrix-kod (0,392 kg): {sample}. Kassa uni shunday kutadi — kompaniya tartibi «{(isCode ? "kod bo‘yicha" : "PLU bo‘yicha")}»; ShTRIX-PRINT tarozisida {structure} tuzilma ({ShtrikhBarcodeFormat.Structures[structure]}) va {(byWeight ? 20 : 25)} prefiks kerak.");
+    }
+
+    private void BarcodeCode_LostFocus(object? sender, RoutedEventArgs e) => UpdateBarcodeExample();
+
+    /// <summary>Открывает «Настройки весов Штрих-ПРИНТ» на вкладке «Штрих-код» с примером для
+    /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
+    private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        var rows = ProductsGrid.ItemsSource as IEnumerable<ScalePluRowVm>;
+        var row = rows?.FirstOrDefault(r => r.IsSelected) ?? rows?.FirstOrDefault();
+        var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
+        var window = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ShtrikhScaleSettingsWindow();
+        window.ShowBarcodeTabFor(row?.Name ?? "", code, (decimal)(row?.Price ?? 0));
+        await window.ShowDialog(this).ConfigureAwait(true);
+        UpdateBarcodeExample();
+    }
 
 
     private async void DirectLan_Changed(object? sender, RoutedEventArgs e)
@@ -210,6 +267,7 @@ public partial class ScalesPluWindow : Window
                 PriceLine = p.PriceLine,
                 Unit = p.Unit ?? "",
                 Price = NurMarketKassa.Services.LocalCartService.ParsePrice(p.PriceLine),
+                BarcodeCode = DefaultBarcodeCode(p),
                 IsSelected = true,
             })
             .ToList();
@@ -217,6 +275,25 @@ public partial class ScalesPluWindow : Window
         ProductsGrid.ItemsSource = rows;
         EmptyText.IsVisible = rows.Count == 0;
         StatusText.Text = "";
+        UpdateBarcodeExample();
+    }
+
+    /// <summary>2026-09-28: какое число весы напечатают в ШК этикетки по умолчанию — то, по
+    /// которому касса потом найдёт товар (LocalCartService.FindByEmbeddedCode): при раскладке
+    /// компании «по PLU» — PLU товара, при «по коду» — «Код товара»/артикул, если это число.
+    /// Пусто — у товара нет ни того, ни другого; тогда при выгрузке берётся номер ячейки ПЛУ.</summary>
+    private static string DefaultBarcodeCode(NurMarketKassa.Models.Pos.CatalogProductTileVm p)
+    {
+        if (string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var candidate in new[] { p.ProductCode, p.Article })
+            {
+                var digits = (candidate ?? "").Trim();
+                if (digits.Length > 0 && digits.All(char.IsDigit) && long.TryParse(digits, out var n) && n is > 0 and <= 999999)
+                    return n.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+        return p.Plu is > 0 ? p.Plu.Value.ToString(CultureInfo.InvariantCulture) : "";
     }
 
     private void SelectAll_Click(object? sender, RoutedEventArgs e) => SetAllSelected(true);
@@ -325,6 +402,9 @@ public partial class ScalesPluWindow : Window
             }
 
             var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
+            // 2026-09-28: «Код в штрих-коде» из таблицы (владелец правит его перед отправкой).
+            var barcodeCodes = (ProductsGrid.ItemsSource as IEnumerable<ScalePluRowVm>)?
+                .ToDictionary(r => r.Id, r => r.BarcodeCode) ?? new Dictionary<string, string>();
             var records = new List<ShtrikhPluRecord>();
             // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
             // и без этого списка непонятно, какую наклейку куда клеить.
@@ -354,9 +434,22 @@ public partial class ScalesPluWindow : Window
 
                 keyMap.Add((plu, product.Title));
 
+                // 2026-09-28: «Код товара» записи ПЛУ — это число, которое весы печатают в
+                // весовом штрих-коде (Т в структуре ШК), и по нему касса ищет товар при скане.
+                // Раньше сюда шёл номер ячейки ПЛУ: при нумерации «подряд» у товара с PLU 5 в
+                // первой ячейке этикетка несла код 1, и касса находила чужой товар (с PLU 1)
+                // или не находила никакой. Теперь — значение колонки «Код в штрих-коде»
+                // (по умолчанию PLU товара / «Код товара» — см. DefaultBarcodeCode); пустое
+                // или неверное — как раньше, номер ячейки.
+                var productCode = barcodeCodes.TryGetValue(id, out var codeText)
+                                  && int.TryParse((codeText ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCode)
+                                  && parsedCode is >= 1 and <= 999999
+                    ? parsedCode
+                    : plu;
+
                 records.Add(ShtrikhPrintLanScaleService.CreateRecord(
                     pluNumber: plu,
-                    productCode: plu,
+                    productCode: productCode,
                     name: product.Title,
                     priceSom: (decimal)LocalCartService.ParsePrice(product.PriceLine),
                     decimalPointDigits: status.DecimalPointDigits,
@@ -716,6 +809,10 @@ public partial class ScalesPluWindow : Window
         /// <summary>Цена числом. PriceLine — оформленная строка для экрана («160,00 сом»), в CSV
         /// её класть нельзя: ни Excel, ни программа весов такую ячейку числом не прочитают.</summary>
         public double Price { get; init; }
+
+        /// <summary>2026-09-28: число, которое весы напечатают в весовом ШК («Код товара»
+        /// записи ПЛУ). Правится в таблице перед прямой выгрузкой.</summary>
+        public string BarcodeCode { get; set; } = "";
 
         private bool _isSelected;
         public bool IsSelected

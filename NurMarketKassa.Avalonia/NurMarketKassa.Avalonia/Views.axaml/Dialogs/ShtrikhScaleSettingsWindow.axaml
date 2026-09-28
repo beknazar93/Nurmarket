@@ -1,0 +1,122 @@
+﻿<!-- 2026-09-28: «Настройки весов Штрих-ПРИНТ» — по просьбе владельца перенесены в кассу
+     настройки тестовой программы Штрих-М («Тест драйвера весов "ШТРИХ-ПРИНТ"»): вкладка
+     «Клавиатура» целиком и полезные магазину параметры остальных вкладок. Связь — те же IP,
+     порт и пароль, что в Настройки → Весы. Содержимое вкладок строится в коде (однотипные
+     строки «подпись — значение»), здесь только каркас окна. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShtrikhScaleSettingsWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource loc.settings.shtrikhSettings.title}"
+        Width="820" Height="720" MinWidth="640" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource BrushPanel}"
+        Opened="Window_Opened">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-ok">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+      <Setter Property="Padding" Value="16,14"/>
+    </Style>
+    <Style Selector="TextBlock.cardTitle">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="MinHeight" Value="32"/>
+    </Style>
+    <Style Selector="TabControl.shtrikh TabItem">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="Padding" Value="10,4"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+    <!-- Шапка: чьи весы и проверка связи. -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+      <StackPanel Spacing="2">
+        <TextBlock Text="{DynamicResource loc.settings.shtrikhSettings.title}" FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource BrushText}"/>
+        <TextBlock x:Name="ConnectionText" Classes="hint"/>
+      </StackPanel>
+      <Button Grid.Column="1" x:Name="CheckButton" Classes="btn-primary" VerticalAlignment="Center"
+              Click="Check_Click"/>
+    </Grid>
+
+    <TextBlock Grid.Row="1" x:Name="IntroText" Classes="hint" Margin="0,0,0,8"/>
+
+    <TabControl Grid.Row="2" x:Name="Tabs" Classes="shtrikh">
+      <TabItem x:Name="KeyboardTab">
+        <ScrollViewer><StackPanel x:Name="KeyboardPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="StatusTab">
+        <ScrollViewer><StackPanel x:Name="StatusPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="SystemTab">
+        <ScrollViewer><StackPanel x:Name="SystemPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="GoodsTab">
+        <ScrollViewer><StackPanel x:Name="GoodsPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="PrintTab">
+        <ScrollViewer><StackPanel x:Name="PrintPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="BarcodeTab">
+        <ScrollViewer><StackPanel x:Name="BarcodePanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="TextsTab">
+        <ScrollViewer><StackPanel x:Name="TextsPanel" Spacing="12" Margin="0,10,8,10"/></ScrollViewer>
+      </TabItem>
+    </TabControl>
+
+    <!-- Строка «Ответ весов» — как «Ошибка» внизу тестовой программы Штрих-М. -->
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+      <Border x:Name="ResultBorder" CornerRadius="8" Padding="10,8" BorderThickness="1"
+              Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}">
+        <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+      </Border>
+      <Button Grid.Column="1" x:Name="CloseButton" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center"
+              Content="{DynamicResource common.close}" Click="Close_Click"/>
+    </Grid>
+  </Grid>
+</Window>
