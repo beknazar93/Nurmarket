@@ -61,6 +61,9 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ICatalogApiService, CatalogApiService>();
         services.AddSingleton<ISalesApiService, SalesApiService>();
         services.AddSingleton<IClientsApiService, ClientsApiService>();
+        // 2026-09-28: новые адреса NurCRM — должники, погашение долга одной суммой, telegram_chat_id,
+        // малый остаток, вид магазина (docs/BACKEND_API.md, BE-03/04/05/12/18).
+        services.AddSingleton<ClientDebtsApiService>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
         services.AddSingleton<IInventoryApiService, InventoryApiService>();
         services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();

@@ -21,7 +21,8 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// </summary>
 public partial class ScaleNetworkScanWindow : Window
 {
-    private const string ColumnsSpec = "115,135,*,70,195,175,150";
+    // 2026-09-28: добавлена колонка «Как найдено» (ping / ARP / широковещание / временный адрес / через роутер).
+    private const string ColumnsSpec = "115,130,*,70,185,165,150,150";
 
     private readonly string? _preferredBrand;
     private IReadOnlyList<LocalSubnet> _subnets = Array.Empty<LocalSubnet>();
@@ -50,6 +51,7 @@ public partial class ScaleNetworkScanWindow : Window
         SubnetLabel.Text = L("Сеть:", "Тармак:", "Network:", "Ağ:", "Tarmoq:");
         StartButton.Content = StartText;
         BuildHeader();
+        InitForeignPanel(); // 2026-09-28: чужие подсети и временный адрес — ScaleNetworkScanWindow.Subnets.cs
         LoadSubnets();
         ShowResult(L("Нажмите «Начать поиск». Обычно это занимает 10–30 секунд.", "«Издөөнү баштоо» басыңыз. Адатта 10–30 секунд созулат.", "Press “Start search”. It usually takes 10–30 seconds.", "“Aramayı başlat”a basın. Genellikle 10–30 saniye sürer.", "«Qidiruvni boshlash»ni bosing. Odatda 10–30 soniya davom etadi."), false);
         Closing += (_, _) => _cts?.Cancel();
@@ -61,18 +63,18 @@ public partial class ScaleNetworkScanWindow : Window
     private void LoadSubnets()
     {
         _subnets = ScaleNetworkScanner.GetLocalSubnets();
-        SubnetBox.Items.Clear();
-        foreach (var s in _subnets)
-        {
-            SubnetBox.Items.Add($"{s.AdapterName} — {s.LocalAddress}/{s.PrefixLength} · "
-                                + L("адреса ", "даректер ", "addresses ", "adresler ", "manzillar ") + s.RangeText
-                                + $" ({s.HostCount})");
-        }
+        // 2026-09-28: пункты списка строит FillTargets — после подсетей ПК идут «чужие» подсети.
+        FillTargets();
         if (_subnets.Count > 0)
         {
             SubnetBox.SelectedIndex = 0;
-            SubnetBox.SelectionChanged += (_, _) => UpdateSubnetNote();
+            SubnetBox.SelectionChanged += (_, _) =>
+            {
+                UpdateSubnetNote();
+                UpdateForeignPanel();
+            };
             UpdateSubnetNote();
+            UpdateForeignPanel();
         }
         else
         {
@@ -81,8 +83,7 @@ public partial class ScaleNetworkScanWindow : Window
         }
     }
 
-    private LocalSubnet? SelectedSubnet =>
-        SubnetBox.SelectedIndex >= 0 && SubnetBox.SelectedIndex < _subnets.Count ? _subnets[SubnetBox.SelectedIndex] : null;
+    private LocalSubnet? SelectedSubnet => SelectedTarget?.Local; // 2026-09-28: список теперь шире подсетей ПК
 
     private void UpdateSubnetNote()
     {
@@ -119,6 +120,7 @@ public partial class ScaleNetworkScanWindow : Window
             "Ping",
             L("Порты весов", "Тараза порттору", "Scale ports", "Tartı portları", "Tarozi portlari"),
             L("Что это", "Бул эмне", "What it is", "Bu ne", "Bu nima"),
+            L("Как найдено", "Кантип табылды", "How found", "Nasıl bulundu", "Qanday topildi"), // 2026-09-28
             "",
         };
         for (var i = 0; i < titles.Length; i++)
@@ -138,14 +140,17 @@ public partial class ScaleNetworkScanWindow : Window
             return;
         }
 
-        var subnet = SelectedSubnet;
-        if (subnet is null)
+        // 2026-09-28: кроме подсетей ПК — «чужие» подсети (RunScanAsync в ScaleNetworkScanWindow.Subnets.cs).
+        var target = SelectedTarget;
+        if (target is null || target.Kind == TargetKind.Separator)
             return;
+        var subnetText = target.Local?.RangeText ?? target.Preset?.Range.Label ?? (target.Kind == TargetKind.Custom ? CustomRangeBox.Text : "typical subnets");
 
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         StartButton.Content = StopText;
         SubnetBox.IsEnabled = false;
+        ForeignPanel.IsEnabled = false;
         Progress.IsVisible = true;
         Progress.Value = 0;
         RowsPanel.Children.Clear();
@@ -156,7 +161,9 @@ public partial class ScaleNetworkScanWindow : Window
         var started = DateTime.UtcNow;
         try
         {
-            var devices = await Task.Run(() => ScaleNetworkScanner.ScanAsync(subnet, shtrikhPort, progress, ct), ct).ConfigureAwait(true);
+            var devices = await RunScanAsync(target, shtrikhPort, progress, ct).ConfigureAwait(true);
+            if (devices is null)
+                return; // ошибка ввода или отказ в подтверждении — сообщение уже на экране
             ShowDevices(devices);
             var scales = devices.Count(d => d.Guess != ScaleDeviceGuess.Unknown);
             var seconds = (int)(DateTime.UtcNow - started).TotalSeconds;
@@ -171,12 +178,14 @@ public partial class ScaleNetworkScanWindow : Window
                                      "No scale was identified by protocol — look at nameless devices (MAC, ARP); they may be scales with a closed protocol (TM-30F) or in client mode.",
                                      "Protokolle tanınan tartı yok — adsız cihazlara bakın (MAC, ARP); kapalı protokollü (TM-30F) veya istemci modundaki tartı olabilir.",
                                      "Protokol bo‘yicha tarozi aniqlanmadi — nomsiz qurilmalarni ko‘ring (MAC, ARP), bular yopiq protokolli (TM-30F) yoki mijoz rejimidagi tarozi bo‘lishi mumkin.")
-                           : ""), false);
-            PosLogger.Log($"Поиск весов в сети {subnet.RangeText}: устройств {devices.Count}, похожих на весы {scales}", "SCALES");
+                           : "")
+                       + (ScanNotesText is { } notes ? "\n" + notes : ""), false); // 2026-09-28: временный адрес, широковещание
+            PosLogger.Log($"Поиск весов в сети {subnetText}: устройств {devices.Count}, похожих на весы {scales}", "SCALES");
         }
         catch (OperationCanceledException)
         {
-            ShowResult(L("Поиск остановлен.", "Издөө токтотулду.", "Search stopped.", "Arama durduruldu.", "Qidiruv to‘xtatildi."), false);
+            ShowResult(L("Поиск остановлен.", "Издөө токтотулду.", "Search stopped.", "Arama durduruldu.", "Qidiruv to‘xtatildi.")
+                       + (ScanNotesText is { } notes ? "\n" + notes : ""), false); // 2026-09-28: итог по временному адресу виден и после остановки
         }
         catch (Exception ex)
         {
@@ -189,7 +198,9 @@ public partial class ScaleNetworkScanWindow : Window
             _cts = null;
             StartButton.Content = StartText;
             SubnetBox.IsEnabled = true;
+            ForeignPanel.IsEnabled = true;
             Progress.IsVisible = false;
+            ProgressText.Text = "";
         }
     }
 
@@ -202,7 +213,9 @@ public partial class ScaleNetworkScanWindow : Window
             ScaleScanStage.Probe => L("Проверяю порты весов и имена", "Тараза порттору жана аттары текшерилүүдө", "Checking scale ports and names", "Tartı portları ve adlar kontrol ediliyor", "Tarozi portlari va nomlari tekshirilmoqda"),
             _ => L("Готово", "Даяр", "Done", "Bitti", "Tayyor"),
         };
-        ProgressText.Text = p.Total > 0 ? $"{stage}: {p.Done} / {p.Total}" : stage;
+        var text = p.Total > 0 ? $"{stage}: {p.Done} / {p.Total}" : stage;
+        ReportProgressPrefix(ref text); // 2026-09-28: «[2/7] 192.168.1.0/24 · …» при нескольких подсетях
+        ProgressText.Text = text;
         // Шкала: ping — 0–70 %, ARP — 70 %, проверки — 70–100 %.
         Progress.Value = p.Stage switch
         {
@@ -221,11 +234,13 @@ public partial class ScaleNetworkScanWindow : Window
             RowsPanel.Children.Add(new TextBlock { Text = L("Никого не нашли.", "Эч ким табылган жок.", "Nothing found.", "Hiçbir şey bulunamadı.", "Hech narsa topilmadi."), Classes = { "hint" }, Margin = new Thickness(0, 8) });
             return;
         }
+        // 2026-09-28: для весов из чужой подсети — готовый свободный адрес в сети компьютера.
+        var suggest = devices.Any(d => d.OutsideLocalNetworks) ? SuggestAddressForScale(devices) : null;
         foreach (var d in devices)
-            RowsPanel.Children.Add(BuildRow(d));
+            RowsPanel.Children.Add(BuildRow(d, suggest));
     }
 
-    private Control BuildRow(ScaleNetworkDevice d)
+    private Control BuildRow(ScaleNetworkDevice d, string? suggest = null)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(ColumnsSpec), Margin = new Thickness(0, 6) };
         var mono = new FontFamily("Consolas, Segoe UI");
@@ -263,7 +278,9 @@ public partial class ScaleNetworkScanWindow : Window
 
         Cell(3, d.PingReplied
             ? $"{d.RoundtripMs?.ToString(CultureInfo.InvariantCulture) ?? "?"} " + L("мс", "мс", "ms", "ms", "ms")
-            : L("нет (ARP)", "жок (ARP)", "no (ARP)", "yok (ARP)", "yo‘q (ARP)"));
+            : d.InArpTable || !d.FoundBy.HasFlag(ScaleFoundBy.Broadcast) // 2026-09-28: найденные только широковещанием в ARP нет
+                ? L("нет (ARP)", "жок (ARP)", "no (ARP)", "yok (ARP)", "yo‘q (ARP)")
+                : "—");
 
         string Mark(bool? open) => open == true ? "✓" : "—";
         var ports = $"TCP 5001 {Mark(d.Tcp5001Open)} · TCP {ScaleNetworkScanner.TmServerPort} {Mark(d.TmPortOpen)} · "
@@ -273,11 +290,12 @@ public partial class ScaleNetworkScanWindow : Window
         var (guessText, guessBrush) = d.Guess switch
         {
             ScaleDeviceGuess.Shtrikh => (L("Весы Штрих-ПРИНТ", "Штрих-ПРИНТ таразасы", "Shtrih-PRINT scale", "Shtrih-PRINT tartı", "Shtrix-PRINT tarozi") + (d.ShtrikhInfo is { Length: > 0 } ? $" ({d.ShtrikhInfo})" : ""), ThemeBrush(this, "BrushSuccess", Brushes.Green)),
-            ScaleDeviceGuess.TmJhScale => (L("Похоже на TM-30F / JHScale (порт 33581)", "TM-30F / JHScale окшойт (33581 порт)", "Looks like TM-30F / JHScale (port 33581)", "TM-30F / JHScale'e benziyor (port 33581)", "TM-30F / JHScale'ga o‘xshaydi (33581 port)"), ThemeBrush(this, "BrushSuccess", Brushes.Green)),
+            ScaleDeviceGuess.TmJhScale => (L("Похоже на TM-30F / Dahua (порт 4001)", "TM-30F / Dahua окшойт (4001 порт)", "Looks like TM-30F / Dahua (port 4001)", "TM-30F / Dahua'ya benziyor (port 4001)", "TM-30F / Dahua'ga o‘xshaydi (4001 port)"), ThemeBrush(this, "BrushSuccess", Brushes.Green)),
             ScaleDeviceGuess.Rongta => (L("Возможно Rongta (открыт 5001)", "Rongta болушу мүмкүн (5001 ачык)", "Possibly Rongta (5001 open)", "Rongta olabilir (5001 açık)", "Rongta bo‘lishi mumkin (5001 ochiq)"), ThemeBrush(this, "BrushWarning", Brushes.DarkOrange)),
             _ => (L("неизвестное устройство", "белгисиз түзмөк", "unknown device", "bilinmeyen cihaz", "noma’lum qurilma"), ThemeBrush(this, "BrushTextSoft", Brushes.Gray)),
         };
         Cell(5, guessText, bold: d.Guess != ScaleDeviceGuess.Unknown, brush: guessBrush);
+        Cell(6, FoundByText(d), brush: ThemeBrush(this, "BrushTextSoft", Brushes.Gray)); // 2026-09-28: «Как найдено»
 
         var use = new Button
         {
@@ -295,18 +313,49 @@ public partial class ScaleNetworkScanWindow : Window
             item.Click += (_, _) => ApplyAddress(d.Ip, b);
             menu.Items.Add(item);
         }
+        // 2026-09-28: весы в чужой подсети — сразу записать адрес, который им дадут в сети компьютера.
+        if (d.OutsideLocalNetworks && suggest is not null)
+        {
+            menu.Items.Add(new Separator());
+            foreach (var brand in new[] { BrandShtrikh, BrandRongta, BrandTm }.OrderBy(b => b == _preferredBrand ? 0 : 1))
+            {
+                var b = brand;
+                var item = new MenuItem
+                {
+                    Header = L($"{suggest} (новый адрес весов, после смены на весах) → {BrandTitle(brand)}",
+                               $"{suggest} (таразанын жаңы дареги, таразада алмаштыргандан кийин) → {BrandTitle(brand)}",
+                               $"{suggest} (the scale's new address, after changing it on the scale) → {BrandTitle(brand)}",
+                               $"{suggest} (tartının yeni adresi, tartıda değiştirdikten sonra) → {BrandTitle(brand)}",
+                               $"{suggest} (tarozining yangi manzili, tarozida o‘zgartirgandan keyin) → {BrandTitle(brand)}"),
+                };
+                item.Click += (_, _) => ApplyAddress(suggest, b);
+                menu.Items.Add(item);
+            }
+        }
         use.Flyout = menu;
-        Grid.SetColumn(use, 6);
+        Grid.SetColumn(use, 7);
         grid.Children.Add(use);
 
-        return new StackPanel
+        var row = new StackPanel
         {
             Children =
             {
                 grid,
-                new Border { Height = 1, Background = ThemeBrush(this, "BrushBorder", Brushes.LightGray) },
             },
         };
+        if (d.OutsideLocalNetworks)
+        {
+            row.Children.Add(new TextBlock
+            {
+                Text = "⚠ " + OutsideHint(d, suggest),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 6),
+                Foreground = ThemeBrush(this, "BrushWarning", Brushes.DarkOrange),
+            });
+        }
+        row.Children.Add(new Border { Height = 1, Background = ThemeBrush(this, "BrushBorder", Brushes.LightGray) });
+        return row;
     }
 
     private void ApplyAddress(string ip, string brand)

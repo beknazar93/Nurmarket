@@ -1254,6 +1254,8 @@
     <x:String x:Key="loc.owner.shift.reportTitle">Отчёт смены</x:String>
     <x:String x:Key="loc.owner.irregular.retry">Отправить повторно</x:String>
     <x:String x:Key="loc.owner.scales.exportCsv">Экспорт в CSV</x:String>
+    <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
+    <x:String x:Key="loc.owner.scales.tmExportFile">Файл для «Русского масштаба»</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI весы</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPlu">Нумеровать под клавиши весов</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Клавиши на панели весов вызывают ПЛУ по его НОМЕРУ: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2 и так далее. Если записать товар под его собственным номером (например 10007), ни одна клавиша его не найдёт. С этой галочкой товары получают номера подряд, начиная с указанного, и порядок в списке ниже — это порядок клавиш.</x:String>

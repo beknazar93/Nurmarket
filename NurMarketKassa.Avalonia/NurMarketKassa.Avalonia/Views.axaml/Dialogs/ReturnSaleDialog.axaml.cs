@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -196,6 +197,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 string? receiptNumber = row.TryGetProperty("receipt_number", out var rn) && rn.ValueKind == JsonValueKind.String
                     ? rn.GetString()
                     : null;
+                // 2026-09-28 (BE-08): постоянный номер продажи с сервера — тот же, что в «Истории
+                // чеков», в «Продажах» и на печатном чеке (SalesWindow.TryReceiptNumber). Раньше
+                // здесь был номер по месту в списке, который рос с каждой новой продажей.
+                if (string.IsNullOrWhiteSpace(receiptNumber))
+                    receiptNumber = SalesWindow.TryReceiptNumber(row);
 
                 Sales.Add(new ReturnSaleListItemVm
                 {
@@ -263,6 +269,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // Поиск, кроме внутреннего SaleId (серверный GUID, не показывается пользователю),
         // должен уметь находить чек и по видимому "№N" — это то, что реально видно в списке.
         var trimmedFilter = (_searchFilter ?? "").Trim().TrimStart('№', '#');
+        // 2026-09-28: «№1115», «1115» и «001115» — один и тот же постоянный номер чека.
+        var filterNumber = NurCrmReportsApi.ParseSaleNumber(_searchFilter);
         foreach (var item in Sales)
         {
             position++;
@@ -270,6 +278,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 || item.SaleId.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase)
                 || (!string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
                     item.ReceiptNumber.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
+                || (filterNumber is { } wanted && NurCrmReportsApi.ParseSaleNumber(item.ReceiptNumber) == wanted)
                 || (string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
                     string.Equals(trimmedFilter, position.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
             if (matches)
@@ -326,6 +335,47 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // поэтому если он ввёл именно его — сначала пробуем найти по позиции в загруженном
         // списке, и только если не нашли — отправляем введённый текст как есть (вдруг это
         // настоящий ID, скопированный откуда-то ещё).
+        //
+        // 2026-09-28 (BE-08): у продажи на сервере теперь постоянный номер. Введённый номер ищем
+        // сначала среди загруженных чеков, затем на сервере (?number=) — чек мог быть пробит давно
+        // и в первые страницы списка не попасть. Номер по месту в списке — только если сервер
+        // номеров не присылает (старый сервер).
+        if (NurCrmReportsApi.ParseSaleNumber(raw) is { } saleNumber)
+        {
+            var loaded = Sales.FirstOrDefault(s => NurCrmReportsApi.ParseSaleNumber(s.ReceiptNumber) == saleNumber);
+            if (loaded != null)
+            {
+                await OpenSaleByIdAsync(loaded.SaleId).ConfigureAwait(true);
+                return;
+            }
+
+            IsBusy = true;
+            JsonElement? found;
+            try
+            {
+                found = await NurCrmReportsApi.FindSaleByNumberAsync(saleNumber).ConfigureAwait(true);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+
+            if (found is { } foundSale && PosSaleRowFormatter.TrySaleId(foundSale) is { Length: > 0 } foundId)
+            {
+                AddFoundSale(foundSale, foundId);
+                await OpenSaleByIdAsync(foundId).ConfigureAwait(true);
+                return;
+            }
+
+            if (Sales.Any(s => !string.IsNullOrWhiteSpace(s.ReceiptNumber)))
+            {
+                ShowErr(Tr.T($"Чек №{saleNumber} не найден.", $"№{saleNumber} чек табылган жок.",
+                    $"Receipt No. {saleNumber} was not found.", $"{saleNumber} numaralı fiş bulunamadı.",
+                    $"№{saleNumber} chek topilmadi."));
+                return;
+            }
+        }
+
         var trimmed = raw.TrimStart('№', '#');
         if (int.TryParse(trimmed, NumberStyles.None, CultureInfo.InvariantCulture, out var position)
             && position >= 1 && position <= Sales.Count)
@@ -337,6 +387,50 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         await OpenSaleByIdAsync(raw).ConfigureAwait(true);
     }
 
+    /// <summary>Чек, найденный на сервере по номеру (2026-09-28, BE-08), — в список, если его там
+    /// ещё нет: чтобы он был виден и выбран, как любой другой.</summary>
+    private void AddFoundSale(JsonElement row, string saleId)
+    {
+        if (!_salesSeenIds.Add(saleId))
+            return;
+
+        _ = TryGetDateTime(row, "created_at", out var saleDate);
+        _ = TryGetDecimal(row, "total", out var totalAmount);
+        Sales.Insert(0, new ReturnSaleListItemVm
+        {
+            SaleId = saleId,
+            SaleDate = saleDate,
+            TotalAmount = totalAmount,
+            Summary = PosSaleRowFormatter.SummaryLine(row),
+            ReceiptNumber = SalesWindow.TryReceiptNumber(row),
+        });
+        ApplySalesFilter();
+    }
+
+    private CancellationTokenSource? _numberLookupCts;
+
+    /// <summary>Строка поиска: номер, которого нет среди загруженных чеков, ищем на сервере
+    /// (?number=, 2026-09-28) — с паузой, чтобы не спрашивать на каждую набранную цифру.</summary>
+    private async Task LookupSaleByNumberAsync(long saleNumber, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(500, ct).ConfigureAwait(true);
+            var found = await NurCrmReportsApi.FindSaleByNumberAsync(saleNumber, ct).ConfigureAwait(true);
+            if (ct.IsCancellationRequested || found is not { } sale
+                || PosSaleRowFormatter.TrySaleId(sale) is not { Length: > 0 } id)
+                return;
+            AddFoundSale(sale, id);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Возврат: поиск чека №{saleNumber} на сервере не удался: {ex.Message}", "SALES");
+        }
+    }
+
     private async Task OpenSaleByIdAsync(string saleId)
     {
         ErrorText.IsVisible = false;
@@ -346,7 +440,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             var sale = await App.SalesApi.PosSaleGetAsync(saleId).ConfigureAwait(true);
             _currentSaleId = saleId;
-            _currentReceiptNumber = Sales.FirstOrDefault(x => x.SaleId == saleId)?.ReceiptNumber;
+            // Чека нет в загруженном списке (открыт из «Истории чеков» или по ID) — постоянный
+            // номер берём из самой продажи (2026-09-28, BE-08): он же печатается на чеке возврата.
+            _currentReceiptNumber = Sales.FirstOrDefault(x => x.SaleId == saleId)?.ReceiptNumber
+                                    ?? SalesWindow.TryReceiptNumber(sale);
             FillLinesFromSale(sale);
             UpdateReceiptChrome();
             if (Lines.Count == 0)
@@ -645,6 +742,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         var row = FilteredSales.FirstOrDefault(r => string.Equals(r.SaleId, saleId, StringComparison.OrdinalIgnoreCase));
         if (row != null)
             return row.DisplayNumber;
+        // 2026-09-28 (BE-08): постоянный номер, прочитанный из самой продажи при открытии.
+        if (string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(_currentReceiptNumber))
+            return _currentReceiptNumber!;
         // 2026-09-28: чек открыт из «Истории чеков», а в загруженные страницы списка он не попал
         // (старше первых 35 продаж) — номер тот же, что показала история (он считается по тому
         // же правилу, что и здесь, — как на сайте), а не обрезанный код продажи.
@@ -776,6 +877,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         _searchFilter = SearchReceiptBox.Text ?? "";
         ApplySalesFilter();
+
+        // Номер, которого нет среди загруженных чеков, — ищем на сервере (2026-09-28, BE-08).
+        _numberLookupCts?.Cancel();
+        _numberLookupCts = null;
+        if (FilteredSales.Count == 0
+            && NurCrmReportsApi.ParseSaleNumber(_searchFilter) is { } saleNumber
+            && Sales.Any(s => !string.IsNullOrWhiteSpace(s.ReceiptNumber)))
+        {
+            _numberLookupCts = new CancellationTokenSource();
+            _ = LookupSaleByNumberAsync(saleNumber, _numberLookupCts.Token);
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

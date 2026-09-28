@@ -81,11 +81,16 @@ public static class RongtaTcpProtocol
         sb.Append("00");                                    // Rank — семантика не описана, 0
         sb.Append(PadRightFixed(transliteratedName, 36));    // Name
         sb.Append(ClampDigits(plu, 6));                      // Fresh food code / LFCode = PLU
-        sb.Append(ClampDigits(0, 10));                       // Art. No. / Code — не используем
-        sb.Append(ClampDigits(0, 2));                        // Barcode type — 0 = не задан
+        // 2026-09-28: Code, тип штрихкода и отдел — как в рабочем .txp с сайта (products.txp:
+        // «LF код» = «Код» = PLU, «Тип штрихкода» = 5, «Отдел» = 21). Раньше здесь шли нули —
+        // по руководству весы берут «номер товара» штрихкода из поля Code, и этикетка вышла бы
+        // с нулевым кодом, а касса не нашла бы товар. Тип 05 = отдел(2)+код(6)+вес(4) —
+        // раскладка компании «по коду», как советует документация сайта для Rongta.
+        sb.Append(ClampDigits(plu, 10));                     // Art. No. / Code = PLU
+        sb.Append(ClampDigits(5, 2));                        // Barcode type 05
         sb.Append(ClampDigits((long)Math.Round(priceSom * 100), 8)); // Unit price ×100, без точки
         sb.Append(weighingUnit);                             // Weighing unit (по умолчанию '4' = кг)
-        sb.Append(ClampDigits(0, 2));                        // Dept.
+        sb.Append(ClampDigits(21, 2));                       // Dept. = 21 (префикс штрихкода)
         sb.Append(ClampDigits(0, 6));                        // Tare weight (по умолчанию 0)
         sb.Append(ClampDigits(15, 3));                        // Saving period (по умолчанию 15, как в Appendix)
         sb.Append(ClampDigits(0, 1));                         // Packing type

@@ -55,6 +55,16 @@ public sealed class ScaleNetworkDevice
     /// <summary>Ответ весов ШТРИХ-ПРИНТ на FCh (модель/имя) или null.</summary>
     public string? ShtrikhInfo { get; set; }
     public ScaleDeviceGuess Guess { get; set; }
+
+    // 2026-09-28: просьба владельца «проверка всех подсетей при поиске ip адреса весов даже
+    // если комп стоит статичный ip адрес» — в таблице видно, как и где нашли устройство.
+    /// <summary>Каким способом найдено (может быть несколько).</summary>
+    public ScaleFoundBy FoundBy { get; set; }
+    /// <summary>Какой диапазон сканировали, когда нашли (например «192.168.1.0/24»).</summary>
+    public string? ScanLabel { get; set; }
+    /// <summary>Адрес не входит ни в одну подсеть адаптеров этого компьютера — касса без
+    /// роутера или временного адреса с такими весами работать не сможет.</summary>
+    public bool OutsideLocalNetworks { get; set; }
 }
 
 public enum ScaleScanStage { Ping, Arp, Probe, Done }
@@ -76,14 +86,15 @@ public sealed record ScaleScanProgress(ScaleScanStage Stage, int Done, int Total
 ///    пароля, поэтому не тратит попытки входа и не может заблокировать весы.
 /// Ничего не записывает ни в какие устройства.
 /// </summary>
-public static class ScaleNetworkScanner
+public static partial class ScaleNetworkScanner // 2026-09-28: partial — поиск в чужих подсетях в ScaleNetworkScanner.Subnets.cs
 {
     /// <summary>TCP-порт, который проверяем для Rongta (см. оговорку у <see cref="ScaleDeviceGuess.Rongta"/>).</summary>
     public const int RongtaProbePort = 5001;
 
-    /// <summary>Spec166 «Scale's server port» весов TM-F / TM-xA, значение по умолчанию из
-    /// руководства JHScale (2014, V2.50A). Spec167 = 33582 (клиент), 168/169 = 33583/33584 (UDP).</summary>
-    public const int TmServerPort = 33581;
+    /// <summary>Порт весов TM-30F. 2026-09-28: было 33581 (Spec166 из руководства JHScale), но
+    /// программа весов владельца «Русский масштаб» — Dahua, и её datatransters.dll по умолчанию
+    /// подключается к весам по TCP 4001 (сетевой модуль ZLG ZNE-100T), см. DahuaTmScaleService.</summary>
+    public const int TmServerPort = 4001;
 
     private const int PingParallelism = 48;
     private const int PingTimeoutMs = 400;
@@ -201,6 +212,7 @@ public static class ScaleNetworkScanner
                         var d = devices.GetOrAdd(h, n => NewDevice(n));
                         d.PingReplied = true;
                         d.RoundtripMs = reply.RoundtripTime;
+                        d.FoundBy |= ScaleFoundBy.Ping; // 2026-09-28: колонка «Как найдено»
                     }
                 }
                 catch (OperationCanceledException)
@@ -230,6 +242,7 @@ public static class ScaleNetworkScanner
             var d = devices.GetOrAdd(address, n => NewDevice(n));
             d.InArpTable = true;
             d.Mac ??= mac;
+            d.FoundBy |= ScaleFoundBy.Arp; // 2026-09-28: колонка «Как найдено»
         }
 
         foreach (var d in devices.Values)

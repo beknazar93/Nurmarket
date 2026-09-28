@@ -191,6 +191,9 @@ public partial class OperationsSettingsView : UserControl
             : MarketSpheres.Grocery;
         MarketSpheres.Set(sphere);
         RefreshSphereUi();
+        // 2026-09-28: вид магазина теперь хранится и у компании на сервере — все кассы
+        // перестраиваются сами при входе (BE-18). См. OperationsSettingsView.Sphere.cs.
+        _ = SaveSphereOnServerAsync(sphere);
     }
 
     public void LoadBankQrSettings()
@@ -381,9 +384,11 @@ public partial class OperationsSettingsView : UserControl
         TelegramStatusText.Text = Tr.T("Рассылаю напоминания…", "Эскертмелер жөнөтүлүүдө…", "Sending reminders…", "Hatırlatmalar gönderiliyor…", "Eslatmalar yuborilmoqda…");
         try
         {
+            // 2026-09-28: должники и chat_id — со сводки сервера (BE-03/BE-04), старый путь — запасной.
             var bot = new TelegramBotPollingService(
                 App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>(),
-                App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>());
+                App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>(),
+                App.GetRequiredService<NurMarketKassa.Services.Api.ClientDebtsApiService>());
 
             var sent = await bot.SendDebtRemindersAsync().ConfigureAwait(true);
             TelegramStatusText.Text = sent > 0

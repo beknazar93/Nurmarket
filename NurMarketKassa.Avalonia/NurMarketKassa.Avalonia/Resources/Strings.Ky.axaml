@@ -1254,6 +1254,8 @@
     <x:String x:Key="loc.owner.shift.reportTitle">Сменанын отчёту</x:String>
     <x:String x:Key="loc.owner.irregular.retry">Кайра жөнөтүү</x:String>
     <x:String x:Key="loc.owner.scales.exportCsv">CSV'ге экспорттоо</x:String>
+    <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
+    <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» үчүн файл</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI тараза</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPlu">Тараза баскычтарына ылайык номерлөө</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Тараза панелиндеги баскычтар PLU'ну анын НОМЕРИ боюнча чакырат: 1-баскыч — PLU 1, 2-баскыч — PLU 2 жана башкалар. Эгер товарды өзүнүн номери менен жазсаңыз (мисалы, 10007), аны бир да баскыч таппайт. Бул белги коюлганда товарлар көрсөтүлгөн номерден баштап катары менен номер алат, ал эми төмөнкү тизменин тартиби — баскычтардын тартиби.</x:String>

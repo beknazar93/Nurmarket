@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text.Json;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
@@ -17,6 +18,9 @@ namespace NurMarketKassa.Services;
 /// expected_cash; внесение (ручной приход) идёт в баланс кассы, но в expected_cash смены не
 /// входит. Поэтому ShiftCashOperationsStore.NetForShift после записи на сервер перестаёт
 /// вычитать изъятие сам, а внесение прибавляет по-прежнему.
+///
+/// 2026-09-28: NurCRM добавил вид «shift_drawer_inflow» (BE-06) — внесение теперь тоже входит в
+/// expected_cash смены, и NetForShift перестаёт прибавлять его после записи на сервер.
 ///
 /// Не ушло (нет сети, сервер недоступен) — операция остаётся в очереди и уходит при следующей
 /// операции или при обновлении остатка смены. Только в открытую смену: в закрытую смену сервер
@@ -43,18 +47,34 @@ public static class ShiftCashFlowSync
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
             // Ответ на прошлую попытку мог потеряться уже после записи на сервере — сверяемся с
-            // движениями смены по source_id (= ID операции на кассе), чтобы не записать дважды.
-            var existing = await ExistingFlowsAsync(shiftId, cts.Token).ConfigureAwait(false);
+            // движениями по source_id (= ID операции на кассе), чтобы не записать дважды.
+            // 2026-09-28: сервер научился фильтру ?source_id= (BE-06) — спрашиваем по каждой
+            // операции одним коротким запросом вместо чтения всех движений смены (у большого
+            // магазина это десятки страниц). Фильтр не ответил — как раньше, по всей смене.
+            Dictionary<string, (string Id, string? Kind)>? existing = null;
 
             foreach (var op in pending)
             {
-                if (existing.TryGetValue(op.Id, out var knownId))
+                var known = await NurCrmReportsApi.CashFlowsBySourceIdAsync(op.Id, cts.Token).ConfigureAwait(false);
+                if (known is null)
                 {
-                    ShiftCashOperationsStore.MarkSynced(op.Id, knownId);
+                    existing ??= await ExistingFlowsAsync(shiftId, cts.Token).ConfigureAwait(false);
+                    if (existing.TryGetValue(op.Id, out var fromShift))
+                        known = new[] { fromShift };
+                }
+
+                if (known is { Count: > 0 })
+                {
+                    ShiftCashOperationsStore.MarkSynced(op.Id, known[0].Id, known[0].SourceKind);
                     continue;
                 }
 
                 var withdrawal = CashOperationModel.ResolveKind(op.Type) == CashOperationKind.Withdrawal;
+                // 2026-09-28, BE-06: внесение — парный к изъятию вид «shift_drawer_inflow». Раньше
+                // уходило как «manual» и в ожидаемый остаток смены на сервере не входило: после
+                // закрытия смены сайт показывал баланс меньше ровно на сумму внесений. Проверено на
+                // тестовой смене: внесение 10 сом → expected_cash 905 → 915, изъятие 10 → 905.
+                var sourceKind = withdrawal ? "shift_drawer_outflow" : ShiftCashOperationsStore.ShiftDrawerInflowKind;
                 var body = new Dictionary<string, string>
                 {
                     ["cashbox"] = cashboxId,
@@ -62,14 +82,19 @@ public static class ShiftCashFlowSync
                     ["type"] = withdrawal ? "expense" : "income",
                     ["name"] = FlowName(op.Type, op.Comment),
                     ["amount"] = op.Amount.ToString("0.00", CultureInfo.InvariantCulture),
-                    ["source_kind"] = withdrawal ? "shift_drawer_outflow" : "manual",
+                    ["source_kind"] = sourceKind,
                     ["source_id"] = op.Id,
                     ["payment_method"] = "cash",
                 };
 
                 var created = await PosApp.ShiftApi.ConstructionCashFlowCreateAsync(body, cts.Token).ConfigureAwait(false);
                 var flowId = Str(created, "id");
-                ShiftCashOperationsStore.MarkSynced(op.Id, string.IsNullOrEmpty(flowId) ? "?" : flowId);
+                // Вид берём из ответа: старый сервер без «shift_drawer_inflow» мог записать другой.
+                var savedKind = Str(created, "source_kind");
+                ShiftCashOperationsStore.MarkSynced(
+                    op.Id,
+                    string.IsNullOrEmpty(flowId) ? "?" : flowId,
+                    string.IsNullOrEmpty(savedKind) ? sourceKind : savedKind);
                 var status = Str(created, "status");
                 PosLogger.Log(
                     $"{op.Type} {op.Amount:0.00} записано на сервер (смена {shiftId[..8]}, движение {flowId}, статус {status}).",
@@ -86,9 +111,9 @@ public static class ShiftCashFlowSync
         }
     }
 
-    private static async Task<Dictionary<string, string>> ExistingFlowsAsync(string shiftId, CancellationToken ct)
+    private static async Task<Dictionary<string, (string Id, string? Kind)>> ExistingFlowsAsync(string shiftId, CancellationToken ct)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, (string Id, string? Kind)>(StringComparer.OrdinalIgnoreCase);
         // Каждая продажа — тоже движение смены, у большого магазина их за смену тысячи.
         for (var page = 1; page <= 40; page++)
         {
@@ -102,7 +127,7 @@ public static class ShiftCashFlowSync
                 var sourceId = Str(row, "source_id");
                 var id = Str(row, "id");
                 if (!string.IsNullOrEmpty(sourceId) && !string.IsNullOrEmpty(id))
-                    map[sourceId] = id;
+                    map[sourceId] = (id, Str(row, "source_kind"));
             }
 
             var hasNext = root.ValueKind == JsonValueKind.Object

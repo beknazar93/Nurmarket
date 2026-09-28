@@ -524,6 +524,9 @@ public partial class ShtrikhScaleSettingsWindow
         Preset(L("сом (мелко)", "сом (майда)", "сом (small)", "сом (küçük)", "сом (mayda)"), () => _symbolEditor.SetPixels(RenderTextToDots("сом", _symbolEditor.Cols, _symbolEditor.Rows, SymbolForPrint)));
         Preset(L("Очистить", "Тазалоо", "Clear", "Temizle", "Tozalash"), () => _symbolEditor.Clear());
         Preset(L("Инвертировать", "Тескери буруу", "Invert", "Ters çevir", "Teskari"), () => _symbolEditor.Invert());
+        // 2026-09-28: порядок битов символа дисплея (5×7) в протоколе описан, но на живых весах не
+        // проверен — если знак вышел зеркальным, владелец отражает рисунок и загружает снова.
+        Preset(L("Отразить ↔ (если на весах вышло зеркально)", "Күзгүдөй буруу ↔ (таразада тескери чыкса)", "Mirror ↔ (if it came out mirrored on the scale)", "Aynala ↔ (tartıda ters çıktıysa)", "Ko‘zgu ↔ (tarozida teskari chiqsa)"), () => _symbolEditor.Mirror());
         body.Children.Add(presetRow);
 
         _symbolText = new TextBox { MaxLength = 4, Width = 120, Text = "с" };
@@ -590,7 +593,7 @@ public partial class ShtrikhScaleSettingsWindow
                 await scale.LoadDisplaySymbolAsync(number, data).ConfigureAwait(false);
             return forPrint
                 ? L("Символ загружен. Чтобы он печатался, включите «знаки валют» во вкладке «Печать и этикетка».", "Белги жүктөлдү. Басылышы үчүн «Басып чыгаруу жана этикетка» өтмөгүндө «валюта белгилерин» күйгүзүңүз.", "Sign uploaded. To print it, turn on “currency signs” in “Printing & label”.", "İşaret yüklendi. Basılması için “Baskı ve etiket”te “para birimi işareti”ni açın.", "Belgi yuklandi. Chop etilishi uchun «Chop etish va yorliq»da «valyuta belgilari»ni yoqing.")
-                : L("Символ загружен. Проверьте его в меню весов «Символ основной валюты»: если он зеркальный — сообщите нам.", "Белги жүктөлдү. Аны тараза менюсундагы «Символ основной валюты» бөлүмүнөн текшериңиз: күзгүдөй тескери болсо — бизге кабарлаңыз.", "Sign uploaded. Check it in the scale menu “main currency sign”: if it is mirrored, tell us.", "İşaret yüklendi. Tartı menüsündeki “ana para birimi işareti”nden kontrol edin: ayna gibi ters ise bize bildirin.", "Belgi yuklandi. Uni tarozi menyusidagi «asosiy valyuta belgisi»da tekshiring: ko‘zgudek teskari bo‘lsa — bizga xabar bering.");
+                : L("Символ загружен. Проверьте его в меню весов «Символ основной валюты»: если он зеркальный — нажмите «Отразить ↔» и загрузите снова.", "Белги жүктөлдү. Аны тараза менюсундагы «Символ основной валюты» бөлүмүнөн текшериңиз: күзгүдөй тескери болсо — «Күзгүдөй буруу ↔» басып, кайра жүктөңүз.", "Sign uploaded. Check it in the scale menu “main currency sign”: if it is mirrored, press “Mirror ↔” and upload again.", "İşaret yüklendi. Tartı menüsündeki “ana para birimi işareti”nden kontrol edin: ayna gibi ters ise «Aynala ↔» basıp yeniden yükleyin.", "Belgi yuklandi. Uni tarozi menyusidagi «asosiy valyuta belgisi»da tekshiring: ko‘zgudek teskari bo‘lsa — «Ko‘zgu ↔» ni bosib, qayta yuklang.");
         }).ConfigureAwait(true);
     }
 
@@ -1207,6 +1210,15 @@ public partial class ShtrikhScaleSettingsWindow
         }
 
         public void Clear() => SetPixels(new bool[Rows, Cols]);
+
+        public void Mirror()
+        {
+            for (var r = 0; r < Rows; r++)
+            for (var c = 0; c < Cols / 2; c++)
+                (Pixels[r, c], Pixels[r, Cols - 1 - c]) = (Pixels[r, Cols - 1 - c], Pixels[r, c]);
+            InvalidateVisual();
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
 
         public void Invert()
         {

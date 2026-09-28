@@ -20,7 +20,7 @@ namespace NurMarketKassa.Services;
 /// программы нет, новые сообщения спрашивает сама касса (getUpdates). Выключили кассу — бот
 /// молчит и ответит, когда её включат снова.
 /// </summary>
-public sealed class TelegramBotPollingService
+public sealed partial class TelegramBotPollingService
 {
     /// <summary>Сколько секунд Telegram держит ответ, если новых сообщений нет. 25 — компромисс:
     /// реже дёргаем сеть, но заметно меньше 60-секундного таймаута HTTP-клиента.</summary>
@@ -28,16 +28,20 @@ public sealed class TelegramBotPollingService
 
     private readonly ISalesApiService _sales;
     private readonly IClientsApiService? _clients;
+    /// <summary>2026-09-28: новые адреса NurCRM (должники, chat_id клиента, малый остаток) — см.
+    /// TelegramBotPollingService.Server.cs. null — только старый путь, как было.</summary>
+    private readonly ClientDebtsApiService? _debtsApi;
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private long _offset;
     private string? _lastPollError;
 
-    public TelegramBotPollingService(ISalesApiService sales, IClientsApiService? clients)
+    public TelegramBotPollingService(ISalesApiService sales, IClientsApiService? clients, ClientDebtsApiService? debtsApi = null)
     {
         _sales = sales;
         _clients = clients;
+        _debtsApi = debtsApi;
     }
 
     public bool IsRunning => _loop is { IsCompleted: false };
@@ -187,7 +191,9 @@ public sealed class TelegramBotPollingService
             "sezon" or "сезон" or "сезонность" when isOwner => TelegramReportBuilder.BuildSeasonality(),
             "soveti" or "советы" or "рекомендации" when isOwner => TelegramReportBuilder.BuildRecommendations(30),
             "zakaz" or "заказ" when isOwner => TelegramReportBuilder.BuildRestockSuggestions(),
-            "ostatki" or "остатки" when isOwner => TelegramReportBuilder.BuildLowStock(),
+            // 2026-09-28: остатки теперь спрашиваются у сервера (quantity_lte, BE-05) — асинхронно,
+            // ниже; каталог кассы — запасной путь.
+            "ostatki" or "остатки" when isOwner => null,
             // Долги живут только на сервере — эти две команды требуют запроса и обрабатываются
             // ниже, асинхронно.
             "dolgi" or "долги" when isOwner => null,
@@ -202,6 +208,14 @@ public sealed class TelegramBotPollingService
             return;
         }
 
+        if (isOwner && command is "ostatki" or "остатки")
+        {
+            var stock = await TryBuildLowStockFromServerAsync(ct).ConfigureAwait(false)
+                ?? TelegramReportBuilder.BuildLowStock();
+            await TelegramBotService.SendToAsync(chatId!, stock, ct).ConfigureAwait(false);
+            return;
+        }
+
         if (isOwner && command is "dolgi" or "долги")
         {
             await TelegramBotService
@@ -213,6 +227,9 @@ public sealed class TelegramBotPollingService
         if (command is "dolg" or "долг")
         {
             var clientId = TelegramSubscriberStore.GetClientId(chatId!);
+            // 2026-09-28: подписался через другую кассу — связка есть только на сервере (BE-04).
+            if (string.IsNullOrWhiteSpace(clientId))
+                clientId = await FindClientByChatOnServerAsync(chatId!, ct).ConfigureAwait(false);
             var answer = string.IsNullOrWhiteSpace(clientId)
                 ? "Вы ещё не привязаны к карточке клиента. Откройте ссылку, которую вам дали на кассе."
                 : await BuildClientDebtAsync(clientId!, ct).ConfigureAwait(false);
@@ -222,7 +239,7 @@ public sealed class TelegramBotPollingService
 
     /// <summary>«/start &lt;id клиента&gt;» — покупатель перешёл по персональной ссылке с чека и
     /// тем самым разрешил боту себе писать. Без этого шага Telegram написать ему не позволит.</summary>
-    private static string SubscribeClient(string chatId, string clientId, JsonElement message)
+    private string SubscribeClient(string chatId, string clientId, JsonElement message)
     {
         var name = message.TryGetProperty("from", out var from) && from.TryGetProperty("first_name", out var first)
             ? first.GetString()
@@ -230,6 +247,8 @@ public sealed class TelegramBotPollingService
 
         TelegramSubscriberStore.Subscribe(chatId, clientId.Trim(), name);
         PosLogger.Log($"Телеграм-бот: подписан клиент {clientId}.", "TELEGRAM");
+        // 2026-09-28: и в карточку клиента на сервере — раньше связка жила только в этой кассе.
+        PushSubscriberToServer(chatId, clientId.Trim());
 
         return "Готово! Теперь напоминания о задолженности и об акциях будут приходить сюда.\n"
              + "Команда /dolg покажет ваш текущий долг.";
@@ -240,6 +259,10 @@ public sealed class TelegramBotPollingService
     /// ссылке wa.me открывается в один тап и не требует никакого договора.</summary>
     public async Task<string> BuildDebtorsReportAsync(CancellationToken ct)
     {
+        // 2026-09-28: сводка сервера одним запросом (BE-03); ниже — старый путь, запасной.
+        if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
+            return BuildDebtorsReportFromServer(serverDebtors, TelegramSubscriberStore.TryGetChatId);
+
         List<JsonElement> debts;
         try
         {
@@ -316,6 +339,17 @@ public sealed class TelegramBotPollingService
     /// <summary>Долг конкретного клиента — ответ на «/dolg» самому покупателю.</summary>
     private async Task<string> BuildClientDebtAsync(string clientId, CancellationToken ct)
     {
+        // 2026-09-28: долг клиента — из сводки должников сервера (BE-03); нет в сводке — долга нет.
+        if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
+        {
+            var owed = serverDebtors
+                .Where(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase))
+                .Sum(d => d.DebtTotal);
+            return owed <= 0.005
+                ? "За вами задолженности нет. Спасибо!"
+                : $"Ваша задолженность: <b>{owed.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
+        }
+
         try
         {
             var debts = await _sales.PosDebtSalesAsync(clientId, ct).ConfigureAwait(false);
@@ -337,6 +371,28 @@ public sealed class TelegramBotPollingService
     /// на WhatsApp.</summary>
     public async Task<int> SendDebtRemindersAsync(CancellationToken ct = default)
     {
+        // 2026-09-28: должники и chat_id — с сервера (BE-03/BE-04): напоминание получит и тот,
+        // кто нажал «Старт» через другую кассу; chat_id этой кассы — если на сервере его нет.
+        if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
+        {
+            var sentFromServer = 0;
+            foreach (var debtor in serverDebtors.Where(d => d.DebtTotal > 0.005))
+            {
+                var debtorChat = !string.IsNullOrWhiteSpace(debtor.TelegramChatId)
+                    ? debtor.TelegramChatId
+                    : TelegramSubscriberStore.TryGetChatId(debtor.ClientId);
+                if (string.IsNullOrWhiteSpace(debtorChat))
+                    continue;
+
+                var reminder = $"Напоминаем о задолженности: <b>{debtor.DebtTotal.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
+                if (await TelegramBotService.SendToAsync(debtorChat!, reminder, ct).ConfigureAwait(false) == null)
+                    sentFromServer++;
+            }
+
+            PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sentFromServer} (сводка сервера).", "TELEGRAM");
+            return sentFromServer;
+        }
+
         List<JsonElement> debts;
         try
         {

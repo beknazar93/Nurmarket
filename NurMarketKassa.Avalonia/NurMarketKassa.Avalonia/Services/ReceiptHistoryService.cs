@@ -35,7 +35,9 @@ public sealed class ReceiptHistoryEntry
     public DateTime CreatedAt { get; init; }
 
     /// <summary>Номер чека так, как его показывает список: настоящий номер с сервера или,
-    /// если его нет, порядковый «№N» за период (как в «Продажах»).</summary>
+    /// если его нет, порядковый «№N» за период (как в «Продажах»).
+    /// 2026-09-28: настоящий номер — постоянный sale.number сервера (BE-08), шесть цифр, как на
+    /// печатном чеке (SalesWindow.TryReceiptNumber: 1115 → «001115»).</summary>
     public string ReceiptNumber { get; set; } = "";
 
     public decimal Total { get; init; }
@@ -224,7 +226,14 @@ public static class ReceiptHistoryService
         // же продажа была №9 в «Истории чеков» и №5 в «Возврате». Сервер отдаёт список новыми
         // первыми; продажи новее конца окна (для «Вчера» — всё, что продано сегодня) считаем
         // отдельно и прибавляем.
-        var newerCount = toExclusive <= DateTime.Today
+        //
+        // 2026-09-28, доработка NurCRM (BE-08): у продажи появился постоянный номер «number» — он
+        // присваивается при оплате и больше не меняется (по нему же ищет «Возврат» и сайт:
+        // ?number=). Его берёт SalesWindow.TryReceiptNumber ниже. Место в списке — только запас для
+        // старого сервера без номера; если номер есть у всех чеков, лишние запросы (подсчёт
+        // продаж после периода для «Вчера») не делаем.
+        var allNumbered = rows.All(r => SalesWindow.TryReceiptNumber(r) is { Length: > 0 });
+        var newerCount = !allNumbered && toExclusive <= DateTime.Today
             ? await CountServerSalesAsync(toExclusive, DateTime.Today.AddDays(1), ct).ConfigureAwait(false)
             : 0;
         var webPositions = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

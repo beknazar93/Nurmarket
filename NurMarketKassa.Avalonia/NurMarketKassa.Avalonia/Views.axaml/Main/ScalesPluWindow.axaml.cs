@@ -33,14 +33,21 @@ public partial class ScalesPluWindow : Window
     /// готовит файл, который эта программа импортирует.</summary>
     private const string BrandAi = "ai";
 
-    /// <summary>Весы TM-30F (JHScale, серия TM-F / TM-xA), 2026-09-28. Их программа «TM-xA data
-    /// management software» и сетевой протокол закрыты (руководство описывает только загрузку
-    /// с ПК этой программой или файлом A_xxx.TMS с флешки), поэтому — тот же путь, что у AI-весов:
-    /// касса готовит файл, владелец загружает его программой весов.</summary>
+    /// <summary>Весы TM-30F, 2026-09-28. Сначала считались JHScale с закрытым протоколом (касса
+    /// готовила файл, как для AI-весов). Вечером 28.09 выяснилось: это Dahua (TM-A / TM-F),
+    /// программа «Русский масштаб», протокол восстановлен по её файлам — теперь «Отправить на весы»
+    /// шлёт PLU напрямую (DahuaTmScaleService, TCP 4001), а файл для их программы — запасной путь.</summary>
     private const string BrandTm = "tm";
 
-    /// <summary>Весы, для которых касса только готовит файл (AI, TM-30F).</summary>
-    private bool IsFileBrand => BrandAiRadio.IsChecked == true || BrandTmRadio.IsChecked == true;
+    /// <summary>Весы, для которых касса только готовит файл (AI). TM-30F с 28.09 (вечер) — нет:
+    /// у них прямая отправка.</summary>
+    private bool IsFileBrand => BrandAiRadio.IsChecked == true;
+
+    /// <summary>2026-09-28: выбрана марка TM-30F (Dahua).</summary>
+    private bool IsTm => BrandTmRadio.IsChecked == true;
+
+    /// <summary>Идёт отправка на TM-30F — кнопка отправки в это время «Остановить».</summary>
+    private CancellationTokenSource? _tmCts;
     /// <summary>Исходная надпись кнопки отправки («Отправить на весы» на языке интерфейса).
     /// Запоминаем при загрузке окна: для AI-весов кнопка называется иначе, и при возврате к
     /// Штриху нужно вернуть ровно ту надпись, что пришла из словаря, а не зашитую строку.</summary>
@@ -147,14 +154,18 @@ public partial class ScalesPluWindow : Window
     {
         LanSettingsButton.IsVisible = BrandRongtaRadio.IsChecked != true
                                       && !IsFileBrand
+                                      && !IsTm
                                       && DirectLanCheck.IsChecked == true;
+        // 2026-09-28: у TM-30F (Dahua) своя прямая отправка — галочка Штрих-М там не нужна.
+        DirectLanCheck.IsVisible = !IsTm;
         // 2026-09-28: код в ШК правится только при прямой выгрузке — серверный путь
         // (send-products) записывает на весы свои данные, и эта колонка на них не влияет.
         // Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.
         var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
+        // TM-30F (Dahua) тоже шлёт «Код товара» в ШК сам — колонка и кнопка нужны и ему.
         if (barcodeColumn is not null)
-            barcodeColumn.IsVisible = LanSettingsButton.IsVisible;
-        BarcodeSettingsButton.IsVisible = LanSettingsButton.IsVisible;
+            barcodeColumn.IsVisible = LanSettingsButton.IsVisible || IsTm;
+        BarcodeSettingsButton.IsVisible = LanSettingsButton.IsVisible || IsTm;
         UpdateBarcodeExample();
     }
 
@@ -174,6 +185,11 @@ public partial class ScalesPluWindow : Window
             return;
 
         var row = rows.FirstOrDefault(r => r.IsSelected) ?? rows.FirstOrDefault();
+        if (IsTm)
+        {
+            UpdateTmBarcodeExample(row);
+            return;
+        }
         var layout = NurMarketKassa.Core.Application.WeightBarcodeParser.Layout;
         var byWeight = !string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Mode, "amount", StringComparison.OrdinalIgnoreCase);
         var structure = ShtrikhBarcodeFormat.RecommendedStructure(layout, byWeight);
@@ -196,6 +212,16 @@ public partial class ScalesPluWindow : Window
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsTm)
+        {
+            // 2026-09-28: для TM-30F — окно «Настройки весов TM-30F» на вкладке «Штрих-код».
+            var tmWindow = new NurMarketKassa.AvaloniaHost.Views.Dialogs.TmScaleSettingsWindow();
+            tmWindow.ShowBarcodeTab();
+            await tmWindow.ShowDialog(this).ConfigureAwait(true);
+            UpdateBarcodeExample();
+            return;
+        }
+
         var rows = _allRows;
         var row = rows?.FirstOrDefault(r => r.IsSelected) ?? rows?.FirstOrDefault();
         var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
@@ -265,15 +291,17 @@ public partial class ScalesPluWindow : Window
         ApplyDirectLanVisibility();
         RongtaSourceRow.IsVisible = isRongta;
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
+        TmExportButton.IsVisible = IsTm;
 
-        if (BrandTmRadio.IsChecked == true)
+        if (IsTm)
         {
+            // 2026-09-28 (вечер): прямая отправка на Dahua TM-30F.
             SubtitleText.Text = Tr.T(
-                "TM-30F (JHScale, серия TM-F / TM-xA): касса сохраняет файл (PLU, название, единица, цена) — загрузите его в программу весов «TM-xA data management software» и отправьте на весы по сети или флешкой. Протокол этих весов закрытый, прямой заливки нет. Штрих-код: заводской формат «B-Item 1» печатает СУММУ (флаг 2 цифры + PLU 5 + сумма 5) — тогда в настройках компании режим «По сумме», а сумма больше 999,99 сом не поместится. Лучше задать на весах формат B201E500J500: флаг 20 + PLU 5 цифр + вес 5 цифр — это раскладка кассы «По PLU», режим «По весу».",
-                "TM-30F (JHScale, TM-F / TM-xA сериясы): касса файл сактайт (PLU, аталышы, бирдиги, баасы) — аны тараза программасына («TM-xA data management software») жүктөп, таразага тармак же флешка аркылуу жибериңиз. Бул таразалардын протоколу жабык, түз жүктөө жок. Штрих-код: заводдук «B-Item 1» форматы СУММАНЫ басат (желек 2 сан + PLU 5 + сумма 5) — анда компаниянын жөндөөсүндө «Сумма боюнча» режими, ал эми 999,99 сомдон чоң сумма батпайт. Таразага B201E500J500 форматын коюу жакшы: желек 20 + PLU 5 сан + салмак 5 сан — бул кассанын «PLU боюнча» жайгаштыруусу, «Салмак боюнча» режими.",
-                "TM-30F (JHScale, TM-F / TM-xA series): the till saves a file (PLU, name, unit, price) — load it into the scale software (“TM-xA data management software”) and send it to the scale over the network or a USB stick. The protocol of these scales is closed, there is no direct upload. Barcode: the factory format “B-Item 1” prints the TOTAL PRICE (flag 2 digits + PLU 5 + price 5) — then set the company mode to “By amount”, and totals above 999.99 som will not fit. Better set the format B201E500J500 on the scale: flag 20 + PLU 5 digits + weight 5 digits — the till layout “By PLU”, mode “By weight”.",
-                "TM-30F (JHScale, TM-F / TM-xA serisi): kasa bir dosya kaydeder (PLU, ad, birim, fiyat) — bunu tartı programına («TM-xA data management software») yükleyip tartıya ağ veya USB bellek ile gönderin. Bu tartıların protokolü kapalı, doğrudan yükleme yok. Barkod: fabrika biçimi «B-Item 1» TUTARI basar (bayrak 2 hane + PLU 5 + tutar 5) — o zaman şirket ayarında «Tutara göre» modu seçilir ve 999,99 somun üzerindeki tutarlar sığmaz. Tartıda B201E500J500 biçimini ayarlamak daha iyi: bayrak 20 + PLU 5 hane + ağırlık 5 hane — kasanın «PLU’ya göre» düzeni, «Ağırlığa göre» modu.",
-                "TM-30F (JHScale, TM-F / TM-xA seriyasi): kassa fayl saqlaydi (PLU, nomi, birligi, narxi) — uni tarozi dasturiga («TM-xA data management software») yuklab, taroziga tarmoq yoki fleshka orqali yuboring. Bu tarozilarning protokoli yopiq, to'g'ridan-to'g'ri yuklash yo'q. Shtrix-kod: zavod formati «B-Item 1» SUMMANI chop etadi (bayroq 2 raqam + PLU 5 + summa 5) — unda kompaniya sozlamasida «Summa bo'yicha» rejimi, 999,99 somdan katta summa sig'maydi. Taroziga B201E500J500 formatini qo'ygan ma'qul: bayroq 20 + PLU 5 raqam + vazn 5 raqam — kassaning «PLU bo'yicha» joylashuvi, «Vazn bo'yicha» rejimi.");
+                "TM-30F (Dahua, программа «Русский масштаб»): «Отправить на весы» шлёт отмеченные товары прямо на весы по сети (IP и порт 4001 — «Настройки весов»). Номер PLU — по порядку от «Начальный PLU»; в штрих-код этикетки весы печатают «Код в штрих-коде» (по умолчанию PLU товара — по нему касса найдёт товар). Запасной путь — «Файл для «Русского масштаба»».",
+                "TM-30F (Dahua, «Русский масштаб» программасы): «Таразага жөнөтүү» белгиленген товарларды тармак аркылуу түз таразага жөнөтөт (IP жана 4001 порт — «Тараза жөндөөлөрү»). PLU номери — «Баштапкы PLU»дан тартип менен; этикетканын штрих-кодуна тараза «Штрих-коддогу код» басат (демейки — товардын PLU'су, касса товарды ушул боюнча табат). Запас жол — «Русский масштаб» үчүн файл».",
+                "TM-30F (Dahua, “Russian Scale” software): “Send to scale” sends the ticked goods straight to the scale over the network (IP and port 4001 — “Scale settings”). The PLU number goes in order from “Start PLU”; the scale prints the “Code in barcode” into the label barcode (the item PLU by default — the till finds the item by it). Fallback — “File for Russian Scale”.",
+                "TM-30F (Dahua, «Русский масштаб» programı): «Tartıya gönder» işaretli ürünleri ağ üzerinden doğrudan tartıya gönderir (IP ve port 4001 — «Tartı ayarları»). PLU numarası «Başlangıç PLU»dan sırayla; tartı etiket barkoduna «Barkoddaki kod»u basar (varsayılan ürünün PLU'su — kasa ürünü buna göre bulur). Yedek yol — «Русский масштаб için dosya».",
+                "TM-30F (Dahua, «Русский масштаб» dasturi): «Taroziga yuborish» belgilangan tovarlarni tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yuboradi (IP va 4001 port — «Tarozi sozlamalari»). PLU raqami — «Boshlang‘ich PLU»dan tartib bilan; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi (odatiy — tovar PLU'si, kassa tovarni shu bo‘yicha topadi). Zaxira yo‘l — «Русский масштаб uchun fayl».");
             return;
         }
 
@@ -393,9 +421,22 @@ public partial class ScalesPluWindow : Window
 
     private async void Send_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-09-28: во время отправки на TM-30F кнопка — «Остановить».
+        if (_tmCts is not null)
+        {
+            _tmCts.Cancel();
+            return;
+        }
+
+        if (IsTm)
+        {
+            await SendToTmAsync().ConfigureAwait(true);
+            return;
+        }
+
         if (IsFileBrand)
         {
-            // Для AI-весов и TM-30F «отправить» — это подготовить файл: заливать напрямую пока нечем.
+            // Для AI-весов «отправить» — это подготовить файл: заливать напрямую пока нечем.
             await ExportPluCsvAsync(BrandTmRadio.IsChecked == true ? "tm30f-scale-plu" : "ai-scale-plu").ConfigureAwait(true);
             return;
         }
@@ -584,6 +625,244 @@ public partial class ScalesPluWindow : Window
         {
             SendButton.IsEnabled = true;
         }
+    }
+
+    // =====================================================================================
+    // 2026-09-28 (вечер): TM-30F (Dahua) — прямая отправка PLU по сети и файл для их программы.
+    // Протокол — DahuaTmProtocol, транспорт — DahuaTmScaleService. На живых весах не проверено.
+    // =====================================================================================
+
+    /// <summary>Пример этикетки TM-30F для первого отмеченного товара: формат ШК весов и префикс
+    /// из «Настроек весов TM-30F», код — колонка «Код в штрих-коде», сверка — разбором кассы.</summary>
+    private void UpdateTmBarcodeExample(ScalePluRowVm? row)
+    {
+        var prefs = UserPreferences.Instance;
+        var byWeight = !string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Mode, "amount", StringComparison.OrdinalIgnoreCase);
+        var format = prefs.TmScaleDahuaBarcode is { } saved && DahuaTmBarcodeFormat.Variants.Contains(saved)
+            ? saved
+            : DahuaTmBarcodeFormat.Recommended(byWeight);
+        var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
+        const int grams = 392;
+        var decimals = Math.Clamp(prefs.TmScalePricePoint, 0, 3);
+        var amount = Math.Round((decimal)(row?.Price ?? 100) * grams / 1000m, decimals, MidpointRounding.AwayFromZero);
+        var sample = DahuaTmBarcodeFormat.BuildSample(format, prefs.TmScaleBarcodePrefix, code, grams, DahuaTmProtocol.ScalePrice(amount, decimals));
+        var weightFirst = DahuaTmBarcodeFormat.HasWeight(format)
+                          && (!DahuaTmBarcodeFormat.HasAmount(format) || format.IndexOf('N') < format.IndexOf('E'));
+        var (ok, verdict) = NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.VerifyWithKassa(sample, code, weightFirst, grams, amount);
+        BarcodeExampleText.Text = Tr.T(
+            $"Штрих-код на этикетке TM-30F для «{row?.Name}» (0,392 кг): {sample} — формат весов {format}, префикс {prefs.TmScaleBarcodePrefix:00}. ",
+            $"«{row?.Name}» үчүн TM-30F этикеткасындагы штрих-код (0,392 кг): {sample} — тараза форматы {format}, префикс {prefs.TmScaleBarcodePrefix:00}. ",
+            $"TM-30F label barcode for “{row?.Name}” (0.392 kg): {sample} — scale format {format}, prefix {prefs.TmScaleBarcodePrefix:00}. ",
+            $"“{row?.Name}” için TM-30F etiket barkodu (0,392 kg): {sample} — tartı biçimi {format}, önek {prefs.TmScaleBarcodePrefix:00}. ",
+            $"«{row?.Name}» uchun TM-30F yorlig‘idagi shtrix-kod (0,392 kg): {sample} — tarozi formati {format}, prefiks {prefs.TmScaleBarcodePrefix:00}. ")
+            + (ok ? "✓ " : "⚠ ") + verdict;
+    }
+
+    /// <summary>Собирает записи PLU для TM-30F так же, как для Штрих-М по LAN: номер по порядку
+    /// от «Начальный PLU» (или PLU товара), «Код товара» — колонка «Код в штрих-коде» (иначе номер
+    /// PLU), тип — весовой/штучный из карточки, префикс ШК и срок годности — из настроек.</summary>
+    private (List<DahuaTmPlu> Records, List<string> Problems, List<(int Plu, string Name)> KeyMap) BuildTmRecords(List<string> selectedIds, int pluStart)
+    {
+        var prefs = UserPreferences.Instance;
+        var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
+        var barcodeCodes = _allRows.ToDictionary(r => r.Id, r => r.BarcodeCode);
+        var sequential = SequentialPluCheck.IsChecked == true;
+        var decimals = Math.Clamp(prefs.TmScalePricePoint, 0, 3);
+        var records = new List<DahuaTmPlu>();
+        var problems = new List<string>();
+        var keyMap = new List<(int Plu, string Name)>();
+        var nextPlu = pluStart;
+        foreach (var id in selectedIds)
+        {
+            if (!byId.TryGetValue(id, out var product))
+                continue;
+
+            var plu = sequential || product.Plu is not > 0 ? nextPlu++ : product.Plu!.Value;
+            if (!sequential && product.Plu is > 0)
+                nextPlu = Math.Max(nextPlu, plu + 1);
+
+            var productCode = barcodeCodes.TryGetValue(id, out var codeText)
+                              && long.TryParse((codeText ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCode)
+                              && parsedCode is >= 1 and <= 9_999_999
+                ? parsedCode
+                : plu;
+
+            var record = new DahuaTmPlu
+            {
+                PluNumber = plu,
+                ProductCode = productCode,
+                Price = (decimal)LocalCartService.ParsePrice(product.PriceLine),
+                WeighMode = product.IsWeighted ? DahuaTmWeighMode.Weighed : DahuaTmWeighMode.Piece,
+                ShelfLifeDays = Math.Clamp(prefs.TmScaleShelfLifeDays, 0, 999),
+                BarcodePrefix = Math.Clamp(prefs.TmScaleBarcodePrefix, 0, 99),
+                Name = product.Title,
+            };
+            var problem = DahuaTmProtocol.Validate(record, decimals);
+            if (problem != DahuaTmPluProblem.None)
+            {
+                problems.Add($"«{product.Title}» (PLU {plu}): {TmProblemText(problem)}");
+                continue;
+            }
+            records.Add(record);
+            keyMap.Add((plu, product.Title));
+        }
+        return (records, problems, keyMap);
+    }
+
+    private static string TmProblemText(DahuaTmPluProblem problem) => problem switch
+    {
+        DahuaTmPluProblem.BadPluNumber => Tr.T($"номер PLU должен быть от 1 до {DahuaTmProtocol.MaxPluNumber}", $"PLU номери 1ден {DahuaTmProtocol.MaxPluNumber}гө чейин болушу керек", $"the PLU number must be 1 to {DahuaTmProtocol.MaxPluNumber}", $"PLU numarası 1 ile {DahuaTmProtocol.MaxPluNumber} arasında olmalı", $"PLU raqami 1 dan {DahuaTmProtocol.MaxPluNumber} gacha bo‘lishi kerak"),
+        DahuaTmPluProblem.BadProductCode => Tr.T("код в штрих-коде — до 7 цифр", "штрих-коддогу код — 7 санга чейин", "the code in the barcode is up to 7 digits", "barkoddaki kod en fazla 7 hane", "shtrix-koddagi kod — 7 raqamgacha"),
+        DahuaTmPluProblem.PriceDoesNotFit => Tr.T("цена не помещается в 6 цифр весов (проверьте «Цена на весах» в настройках)", "баа таразанын 6 санына батпайт (жөндөөлөрдөгү «Таразадагы баа» текшериңиз)", "the price does not fit the scale's 6 digits (check “Price on the scale” in the settings)", "fiyat tartının 6 hanesine sığmıyor (ayarlardaki «Tartıdaki fiyat»ı kontrol edin)", "narx tarozining 6 raqamiga sig‘maydi (sozlamalardagi «Tarozidagi narx»ni tekshiring)"),
+        DahuaTmPluProblem.BadShelfLife => Tr.T("срок годности — от 0 до 999 дней", "жарактуулук мөөнөтү — 0дөн 999 күнгө чейин", "shelf life must be 0 to 999 days", "raf ömrü 0 ile 999 gün arasında olmalı", "yaroqlilik muddati — 0 dan 999 kungacha"),
+        DahuaTmPluProblem.BadBarcodePrefix => Tr.T("префикс штрихкода — 2 цифры", "штрих-код префикси — 2 сан", "the barcode prefix is 2 digits", "barkod öneki 2 hanedir", "shtrix-kod prefiksi — 2 raqam"),
+        _ => problem.ToString(),
+    };
+
+    private static string TmErrorText(DahuaTmError error) => error switch
+    {
+        DahuaTmError.ConnectFailed => Tr.T("нет подключения к весам (IP, порт, кабель; закройте «Русский масштаб», если он подключён к весам)", "таразага туташуу жок (IP, порт, кабель; «Русский масштаб» таразага туташып турса, аны жабыңыз)", "no connection to the scale (IP, port, cable; close “Russian Scale” if it is connected to the scale)", "tartıya bağlantı yok (IP, port, kablo; «Русский масштаб» tartıya bağlıysa kapatın)", "taroziga ulanish yo‘q (IP, port, kabel; «Русский масштаб» taroziga ulangan bo‘lsa, uni yoping)"),
+        DahuaTmError.NoReply => Tr.T("весы не ответили за 2,5 с после 4 повторов", "тараза 4 кайталоодон кийин 2,5 с ичинде жооп берген жок", "the scale did not answer within 2.5 s after 4 retries", "tartı 4 tekrardan sonra 2,5 sn içinde yanıt vermedi", "tarozi 4 takrordan keyin 2,5 s ichida javob bermadi"),
+        DahuaTmError.ConnectionLost => Tr.T("весы разорвали соединение", "тараза туташууну үздү", "the scale closed the connection", "tartı bağlantıyı kesti", "tarozi ulanishni uzdi"),
+        DahuaTmError.SendFailed => Tr.T("не удалось отправить данные", "маалыматтарды жөнөтүү мүмкүн болгон жок", "could not send the data", "veriler gönderilemedi", "ma’lumotlarni yuborib bo‘lmadi"),
+        DahuaTmError.Cancelled => Tr.T("остановлено", "токтотулду", "stopped", "durduruldu", "to‘xtatildi"),
+        _ => error.ToString(),
+    };
+
+    private async Task SendToTmAsync()
+    {
+        var selectedIds = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
+        if (selectedIds.Count == 0)
+        {
+            StatusText.Text = Tr.T("Выберите хотя бы один товар.", "Жок дегенде бир товарды тандаңыз.",
+                "Select at least one product.", "En az bir ürün seçin.", "Kamida bitta mahsulotni tanlang.");
+            return;
+        }
+
+        var prefs = UserPreferences.Instance;
+        var scale = DahuaTmScaleService.TryCreate(prefs.TmScaleIp, prefs.TmScalePort);
+        if (scale is null)
+        {
+            StatusText.Text = Tr.T("Не задан IP весов TM-30F — «Настройки весов» → «Подключение».",
+                "TM-30F таразасынын IP'си коюлган эмес — «Тараза жөндөөлөрү» → «Туташуу».",
+                "The TM-30F scale IP is not set — “Scale settings” → “Connection”.",
+                "TM-30F tartı IP'si girilmemiş — «Tartı ayarları» → «Bağlantı».",
+                "TM-30F tarozi IP'si kiritilmagan — «Tarozi sozlamalari» → «Ulanish».");
+            return;
+        }
+
+        if (!int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pluStart) || pluStart <= 0)
+            pluStart = 1;
+
+        var (records, problems, keyMap) = BuildTmRecords(selectedIds, pluStart);
+        if (problems.Count > 0)
+        {
+            // Частичную выгрузку не делаем: иначе на весах окажется «половина» списка и сдвиг клавиш.
+            StatusText.Text = Tr.T("Не отправлено — исправьте: ", "Жөнөтүлгөн жок — оңдоңуз: ", "Not sent — fix: ", "Gönderilmedi — düzeltin: ", "Yuborilmadi — tuzating: ")
+                              + string.Join(" · ", problems.Take(3)) + (problems.Count > 3 ? $" (+{problems.Count - 3})" : "");
+            return;
+        }
+        if (records.Count == 0)
+        {
+            StatusText.Text = Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
+            return;
+        }
+
+        var mode = string.Equals(prefs.TmScaleSendMode, "batch", StringComparison.OrdinalIgnoreCase) ? DahuaTmSendMode.Batch : DahuaTmSendMode.LineByLine;
+        _tmCts = new CancellationTokenSource();
+        SendButton.Content = Tr.T("Остановить", "Токтотуу", "Stop", "Durdur", "To‘xtatish");
+        StatusText.Text = Tr.T($"Подключение к весам {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} таразасына туташуу…", $"Connecting to the scale {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} tartısına bağlanılıyor…", $"{scale.Host}:{scale.Port} taroziga ulanilmoqda…");
+        try
+        {
+            var progress = new Progress<DahuaTmUploadProgress>(p =>
+                StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…"));
+            var result = await scale.UploadPlusAsync(records, Math.Clamp(prefs.TmScalePricePoint, 0, 3), mode, progress, _tmCts.Token).ConfigureAwait(true);
+            PosLogger.Log($"TM-30F (Dahua): выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
+
+            var firstKeyName = keyMap.FirstOrDefault().Name;
+            if (result.Ok)
+            {
+                StatusText.Text = Tr.T($"Отправлено на весы: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», далее по порядку списка. Проверьте товар на весах.",
+                                       $"Таразага жөнөтүлдү: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», андан ары тизменин тартиби боюнча. Товарды таразадан текшериңиз.",
+                                       $"Sent to the scale: {result.Total}. PLU {keyMap[0].Plu} is “{firstKeyName}”, then in list order. Check the item on the scale.",
+                                       $"Tartıya gönderildi: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», sonrakiler liste sırasıyla. Ürünü tartıda kontrol edin.",
+                                       $"Taroziga yuborildi: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», keyin ro'yxat tartibida. Tovarni tarozida tekshiring.")
+                                  + (result.UnframedReplies > 0
+                                      ? Tr.T($" Внимание: {result.UnframedReplies} ответ(ов) весов не по ожидаемой форме — см. журнал обмена.", $" Көңүл буруңуз: таразанын {result.UnframedReplies} жообу күтүлгөн формада эмес — алмашуу журналын караңыз.", $" Note: {result.UnframedReplies} scale reply(ies) not in the expected form — see the exchange log.", $" Dikkat: tartının {result.UnframedReplies} yanıtı beklenen biçimde değil — iletişim günlüğüne bakın.", $" Diqqat: tarozining {result.UnframedReplies} javobi kutilgan shaklda emas — almashuv jurnaliga qarang.")
+                                      : "");
+                PosLogger.Log("TM-30F, раскладка PLU: " + string.Join("; ", keyMap.Select(x => $"{x.Plu} — {x.Name}")), "SCALES");
+            }
+            else
+            {
+                StatusText.Text = Tr.T($"Отправка не завершена: {TmErrorText(result.Error)}. Принято весами: {result.Acknowledged + result.UnframedReplies} из {result.Total}",
+                                       $"Жөнөтүү аягына чыккан жок: {TmErrorText(result.Error)}. Тараза кабыл алды: {result.Total} ичинен {result.Acknowledged + result.UnframedReplies}",
+                                       $"Sending did not finish: {TmErrorText(result.Error)}. Accepted by the scale: {result.Acknowledged + result.UnframedReplies} of {result.Total}",
+                                       $"Gönderim tamamlanmadı: {TmErrorText(result.Error)}. Tartının kabul ettiği: {result.Acknowledged + result.UnframedReplies} / {result.Total}",
+                                       $"Yuborish tugamadi: {TmErrorText(result.Error)}. Tarozi qabul qildi: {result.Total} dan {result.Acknowledged + result.UnframedReplies}")
+                                  + (result.FailedPlu > 0 ? $" (PLU {result.FailedPlu})" : "")
+                                  + Tr.T(". Журнал обмена: ", ". Алмашуу журналы: ", ". Exchange log: ", ". İletişim günlüğü: ", ". Almashuv jurnali: ") + DahuaTmScaleService.ExchangeLogPath;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"TM-30F (Dahua): выгрузка не удалась: {ex}", "SCALES");
+            StatusText.Text = Tr.T("Ошибка отправки: ", "Жиберүү катасы: ", "Send error: ", "Gönderme hatası: ", "Yuborish xatosi: ") + ex.Message;
+        }
+        finally
+        {
+            _tmCts.Dispose();
+            _tmCts = null;
+            SendButton.Content = _sendButtonDefaultText;
+        }
+    }
+
+    /// <summary>Окно закрыли во время отправки на TM-30F — останавливаем её.</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        _tmCts?.Cancel();
+        base.OnClosed(e);
+    }
+
+    /// <summary>Запасной путь: файл импорта «DIGI_TOP2000» для программы «Русский масштаб»
+    /// (Настройки товаров → Импорт → Text Files → DIGI_TOP2000). Кодировка Windows-1251.</summary>
+    private async void TmExport_Click(object? sender, RoutedEventArgs e)
+    {
+        var selectedIds = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
+        if (selectedIds.Count == 0)
+            selectedIds = _allRows.Select(r => r.Id).ToList();
+        if (selectedIds.Count == 0)
+        {
+            StatusText.Text = Tr.T("Нечего выгружать: весовых товаров нет.", "Чыгарууга эч нерсе жок: салмактуу товарлар жок.", "Nothing to export: there are no weighed products.", "Dışa aktarılacak bir şey yok: tartılı ürün yok.", "Eksport qilish uchun hech narsa yo'q: vaznli mahsulotlar yo'q.");
+            return;
+        }
+        if (!int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pluStart) || pluStart <= 0)
+            pluStart = 1;
+        var (records, problems, _) = BuildTmRecords(selectedIds, pluStart);
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Русский масштаб» için dosya (DIGI_TOP2000)", "«Русский масштаб» uchun fayl (DIGI_TOP2000)"),
+            SuggestedFileName = $"tm30f-digi_top2000-{DateTime.Now:yyyy-MM-dd}.txt",
+            FileTypeChoices = [new FilePickerFileType("TXT") { Patterns = ["*.txt", "*.plu"] }],
+        });
+        if (file is null)
+            return;
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            await stream.WriteAsync(DahuaTmProtocol.BuildDigiTop2000File(records));
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = Tr.T($"Не удалось сохранить файл: {ex.Message}", $"Файлды сактоо мүмкүн болгон жок: {ex.Message}", $"Could not save the file: {ex.Message}", $"Dosya kaydedilemedi: {ex.Message}", $"Faylni saqlab bo'lmadi: {ex.Message}");
+            return;
+        }
+        StatusText.Text = Tr.T($"Сохранено строк: {records.Count}. В «Русском масштабе»: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, затем «Скачать» на весы.",
+                               $"Сакталган саптар: {records.Count}. «Русский масштаб»та: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, андан кийин таразага «Скачать».",
+                               $"Rows saved: {records.Count}. In “Russian Scale”: Merchandise settings → Import → Text Files → DIGI_TOP2000, then “Download” to the scale.",
+                               $"Kaydedilen satır: {records.Count}. «Русский масштаб»da: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, sonra tartıya «Скачать».",
+                               $"Saqlangan qatorlar: {records.Count}. «Русский масштаб»da: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, so‘ng taroziga «Скачать».")
+                          + (problems.Count > 0 ? Tr.T($" Пропущено с ошибками: {problems.Count} — ", $" Ката менен өткөрүлдү: {problems.Count} — ", $" Skipped with errors: {problems.Count} — ", $" Hatalı atlanan: {problems.Count} — ", $" Xato bilan o‘tkazib yuborildi: {problems.Count} — ") + problems[0] : "");
     }
 
     private async Task SendToRongtaAsync()

@@ -48,6 +48,23 @@ public static class PaymentErrorMessages
                     "Mahsulotlar saqlandi — to'lovni takrorlang yoki kassani yangilang.");
             }
 
+            // 2026-09-28, стресс-тест: на 21-й продаже сервер NurCRM ответил 502, и кассир увидел
+            // голое «error code: 502». Ошибки 5xx — сбой на стороне сервера: деньги не списаны,
+            // чек остаётся в кассе, оплату можно просто повторить.
+            if (api.StatusCode is >= 500 and <= 599)
+            {
+                return Tr.T($"Сервер NurCRM временно не отвечает (ошибка {api.StatusCode}). " +
+                            "Деньги не списаны, чек сохранён — повторите оплату через минуту.",
+                    $"NurCRM сервери убактылуу жооп бербей жатат ({api.StatusCode} катасы). " +
+                    "Акча алынган жок, чек сакталды — бир мүнөттөн кийин төлөмдү кайталаңыз.",
+                    $"The NurCRM server is temporarily not responding (error {api.StatusCode}). " +
+                    "No money was taken, the receipt is saved — retry the payment in a minute.",
+                    $"NurCRM sunucusu geçici olarak yanıt vermiyor (hata {api.StatusCode}). " +
+                    "Para alınmadı, fiş kaydedildi — bir dakika sonra ödemeyi tekrarlayın.",
+                    $"NurCRM serveri vaqtincha javob bermayapti ({api.StatusCode} xatosi). " +
+                    "Pul yechilmadi, chek saqlandi — bir daqiqadan so'ng to'lovni takrorlang.");
+            }
+
             return string.IsNullOrWhiteSpace(api.Message) ? GenericFailure : api.Message;
         }
 

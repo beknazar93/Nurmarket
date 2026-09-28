@@ -1254,6 +1254,8 @@
     <x:String x:Key="loc.owner.shift.reportTitle">Vardiya raporu</x:String>
     <x:String x:Key="loc.owner.irregular.retry">Yeniden gönder</x:String>
     <x:String x:Key="loc.owner.scales.exportCsv">CSV'ye aktar</x:String>
+    <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
+    <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» için dosya</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI tartı</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPlu">Tartı tuşlarına göre numarala</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Tartı panelindeki tuşlar PLU'yu NUMARASINA göre çağırır: 1. tuş — PLU 1, 2. tuş — PLU 2 ve bu şekilde devam eder. Ürünü kendi numarasıyla (örneğin 10007) kaydederseniz hiçbir tuş onu bulamaz. Bu kutu işaretliyken ürünler girilen numaradan başlayarak sırayla numaralanır ve aşağıdaki listenin sırası tuşların sırasıdır.</x:String>

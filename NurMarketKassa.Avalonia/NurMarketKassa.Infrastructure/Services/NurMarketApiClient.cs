@@ -19,7 +19,7 @@ namespace NurMarketKassa.Services;
 /// Доменные операции вынесены в <see cref="IAuthApiService"/>, <see cref="ICatalogApiService"/>,
 /// <see cref="ISalesApiService"/> и <see cref="IShiftApiService"/>.
 /// </summary>
-public sealed class NurMarketApiClient : IDisposable
+public sealed partial class NurMarketApiClient : IDisposable
 {
     public const string AuthInvalidHintRu =
         "Сессия недействительна (часто из‑за входа с другого ПК или телефона). " +
@@ -281,6 +281,8 @@ public sealed class NurMarketApiClient : IDisposable
 
             using var doc = JsonDocument.Parse(jsonResponse);
             var company = ParseCompanyDto(doc.RootElement);
+            // 2026-09-28: вид магазина компании (market_sphere, BE-18) — см. MarketSphereSync.
+            MarketSphereSync.RememberFromCompanyJson(company?.Id, doc.RootElement);
             PosLogger.Log(
                 $"Company loaded. CompanyId={MaskIdentifier(company?.Id)}, " +
                 $"INNConfigured={!string.IsNullOrWhiteSpace(company?.Inn)}, " +

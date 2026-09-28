@@ -68,6 +68,9 @@
                         Margin="0,0,8,0" Click="BrandSettings_Click"/>
                 <Button x:Name="ExportCsvButton" Content="{DynamicResource loc.owner.scales.exportCsv}" Classes="SecondaryActionButton"
                         Margin="0,0,8,0" Click="ExportCsv_Click"/>
+                <!-- 2026-09-28: TM-30F (Dahua) — запасной путь: файл импорта DIGI_TOP2000 для «Русского масштаба». -->
+                <Button x:Name="TmExportButton" Content="{DynamicResource loc.owner.scales.tmExportFile}" Classes="SecondaryActionButton"
+                        Margin="0,0,8,0" IsVisible="False" Click="TmExport_Click"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
                         Margin="0,0,10,0" Click="Refresh_Click"/>
                 <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
@@ -84,10 +87,10 @@
                          Content="{DynamicResource scalesPlu.brandRongta}" Click="BrandRadio_Click"/>
             <RadioButton x:Name="BrandAiRadio" GroupName="ScaleBrand" Margin="16,0,0,0"
                          Content="{DynamicResource loc.owner.scales.brandAi}" Click="BrandRadio_Click"/>
-            <!-- 2026-09-28: весы TM-30F (JHScale, серия TM-F/TM-xA) у владельца. Протокол закрыт —
-                 как и для AI-весов, касса готовит файл для программы весов. -->
+            <!-- 2026-09-28: весы TM-30F у владельца. Вечером 28.09: это Dahua (TM-A/TM-F, программа
+                 «Русский масштаб») — касса шлёт PLU напрямую по сети (DahuaTmScaleService). -->
             <RadioButton x:Name="BrandTmRadio" GroupName="ScaleBrand"
-                         Content="TM-30F (JHScale)" Click="BrandRadio_Click"/>
+                         Content="TM-30F (Dahua)" Click="BrandRadio_Click"/>
         </StackPanel>
 
         <Grid Grid.Row="3" x:Name="RongtaSourceRow" IsVisible="False" ColumnDefinitions="Auto,Auto,Auto,Auto"

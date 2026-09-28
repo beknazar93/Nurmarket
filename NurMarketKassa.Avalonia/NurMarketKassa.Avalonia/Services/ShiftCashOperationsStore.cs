@@ -70,6 +70,13 @@ public static class ShiftCashOperationsStore
     /// ожидаемого остатка смены — здесь его не считаем, иначе оно вычлось бы дважды. Внесение
     /// сервер в ожидаемый остаток смены не включает (проверено на живой смене), поэтому оно
     /// прибавляется всегда.
+    ///
+    /// 2026-09-28, доработка NurCRM (BE-06): внесение теперь уходит на сервер как
+    /// «shift_drawer_inflow» и входит в expected_cash смены (проверено: внесение 10 сом подняло
+    /// ожидаемый остаток тестовой смены с 905 до 915). Такое внесение здесь больше не прибавляем —
+    /// иначе оно считалось бы дважды. Прибавляем только ещё не записанные на сервер и старые,
+    /// записанные до этой версии как «manual» (ServerSourceKind пустой): их сервер по-прежнему
+    /// в ожидаемый остаток не включает.
     /// </summary>
     public static decimal NetForShift(string? shiftId)
     {
@@ -80,11 +87,20 @@ public static class ShiftCashOperationsStore
             .Where(x => string.Equals(x.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase))
             .Aggregate(0m, (sum, x) => CashOperationModel.ResolveKind(x.Type) switch
             {
-                CashOperationKind.Deposit => sum + x.Amount,
+                CashOperationKind.Deposit when !IsServerDrawerInflow(x) => sum + x.Amount,
                 CashOperationKind.Withdrawal when string.IsNullOrEmpty(x.ServerFlowId) => sum - x.Amount,
                 _ => sum,
             });
     }
+
+    /// <summary>Внесение записано на сервер как движение ящика смены — сервер сам включил его
+    /// в expected_cash (см. NetForShift).</summary>
+    private static bool IsServerDrawerInflow(StoredCashOperation x) =>
+        !string.IsNullOrEmpty(x.ServerFlowId)
+        && string.Equals(x.ServerSourceKind, ShiftDrawerInflowKind, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>source_kind внесения в ящик смены на сервере NurCRM (с 2026-09-28).</summary>
+    public const string ShiftDrawerInflowKind = "shift_drawer_inflow";
 
     /// <summary>Внесения и изъятия смены, которые ещё не записаны на сервер.</summary>
     public static IReadOnlyList<(string Id, string Type, decimal Amount, string Comment)> PendingForShift(string? shiftId)
@@ -104,7 +120,9 @@ public static class ShiftCashOperationsStore
 
     /// <summary>Операция записана на сервер: запоминаем ID движения, чтобы не отправить её
     /// повторно и не вычесть изъятие из остатка второй раз (см. NetForShift).</summary>
-    public static void MarkSynced(string id, string serverFlowId)
+    /// <param name="serverSourceKind">source_kind, под которым движение записано на сервере
+    /// (2026-09-28): по нему NetForShift понимает, вошло ли внесение в expected_cash смены.</param>
+    public static void MarkSynced(string id, string serverFlowId, string? serverSourceKind = null)
     {
         lock (FileLock)
         {
@@ -113,6 +131,7 @@ public static class ShiftCashOperationsStore
             if (entry is null || !string.IsNullOrEmpty(entry.ServerFlowId))
                 return;
             entry.ServerFlowId = serverFlowId;
+            entry.ServerSourceKind = serverSourceKind;
             SaveStored(list);
         }
         PosDataEvents.RaiseSalesChanged();
@@ -218,5 +237,8 @@ public static class ShiftCashOperationsStore
         public string? ShiftId { get; set; }
         /// <summary>ID движения денег на сервере (api/construction/cashflows/); пусто — ещё не записана.</summary>
         public string? ServerFlowId { get; set; }
+        /// <summary>source_kind движения на сервере (2026-09-28): «shift_drawer_inflow» —
+        /// внесение вошло в expected_cash смены; пусто — записано раньше как «manual».</summary>
+        public string? ServerSourceKind { get; set; }
     }
 }

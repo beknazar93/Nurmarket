@@ -13,6 +13,7 @@ namespace NurMarketKassa.Services;
 /// Возвраты: сайт берёт их из «Документы» → «Возврат продажи» и учитывает возвраты, сделанные
 /// где угодно — на сайте, на другой кассе. Локальный журнал кассы знает только свои, поэтому
 /// «Продажи» и «Финансы» показывали 0, когда возврат делали на сайте. Списка возвратов у сервера нет.
+/// 2026-09-28: теперь есть (GET api/main/pos/returns/, BE-09) — сумма берётся из него.
 ///
 /// Прибыль: сайт считает себестоимость по своим данным о закупках. Касса умножала количество на
 /// ТЕКУЩУЮ закупочную цену из каталога (а удалённые товары шли по нулю) — за сентябрь это дало
@@ -56,6 +57,12 @@ public sealed class ServerSalesSummary
                 if (cards.TryGetProperty("margin_percent", out var mp))
                     margin = Parse(mp);
             }
+
+            // 2026-09-28 (BE-09): у сервера появился список возвратов — сумма за период из него
+            // (сверено: те же число и сумма, что «Документы → Возврат продажи»). Не ответил —
+            // остаётся цифра сводной аналитики выше.
+            if (await NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from.Date, to.Date, ct).ConfigureAwait(false) is { } listed)
+                returns = listed.Sum;
 
             return new ServerSalesSummary { Returns = returns, GrossProfit = profit, MarginPercent = margin };
         }

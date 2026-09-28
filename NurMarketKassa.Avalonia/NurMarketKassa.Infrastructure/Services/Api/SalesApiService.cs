@@ -9,7 +9,7 @@ namespace NurMarketKassa.Services.Api;
 /// <summary>
 /// Реализация продаж/корзин/возвратов поверх настроенного транспорта <see cref="NurMarketApiClient"/>.
 /// </summary>
-public sealed class SalesApiService : ISalesApiService
+public sealed partial class SalesApiService : ISalesApiService
 {
     private readonly NurMarketApiClient _client;
     private string? _activeCartId;

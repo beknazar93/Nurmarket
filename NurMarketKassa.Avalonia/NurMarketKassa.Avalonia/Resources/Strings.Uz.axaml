@@ -1254,6 +1254,8 @@
     <x:String x:Key="loc.owner.shift.reportTitle">Smena hisoboti</x:String>
     <x:String x:Key="loc.owner.irregular.retry">Qayta yuborish</x:String>
     <x:String x:Key="loc.owner.scales.exportCsv">CSV'ga eksport</x:String>
+    <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
+    <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» uchun fayl</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI tarozi</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPlu">Tarozi tugmalariga moslab raqamlash</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Tarozi panelidagi tugmalar PLUni uning RAQAMI bo'yicha chaqiradi: 1-tugma — PLU 1, 2-tugma — PLU 2 va hokazo. Agar mahsulotni o'z raqami bilan yozsangiz (masalan, 10007), uni hech bir tugma topa olmaydi. Bu belgi qo'yilganda mahsulotlar ko'rsatilgan raqamdan boshlab ketma-ket raqam oladi, quyidagi ro'yxat tartibi esa tugmalar tartibidir.</x:String>

@@ -13,52 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Поиск весов в сети: касса находит адреса весов (Настройки → Весы → «Поиск весов в сети…»)",
-        "Окна настроек для весов Rongta и TM-30F; для Штрих-ПРИНТ — вкладки «Валюта» (вместо «РУБ» — «СОМ» на этикетке, знак валюты) и «Макет этикетки»",
-        "Новые весы TM-30F (JHScale), поиск товаров в окне «Весы», адрес и марка весов больше не сбрасываются",
-        "Количество в строке чека вводится с клавиатуры во всех видах кассы",
-        "F1–F12: другая клавиша сразу меняет окно товаров; быстрые товары можно отключить (Настройки → Экран)",
-        "Код тестера: ясная отметка «принят / неверный» и сразу проверка обновлений; значки в меню не съезжают",
+        "Оплата быстрее: продажа проводится одним запросом к серверу (0,3–0,4 с вместо 1,5–1,9 с), без двойных чеков при повторе",
+        "Смешанная оплата уходит на сервер с разбивкой на наличные и безнал",
+        "Отчёт смены и Z-отчёт — с сервера (смешанная раздельно, возвраты, внесения); внесение входит в сумму смены; постоянный номер чека, как на сайте",
+        "«Оплата долга»: погасить одной суммой — долг из десятков взносов за 1 секунду вместо 15",
+        "Весы TM-30F (Dahua): прямая отправка товаров на весы из кассы, настройки и формат штрихкода",
+        "Поиск весов в сети проверяет и чужие подсети (заводские адреса весов); Rongta: код товара в штрихкоде больше не нулевой",
+        "Исправлено: первый чек после «Открыть смену» уходил офлайн; при сбое сервера (502) понятное сообщение и без двойной продажи",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Тармактан таразаларды издөө: касса таразалардын даректерин табат (Жөндөөлөр → Таразалар → «Тармактан таразаларды издөө…»)",
-        "Rongta жана TM-30F таразалары үчүн жөндөө терезелери; Штрих-ПРИНТ үчүн «Валюта» (этикеткада «РУБ» ордуна «СОМ», валюта белгиси) жана «Этикетканын макети» өтмөктөрү",
-        "Жаңы TM-30F (JHScale) таразалары, «Таразалар» терезесинде товар издөө, таразанын дареги жана маркасы эми өчпөйт",
-        "Чектин сабындагы санды бардык касса көрүнүштөрүндө клавиатурадан киргизсе болот",
-        "F1–F12: башка баскыч товарлар терезесин дароо алмаштырат; ыкчам товарларды өчүрсө болот (Жөндөөлөр → Экран)",
-        "Тестер коду: «кабыл алынды / туура эмес» деген так белги жана жаңыртууларды дароо текшерүү; менюдагы белгилер жылбайт",
+        "Төлөм тезирээк: сатуу серверге бир суроо менен өтөт (1,5–1,9 с ордуна 0,3–0,4 с), кайталаганда эки чек түзүлбөйт",
+        "Аралаш төлөм серверге накталай жана накталай эмес болуп бөлүнүп кетет",
+        "Сменанын отчёту жана Z-отчёт серверден; салуу сменанын суммасына кирет; чектин туруктуу номери сайттагыдай",
+        "«Карызды төлөө»: бир сумма менен жабуу — ондогон төлөмдөн турган карыз 15 секунданын ордуна 1 секундада",
+        "TM-30F (Dahua) таразалары: товарларды кассадан таразага түз жөнөтүү, жөндөөлөр жана штрих-код форматы",
+        "Тармактан таразаларды издөө башка подсеттерди да текшерет; Rongta: штрих-коддогу товардын коду эми нөл эмес",
+        "Оңдолду: «Сменаны ачуудан» кийинки биринчи чек офлайн кетчү; сервер иштебей калса (502) түшүнүктүү билдирүү жана кош сатуу жок",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Scale search on the network: the till finds scale addresses (Settings → Scales → “Find scales on the network…”)",
-        "Settings windows for Rongta and TM-30F scales; Shtrikh-PRINT gets “Currency” (“SOM” instead of “RUB” on the label, currency sign) and “Label layout” tabs",
-        "New TM-30F (JHScale) scales, product search in the “Scales” window, the scale address and brand are no longer reset",
-        "The quantity in a receipt line can be typed in every till layout",
-        "F1–F12: another key switches the products window at once; quick products can be turned off (Settings → Screen)",
-        "Tester code: a clear “accepted / wrong” mark and an immediate update check; menu icons no longer shift",
+        "Faster payment: a sale is made with one server request (0.3–0.4 s instead of 1.5–1.9 s), no duplicate receipts on retry",
+        "Mixed payment is sent to the server split into cash and card",
+        "Shift and Z reports from the server; cash deposits count in the shift total; permanent receipt number as on the website",
+        "“Debt payment”: pay with one sum — a debt of dozens of instalments in 1 second instead of 15",
+        "TM-30F (Dahua) scales: direct product upload from the till, settings and barcode format",
+        "Scale search on the network also checks other subnets (factory scale addresses); Rongta: product code in the barcode is no longer zero",
+        "Fixed: the first receipt after “Open shift” went offline; a server failure (502) shows a clear message and makes no duplicate sale",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Ağda terazi arama: kasa terazilerin adreslerini bulur (Ayarlar → Teraziler → «Ağda terazi ara…»)",
-        "Rongta ve TM-30F teraziler için ayar pencereleri; Shtrikh-PRINT için «Para birimi» (etikette «RUB» yerine «SOM», para işareti) ve «Etiket düzeni» sekmeleri",
-        "Yeni TM-30F (JHScale) teraziler, «Teraziler» penceresinde ürün arama, terazi adresi ve markası artık sıfırlanmıyor",
-        "Fiş satırındaki miktar tüm kasa görünümlerinde klavyeden girilebilir",
-        "F1–F12: başka bir tuş ürün penceresini hemen değiştirir; hızlı ürünler kapatılabilir (Ayarlar → Ekran)",
-        "Test kodu: net «kabul edildi / yanlış» işareti ve hemen güncelleme kontrolü; menü simgeleri artık kaymıyor",
+        "Daha hızlı ödeme: satış sunucuya tek istekle yapılır (1,5–1,9 sn yerine 0,3–0,4 sn), tekrarda çift fiş olmaz",
+        "Karışık ödeme sunucuya nakit ve kart olarak ayrılmış gider",
+        "Vardiya ve Z raporu sunucudan; para girişi vardiya toplamına dahil; sitedeki gibi kalıcı fiş numarası",
+        "«Borç ödeme»: tek tutarla kapat — onlarca taksitlik borç 15 saniye yerine 1 saniyede",
+        "TM-30F (Dahua) teraziler: ürünleri kasadan teraziye doğrudan gönderme, ayarlar ve barkod biçimi",
+        "Ağda terazi arama başka alt ağları da kontrol eder; Rongta: barkoddaki ürün kodu artık sıfır değil",
+        "Düzeltildi: «Vardiya aç» sonrası ilk fiş çevrimdışına gidiyordu; sunucu hatasında (502) anlaşılır mesaj ve çift satış yok",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Tarmoqda tarozilarni qidirish: kassa tarozilar manzilini topadi (Sozlamalar → Tarozilar → «Tarmoqda tarozilarni qidirish…»)",
-        "Rongta va TM-30F tarozilari uchun sozlash oynalari; Shtrix-PRINT uchun «Valyuta» (yorliqda «RUB» o'rniga «SOM», valyuta belgisi) va «Yorliq maketi» yorliqlari",
-        "Yangi TM-30F (JHScale) tarozilari, «Tarozilar» oynasida mahsulot qidirish, tarozi manzili va markasi endi o'chib ketmaydi",
-        "Chek qatoridagi miqdorni barcha kassa ko'rinishlarida klaviaturadan kiritish mumkin",
-        "F1–F12: boshqa tugma mahsulotlar oynasini darhol almashtiradi; tezkor mahsulotlarni o'chirish mumkin (Sozlamalar → Ekran)",
-        "Tester kodi: aniq «qabul qilindi / noto'g'ri» belgisi va darhol yangilanishni tekshirish; menyu belgilari endi siljimaydi",
+        "Tezroq to'lov: savdo serverga bitta so'rov bilan o'tadi (1,5–1,9 s o'rniga 0,3–0,4 s), qaytarilganda ikki chek bo'lmaydi",
+        "Aralash to'lov serverga naqd va karta bo'yicha ajratilib yuboriladi",
+        "Smena va Z hisobot serverdan; kiritish smena summasiga kiradi; saytdagidek doimiy chek raqami",
+        "«Qarz to'lovi»: bitta summa bilan yopish — o'nlab to'lovli qarz 15 soniya o'rniga 1 soniyada",
+        "TM-30F (Dahua) tarozilari: mahsulotlarni kassadan taroziga to'g'ridan-to'g'ri yuborish, sozlamalar va shtrix-kod formati",
+        "Tarmoqda tarozilarni qidirish boshqa quyi tarmoqlarni ham tekshiradi; Rongta: shtrix-koddagi mahsulot kodi endi nol emas",
+        "Tuzatildi: «Smenani ochish»dan keyingi birinchi chek oflayn ketardi; server xatosida (502) tushunarli xabar va ikki savdo yo'q",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

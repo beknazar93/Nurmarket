@@ -1,4 +1,4 @@
-﻿<!-- 2026-09-28: «Настройки весов TM-30F» (JHScale, серия TM-F / TM-xA) — по образцу ShtrikhScaleSettingsWindow. Протокол весов закрыт: окно подсказывает, какие Spec выставить на самих весах, и собирает формат штрих-кода. Содержимое вкладок строится в коде. -->
+﻿<!-- 2026-09-28: «Настройки весов TM-30F» — по образцу ShtrikhScaleSettingsWindow. Вечером 28.09 переделано: это весы Dahua (TM-A / TM-F, программа «Русский масштаб»), касса шлёт им PLU сама (DahuaTmScaleService, порт 4001). Содержимое вкладок строится в коде. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.TmScaleSettingsWindow"

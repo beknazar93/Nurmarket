@@ -14,7 +14,7 @@ namespace NurMarketKassa.Services;
 /// <summary>
 /// Общая реализация оплаты POS: онлайн checkout, офлайн-очередь, печать и новый чек.
 /// </summary>
-public sealed class PosCheckoutService : IPosCheckoutService
+public sealed partial class PosCheckoutService : IPosCheckoutService
 {
     private readonly ICartService _cart;
     private readonly ISalesApiService _salesApi;
@@ -53,8 +53,33 @@ public sealed class PosCheckoutService : IPosCheckoutService
         if (!_cart.HasCart || _cart.LineCount == 0)
             throw new ApiException(Tr.T("Добавьте товары в корзину.", "Себетке товар кошуңуз.", "Add products to the cart.", "Sepete ürün ekleyin.", "Savatga mahsulot qo'shing."), 400);
 
-        if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline)
+        if (OfflineModeHelper.UseLocalOperations)
             return;
+
+        if (_cart.IsLocalOffline)
+        {
+            // 2026-09-28, стресс-тест: касса запустилась без своей смены (открыта смена другого
+            // кассира), товар лёг в локальную корзину, потом кассир открыл смену — а чек так и
+            // остался локальным: при живой связи ушёл в офлайн-очередь, и «в долг»/смешанная
+            // оплата для него были бы запрещены. Если связь есть и смена серверная — переносим
+            // локальный чек на сервер тем же путём, что отложенные чеки. Не вышло — возвращаем
+            // чек как был, и оплата идёт офлайн, как раньше.
+            if (!Guid.TryParse(PosApp.ActiveShiftId, out _))
+                return;
+            var localSnapshot = _cart.Root.GetRawText();
+            try
+            {
+                PosLogger.Log("PAY prepare: local cart while online — moving it to the server", "PAYMENT");
+                await StagingCartService.MaterializeSnapshotOnServerAsync(
+                    _salesApi, _cart, PosApp.PosCashboxId, cancellationToken, force: true).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"PAY prepare: local cart stays offline ({ex.GetType().Name}: {ex.Message})", "WARNING");
+                _cart.SetLocalOfflineCart(localSnapshot);
+            }
+            return;
+        }
 
         if (forceMaterialize || _cart.IsStaging || ! _cart.CanRefresh)
         {
@@ -319,6 +344,13 @@ public sealed class PosCheckoutService : IPosCheckoutService
                 discountWentIntoSnapshot = !OfflineModeHelper.UseLocalOperations && !_cart.IsLocalOffline;
             }
 
+            // 2026-09-28, BE-11: сначала — продажа одним запросом (PosCheckoutService.Quick.cs):
+            // снимок чека уже со скидкой уходит на сервер целиком, без переноса корзины. null —
+            // этот чек новый адрес не берёт (или выключатель в настройках), дальше старый путь.
+            var quickResult = await TryQuickCheckoutAsync(request, cancellationToken).ConfigureAwait(false);
+            if (quickResult != null)
+                return quickResult;
+
             using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             // Перенос позиций на сервер идёт по одной, ~0,2 с на позицию. 2026-09-26, стресс-тест:
             // чек на 144 позиции не успевал за прежние фиксированные 25 с и уходил в офлайн-очередь
@@ -411,6 +443,15 @@ public sealed class PosCheckoutService : IPosCheckoutService
         catch (ApiException ex)
         {
             PaymentErrorMessages.Log("Checkout API error", ex);
+
+            // 2026-09-28, стресс-тест (сервер ответил 502): шлюз мог отдать 5xx уже ПОСЛЕ того, как
+            // продажа провелась. Как и при таймауте, сначала спрашиваем сервер о судьбе этой
+            // продажи — иначе кассир повторит оплату и получит двойной чек.
+            // Текущий ID корзины: после переноса отложенного чека на сервер он уже не тот, что был.
+            if (ex.StatusCode is >= 500 and <= 599
+                && await WasCheckoutAlreadyAppliedAsync(_cart.IsLocalOffline ? fallbackCartId : _cart.CartId ?? fallbackCartId).ConfigureAwait(false))
+                return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
+
             RestoreCartAfterFailedCheckout(fallbackCartJson);
 
             // 2026-09-14, живой баг: "cashbox_id: Касса не найдена или не принадлежит этому
@@ -659,7 +700,9 @@ public sealed class PosCheckoutService : IPosCheckoutService
         PosCheckoutRequest request,
         string cartJsonSnapshot,
         double total,
-        string? reason = null)
+        string? reason = null,
+        string? entryId = null,
+        bool quickAttempted = false)
     {
         // Проверка стоит здесь, в единственной точке постановки чека в очередь, а не только на
         // ветке «мы заранее знаем, что офлайн». В очередь чек попадает ещё двумя путями — из
@@ -697,7 +740,12 @@ public sealed class PosCheckoutService : IPosCheckoutService
             ConsultantId = request.ConsultantId,
             ConsultantCommissionEnabled = request.ConsultantCommissionEnabled,
             ConsultantCommissionPercent = request.ConsultantCommissionPercent,
+            QuickCheckoutAttempted = quickAttempted,
         };
+        // 2026-09-28, BE-11: после неудачной быстрой оплаты id записи = её Idempotency-Key, и
+        // досылка идёт тем же ключом: если первый запрос всё-таки дошёл, сервер вернёт ту же продажу.
+        if (!string.IsNullOrWhiteSpace(entryId))
+            entry.Id = entryId;
 
         OfflinePendingSalesStore.Append(entry);
         ApplyOfflineStockDecrement(cartJsonSnapshot);
@@ -817,7 +865,23 @@ public sealed class PosCheckoutService : IPosCheckoutService
 
         CheckoutResponseHelper.FormatSuccess(checkoutResponse);
 
-        var saleId = CheckoutResponseHelper.TrySaleId(checkoutResponse) ?? cartId;
+        return await FinishOnlineCheckoutAsync(request, cartJsonSnapshot, total, checkoutResponse, cartId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Всё, что делается после того, как сервер провёл продажу. 2026-09-28: вынесено
+    /// из CompleteOnlineCheckoutAsync без изменений, чтобы им же завершалась и продажа одним
+    /// запросом (PosCheckoutService.Quick.cs). <paramref name="fallbackSaleId"/> — id корзины
+    /// старого пути (null у быстрого: там id продажи всегда есть в ответе).</summary>
+    private async Task<PosCheckoutResult> FinishOnlineCheckoutAsync(
+        PosCheckoutRequest request,
+        string cartJsonSnapshot,
+        double total,
+        JsonElement checkoutResponse,
+        string? fallbackSaleId,
+        CancellationToken cancellationToken)
+    {
+        var saleId = CheckoutResponseHelper.TrySaleId(checkoutResponse) ?? fallbackSaleId ?? "";
         PosLogger.Log($"Checkout API OK: saleId={saleId}", "PAYMENT");
 
         // 2026-09-15, живой баг ("Максимум: 5.33" — совершенно одинаковое число при трёх разных
@@ -1167,6 +1231,15 @@ public sealed class PosCheckoutService : IPosCheckoutService
 
         if (!string.IsNullOrWhiteSpace(nonCashReceived))
             body["transfer_received"] = nonCashReceived.Trim();
+
+        // 2026-09-28, BE-07: разбивка смешанной оплаты полями, которые NurCRM теперь хранит в
+        // продаже (cash_amount/card_amount). Раньше сервер записывал смешанную целиком без разбивки,
+        // и Z-отчёт/сайт относили её к безналу.
+        if (string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
+        {
+            body["cash_amount"] = string.IsNullOrWhiteSpace(cashReceived) ? "0.00" : cashReceived.Trim();
+            body["card_amount"] = string.IsNullOrWhiteSpace(nonCashReceived) ? "0.00" : nonCashReceived.Trim();
+        }
 
         if (!string.IsNullOrWhiteSpace(PosApp.PosCashboxId))
             body["cashbox_id"] = PosApp.PosCashboxId.Trim();

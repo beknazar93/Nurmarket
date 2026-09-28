@@ -120,6 +120,9 @@
             <TextBlock Text="{DynamicResource common.cash}" FontSize="11" Foreground="{DynamicResource BrushUiStatusOk}"/>
             <TextBlock x:Name="CashText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushUiStatusOk}" Margin="0,4,0,0" Text="—"/>
+            <!-- 2026-09-28: наличная часть смешанной оплаты — отдельной строкой (отчёт смены сервера, BE-10). -->
+            <TextBlock x:Name="CashMixedText" FontSize="10" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushUiStatusOk}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="4" Background="{DynamicResource BrushDiscountPanelBg}" BorderBrush="{DynamicResource BrushDiscountPanelBorder}" BorderThickness="1"
@@ -128,6 +131,9 @@
             <TextBlock Text="{DynamicResource common.cashless}" FontSize="11" Foreground="{DynamicResource BrushText}"/>
             <TextBlock x:Name="CardText" FontSize="16" FontWeight="Bold"
                        Foreground="{DynamicResource BrushText}" Margin="0,4,0,0" Text="—"/>
+            <!-- 2026-09-28: безналичная часть смешанной оплаты (BE-10). -->
+            <TextBlock x:Name="CardMixedText" FontSize="10" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
         <Border Grid.Column="6" Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1"

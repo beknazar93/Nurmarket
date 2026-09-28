@@ -45,6 +45,16 @@ public static class CompanyInfoService
             if (!string.Equals(previousId, company?.Id, StringComparison.Ordinal))
                 RaiseCompanyChanged(company?.Id);
             ApplyCompanyToPreferences(company);
+            // 2026-09-28: вид магазина, заданный на сервере, — всем кассам компании (BE-18).
+            // null с сервера локальный выбор не трогает (см. MarketSphereSync).
+            try
+            {
+                MarketSphereSync.ApplyServerValueIfNew();
+            }
+            catch (Exception sphereEx)
+            {
+                PosLogger.Log($"Вид магазина с сервера не применён: {sphereEx.Message}", "WARNING");
+            }
             await RefreshScaleSettingsAsync(authApi, ct).ConfigureAwait(false);
             return ComputeSubscriptionStatus(company);
         }

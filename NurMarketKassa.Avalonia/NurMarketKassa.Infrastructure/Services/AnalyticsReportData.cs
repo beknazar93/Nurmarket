@@ -228,6 +228,11 @@ public sealed class AnalyticsReportData
                 }
             }
 
+            // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (сверено: те же
+            // число и сумма, что «Документы → Возврат продажи»). Не ответил — цифра выше.
+            if (await Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct).ConfigureAwait(false) is { } listedReturns)
+                returns = (double)listedReturns.Sum;
+
             return new ServerFigures
             {
                 Revenue = Num(cards, "revenue"),

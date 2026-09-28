@@ -26,6 +26,9 @@ public sealed class DebtSaleRow
     /// при загрузке списка через ClientDealGetAsync, поэтому не init-only.</summary>
     public string DealId { get; set; } = "";
     public string DateDisplay { get; init; } = "";
+    /// <summary>2026-09-28: момент продажи — запасной путь «Погасить одной суммой» гасит от
+    /// старых долгов к новым, как и сервер (DateDisplay как строка по дате не сортируется).</summary>
+    public DateTimeOffset CreatedAt { get; init; }
     public string FirstItemName { get; init; } = "";
     /// <summary>Реальный остаток долга по сделке (remaining_debt) — уточняется при загрузке
     /// списка, а не берётся из total/debt_amount самой продажи, которые не отражают уже
@@ -126,6 +129,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         CloseWindowButton.SetValue(ToolTip.TipProperty, Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
 
         SelectClientCommand = new RelayCommand<ClientOption>(SelectClient);
+        // 2026-09-28: блок «Погасить одной суммой» (PayDebtDialog.OneSum.cs).
+        InitOneSumPayment();
         Opened += async (_, _) => await EnsureClientsLoadedAsync().ConfigureAwait(true);
     }
 
@@ -247,6 +252,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                     DebtHistory.Add(row);
             }
             OnPropertyChanged(nameof(TotalOwedText));
+            // 2026-09-28: сумма «Погасить одной суммой» — весь долг по умолчанию.
+            OnDebtSalesReloaded();
         }
         catch (ApiException ex)
         {
@@ -340,6 +347,49 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         button.IsEnabled = false;
         try
         {
+            // 2026-09-28: у клиента один долг — гасим одной суммой через сервер (BE-12, один
+            // запрос вместо взносов по одному). При нескольких долгах сервер гасит от старых к
+            // новым, а кассир нажал «Оплатить» у конкретной строки, — поэтому там старый путь,
+            // а общая сумма — кнопкой «Погасить» над таблицей. Сервер без этого адреса — тоже
+            // старый путь (TryPayViaServerAsync вернёт false).
+            if (DebtSales.Count == 1 && _selectedClient is { } onlyDebtClient
+                && await TryPayViaServerAsync(onlyDebtClient, amount, button).ConfigureAwait(true))
+                return;
+
+            if (!await PayRowLegacyAsync(row, amount, button).ConfigureAwait(true))
+                return;
+
+            // Перегружаем с сервера, а не правим локально — сумма частичной оплаты
+            // и статус (может стать "paid") должны отражать серверную истину.
+            if (_selectedClient != null)
+                await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
+
+            var paidText = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
+            SuccessMessage = Tr.T($"Оплачено {paidText} сом.", $"{paidText} сом төлөндү.", $"Paid {paidText} som.",
+                $"{paidText} som ödendi.", $"{paidText} so'm to'landi.");
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = Tr.T("Не удалось оплатить долг: ", "Карызды төлөө мүмкүн болгон жок: ", "Could not pay the debt: ", "Borç ödenemedi: ", "Qarzni to'lab bo'lmadi: ") + ex.Message;
+            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    /// <summary>Старый путь оплаты одной строки долга — по взносам сделки (до 2026-09-28 был
+    /// телом PayDebt_Click; вынесен без изменений, чтобы им же пользовался запасной путь кнопки
+    /// «Погасить» одной суммой). false — оплата не состоялась, причина уже в ErrorMessage.</summary>
+    private async Task<bool> PayRowLegacyAsync(DebtSaleRow row, double amount, Button button)
+    {
+        {
             // Список долгов (GET .../sales/?status=debt) не отдаёт deal_id в каждой
             // строке — только одиночная карточка продажи его содержит. Догружаем лениво,
             // только когда реально нужно платить, а не для каждой строки списка.
@@ -362,11 +412,11 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                     "This sale has no linked deal — debt payment is unavailable.",
                     "Bu satışa bağlı bir anlaşma yok — borç ödemesi yapılamaz.",
                     "Bu sotuvga bog'langan bitim yo'q — qarzni to'lash mumkin emas.");
-                return;
+                return false;
             }
 
             if (_selectedClient is null)
-                return;
+                return false;
 
             // Обычно UnpaidInstallmentIds уже подтянут заранее в ResolveRealRemainingDebtAsync
             // (при загрузке списка) — но если dealId только что догрузился лениво выше (row.DealId
@@ -447,29 +497,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 ShiftEventsStore.OperationKey(dealId),
                 amount,
                 _selectedClient?.DisplayName);
-
-            // Перегружаем с сервера, а не правим локально — сумма частичной оплаты
-            // и статус (может стать "paid") должны отражать серверную истину.
-            if (_selectedClient != null)
-                await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
-
-            var paidText = amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
-            SuccessMessage = Tr.T($"Оплачено {paidText} сом.", $"{paidText} сом төлөндү.", $"Paid {paidText} som.",
-                $"{paidText} som ödendi.", $"{paidText} so'm to'landi.");
-        }
-        catch (ApiException ex)
-        {
-            ErrorMessage = ex.Message;
-            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = Tr.T("Не удалось оплатить долг: ", "Карызды төлөө мүмкүн болгон жок: ", "Could not pay the debt: ", "Borç ödenemedi: ", "Qarzni to'lab bo'lmadi: ") + ex.Message;
-            PosLogger.Log($"Pay-debt failed for sale {row.Id}: {ex}", "PAYMENT");
-        }
-        finally
-        {
-            button.IsEnabled = true;
+            return true;
         }
     }
 
@@ -508,6 +536,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             Id = TryGetString(element, "id") ?? "",
             DealId = TryGetString(element, "deal_id") ?? "",
             DateDisplay = created == default ? "" : created.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+            CreatedAt = created,
             FirstItemName = TryGetString(element, "first_item_name") ?? "",
             Amount = amount,
             AmountDisplay = amountText + Tr.T(" сом", " сом", " som", " som", " so'm"),

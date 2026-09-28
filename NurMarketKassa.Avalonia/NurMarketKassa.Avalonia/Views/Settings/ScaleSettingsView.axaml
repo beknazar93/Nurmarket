@@ -336,9 +336,10 @@
                                          Content="{DynamicResource scalesPlu.brandRongta}" Click="PluBrandRadio_Click"/>
                             <RadioButton x:Name="PluBrandAiRadio" GroupName="PluScaleBrand"
                                          Content="{DynamicResource loc.settings.scale.aiScales}" Click="PluBrandRadio_Click"/>
-                            <!-- 2026-09-28: весы TM-30F (JHScale) — файл для их программы, как у AI-весов. -->
+                            <!-- 2026-09-28: весы TM-30F — файл для их программы, как у AI-весов. Вечером 28.09:
+                                 это Dahua (TM-A/TM-F, «Русский масштаб»), касса шлёт им PLU напрямую. -->
                             <RadioButton x:Name="PluBrandTmRadio" GroupName="PluScaleBrand"
-                                         Content="TM-30F (JHScale)" Click="PluBrandRadio_Click"/>
+                                         Content="TM-30F (Dahua)" Click="PluBrandRadio_Click"/>
                         </StackPanel>
 
                         <!-- 2026-09-28: окно настроек весов выбранной марки (Штрих-М — окно Штрих-ПРИНТ,

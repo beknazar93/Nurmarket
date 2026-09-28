@@ -762,6 +762,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             var rows = await App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))
                 .ConfigureAwait(true);
 
+            // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
+            // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
+            _lastReturns = await NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct).ConfigureAwait(true);
+            _lastReturnsKey = RangeKey(from, to);
+
             // Отчёт сервера запоминается как есть: к нему добавляются чеки касс, которые сервер
             // ещё не видит (касса без интернета), — и сейчас, и когда связь пропадёт.
             _lastReport = report.Clone();
@@ -809,6 +814,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     private JsonElement? _lastChart;
     private List<JsonElement>? _lastRows;
     private string? _lastReportKey;
+    // Возвраты периода по списку возвратов сервера (2026-09-28, BE-09) и для какого периода.
+    private (int Count, decimal Sum)? _lastReturns;
+    private string? _lastReturnsKey;
     private DateTime _lastFetchStartedUtc;
     private bool _offline;
 
@@ -1264,6 +1272,14 @@ public partial class OwnerShellWindow : Window, IMainShell
                     returnsSum = Num(doc, "sum");
                 }
             }
+        }
+
+        // 2026-09-28 (BE-09): список возвратов сервера за этот же период — если он получен.
+        var (rangeFrom, rangeTo) = CurrentRange();
+        if (_lastReturns is { } listed && _lastReturnsKey == RangeKey(rangeFrom, rangeTo))
+        {
+            returnsCount = listed.Count;
+            returnsSum = (double)listed.Sum;
         }
 
         ReturnsValue.Text = returnsCount > 0 ? $"{returnsCount:0} · {Amount(returnsSum)} {Som()}" : "0";

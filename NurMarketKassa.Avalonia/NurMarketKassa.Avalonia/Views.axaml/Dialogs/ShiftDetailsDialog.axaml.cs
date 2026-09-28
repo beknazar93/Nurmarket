@@ -7,6 +7,7 @@ using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -26,6 +27,20 @@ public partial class ShiftDetailsDialog : Window
     private Task<List<ShiftReportData.ShiftSale>>? _saleRows;
     private Task? _pendingDebt;
     private double _serverDiscounts;
+
+    /// <summary>2026-09-28, доработка NurCRM (BE-10): отчёт смены с сервера одним запросом —
+    /// выручка, оплаты (смешанная раздельно), долг, скидки, возвраты, внесения/изъятия, ожидаемый
+    /// остаток. Пока он есть, цифры окна и печати — из него; локальные счётчики кассы остаются
+    /// запасом на случай, когда сервера нет (офлайн-смена, нет связи).</summary>
+    private ServerShiftReport? _report;
+    private Task<ServerShiftReport?>? _reportTask;
+
+    /// <summary>Возвраты смены по списку возвратов сервера — пока сам отчёт их не считает
+    /// (у возвратов на сервере пустое поле shift, см. NurCrmReportsApi.ReturnsForShiftAsync).</summary>
+    private (int Count, decimal Sum)? _serverShiftReturns;
+
+    /// <summary>Отчёт смены с сервера, который окно загрузило при открытии (null — сервера нет).</summary>
+    public Task<ServerShiftReport?> ServerReportTask => _reportTask ?? Task.FromResult<ServerShiftReport?>(null);
 
     public ShiftDetailsDialog()
     {
@@ -50,8 +65,46 @@ public partial class ShiftDetailsDialog : Window
         // Список продаж смены нужен любой плитке «Продажи/Наличные/…» — к нажатию он уже здесь.
         SaleRows();
         _ = ShowServerDiscountsAsync();
+        // Отчёт смены сервера — и для отчёта закрытия (RefreshFromServer=false): после закрытия
+        // он уже с пересчитанной суммой и расхождением, а внесения/возвраты касса сама не знает,
+        // если их делали на другом компьютере.
+        _reportTask = LoadServerReportAsync(shift.Id);
         if (RefreshFromServer)
             _ = RefreshFromServerAsync(shift.Id);
+    }
+
+    /// <summary>Загружает отчёт смены сервера (BE-10) и перерисовывает окно по нему.</summary>
+    private async Task<ServerShiftReport?> LoadServerReportAsync(string shiftId)
+    {
+        try
+        {
+            var report = await NurCrmReportsApi.GetShiftReportAsync(shiftId, _cts.Token).ConfigureAwait(true);
+            if (report is null || _cts.IsCancellationRequested || _shift is null)
+                return report;
+
+            _report = report;
+            BindShift(_shift);
+
+            // Возвраты смены: пока сервер не пишет смену возврата, returns_total в отчёте 0 —
+            // досчитываем по списку возвратов сервера (кассир смены, время смены).
+            if (report.ReturnsTotal <= 0m)
+            {
+                _serverShiftReturns = await NurCrmReportsApi.ReturnsForShiftAsync(report, _cts.Token).ConfigureAwait(true);
+                if (!_cts.IsCancellationRequested && _shift is { } shown)
+                    BindExtraTotals(shown.Id, shown.ExpenseTotal);
+            }
+
+            return report;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Отчёт смены: отчёт сервера не применён: {ex.Message}", "SHIFTS");
+            return null;
+        }
     }
 
     /// <summary>Смена, открытая без связи, на сервере не существует — спрашивать о ней нечего.</summary>
@@ -127,6 +180,10 @@ public partial class ShiftDetailsDialog : Window
 
     private void BindShift(ShiftModel shift)
     {
+        // 2026-09-28: цифры — из отчёта смены сервера, если он уже пришёл (см. _report); смена,
+        // пришедшая позже (RefreshFromServerAsync), тоже показывается с его цифрами.
+        if (_report is { } report)
+            shift = report.ApplyTo(shift);
         _shift = shift;
         BindShiftProducts(shift);
         // 2026-09-15, по просьбе пользователя ("номер смены исправь") — сырой GUID нечитаем на
@@ -152,9 +209,23 @@ public partial class ShiftDetailsDialog : Window
         CardText.Text = shift.NonCashSales is { } card ? $"{card:N2} {Som}" : "—";
         DebtText.Text = shift.DebtSales is { } debt ? $"{debt:N2} {Som}" : "—";
 
+        // Смешанная оплата: её наличная часть уже в «Наличных», безналичная — в «Безналичных»;
+        // строкой ниже — сколько из них пришло смешанной (раньше сервер разбивки не хранил и
+        // смешанная целиком уходила в безнал).
+        var mixedCash = _report?.MixedCash ?? 0m;
+        var mixedCard = _report?.MixedCard ?? 0m;
+        CashMixedText.IsVisible = mixedCash > 0m;
+        CashMixedText.Text = MixedLine(mixedCash);
+        CardMixedText.IsVisible = mixedCard > 0m;
+        CardMixedText.Text = MixedLine(mixedCard);
+
         BindExtraTotals(shift.Id, shift.ExpenseTotal);
 
-        var (deposits, withdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
+        // Внесения и изъятия — с сервера (он знает и о сделанных на других компьютерах), без
+        // отчёта сервера — как раньше, по журналу этой кассы.
+        var (deposits, withdrawals) = _report is { } fromServer
+            ? (fromServer.Deposits, fromServer.Withdrawals)
+            : ShiftCashOperationsStore.SumsForShift(shift.Id);
         CashOpsPanel.IsVisible = deposits > 0m || withdrawals > 0m;
         DepositsText.Text = $"+{deposits:N2} {Som}";
         WithdrawalsText.Text = $"-{withdrawals:N2} {Som}";
@@ -194,6 +265,13 @@ public partial class ShiftDetailsDialog : Window
         double Get(string kind) => events.TryGetValue(kind, out var value) ? value : 0;
 
         var returns = Get(ShiftEventsStore.KindReturn);
+        // 2026-09-28 (BE-09/BE-10): возвраты — с сервера: из отчёта смены, а пока он их не считает
+        // (returns_total = 0, у возвратов нет смены) — по списку возвратов сервера. Локальный
+        // журнал — только если сервера нет.
+        if (_report is { ReturnsTotal: > 0m } withReturns)
+            returns = (double)withReturns.ReturnsTotal;
+        else if (_serverShiftReturns is { } serverReturns)
+            returns = (double)serverReturns.Sum;
         var writeOffs = Get(ShiftEventsStore.KindWriteOff);
         // Расход — с сервера, если он его прислал: касса видит только свои операции, и
         // экран расходился бы с печатным чеком, где эта цифра уже серверная.
@@ -207,17 +285,35 @@ public partial class ShiftDetailsDialog : Window
 
         var adjustments = ClientLoyaltyStore.AdjustmentsForShift(shiftId);
         var discounts = Math.Max(adjustments.Discounts, _serverDiscounts);
+        var pointsRedeemed = adjustments.PointsRedeemed;
+        // 2026-09-28: скидки смены (на строку и на чек, с любой кассы) и оплата бонусами — из
+        // отчёта смены сервера. Бонусы, списанные только в локальной программе лояльности, сервер
+        // не видит — их берём у кассы, если сервер своих не прислал.
+        if (_report is { } report)
+        {
+            discounts = (double)report.Discounts;
+            if (report.BonusRedeemed > 0m)
+                pointsRedeemed = (double)report.BonusRedeemed;
+        }
         DiscountsText.Text = discounts > 0.005 ? Money(discounts) : "—";
 
         // Оплату бонусами показываем отдельной строкой под скидкой: она входит в общую сумму
         // скидок, и без пояснения владелец считал бы её дважды.
-        PointsRedeemedText.IsVisible = adjustments.PointsRedeemed > 0.005;
-        PointsRedeemedText.Text = Tr.T($"из них бонусами: {adjustments.PointsRedeemed:N2}",
-            $"анын ичинен бонус менен: {adjustments.PointsRedeemed:N2}",
-            $"of which paid with points: {adjustments.PointsRedeemed:N2}",
-            $"puanla ödenen: {adjustments.PointsRedeemed:N2}",
-            $"shundan bonus bilan: {adjustments.PointsRedeemed:N2}");
+        PointsRedeemedText.IsVisible = pointsRedeemed > 0.005;
+        PointsRedeemedText.Text = Tr.T($"из них бонусами: {pointsRedeemed:N2}",
+            $"анын ичинен бонус менен: {pointsRedeemed:N2}",
+            $"of which paid with points: {pointsRedeemed:N2}",
+            $"puanla ödenen: {pointsRedeemed:N2}",
+            $"shundan bonus bilan: {pointsRedeemed:N2}");
     }
+
+    /// <summary>Подпись под плиткой «Наличные»/«Безналичные»: сколько из суммы — смешанной оплатой.</summary>
+    private static string MixedLine(decimal amount) => Tr.T(
+        $"в т. ч. смешанная: {amount:N2}",
+        $"анын ичинде аралаш: {amount:N2}",
+        $"incl. mixed: {amount:N2}",
+        $"karışık dahil: {amount:N2}",
+        $"shu jumladan aralash: {amount:N2}");
 
     /// <summary>2026-09-28, регресс 1.17.19: в смене была скидка 10 % на строку, а плитка
     /// «Скидки» показывала прочерк — она считала только скидки программы лояльности
@@ -234,6 +330,9 @@ public partial class ShiftDetailsDialog : Window
                 .Where(s => !string.Equals(s.Status, "canceled", StringComparison.OrdinalIgnoreCase))
                 .Sum(s => s.Discount);
             _serverDiscounts = fromServer;
+            // Отчёт смены сервера уже показал скидки (2026-09-28) — свой подсчёт по чекам не нужен.
+            if (_report is not null)
+                return;
             var discounts = Math.Max(fromServer, ClientLoyaltyStore.AdjustmentsForShift(_shift?.Id).Discounts);
             if (ExtraTotalsRow.IsVisible && discounts > 0.005)
                 DiscountsText.Text = $"{discounts:N2} {Som}";
@@ -253,6 +352,10 @@ public partial class ShiftDetailsDialog : Window
     /// что уже работает для только что закрытой смены, и подставляет сюда, если диалог ещё открыт.</summary>
     public void RefreshDebtDisplay(decimal debt)
     {
+        // 2026-09-28: долг смены уже дал отчёт смены сервера (остаток долга по продажам смены) —
+        // его и оставляем, чтобы окно и печать показывали одну и ту же цифру сервера.
+        if (_report is not null)
+            return;
         // Окно могло заменить свою копию смены свежей с сервера — долг нужен и ей (печать).
         if (_shift is not null)
             _shift.DebtSales = debt;
@@ -282,6 +385,9 @@ public partial class ShiftDetailsDialog : Window
             }
 
             debt ??= fallback;
+            // Отчёт смены сервера пришёл раньше — долг из него (2026-09-28, см. RefreshDebtDisplay).
+            if (_report is { } report)
+                debt = report.Debt;
             if (_shift is not null)
                 _shift.DebtSales = debt;
             DebtText.Text = debt is { } value ? $"{value:N2} {Som}" : "—";
@@ -327,8 +433,14 @@ public partial class ShiftDetailsDialog : Window
             // Долг закрытой смены ещё считается — печатаем, когда он придёт (см. ApplyDebtWhenResolvedAsync).
             if (_pendingDebt is { IsCompleted: false } pendingDebt)
                 await pendingDebt.ConfigureAwait(true);
+            // Отчёт смены сервера ещё грузится — печатаем с его цифрами, как на экране (2026-09-28).
+            if (_reportTask is { IsCompleted: false } pendingReport)
+                await pendingReport.ConfigureAwait(true);
 
-            var report = BuildPrintableReport(_shift);
+            var returns = _report is { ReturnsTotal: > 0m } r
+                ? (r.ReturnsCount, r.ReturnsTotal)
+                : _serverShiftReturns;
+            var report = BuildPrintableReport(_shift, _report, returns);
             var ok = await App.GetRequiredService<ICashShiftService>().PrintReportAsync(report).ConfigureAwait(true);
             if (!ok)
                 PosMessageBox.Show(this,
@@ -346,7 +458,11 @@ public partial class ShiftDetailsDialog : Window
         }
     }
 
-    private static string BuildPrintableReport(ShiftModel shift)
+    /// <param name="server">2026-09-28: отчёт смены сервера (BE-10); с ним печатаются смешанная
+    /// оплата раздельно, скидки, возвраты, внесения/изъятия и ожидаемый остаток сервера. null —
+    /// как раньше, по итогам смены и журналу этой кассы.</param>
+    /// <param name="returns">Возвраты смены с сервера (число, сумма); null — не известны.</param>
+    private static string BuildPrintableReport(ShiftModel shift, ServerShiftReport? server = null, (int Count, decimal Sum)? returns = null)
     {
         var shortNumber = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
@@ -363,10 +479,24 @@ public partial class ShiftDetailsDialog : Window
         sb.AppendLine($"Выручка: {shift.Revenue.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.CashSales is { } cash)
             sb.AppendLine($"  наличные: {cash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        if (server is { MixedCash: > 0m })
+            sb.AppendLine($"    в т.ч. смешанная: {server.MixedCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.NonCashSales is { } card)
             sb.AppendLine($"  безналичные: {card.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        if (server is { MixedCard: > 0m })
+            sb.AppendLine($"    в т.ч. смешанная: {server.MixedCard.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.DebtSales is { } debt)
             sb.AppendLine($"  в долг: {debt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        // Скидки и возвраты — строками отчёта сервера (2026-09-28); без него их печатал только
+        // X/Z-отчёт по счётчикам кассы.
+        if (server is { Discounts: > 0m })
+        {
+            sb.AppendLine($"Скидки: {server.Discounts.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            if (server.BonusRedeemed > 0m)
+                sb.AppendLine($"  из них бонусами: {server.BonusRedeemed.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        }
+        if (returns is { Sum: > 0m } ret)
+            sb.AppendLine($"Возвраты: {ret.Count} на {ret.Sum.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         sb.AppendLine("------------------------------");
 
         // Внесения и изъятия из денежного ящика. Раньше отчёт их не знал вовсе: «ожидаемый
@@ -379,10 +509,24 @@ public partial class ShiftDetailsDialog : Window
         var (localDeposits, localWithdrawals) = ShiftCashOperationsStore.SumsForShift(shift.Id);
         var deposits = shift.IncomeTotal ?? localDeposits;
         var withdrawals = shift.ExpenseTotal ?? localWithdrawals;
-        if (deposits > 0m || withdrawals > 0m)
+        // 2026-09-28: с отчётом смены сервера внесения и изъятия — его отдельные поля deposits/
+        // withdrawals (income_total туда же включает, например, наличную оплату долгов — она
+        // печатается своей строкой «Прочие приходы»).
+        var otherIncome = 0m;
+        if (server is not null)
+        {
+            deposits = server.Deposits;
+            withdrawals = server.Withdrawals;
+            otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits);
+        }
+        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m)
         {
             if (deposits > 0m)
                 sb.AppendLine($"Внесения: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            if (otherIncome > 0m)
+                // Погашения долгов сервер сам пишет в смену (debt_repayment) — они здесь, одной строкой
+                // сервера; локальный счётчик «Оплата долгов» к ней не прибавляется.
+                sb.AppendLine($"Прочие приходы (оплата долгов и др.): +{otherIncome.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             if (withdrawals > 0m)
                 sb.AppendLine($"Изъятия (расход): -{withdrawals.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             sb.AppendLine("------------------------------");

@@ -1801,9 +1801,11 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // 2026-09-28: + новые адреса NurCRM (должники, chat_id клиента, остатки) — BE-03/04/05.
             _telegramBot ??= new TelegramBotPollingService(
                 App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>(),
-                App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>());
+                App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>(),
+                App.GetRequiredService<NurMarketKassa.Services.Api.ClientDebtsApiService>());
             _telegramBot.Start();
         }
         catch (Exception ex)
@@ -2303,10 +2305,26 @@ public partial class MainWindow : Window
             ? (0m, 0m)
             : ShiftCashOperationsStore.SumsForShift(shiftId);
 
-        var text = TelegramBotService.BuildShiftSummary(shift, deposits, withdrawals, prefs.StoreName);
-
         _ = Task.Run(async () =>
         {
+            // 2026-09-28 (BE-10): цифры сводки — из отчёта смены сервера (смешанная раздельно в
+            // наличных/безнале, внесения и изъятия с любого компьютера). Нет сервера — как раньше.
+            var summaryShift = shift;
+            var (summaryDeposits, summaryWithdrawals) = (deposits, withdrawals);
+            try
+            {
+                if (await NurMarketKassa.Services.Api.NurCrmReportsApi.GetShiftReportAsync(shiftId).ConfigureAwait(false) is { } report)
+                {
+                    summaryShift = report.ApplyTo(shift);
+                    (summaryDeposits, summaryWithdrawals) = (report.Deposits, report.Withdrawals);
+                }
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Сводка смены: отчёт сервера не получен: {ex.Message}", "TELEGRAM");
+            }
+
+            var text = TelegramBotService.BuildShiftSummary(summaryShift, summaryDeposits, summaryWithdrawals, prefs.StoreName);
             var error = await TelegramBotService.SendAsync(text).ConfigureAwait(false);
             PosLogger.Log(
                 error is null ? "Сводка по смене отправлена владельцу в Telegram." : $"Сводка в Telegram не ушла: {error}",

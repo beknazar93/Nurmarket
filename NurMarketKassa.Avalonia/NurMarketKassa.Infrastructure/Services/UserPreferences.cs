@@ -102,6 +102,32 @@ public sealed class UserPreferences
     /// например B201E500J500A000A000A000. null — рекомендуемая под раскладку компании.</summary>
     public string? TmScaleBarcodeFormat { get; set; }
 
+    /// <summary>2026-09-28: TCP-порт весов TM-30F (Dahua TM-A/TM-F). 4001 — зашит в datatransters.dll
+    /// их программы «Русский масштаб» (в весах сетевой модуль ZLG ZNE-100T).</summary>
+    public int TmScalePort { get; set; } = 4001;
+
+    /// <summary>Знаков после запятой в цене на весах — должен совпадать с «Price point» в системных
+    /// параметрах весов (у владельца «Integer [123]» → 0). Цена в строке PLU = сом × 10^знаков.</summary>
+    public int TmScalePriceDecimals { get; set; }
+
+    /// <summary>Знаков после запятой в цене для весов TM-30F (Dahua). 2026-09-28: живая запись обмена
+    /// показала цену в тиынах (120 → «012000», 34,50 → «003450»), то есть 2 знака; прежнее поле
+    /// TmScalePriceDecimals успело сохраниться в файлах нулём (ошибочное допущение), поэтому новое поле.</summary>
+    public int TmScalePricePoint { get; set; } = 2;
+
+    /// <summary>«Префикс штрихкода» товара (F/FF в формате ШК весов). 20 — вес в режиме «авто» кассы.</summary>
+    public int TmScaleBarcodePrefix { get; set; } = 20;
+
+    /// <summary>Формат ШК весов Dahua (один из 15, DahuaTmBarcodeFormat.Variants) — только для
+    /// примера и сверки в окне настроек: на весы касса его не отправляет. null — рекомендуемый.</summary>
+    public string? TmScaleDahuaBarcode { get; set; }
+
+    /// <summary>«line» — по строке с ответом (как их программа, по умолчанию), «batch» — одним пакетом.</summary>
+    public string TmScaleSendMode { get; set; } = "line";
+
+    /// <summary>Срок годности, дней, для всех отправляемых товаров (0 — не задан).</summary>
+    public int TmScaleShelfLifeDays { get; set; }
+
     // Дисплей цены покупателя (отдельная COM-коробочка, не второй монитор — см.
     // PoleDisplayService, 2026-09-04)
     public string PoleDisplayComPort { get; set; } = "COM3";
@@ -433,6 +459,12 @@ public sealed class UserPreferences
     /// <summary>Процент от финальной суммы чека, начисляемый клиенту бонусами при включённой
     /// программе лояльности.</summary>
     public double LoyaltyEarnPercent { get; set; } = 5;
+
+    /// <summary>2026-09-28, BE-11: продажа одним запросом POST api/main/pos/checkout/ с
+    /// Idempotency-Key (вместо sales/start → позиции → скидка → checkout). Выключатель на случай,
+    /// если новый адрес NurCRM поведёт себя не так: false — всегда старый путь. Проверено вживую
+    /// на тестовом аккаунте, поэтому по умолчанию включено.</summary>
+    public bool QuickCheckoutEnabled { get; set; } = true;
 
     public Dictionary<string, string> PosHotkeys { get; set; } = new();
     public bool Autostart { get; set; }
@@ -894,8 +926,26 @@ public sealed class UserPreferences
                 p.TmScaleIp = fromFile.TmScaleIp;
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleBarcodeFormat))
                 p.TmScaleBarcodeFormat = fromFile.TmScaleBarcodeFormat;
+            // 2026-09-28: прямая выгрузка на TM-30F (Dahua).
+            if (fromFile.TmScalePort is > 0 and <= 65535)
+                p.TmScalePort = fromFile.TmScalePort.Value;
+            if (fromFile.TmScalePriceDecimals is >= 0 and <= 3)
+                p.TmScalePriceDecimals = fromFile.TmScalePriceDecimals.Value;
+            if (fromFile.TmScalePricePoint is >= 0 and <= 3)
+                p.TmScalePricePoint = fromFile.TmScalePricePoint.Value;
+            if (fromFile.TmScaleBarcodePrefix is >= 0 and <= 99)
+                p.TmScaleBarcodePrefix = fromFile.TmScaleBarcodePrefix.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.TmScaleDahuaBarcode))
+                p.TmScaleDahuaBarcode = fromFile.TmScaleDahuaBarcode;
+            if (!string.IsNullOrWhiteSpace(fromFile.TmScaleSendMode))
+                p.TmScaleSendMode = fromFile.TmScaleSendMode;
+            if (fromFile.TmScaleShelfLifeDays is >= 0 and <= 999)
+                p.TmScaleShelfLifeDays = fromFile.TmScaleShelfLifeDays.Value;
             if (fromFile.LoyaltyEarnPercent is not null)
                 p.LoyaltyEarnPercent = Math.Clamp(fromFile.LoyaltyEarnPercent.Value, 0, 100);
+            // 2026-09-28, BE-11: нет в файле (старые настройки) — остаётся значение по умолчанию.
+            if (fromFile.QuickCheckoutEnabled is { } quickCheckout)
+                p.QuickCheckoutEnabled = quickCheckout;
             if (fromFile.PosHotkeys != null)
                 p.PosHotkeys = fromFile.PosHotkeys;
             if (fromFile.LastFilterDateFrom.HasValue) p.LastFilterDateFrom = fromFile.LastFilterDateFrom;
@@ -1099,7 +1149,15 @@ public sealed class UserPreferences
                 RongtaScalePort = RongtaScalePort,
                 TmScaleIp = TmScaleIp,
                 TmScaleBarcodeFormat = TmScaleBarcodeFormat,
+                TmScalePort = TmScalePort,
+                TmScalePriceDecimals = TmScalePriceDecimals,
+                TmScalePricePoint = TmScalePricePoint,
+                TmScaleBarcodePrefix = TmScaleBarcodePrefix,
+                TmScaleDahuaBarcode = TmScaleDahuaBarcode,
+                TmScaleSendMode = TmScaleSendMode,
+                TmScaleShelfLifeDays = TmScaleShelfLifeDays,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
+                QuickCheckoutEnabled = QuickCheckoutEnabled,
                 PosHotkeys = PosHotkeys,
                 LastFilterDateFrom = LastFilterDateFrom,
                 LastFilterDateTo = LastFilterDateTo,
@@ -1330,7 +1388,15 @@ public sealed class UserPreferences
         public int? RongtaScalePort { get; set; }
         public string? TmScaleIp { get; set; }
         public string? TmScaleBarcodeFormat { get; set; }
+        public int? TmScalePort { get; set; }
+        public int? TmScalePriceDecimals { get; set; }
+        public int? TmScalePricePoint { get; set; }
+        public int? TmScaleBarcodePrefix { get; set; }
+        public string? TmScaleDahuaBarcode { get; set; }
+        public string? TmScaleSendMode { get; set; }
+        public int? TmScaleShelfLifeDays { get; set; }
         public double? LoyaltyEarnPercent { get; set; }
+        public bool? QuickCheckoutEnabled { get; set; }
         public Dictionary<string, string>? PosHotkeys { get; set; }
         public DateTime? LastFilterDateFrom { get; set; }
         public DateTime? LastFilterDateTo { get; set; }

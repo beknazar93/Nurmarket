@@ -182,6 +182,22 @@
                            Foreground="{DynamicResource BrushDanger}"
                            IsVisible="{Binding HasSelectedClient}"/>
 
+                <!-- 2026-09-28: погашение одной суммой (POST clients/{id}/pay-debt/, BE-12) — сервер
+                     сам раскладывает сумму от старых долгов к новым, одним запросом вместо десятков
+                     взносов по одному (~15 с). Тексты — в коде (PayDebtDialog.OneSum.cs). -->
+                <StackPanel Spacing="4" IsVisible="{Binding ShowPayAllBlock}">
+                    <Grid ColumnDefinitions="Auto,160,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding PayAllLabel}" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                        <TextBox Grid.Column="1" x:Name="PayAllAmountBox" Text="{Binding PayAllAmountText, Mode=TwoWay}"
+                                 FontWeight="Bold"/>
+                        <Button Grid.Column="2" x:Name="PayAllButton" Classes="PayButton" Margin="8,0,0,0"
+                                MinHeight="40" Content="{Binding PayAllButtonLabel}" Click="PayAll_Click"/>
+                    </Grid>
+                    <TextBlock Text="{Binding PayAllHint}" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+
                 <TextBlock Text="{Binding ErrorMessage}"
                            Foreground="{DynamicResource BrushDanger}"
                            FontSize="13"

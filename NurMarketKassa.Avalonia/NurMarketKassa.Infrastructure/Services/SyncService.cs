@@ -7,7 +7,7 @@ using NurMarketKassa.Services.Api;
 namespace NurMarketKassa.Services;
 
 /// <summary>Фоновая синхронизация офлайн-продаж и каталога (интервал 45 с).</summary>
-public sealed class SyncService : IDisposable
+public sealed partial class SyncService : IDisposable
 {
     private static readonly TimeSpan SyncInterval = TimeSpan.FromSeconds(45);
 
@@ -391,6 +391,12 @@ public sealed class SyncService : IDisposable
             return entry.SyncedSaleId;
         }
 
+        // 2026-09-28, BE-11: свежий чек очереди — одним запросом с Idempotency-Key = id записи
+        // (SyncService.QuickReplay.cs). Повторная досылка тем же ключом дубля не создаёт.
+        var quick = await TryQuickReplayAsync(entry, ct).ConfigureAwait(false);
+        if (quick.Handled)
+            return quick.SaleId;
+
         if (entry.CheckoutSubmittedAt is not null)
         {
             // Сверка по статусу КОРЗИНЫ (CartSaleSessionHelper.GetCheckoutStateAsync). Прежняя
@@ -500,6 +506,14 @@ public sealed class SyncService : IDisposable
         var result = await _sales.PosCheckoutAsync(cartId, body, ct).ConfigureAwait(false);
         OfflinePendingSalesStore.Update(entry.Id, e => e.CheckoutCompleted = true);
 
+        await ResyncStockAfterReplayAsync(entry, ct).ConfigureAwait(false);
+        return CheckoutResponseHelper.TrySaleId(result);
+    }
+
+    /// <summary>2026-09-28: вынесено из SubmitReplayCheckoutAsync без изменений — тем же
+    /// завершается и досылка одним запросом (SyncService.QuickReplay.cs).</summary>
+    private async Task ResyncStockAfterReplayAsync(OfflineSaleEntry entry, CancellationToken ct)
+    {
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(entry.CartJson) ? "{}" : entry.CartJson);
         var root = doc.RootElement;
 
@@ -530,8 +544,6 @@ public sealed class SyncService : IDisposable
                 /* синхронизация остатков не должна отменять отправку чека */
             }
         }
-
-        return CheckoutResponseHelper.TrySaleId(result);
     }
 
     private void UpdateStatusText()

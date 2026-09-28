@@ -182,7 +182,7 @@ internal static class ScaleUi
     public static string BrandTitle(string brand) => brand switch
     {
         BrandRongta => "Rongta",
-        BrandTm => "TM-30F (JHScale)",
+        BrandTm => "TM-30F (Dahua)", // 2026-09-28: это весы Dahua (TM-A/TM-F), не JHScale
         BrandAi => L("AI весы", "AI тараза", "AI scales", "AI tartı", "AI tarozi"),
         _ => L("Штрих-М", "Штрих-М", "Shtrih-M", "Shtrih-M", "Shtrix-M"),
     };

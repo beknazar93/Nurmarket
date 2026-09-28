@@ -58,6 +58,12 @@ public sealed class OfflineSaleEntry
 
     public bool CheckoutCompleted { get; set; }
 
+    /// <summary>2026-09-28, BE-11: чек уже отправлялся одним запросом (POST pos/checkout/) с
+    /// Idempotency-Key = <see cref="Id"/> — ответ мог не дойти. Такой чек досылается только тем
+    /// же адресом и тем же ключом (даже если быстрый путь потом выключили в настройках): сервер
+    /// вернёт уже проведённую продажу вместо второй.</summary>
+    public bool QuickCheckoutAttempted { get; set; }
+
     /// <summary>2026-09-10: продажа сделана в автономном (офлайн, без NurCRM) режиме — для такого
     /// аккаунта сервера, на который можно выгрузить, не существует вообще, и запись никогда не
     /// должна попасть в очередь синхронизации (см. OfflinePendingSalesStore.IsPendingLike). Без

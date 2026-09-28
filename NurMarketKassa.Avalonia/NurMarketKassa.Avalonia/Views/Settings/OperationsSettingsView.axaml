@@ -47,6 +47,9 @@
               <RadioButton x:Name="SphereServicesRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
             </WrapPanel>
             <TextBlock x:Name="SphereDescription" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+            <!-- 2026-09-28: итог сохранения вида магазина на сервере (market_sphere, BE-18). Текст — в коде. -->
+            <TextBlock x:Name="SphereServerStatus" FontSize="12" TextWrapping="Wrap" IsVisible="False"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>
 
