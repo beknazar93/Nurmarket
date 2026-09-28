@@ -1,0 +1,87 @@
+﻿<!-- 2026-09-28: «Настройки весов Rongta» (RLS1000/RLS1100) — по образцу ShtrikhScaleSettingsWindow. Содержимое вкладок строится в коде. Прямых команд весам нет: протокол самих весов в руководствах Rongta не описан. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.RongtaScaleSettingsWindow"
+        x:CompileBindings="False"
+        Width="860" Height="700" MinWidth="640" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource BrushPanel}">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-ok">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+      <Setter Property="Padding" Value="16,14"/>
+    </Style>
+    <Style Selector="TextBlock.cardTitle">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+      <Setter Property="MinHeight" Value="32"/>
+    </Style>
+    <Style Selector="TabControl.scaletabs TabItem">
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="Padding" Value="10,4"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+    <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,8">
+      <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+      <TextBlock x:Name="ConnectionText" Classes="hint"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="1" x:Name="IntroText" Classes="hint" Margin="0,0,0,8"/>
+
+    <TabControl Grid.Row="2" x:Name="Tabs" Classes="scaletabs"/>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+      <Border x:Name="ResultBorder" CornerRadius="8" Padding="10,8" BorderThickness="1"
+              Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}">
+        <TextBlock x:Name="ResultText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+      </Border>
+      <Button Grid.Column="1" x:Name="CloseButton" Classes="btn-ok" Margin="10,0,0,0" VerticalAlignment="Center"
+              Content="{DynamicResource common.close}" Click="Close_Click"/>
+    </Grid>
+  </Grid>
+</Window>

@@ -268,7 +268,7 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <Border x:Name="ScanHintBorder" Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" Width="18" TextAlignment="Center" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
                             <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="12" FontWeight="Medium"
                                        Text="{DynamicResource warehouse.scanHint}" VerticalAlignment="Center"/>
@@ -286,7 +286,7 @@
                 <!-- Левый блок: Иконка и заголовок (для перемещения окна) -->
                 <StackPanel x:Name="WindowTitlePanel" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Border Background="{DynamicResource BrushWarningSoft}" CornerRadius="8" Padding="8">
-                        <TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                        <TextBlock Text="&#xE7B8;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16"
                                    Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{DynamicResource warehouse.header}" FontSize="18" FontWeight="Bold"

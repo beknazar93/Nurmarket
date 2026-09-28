@@ -410,8 +410,18 @@
                                                         ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconMinus}"/>
                                                 </Button>
-                                                <TextBlock Text="{Binding QuantityDisplay}" MinWidth="40" TextAlignment="Center" FontSize="14" FontWeight="SemiBold"
-                                                           VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
+                                                <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
+                                                     только текст — точное количество в этом виде кассы ввести было нельзя). -->
+                                                <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="40" Height="28" MinHeight="0"
+                                                         Padding="4,0" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                                         BorderThickness="1" CornerRadius="6" Foreground="{DynamicResource BrushText}"
+                                                         ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}" LostFocus="QuantityInput_LostFocus">
+                                                    <TextBox.KeyBindings>
+                                                        <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
+                                                    </TextBox.KeyBindings>
+                                                </TextBox>
                                                 <Button Classes="lx-step" Width="28" Height="28" IsEnabled="{Binding CanIncrease}"
                                                         Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">

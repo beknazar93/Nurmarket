@@ -38,6 +38,7 @@ public partial class ScaleSettingsView : UserControl
     public void RefreshPluCardVisibility() => PluCard.IsVisible = TariffGate.CanUseScales;
 
     private const string BrandAi = "ai";
+    private const string BrandTm = "tm";
 
     private void PluBrandRadio_Click(object? sender, RoutedEventArgs e)
     {
@@ -47,6 +48,7 @@ public partial class ScaleSettingsView : UserControl
         UserPreferences.Instance.ScaleBrand =
             PluBrandRongtaRadio.IsChecked == true ? BrandRongta
             : PluBrandAiRadio.IsChecked == true ? BrandAi
+            : PluBrandTmRadio.IsChecked == true ? BrandTm
             : BrandShtrikh;
         UserPreferences.Instance.SaveToDisk();
     }
@@ -58,7 +60,8 @@ public partial class ScaleSettingsView : UserControl
         var brand = UserPreferences.Instance.ScaleBrand;
         PluBrandRongtaRadio.IsChecked = brand == BrandRongta;
         PluBrandAiRadio.IsChecked = brand == BrandAi;
-        PluBrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi;
+        PluBrandTmRadio.IsChecked = brand == BrandTm;
+        PluBrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
     }
 
     /// <summary>По просьбе владельца (2026-09-19: "где настройка и ввод ip чтобы узнать
@@ -199,6 +202,33 @@ public partial class ScaleSettingsView : UserControl
             await window.ShowDialog(owner).ConfigureAwait(true);
         else
             window.Show();
+    }
+
+    /// <summary>2026-09-28: «Поиск весов в сети» (просьба владельца «анализ ip адресов добавь
+    /// чтобы узнать ip адрес подключенных весов»). Найденный адрес записывается в настройки
+    /// выбранной марки — перечитываем поля экрана.</summary>
+    private async void ScanNetwork_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        SaveLanScaleSettings();
+        if (await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenScanAsync(owner, UserPreferences.Instance.ScaleBrand).ConfigureAwait(true))
+        {
+            LoadLanScaleSettings();
+            PluScaleIpBox.Text = UserPreferences.Instance.ScaleNetworkIp;
+        }
+    }
+
+    /// <summary>2026-09-28: «Настройки весов…» — окно выбранной выше марки (Штрих-М, Rongta,
+    /// TM-30F); для AI-весов — пояснение, что настройки у них в своей программе.</summary>
+    private async void OpenBrandSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        SaveLanScaleSettings();
+        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenBrandSettingsAsync(owner, UserPreferences.Instance.ScaleBrand).ConfigureAwait(true);
+        LoadLanScaleSettings();
+        LoadScaleBrand();
     }
 
     /// <summary>«Проверить связь» — опознаёт весы и подаёт гудок. Намеренно использует только

@@ -32,6 +32,15 @@ public partial class ScalesPluWindow : Window
     /// идёт со своей программой, и загружать список нужно через неё. Поэтому здесь касса
     /// готовит файл, который эта программа импортирует.</summary>
     private const string BrandAi = "ai";
+
+    /// <summary>Весы TM-30F (JHScale, серия TM-F / TM-xA), 2026-09-28. Их программа «TM-xA data
+    /// management software» и сетевой протокол закрыты (руководство описывает только загрузку
+    /// с ПК этой программой или файлом A_xxx.TMS с флешки), поэтому — тот же путь, что у AI-весов:
+    /// касса готовит файл, владелец загружает его программой весов.</summary>
+    private const string BrandTm = "tm";
+
+    /// <summary>Весы, для которых касса только готовит файл (AI, TM-30F).</summary>
+    private bool IsFileBrand => BrandAiRadio.IsChecked == true || BrandTmRadio.IsChecked == true;
     /// <summary>Исходная надпись кнопки отправки («Отправить на весы» на языке интерфейса).
     /// Запоминаем при загрузке окна: для AI-весов кнопка называется иначе, и при возврате к
     /// Штриху нужно вернуть ровно ту надпись, что пришла из словаря, а не зашитую строку.</summary>
@@ -50,7 +59,8 @@ public partial class ScalesPluWindow : Window
         var brand = UserPreferences.Instance.ScaleBrand;
         BrandRongtaRadio.IsChecked = brand == BrandRongta;
         BrandAiRadio.IsChecked = brand == BrandAi;
-        BrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi;
+        BrandTmRadio.IsChecked = brand == BrandTm;
+        BrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
 
         var source = UserPreferences.Instance.RongtaDataSource;
         RongtaSourceServerRadio.IsChecked = source == RongtaSourceServer;
@@ -62,6 +72,8 @@ public partial class ScalesPluWindow : Window
         DirectLanCheck.IsChecked = UserPreferences.Instance.ShtrikhDirectLan;
 
         _sendButtonDefaultText = SendButton.Content;
+        SearchBox.Watermark = Tr.T("Поиск: название, PLU или код", "Издөө: аталышы, PLU же код",
+            "Search: name, PLU or code", "Ara: ad, PLU veya kod", "Qidirish: nomi, PLU yoki kod");
 
         ApplyBrandVisibility();
         ApplyRongtaSourceVisibility();
@@ -69,11 +81,42 @@ public partial class ScalesPluWindow : Window
         LoadRows();
     }
 
+    /// <summary>2026-09-28: марку могли поменять окна настроек весов («Загрузка товаров» →
+    /// «Открыть окно «Весы»») — перечитываем её из настроек.</summary>
+    public void ReloadBrandFromPreferences()
+    {
+        var brand = UserPreferences.Instance.ScaleBrand;
+        BrandRongtaRadio.IsChecked = brand == BrandRongta;
+        BrandAiRadio.IsChecked = brand == BrandAi;
+        BrandTmRadio.IsChecked = brand == BrandTm;
+        BrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
+        ApplyBrandVisibility();
+    }
+
+    private string SelectedBrand =>
+        BrandRongtaRadio.IsChecked == true ? BrandRongta
+        : BrandAiRadio.IsChecked == true ? BrandAi
+        : BrandTmRadio.IsChecked == true ? BrandTm
+        : BrandShtrikh;
+
+    /// <summary>2026-09-28: «Поиск весов в сети» — просьба владельца узнать IP подключённых весов.</summary>
+    private async void ScanNetwork_Click(object? sender, RoutedEventArgs e) =>
+        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenScanAsync(this, SelectedBrand).ConfigureAwait(true);
+
+    /// <summary>2026-09-28: окно настроек весов выбранной марки (Штрих-М — прежнее окно
+    /// Штрих-ПРИНТ, Rongta и TM-30F — новые).</summary>
+    private async void BrandSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenBrandSettingsAsync(this, SelectedBrand).ConfigureAwait(true);
+        ReloadBrandFromPreferences();
+    }
+
     private void BrandRadio_Click(object? sender, RoutedEventArgs e)
     {
         UserPreferences.Instance.ScaleBrand =
             BrandRongtaRadio.IsChecked == true ? BrandRongta
             : BrandAiRadio.IsChecked == true ? BrandAi
+            : BrandTmRadio.IsChecked == true ? BrandTm
             : BrandShtrikh;
         UserPreferences.Instance.SaveToDisk();
         ApplyBrandVisibility();
@@ -103,7 +146,7 @@ public partial class ScalesPluWindow : Window
     private void ApplyDirectLanVisibility()
     {
         LanSettingsButton.IsVisible = BrandRongtaRadio.IsChecked != true
-                                      && BrandAiRadio.IsChecked != true
+                                      && !IsFileBrand
                                       && DirectLanCheck.IsChecked == true;
         // 2026-09-28: код в ШК правится только при прямой выгрузке — серверный путь
         // (send-products) записывает на весы свои данные, и эта колонка на них не влияет.
@@ -125,9 +168,9 @@ public partial class ScalesPluWindow : Window
     {
         if (BarcodeExampleText is null)
             return;
-        var visible = BrandRongtaRadio.IsChecked != true && BrandAiRadio.IsChecked != true;
+        var visible = BrandRongtaRadio.IsChecked != true && !IsFileBrand;
         BarcodeExampleText.IsVisible = visible;
-        if (!visible || ProductsGrid.ItemsSource is not IEnumerable<ScalePluRowVm> rows)
+        if (!visible || _allRows is not IEnumerable<ScalePluRowVm> rows)
             return;
 
         var row = rows.FirstOrDefault(r => r.IsSelected) ?? rows.FirstOrDefault();
@@ -153,7 +196,7 @@ public partial class ScalesPluWindow : Window
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
     {
-        var rows = ProductsGrid.ItemsSource as IEnumerable<ScalePluRowVm>;
+        var rows = _allRows;
         var row = rows?.FirstOrDefault(r => r.IsSelected) ?? rows?.FirstOrDefault();
         var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
         var window = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ShtrikhScaleSettingsWindow();
@@ -217,11 +260,22 @@ public partial class ScalesPluWindow : Window
     private void ApplyBrandVisibility()
     {
         var isRongta = BrandRongtaRadio.IsChecked == true;
-        var isAi = BrandAiRadio.IsChecked == true;
+        var isAi = IsFileBrand;
         PluStartRow.IsVisible = !isRongta && !isAi;
         ApplyDirectLanVisibility();
         RongtaSourceRow.IsVisible = isRongta;
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
+
+        if (BrandTmRadio.IsChecked == true)
+        {
+            SubtitleText.Text = Tr.T(
+                "TM-30F (JHScale, серия TM-F / TM-xA): касса сохраняет файл (PLU, название, единица, цена) — загрузите его в программу весов «TM-xA data management software» и отправьте на весы по сети или флешкой. Протокол этих весов закрытый, прямой заливки нет. Штрих-код: заводской формат «B-Item 1» печатает СУММУ (флаг 2 цифры + PLU 5 + сумма 5) — тогда в настройках компании режим «По сумме», а сумма больше 999,99 сом не поместится. Лучше задать на весах формат B201E500J500: флаг 20 + PLU 5 цифр + вес 5 цифр — это раскладка кассы «По PLU», режим «По весу».",
+                "TM-30F (JHScale, TM-F / TM-xA сериясы): касса файл сактайт (PLU, аталышы, бирдиги, баасы) — аны тараза программасына («TM-xA data management software») жүктөп, таразага тармак же флешка аркылуу жибериңиз. Бул таразалардын протоколу жабык, түз жүктөө жок. Штрих-код: заводдук «B-Item 1» форматы СУММАНЫ басат (желек 2 сан + PLU 5 + сумма 5) — анда компаниянын жөндөөсүндө «Сумма боюнча» режими, ал эми 999,99 сомдон чоң сумма батпайт. Таразага B201E500J500 форматын коюу жакшы: желек 20 + PLU 5 сан + салмак 5 сан — бул кассанын «PLU боюнча» жайгаштыруусу, «Салмак боюнча» режими.",
+                "TM-30F (JHScale, TM-F / TM-xA series): the till saves a file (PLU, name, unit, price) — load it into the scale software (“TM-xA data management software”) and send it to the scale over the network or a USB stick. The protocol of these scales is closed, there is no direct upload. Barcode: the factory format “B-Item 1” prints the TOTAL PRICE (flag 2 digits + PLU 5 + price 5) — then set the company mode to “By amount”, and totals above 999.99 som will not fit. Better set the format B201E500J500 on the scale: flag 20 + PLU 5 digits + weight 5 digits — the till layout “By PLU”, mode “By weight”.",
+                "TM-30F (JHScale, TM-F / TM-xA serisi): kasa bir dosya kaydeder (PLU, ad, birim, fiyat) — bunu tartı programına («TM-xA data management software») yükleyip tartıya ağ veya USB bellek ile gönderin. Bu tartıların protokolü kapalı, doğrudan yükleme yok. Barkod: fabrika biçimi «B-Item 1» TUTARI basar (bayrak 2 hane + PLU 5 + tutar 5) — o zaman şirket ayarında «Tutara göre» modu seçilir ve 999,99 somun üzerindeki tutarlar sığmaz. Tartıda B201E500J500 biçimini ayarlamak daha iyi: bayrak 20 + PLU 5 hane + ağırlık 5 hane — kasanın «PLU’ya göre» düzeni, «Ağırlığa göre» modu.",
+                "TM-30F (JHScale, TM-F / TM-xA seriyasi): kassa fayl saqlaydi (PLU, nomi, birligi, narxi) — uni tarozi dasturiga («TM-xA data management software») yuklab, taroziga tarmoq yoki fleshka orqali yuboring. Bu tarozilarning protokoli yopiq, to'g'ridan-to'g'ri yuklash yo'q. Shtrix-kod: zavod formati «B-Item 1» SUMMANI chop etadi (bayroq 2 raqam + PLU 5 + summa 5) — unda kompaniya sozlamasida «Summa bo'yicha» rejimi, 999,99 somdan katta summa sig'maydi. Taroziga B201E500J500 formatini qo'ygan ma'qul: bayroq 20 + PLU 5 raqam + vazn 5 raqam — kassaning «PLU bo'yicha» joylashuvi, «Vazn bo'yicha» rejimi.");
+            return;
+        }
 
         if (isAi)
         {
@@ -272,10 +326,38 @@ public partial class ScalesPluWindow : Window
             })
             .ToList();
 
-        ProductsGrid.ItemsSource = rows;
-        EmptyText.IsVisible = rows.Count == 0;
+        _allRows = rows;
+        ApplySearch();
         StatusText.Text = "";
         UpdateBarcodeExample();
+    }
+
+    /// <summary>Все весовые товары. Таблица показывает только найденные поиском, а отправка,
+    /// экспорт и «Код в ШК» работают по всему списку: отмеченный, но скрытый поиском товар
+    /// тоже уйдёт на весы (2026-09-28, просьба владельца — поиск в окне «Весы»).</summary>
+    private List<ScalePluRowVm> _allRows = new();
+
+    private void SearchBox_TextChanged(object? sender, TextChangedEventArgs e) => ApplySearch();
+
+    /// <summary>Поиск по названию, PLU и коду в ШК; несколько слов — все должны найтись.</summary>
+    private void ApplySearch()
+    {
+        var words = (SearchBox.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var shown = words.Length == 0
+            ? _allRows
+            : _allRows.Where(r => words.All(w =>
+                    (r.Name ?? "").Contains(w, StringComparison.CurrentCultureIgnoreCase)
+                    || string.Equals(r.PluText, w, StringComparison.Ordinal)
+                    || (r.BarcodeCode ?? "").Contains(w, StringComparison.Ordinal)))
+                .ToList();
+
+        ProductsGrid.ItemsSource = shown;
+        EmptyText.IsVisible = shown.Count == 0;
+        SearchCountText.Text = words.Length == 0
+            ? ""
+            : Tr.T($"Найдено: {shown.Count} из {_allRows.Count}", $"Табылды: {_allRows.Count} ичинен {shown.Count}",
+                   $"Found: {shown.Count} of {_allRows.Count}", $"Bulunan: {shown.Count} / {_allRows.Count}",
+                   $"Topildi: {_allRows.Count} dan {shown.Count}");
     }
 
     /// <summary>2026-09-28: какое число весы напечатают в ШК этикетки по умолчанию — то, по
@@ -302,6 +384,7 @@ public partial class ScalesPluWindow : Window
 
     private void SetAllSelected(bool selected)
     {
+        // Только видимые строки: при поиске «Выбрать все» отмечает найденное (2026-09-28).
         if (ProductsGrid.ItemsSource is not IEnumerable<ScalePluRowVm> rows)
             return;
         foreach (var row in rows)
@@ -310,10 +393,10 @@ public partial class ScalesPluWindow : Window
 
     private async void Send_Click(object? sender, RoutedEventArgs e)
     {
-        if (BrandAiRadio.IsChecked == true)
+        if (IsFileBrand)
         {
-            // Для AI-весов «отправить» — это подготовить файл: заливать напрямую пока нечем.
-            await ExportPluCsvAsync("ai-scale-plu").ConfigureAwait(true);
+            // Для AI-весов и TM-30F «отправить» — это подготовить файл: заливать напрямую пока нечем.
+            await ExportPluCsvAsync(BrandTmRadio.IsChecked == true ? "tm30f-scale-plu" : "ai-scale-plu").ConfigureAwait(true);
             return;
         }
 
@@ -328,7 +411,7 @@ public partial class ScalesPluWindow : Window
 
     private async Task SendToShtrikhAsync()
     {
-        if (ProductsGrid.ItemsSource is not IEnumerable<ScalePluRowVm> rows)
+        if (_allRows is not IEnumerable<ScalePluRowVm> rows)
             return;
 
         var selectedIds = rows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
@@ -403,7 +486,7 @@ public partial class ScalesPluWindow : Window
 
             var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
             // 2026-09-28: «Код в штрих-коде» из таблицы (владелец правит его перед отправкой).
-            var barcodeCodes = (ProductsGrid.ItemsSource as IEnumerable<ScalePluRowVm>)?
+            var barcodeCodes = _allRows?
                 .ToDictionary(r => r.Id, r => r.BarcodeCode) ?? new Dictionary<string, string>();
             var records = new List<ShtrikhPluRecord>();
             // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
@@ -713,7 +796,7 @@ public partial class ScalesPluWindow : Window
     /// для AI-весов — чтобы в папке загрузок было видно, для чего файл.</param>
     private async Task ExportPluCsvAsync(string baseName)
     {
-        if (ProductsGrid.ItemsSource is not IEnumerable<ScalePluRowVm> allRows)
+        if (_allRows is not IEnumerable<ScalePluRowVm> allRows)
             return;
 
         var list = allRows.ToList();

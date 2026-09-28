@@ -135,6 +135,16 @@
                       Content="{DynamicResource updates.testerOff}" Click="TesterOff_Click"/>
             </StackPanel>
             <TextBlock x:Name="TesterStatusText" FontSize="12.5" TextWrapping="Wrap"/>
+            <!-- 2026-09-28, просьба владельца: после «Включить» — ясная отметка «код принят» или
+                 «код неверный» (раньше была только серая строка, её не замечали). -->
+            <Border x:Name="TesterResultBorder" IsVisible="False" CornerRadius="6" BorderThickness="1"
+                    Padding="10,8" HorizontalAlignment="Left">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock x:Name="TesterResultIcon" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TesterResultText" FontSize="13" FontWeight="SemiBold"
+                           TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="700"/>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 

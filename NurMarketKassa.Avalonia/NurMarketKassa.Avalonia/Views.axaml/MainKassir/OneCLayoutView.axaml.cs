@@ -85,6 +85,14 @@ public partial class OneCLayoutView : UserControl
         e.Handled = true;
     }
 
+    /// <summary>Количество в строке чека применяется и при уходе из поля, не только по Enter
+    /// (как в «Классике», 2026-09-28).</summary>
+    private void QuantityInput_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: CartLineItemVm line } && line.SetQuantityCommand?.CanExecute(line) == true)
+            line.SetQuantityCommand.Execute(line);
+    }
+
     private static char? KeyToDigit(Key key) => key switch
     {
         >= Key.D0 and <= Key.D9 => (char)('0' + (key - Key.D0)),

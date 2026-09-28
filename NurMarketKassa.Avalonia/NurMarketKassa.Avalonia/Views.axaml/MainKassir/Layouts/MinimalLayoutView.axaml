@@ -229,9 +229,23 @@
                                             <StackPanel Spacing="2" Margin="0,0,12,0">
                                                 <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2"
                                                            TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
-                                                <TextBlock FontSize="12" Foreground="{DynamicResource BrushTextSoft}">
-                                                    <Run Text="{Binding QuantityDisplay}"/><Run Text=" × "/><Run Text="{Binding UnitPrice, Converter={x:Static conv:MoneyConverter.Instance}}"/>
-                                                </TextBlock>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
+                                                         только текст — точное количество в этом виде кассы ввести было нельзя). -->
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="44" Height="26" MinHeight="0"
+                                                             Padding="4,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
+                                                             VerticalAlignment="Center"
+                                                             Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                                             BorderThickness="1" CornerRadius="6" Foreground="{DynamicResource BrushText}"
+                                                             ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}" LostFocus="QuantityInput_LostFocus">
+                                                        <TextBox.KeyBindings>
+                                                            <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
+                                                        </TextBox.KeyBindings>
+                                                    </TextBox>
+                                                    <TextBlock FontSize="12" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center">
+                                                        <Run Text="× "/><Run Text="{Binding UnitPrice, Converter={x:Static conv:MoneyConverter.Instance}}"/>
+                                                    </TextBlock>
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding DiscountDisplayText}" IsVisible="{Binding HasDiscount}" FontSize="12"
                                                            Foreground="{DynamicResource BrushDanger}"/>
                                             </StackPanel>

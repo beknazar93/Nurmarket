@@ -724,6 +724,8 @@
   <x:String x:Key="posSettings.screen.fullscreen">Толук экран режими</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreen">Чыныгы толук экран режими</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows тапшырмалар панелин толугу менен жашырат. Толук экран режими менен бирге гана иштейт.</x:String>
+  <x:String x:Key="posSettings.screen.quickProducts">Бош чектеги ыкчам товарлар</x:String>
+  <x:String x:Key="posSettings.screen.quickProductsDesc">Тандалган товарлар (каталогдогу ★) «Себет бош» деген жазуунун астында. Керек болбосо өчүрүңүз.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows менен бирге иштетүү</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Алсыз түзмөк режими</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Видеокартанын ордуна программалык рендер — эски моноблоктор жана алсыз ноутбуктар үчүн. Кассаны кайра иштетүүнү талап кылат.</x:String>
@@ -1361,6 +1363,9 @@
     <x:String x:Key="loc.settings.lanScale.test">Тараза менен байланышты текшерүү</x:String>
     <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
     <x:String x:Key="loc.settings.lanScale.deviceSettings">Тараза жөндөөлөрү (клавиатура, этикетка, штрих-код)…</x:String>
+    <!-- 2026-09-28: поиск весов в сети и окно настроек по марке -->
+    <x:String x:Key="loc.settings.scaleScan.open">Тармактан тараза издөө…</x:String>
+    <x:String x:Key="loc.settings.scaleBrandSettings.open">Тандалган марканын тараза жөндөөлөрү…</x:String>
     <x:String x:Key="loc.settings.shtrikhSettings.title">Штрих-ПРИНТ таразасынын жөндөөлөрү</x:String>
     <x:String x:Key="loc.owner.scales.barcodeSettings">Этикетканын штрих-коду…</x:String>
     <x:String x:Key="loc.owner.scales.colBarcodeCode">ШКдагы код</x:String>

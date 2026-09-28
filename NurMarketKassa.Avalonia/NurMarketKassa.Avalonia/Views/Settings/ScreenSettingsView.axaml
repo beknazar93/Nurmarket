@@ -97,7 +97,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="DisplayGroupToggle" Classes="SettingsGroupHeader" IsChecked="True">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupDisplay}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #DisplayGroupToggle.IsChecked}"/>
@@ -120,6 +120,18 @@
                 <CheckBox Grid.Column="1" x:Name="TrueFullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
 
+              <!-- Быстрые товары в пустом чеке (2026-09-28, просьба владельца — возможность отключить).
+                   Применяется сразу, без «Сохранить». -->
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="{DynamicResource posSettings.screen.quickProducts}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock Text="{DynamicResource posSettings.screen.quickProductsDesc}"
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="QuickProductsCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
+                          IsCheckedChanged="QuickProductsCheck_Changed"/>
+              </Grid>
+
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{DynamicResource posSettings.screen.autostart}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <CheckBox Grid.Column="1" x:Name="AutostartCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>
@@ -131,7 +143,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="PerfGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupPerformance}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #PerfGroupToggle.IsChecked}"/>
@@ -180,7 +192,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="CashierGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#xE719;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="&#xE719;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupCashierLang}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #CashierGroupToggle.IsChecked}"/>
@@ -229,7 +241,7 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="LayoutGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupScaleLayout}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #LayoutGroupToggle.IsChecked}"/>

@@ -59,35 +59,35 @@
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.View}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center"/>
           <TextBlock Text="{DynamicResource shiftActions.view}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Deposit}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushUiStatusOk}"/>
+          <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushUiStatusOk}"/>
           <TextBlock Text="{DynamicResource shiftActions.deposit}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Withdraw}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
           <TextBlock Text="{DynamicResource shiftActions.withdraw}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Export}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center"/>
           <TextBlock Text="{DynamicResource shiftActions.xReport}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
 
       <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Print}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center"/>
           <TextBlock Text="{DynamicResource shiftActions.zReport}" VerticalAlignment="Center"/>
         </StackPanel>
       </Button>
@@ -96,7 +96,7 @@
 
       <Button Classes="menu-danger" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Delete}">
         <StackPanel Orientation="Horizontal" Spacing="10">
-          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
+          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
           <TextBlock Text="{DynamicResource common.delete}" VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
         </StackPanel>
       </Button>

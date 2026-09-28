@@ -29,7 +29,7 @@
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
           <StackPanel Orientation="Horizontal" Spacing="12">
             <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center">
-              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/> <!-- 2026-09-28: было Left — значок прилипал к краю плашки -->
             </Border>
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{DynamicResource posSettings.navEmployees}" Classes="SettingsPageTitle"/>

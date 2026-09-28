@@ -168,6 +168,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
         RefreshQuickProducts();
         // Каталог мог обновиться (синхронизация, отметка звёздочкой) — перечитываем.
         CatalogCacheService.CatalogChanged += () => _dispatcher.InvokeAsync(RefreshQuickProducts);
+        // Быстрые товары можно отключить в Настройки → Экран (2026-09-28).
+        UserPreferences.ShowQuickProductsChanged += () => _dispatcher.InvokeAsync(() => OnPropertyChanged(nameof(HasQuickProducts)));
 
         // Смена языка интерфейса: кнопка «Оплатить» и подписи строк чека собираются в коде (2026-09-07).
         Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
@@ -216,7 +218,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// каждый день, стоило положить под руку — их отмечают звёздочкой в каталоге.</summary>
     public ObservableCollection<CatalogProductTileVm> QuickProducts { get; } = new();
 
-    public bool HasQuickProducts => QuickProducts.Count > 0;
+    public bool HasQuickProducts => UserPreferences.Instance.ShowQuickProducts && QuickProducts.Count > 0;
 
     public ICommand AddQuickProductCommand { get; private set; } = null!;
 

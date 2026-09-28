@@ -282,8 +282,18 @@
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                                         <Button Content="−" Classes="onec-step" Width="26" Height="26" FontSize="12"
                                                 Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"/>
-                                        <TextBlock Text="{Binding QuantityDisplay}" FontSize="14" Width="46"
-                                                   TextAlignment="Center" VerticalAlignment="Center"/>
+                                        <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
+                                             только текст — точное количество в этом виде кассы ввести было нельзя). -->
+                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="46" Height="26" MinHeight="0"
+                                                 Padding="4,0" FontSize="14" FontWeight="Normal" TextAlignment="Center" VerticalContentAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                                 BorderThickness="1" CornerRadius="6" Foreground="{DynamicResource BrushText}"
+                                                 ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}" LostFocus="QuantityInput_LostFocus">
+                                            <TextBox.KeyBindings>
+                                                <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
+                                            </TextBox.KeyBindings>
+                                        </TextBox>
                                         <Button Content="+" Classes="onec-step" Width="26" Height="26" FontSize="12"
                                                 IsEnabled="{Binding CanIncrease}"
                                                 Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"/>

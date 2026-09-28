@@ -421,7 +421,7 @@
                             Command="{Binding LoginCommand}"
                             IsDefault="True">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets"
+                            <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center"
                                        FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" />
                             <TextBlock Text="{Binding LoginButtonText}" FontSize="15" FontWeight="SemiBold" />
                         </StackPanel>
@@ -432,7 +432,7 @@
                             Classes="LoginDangerButton"
                             Click="ExitButton_Click">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets"
+                            <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" Width="22" TextAlignment="Center"
                                        FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"
                                        Foreground="{DynamicResource BrushText}" />
                             <TextBlock Text="{DynamicResource csh.login.exit}" FontSize="15" FontWeight="SemiBold" />

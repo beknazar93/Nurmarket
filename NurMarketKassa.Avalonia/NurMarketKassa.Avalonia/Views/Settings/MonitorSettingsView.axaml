@@ -31,7 +31,7 @@
                 <Path Width="24" Height="24" Stretch="Uniform" Fill="Transparent"
                       Stroke="{DynamicResource BrushWarning}" StrokeThickness="1.6" StrokeLineCap="Round"
                       Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
-                      HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/> <!-- 2026-09-28: было Left — значок прилипал к краю плашки -->
               </Border>
               <StackPanel Grid.Column="1" Spacing="3">
                 <TextBlock Classes="SettingsPageTitle" Text="{DynamicResource posSettings.monitor.title}"/>

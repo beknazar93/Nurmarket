@@ -110,27 +110,29 @@
                 Classes="SidebarCloseButton"
                 Click="SidebarClose_Click">
           <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center"/>
             <TextBlock Text="{DynamicResource common.close}" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
 
+        <!-- 2026-09-28: у значков Segoe MDL2 разная ширина — без общей ширины колонки подписи
+             начинались с разного места (владелец: «иконки съезжают»). -->
         <StackPanel Margin="0,4,0,0">
           <Button x:Name="NavScales" Classes="SidebarNavItem nav-active" Tag="0" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navScales}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavPrint" Classes="SidebarNavItem" Tag="1" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource common.print}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavScreen" Classes="SidebarNavItem" Tag="2" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navScreen}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
@@ -146,13 +148,13 @@
           </Button>
           <Button x:Name="NavUpdates" Classes="SidebarNavItem" Tag="4" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navUpdates}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavOperations" Classes="SidebarNavItem" Tag="5" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navOperations}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
@@ -161,25 +163,25 @@
                выглядели случайными наклейками, а в тёмной теме ещё и светились своим цветом. -->
           <Button x:Name="NavCustomization" Classes="SidebarNavItem" Tag="6" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navCustomization}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavAccount" Classes="SidebarNavItem" Tag="7" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navAccount}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavEmployees" Classes="SidebarNavItem" Tag="8" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navEmployees}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
           <Button x:Name="NavKeys" Classes="SidebarNavItem" Tag="9" Click="SidebarNav_Click">
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+              <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
               <TextBlock Text="{DynamicResource posSettings.navKeys}" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>

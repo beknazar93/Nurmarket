@@ -816,16 +816,26 @@ public partial class MainWindow : Window
     /// живёт ровно один выбор: нажал товар — он в чеке, окно закрылось, каталог не тронут.</summary>
     private void OpenHotkeyGroup(string group)
     {
-        var products = LocalProductRepository.Instance.LoadAllTiles()
-            // Именно HotkeyGroup: в модели есть ещё похожее HotkeyGroupName, но из базы
-            // заполняется это поле — по второму список всегда выходил пустым.
-            .Where(p => string.Equals(p.HotkeyGroup, group, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
+        // Цикл (2026-09-28): другая F-клавиша при открытом окне закрывает его и открывает
+        // свою группу сразу — раньше окно не менялось, его надо было закрыть и нажать снова.
+        string? next = group;
+        for (var guard = 0; next != null && guard < 50; guard++)
+        {
+            var current = next;
+            var products = LocalProductRepository.Instance.LoadAllTiles()
+                // Именно HotkeyGroup: в модели есть ещё похожее HotkeyGroupName, но из базы
+                // заполняется это поле — по второму список всегда выходил пустым.
+                .Where(p => string.Equals(p.HotkeyGroup, current, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
 
-        var chosen = HotkeyGroupDialog.Show(this, group, products);
-        if (chosen != null)
-            _viewModel.Catalog.SelectProductCommand.Execute(chosen);
+            var chosen = HotkeyGroupDialog.Show(this, current, products, out next);
+            if (chosen != null)
+            {
+                _viewModel.Catalog.SelectProductCommand.Execute(chosen);
+                return;
+            }
+        }
     }
 
     private static bool TryGetHotkeyGroup(Key key, out string group)

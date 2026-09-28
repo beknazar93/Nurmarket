@@ -61,6 +61,11 @@
             <TextBlock Grid.Column="0" Text="{DynamicResource scalesPlu.title}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <!-- 2026-09-28: поиск весов в сети (анализ IP-адресов) и окно настроек выбранной марки. -->
+                <Button Content="{DynamicResource loc.settings.scaleScan.open}" Classes="SecondaryActionButton"
+                        Margin="0,0,8,0" Click="ScanNetwork_Click"/>
+                <Button Content="{DynamicResource loc.settings.scaleBrandSettings.open}" Classes="SecondaryActionButton"
+                        Margin="0,0,8,0" Click="BrandSettings_Click"/>
                 <Button x:Name="ExportCsvButton" Content="{DynamicResource loc.owner.scales.exportCsv}" Classes="SecondaryActionButton"
                         Margin="0,0,8,0" Click="ExportCsv_Click"/>
                 <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
@@ -79,6 +84,10 @@
                          Content="{DynamicResource scalesPlu.brandRongta}" Click="BrandRadio_Click"/>
             <RadioButton x:Name="BrandAiRadio" GroupName="ScaleBrand" Margin="16,0,0,0"
                          Content="{DynamicResource loc.owner.scales.brandAi}" Click="BrandRadio_Click"/>
+            <!-- 2026-09-28: весы TM-30F (JHScale, серия TM-F/TM-xA) у владельца. Протокол закрыт —
+                 как и для AI-весов, касса готовит файл для программы весов. -->
+            <RadioButton x:Name="BrandTmRadio" GroupName="ScaleBrand"
+                         Content="TM-30F (JHScale)" Click="BrandRadio_Click"/>
         </StackPanel>
 
         <Grid Grid.Row="3" x:Name="RongtaSourceRow" IsVisible="False" ColumnDefinitions="Auto,Auto,Auto,Auto"
@@ -98,6 +107,12 @@
                     Margin="0,0,10,0" Click="SelectAll_Click"/>
             <Button Grid.Column="1" Content="{DynamicResource scalesPlu.selectNone}" Classes="SecondaryActionButton"
                     Margin="0,0,10,0" Click="SelectNone_Click"/>
+            <!-- Поиск по весовым товарам (2026-09-28, просьба владельца). -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBox x:Name="SearchBox" Width="240" TextChanged="SearchBox_TextChanged"/>
+                <TextBlock x:Name="SearchCountText" VerticalAlignment="Center" Margin="8,0,0,0"
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
             <!-- WrapPanel, а не StackPanel: в одну строку поля «Начальный PLU», галочка
                  «Напрямую по кабелю», IP, порт, пароль и кнопка «Проверить» не помещались —
                  на окне 900 px последние из них уезжали за правый край и были недоступны.

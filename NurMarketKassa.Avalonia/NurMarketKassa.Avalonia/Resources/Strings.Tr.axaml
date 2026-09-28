@@ -724,6 +724,8 @@
   <x:String x:Key="posSettings.screen.fullscreen">Tam ekran modu</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreen">Gerçek tam ekran modu</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows görev çubuğunu tamamen gizler. Yalnızca tam ekran modu ile birlikte çalışır.</x:String>
+  <x:String x:Key="posSettings.screen.quickProducts">Boş fişte hızlı ürünler</x:String>
+  <x:String x:Key="posSettings.screen.quickProductsDesc">Favori ürünler (katalogda ★) «Sepet boş» yazısının altında. Gerekmiyorsa kapatın.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows ile başlat</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Zayıf cihaz modu</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Ekran kartı yerine yazılımsal render — eski hepsi bir arada bilgisayarlar ve zayıf dizüstü bilgisayarlar için. Kasanın yeniden başlatılmasını gerektirir.</x:String>
@@ -1361,6 +1363,9 @@
     <x:String x:Key="loc.settings.lanScale.test">Tartı bağlantısını test et</x:String>
     <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
     <x:String x:Key="loc.settings.lanScale.deviceSettings">Tartı ayarları (klavye, etiket, barkod)…</x:String>
+    <!-- 2026-09-28: поиск весов в сети и окно настроек по марке -->
+    <x:String x:Key="loc.settings.scaleScan.open">Ağda tartı ara…</x:String>
+    <x:String x:Key="loc.settings.scaleBrandSettings.open">Seçili tartı markasının ayarları…</x:String>
     <x:String x:Key="loc.settings.shtrikhSettings.title">ŞTRİH-PRİNT tartı ayarları</x:String>
     <x:String x:Key="loc.owner.scales.barcodeSettings">Etiket barkodu…</x:String>
     <x:String x:Key="loc.owner.scales.colBarcodeCode">Barkod kodu</x:String>

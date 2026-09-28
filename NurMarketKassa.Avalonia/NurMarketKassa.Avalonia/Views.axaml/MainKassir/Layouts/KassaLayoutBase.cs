@@ -77,6 +77,15 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
     protected void WriteOff_Click(object? sender, RoutedEventArgs e) =>
         _ = BasketExtraActions.WriteOffAsync(this, Vm?.Basket);
 
+    /// <summary>Количество в строке чека применяется и при уходе из поля, не только по Enter —
+    /// кассир часто сразу жмёт «Оплатить» (то же, что BasketPanelView в «Классике», 2026-09-28).</summary>
+    protected void QuantityInput_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: NurMarketKassa.ViewModels.Main.CartLineItemVm line }
+            && line.SetQuantityCommand?.CanExecute(line) == true)
+            line.SetQuantityCommand.Execute(line);
+    }
+
     protected void PayCash_Click(object? sender, RoutedEventArgs e) => PayWith("cash");
 
     protected void PayCashless_Click(object? sender, RoutedEventArgs e) => PayWith("transfer");

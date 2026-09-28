@@ -30,7 +30,7 @@ namespace NurMarketKassa.Services.Hardware;
 /// на реальных весах надо выполнить <see cref="TestConnectionAsync"/> — она использует только
 /// команды без пароля (FCh, 11h, 13h) и по звуковому сигналу сразу видно, что это те весы.
 /// Отдельно см. оговорку про номер UDP-порта у <see cref="DefaultPort"/>.</summary>
-public sealed class ShtrikhPrintLanScaleService : IDisposable
+public sealed partial class ShtrikhPrintLanScaleService : IDisposable // 2026-09-28: partial — формат этикетки и валюта в ShtrikhPrintLanScaleService.Labels.cs
 {
     /// <summary>Номер UDP-порта в спецификации НЕ указан ни разу — он задаётся в системном
     /// меню весов. 1111 подтверждён на живых весах владельца (2026-09-22); раньше здесь стояло

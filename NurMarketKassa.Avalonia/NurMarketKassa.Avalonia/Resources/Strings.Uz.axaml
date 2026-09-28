@@ -724,6 +724,8 @@
   <x:String x:Key="posSettings.screen.fullscreen">To'liq ekran rejimi</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreen">Haqiqiy to'liq ekran rejimi</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows vazifalar panelini butunlay yashiradi. Faqat to'liq ekran rejimi bilan birga ishlaydi.</x:String>
+  <x:String x:Key="posSettings.screen.quickProducts">Bo‘sh chekda tezkor mahsulotlar</x:String>
+  <x:String x:Key="posSettings.screen.quickProductsDesc">Sevimli mahsulotlar (katalogda ★) «Savat bo'sh» yozuvi ostida. Kerak bo‘lmasa, o‘chiring.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows bilan birga ishga tushirish</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Zaif qurilma rejimi</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Videokarta o'rniga dasturiy render — eski monobloklar va kuchsiz noutbuklar uchun. Kassani qayta ishga tushirish talab qilinadi.</x:String>
@@ -1361,6 +1363,9 @@
     <x:String x:Key="loc.settings.lanScale.test">Tarozi bilan aloqani tekshirish</x:String>
     <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
     <x:String x:Key="loc.settings.lanScale.deviceSettings">Tarozi sozlamalari (klaviatura, yorliq, shtrix-kod)…</x:String>
+    <!-- 2026-09-28: поиск весов в сети и окно настроек по марке -->
+    <x:String x:Key="loc.settings.scaleScan.open">Tarmoqda tarozi qidirish…</x:String>
+    <x:String x:Key="loc.settings.scaleBrandSettings.open">Tanlangan tarozi markasi sozlamalari…</x:String>
     <x:String x:Key="loc.settings.shtrikhSettings.title">ShTRIX-PRINT tarozi sozlamalari</x:String>
     <x:String x:Key="loc.owner.scales.barcodeSettings">Yorliq shtrix-kodi…</x:String>
     <x:String x:Key="loc.owner.scales.colBarcodeCode">ShKdagi kod</x:String>

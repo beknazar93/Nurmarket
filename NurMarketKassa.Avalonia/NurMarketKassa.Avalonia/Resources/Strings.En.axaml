@@ -724,6 +724,8 @@
   <x:String x:Key="posSettings.screen.fullscreen">Fullscreen mode</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreen">True fullscreen mode</x:String>
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Hides the Windows taskbar completely. Works only together with fullscreen mode.</x:String>
+  <x:String x:Key="posSettings.screen.quickProducts">Quick products in an empty receipt</x:String>
+  <x:String x:Key="posSettings.screen.quickProductsDesc">Favourite products (★ in the catalog) under “Cart is empty”. Turn off if you don’t need them.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Launch with Windows</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Low-power device mode</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Software rendering instead of the graphics card — for older all-in-one PCs and low-end laptops. Requires restarting the till.</x:String>
@@ -1361,6 +1363,9 @@
     <x:String x:Key="loc.settings.lanScale.test">Test scale connection</x:String>
     <!-- 2026-09-28: окно «Настройки весов Штрих-ПРИНТ» и штрих-код этикетки весов. -->
     <x:String x:Key="loc.settings.lanScale.deviceSettings">Scale settings (keyboard, label, barcode)…</x:String>
+    <!-- 2026-09-28: поиск весов в сети и окно настроек по марке -->
+    <x:String x:Key="loc.settings.scaleScan.open">Find scales on the network…</x:String>
+    <x:String x:Key="loc.settings.scaleBrandSettings.open">Settings of the selected scale brand…</x:String>
     <x:String x:Key="loc.settings.shtrikhSettings.title">ShTRIH-PRINT scale settings</x:String>
     <x:String x:Key="loc.owner.scales.barcodeSettings">Label barcode…</x:String>
     <x:String x:Key="loc.owner.scales.colBarcodeCode">Barcode code</x:String>

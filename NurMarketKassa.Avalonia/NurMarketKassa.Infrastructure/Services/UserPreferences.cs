@@ -84,6 +84,24 @@ public sealed class UserPreferences
     /// порт нужно один раз вручную указать в самой RLS1000 (File → Options → TCP/IP).</summary>
     public int RongtaServerPort { get; set; } = 5001;
 
+    /// <summary>2026-09-28: IP-адрес самих весов Rongta (окно «Настройки весов Rongta» и поиск
+    /// весов в сети). Раньше Rongta делила поле ScaleNetworkIp со Штрих-М — теперь у каждой
+    /// марки свой адрес; пустое значение при первом открытии окна подставляется из
+    /// ScaleNetworkIp, если марка выбрана Rongta.</summary>
+    public string? RongtaScaleIp { get; set; }
+
+    /// <summary>TCP-порт для «Проверить связь» с весами Rongta. В руководствах Rongta порт самих
+    /// весов не указан; 5001 — порт связи RLS1000 по умолчанию (SYSTEM.CFG [TCPIP] Port).</summary>
+    public int RongtaScalePort { get; set; } = 5001;
+
+    /// <summary>2026-09-28: IP-адрес весов TM-30F (JHScale) — для «Проверить связь» и подсказок
+    /// по Spec150–153 в окне «Настройки весов TM-30F».</summary>
+    public string? TmScaleIp { get; set; }
+
+    /// <summary>Строка формата штрих-кода для весов TM-30F (конструктор в окне настроек),
+    /// например B201E500J500A000A000A000. null — рекомендуемая под раскладку компании.</summary>
+    public string? TmScaleBarcodeFormat { get; set; }
+
     // Дисплей цены покупателя (отдельная COM-коробочка, не второй монитор — см.
     // PoleDisplayService, 2026-09-04)
     public string PoleDisplayComPort { get; set; } = "COM3";
@@ -394,6 +412,23 @@ public sealed class UserPreferences
     /// (см. ClientLoyaltyStore), т.к. в API клиентов NurCRM пока нет поля для баллов. По умолчанию
     /// выключено — новая функция, меняющая сумму к оплате, не должна включаться сама собой.</summary>
     public bool LoyaltyEnabled { get; set; }
+
+    /// <summary>Блок «Быстрые товары» (избранное) в пустом чеке «Классики». Владелец попросил
+    /// возможность его отключить (2026-09-28); по умолчанию включён, как было.</summary>
+    public bool ShowQuickProducts { get; set; } = true;
+
+    /// <summary>Переключатель «Быстрые товары» применяется сразу, без «Сохранить» —
+    /// чек подписан и прячет/показывает блок (2026-09-28).</summary>
+    public static event Action? ShowQuickProductsChanged;
+
+    public static void SetShowQuickProducts(bool show)
+    {
+        if (Instance.ShowQuickProducts == show)
+            return;
+        Instance.ShowQuickProducts = show;
+        Instance.SaveToDisk();
+        ShowQuickProductsChanged?.Invoke();
+    }
 
     /// <summary>Процент от финальной суммы чека, начисляемый клиенту бонусами при включённой
     /// программе лояльности.</summary>
@@ -836,6 +871,29 @@ public sealed class UserPreferences
                 p.EmployeeAccessCodes = fromFile.EmployeeAccessCodes;
             if (fromFile.LoyaltyEnabled is not null)
                 p.LoyaltyEnabled = fromFile.LoyaltyEnabled.Value;
+            if (fromFile.ShowQuickProducts is not null)
+                p.ShowQuickProducts = fromFile.ShowQuickProducts.Value;
+            // 2026-09-28: марка весов раньше не писалась в файл — после перезапуска окно «Весы»
+            // снова открывалось на «Штрих-М», какую бы модель ни выбрали.
+            if (!string.IsNullOrWhiteSpace(fromFile.ScaleBrand))
+                p.ScaleBrand = fromFile.ScaleBrand;
+            // 2026-09-28: IP сетевых весов и настройки Rongta тоже не писались в файл — после
+            // перезапуска адрес весов Штрих-М для прямой выгрузки пропадал, а Rongta
+            // возвращалась к «с сайта» и порту 5001.
+            if (fromFile.ScaleNetworkIp is not null)
+                p.ScaleNetworkIp = fromFile.ScaleNetworkIp;
+            if (!string.IsNullOrWhiteSpace(fromFile.RongtaDataSource))
+                p.RongtaDataSource = fromFile.RongtaDataSource;
+            if (fromFile.RongtaServerPort is > 0 and <= 65535)
+                p.RongtaServerPort = fromFile.RongtaServerPort.Value;
+            if (fromFile.RongtaScaleIp is not null)
+                p.RongtaScaleIp = fromFile.RongtaScaleIp;
+            if (fromFile.RongtaScalePort is > 0 and <= 65535)
+                p.RongtaScalePort = fromFile.RongtaScalePort.Value;
+            if (fromFile.TmScaleIp is not null)
+                p.TmScaleIp = fromFile.TmScaleIp;
+            if (!string.IsNullOrWhiteSpace(fromFile.TmScaleBarcodeFormat))
+                p.TmScaleBarcodeFormat = fromFile.TmScaleBarcodeFormat;
             if (fromFile.LoyaltyEarnPercent is not null)
                 p.LoyaltyEarnPercent = Math.Clamp(fromFile.LoyaltyEarnPercent.Value, 0, 100);
             if (fromFile.PosHotkeys != null)
@@ -1032,6 +1090,15 @@ public sealed class UserPreferences
                 VisibleBankNames = VisibleBankNames,
                 EmployeeAccessCodes = EmployeeAccessCodes,
                 LoyaltyEnabled = LoyaltyEnabled,
+                ShowQuickProducts = ShowQuickProducts,
+                ScaleBrand = ScaleBrand,
+                ScaleNetworkIp = ScaleNetworkIp,
+                RongtaDataSource = RongtaDataSource,
+                RongtaServerPort = RongtaServerPort,
+                RongtaScaleIp = RongtaScaleIp,
+                RongtaScalePort = RongtaScalePort,
+                TmScaleIp = TmScaleIp,
+                TmScaleBarcodeFormat = TmScaleBarcodeFormat,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
                 PosHotkeys = PosHotkeys,
                 LastFilterDateFrom = LastFilterDateFrom,
@@ -1253,6 +1320,16 @@ public sealed class UserPreferences
         public List<string>? CustomBankNames { get; set; }
         public List<EmployeeAccessCode>? EmployeeAccessCodes { get; set; }
         public bool? LoyaltyEnabled { get; set; }
+        public bool? ShowQuickProducts { get; set; }
+        public string? ScaleBrand { get; set; }
+        // 2026-09-28: сетевые весы (см. комментарий в LoadFromDiskAndMergeDefaults).
+        public string? ScaleNetworkIp { get; set; }
+        public string? RongtaDataSource { get; set; }
+        public int? RongtaServerPort { get; set; }
+        public string? RongtaScaleIp { get; set; }
+        public int? RongtaScalePort { get; set; }
+        public string? TmScaleIp { get; set; }
+        public string? TmScaleBarcodeFormat { get; set; }
         public double? LoyaltyEarnPercent { get; set; }
         public Dictionary<string, string>? PosHotkeys { get; set; }
         public DateTime? LastFilterDateFrom { get; set; }

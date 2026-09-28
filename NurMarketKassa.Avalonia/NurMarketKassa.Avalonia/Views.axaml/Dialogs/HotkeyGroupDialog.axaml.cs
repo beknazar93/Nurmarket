@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
@@ -16,12 +17,21 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public partial class HotkeyGroupDialog : Window
 {
     private CatalogProductTileVm? _selected;
+    private readonly string _groupKey;
+
+    /// <summary>Другая F-клавиша, нажатая при открытом окне (2026-09-28). Окно перехватывает
+    /// клавиатуру, и раньше F2 поверх окна F1 ничего не делала — приходилось закрывать и
+    /// нажимать заново. Теперь окно закрывается, а касса сразу открывает новую группу.</summary>
+    private string? _nextGroup;
 
     public HotkeyGroupDialog() : this("F1", []) { }
 
     public HotkeyGroupDialog(string groupKey, IReadOnlyList<CatalogProductTileVm> products)
     {
         InitializeComponent();
+        _groupKey = groupKey;
+        // Туннелем: F-клавиши не должны доставаться кнопкам товаров внутри окна.
+        AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
 
         GroupKeyText.Text = groupKey;
         TitleText.Text = Tr.T("Товары горячей клавиши", "Ыкчам баскычтын товарлары", "Hotkey products",
@@ -41,11 +51,40 @@ public partial class HotkeyGroupDialog : Window
     }
 
     /// <summary>Выбранный товар либо null, если окно закрыли без выбора.</summary>
-    public static CatalogProductTileVm? Show(Window? owner, string groupKey, IReadOnlyList<CatalogProductTileVm> products)
+    public static CatalogProductTileVm? Show(Window? owner, string groupKey, IReadOnlyList<CatalogProductTileVm> products) =>
+        Show(owner, groupKey, products, out _);
+
+    /// <summary>То же, плюс <paramref name="nextGroup"/> — F-клавиша, на которую переключились
+    /// при открытом окне (null — окно просто закрыли или выбрали товар).</summary>
+    public static CatalogProductTileVm? Show(Window? owner, string groupKey, IReadOnlyList<CatalogProductTileVm> products, out string? nextGroup)
     {
         var dialog = new HotkeyGroupDialog(groupKey, products);
         PosDialogHost.Show(dialog, owner);
+        nextGroup = dialog._nextGroup;
         return dialog._selected;
+    }
+
+    private void OnDialogKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.None)
+            return;
+
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Close(false);
+            return;
+        }
+
+        if (e.Key is < Key.F1 or > Key.F12)
+            return;
+
+        e.Handled = true;
+        var group = "F" + (e.Key - Key.F1 + 1);
+        // Та же клавиша ещё раз — просто закрыть окно; другая — переключиться на её товары.
+        if (!string.Equals(group, _groupKey, System.StringComparison.OrdinalIgnoreCase))
+            _nextGroup = group;
+        Close(false);
     }
 
     private void Product_Click(object? sender, RoutedEventArgs e)
