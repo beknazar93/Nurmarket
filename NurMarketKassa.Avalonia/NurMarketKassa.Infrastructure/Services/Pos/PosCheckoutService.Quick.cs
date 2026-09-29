@@ -26,12 +26,17 @@ namespace NurMarketKassa.Services;
 /// • таймаут / 502–504 / 429 → повтор с ТЕМ ЖЕ ключом вместо сверки корзины; не помогло или
 ///   нет сети → чек в офлайн-очередь с id записи = ключ, досылка идёт тем же ключом
 ///   (SyncService.TryQuickReplayAsync) — двойного чека не будет, даже если первый запрос дошёл.
+/// • 2026-09-29: всё это — в пределах окна ожидания оплаты (ServerAnswerBudget, 1,8 с): кассир
+///   не ждёт дольше, остальное делает досылка тем же ключом.
 /// </summary>
 public sealed partial class PosCheckoutService
 {
     /// <summary>Ключ идемпотентности текущего чека и «отпечаток» тела, для которого он выдан.</summary>
     private string? _quickKey;
     private string? _quickKeyFingerprint;
+
+    /// <summary>Ключ, на который сервер дважды ответил 500 в этой оплате (см. TryQuickCheckoutAsync).</summary>
+    private string? _quickKeyAbandonedOn500;
 
     private void ForgetQuickKey()
     {
@@ -41,12 +46,16 @@ public sealed partial class PosCheckoutService
 
     /// <summary>null — быстрый путь не применим или сервер отказал по существу: вызывающий идёт
     /// старым путём. Иначе — окончательный результат оплаты.</summary>
+    /// <param name="cancellationToken">Отмена кассиром/окном.</param>
+    /// <param name="serverWait">2026-09-29: то же плюс окно ожидания ответа сервера
+    /// (ServerAnswerBudget): истекло — чек в очередь с этим же ключом.</param>
     private async Task<PosCheckoutResult?> TryQuickCheckoutAsync(
         PosCheckoutRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CancellationToken serverWait)
     {
         if (!UserPreferences.Instance.QuickCheckoutEnabled
-            || OfflineModeHelper.UseLocalOperations
+            || OfflineModeHelper.SellLocally
             || _salesApi is not IPosQuickCheckoutApi quickApi
             || !_cart.HasCart
             || _cart.LineCount == 0)
@@ -117,12 +126,13 @@ public sealed partial class PosCheckoutService
         var done = false;
         Exception? transient = null;
         var server500 = 0;
+        var budgetExpired = false;
         for (var attempt = 1; attempt <= 3 && !done; attempt++)
         {
             try
             {
                 var attemptTimeout = attempt == 1 ? timeout : TimeSpan.FromSeconds(Math.Min(15, timeout.TotalSeconds));
-                response = await quickApi.PosQuickCheckoutAsync(body, key, attemptTimeout, cancellationToken).ConfigureAwait(false);
+                response = await quickApi.PosQuickCheckoutAsync(body, key, attemptTimeout, serverWait).ConfigureAwait(false);
                 done = true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -135,6 +145,10 @@ public sealed partial class PosCheckoutService
                 PosLogger.Log($"PAY quick: 500 (попытка {attempt}): {DescribeQuickError(ex)}", "WARNING");
                 if (++server500 >= 2)
                 {
+                    // 2026-09-29: ключ запоминается — если и старый путь упрётся в сбой сервера,
+                    // чек встанет в очередь с ЭТИМ ключом: провелась ли продажа на самом деле,
+                    // сервер скажет ответом «replayed» при досылке (см. SaveOfflineAfterServerFailureAsync).
+                    _quickKeyAbandonedOn500 = key;
                     ForgetQuickKey();
                     PosLogger.Log("PAY quick: сервер дважды ответил 500 — старый путь.", "PAYMENT");
                     return null;
@@ -163,15 +177,35 @@ public sealed partial class PosCheckoutService
             }
             catch (OperationCanceledException ex)
             {
-                // Истёк наш таймаут запроса. Продажа могла пройти — повторяем тем же ключом.
+                // Истёк наш таймаут запроса или окно ожидания оплаты. Продажа могла пройти —
+                // повторяем тем же ключом (если есть время) или ставим в очередь с ним же.
                 transient = ex;
+                if (serverWait.IsCancellationRequested)
+                {
+                    budgetExpired = true;
+                    PosLogger.Log($"PAY quick: сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с (попытка {attempt}).", "WARNING");
+                    break;
+                }
+
                 PosLogger.Log($"PAY quick: таймаут (попытка {attempt}).", "WARNING");
                 if (attempt >= 2)
                     break;
             }
 
             if (!done && attempt < 3)
-                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken).ConfigureAwait(false);
+            {
+                // 2026-09-29: паузы между повторами — 0,25 и 0,5 с вместо 1 и 2 с: при сбое сервера
+                // все три попытки укладываются в окно ожидания оплаты (владелец: не больше 2 с).
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), serverWait).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    budgetExpired = true;
+                    break;
+                }
+            }
         }
 
         if (!done)
@@ -179,6 +213,17 @@ public sealed partial class PosCheckoutService
             PosLogger.Log(
                 $"PAY quick: сервер не ответил ({transient?.GetType().Name}: {transient?.Message}) — в очередь с ключом {key}.",
                 "PAYMENT");
+            // 2026-09-29: оплата исчерпала повторы или окно ожидания — сервер объявляется
+            // недоступным сразу (ServerOutageMonitor): следующие чеки уйдут в очередь без ожидания.
+            ServerOutageMonitor.ReportFailure(Tr.T("оплата", "төлөм", "payment", "ödeme", "to'lov"),
+                budgetExpired
+                    ? Tr.T($"сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с",
+                        $"сервер {ServerAnswerBudget.TotalSeconds:0.0} с ичинде жооп берген жок",
+                        $"the server did not answer within {ServerAnswerBudget.TotalSeconds:0.0} s",
+                        $"sunucu {ServerAnswerBudget.TotalSeconds:0.0} sn içinde yanıt vermedi",
+                        $"server {ServerAnswerBudget.TotalSeconds:0.0} s ichida javob bermadi")
+                    : ServerOutageMonitor.Describe(transient ?? new TimeoutException()),
+                hard: true);
             var reason = Tr.T("Таймаут оплаты или потеря сети.", "Төлөмдү күтүү убактысы бүттү же тармак үзүлдү.",
                 "Payment timed out or the connection was lost.", "Ödeme zaman aşımına uğradı veya ağ bağlantısı koptu.",
                 "To'lov vaqti tugadi yoki tarmoq uzildi.");
@@ -191,6 +236,8 @@ public sealed partial class PosCheckoutService
             return offline;
         }
 
+        // Сервер провёл продажу — окно ожидания больше не нужно (см. CheckoutAsync).
+        DisarmServerWait();
         ForgetQuickKey();
         var replayed = response.ValueKind == JsonValueKind.Object
             && response.TryGetProperty("replayed", out var rp) && rp.ValueKind == JsonValueKind.True;

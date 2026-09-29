@@ -332,7 +332,8 @@ public sealed class AnalyticsReportData
     {
         ServerFigures? server = null;
         // Касса работает без сервера — не ждём ответа, которого не будет.
-        if (!OfflineModeHelper.UseLocalOperations)
+        // 2026-09-29: и в аварии сервера (ServerOutageMonitor) — сразу по истории кассы.
+        if (!OfflineModeHelper.SellLocally)
         {
             // Не дольше 20 с: ABC и выгрузка без сервера всё равно строятся — по истории кассы,
             // а общий тайм-аут запроса (55 с) заставил бы ждать почти минуту.

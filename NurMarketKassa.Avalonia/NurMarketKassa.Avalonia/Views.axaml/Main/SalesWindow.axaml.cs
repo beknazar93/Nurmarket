@@ -245,6 +245,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 IsLoading = true;
                 ErrorMessage = null;
 
+                // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — сразу данные кассы с пометкой
+                // времени, без ожидания таймаутов каждого запроса и без ошибок.
+                if (ServerOutageMonitor.IsOutage)
+                {
+                    _serverSummary = null;
+                    LoadFromLocalHistory(from, to, token);
+                    return;
+                }
+
                 // ABC строится с сервера (вкладка «Товары» сайта), без связи — по локальной истории.
                 // 2026-09-28: идёт одновременно с остальными запросами, а не перед ними — раньше
                 // плитки ждали ещё и его (до 20 с при плохой связи).
@@ -421,7 +430,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .ToList();
             TopItemsGrid.ItemsSource = top;
 
-            ErrorMessage = sales.Count > 0
+            ErrorMessage = ServerOutageMonitor.IsOutage
+                // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
+                ? ServerOutageMonitor.StaleDataNote(null) + ServerOutageMonitor.LocalDataSuffix
+                : sales.Count > 0
                 ? Tr.T("Нет связи с сервером — показаны данные этой кассы за выбранный период.",
                     "Сервер менен байланыш жок — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
                     "No connection to the server — showing this till's data for the selected period.",

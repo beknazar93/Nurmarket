@@ -33,6 +33,10 @@ public static class ShiftCashFlowSync
     {
         if (string.IsNullOrWhiteSpace(shiftId) || !Guid.TryParse(shiftId, out _))
             return;
+        // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — операции ждут в кассе, уйдут
+        // по восстановлении связи (MainWindow.OnServerRecovered), без ожидания таймаутов сейчас.
+        if (ServerOutageMonitor.IsOutage)
+            return;
         var cashboxId = PosApp.PosCashboxId;
         if (string.IsNullOrWhiteSpace(cashboxId) || ShiftCashOperationsStore.PendingForShift(shiftId).Count == 0)
             return;

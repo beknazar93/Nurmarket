@@ -51,6 +51,8 @@ public sealed partial class NurMarketApiClient : IDisposable
         };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         UserPayload = default;
+        // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
+        ServerOutageMonitor.HealthProbe = ProbeServerHealthAsync;
     }
 
     internal void ApplyBearerAuthorization(HttpRequestMessage request)
@@ -185,11 +187,20 @@ public sealed partial class NurMarketApiClient : IDisposable
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync("api/users/auth/refresh/", content, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
+            {
+                // 2026-09-29: сбой сервера (5xx, 408, 429) — это не «сессия истекла». Раньше здесь
+                // тоже был false, и автовход во время аварии NurCRM стирал сохранённую сессию:
+                // кассир не мог ни войти, ни работать, пока сервер лежит. Отказ по существу
+                // (400/401/403 — refresh-токен отозван) по-прежнему false.
+                if (ServerOutageMonitor.IsServerFailureStatus((int)resp.StatusCode))
+                    throw new ApiException($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
                 return false;
+            }
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            using var doc = JsonDocument.Parse(text);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
+            // 200 со страницей HTML вместо JSON — тоже сбой сервера (ApiException 502), см. ParseSuccessBody.
+            var root = ParseSuccessBody(text, "api/users/auth/refresh/");
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
                 AccessToken = acc.GetString();
                 if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
@@ -868,7 +879,11 @@ public sealed partial class NurMarketApiClient : IDisposable
 
             // Потоковая десериализация (без лишних аллокаций)
             using var stream = await resp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
-            return await JsonSerializer.DeserializeAsync<T>(stream, _jsonRead, linked.Token).ConfigureAwait(false);
+            var result = await JsonSerializer.DeserializeAsync<T>(stream, _jsonRead, linked.Token).ConfigureAwait(false);
+            // 2026-09-29: успех для ServerOutageMonitor — только разобранный ответ. Ошибку разбора
+            // здесь сбоем сервера не считаем: это может быть и несовпадение полей DTO, а не авария.
+            ServerOutageMonitor.ReportSuccess(relativePath);
+            return result;
         }
         finally
         {
@@ -1007,11 +1022,59 @@ public sealed partial class NurMarketApiClient : IDisposable
         // 60-часового потолка офлайн-работы — см. OnlineContactTracker.
         OnlineContactTracker.RecordSuccess();
 
-        if (string.IsNullOrWhiteSpace(text))
-            return default;
+        return ParseSuccessBody(text, relativePath);
+    }
 
-        using var doc = JsonDocument.Parse(text);
-        return doc.RootElement.Clone();
+    /// <summary>2026-09-29: тело успешного ответа. Сервер за Cloudflare в аварии отвечает и
+    /// кодом 200 со страницей HTML или обрывком JSON — раньше это вылетало из запроса голым
+    /// JsonException, и оплата показывала кассиру «'&lt;' is an invalid start of a value».
+    /// Такой ответ — сбой сервера: ApiException 502, с которым оплата и досылка уже умеют
+    /// обращаться безопасно (повтор тем же ключом идемпотентности / очередь), а
+    /// ServerOutageMonitor засчитывает его как сбой, а не как «сервер ответил».</summary>
+    internal static JsonElement ParseSuccessBody(string? text, string context)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ServerOutageMonitor.ReportSuccess(context);
+            return default;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement.Clone();
+            ServerOutageMonitor.ReportSuccess(context);
+            return root;
+        }
+        catch (JsonException ex)
+        {
+            ServerOutageMonitor.ReportFailure(context, ex);
+            throw new ApiException(
+                Tr.T("Сервер NurCRM прислал повреждённый ответ (не JSON).", "NurCRM сервери бузулган жооп жөнөттү (JSON эмес).",
+                    "The NurCRM server sent a corrupted response (not JSON).", "NurCRM sunucusu bozuk bir yanıt gönderdi (JSON değil).",
+                    "NurCRM serveri buzilgan javob yubordi (JSON emas)."),
+                502);
+        }
+    }
+
+    /// <summary>2026-09-29: проверка «сервер снова отвечает» для ServerOutageMonitor — лёгкий
+    /// запрос API с авторизацией (профиль: Django + база), а не корень сайта: корень может
+    /// отдаваться, когда сам API лежит. Ответ 4xx (кроме 408/429) — сервер жив.</summary>
+    public async Task<bool> ProbeServerHealthAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(AccessToken))
+            return await CanReachApiAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            await RequestAsync(HttpMethod.Get, "api/users/profile/", null, null, ct, TimeSpan.FromSeconds(8))
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+        {
+            return true;
+        }
     }
 
 

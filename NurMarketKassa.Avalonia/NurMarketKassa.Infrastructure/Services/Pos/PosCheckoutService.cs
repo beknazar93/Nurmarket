@@ -53,7 +53,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         if (!_cart.HasCart || _cart.LineCount == 0)
             throw new ApiException(Tr.T("Добавьте товары в корзину.", "Себетке товар кошуңуз.", "Add products to the cart.", "Sepete ürün ekleyin.", "Savatga mahsulot qo'shing."), 400);
 
-        if (OfflineModeHelper.UseLocalOperations)
+        // 2026-09-29: и в аварии сервера (ServerOutageMonitor) — чек уйдёт в очередь, переносить некуда.
+        if (OfflineModeHelper.SellLocally)
             return;
 
         if (_cart.IsLocalOffline)
@@ -216,7 +217,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         if (discountBody.Count == 0)
             return true;
 
-        if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline || string.IsNullOrWhiteSpace(_cart.CartId))
+        if (OfflineModeHelper.SellLocally || _cart.IsLocalOffline || string.IsNullOrWhiteSpace(_cart.CartId))
         {
             var percent = discountBody.TryGetValue("order_discount_percent", out var pct) ? pct : null;
             var total = discountBody.TryGetValue("order_discount_total", out var sum) ? sum : null;
@@ -279,6 +280,34 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         }
     }
 
+    /// <summary>
+    /// Оплата чека.
+    ///
+    /// 2026-09-29, авария сервера NurCRM (ServerOutageMonitor, требование владельца «не выводи
+    /// ошибку — предупреди и работай автономно до исправления бэка»). Что можно в аварии:
+    /// <code>
+    /// Операция              | В аварии                              | Почему так
+    /// ----------------------|---------------------------------------|-------------------------------------------
+    /// Продажа нал/безнал    | сразу в офлайн-очередь, чек печатается | досылка одним запросом с Idempotency-Key =
+    ///                       | с пометкой «ОФФЛАЙН», остаток — местно | id записи: повтор не создаёт второй продажи
+    /// Оплата, упавшая 5xx/  | сначала сверка «не прошла ли уже»;    | быстрый путь: запись очереди = тот же ключ;
+    ///   таймаут/обрыв       | нет — в очередь, авария объявляется   | старый путь: запись с корзиной и отметкой
+    ///                       |                                       | отправки — досылка сперва сверит корзину
+    /// Сервер не ответил за  | в очередь без сверки, авария          | то же: ключ / отметка отправленной корзины
+    ///   1,8 с (нал/безнал)  | объявляется (ServerAnswerBudget)      | (сверку делает досылка)
+    /// Продажа «в долг»      | недоступна («пока сервер не отвечает») | клиент и сделка живут только на сервере
+    /// Смешанная оплата      | недоступна                            | очередь не хранит безналичную часть
+    /// Возврат               | недоступен                            | нужна продажа сервера; деньги без записи
+    /// Оплата долга          | недоступна                            | список долгов только на сервере
+    /// Внесение / изъятие    | записывается в кассе, на сервер — при | ShiftCashFlowSync сверяет source_id перед
+    ///                       | восстановлении связи                  | записью — дубля нет
+    /// Открытие смены        | офлайн-смена (как без интернета)      | сервер откроет смену при восстановлении
+    /// Закрытие смены        | закрыта в кассе + очередь закрытия    | повторное закрытие сервер отклоняет
+    ///                       | (после досылки продаж)                | «уже закрыта» — очередь это понимает
+    /// Каталог, поиск, скан  | из локальной базы; остатки — местные  | синхронизации ждут восстановления
+    ///                       | и соседних касс по сети               |
+    /// </code>
+    /// </summary>
     public async Task<PosCheckoutResult> CheckoutAsync(
         PosCheckoutRequest request,
         CancellationToken cancellationToken = default)
@@ -295,6 +324,32 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // реально был отправлен checkout, а не то, что окажется в _cart ПОСЛЕ возможной
         // перестройки корзины. См. WasCheckoutAlreadyAppliedAsync ниже.
         var fallbackCartId = _cart.CartId;
+        // 2026-09-29: корзина, на которую старый путь уже ОТПРАВИЛ checkout (без ключа
+        // идемпотентности). Если ответ потерялся, запись очереди несёт эту корзину и отметку
+        // отправки — досылка сперва спросит сервер о её статусе и второй продажи не создаст.
+        _legacyCheckoutPostedCartId = null;
+        _quickKeyAbandonedOn500 = null;
+
+        // 2026-09-29, требование владельца: «если сеть есть (галочка "онлайн"), а продажа в базу не
+        // уходит — анимация максимум 2 секунды, дальше в фон и обслуживать следующего». Наличные и
+        // безнал ждут ответа сервера не дольше ServerAnswerBudget: не ответил — чек в офлайн-очередь
+        // с тем же ключом идемпотентности (быстрый путь) или с отметкой отправленной корзины (старый
+        // путь), касса объявляет аварию сервера, досылка идёт в фоне. Раньше ожидание доходило до
+        // 31 с (молчащий сервер: два запроса по 15 с) и 3 с на ответах 5xx/429.
+        //
+        // Каждый ответ сервера в ЭТОЙ оплате (успех или отказ 4xx) отсчитывает окно заново: старый
+        // путь переносит чек несколькими запросами, и большой чек при живом сервере не должен уходить
+        // в очередь. «В долг» и смешанная в очередь не ставятся — для них ожидание прежнее.
+        var queueable = IsQueueablePayment(request.PaymentMethod);
+        using var serverWait = new CancellationTokenSource();
+        if (queueable)
+            serverWait.CancelAfter(ServerAnswerBudget);
+        using var netCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
+        var net = netCts.Token;
+        var watch = ServerOutageMonitor.BeginResponseWatch(queueable ? () => serverWait.CancelAfter(ServerAnswerBudget) : null);
+        _serverWait = serverWait;
+        _responseWatch = watch;
+        var paymentStartedMs = Environment.TickCount64;
 
         try
         {
@@ -347,11 +402,11 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // 2026-09-28, BE-11: сначала — продажа одним запросом (PosCheckoutService.Quick.cs):
             // снимок чека уже со скидкой уходит на сервер целиком, без переноса корзины. null —
             // этот чек новый адрес не берёт (или выключатель в настройках), дальше старый путь.
-            var quickResult = await TryQuickCheckoutAsync(request, cancellationToken).ConfigureAwait(false);
+            var quickResult = await TryQuickCheckoutAsync(request, cancellationToken, net).ConfigureAwait(false);
             if (quickResult != null)
                 return quickResult;
 
-            using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(net);
             // Перенос позиций на сервер идёт по одной, ~0,2 с на позицию. 2026-09-26, стресс-тест:
             // чек на 144 позиции не успевал за прежние фиксированные 25 с и уходил в офлайн-очередь
             // при живой связи. Даём время по размеру чека: 25 с + 0,35 с на позицию, не больше 3 мин.
@@ -370,8 +425,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
             if (!discountWentIntoSnapshot
                 && request.OrderDiscountBody != null
-                && !await ApplyOrderDiscountAsync(request.OrderDiscountBody, cancellationToken).ConfigureAwait(false))
+                && !await ApplyOrderDiscountAsync(request.OrderDiscountBody, net).ConfigureAwait(false))
             {
+                // 2026-09-29: скидка «не прошла», потому что сервер не ответил вовремя, — это не
+                // ошибка скидки, а тот же уход в очередь, что и ниже (ApplyOrderDiscountAsync
+                // глушит исключения и возвращает false).
+                serverWait.Token.ThrowIfCancellationRequested();
                 return PosCheckoutResult.Failed(PaymentErrorMessages.DiscountFailure);
             }
 
@@ -386,7 +445,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // (акция товара, о которой касса не знала), продажа молча проходила на меньшую сумму,
             // а кассир уже взял деньги по окну оплаты. Сверяем с полем total самой корзины сервера —
             // это ровно та сумма, на которую он проведёт продажу.
-            if (!OfflineModeHelper.UseLocalOperations && !_cart.IsLocalOffline
+            if (!OfflineModeHelper.SellLocally && !_cart.IsLocalOffline
                 && request.ExpectedTotal is { } expectedTotal)
             {
                 var serverCartTotal = TryReadDecimal(_cart.Root, "total", out var serverTotalValue)
@@ -448,8 +507,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     + "Odatda bu server qabul qilmagan chegirma. Chegirmani tekshirib, to'lovni takrorlang."));
             }
 
-            if (OfflineModeHelper.UseLocalOperations || _cart.IsLocalOffline)
+            if (OfflineModeHelper.SellLocally || _cart.IsLocalOffline)
             {
+                // 2026-09-29: в аварии сервера — свой, не пугающий текст (чек остаётся в кассе).
+                if (OfflineModeHelper.IsServerOutage && OutageUnavailablePaymentMessage(request.PaymentMethod) is { } outageMessage)
+                    return PosCheckoutResult.Failed(outageMessage);
+
                 if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
                     return PosCheckoutResult.Failed(Tr.T(
                         "Продажа «в долг» недоступна офлайн — нужна связь с сервером.",
@@ -470,7 +533,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     .ConfigureAwait(false);
             }
 
-            return await CompleteOnlineCheckoutAsync(request, cartJsonSnapshot, total, cancellationToken)
+            return await CompleteOnlineCheckoutAsync(request, cartJsonSnapshot, total, net, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (ApiException ex)
@@ -482,8 +545,15 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // продажи — иначе кассир повторит оплату и получит двойной чек.
             // Текущий ID корзины: после переноса отложенного чека на сервер он уже не тот, что был.
             if (ex.StatusCode is >= 500 and <= 599
-                && await WasCheckoutAlreadyAppliedAsync(_cart.IsLocalOffline ? fallbackCartId : _cart.CartId ?? fallbackCartId).ConfigureAwait(false))
+                && await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId
+                                                        ?? (_cart.IsLocalOffline ? fallbackCartId : _cart.CartId ?? fallbackCartId),
+                                                        serverWait.Token).ConfigureAwait(false))
                 return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
+
+            // 2026-09-29: сбой сервера (5xx, 408, 429, повреждённый ответ) — не ошибка для кассира:
+            // сервер объявлен недоступным, чек уходит в офлайн-очередь, как при обрыве сети.
+            if (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+                return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
 
             RestoreCartAfterFailedCheckout(fallbackCartJson);
 
@@ -521,16 +591,27 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         catch (HttpRequestException ex)
         {
             PosLogger.Log($"Checkout network error, saving offline: {ex}", "PAYMENT");
-            if (await WasCheckoutAlreadyAppliedAsync(fallbackCartId).ConfigureAwait(false))
+            if (await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId ?? fallbackCartId, serverWait.Token).ConfigureAwait(false))
                 return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
-            var fallback = BuildOfflineFallback(fallbackCartJson, fallbackTotal, request.OrderDiscountBody);
-            return await CompleteOfflineCheckoutAsync(request, fallback.CartJson, fallback.Total, ex.Message)
-                .ConfigureAwait(false);
+            // 2026-09-29: общий путь с 5xx — авария объявляется, чек с отметкой отправленной корзины.
+            return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             PosLogger.Log("Checkout canceled by caller.", "DEBUG");
             throw;
+        }
+        catch (OperationCanceledException ex) when (serverWait.IsCancellationRequested)
+        {
+            // 2026-09-29: сервер не ответил за ServerAnswerBudget (см. начало метода). Сверку «не
+            // прошла ли уже» здесь не делаем — на неё нет времени; её сделает досылка: быстрый путь
+            // повторит тот же ключ, старый путь сперва спросит статус отправленной корзины.
+            PosLogger.Log(
+                $"PAY: сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с (ответов сервера в этой оплате: {watch.Answers}, " +
+                $"прошло {Environment.TickCount64 - paymentStartedMs} мс) — чек в очередь, досылка в фоне" +
+                (_legacyCheckoutPostedCartId != null ? $", checkout корзины {_legacyCheckoutPostedCartId} уже отправлен." : "."),
+                "PAYMENT");
+            return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
         }
         catch (TaskCanceledException ex)
         {
@@ -544,21 +625,49 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // Перед тем как считать checkout неудавшимся, спрашиваем у сервера настоящий статус
             // ЭТОЙ ЖЕ продажи по её ID (WasCheckoutAlreadyAppliedAsync) — если он уже не "new",
             // checkout прошёл, и втоое списание/реплей делать нельзя.
-            if (await WasCheckoutAlreadyAppliedAsync(fallbackCartId).ConfigureAwait(false))
+            if (await WasCheckoutAlreadyAppliedAsync(_legacyCheckoutPostedCartId ?? fallbackCartId, serverWait.Token).ConfigureAwait(false))
                 return CompleteAlreadyAppliedCheckout(fallbackCartJson, fallbackTotal);
-            var fallback = BuildOfflineFallback(fallbackCartJson, fallbackTotal, request.OrderDiscountBody);
-            return await CompleteOfflineCheckoutAsync(
-                    request, fallback.CartJson, fallback.Total,
-                    Tr.T("Таймаут оплаты или потеря сети.", "Төлөмдү күтүү убактысы бүттү же тармак үзүлдү.",
-                        "Payment timed out or the connection was lost.", "Ödeme zaman aşımına uğradı veya ağ bağlantısı koptu.",
-                        "To'lov vaqti tugadi yoki tarmoq uzildi."))
-                .ConfigureAwait(false);
+            // 2026-09-29: общий путь с 5xx — авария объявляется, чек с отметкой отправленной корзины.
+            return await SaveOfflineAfterServerFailureAsync(request, fallbackCartJson, fallbackTotal, ex).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             PaymentErrorMessages.Log("Checkout unexpected error", ex);
             RestoreCartAfterFailedCheckout(fallbackCartJson);
             return PosCheckoutResult.Failed(PaymentErrorMessages.ForCashier(ex));
+        }
+        finally
+        {
+            watch.Stop();
+            _serverWait = null;
+            _responseWatch = null;
+        }
+    }
+
+    /// <summary>2026-09-29: сколько касса ждёт ответа сервера при оплате наличными/безналом,
+    /// прежде чем отдать чек в очередь (владелец: «максимум 2 секунды»). 1,8 с — чтобы вместе с
+    /// записью в очередь и окном результата кассир ждал не больше двух секунд.</summary>
+    internal static readonly TimeSpan ServerAnswerBudget = TimeSpan.FromSeconds(1.8);
+
+    private CancellationTokenSource? _serverWait;
+    private ServerOutageMonitor.ResponseWatch? _responseWatch;
+
+    /// <summary>Наличные и безнал можно поставить в офлайн-очередь; «в долг» и смешанную — нет.</summary>
+    private static bool IsQueueablePayment(string? paymentMethod) =>
+        !string.Equals(paymentMethod, "debt", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Сервер провёл продажу — окно ожидания больше не нужно: дальнейшая работа (номер
+    /// чека, печать) не должна увести уже проведённую продажу в очередь.</summary>
+    private void DisarmServerWait()
+    {
+        _responseWatch?.Stop();
+        try
+        {
+            _serverWait?.CancelAfter(Timeout.Infinite);
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 
@@ -580,6 +689,73 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         }
     }
 
+    /// <summary>См. CheckoutAsync: корзина, на которую старый путь уже отправил checkout.</summary>
+    private string? _legacyCheckoutPostedCartId;
+
+    /// <summary>2026-09-29: оплата упала из-за сервера (5xx/408/429, таймаут, обрыв, повреждённый
+    /// ответ) и сверка «не прошла ли уже» ответила «нет или неизвестно». Раньше на 5xx кассир видел
+    /// «Оплата не прошла … повторите через минуту», а сеть/таймаут уходили в очередь с причиной
+    /// сбоя в тексте. Теперь одинаково: сервер объявляется недоступным (дальше касса работает
+    /// автономно без ожидания таймаутов), чек — в офлайн-очередь. Если checkout старого пути уже
+    /// ушёл на сервер, запись очереди несёт его корзину (см. CompleteOfflineCheckoutAsync).
+    /// «В долг» и смешанную очередь не принимает — чек возвращается в кассу с понятным текстом.</summary>
+    private async Task<PosCheckoutResult> SaveOfflineAfterServerFailureAsync(
+        PosCheckoutRequest request,
+        string fallbackCartJson,
+        double fallbackTotal,
+        Exception failure)
+    {
+        ServerOutageMonitor.ReportFailure(
+            Tr.T("оплата", "төлөм", "payment", "ödeme", "to'lov"), failure, hard: true);
+
+        if (OutageUnavailablePaymentMessage(request.PaymentMethod) is { } unavailable)
+        {
+            RestoreCartAfterFailedCheckout(fallbackCartJson);
+            PosLogger.Log($"Checkout: сервер не отвечает, способ оплаты {request.PaymentMethod} в очередь не ставится — чек оставлен в кассе.", "PAYMENT");
+            return PosCheckoutResult.Failed(unavailable);
+        }
+
+        var fallback = BuildOfflineFallback(fallbackCartJson, fallbackTotal, request.OrderDiscountBody);
+        PosLogger.Log(
+            $"Checkout: сервер не отвечает ({ServerOutageMonitor.Describe(failure)}) — чек в офлайн-очередь" +
+            (_legacyCheckoutPostedCartId != null ? $", checkout корзины {_legacyCheckoutPostedCartId} уже отправлялся — досылка сверит её статус." : "."),
+            "PAYMENT");
+        // Быстрый путь в этой оплате уже отправлял чек и получил 500 дважды — запись очереди
+        // получает тот же ключ: если продажа всё же прошла, досылка получит «replayed», а не дубль.
+        var quickKey = _legacyCheckoutPostedCartId == null ? _quickKeyAbandonedOn500 : null;
+        return await CompleteOfflineCheckoutAsync(
+                request, fallback.CartJson, fallback.Total,
+                Tr.T("сервер NurCRM не отвечает", "NurCRM сервери жооп бербей жатат", "the NurCRM server is not responding",
+                    "NurCRM sunucusu yanıt vermiyor", "NurCRM serveri javob bermayapti"),
+                entryId: quickKey,
+                quickAttempted: quickKey != null,
+                submittedCartId: _legacyCheckoutPostedCartId)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Способы оплаты, которые без сервера провести нельзя (см. таблицу у CheckoutAsync).
+    /// null — способ проводится и в аварии.</summary>
+    private static string? OutageUnavailablePaymentMessage(string? paymentMethod)
+    {
+        if (string.Equals(paymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
+            return Tr.T(
+                "Продажа «в долг» недоступна, пока сервер NurCRM не отвечает. Чек сохранён в кассе — примите оплату наличными или картой либо повторите позже.",
+                "NurCRM сервери жооп бербей турганда «карызга» сатуу жеткиликсиз. Чек кассада сакталды — накталай же карта менен төлөм алыңыз же кийинчерээк кайталаңыз.",
+                "Selling “on credit” is unavailable while the NurCRM server is not responding. The receipt is kept in the till — take cash or card, or try again later.",
+                "NurCRM sunucusu yanıt vermediği sürece «veresiye» satış yapılamaz. Fiş kasada tutuluyor — nakit veya kartla ödeme alın ya da daha sonra tekrar deneyin.",
+                "NurCRM serveri javob bermayotgan paytda «qarzga» sotish mavjud emas. Chek kassada saqlandi — naqd yoki karta orqali to'lov oling yoki keyinroq qayta urinib ko'ring.");
+
+        if (string.Equals(paymentMethod, "mixed", StringComparison.OrdinalIgnoreCase))
+            return Tr.T(
+                "Смешанная оплата недоступна, пока сервер NurCRM не отвечает. Чек сохранён в кассе — примите оплату только наличными или только картой либо повторите позже.",
+                "NurCRM сервери жооп бербей турганда аралаш төлөм жеткиликсиз. Чек кассада сакталды — төлөмдү накталай гана же карта менен гана алыңыз же кийинчерээк кайталаңыз.",
+                "Mixed payment is unavailable while the NurCRM server is not responding. The receipt is kept in the till — take cash only or card only, or try again later.",
+                "NurCRM sunucusu yanıt vermediği sürece karışık ödeme yapılamaz. Fiş kasada tutuluyor — yalnızca nakit veya yalnızca kartla ödeme alın ya da daha sonra tekrar deneyin.",
+                "NurCRM serveri javob bermayotgan paytda aralash to'lov mavjud emas. Chek kassada saqlandi — faqat naqd yoki faqat karta orqali to'lov oling yoki keyinroq qayta urinib ko'ring.");
+
+        return null;
+    }
+
     public async Task<string?> RestartSaleSessionAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -592,7 +768,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 return "Новый чек не открыт: смена не открыта. Откройте смену и нажмите «Новый чек».";
             }
 
-            if (OfflineModeHelper.UseLocalOperations)
+            if (OfflineModeHelper.SellLocally)
             {
                 LocalCartService.StartNewLocalCart(_cart);
                 return null;
@@ -609,14 +785,18 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, null, null);
             return null;
         }
-        catch (ApiException ex) when (OfflineModeHelper.CanOperateWithoutServer)
+        catch (ApiException ex) when (OfflineModeHelper.CanOperateWithoutServer
+                                      || ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
         {
+            // 2026-09-29: и при сбое сервера (5xx/429) — новый чек локально, без ошибки кассиру.
             PosLogger.Log($"Restart sale offline after API error: {ex}", "PAYMENT");
             LocalCartService.StartNewLocalCart(_cart);
             return null;
         }
-        catch (HttpRequestException ex) when (OfflineModeHelper.CanOperateWithoutServer)
+        catch (HttpRequestException ex)
         {
+            // 2026-09-29: обрыв связи — всегда локальный новый чек (раньше только в офлайн-входе,
+            // иначе кассир видел текст сетевой ошибки вместо пустого чека).
             LocalCartService.StartNewLocalCart(_cart);
             PosLogger.Log($"Restart sale offline after network error: {ex}", "PAYMENT");
             return null;
@@ -636,14 +816,17 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     /// Короткий собственный таймаут и любая ошибка здесь — false (обычное поведение, offline-
     /// очередь как раньше): связь и так плохая, вешать кассира на вторую долгую попытку не
     /// стоит — риск "не узнали, что успело пройти" гораздо безопаснее риска задвоить продажу.</summary>
-    private async Task<bool> WasCheckoutAlreadyAppliedAsync(string? cartId)
+    /// <param name="serverWait">2026-09-29: окно ожидания оплаты (см. CheckoutAsync). Истекло — не
+    /// спрашиваем вовсе: чек уйдёт в очередь, и досылка сверит статус корзины сама.</param>
+    private async Task<bool> WasCheckoutAlreadyAppliedAsync(string? cartId, CancellationToken serverWait = default)
     {
-        if (string.IsNullOrWhiteSpace(cartId))
+        if (string.IsNullOrWhiteSpace(cartId) || serverWait.IsCancellationRequested)
             return false;
 
         // Статус корзины, а не продажи — см. CartSaleSessionHelper.GetCheckoutStateAsync: прежний
         // запрос sales/{cartId} всегда давал 404, и оплата после тайм-аута считалась непрошедшей.
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(serverWait);
+        cts.CancelAfter(TimeSpan.FromSeconds(5));
         var state = await CartSaleSessionHelper.GetCheckoutStateAsync(_salesApi, cartId, cts.Token).ConfigureAwait(false);
         return state == CartSaleSessionHelper.CartCheckoutState.Paid;
     }
@@ -735,7 +918,8 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         double total,
         string? reason = null,
         string? entryId = null,
-        bool quickAttempted = false)
+        bool quickAttempted = false,
+        string? submittedCartId = null)
     {
         // Проверка стоит здесь, в единственной точке постановки чека в очередь, а не только на
         // ветке «мы заранее знаем, что офлайн». В очередь чек попадает ещё двумя путями — из
@@ -743,6 +927,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // было: долг и смешанная оплата проскакивали в очередь, а повтор не умеет ни привязать
         // клиента к долгу, ни передать безналичную часть (её просто негде хранить), поэтому
         // смешанный чек 3000 нал + 7000 карта выгрузился бы как 3000.
+        if (OfflineModeHelper.IsServerOutage && OutageUnavailablePaymentMessage(request.PaymentMethod) is { } outageMessage)
+            return PosCheckoutResult.Failed(outageMessage);
+
         if (string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
             return PosCheckoutResult.Failed(Tr.T(
                 "Продажа «в долг» недоступна без связи с сервером. Повторите оплату, когда появится интернет.",
@@ -780,6 +967,16 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         if (!string.IsNullOrWhiteSpace(entryId))
             entry.Id = entryId;
 
+        // 2026-09-29: старый путь уже отправил checkout этой корзины и не дождался ответа (5xx,
+        // таймаут, обрыв). Запись несёт корзину и отметку отправки: досылка (SyncService.
+        // ReplayOfflineSaleAsync) сначала спросит сервер о статусе корзины — оплачена → повтора
+        // нет. Без этого досылка шла бы одним запросом с новым ключом и создала бы вторую продажу.
+        if (!string.IsNullOrWhiteSpace(submittedCartId))
+        {
+            entry.SyncCartId = submittedCartId;
+            entry.CheckoutSubmittedAt = DateTimeOffset.Now;
+        }
+
         OfflinePendingSalesStore.Append(entry);
         ApplyOfflineStockDecrement(cartJsonSnapshot);
         // Соседние кассы и программа владельца узнают о чеке по локальной сети, пока он в очереди.
@@ -807,6 +1004,13 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         var info = isAutonomous
             ? Tr.T("Оплата сохранена (автономный режим).", "Төлөм сакталды (автономдук режим).",
                 "Payment saved (offline mode).", "Ödeme kaydedildi (çevrimdışı mod).", "To'lov saqlandi (oflayn rejim).")
+            // 2026-09-29: авария сервера — кассиру не причина сбоя, а что будет с чеком.
+            : OfflineModeHelper.IsServerOutage && !OfflineModeHelper.UseLocalOperations
+                ? Tr.T($"Чек сохранён, отправится автоматически. В очереди: {pending}.",
+                    $"Чек сакталды, автоматтык түрдө жөнөтүлөт. Кезекте: {pending}.",
+                    $"Receipt saved, it will be sent automatically. Queued: {pending}.",
+                    $"Fiş kaydedildi, otomatik olarak gönderilecek. Sırada: {pending}.",
+                    $"Chek saqlandi, avtomatik ravishda yuboriladi. Navbatda: {pending}.")
             : reason != null
                 ? Tr.T($"Оплата сохранена локально ({reason}). В очереди: {pending}.",
                     $"Төлөм ушул кассада сакталды ({reason}). Кезекте: {pending}.",
@@ -838,8 +1042,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         PosCheckoutRequest request,
         string cartJsonSnapshot,
         double total,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CancellationToken callerToken)
     {
+        // cancellationToken — с окном ожидания ответа сервера (см. CheckoutAsync), callerToken —
+        // без него: после ответа сервера продажа уже проведена, и её завершение (номер, печать)
+        // не должно уводить её в очередь.
         var cartId = _cart.CartId;
         if (string.IsNullOrWhiteSpace(cartId))
             return PosCheckoutResult.Failed(Tr.T("Корзина не привязана к серверу. Начните продажу заново.",
@@ -864,6 +1072,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         JsonElement checkoutResponse;
         try
         {
+            _legacyCheckoutPostedCartId = cartId;
             checkoutResponse = await _salesApi
                 .PosCheckoutAsync(checkoutIds, body, cancellationToken)
                 .ConfigureAwait(false);
@@ -891,14 +1100,16 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             PosLogger.Log(
                 $"Checkout retry after cart rebuild: ids=[{string.Join(", ", recoveredIds)}]",
                 "PAYMENT");
+            _legacyCheckoutPostedCartId = recoveredCartId;
             checkoutResponse = await _salesApi
                 .PosCheckoutAsync(recoveredIds, body, cancellationToken)
                 .ConfigureAwait(false);
         }
 
+        DisarmServerWait();
         CheckoutResponseHelper.FormatSuccess(checkoutResponse);
 
-        return await FinishOnlineCheckoutAsync(request, cartJsonSnapshot, total, checkoutResponse, cartId, cancellationToken)
+        return await FinishOnlineCheckoutAsync(request, cartJsonSnapshot, total, checkoutResponse, cartId, callerToken)
             .ConfigureAwait(false);
     }
 

@@ -159,6 +159,38 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         {
             return await OfflineOrExpiredAsync(saved, cancellationToken).ConfigureAwait(false);
         }
+        catch (ApiException ex) when (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+        {
+            // 2026-09-29, требование владельца «при сбое бэка не выводи ошибку — работай автономно
+            // до исправления бэка»: касса, перезапущенная во время аварии сервера (5xx, 408, 429,
+            // HTML вместо JSON), раньше не пускала кассира вообще — «Автономный вход разрешён только
+            // при сетевой ошибке», а при истёкшем токене доступа (он живёт ~15 минут, то есть почти
+            // всегда) ещё и стирала сохранённую сессию: обновить токен не дал тот же лежащий сервер.
+            //
+            // Сервер, который не отвечает, так же не может ни подтвердить, ни отвергнуть сессию, как
+            // и отсутствие сети. Поэтому вход автономно — по правилам офлайн-входа (60 часов без
+            // связи), а срок сессии в аварии определяет refresh-токен: именно им касса продлит
+            // доступ, как только сервер оживёт. Отозванный на сервере токен здесь не пройдёт
+            // дальше первого же ответа сервера (401 → «Сессия недействительна», как и раньше).
+            var session = WithCurrentTokens(saved);
+            if (!ReferenceEquals(session, saved))
+                await _storage.SaveSessionAsync(session).ConfigureAwait(false);
+            if (IsLocallyValid(session) || IsRefreshLocallyValid(session))
+            {
+                PosLogger.Log($"Автовход: сервер не отвечает ({ServerOutageMonitor.Describe(ex)}) — вход по сохранённой сессии, касса работает автономно.", "OUTAGE");
+                return await OfflineOrExpiredAsync(session, cancellationToken, acceptValidRefresh: true).ConfigureAwait(false);
+            }
+
+            // Истёк и refresh-токен — войти всё равно нельзя, но сессию не стираем: как только
+            // сервер оживёт, автовход сам скажет, действительна ли она.
+            return AuthenticationResult.Failed(
+                AuthenticationFailure.ServerError,
+                Tr.T("Сервер NurCRM временно не отвечает, а сохранённый вход истёк. Повторите вход, когда сервер заработает.",
+                    "NurCRM сервери убактылуу жооп бербей жатат, сакталган кирүүнүн мөөнөтү бүткөн. Сервер иштегенде кайра кириңиз.",
+                    "The NurCRM server is temporarily not responding and the saved sign-in has expired. Sign in again once the server is back.",
+                    "NurCRM sunucusu geçici olarak yanıt vermiyor ve kayıtlı oturumun süresi dolmuş. Sunucu çalışınca yeniden giriş yapın.",
+                    "NurCRM serveri vaqtincha javob bermayapti, saqlangan kirish muddati tugagan. Server ishlaganda qayta kiring."));
+        }
         catch (ApiException)
         {
             // A reachable server returning 5xx is not proof that credentials are
@@ -189,11 +221,14 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         return profile;
     }
 
+    /// <param name="acceptValidRefresh">2026-09-29: только для аварии сервера (см. AutoLoginAsync) —
+    /// истёкший токен доступа допустим, если refresh-токен ещё действует.</param>
     private async Task<AuthenticationResult> OfflineOrExpiredAsync(
         UserSession session,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool acceptValidRefresh = false)
     {
-        if (!IsLocallyValid(session))
+        if (!IsLocallyValid(session) && !(acceptValidRefresh && IsRefreshLocallyValid(session)))
             return await RejectSavedSessionAsync(
                 Tr.T("Сессия истекла. Для входа подключитесь к интернету.",
                     "Сессиянын мөөнөтү бүттү. Кирүү үчүн интернетке туташыңыз.",
@@ -236,6 +271,36 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
 
     private static bool IsLocallyValid(UserSession session) =>
         session.ExpiresAt > DateTimeOffset.UtcNow.Add(ClockSkew);
+
+    /// <summary>2026-09-29: refresh-токен ещё не истёк по своему сроку (поле exp JWT).</summary>
+    private static bool IsRefreshLocallyValid(UserSession session) =>
+        ReadJwtExpiration(session.RefreshToken) is { } refreshExpires
+        && refreshExpires > DateTimeOffset.UtcNow.Add(ClockSkew);
+
+    /// <summary>2026-09-29: сохранённая сессия с токенами, которые сейчас у клиента API. Если в
+    /// автовходе токен успели обновить, а сервер упал уже на профиле, прежний refresh-токен сервер
+    /// отозвал (он выдаёт новый при каждом обновлении) — войти по нему потом было бы нельзя.</summary>
+    private UserSession WithCurrentTokens(UserSession saved)
+    {
+        var access = _api.AccessToken;
+        if (string.IsNullOrEmpty(access) || string.Equals(access, saved.AccessToken, StringComparison.Ordinal))
+            return saved;
+
+        return new UserSession
+        {
+            AccessToken = access,
+            RefreshToken = _api.RefreshToken ?? saved.RefreshToken,
+            ExpiresAt = ReadJwtExpiration(access)?.ToUniversalTime() ?? saved.ExpiresAt,
+            UserId = saved.UserId,
+            Login = saved.Login,
+            DisplayName = saved.DisplayName,
+            Role = saved.Role,
+            BranchId = saved.BranchId,
+            Permissions = saved.Permissions,
+            // Обновление токена — успешный ответ сервера.
+            LastOnlineContactAt = DateTimeOffset.UtcNow,
+        };
+    }
 
     private UserSession CreateSession(
         string login,

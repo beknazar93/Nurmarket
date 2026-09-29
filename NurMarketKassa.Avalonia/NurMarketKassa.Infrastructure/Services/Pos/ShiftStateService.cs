@@ -34,7 +34,9 @@ public sealed class ShiftStateService : IShiftStateService
         // сети в моменте, сеть может вернуться в любую секунду, и тогда нужно доверять серверу
         // (который знает про ВСЕ продажи смены, а не только те, что успели пройти локально),
         // а не застрявшему локальному числу.
-        if (_autonomous.IsCurrentSessionAutonomous)
+        // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — не ждём таймаута списка смен при
+        // каждой оплате и новом чеке, берём сохранённое состояние, как при отказе запроса ниже.
+        if (_autonomous.IsCurrentSessionAutonomous || OfflineModeHelper.IsServerOutage)
         {
             OfflinePosStateStore.RestoreToApp();
             balance = OfflinePosStateStore.ReadShiftCashBalance();

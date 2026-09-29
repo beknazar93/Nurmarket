@@ -103,7 +103,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
     private async Task<CatalogSyncResult> SyncCatalogFullCoreAsync(CancellationToken cancellationToken = default)
     {
-        if (OfflineModeHelper.UseLocalOperations)
+        // 2026-09-29: и в аварии сервера — каталог из локальной базы, сервер не дёргаем.
+        if (OfflineModeHelper.SellLocally)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
 
         int generation;

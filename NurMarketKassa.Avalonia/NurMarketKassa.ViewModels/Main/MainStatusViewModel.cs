@@ -57,6 +57,12 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         // Смена языка интерфейса: подписи статусной строки собираются в коде — перечитываем их,
         // иначе «Онлайн»/«В очереди» оставались на прежнем языке до следующего изменения.
         Tr.LanguageChanged += OnLanguageChanged;
+
+        // 2026-09-29: авария сервера NurCRM (ServerOutageMonitor) — индикатор в шапке, подсказка
+        // с последней ошибкой и одно ненавязчивое уведомление на переходе (без окон-ошибок).
+        ServerOutageMonitor.StateChanged += OnServerStateChanged;
+        ServerOutageMonitor.QueueFlushed += OnServerQueueFlushed;
+        _dispatcher.Post(RefreshStatusToolTip);
     }
 
     private void OnLanguageChanged() => _dispatcher.Post(() =>
@@ -64,12 +70,198 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         StatusLabel = FormatStatusLabel(IsOnline);
         QueueText = FormatQueueText(QueuedCount);
         RefreshFromSession();
+        RefreshStatusToolTip();
     });
 
     private static string FormatStatusLabel(bool online) =>
         online
             ? Tr.T("Онлайн", "Онлайн", "Online", "Çevrimiçi", "Onlayn")
-            : Tr.T("Офлайн", "Офлайн", "Offline", "Çevrimdışı", "Oflayn");
+            : ServerOutageMonitor.IsOutage
+                // 2026-09-29: сервер не отвечает — касса работает автономно (не «Офлайн»: сеть может быть).
+                ? Tr.T("Автономно · сервер не отвечает", "Автономдуу · сервер жооп бербей жатат",
+                    "Autonomous · server not responding", "Otonom · sunucu yanıt vermiyor", "Avtonom · server javob bermayapti")
+                : Tr.T("Офлайн", "Офлайн", "Offline", "Çevrimdışı", "Oflayn");
+
+    // ── 2026-09-29: авария сервера — подсказка у индикатора и уведомление ────────────────
+
+    private string _statusToolTip = "";
+    private string _outageToastText = "";
+    private bool _hasOutageToast;
+    private bool _isOutageToastRecovery;
+    private int _toastVersion;
+
+    /// <summary>Подсказка у индикатора «Онлайн/Автономно»: с какого времени сервер не отвечает,
+    /// последняя ошибка и её время, сколько чеков ждут отправки.</summary>
+    public string StatusToolTip
+    {
+        get => _statusToolTip;
+        private set => SetProperty(ref _statusToolTip, value ?? "");
+    }
+
+    /// <summary>Текст ненавязчивого уведомления под шапкой (сам исчезает через несколько секунд).</summary>
+    public string OutageToastText
+    {
+        get => _outageToastText;
+        private set => SetProperty(ref _outageToastText, value ?? "");
+    }
+
+    public bool HasOutageToast
+    {
+        get => _hasOutageToast;
+        private set => SetProperty(ref _hasOutageToast, value);
+    }
+
+    /// <summary>true — уведомление о восстановлении связи (зелёное), false — об аварии.</summary>
+    public bool IsOutageToastRecovery
+    {
+        get => _isOutageToastRecovery;
+        private set
+        {
+            if (SetProperty(ref _isOutageToastRecovery, value))
+                OnPropertyChanged(nameof(IsOutageToastWarning));
+        }
+    }
+
+    public bool IsOutageToastWarning => !_isOutageToastRecovery;
+
+    /// <summary>Закрыть уведомление щелчком.</summary>
+    public void DismissOutageToast() => _dispatcher.Post(() => HasOutageToast = false);
+
+    private void OnServerStateChanged(ServerLinkState from, ServerLinkState to)
+    {
+        if (_autonomous.IsCurrentSessionAutonomous)
+            return;
+
+        // Счётчик очереди — здесь, в фоновом потоке события: SQLite не читаем в UI-потоке.
+        var pendingNow = from == ServerLinkState.Outage ? OfflinePendingSalesStoreSafeCount() : 0;
+        _dispatcher.Post(() =>
+        {
+            if (to == ServerLinkState.Outage)
+            {
+                IsOnline = false;
+                StatusLabel = FormatStatusLabel(false);
+                ShowToast(Tr.T(
+                    "Сервер NurCRM временно не отвечает — касса работает автономно, продажи отправятся автоматически.",
+                    "NurCRM сервери убактылуу жооп бербей жатат — касса автономдуу иштейт, сатуулар автоматтык түрдө жөнөтүлөт.",
+                    "The NurCRM server is temporarily not responding — the till is working autonomously, sales will be sent automatically.",
+                    "NurCRM sunucusu geçici olarak yanıt vermiyor — kasa otonom çalışıyor, satışlar otomatik olarak gönderilecek.",
+                    "NurCRM serveri vaqtincha javob bermayapti — kassa avtonom ishlayapti, sotuvlar avtomatik ravishda yuboriladi."),
+                    recovery: false);
+            }
+            else if (to == ServerLinkState.Online && from == ServerLinkState.Outage)
+            {
+                IsOnline = true;
+                StatusLabel = FormatStatusLabel(true);
+                // Итог («отправлено N продаж») покажет OnServerQueueFlushed, когда очередь разберётся.
+                if (pendingNow == 0)
+                    ShowToast(RecoveredText(0), recovery: true);
+            }
+
+            RefreshStatusToolTip();
+        });
+    }
+
+    private void OnServerQueueFlushed(int sent, int left)
+    {
+        if (_autonomous.IsCurrentSessionAutonomous || ServerOutageMonitor.IsOutage)
+            return;
+
+        _dispatcher.Post(() =>
+        {
+            QueuedCount = left;
+            if (sent > 0 || left > 0)
+                ShowToast(RecoveredText(sent), recovery: true);
+            RefreshStatusToolTip();
+        });
+    }
+
+    private static string RecoveredText(int sent) =>
+        sent > 0
+            ? Tr.T($"Связь с сервером восстановлена, отправлено продаж: {sent}.",
+                $"Сервер менен байланыш калыбына келди, жөнөтүлгөн сатуулар: {sent}.",
+                $"Connection to the server restored, sales sent: {sent}.",
+                $"Sunucu bağlantısı yeniden kuruldu, gönderilen satış: {sent}.",
+                $"Server bilan aloqa tiklandi, yuborilgan sotuvlar: {sent}.")
+            : Tr.T("Связь с сервером восстановлена.", "Сервер менен байланыш калыбына келди.",
+                "Connection to the server restored.", "Sunucu bağlantısı yeniden kuruldu.", "Server bilan aloqa tiklandi.");
+
+    private void ShowToast(string text, bool recovery)
+    {
+        OutageToastText = text;
+        IsOutageToastRecovery = recovery;
+        HasOutageToast = true;
+        var version = ++_toastVersion;
+        _ = HideToastLaterAsync(version, recovery ? TimeSpan.FromSeconds(6) : TimeSpan.FromSeconds(10));
+    }
+
+    private async Task HideToastLaterAsync(int version, TimeSpan delay)
+    {
+        try
+        {
+            await Task.Delay(delay, _lifetimeCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        _dispatcher.Post(() =>
+        {
+            if (version == _toastVersion)
+                HasOutageToast = false;
+        });
+    }
+
+    private void RefreshStatusToolTip()
+    {
+        var queued = QueuedCount;
+        var queueLine = queued > 0
+            ? Tr.T($" Ждут отправки: {queued}.", $" Жөнөтүүнү күтүүдө: {queued}.", $" Waiting to be sent: {queued}.",
+                $" Gönderilmeyi bekleyen: {queued}.", $" Yuborilishini kutmoqda: {queued}.")
+            : "";
+        if (ServerOutageMonitor.IsOutage)
+        {
+            var since = ServerOutageMonitor.OutageSince;
+            var (error, at) = ServerOutageMonitor.LastError;
+            var sinceText = since is { } s ? $"{s:HH:mm}" : "—";
+            var errorText = error is { Length: > 0 }
+                ? Tr.T($" Последняя ошибка ({at:HH:mm:ss}): {error}.", $" Акыркы ката ({at:HH:mm:ss}): {error}.",
+                    $" Last error ({at:HH:mm:ss}): {error}.", $" Son hata ({at:HH:mm:ss}): {error}.", $" Oxirgi xato ({at:HH:mm:ss}): {error}.")
+                : "";
+            StatusToolTip = Tr.T(
+                $"Сервер NurCRM не отвечает с {sinceText}. Касса работает автономно: продажи сохраняются и отправятся автоматически.",
+                $"NurCRM сервери {sinceText} бери жооп бербей жатат. Касса автономдуу иштейт: сатуулар сакталат жана автоматтык түрдө жөнөтүлөт.",
+                $"The NurCRM server has not been responding since {sinceText}. The till works autonomously: sales are saved and will be sent automatically.",
+                $"NurCRM sunucusu {sinceText} saatinden beri yanıt vermiyor. Kasa otonom çalışıyor: satışlar kaydediliyor ve otomatik olarak gönderilecek.",
+                $"NurCRM serveri {sinceText} dan beri javob bermayapti. Kassa avtonom ishlayapti: sotuvlar saqlanadi va avtomatik ravishda yuboriladi.")
+                + errorText + queueLine;
+            return;
+        }
+
+        StatusToolTip = (IsOnline
+            ? Tr.T("Связь с сервером NurCRM есть.", "NurCRM сервери менен байланыш бар.", "Connected to the NurCRM server.",
+                "NurCRM sunucusuyla bağlantı var.", "NurCRM serveri bilan aloqa bor.")
+            : Tr.T("Нет связи с сервером NurCRM — продажи сохраняются в кассе.", "NurCRM сервери менен байланыш жок — сатуулар кассада сакталат.",
+                "No connection to the NurCRM server — sales are saved in the till.", "NurCRM sunucusuyla bağlantı yok — satışlar kasada kaydediliyor.",
+                "NurCRM serveri bilan aloqa yo'q — sotuvlar kassada saqlanadi."))
+            + queueLine;
+    }
+
+    private static int OfflinePendingSalesStoreSafeCount()
+    {
+        try
+        {
+            return OfflinePendingSalesStore.PendingCount;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
 
     private static string FormatQueueText(int queued) =>
         queued > 0
@@ -235,6 +427,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
         Tr.LanguageChanged -= OnLanguageChanged;
+        ServerOutageMonitor.StateChanged -= OnServerStateChanged;
+        ServerOutageMonitor.QueueFlushed -= OnServerQueueFlushed;
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
     }
@@ -275,7 +469,11 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             try
             {
                 var queued = OfflinePendingSalesStore.PendingCount;
-                await _dispatcher.InvokeAsync(() => QueuedCount = queued).ConfigureAwait(false);
+                await _dispatcher.InvokeAsync(() =>
+                {
+                    QueuedCount = queued;
+                    RefreshStatusToolTip(); // 2026-09-29: подсказка индикатора — с числом в очереди
+                }).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
