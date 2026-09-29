@@ -1,0 +1,157 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.SiteOrdersWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="Заказы с сайта"
+        Height="820"
+        Width="1260"
+        MinWidth="980"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushWindow}"
+        Loaded="Window_Loaded">
+
+    <!-- 2026-09-29, программа владельца: «заказы с сайта должны падать в админку». Витрина NurCRM
+         (nurcrm.kg/catalog/…) и заказы NurCRM (api/main/orders) — см. ShowcaseApiService. Строки
+         списка и карточка заказа собираются в коде (цвета — из темы). -->
+    <Window.Styles>
+        <Style Selector="Button.period">
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.period.accent, Button.period.active">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter, Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.period.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16,14"/>
+        </Style>
+        <Style Selector="Border.orderRow">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.orderRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Border.orderRow.isNew">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="1,1,1,1"/>
+        </Style>
+        <Style Selector="Border.orderRow.selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.soft">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="0,2,12,8"/>
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="RootGrid" Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="SubtitleText" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="RefreshButton" Classes="period accent" Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Витрина: подключена ли, ссылка, куда уходит заказ покупателя. -->
+        <Border Grid.Row="1" Classes="card" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border x:Name="ShowcaseStateDot" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Top" Margin="0,6,12,0"
+                        Background="{DynamicResource BrushTextSoft}"/>
+                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0">
+                    <TextBlock x:Name="ShowcaseStateText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ShowcaseLinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ShowcaseHowText" Classes="soft"/>
+                </StackPanel>
+                <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" MaxWidth="460">
+                    <Button x:Name="OpenShowcaseButton" Classes="period" Click="OpenShowcase_Click" Margin="0,0,8,6"/>
+                    <Button x:Name="CopyLinkButton" Classes="period" Click="CopyLink_Click" Margin="0,0,8,6"/>
+                    <Button x:Name="SiteSettingsButton" Classes="period" Click="SiteSettings_Click" Margin="0,0,0,6"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <!-- Фильтр по статусу и время обновления. -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <WrapPanel x:Name="FilterPanel" Orientation="Horizontal">
+                <Button x:Name="FilterAllButton" Classes="period" Tag="all" Click="Filter_Click"/>
+                <Button x:Name="FilterNewButton" Classes="period" Tag="new" Click="Filter_Click"/>
+                <Button x:Name="FilterPendingButton" Classes="period" Tag="pending" Click="Filter_Click"/>
+                <Button x:Name="FilterCompletedButton" Classes="period" Tag="completed" Click="Filter_Click"/>
+            </WrapPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Ellipse x:Name="LiveDot" Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource BrushSuccess}"/>
+                <TextBlock x:Name="UpdatedText" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Список слева, карточка заказа справа. -->
+        <Grid Grid.Row="3" ColumnDefinitions="400,16,*">
+            <Grid Grid.Column="0">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="OrdersList" Margin="0,0,10,0"/>
+                </ScrollViewer>
+                <TextBlock x:Name="EmptyText" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="360" FontSize="14"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </Grid>
+            <Border Grid.Column="2" Classes="card" Padding="0">
+                <Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="DetailPanel" Margin="20,18" Spacing="4"/>
+                    </ScrollViewer>
+                    <TextBlock x:Name="DetailEmptyText" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextAlignment="Center" TextWrapping="Wrap" MaxWidth="420" FontSize="14"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="4" Margin="0,10,0,0" Padding="10"
+                Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                IsVisible="False" x:Name="NoticeBox">
+            <TextBlock x:Name="NoticeText" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"/>
+        </Border>
+    </Grid>
+</Window>

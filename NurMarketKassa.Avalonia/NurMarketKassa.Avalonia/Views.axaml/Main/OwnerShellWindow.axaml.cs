@@ -24,6 +24,7 @@ using NurMarketKassa.AvaloniaHost.Views.Analytics;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 using NurMarketKassa.Services.Lan;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -77,16 +78,23 @@ public partial class OwnerShellWindow : Window, IMainShell
             _abcDebounce.Stop();
             RefreshAbcWhenVisible();
         };
+        _siteOrdersTimer = new DispatcherTimer { Interval = SiteOrdersPollInterval };
+        _siteOrdersTimer.Tick += (_, _) => _ = PollSiteOrdersAsync();
         Opened += async (_, _) =>
         {
             // ABC — параллельно с загрузкой сводки: он считается локально и сервера не ждёт.
             _ = RefreshAbcAsync();
             await RefreshAsync().ConfigureAwait(true);
             _timer.Start();
+            // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
+            _ = PollSiteOrdersAsync();
+            _siteOrdersTimer.Start();
         };
         Closed += (_, _) =>
         {
             _timer.Stop();
+            _siteOrdersTimer.Stop();
+            ShowcaseApiService.NewOrdersCountChanged -= OnSiteOrdersCountChanged;
             _abcDebounce.Stop();
             _abcCts?.Cancel();
             _cts.Cancel();
@@ -97,6 +105,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Tr.LanguageChanged += OnLanguageChanged;
         LanSyncService.Instance.PeerDataChanged += OnLanPeerData;
         PosDataEvents.SalesChanged += OnSalesChangedForAbc;
+        ShowcaseApiService.NewOrdersCountChanged += OnSiteOrdersCountChanged;
         OverviewScroll.PropertyChanged += (_, e) =>
         {
             if (e.Property == BoundsProperty)
@@ -273,6 +282,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         NavPanel.Children.Clear();
         _navButtons.Clear();
+        _siteOrdersBadge = null;
         var isStart = TariffGate.IsStartTariff;
         var pendingGroup = (string?)null;
 
@@ -308,6 +318,24 @@ public partial class OwnerShellWindow : Window, IMainShell
             };
             Grid.SetColumn(label, 1);
             content.Children.Add(label);
+            // 2026-09-29: у «Заказов с сайта» — число новых заказов (в свёрнутом меню — над иконкой).
+            if (key == "siteorders")
+            {
+                content.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+                _siteOrdersBadge = new Border { Classes = { "navBadge" }, Child = new TextBlock(), IsVisible = false };
+                if (collapsed)
+                {
+                    _siteOrdersBadge.HorizontalAlignment = HorizontalAlignment.Right;
+                    _siteOrdersBadge.VerticalAlignment = VerticalAlignment.Top;
+                    _siteOrdersBadge.Margin = new Thickness(0, -9, -12, 0);
+                }
+                else
+                {
+                    _siteOrdersBadge.Margin = new Thickness(8, 0, 0, 0);
+                    Grid.SetColumn(_siteOrdersBadge, 2);
+                }
+                content.Children.Add(_siteOrdersBadge);
+            }
 
             var button = new Button { Content = content, Classes = { "nav" } };
             ToolTip.SetTip(button, text);
@@ -357,6 +385,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
 
+        // 2026-09-29, владелец: «заказы с сайта тоже должны падать в админку. Настройки сайта тоже».
+        // Видны на любом тарифе: если витрина не подключена (на «Старте» это платная услуга NurCRM),
+        // разделы сами говорят «Витрина не подключена» и как её подключить.
+        Group(Tr.T("Сайт", "Сайт", "Website", "Web sitesi", "Veb-sayt"));
+        Add("siteorders", "SiteOrdersIcon", Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar"), true,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("siteorders", () => new SiteOrdersWindow()); });
+        Add("sitesettings", "SiteSettingsIcon", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari"), true,
+            OpenSiteSettings);
+
         Group(Tr.T("Люди", "Адамдар", "People", "Kişiler", "Odamlar"));
         Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
@@ -385,6 +422,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             ExitToDesktop);
 
         UpdateNavHighlight();
+        UpdateSiteOrdersBadge();
     }
 
     // ------------------------------------------------------------------ свёрнутое меню
@@ -1678,6 +1716,88 @@ public partial class OwnerShellWindow : Window, IMainShell
         (_sections.FirstOrDefault(s => s.Key == "marketplace")?.Window as MarketplaceWindow)?.ShowExtrasTab();
     }
 
+    // ------------------------------------------------------------------ сайт: заказы и настройки
+
+    // 2026-09-29: число новых заказов у пункта «Заказы с сайта». Вебхука о заказах у NurCRM нет —
+    // раз в минуту спрашиваем список (обычно один запрос), через общий темп массовых загрузок и не
+    // во время паузы 429. Пока раздел открыт на экране, он обновляет список сам — тогда не спрашиваем.
+    private static readonly TimeSpan SiteOrdersPollInterval = TimeSpan.FromSeconds(60);
+    private readonly DispatcherTimer _siteOrdersTimer;
+    private Border? _siteOrdersBadge;
+    private int _siteOrdersNewCount;
+    private bool _siteOrdersPolling;
+    private bool _siteOrdersUnavailable;
+
+    private async Task PollSiteOrdersAsync()
+    {
+        if (_siteOrdersPolling || _siteOrdersUnavailable || _loggingOut || _cts.IsCancellationRequested)
+            return;
+        if (ApiThrottle.RemainingBlock > TimeSpan.Zero)
+            return;
+        if (_sections.Any(s => s.Key == "siteorders" && s.Window.IsVisible))
+            return;
+        try
+        {
+            if (!App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewSales))
+                return;
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        _siteOrdersPolling = true;
+        try
+        {
+            var api = App.GetRequiredService<ShowcaseApiService>();
+            await ApiThrottle.RunBulkAsync(() => api.ListOrdersAsync(_cts.Token), _cts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ApiException ex) when (ex.StatusCode is 403 or 404)
+        {
+            // Нет права или адреса — до конца сеанса не спрашиваем; раздел сам покажет причину.
+            _siteOrdersUnavailable = true;
+            PosLogger.Log($"Owner app: заказы с сайта недоступны ({ex.StatusCode}) — опрос остановлен.", "SHOWCASE");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: заказы с сайта не опрошены: {ex.Message}", "DEBUG");
+        }
+        finally
+        {
+            _siteOrdersPolling = false;
+        }
+    }
+
+    private void OnSiteOrdersCountChanged(int count) => Dispatcher.UIThread.Post(() =>
+    {
+        _siteOrdersNewCount = count;
+        UpdateSiteOrdersBadge();
+    });
+
+    private void UpdateSiteOrdersBadge()
+    {
+        if (_siteOrdersBadge is not { Child: TextBlock text } badge)
+            return;
+        var count = _siteOrdersNewCount;
+        badge.IsVisible = count > 0;
+        text.Text = count > 99 ? "99+" : count.ToString(CultureInfo.InvariantCulture);
+        if (_navButtons.TryGetValue("siteorders", out var button) && _navTitles.TryGetValue("siteorders", out var title))
+            ToolTip.SetTip(button, count > 0
+                ? title + " · " + Tr.T($"новых: {count}", $"жаңы: {count}", $"new: {count}", $"yeni: {count}", $"yangi: {count}")
+                : title);
+    }
+
+    /// <summary>Раздел «Настройки сайта» — пункт меню и кнопка «Настройки сайта» в «Заказах с сайта».
+    /// Права — как у «Настроек» (владелец/админ).</summary>
+    public void OpenSiteSettings()
+    {
+        if (Authorize(PosPermissions.ViewSettings))
+            OpenSection("sitesettings", () => new SiteSettingsWindow());
+    }
+
     /// <summary>Раздел «Аналитика» на вкладке «Склад» — кнопка «Открыть аналитику склада» в
     /// Маркетплейсе. false — раздела нет (тариф «Старт»): тогда аналитика склада открывается
     /// по-старому, вкладкой склада.</summary>
@@ -1885,6 +2005,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         _loggingOut = true;
         _timer.Stop();
+        _siteOrdersTimer.Stop();
         try
         {
             App.AuthApi.ClearSession();
