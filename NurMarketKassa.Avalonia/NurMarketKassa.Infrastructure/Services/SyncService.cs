@@ -69,10 +69,19 @@ public sealed partial class SyncService : IDisposable
         if (pending.Count == 0)
             return;
 
+        // 2026-09-29: смены, чьи продажи ещё в очереди, не закрываем — ждём досылки чеков.
+        var shiftsWithQueuedSales = OfflinePendingSalesStore.LoadPendingForSync()
+            .Select(e => e.ShiftId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         foreach (var entry in pending)
         {
             if (ct.IsCancellationRequested)
                 return;
+
+            if (shiftsWithQueuedSales.Contains(entry.ShiftId))
+                continue;
 
             try
             {
@@ -123,6 +132,8 @@ public sealed partial class SyncService : IDisposable
             OfflinePendingSalesStore.MarkFailed(entry.Id, "Синхронизация была прервана перезапуском кассы.", retryable: true);
         }
 
+        // 2026-09-29: сервер ожил после аварии — очередь досылается сразу, а не через 45 с.
+        ServerOutageMonitor.Recovered += OnServerRecovered;
         _loopTask = RunLoopAsync(_cts.Token);
     }
 
@@ -131,10 +142,57 @@ public sealed partial class SyncService : IDisposable
         if (_disposed || ct.IsCancellationRequested)
             return;
 
-        IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
+        // 2026-09-29: в аварии сервера (ServerOutageMonitor) связь проверяет только монитор — с
+        // нарастающей паузой. Этот цикл (раз в 45 с) сервер не дёргает и продажи не досылает:
+        // очередь уйдёт сразу по событию Recovered.
+        if (ServerOutageMonitor.IsOutage)
+        {
+            IsOnline = false;
+        }
+        else
+        {
+            IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
+            ServerOutageMonitor.ReportProbeResult(IsOnline, "SyncService");
+            IsOnline = IsOnline && !ServerOutageMonitor.IsOutage;
+        }
+
         LeaveOfflineModeIfBackOnline();
         UpdateStatusText();
         RaiseStateChanged();
+    }
+
+    /// <summary>Сколько офлайн-чеков проведено на сервере за время работы (для «отправлено N»).</summary>
+    private int _replayedCount;
+
+    /// <summary>2026-09-29: сервер снова отвечает после аварии — досылаем очередь (продажи, затем
+    /// закрытия смен, внесения/изъятия — их дожимает окно кассы) и сообщаем итог кассиру через
+    /// ServerOutageMonitor.NotifyQueueFlushed. Фоном: событие приходит из сетевого потока.</summary>
+    private void OnServerRecovered()
+    {
+        if (_disposed || _autonomous.IsCurrentSessionAutonomous)
+            return;
+
+        _ = Task.Run(async () =>
+        {
+            var startCount = Volatile.Read(ref _replayedCount);
+            try
+            {
+                await ProbeNowAsync(_cts.Token).ConfigureAwait(false);
+                if (IsOnline)
+                    await SyncPendingAsync(_cts.Token, waitForGate: true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Досылка очереди после восстановления связи не завершена: {ex.Message}", "OUTAGE WARNING");
+            }
+
+            var sent = Volatile.Read(ref _replayedCount) - startCount;
+            ServerOutageMonitor.NotifyQueueFlushed(Math.Max(0, sent), OfflinePendingSalesStore.PendingCount);
+        });
     }
 
     /// <summary>Снимает офлайн-режим, когда связь с сервером подтвердилась.
@@ -221,12 +279,15 @@ public sealed partial class SyncService : IDisposable
         }
     }
 
-    private async Task SyncPendingAsync(CancellationToken ct)
+    private async Task SyncPendingAsync(CancellationToken ct, bool waitForGate = false)
     {
         if (_disposed || ct.IsCancellationRequested)
             return;
 
-        if (!await _syncGate.WaitAsync(0, ct).ConfigureAwait(false))
+        // waitForGate — досылка после аварии: дождаться идущего прохода, а не пропустить свой.
+        if (waitForGate)
+            await _syncGate.WaitAsync(ct).ConfigureAwait(false);
+        else if (!await _syncGate.WaitAsync(0, ct).ConfigureAwait(false))
             return;
 
         try
@@ -234,9 +295,6 @@ public sealed partial class SyncService : IDisposable
             IsSyncInProgress = true;
             UpdateStatusText();
             RaiseStateChanged();
-
-            if (IsOnline)
-                await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
 
             var pending = OfflinePendingSalesStore.LoadPendingForSync();
 
@@ -254,6 +312,12 @@ public sealed partial class SyncService : IDisposable
 
             if (IsOnline && pending.Count > 0)
                 await SyncBatchAsync(pending, ct).ConfigureAwait(false);
+
+            // 2026-09-29: закрытия смен — ПОСЛЕ продаж (раньше шли первыми). Смена, закрытая в
+            // аварии сервера, закрывается на сервере только когда её чеки уже там: закрой её
+            // раньше — досылка чеков этой смены получила бы отказ «смена закрыта».
+            if (IsOnline && !ServerOutageMonitor.IsOutage)
+                await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
 
             // История продаж других касс этого же аккаунта. Раньше её добирал раздел ABC при
             // открытии — и на кассе с пустой историей окно висело минутами. Здесь это фоновая
@@ -311,7 +375,9 @@ public sealed partial class SyncService : IDisposable
         foreach (var entry in pending)
         {
             ct.ThrowIfCancellationRequested();
-            if (!IsOnline)
+            // 2026-09-29: сервер снова лёг посреди досылки — остальные чеки ждут восстановления,
+            // а не бьются в него по очереди (раньше на 5xx цикл шёл дальше по всему списку).
+            if (!IsOnline || ServerOutageMonitor.IsOutage)
                 break;
 
             OfflinePendingSalesStore.MarkSyncing(entry.Id);
@@ -324,6 +390,7 @@ public sealed partial class SyncService : IDisposable
                 PosLogger.Log($"OFFLINE replay: чек {entry.Id} проведён на сервере, продажа {saleId ?? "—"}.", "OFFLINE");
                 OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
                 OfflinePendingSalesStore.RemoveSynced(entry.Id);
+                Interlocked.Increment(ref _replayedCount);
                 // Соседи перестают вычитать этот чек из остатка, как только увидят его на сервере.
                 Lan.LanJournal.PublishUploaded(entry.Id, saleId);
             }
@@ -350,6 +417,15 @@ public sealed partial class SyncService : IDisposable
                 // много запросов») к этому не относятся — их надо повторить. Отказ по существу
                 // (4xx: нет товара, неверные данные) повтором не лечится и остаётся failed.
                 var retryable = ex.StatusCode is null or >= 500 or 408 or 429;
+                // 2026-09-29: чек офлайн-смены (открыта в аварии сервера или без интернета) уходит без
+                // shift_id, и сервер берёт открытую смену кассира. Пока её нет, отказ 4xx («смена
+                // не открыта») временный: чек ждёт в очереди, пока кассир откроет смену, а не
+                // уходит в «Некорректные чеки».
+                if (!retryable
+                    && entry.ShiftId?.StartsWith("offline-", StringComparison.OrdinalIgnoreCase) == true
+                    && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
+                    retryable = true;
                 OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable);
                 PosLogger.Log(
                     $"OFFLINE replay: чек {entry.Id} — {(retryable ? "временная ошибка, повторим" : "отказ сервера")}: {ex.StatusCode} {ex.Message}",
@@ -589,6 +665,7 @@ public sealed partial class SyncService : IDisposable
             return;
 
         _disposed = true;
+        ServerOutageMonitor.Recovered -= OnServerRecovered;
 
         try { _cts.Cancel(); } catch { /* ignore */ }
 

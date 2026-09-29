@@ -58,11 +58,9 @@ public sealed partial class NurMarketApiClient
 
             OnlineContactTracker.RecordSuccess();
 
-            if (string.IsNullOrWhiteSpace(text))
-                return (default, (int)resp.StatusCode);
-
-            using var doc = JsonDocument.Parse(text);
-            return (doc.RootElement.Clone(), (int)resp.StatusCode);
+            // 2026-09-29: 200 с HTML/обрывком JSON — ApiException 502 (см. ParseSuccessBody): оплата
+            // повторит тем же ключом идемпотентности, а не покажет кассиру ошибку разбора.
+            return (ParseSuccessBody(text, relativePath), (int)resp.StatusCode);
         }
         finally
         {

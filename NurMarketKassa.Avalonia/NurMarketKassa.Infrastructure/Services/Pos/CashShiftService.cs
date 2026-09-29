@@ -50,14 +50,10 @@ public sealed class CashShiftService : ICashShiftService
                 "Vardiya zaten açık. Yeni bir vardiya açmadan önce mevcut vardiyayı kapatın.",
                 "Smena allaqachon ochiq. Yangisini ochishdan oldin joriy smenani yoping."));
 
-        if (OfflineModeHelper.UseLocalOperations)
-        {
-            PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
-            ShiftService.IsShiftOpen = true;
-            _offlinePosStateStore.SaveFromApp(openingCash);
-            return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T("Смена открыта офлайн.",
-                "Смена офлайн режимде ачылды.", "Shift opened offline.", "Vardiya çevrimdışı açıldı.", "Smena oflayn rejimda ochildi."));
-        }
+        // 2026-09-29: и в аварии сервера (ServerOutageMonitor) — офлайн-смена, как без интернета:
+        // кассир продолжает работать, чеки смены досылаются, когда сервер оживёт.
+        if (OfflineModeHelper.UseLocalOperations || OfflineModeHelper.IsServerOutage)
+            return OpenOfflineShift(openingCash);
 
         var opening = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
         try
@@ -143,6 +139,15 @@ public sealed class CashShiftService : ICashShiftService
                     $"Shift opened offline ({ex.Message}).", $"Vardiya çevrimdışı açıldı ({ex.Message}).",
                     $"Smena oflayn rejimda ochildi ({ex.Message})."));
         }
+        catch (Exception ex) when (ServerOutageMonitor.IsServerFailure(ex) && !cancellationToken.IsCancellationRequested)
+        {
+            // 2026-09-29: сбой сервера (5xx, 429, таймаут) — не «Ошибка открытия смены», а
+            // офлайн-смена, как при обрыве сети. Открыл ли сервер смену на самом деле — не важно:
+            // чеки офлайн-смены уходят без shift_id и попадут в открытую смену кассира.
+            PosLogger.Log($"Открытие смены: сервер не отвечает ({ServerOutageMonitor.Describe(ex)}) — смена открыта офлайн.", "SHIFT");
+            ServerOutageMonitor.ReportFailure(Tr.T("открытие смены", "сменаны ачуу", "opening the shift", "vardiya açma", "smenani ochish"), ex, hard: true);
+            return OpenOfflineShift(openingCash);
+        }
         catch (Exception ex) when (IsCashboxRejectedError(ex.Message))
         {
             // 2026-09-14, тот же баг, что уже исправлен в PosCheckoutService (см. её
@@ -172,6 +177,17 @@ public sealed class CashShiftService : ICashShiftService
             return CashShiftOperationResult.Failed(Tr.T("Ошибка открытия смены: ", "Сменаны ачууда ката кетти: ",
                 "Error opening the shift: ", "Vardiya açılırken hata oluştu: ", "Smenani ochishda xato: ") + ex.Message);
         }
+    }
+
+    /// <summary>Смена только в кассе (сервер недоступен). 2026-09-29: вынесено из OpenShiftAsync
+    /// без изменений, чтобы ею же открывалась смена в аварии сервера.</summary>
+    private CashShiftOperationResult OpenOfflineShift(decimal openingCash)
+    {
+        PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
+        ShiftService.IsShiftOpen = true;
+        _offlinePosStateStore.SaveFromApp(openingCash);
+        return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T("Смена открыта офлайн.",
+            "Смена офлайн режимде ачылды.", "Shift opened offline.", "Vardiya çevrimdışı açıldı.", "Smena oflayn rejimda ochildi."));
     }
 
     /// <summary>Узнаёт именно ошибку "cashbox_id: Касса не найдена или не принадлежит этому
@@ -238,6 +254,14 @@ public sealed class CashShiftService : ICashShiftService
             return CashShiftOperationResult.Success(closingCash, isOffline: true);
         }
 
+        // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — смена закрывается в кассе, а её
+        // закрытие на сервере встаёт в очередь (SyncService дожмёт после досылки её чеков).
+        // Офлайн-смены на сервере нет — её закрывать там нечего.
+        if (OfflineModeHelper.IsServerOutage)
+            return IsOfflineShiftId(shiftId)
+                ? CloseOfflineShiftLocally(shiftId, closingCash)
+                : CloseLocallyAndQueue(shiftId!, closing, closingCash, "сервер NurCRM не отвечает");
+
         try
         {
             JsonElement response;
@@ -282,8 +306,28 @@ public sealed class CashShiftService : ICashShiftService
             var totals = ReadClosingTotals(response, shiftId, cancellationToken);
             return CashShiftOperationResult.Success(closingCash, totals: totals);
         }
+        catch (Exception ex) when (ex is not HttpRequestException
+                                   && ServerOutageMonitor.IsServerFailure(ex)
+                                   && !cancellationToken.IsCancellationRequested)
+        {
+            // 2026-09-29: сбой сервера (5xx, 429, таймаут, повреждённый ответ) — вместо «Ошибка
+            // закрытия смены» смена закрывается в кассе, закрытие на сервере — в очереди.
+            // Повтор безопасен: уже закрытую смену очередь снимает по ответу «уже закрыта».
+            ServerOutageMonitor.ReportFailure(Tr.T("закрытие смены", "сменаны жабуу", "closing the shift", "vardiya kapatma", "smenani yopish"), ex, hard: true);
+            return IsOfflineShiftId(shiftId)
+                ? CloseOfflineShiftLocally(shiftId, closingCash)
+                : CloseLocallyAndQueue(shiftId!, closing, closingCash, ServerOutageMonitor.Describe(ex));
+        }
         catch (HttpRequestException ex)
         {
+            // 2026-09-29: смена сервера — закрытие ещё и в очередь (раньше закрывалась только в
+            // кассе, а на сервере оставалась открытой до автозакрытия в 01:00).
+            if (!IsOfflineShiftId(shiftId))
+            {
+                ServerOutageMonitor.ReportFailure(Tr.T("закрытие смены", "сменаны жабуу", "closing the shift", "vardiya kapatma", "smenani yopish"), ex, hard: true);
+                return CloseLocallyAndQueue(shiftId!, closing, closingCash, ServerOutageMonitor.Describe(ex));
+            }
+
             // Симметрично OpenShiftAsync: сеть/DNS недоступны — закрываем смену локально,
             // а не оставляем кассира с зависшей открытой сменой без связи с сервером.
             PosApp.ActiveShiftId = null;
@@ -366,6 +410,21 @@ public sealed class CashShiftService : ICashShiftService
 
             return CashShiftOperationResult.Failed(DescribeCloseFailure(ex));
         }
+    }
+
+    private static bool IsOfflineShiftId(string? shiftId) =>
+        shiftId?.StartsWith("offline-", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>2026-09-29: офлайн-смена (сервер о ней не знает) — закрывается только в кассе,
+    /// как в ветке UseLocalOperations выше.</summary>
+    private CashShiftOperationResult CloseOfflineShiftLocally(string? shiftId, decimal? closingCash)
+    {
+        PosApp.ActiveShiftId = null;
+        ShiftService.IsShiftOpen = false;
+        _offlinePosStateStore.SaveFromApp(0m);
+        _auditDb.LogShift("close_offline", closingCash, shiftId);
+        PosLogger.Log($"Офлайн-смена {shiftId} закрыта в кассе (сервер не отвечает).", "SHIFT");
+        return CashShiftOperationResult.Success(closingCash, isOffline: true);
     }
 
     /// <summary>Закрывает смену на самой кассе и ставит её в очередь на закрытие сервера.

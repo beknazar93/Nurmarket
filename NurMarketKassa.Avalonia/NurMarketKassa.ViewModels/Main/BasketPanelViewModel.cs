@@ -1153,7 +1153,12 @@ public sealed class BasketPanelViewModel : ViewModelBase
             if (_checkoutUiFlow != null)
             {
                 var successMessage = result.SavedOffline
-                    ? Tr.T(
+                    ? OfflineModeHelper.IsServerOutage
+                        // 2026-09-29: авария сервера — кассиру коротко, что с чеком, без причин сбоя.
+                        ? Tr.T("Чек сохранён, отправится автоматически.", "Чек сакталды, автоматтык түрдө жөнөтүлөт.",
+                            "Receipt saved, it will be sent automatically.", "Fiş kaydedildi, otomatik olarak gönderilecek.",
+                            "Chek saqlandi, avtomatik ravishda yuboriladi.")
+                        : Tr.T(
                         "Оплата сохранена. Данные будут отправлены при восстановлении связи.",
                         "Төлөм сакталды. Байланыш калыбына келгенде маалымат жиберилет.", "Payment saved. The data will be sent once the connection is restored.", "Ödeme kaydedildi. Veriler bağlantı yeniden kurulunca gönderilecek.", "To'lov saqlandi. Ma'lumotlar aloqa tiklanganda yuboriladi.")
                     : Tr.T("Платёж принят. Открываем новый чек.", "Төлөм кабыл алынды. Жаңы чек ачылууда.", "Payment accepted. Opening a new receipt.", "Ödeme alındı. Yeni fiş açılıyor.", "To'lov qabul qilindi. Yangi chek ochilmoqda.");

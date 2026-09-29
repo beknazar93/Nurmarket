@@ -724,10 +724,36 @@ public partial class OwnerShellWindow : Window, IMainShell
         _ => Tr.T("к вчера", "кечээге карата", "vs yesterday", "düne göre", "kechaga nisbatan"),
     };
 
+    /// <summary>Сервер недоступен: последние полученные данные (плюс продажи касс по локальной
+    /// сети) с пометкой, на какое время они. 2026-09-29: вынесено из RefreshAsync; в аварии
+    /// сервера (ServerOutageMonitor) — «Сервер не отвечает · данные на HH:mm» вместо «Нет связи».</summary>
+    private void ShowOverviewStale()
+    {
+        UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
+        _offline = true;
+        if (!ApplyLanSales(online: false))
+            UpdatedText.Text = NurMarketKassa.Services.ServerOutageMonitor.IsOutage
+                ? NurMarketKassa.Services.ServerOutageMonitor.StaleDataNote(_lastSuccess)
+                : _lastSuccess is { } at
+                    ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
+                        $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
+                    : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+    }
+
     private async Task RefreshAsync()
     {
         if (_refreshing || _loggingOut || _cts.IsCancellationRequested)
             return;
+
+        // 2026-09-29: сервер не отвечает — «Сводку» не перезапрашиваем каждые 20 с (таймауты и
+        // лишняя нагрузка на лежащий сервер), показываем последние данные с пометкой времени.
+        // Проверку связи ведёт ServerOutageMonitor; после восстановления таймер обновит сам.
+        if (NurMarketKassa.Services.ServerOutageMonitor.IsOutage)
+        {
+            ShowOverviewStale();
+            return;
+        }
+
         _refreshing = true;
         RefreshButton.IsEnabled = false;
         try
@@ -795,13 +821,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         catch (Exception ex)
         {
             PosLogger.Log($"Owner app: overview refresh failed: {ex.Message}", "WARNING");
-            UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
-            _offline = true;
-            if (!ApplyLanSales(online: false))
-                UpdatedText.Text = _lastSuccess is { } at
-                    ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
-                        $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
-                    : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+            ShowOverviewStale();
         }
         finally
         {

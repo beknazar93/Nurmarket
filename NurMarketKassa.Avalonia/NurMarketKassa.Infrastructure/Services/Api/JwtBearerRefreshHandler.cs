@@ -15,7 +15,52 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
 
     public JwtBearerRefreshHandler(NurMarketApiClient api) => _api = api;
 
+    /// <summary>2026-09-29: каждый запрос кассы к NurCRM проходит здесь — поэтому здесь же
+    /// ServerOutageMonitor узнаёт о сбоях сервера: 5xx (в том числе 520–524 Cloudflare) и 429,
+    /// обрыв соединения/DNS/TLS и долгие таймауты. Ответ 4xx — сервер жив (отказ по существу).
+    /// Успешный 2xx отмечает не здесь, а тот, кто разобрал JSON (NurMarketApiClient): ответ 200
+    /// с HTML или обрывком JSON — тоже сбой, и отметка «успех» здесь его бы маскировала.</summary>
     protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var started = DateTime.UtcNow;
+        try
+        {
+            var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            var status = (int)response.StatusCode;
+            // Пауза, о которой просит сервер (Retry-After), — её соблюдают массовые загрузки и
+            // проверка связи ServerOutageMonitor (раньше запоминалась только в неиспользуемом пути).
+            if (status == 429)
+                ApiThrottle.ReportThrottled(response, null);
+            if (ServerOutageMonitor.IsServerFailureStatus(status))
+                ServerOutageMonitor.ReportFailure(DescribeRequest(request), $"HTTP {status}");
+            else if (status >= 400)
+                ServerOutageMonitor.ReportSuccess(DescribeRequest(request));
+            return response;
+        }
+        catch (HttpRequestException ex)
+        {
+            ServerOutageMonitor.ReportFailure(DescribeRequest(request), ex);
+            throw;
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested
+                                                    || DateTime.UtcNow - started >= LongRequest)
+        {
+            // Таймаут HttpClient или вызывающего после долгого ожидания — сервер не отвечает.
+            // Быстрая отмена (кассир закрыл окно) сбоем сервера не считается.
+            ServerOutageMonitor.ReportFailure(DescribeRequest(request), ex);
+            throw;
+        }
+    }
+
+    /// <summary>Запрос, отменённый после такого ожидания, считается таймаутом сервера.</summary>
+    private static readonly TimeSpan LongRequest = TimeSpan.FromSeconds(10);
+
+    private static string DescribeRequest(HttpRequestMessage request) =>
+        $"{request.Method} {request.RequestUri?.AbsolutePath}";
+
+    private async Task<HttpResponseMessage> SendCoreAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {

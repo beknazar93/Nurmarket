@@ -33,6 +33,9 @@ public sealed partial class PosCheckoutService
     private string? _quickKey;
     private string? _quickKeyFingerprint;
 
+    /// <summary>Ключ, на который сервер дважды ответил 500 в этой оплате (см. TryQuickCheckoutAsync).</summary>
+    private string? _quickKeyAbandonedOn500;
+
     private void ForgetQuickKey()
     {
         _quickKey = null;
@@ -46,7 +49,7 @@ public sealed partial class PosCheckoutService
         CancellationToken cancellationToken)
     {
         if (!UserPreferences.Instance.QuickCheckoutEnabled
-            || OfflineModeHelper.UseLocalOperations
+            || OfflineModeHelper.SellLocally
             || _salesApi is not IPosQuickCheckoutApi quickApi
             || !_cart.HasCart
             || _cart.LineCount == 0)
@@ -135,6 +138,10 @@ public sealed partial class PosCheckoutService
                 PosLogger.Log($"PAY quick: 500 (попытка {attempt}): {DescribeQuickError(ex)}", "WARNING");
                 if (++server500 >= 2)
                 {
+                    // 2026-09-29: ключ запоминается — если и старый путь упрётся в сбой сервера,
+                    // чек встанет в очередь с ЭТИМ ключом: провелась ли продажа на самом деле,
+                    // сервер скажет ответом «replayed» при досылке (см. SaveOfflineAfterServerFailureAsync).
+                    _quickKeyAbandonedOn500 = key;
                     ForgetQuickKey();
                     PosLogger.Log("PAY quick: сервер дважды ответил 500 — старый путь.", "PAYMENT");
                     return null;
@@ -179,6 +186,10 @@ public sealed partial class PosCheckoutService
             PosLogger.Log(
                 $"PAY quick: сервер не ответил ({transient?.GetType().Name}: {transient?.Message}) — в очередь с ключом {key}.",
                 "PAYMENT");
+            // 2026-09-29: оплата исчерпала повторы — сервер объявляется недоступным сразу
+            // (ServerOutageMonitor): следующие чеки уйдут в очередь без ожидания таймаутов.
+            ServerOutageMonitor.ReportFailure(Tr.T("оплата", "төлөм", "payment", "ödeme", "to'lov"),
+                transient ?? new TimeoutException(), hard: true);
             var reason = Tr.T("Таймаут оплаты или потеря сети.", "Төлөмдү күтүү убактысы бүттү же тармак үзүлдү.",
                 "Payment timed out or the connection was lost.", "Ödeme zaman aşımına uğradı veya ağ bağlantısı koptu.",
                 "To'lov vaqti tugadi yoki tarmoq uzildi.");

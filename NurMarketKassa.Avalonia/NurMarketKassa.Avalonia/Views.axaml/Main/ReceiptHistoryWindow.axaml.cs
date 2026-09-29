@@ -446,6 +446,13 @@ public partial class ReceiptHistoryWindow : Window
             return;
         }
 
+        // 2026-09-29: авария сервера — возврат недоступен (см. таблицу у PosCheckoutService.CheckoutAsync).
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            ShowAction(OfflineModeHelper.ReturnUnavailableInOutage, ok: false);
+            return;
+        }
+
         try
         {
             ReturnWasOpened = true;

@@ -9,7 +9,10 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Spacing="18">
-        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <!-- 2026-09-29: подсказка — с какого времени сервер не отвечает и последняя ошибка -->
+        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                    Background="Transparent"
+                    ToolTip.Tip="{Binding StatusToolTip}">
             <Ellipse Width="8" Height="8"
                      VerticalAlignment="Center"
                      Fill="{DynamicResource BrushUiStatusOk}"

@@ -130,6 +130,7 @@ public partial class MainWindow : Window
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
         _viewModel.Basket.EnsureShiftBeforePayment = EnsureShiftBeforePaymentAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
+        ServerOutageMonitor.Recovered += OnServerRecovered;
 
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -1202,8 +1203,11 @@ public partial class MainWindow : Window
 
     private async Task RefreshShiftBalanceQuietAsync()
     {
+        // 2026-09-29: в аварии сервера не спрашиваем — остаток в шапке считается по кассе, а
+        // внесения/изъятия уйдут по событию восстановления связи (OnServerRecovered).
         if (!_session.IsShiftOpen
-            || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
+            || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous
+            || ServerOutageMonitor.IsOutage)
             return;
 
         // Внесения/изъятия, ещё не записанные на сервер (не было сети), — до запроса остатка:
@@ -1397,6 +1401,13 @@ public partial class MainWindow : Window
         if (!Authorize(PosPermissions.EmployeeReturn))
             return;
         _viewModel.CloseSideMenu();
+        // 2026-09-29: авария сервера — строкой под чеком, без окна ошибки (см. таблицу у CheckoutAsync).
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            _viewModel.Basket.CartMessage = OfflineModeHelper.ReturnUnavailableInOutage;
+            PosLogger.Log("Возврат не открыт: сервер NurCRM не отвечает.", "OUTAGE");
+            return;
+        }
         var dlg = App.GetRequiredService<ReturnSaleDialog>();
         PosDialogHost.Show(dlg, this);
         // Возврат меняет остаток смены так же, как продажа — подтягиваем его с сервера (2026-09-25:
@@ -1467,6 +1478,15 @@ public partial class MainWindow : Window
 
     internal void NavigatePayDebt()
     {
+        // 2026-09-29: авария сервера — строкой под чеком, без окна ошибки (см. таблицу у CheckoutAsync).
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            _viewModel.CloseSideMenu();
+            _viewModel.Basket.CartMessage = OfflineModeHelper.DebtPaymentUnavailableInOutage;
+            PosLogger.Log("Оплата долга не открыта: сервер NurCRM не отвечает.", "OUTAGE");
+            return;
+        }
+
         if (Authorize(PosPermissions.ViewSales))
             ShowModuleWindow<PayDebtDialog>();
     }
@@ -1818,6 +1838,7 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         _applicationStateService.CancelPendingSave();
+        ServerOutageMonitor.Recovered -= OnServerRecovered;
         MarketSpheres.Changed -= OnMarketSphereChanged;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
@@ -1847,6 +1868,15 @@ public partial class MainWindow : Window
 
     private void OnSideMenuBackdropPressed(object? sender, PointerPressedEventArgs e) =>
         _viewModel.CloseSideMenu();
+
+    /// <summary>2026-09-29: щелчок по уведомлению об аварии сервера закрывает его.</summary>
+    private void OnOutageToastPressed(object? sender, PointerPressedEventArgs e) =>
+        _viewModel.Toolbar.Status.DismissOutageToast();
+
+    /// <summary>2026-09-29: сервер NurCRM снова отвечает — внесения/изъятия, записанные в аварии,
+    /// уходят на сервер, остаток смены в шапке обновляется (продажи досылает SyncService).</summary>
+    private void OnServerRecovered() =>
+        Dispatcher.UIThread.Post(() => _ = RefreshShiftBalanceQuietAsync());
     private void OnViewModelStateChanged(object? sender, EventArgs e) =>
         ScheduleApplicationStateSave();
 

@@ -159,6 +159,18 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         {
             return await OfflineOrExpiredAsync(saved, cancellationToken).ConfigureAwait(false);
         }
+        catch (ApiException ex) when (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode) && IsLocallyValid(saved))
+        {
+            // 2026-09-29, требование владельца «при сбое бэка не выводи ошибку — работай автономно
+            // до исправления бэка»: касса, перезапущенная во время аварии сервера (5xx, 408, 429,
+            // HTML вместо JSON), раньше не пускала кассира вообще — «Автономный вход разрешён только
+            // при сетевой ошибке». Сервер, который не отвечает, так же не может ни подтвердить, ни
+            // отвергнуть сессию, как и отсутствие сети, — поэтому те же правила офлайн-входа: только
+            // с неистёкшим сохранённым токеном и в пределах 60 часов без связи. Токены при этом не
+            // менялись (обновление в ветке выше идёт только для истёкшего токена).
+            PosLogger.Log($"Автовход: сервер не отвечает ({ServerOutageMonitor.Describe(ex)}) — вход по сохранённой сессии, касса работает автономно.", "OUTAGE");
+            return await OfflineOrExpiredAsync(saved, cancellationToken).ConfigureAwait(false);
+        }
         catch (ApiException)
         {
             // A reachable server returning 5xx is not proof that credentials are

@@ -194,7 +194,10 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Spacing="18">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <!-- 2026-09-29: подсказка — с какого времени сервер не отвечает и последняя ошибка -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                Background="Transparent"
+                                ToolTip.Tip="{Binding Toolbar.Status.StatusToolTip}">
                         <Ellipse Width="8" Height="8"
                                  VerticalAlignment="Center"
                                  Fill="{DynamicResource BrushUiStatusOk}"
@@ -405,6 +408,35 @@
              создаются по выбору в Настройках → Экран (см. KassaLayouts / RefreshLayoutMode). -->
         <ContentControl x:Name="AltLayoutHost" Grid.Row="1" IsVisible="False"
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+        <!-- 2026-09-29: уведомление об аварии сервера NurCRM и о восстановлении связи — поверх
+             кассы под шапкой, само исчезает (MainStatusViewModel.ShowToast), щелчок закрывает.
+             Не окно: кассир не должен ничего нажимать, чтобы продолжить продажи. -->
+        <Border Grid.Row="1"
+                ZIndex="150"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="16,8,16,0"
+                MaxWidth="720"
+                Padding="14,8"
+                CornerRadius="10"
+                Classes="outageToast"
+                IsVisible="{Binding Toolbar.Status.HasOutageToast}"
+                Classes.recovery="{Binding Toolbar.Status.IsOutageToastRecovery}"
+                PointerPressed="OnOutageToastPressed">
+            <Border.Styles>
+                <Style Selector="Border.outageToast">
+                    <Setter Property="Background" Value="{DynamicResource BrushUiStatusWarn}"/>
+                </Style>
+                <Style Selector="Border.outageToast.recovery">
+                    <Setter Property="Background" Value="{DynamicResource BrushUiStatusOk}"/>
+                </Style>
+            </Border.Styles>
+            <TextBlock Text="{Binding Toolbar.Status.OutageToastText}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="White"
+                       TextWrapping="Wrap"/>
+        </Border>
         <Panel Grid.RowSpan="2"
                ZIndex="200"
                IsVisible="{Binding IsSideMenuOpen}">

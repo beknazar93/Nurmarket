@@ -112,7 +112,8 @@ public static class CatalogCacheService
 
     public static async Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
     {
-        if (OfflineModeHelper.UseLocalOperations)
+        // 2026-09-29: и в аварии сервера — каталог из локальной базы, сервер не дёргаем.
+        if (OfflineModeHelper.SellLocally)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
 
         try

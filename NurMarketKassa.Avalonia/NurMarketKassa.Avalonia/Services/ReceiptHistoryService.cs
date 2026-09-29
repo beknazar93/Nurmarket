@@ -139,7 +139,8 @@ public static class ReceiptHistoryService
         var serverEntries = new List<ReceiptHistoryEntry>();
 
         // В автономном режиме сервера нет вообще — все чеки лежат в офлайн-очереди.
-        if (!autonomous && !OfflineModeHelper.UseLocalOperations)
+        // 2026-09-29: в аварии сервера — тоже только локальные чеки, без ожидания таймаута.
+        if (!autonomous && !OfflineModeHelper.SellLocally)
         {
             try
             {
