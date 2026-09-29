@@ -45,6 +45,8 @@ public partial class RongtaScaleSettingsWindow : Window
     public RongtaScaleSettingsWindow()
     {
         InitializeComponent();
+        // 2026-09-29: 860×700 не помещалось на 1024×768 при 125–150 % — по экрану кассы (DialogScreenFit).
+        Opened += (_, _) => this.FitToKassaScreen();
         Title = L("Настройки весов Rongta", "Rongta таразасынын жөндөөлөрү", "Rongta scale settings", "Rongta tartı ayarları", "Rongta tarozi sozlamalari");
         TitleText.Text = Title;
         IntroText.Text = L(

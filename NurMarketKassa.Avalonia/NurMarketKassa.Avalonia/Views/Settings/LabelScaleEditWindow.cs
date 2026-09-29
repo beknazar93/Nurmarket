@@ -109,7 +109,8 @@ public sealed class LabelScaleEditWindow : Window
         root.Children.Add(footer);
         Content = root;
 
-        Opened += (_, _) => this.FitToScreen();
+        // 2026-09-29: по экрану кассы, не экрану покупателя, и с уменьшением минимума (DialogScreenFit).
+        Opened += (_, _) => this.FitToKassaScreen();
         Closing += (_, _) =>
         {
             // Закрыли крестиком или «Отменой» — возвращаем весам прежний адрес и марку.

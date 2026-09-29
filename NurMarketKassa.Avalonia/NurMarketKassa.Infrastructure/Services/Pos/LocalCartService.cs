@@ -120,8 +120,25 @@ public static class LocalCartService
     /// системным Plu — оба выглядят одинаково коротким числом, и по одной этикетке не видно,
     /// какое поле реально используется (подтверждено реальным случаем: этикетка с Plu=1 несла
     /// в штрих-коде код "0003", совпадающий с Article="0003", а не с Plu). Штрих-код/id — их
-    /// собственный отдельный запасной вариант, если ни PLU, ни артикул не совпали.</summary>
+    /// собственный отдельный запасной вариант, если ни PLU, ни артикул не совпали.
+    /// 2026-09-29: последний шаг — коды, которые касса сама записала в ПЛУ весов
+    /// (ScaleLabelCodeRegistry): у товара без PLU и кода в карточке этикетка несёт номер ячейки
+    /// весов или код из колонки «Код в ШК», и по карточке её не найти.</summary>
     public static CatalogProductTileVm? FindByEmbeddedCode(string embeddedProductCode)
+    {
+        var tile = FindByEmbeddedCodeInCatalog(embeddedProductCode);
+        if (tile != null)
+            return tile;
+
+        var productId = ScaleLabelCodeRegistry.ProductIdFor(embeddedProductCode);
+        return productId is null
+            ? null
+            : CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.Ordinal));
+    }
+
+    /// <summary>2026-09-29: поиск только по полям карточки (без кодов, записанных на весы) — им
+    /// окно «Весы» проверяет перед отправкой, что «Код в ШК» не откроет на кассе чужой товар.</summary>
+    public static CatalogProductTileVm? FindByEmbeddedCodeInCatalog(string embeddedProductCode)
     {
         var normalized = embeddedProductCode.TrimStart('0');
         if (normalized.Length == 0)

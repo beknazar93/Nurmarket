@@ -99,6 +99,11 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushWarning}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        <!-- 2026-09-29: номер PLU ещё не закреплён за товаром — закрепится при отправке на весы. -->
+        <Style Selector="TextBox.pluNew">
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+        </Style>
     </Window.Styles>
 
     <Grid Margin="16" Background="{DynamicResource BrushWindow}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
@@ -148,7 +153,10 @@
                     Margin="0,0,8,6" Click="SelectAll_Click"/>
             <Button Content="{DynamicResource scalesPlu.selectNone}" Classes="SecondaryActionButton"
                     Margin="0,0,8,6" Click="SelectNone_Click"/>
-            <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
+            <!-- 2026-09-29 (владелец: «непонятно, обновляет ли с сервера»): кнопка заново скачивает
+                 каталог с сервера NurCRM и пишет итог — время, число товаров, весовых. -->
+            <Button x:Name="RefreshButton" Content="{DynamicResource scalesPlu.refreshFromServer}"
+                    ToolTip.Tip="{DynamicResource scalesPlu.refreshFromServerTip}" Classes="SecondaryActionButton"
                     Margin="0,0,8,6" Click="Refresh_Click"/>
             <TextBlock x:Name="SearchCountText" VerticalAlignment="Center" Margin="4,0,16,6"
                        FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -156,9 +164,12 @@
             <StackPanel x:Name="PluStartRow" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
                 <TextBlock Text="{DynamicResource scalesPlu.pluStartLabel}" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
-                <TextBox Margin="0,0,10,0" x:Name="PluStartBox" Width="64" Height="36" Text="1"/>
+                <TextBox Margin="0,0,10,0" x:Name="PluStartBox" Width="64" Height="36" Text="1"
+                         LostFocus="PluStartBox_LostFocus"/>
+                <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром» (номер закрепляется
+                     один раз и не меняется от порядка списка); снята — PLU из карточки товара. -->
                 <CheckBox x:Name="SequentialPluCheck" Content="{DynamicResource loc.owner.scales.sequentialPlu}"
-                          IsChecked="True" VerticalAlignment="Center"
+                          IsChecked="True" VerticalAlignment="Center" Click="SequentialPluCheck_Click"
                           ToolTip.Tip="{DynamicResource loc.owner.scales.sequentialPluTip}"/>
             </StackPanel>
         </WrapPanel>
@@ -176,7 +187,20 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="2*" MinWidth="160" Binding="{ReflectionBinding Name}"/>
-                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="70" Binding="{ReflectionBinding PluText}"/>
+                        <!-- 2026-09-29: PLU — постоянный номер ячейки на весах, правится владельцем.
+                             Курсив — номер ещё не закреплён (закрепится при отправке). В режиме
+                             «PLU из карточки» и у марок без своей нумерации — только чтение. -->
+                        <DataGridTemplateColumn Header="{DynamicResource scalesPlu.colPlu}" Width="80" SortMemberPath="PluSortKey">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{ReflectionBinding PluText, Mode=TwoWay}" MaxLength="5"
+                                             IsReadOnly="{ReflectionBinding PluReadOnly}"
+                                             Classes.pluNew="{ReflectionBinding PluTentative}"
+                                             ToolTip.Tip="{ReflectionBinding PluHint}"
+                                             VerticalAlignment="Center" Margin="4,2" LostFocus="PluText_LostFocus"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <!-- 2026-09-28: «Код в штрих-коде» — число, которое весы напечатают в ШК
                              этикетки (поле «Код товара» записи ПЛУ). Правится перед отправкой;
                              только для прямой отправки — серверный путь пишет код сам. -->
@@ -194,7 +218,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBox Text="{ReflectionBinding HotkeyText, Mode=TwoWay}" MaxLength="3"
-                                             VerticalAlignment="Center" Margin="4,2"/>
+                                             VerticalAlignment="Center" Margin="4,2" LostFocus="Hotkey_LostFocus"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

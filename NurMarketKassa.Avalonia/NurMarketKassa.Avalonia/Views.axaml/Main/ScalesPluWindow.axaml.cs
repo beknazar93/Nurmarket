@@ -76,7 +76,9 @@ public partial class ScalesPluWindow : Window
     private void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         // 2026-09-28: окно 1180×720 не должно вылезать за экран 1024×768.
-        this.FitToScreen();
+        // 2026-09-29 (сенсорный монитор клиента): по экрану кассы, а не экрану покупателя, и с
+        // уменьшением минимального размера, если экран меньше него.
+        this.FitToKassaScreen();
 
         _sendButtonDefaultText = SendButton.Content;
         SearchBox.Watermark = Tr.T("Поиск: название, PLU или код", "Издөө: аталышы, PLU же код",
@@ -87,6 +89,8 @@ public partial class ScalesPluWindow : Window
         ApplyBrandVisibility();
         LoadRows();
         ApplyResponsiveLayout();
+        // 2026-09-29: первый запуск после обновления — закрепить номера, которые уже на весах.
+        _ = PinExistingNumbersOnceAsync();
     }
 
     /// <summary>2026-09-28: марку могли поменять окна настроек весов («Загрузка товаров» →
@@ -125,6 +129,10 @@ public partial class ScalesPluWindow : Window
         // Совсем низкое окно (800×600): пример штрих-кода прячем — строка правил и кнопки остаются.
         BarcodeExampleText.MaxHeight = height >= 640 ? double.PositiveInfinity : 0;
         BarcodeExampleText.TextTrimming = height >= 700 ? Avalonia.Media.TextTrimming.None : Avalonia.Media.TextTrimming.CharacterEllipsis;
+        // 2026-09-29: совсем низкое окно (1024×768 при 150 % — 472 точки) — полосу «как касса читает
+        // этикетки» прячем: иначе таблице товаров остаётся одна строка. Те же настройки — в
+        // Настройки → Весы → «Штрих-код: вес / сумма».
+        BarcodeStrip.IsVisible = height >= 540;
     }
 
     private string SelectedBrand => _brand;
@@ -139,6 +147,8 @@ public partial class ScalesPluWindow : Window
         // Могли поменяться категории весов — отмечаем их товары заново.
         ApplyProfileSelection();
         ApplySearch();
+        // 2026-09-29: весы могли стать «напрямую по сети» — закрепить номера, если ещё не закреплены.
+        _ = PinExistingNumbersOnceAsync();
     }
 
     /// <summary>«Проверить связь» с весами из шапки — та же проверка, что в настройках.</summary>
@@ -185,7 +195,7 @@ public partial class ScalesPluWindow : Window
             Content = root,
         };
         done.Click += (_, _) => window.Close();
-        window.Opened += (_, _) => window.FitToScreen();
+        window.Opened += (_, _) => window.FitToKassaScreen(); // 2026-09-29: по экрану кассы
         await window.ShowDialog(this).ConfigureAwait(true);
         UpdateBarcodeExample();
     }
@@ -294,7 +304,13 @@ public partial class ScalesPluWindow : Window
                                + Tr.T(". Сумма в чеке не та — «Настроить по этикетке».", ". Чектеги сумма туура эмес болсо — «Этикетка боюнча жөндөө».", ". Wrong amount on the receipt? Use “Set up from a label”.", ". Fişteki tutar yanlışsa — «Etiketten ayarla».", ". Chekdagi summa noto‘g‘ri bo‘lsa — «Yorliq bo‘yicha sozlash».");
     }
 
-    private void BarcodeCode_LostFocus(object? sender, RoutedEventArgs e) => UpdateBarcodeExample();
+    private void BarcodeCode_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        // 2026-09-29: правка «Код в ШК» запоминается для этих весов (ScalesPluWindow.PinnedPlu.cs).
+        if ((sender as Control)?.DataContext is ScalePluRowVm row)
+            RememberBarcodeCode(row);
+        UpdateBarcodeExample();
+    }
 
     /// <summary>Открывает «Настройки весов Штрих-ПРИНТ» на вкладке «Штрих-код» с примером для
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
@@ -327,10 +343,19 @@ public partial class ScalesPluWindow : Window
     /// <summary>2026-09-28: пишет клавиши быстрого доступа ШТРИХ-ПРИНТ для строк, где задана
     /// «Клавиша» (1–120): B1h, функция 01h «Выбрать товар по номеру ПЛУ», значение — номер ПЛУ,
     /// под которым товар только что записан. Одна и та же клавиша у двух товаров — вторая пропускается.
-    /// Возвращает строку-итог для статуса («» — клавиш не задано).</summary>
-    private async Task<string> WriteShtrikhHotkeysAsync(ShtrikhPrintLanScaleService scale, List<string> recordIds,
-        List<(int Plu, string Name)> keyMap, Dictionary<string, ScalePluRowVm> rowsById)
+    /// Возвращает строку-итог для статуса («» — клавиш не задано) и все клавиши из колонки
+    /// «Клавиша» — их не трогает перевод клавиш за переехавшими товарами (RemapScaleHotkeysAsync).
+    /// 2026-09-29: предел — число клавиш ЭТИХ весов (<paramref name="keyCount"/>, Приложение 8
+    /// протокола: у ШТРИХ-ПРИНТ М 4.5 их 90, у 4.0–4.4 — 80), а не всегда 120; итог по клавише
+    /// дописывается к итогу записи ПЛУ в строке, а не затирает его.</summary>
+    private async Task<(string Note, HashSet<int> TableKeys)> WriteShtrikhHotkeysAsync(ShtrikhPrintLanScaleService scale, int keyCount,
+        List<string> recordIds, List<(int Plu, string Name)> keyMap, Dictionary<string, ScalePluRowVm> rowsById)
     {
+        var tableKeys = _allRows
+            .Select(r => int.TryParse((r.HotkeyText ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var k) ? k : 0)
+            .Where(k => k > 0)
+            .ToHashSet();
+        var maxKey = Math.Min(MaxHotkey, keyCount);
         var used = new HashSet<int>();
         int written = 0, failed = 0;
         for (var i = 0; i < recordIds.Count; i++)
@@ -340,35 +365,36 @@ public partial class ScalesPluWindow : Window
             var text = (row.HotkeyText ?? "").Trim();
             if (text.Length == 0)
                 continue;
-            if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var key) || key is < 1 or > MaxHotkey)
+            if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var key) || key < 1 || key > maxKey)
             {
-                row.SetStatus(Tr.T($"⚠ клавиша — число 1–{MaxHotkey}", $"⚠ баскыч — 1–{MaxHotkey} сан", $"⚠ key must be 1–{MaxHotkey}", $"⚠ tuş 1–{MaxHotkey} olmalı", $"⚠ tugma — 1–{MaxHotkey} son"), RowState.Warning);
+                row.AppendStatus(" · " + Tr.T($"⚠ клавиша — число 1–{maxKey} (столько клавиш у этих весов)", $"⚠ баскыч — 1–{maxKey} сан (бул таразада ушунча баскыч)",
+                    $"⚠ key must be 1–{maxKey} (keys on this scale)", $"⚠ tuş 1–{maxKey} olmalı (bu tartıdaki tuş sayısı)", $"⚠ tugma — 1–{maxKey} son (bu tarozida shuncha tugma)"), RowState.Warning);
                 failed++;
                 continue;
             }
             if (!used.Add(key))
             {
-                row.SetStatus(Tr.T($"⚠ клавиша {key} уже занята", $"⚠ {key}-баскыч бош эмес", $"⚠ key {key} is already used", $"⚠ {key}. tuş zaten kullanılıyor", $"⚠ {key}-tugma band"), RowState.Warning);
+                row.AppendStatus(" · " + Tr.T($"⚠ клавиша {key} уже занята", $"⚠ {key}-баскыч бош эмес", $"⚠ key {key} is already used", $"⚠ {key}. tuş zaten kullanılıyor", $"⚠ {key}-tugma band"), RowState.Warning);
                 failed++;
                 continue;
             }
             try
             {
                 await scale.SetHotkeyAsync(key, ShtrikhPrintProtocol.HotkeyPluNumber, keyMap[i].Plu, CancellationToken.None).ConfigureAwait(true);
-                row.SetStatus(SentText() + $" · PLU {keyMap[i].Plu} · " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key, RowState.Ok);
+                row.AppendStatus(" · " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key, RowState.Ok);
                 written++;
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Клавиша {key} (ПЛУ {keyMap[i].Plu}) не записана: {ex.Message}", "SCALES");
-                row.SetStatus("✗ " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key + ": " + ex.Message, RowState.Error);
+                row.AppendStatus(" · ✗ " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key + ": " + ex.Message, RowState.Error);
                 failed++;
             }
         }
         if (written == 0 && failed == 0)
-            return "";
-        return Tr.T($" Клавиши: записано {written}", $" Баскычтар: {written} жазылды", $" Keys: {written} written", $" Tuşlar: {written} yazıldı", $" Tugmalar: {written} yozildi")
-               + (failed > 0 ? Tr.T($", с ошибкой {failed}.", $", {failed} ката менен.", $", {failed} failed.", $", {failed} hatalı.", $", {failed} xato bilan.") : ".");
+            return ("", tableKeys);
+        return (Tr.T($" Клавиши: записано {written}", $" Баскычтар: {written} жазылды", $" Keys: {written} written", $" Tuşlar: {written} yazıldı", $" Tugmalar: {written} yozildi")
+               + (failed > 0 ? Tr.T($", с ошибкой {failed}.", $", {failed} ката менен.", $", {failed} failed.", $", {failed} hatalı.", $", {failed} xato bilan.") : "."), tableKeys);
     }
 
     /// <summary>Создаёт драйвер по текущим полям. null и сообщение в статусе, если поля пустые
@@ -397,6 +423,9 @@ public partial class ScalesPluWindow : Window
         var isAi = IsFileBrand;
         // Номера PLU нужны только прямой отправке и серверу Штрих-М (у Rongta — свой файл, у AI — CSV).
         PluStartRow.IsVisible = !isRongta && !isAi;
+        // 2026-09-29: «Постоянный PLU за товаром» — только там, где номера раздаёт касса (сервер
+        // NurCRM нумерует сам, галочка там ничего не меняла).
+        SequentialPluCheck.IsVisible = KassaNumbering;
         ApplyDirectLanVisibility();
         UpdateHeader();
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
@@ -408,12 +437,13 @@ public partial class ScalesPluWindow : Window
 
         SubtitleText.Text = _brand switch
         {
+            // 2026-09-29: номера PLU закреплены за товарами (ScalesPluWindow.PinnedPlu.cs) — «подряд» больше нет.
             BrandTm => Tr.T(
-                "Отмеченные товары уйдут прямо на весы по сети. Номера PLU — подряд от «Начальный PLU»; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
-                "Белгиленген товарлар тармак аркылуу түз таразага кетет. PLU номерлери — «Баштапкы PLU»дан катары менен; этикетканын штрих-кодуна тараза «ШКдагы код» басат. Запас жол — «Русский масштаб» үчүн файл («Файлды сактоо»).",
-                "The ticked goods go straight to the scale over the network. PLU numbers run from “Start PLU”; the scale prints the “Code in barcode” into the label barcode. Fallback — a file for “Russian Scale” (“Save file”).",
-                "İşaretli ürünler ağ üzerinden doğrudan tartıya gider. PLU numaraları «Başlangıç PLU»dan sırayla; tartı etiket barkoduna «Barkoddaki kod»u basar. Yedek yol — «Русский масштаб» için dosya («Dosyayı kaydet»).",
-                "Belgilangan tovarlar tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga ketadi. PLU raqamlari — «Boshlang‘ich PLU»dan ketma-ket; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Zaxira yo‘l — «Русский масштаб» uchun fayl («Faylni saqlash»)."),
+                "Отмеченные товары уйдут прямо на весы по сети. У каждого товара постоянный номер PLU (колонка PLU) — отправки его не меняют; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
+                "Белгиленген товарлар тармак аркылуу түз таразага кетет. Ар бир товардын туруктуу PLU номери бар (PLU тилкеси) — жөнөтүүлөр аны өзгөртпөйт; этикетканын штрих-кодуна тараза «ШКдагы код» басат. Запас жол — «Русский масштаб» үчүн файл («Файлды сактоо»).",
+                "The ticked goods go straight to the scale over the network. Every product has a fixed PLU number (PLU column) that sending does not change; the scale prints the “Code in barcode” into the label barcode. Fallback — a file for “Russian Scale” (“Save file”).",
+                "İşaretli ürünler ağ üzerinden doğrudan tartıya gider. Her ürünün sabit bir PLU numarası var (PLU sütunu) — gönderimler onu değiştirmez; tartı etiket barkoduna «Barkoddaki kod»u basar. Yedek yol — «Русский масштаб» için dosya («Dosyayı kaydet»).",
+                "Belgilangan tovarlar tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga ketadi. Har bir tovarning doimiy PLU raqami bor (PLU ustuni) — yuborishlar uni o‘zgartirmaydi; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Zaxira yo‘l — «Русский масштаб» uchun fayl («Faylni saqlash»)."),
             BrandAi => Tr.T(
                 "Касса сохранит файл (PLU, название, единица, цена) — загрузите его программой весов. Прямой заливки нет: у AI-весов нет общего протокола.",
                 "Касса файлды сактайт (PLU, аталышы, бирдиги, баасы) — аны тараза программасы менен жүктөңүз. Түз жүктөө жок: AI таразанын жалпы протоколу жок.",
@@ -428,11 +458,11 @@ public partial class ScalesPluWindow : Window
                 "Taroziga barcha vaznli tovarlar ro‘yxati ketadi (bu yerdagi belgilar hisobga olinmaydi) — RLS1000 dasturi orqali."),
             _ => ShtrikhDirect
                 ? Tr.T(
-                    "Касса сама отправит отмеченные товары на весы по сети. Клавиша 1 на весах — первый товар списка, дальше по порядку.",
-                    "Касса белгиленген товарларды таразага тармак аркылуу өзү жөнөтөт. Таразадагы 1-баскыч — тизменин биринчи товары, андан ары тартип менен.",
-                    "The till sends the ticked goods to the scale over the network itself. Key 1 on the scale is the first item of the list, then in order.",
-                    "Kasa işaretli ürünleri tartıya ağ üzerinden kendisi gönderir. Tartıdaki 1. tuş listenin ilk ürünüdür, sonrakiler sırayla.",
-                    "Kassa belgilangan tovarlarni taroziga tarmoq orqali o‘zi yuboradi. Tarozidagi 1-tugma — ro‘yxatning birinchi tovari, keyin tartib bilan.")
+                    "Касса сама отправит отмеченные товары на весы по сети. У каждого товара постоянный номер PLU (колонка PLU): добавление товаров, поиск и сортировка его не меняют. Клавиши весов вызывают товар по номеру PLU — клавишу товару можно задать в колонке «Клавиша».",
+                    "Касса белгиленген товарларды таразага тармак аркылуу өзү жөнөтөт. Ар бир товардын туруктуу PLU номери бар (PLU тилкеси): товар кошуу, издөө жана иреттөө аны өзгөртпөйт. Тараза баскычтары товарды PLU номери боюнча чакырат — товарга баскычты «Баскыч» тилкесинде берсе болот.",
+                    "The till sends the ticked goods to the scale over the network itself. Every product has a fixed PLU number (PLU column): adding products, search and sorting do not change it. Scale keys call a product by its PLU number — you can give a product a key in the “Key” column.",
+                    "Kasa işaretli ürünleri tartıya ağ üzerinden kendisi gönderir. Her ürünün sabit bir PLU numarası var (PLU sütunu): ürün eklemek, arama ve sıralama onu değiştirmez. Tartı tuşları ürünü PLU numarasıyla çağırır — ürüne «Tuş» sütununda tuş verilebilir.",
+                    "Kassa belgilangan tovarlarni taroziga tarmoq orqali o‘zi yuboradi. Har bir tovarning doimiy PLU raqami bor (PLU ustuni): tovar qo‘shish, qidiruv va saralash uni o‘zgartirmaydi. Tarozi tugmalari tovarni PLU raqami bo‘yicha chaqiradi — tovarga tugmani «Tugma» ustunida berish mumkin.")
                 : Tr.T(
                     "Отмеченные товары уйдут на весы через сервер NurCRM — он сам передаёт данные весам по локальной сети.",
                     "Белгиленген товарлар NurCRM сервери аркылуу таразага кетет — ал маалыматты таразага жергиликтүү тармак аркылуу өзү берет.",
@@ -440,6 +470,8 @@ public partial class ScalesPluWindow : Window
                     "İşaretli ürünler NurCRM sunucusu üzerinden tartıya gider — verileri tartıya yerel ağ üzerinden kendisi iletir.",
                     "Belgilangan tovarlar NurCRM serveri orqali taroziga ketadi — u ma’lumotni taroziga mahalliy tarmoq orqali o‘zi uzatadi."),
         };
+        // 2026-09-29: колонка PLU зависит от марки и способа отправки (кто нумерует ячейки).
+        RefreshPluNumbers();
     }
 
     /// <summary>«Сохранить файл…»: CSV для любых весов; у TM-30F — выбор CSV или DIGI_TOP2000.</summary>
@@ -481,7 +513,8 @@ public partial class ScalesPluWindow : Window
     private static string SentText() => Tr.T("✓ отправлено", "✓ жөнөтүлдү", "✓ sent", "✓ gönderildi", "✓ yuborildi");
     private static string NotSentText() => Tr.T("не отправлено", "жөнөтүлгөн жок", "not sent", "gönderilmedi", "yuborilmadi");
 
-    private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadRows();
+    // 2026-09-29: «Обновить с сервера» — настоящая загрузка каталога с NurCRM (ScalesPluWindow.PinnedPlu.cs).
+    private async void Refresh_Click(object? sender, RoutedEventArgs e) => await RefreshFromServerAsync().ConfigureAwait(true);
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 
@@ -495,12 +528,16 @@ public partial class ScalesPluWindow : Window
             {
                 Id = p.Id,
                 Name = p.Title,
-                PluText = p.Plu?.ToString(CultureInfo.InvariantCulture) ?? "—",
+                // 2026-09-29: колонка PLU заполняется RefreshPluNumbers (закреплённый номер ячейки
+                // или PLU из карточки — смотря кто нумерует); здесь — только PLU карточки.
+                CatalogPlu = p.Plu,
                 PriceLine = p.PriceLine,
                 Unit = p.Unit ?? "",
                 Category = (p.Category ?? "").Trim(),
                 Price = NurMarketKassa.Services.LocalCartService.ParsePrice(p.PriceLine),
-                BarcodeCode = DefaultBarcodeCode(p),
+                DefaultCode = DefaultBarcodeCode(p),
+                // 2026-09-29: «Код в ШК», исправленный владельцем для этих весов, не теряется.
+                BarcodeCode = profile.BarcodeCodes.TryGetValue(p.Id, out var savedCode) ? savedCode : DefaultBarcodeCode(p),
                 HotkeyText = profile.Hotkeys.TryGetValue(p.Id, out var key) ? key.ToString(CultureInfo.InvariantCulture) : "",
                 IsSelected = true,
             })
@@ -511,7 +548,11 @@ public partial class ScalesPluWindow : Window
             row.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(ScalePluRowVm.IsSelected))
+                {
                     UpdateSelectionCount();
+                    // 2026-09-29: отмеченному товару без номера — показать, какой номер он получит.
+                    QueuePluRefresh();
+                }
             };
         ApplyProfileSelection();
         FillCategoryFilter();
@@ -609,7 +650,13 @@ public partial class ScalesPluWindow : Window
                 row.IsSelected = true;
         }
         foreach (var row in _allRows)
+        {
             row.HotkeyText = profile.Hotkeys.TryGetValue(row.Id, out var key) ? key.ToString(CultureInfo.InvariantCulture) : "";
+            // 2026-09-29: «Код в ШК» и номера PLU у каждых весов свои.
+            row.BarcodeCode = profile.BarcodeCodes.TryGetValue(row.Id, out var code) ? code : row.DefaultCode;
+        }
+        SequentialPluCheck.IsChecked = !profile.PluFromCatalog;
+        RefreshPluNumbers();
     }
 
     /// <summary>Запоминает для выбранных весов отмеченные товары (если категорий нет) и клавиши.</summary>
@@ -661,6 +708,8 @@ public partial class ScalesPluWindow : Window
         ClearRowStatuses();
         ApplyProfileSelection();
         ApplySearch();
+        // 2026-09-29: у каждых весов свои закреплённые номера — у новых весов закрепить при первом открытии.
+        _ = PinExistingNumbersOnceAsync();
     }
 
     /// <summary>2026-09-28: какое число весы напечатают в ШК этикетки по умолчанию — то, по
@@ -790,9 +839,9 @@ public partial class ScalesPluWindow : Window
     /// Положение десятичной точки читаем С САМИХ ВЕСОВ и по нему переводим цену в МДЕ: если
     /// весы настроены на 0 знаков, а прислать им тыйыны — все цены окажутся в 100 раз больше.
     ///
-    /// Номер ПЛУ берём из карточки товара, если он там задан; иначе нумеруем подряд от
-    /// «Начальный ПЛУ». Код товара приравниваем к номеру ПЛУ — так товар находится и при
-    /// настройке весов «доступ по номеру ПЛУ», и при «доступе по коду товара».</summary>
+    /// 2026-09-29: номер ПЛУ — закреплённый за товаром (ScalesPluWindow.PinnedPlu.cs), в режиме
+    /// «PLU из карточки» — PLU карточки; код товара — «Код в ШК». После записи клавиши весов,
+    /// вызывавшие старый номер/код переехавшего товара, переводятся на новый, старая ячейка чистится.</summary>
     private async Task SendToShtrikhOverLanAsync(List<string> selectedIds, int pluStart)
     {
         using var scale = CreateLanService();
@@ -815,58 +864,38 @@ public partial class ScalesPluWindow : Window
                 return;
             }
 
+            if (status.ProductTableSize > 0)
+                _shtrikhTableSize = status.ProductTableSize;
+
             var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
-            // 2026-09-28: «Код в штрих-коде» из таблицы (владелец правит его перед отправкой).
-            var barcodeCodes = _allRows?
-                .ToDictionary(r => r.Id, r => r.BarcodeCode) ?? new Dictionary<string, string>();
+            // 2026-09-29 (живой баг клиента: «при каждой отправке ПЛУ меняются»): номер ячейки —
+            // ЗАКРЕПЛЁННЫЙ за товаром (PinNumbersForSend), а не «подряд по текущему порядку
+            // списка», как было с 2026-09-23. Клавиши весов вызывают ячейку по номеру, поэтому
+            // сдвиг номеров при добавлении товара или отправке части списка подменял товары под
+            // клавишами. «Код в ШК» и совпадения номеров/кодов проверяются до записи (CheckSendBatch).
+            var numbers = PinNumbersForSend(selectedIds);
+            var (codes, problems) = CheckSendBatch(selectedIds, numbers, maxCode: 999999);
             var records = new List<ShtrikhPluRecord>();
             // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
             // и без этого списка непонятно, какую наклейку куда клеить.
             var keyMap = new List<(int Plu, string Name)>();
             // 2026-09-28: id товара для каждой записи — чтобы показать результат по строкам.
             var recordIds = new List<string>();
-            var nextPlu = pluStart;
             foreach (var id in selectedIds)
             {
-                if (!byId.TryGetValue(id, out var product))
+                if (!byId.TryGetValue(id, out var product) || problems.ContainsKey(id) || !numbers.TryGetValue(id, out var plu))
                     continue;
-
-                // 2026-09-23, живой баг («программа отправляет ПЛУ, но кнопки не работают»).
-                //
-                // Клавиши на панели весов (120 штук на ШТРИХ-ПРИНТ) вызывают ПЛУ по его
-                // НОМЕРУ и по положению: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2. Раньше сюда
-                // подставлялся СОБСТВЕННЫЙ номер товара из каталога, а он произвольный —
-                // у «Айфона», например, 10007. Запись уходила в ПЛУ 10007, до которого ни
-                // одна клавиша не дотягивается, и панель выглядела нерабочей, хотя выгрузка
-                // формально проходила.
-                //
-                // Поэтому по умолчанию нумеруем подряд: порядок товаров в списке и есть
-                // порядок клавиш. Выключить можно галочкой — если весы настроены обращаться
-                // к ПЛУ по коду товара, а не по номеру.
-                var sequential = SequentialPluCheck.IsChecked == true;
-                var plu = sequential || product.Plu is not > 0 ? nextPlu++ : product.Plu!.Value;
-                if (!sequential && product.Plu is > 0)
-                    nextPlu = Math.Max(nextPlu, plu + 1);
 
                 keyMap.Add((plu, product.Title));
                 recordIds.Add(id);
 
                 // 2026-09-28: «Код товара» записи ПЛУ — это число, которое весы печатают в
-                // весовом штрих-коде (Т в структуре ШК), и по нему касса ищет товар при скане.
-                // Раньше сюда шёл номер ячейки ПЛУ: при нумерации «подряд» у товара с PLU 5 в
-                // первой ячейке этикетка несла код 1, и касса находила чужой товар (с PLU 1)
-                // или не находила никакой. Теперь — значение колонки «Код в штрих-коде»
-                // (по умолчанию PLU товара / «Код товара» — см. DefaultBarcodeCode); пустое
-                // или неверное — как раньше, номер ячейки.
-                var productCode = barcodeCodes.TryGetValue(id, out var codeText)
-                                  && int.TryParse((codeText ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCode)
-                                  && parsedCode is >= 1 and <= 999999
-                    ? parsedCode
-                    : plu;
-
+                // весовом штрих-коде (Т в структуре ШК), и по нему касса ищет товар при скане:
+                // значение колонки «Код в ШК» (по умолчанию PLU / «Код товара» из карточки — см.
+                // DefaultBarcodeCode); пустое или неверное — номер ячейки (CheckSendBatch).
                 records.Add(ShtrikhPrintLanScaleService.CreateRecord(
                     pluNumber: plu,
-                    productCode: productCode,
+                    productCode: (int)codes[id],
                     name: product.Title,
                     priceSom: (decimal)LocalCartService.ParsePrice(product.PriceLine),
                     decimalPointDigits: status.DecimalPointDigits,
@@ -875,7 +904,11 @@ public partial class ScalesPluWindow : Window
 
             if (records.Count == 0)
             {
-                StatusText.Text = Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
+                StatusText.Text = problems.Count > 0
+                    ? Tr.T("Ничего не отправлено — исправьте строки с ⚠ (номер PLU или «Код в ШК»).", "Эч нерсе жөнөтүлгөн жок — ⚠ белгиси бар саптарды оңдоңуз (PLU номери же «ШКдагы код»).",
+                        "Nothing was sent — fix the rows marked ⚠ (PLU number or “Barcode code”).", "Hiçbir şey gönderilmedi — ⚠ işaretli satırları düzeltin (PLU numarası veya «Barkod kodu»).",
+                        "Hech narsa yuborilmadi — ⚠ belgili qatorlarni tuzating (PLU raqami yoki «ShKdagi kod»).")
+                    : Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
                 return;
             }
 
@@ -890,31 +923,54 @@ public partial class ScalesPluWindow : Window
             // 2026-09-28: результат по строкам. Ошибки драйвер пишет с названием товара в «»;
             // без ошибок и отказов — строка принята.
             var rowsById = (_allRows ?? new List<ScalePluRowVm>()).ToDictionary(r => r.Id);
+            // 2026-09-29: что весы точно приняли — для «что на весах» (старые ячейки, клавиши).
+            var written = new Dictionary<string, ScaleSentPlu>(StringComparer.Ordinal);
             for (var i = 0; i < recordIds.Count; i++)
             {
                 if (!rowsById.TryGetValue(recordIds[i], out var row))
                     continue;
-                var error = result.Errors.FirstOrDefault(er => er.Contains($"«{keyMap[i].Name}»", StringComparison.Ordinal));
+                // Драйвер пишет ошибку с номером ПЛУ и названием (обрезанным до 28 байт, как на весах).
+                var name1 = records[i].Name1;
+                var error = result.Errors.FirstOrDefault(er => er.Contains($"«{name1}»", StringComparison.Ordinal)
+                                                               || er.StartsWith($"ПЛУ {keyMap[i].Plu} «", StringComparison.Ordinal));
                 if (error is not null)
                     row.SetStatus("✗ " + error, RowState.Error);
                 else if (result.Failed == 0)
+                {
                     row.SetStatus(SentText() + $" · PLU {keyMap[i].Plu}", RowState.Ok);
+                    written[recordIds[i]] = new ScaleSentPlu
+                    {
+                        Plu = keyMap[i].Plu,
+                        Code = records[i].ProductCode.ToString(CultureInfo.InvariantCulture),
+                        Name = keyMap[i].Name,
+                    };
+                }
                 else
                     row.SetStatus(Tr.T("не подтверждено", "ырасталган жок", "not confirmed", "onaylanmadı", "tasdiqlanmadi"), RowState.Warning);
             }
 
+            // 2026-09-29 (баг владельца «если менять ПЛУ, назначения клавиш не работают»): что
+            // переехало с прошлой отправки — номер (владелец исправил PLU) или код в ШК.
+            var profile = LabelScaleStore.Active;
+            var plan = ScalePluPlanner.PlanMoves(profile.SentPlus, written);
+            var keyCount = status.HotkeyCount > 0 ? Math.Min(status.HotkeyCount, 255) : MaxHotkey;
+
             // 2026-09-28 (просьба владельца «товары на клавиши весов»): для строк с номером клавиши
             // пишем клавишу быстрого доступа командой B1h «Выбрать товар по номеру ПЛУ» (код функции
             // 01h, байты сверены с драйвером Штрих-М — см. ShtrikhPrintProtocol.HotkeyPluNumber).
-            var hotkeyNote = await WriteShtrikhHotkeysAsync(scale, recordIds, keyMap, rowsById).ConfigureAwait(true);
+            // 2026-09-29: и переводим на новый номер клавиши, запрограммированные на самих весах,
+            // которые вызывали старый номер переехавшего товара; затем чистим его старую ячейку.
+            var (hotkeyNote, tableKeys) = await WriteShtrikhHotkeysAsync(scale, keyCount, recordIds, keyMap, rowsById).ConfigureAwait(true);
+            var (keysMoved, keysFailed) = await RemapScaleHotkeysAsync(scale, keyCount, plan, tableKeys, rowsById).ConfigureAwait(true);
+            var cleared = await ClearOldShtrikhSlotsAsync(scale, plan, profile.SentPlus, rowsById).ConfigureAwait(true);
+            RememberSent(written, cleared);
 
-            var firstKeyName = keyMap.FirstOrDefault().Name;
             StatusText.Text = result.Ok
-                ? Tr.T($"Выгружено на весы: {result.Sent}. Клавиша 1 — «{firstKeyName}», далее по порядку списка.",
-                    $"Таразага жүктөлдү: {result.Sent}. 1-баскыч — «{firstKeyName}», андан ары тизменин тартиби боюнча.",
-                    $"Uploaded to the scale: {result.Sent}. Key 1 is “{firstKeyName}”, then in list order.",
-                    $"Tartıya gönderildi: {result.Sent}. 1. tuş — «{firstKeyName}», sonrakiler liste sırasıyla.",
-                    $"Taroziga yuklandi: {result.Sent}. 1-tugma — «{firstKeyName}», keyin ro'yxat tartibida.")
+                ? Tr.T($"Выгружено на весы: {result.Sent}. У каждого товара свой постоянный номер PLU — см. колонку PLU.",
+                    $"Таразага жүктөлдү: {result.Sent}. Ар бир товардын өз туруктуу PLU номери бар — PLU тилкесин караңыз.",
+                    $"Uploaded to the scale: {result.Sent}. Every product keeps its own fixed PLU number — see the PLU column.",
+                    $"Tartıya gönderildi: {result.Sent}. Her ürünün kendi sabit PLU numarası var — PLU sütununa bakın.",
+                    $"Taroziga yuklandi: {result.Sent}. Har bir tovarning o‘z doimiy PLU raqami bor — PLU ustuniga qarang.")
                 : Tr.T($"Выгружено: {result.Sent}, с ошибками: {result.Failed}. ",
                     $"Жүктөлдү: {result.Sent}, ийгиликсиз: {result.Failed}. ",
                     $"Uploaded: {result.Sent}, failed: {result.Failed}. ",
@@ -922,6 +978,21 @@ public partial class ScalesPluWindow : Window
                     $"Yuklandi: {result.Sent}, xatolik bilan: {result.Failed}. ") + string.Join(" · ", result.Errors.Take(3));
 
             StatusText.Text += hotkeyNote;
+            if (keysMoved > 0 || keysFailed > 0 || plan.PluMoves.Count > 0)
+            {
+                StatusText.Text += Tr.T($" Переехало товаров: {plan.PluMoves.Count}, клавиш весов переведено: {keysMoved}, старых ячеек очищено: {cleared.Count}.",
+                                        $" Көчкөн товарлар: {plan.PluMoves.Count}, которулган тараза баскычтары: {keysMoved}, тазаланган эски уячалар: {cleared.Count}.",
+                                        $" Products moved: {plan.PluMoves.Count}, scale keys moved: {keysMoved}, old slots cleared: {cleared.Count}.",
+                                        $" Taşınan ürün: {plan.PluMoves.Count}, taşınan tartı tuşu: {keysMoved}, temizlenen eski hücre: {cleared.Count}.",
+                                        $" Ko‘chgan tovarlar: {plan.PluMoves.Count}, o‘tkazilgan tarozi tugmalari: {keysMoved}, tozalangan eski kataklar: {cleared.Count}.")
+                                  + (keysFailed > 0
+                                      ? Tr.T($" Клавиш с ошибкой: {keysFailed} — см. строки.", $" Ката менен баскычтар: {keysFailed} — саптарды караңыз.", $" Keys failed: {keysFailed} — see the rows.",
+                                             $" Hatalı tuş: {keysFailed} — satırlara bakın.", $" Xato bilan tugmalar: {keysFailed} — qatorlarga qarang.")
+                                      : "");
+            }
+            if (problems.Count > 0)
+                StatusText.Text += Tr.T($" Не отправлено (⚠ в строках): {problems.Count}.", $" Жөнөтүлгөн жок (саптарда ⚠): {problems.Count}.", $" Not sent (⚠ in rows): {problems.Count}.",
+                                        $" Gönderilmedi (satırlarda ⚠): {problems.Count}.", $" Yuborilmadi (qatorlarda ⚠): {problems.Count}.");
 
             // Печатаем раскладку в журнал: панель на 120 клавиш подписывают вручную, и владельцу
             // нужен список «номер клавиши — товар», чтобы наклеить ярлыки.
@@ -980,36 +1051,32 @@ public partial class ScalesPluWindow : Window
             + (ok ? "✓ " : "⚠ ") + verdict;
     }
 
-    /// <summary>Собирает записи PLU для TM-30F так же, как для Штрих-М по LAN: номер по порядку
-    /// от «Начальный PLU» (или PLU товара), «Код товара» — колонка «Код в штрих-коде» (иначе номер
-    /// PLU), тип — весовой/штучный из карточки, префикс ШК и срок годности — из настроек.</summary>
+    /// <summary>Собирает записи PLU для TM-30F так же, как для Штрих-М по LAN: номер — закреплённый
+    /// за товаром (2026-09-29; раньше — подряд от «Начальный PLU»), в режиме «PLU из карточки» — PLU
+    /// товара; «Код товара» — колонка «Код в штрих-коде» (иначе номер PLU), тип — весовой/штучный из
+    /// карточки, префикс ШК и срок годности — из настроек.</summary>
     private (List<DahuaTmPlu> Records, List<string> Problems, List<(int Plu, string Name)> KeyMap) BuildTmRecords(List<string> selectedIds, int pluStart)
     {
         var prefs = UserPreferences.Instance;
         var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
-        var barcodeCodes = _allRows.ToDictionary(r => r.Id, r => r.BarcodeCode);
-        var sequential = SequentialPluCheck.IsChecked == true;
         var decimals = Math.Clamp(prefs.TmScalePricePoint, 0, 3);
         var records = new List<DahuaTmPlu>();
         var problems = new List<string>();
         var keyMap = new List<(int Plu, string Name)>();
         var rowsById = _allRows.ToDictionary(r => r.Id);
         _tmRecordIds.Clear();
-        var nextPlu = pluStart;
+        // 2026-09-29: закреплённые номера и проверка номеров/кодов — общие со Штрих-ПРИНТ
+        // (ScalesPluWindow.PinnedPlu.cs); pluStart — только начало для новых товаров (PluStart).
+        var numbers = PinNumbersForSend(selectedIds);
+        var (codes, batchProblems) = CheckSendBatch(selectedIds, numbers, maxCode: 9_999_999);
+        foreach (var (id, text) in batchProblems)
+            problems.Add($"«{(rowsById.TryGetValue(id, out var r) ? r.Name : id)}»: {text}");
         foreach (var id in selectedIds)
         {
-            if (!byId.TryGetValue(id, out var product))
+            if (!byId.TryGetValue(id, out var product) || batchProblems.ContainsKey(id) || !numbers.TryGetValue(id, out var plu))
                 continue;
 
-            var plu = sequential || product.Plu is not > 0 ? nextPlu++ : product.Plu!.Value;
-            if (!sequential && product.Plu is > 0)
-                nextPlu = Math.Max(nextPlu, plu + 1);
-
-            var productCode = barcodeCodes.TryGetValue(id, out var codeText)
-                              && long.TryParse((codeText ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCode)
-                              && parsedCode is >= 1 and <= 9_999_999
-                ? parsedCode
-                : plu;
+            var productCode = codes[id];
 
             var record = new DahuaTmPlu
             {
@@ -1148,22 +1215,46 @@ public partial class ScalesPluWindow : Window
                     row.SetStatus(NotSentText(), RowState.Warning);
             }
 
-            var autoRuleNote = autoAmountPrefix is null
+            // 2026-09-29: принятые весами записи — в «что на весах» (закреплённые PLU). Очищать
+            // ячейки и переводить клавиши на TM-30F касса не умеет (протокол «!0L» не разобран) —
+            // если номер товара сменился, честно говорим, что старую ячейку и клавиши надо проверить
+            // в «Русском масштабе».
+            var written = new Dictionary<string, ScaleSentPlu>(StringComparer.Ordinal);
+            for (var i = 0; i < accepted && i < _tmRecordIds.Count; i++)
+            {
+                written[_tmRecordIds[i]] = new ScaleSentPlu
+                {
+                    Plu = records[i].PluNumber,
+                    Code = records[i].ProductCode.ToString(CultureInfo.InvariantCulture),
+                    Name = records[i].Name,
+                };
+            }
+            var tmPlan = ScalePluPlanner.PlanMoves(LabelScaleStore.Active.SentPlus, written);
+            RememberSent(written, Array.Empty<int>());
+            var movedNote = tmPlan.PluMoves.Count == 0
+                ? ""
+                : Tr.T($" Сменился PLU у товаров: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. Старые ячейки и клавиши TM-30F проверьте в «Русском масштабе».",
+                       $" PLU өзгөргөн товарлар: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'тин эски уячаларын жана баскычтарын «Русский масштаб»та текшериңиз.",
+                       $" PLU changed for: {string.Join(", ", tmPlan.PluMoves.Select(m => $"“{rowsById.GetValueOrDefault(m.ProductId)?.Name}” {m.From} → {m.To}"))}. Check the old slots and keys of the TM-30F in “Russian Scale”.",
+                       $" PLU'su değişen ürünler: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'in eski hücrelerini ve tuşlarını «Русский масштаб»da kontrol edin.",
+                       $" PLU o‘zgargan tovarlar: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F eski kataklari va tugmalarini «Русский масштаб»da tekshiring.");
+
+            var autoRuleNote = movedNote + (autoAmountPrefix is null
                 ? ""
                 : Tr.T($" Формат весов — с суммой: этикетки с префиксом {autoAmountPrefix} касса теперь читает как СУММУ.",
                        $" Тараза форматы — сумма менен: {autoAmountPrefix} префикстүү этикеткаларды касса эми СУММА катары окуйт.",
                        $" The scale format carries the amount: the till now reads labels with prefix {autoAmountPrefix} as AMOUNT.",
                        $" Tartı biçimi tutarlı: kasa artık {autoAmountPrefix} önekli etiketleri TUTAR olarak okur.",
-                       $" Tarozi formati — summali: kassa endi {autoAmountPrefix} prefiksli yorliqlarni SUMMA sifatida o‘qiydi.");
+                       $" Tarozi formati — summali: kassa endi {autoAmountPrefix} prefiksli yorliqlarni SUMMA sifatida o‘qiydi."));
 
-            var firstKeyName = keyMap.FirstOrDefault().Name;
             if (result.Ok)
             {
-                StatusText.Text = Tr.T($"Отправлено на весы: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», далее по порядку списка. Проверьте товар на весах.",
-                                       $"Таразага жөнөтүлдү: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», андан ары тизменин тартиби боюнча. Товарды таразадан текшериңиз.",
-                                       $"Sent to the scale: {result.Total}. PLU {keyMap[0].Plu} is “{firstKeyName}”, then in list order. Check the item on the scale.",
-                                       $"Tartıya gönderildi: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», sonrakiler liste sırasıyla. Ürünü tartıda kontrol edin.",
-                                       $"Taroziga yuborildi: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», keyin ro'yxat tartibida. Tovarni tarozida tekshiring.")
+                // 2026-09-29: номера закреплены за товарами — «далее по порядку списка» больше не так.
+                StatusText.Text = Tr.T($"Отправлено на весы: {result.Total}. У каждого товара свой постоянный номер PLU — см. колонку PLU. Проверьте товар на весах.",
+                                       $"Таразага жөнөтүлдү: {result.Total}. Ар бир товардын өз туруктуу PLU номери бар — PLU тилкесин караңыз. Товарды таразадан текшериңиз.",
+                                       $"Sent to the scale: {result.Total}. Every product keeps its own fixed PLU number — see the PLU column. Check the item on the scale.",
+                                       $"Tartıya gönderildi: {result.Total}. Her ürünün kendi sabit PLU numarası var — PLU sütununa bakın. Ürünü tartıda kontrol edin.",
+                                       $"Taroziga yuborildi: {result.Total}. Har bir tovarning o‘z doimiy PLU raqami bor — PLU ustuniga qarang. Tovarni tarozida tekshiring.")
                                   + (result.UnframedReplies > 0
                                       ? Tr.T($" Внимание: {result.UnframedReplies} ответ(ов) весов не по ожидаемой форме — см. журнал обмена.", $" Көңүл буруңуз: таразанын {result.UnframedReplies} жообу күтүлгөн формада эмес — алмашуу журналын караңыз.", $" Note: {result.UnframedReplies} scale reply(ies) not in the expected form — see the exchange log.", $" Dikkat: tartının {result.UnframedReplies} yanıtı beklenen biçimde değil — iletişim günlüğüne bakın.", $" Diqqat: tarozining {result.UnframedReplies} javobi kutilgan shaklda emas — almashuv jurnaliga qarang.")
                                       : "")
@@ -1517,7 +1608,8 @@ public partial class ScalesPluWindow : Window
             return;
         }
 
-        var withoutPlu = rows.Count(r => r.PluText == "—");
+        // 2026-09-29: у неотмеченного товара без закреплённого номера колонка PLU пустая, а не «—».
+        var withoutPlu = rows.Count(r => r.PluText == "—" || string.IsNullOrEmpty(r.PluText));
         StatusText.Text = withoutPlu == 0
             ? Tr.T($"Выгружено строк: {rows.Count}.", $"Файлга чыгарылган саптар: {rows.Count}.",
                    $"Rows exported: {rows.Count}.", $"Dışa aktarılan satır: {rows.Count}.",
@@ -1542,7 +1634,56 @@ public partial class ScalesPluWindow : Window
     {
         public string Id { get; init; } = "";
         public string Name { get; init; } = "";
-        public string PluText { get; init; } = "";
+
+        /// <summary>2026-09-29: PLU из карточки товара (null — не задан).</summary>
+        public int? CatalogPlu { get; init; }
+
+        private string _pluText = "";
+
+        /// <summary>Колонка PLU. 2026-09-29: закреплённый номер ячейки на весах (правится) или PLU
+        /// карточки — заполняет ScalesPluWindow.RefreshPluNumbers.</summary>
+        public string PluText
+        {
+            get => _pluText;
+            set
+            {
+                if (_pluText == value)
+                    return;
+                _pluText = value;
+                Notify(nameof(PluText));
+                Notify(nameof(PluSortKey));
+            }
+        }
+
+        /// <summary>Что показали в колонке PLU (чтобы при потере фокуса понять, правили ли номер).</summary>
+        public string PluShown { get; private set; } = "";
+
+        /// <summary>Номер ещё не закреплён — закрепится при отправке (курсив).</summary>
+        public bool PluTentative { get; private set; }
+
+        public bool PluReadOnly { get; private set; } = true;
+
+        public string PluHint { get; private set; } = "";
+
+        /// <summary>Сортировка колонки PLU числом (строкой вышло бы 1, 10, 2).</summary>
+        public int PluSortKey => int.TryParse(PluText, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : int.MaxValue;
+
+        public void SetPlu(string text, bool tentative, bool readOnly, string hint)
+        {
+            PluShown = text;
+            PluText = text;
+            PluTentative = tentative;
+            PluReadOnly = readOnly;
+            PluHint = hint;
+            Notify(nameof(PluTentative));
+            Notify(nameof(PluReadOnly));
+            Notify(nameof(PluHint));
+        }
+
+        /// <summary>2026-09-29: «Код в ШК» по умолчанию (PLU / код из карточки) — к нему возвращает
+        /// пустое поле.</summary>
+        public string DefaultCode { get; init; } = "";
+
         public string PriceLine { get; init; } = "";
 
         /// <summary>Единица измерения товара («кг», «шт.») — нужна и в таблице, и в выгрузке:
@@ -1553,9 +1694,22 @@ public partial class ScalesPluWindow : Window
         /// её класть нельзя: ни Excel, ни программа весов такую ячейку числом не прочитают.</summary>
         public double Price { get; init; }
 
+        private string _barcodeCode = "";
+
         /// <summary>2026-09-28: число, которое весы напечатают в весовом ШК («Код товара»
-        /// записи ПЛУ). Правится в таблице перед прямой выгрузкой.</summary>
-        public string BarcodeCode { get; set; } = "";
+        /// записи ПЛУ). Правится в таблице перед прямой выгрузкой. 2026-09-29: с уведомлением —
+        /// поле меняется и из кода (другие весы, возврат к коду по умолчанию).</summary>
+        public string BarcodeCode
+        {
+            get => _barcodeCode;
+            set
+            {
+                if (_barcodeCode == value)
+                    return;
+                _barcodeCode = value;
+                Notify(nameof(BarcodeCode));
+            }
+        }
 
         /// <summary>2026-09-28: категория товара (фильтр и «категории весов»).</summary>
         public string Category { get; init; } = "";
@@ -1603,6 +1757,19 @@ public partial class ScalesPluWindow : Window
             foreach (var name in new[] { nameof(Status), nameof(StatusOk), nameof(StatusError), nameof(StatusWarn) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
+
+        /// <summary>2026-09-29: дописать к результату строки (клавиша, старая ячейка) — цвет по
+        /// худшему: ошибка важнее предупреждения, предупреждение важнее «отправлено».</summary>
+        public void AppendStatus(string text, RowState state)
+        {
+            var worst = StatusError || state == RowState.Error ? RowState.Error
+                : StatusWarn || state == RowState.Warning ? RowState.Warning
+                : StatusOk || state == RowState.Ok ? RowState.Ok
+                : RowState.None;
+            SetStatus(Status + text, worst);
+        }
+
+        private void Notify(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         public event PropertyChangedEventHandler? PropertyChanged;
     }

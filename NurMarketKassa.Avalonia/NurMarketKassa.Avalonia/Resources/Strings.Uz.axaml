@@ -1257,8 +1257,9 @@
     <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
     <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» uchun fayl</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI tarozi</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPlu">Tarozi tugmalariga moslab raqamlash</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPluTip">Tarozi panelidagi tugmalar PLUni uning RAQAMI bo'yicha chaqiradi: 1-tugma — PLU 1, 2-tugma — PLU 2 va hokazo. Agar mahsulotni o'z raqami bilan yozsangiz (masalan, 10007), uni hech bir tugma topa olmaydi. Bu belgi qo'yilganda mahsulotlar ko'rsatilgan raqamdan boshlab ketma-ket raqam oladi, quyidagi ro'yxat tartibi esa tugmalar tartibidir.</x:String>
+    <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Tovarga doimiy PLU</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Har bir tovar o'z PLU raqamini bir marta oladi va har yuborishda saqlaydi: tovar qo'shish, qidiruv, filtr va saralash raqamni o'zgartirmaydi. Yangi tovarga «Boshlang'ich PLU»dan boshlab eng kichik bo'sh raqam beriladi. Raqamni PLU ustunida tuzatish mumkin — yuborishda kassa tovarni yangi katakka yozadi, eskisini tozalaydi va tarozi tugmalarini yangi raqamga o'tkazadi. PLUni saytdagi tovar kartochkasidan olish uchun belgini olib tashlang.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">To'g'ridan-to'g'ri kabel orqali</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Kassa tarozi bilan lokal tarmoq orqali serversiz o'zi bog'lanadi. Haqiqiy tarozilarda sinovdan o'tkazilmagan — portni tarozining tizim menyusida tekshiring.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Ulanish sozlamalari…</x:String>
@@ -1472,5 +1473,8 @@
   <x:String x:Key="scaleSetup.list.desc">Har bir tarozining o‘z markasi, manzili va tovar kategoriyalari bor. «Sozlash…» — shu tarozi oynasi, «Tovarlarni yuborish» — uning tovarlarini unga yuboradi.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Tarozi qo‘shish</x:String>
   <x:String x:Key="scalesPlu.colHotkey">Tugma</x:String>
+  <!-- 2026-09-29: кнопка «Обновить» в окне «Весы» теперь явно загружает каталог с сервера NurCRM. -->
+  <x:String x:Key="scalesPlu.refreshFromServer">Serverdan yangilash</x:String>
+  <x:String x:Key="scalesPlu.refreshFromServerTip">Tovarlar, narxlar va PLUlarni NurCRM serveridan qayta yuklab, ro'yxatni yangilash. Internet bo'lmasa, saqlangan katalog qoladi.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategoriya</x:String>
 </ResourceDictionary>

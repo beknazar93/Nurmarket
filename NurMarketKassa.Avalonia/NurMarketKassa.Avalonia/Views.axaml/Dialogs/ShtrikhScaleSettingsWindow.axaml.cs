@@ -109,6 +109,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
 
     private async void Window_Opened(object? sender, EventArgs e)
     {
+        // 2026-09-29: 820×720 не помещалось на 1024×768 при 125–150 % — по экрану кассы (DialogScreenFit).
+        this.FitToKassaScreen();
         // Сразу узнаём исполнение весов: от него зависят число клавиш и подписи функциональных
         // клавиш. Команда 11h без пароля — не расходует попытки входа.
         await RunAsync(async scale =>
