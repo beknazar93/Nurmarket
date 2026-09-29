@@ -251,6 +251,9 @@
                                      Content="{DynamicResource scaleSetup.rongta.routeSite}" Click="Route_Click"/>
                         <RadioButton x:Name="RongtaRouteServer" Classes="RoutePill" GroupName="RongtaRoute"
                                      Content="{DynamicResource scaleSetup.rongta.routeServer}" Click="Route_Click"/>
+                        <!-- 2026-09-30: касса сама пишет товары на весы (протокол Dahua, порт 4001), без RLS1000 -->
+                        <RadioButton x:Name="RongtaRouteLan" Classes="RoutePill" GroupName="RongtaRoute"
+                                     Content="{DynamicResource scaleSetup.rongta.routeLan}" Click="Route_Click"/>
                     </WrapPanel>
                     <StackPanel x:Name="RongtaServerPortRow" Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="{DynamicResource scaleSetup.rongta.serverPort}" Classes="FieldLabel" VerticalAlignment="Center" Margin="0"/>

@@ -83,6 +83,8 @@
             <Setter Property="Padding" Value="0,10"/>
         </Style>
         <Style Selector="Button.pr-tab">
+            <!-- 2026-09-30: без фокуса — иначе Enter, которым сканер заканчивает код, нажимал кнопку ещё раз (товар/чек добавлялся сам) -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="FontSize" Value="12"/>

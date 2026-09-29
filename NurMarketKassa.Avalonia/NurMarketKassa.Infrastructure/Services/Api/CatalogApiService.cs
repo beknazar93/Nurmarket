@@ -462,6 +462,13 @@ public sealed class CatalogApiService : ICatalogApiService
             : 0;
     }
 
+    public async Task SetProductPluAsync(string productId, int plu, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object?> { ["plu"] = plu };
+        await _client.RequestAsync(HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId)}/", body, null, ct)
+            .ConfigureAwait(false);
+    }
+
     public async Task<bool> SendProductsToScaleAsync(int pluStart, IReadOnlyList<string> productIds, CancellationToken ct = default)
     {
         var body = new { plu_start = pluStart, product_ids = productIds };

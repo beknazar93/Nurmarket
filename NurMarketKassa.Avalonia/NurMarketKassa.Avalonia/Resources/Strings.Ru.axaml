@@ -1260,6 +1260,8 @@
     <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку» (из-за нумерации подряд PLU товаров менялись при каждой отправке). -->
     <x:String x:Key="loc.owner.scales.sequentialPlu">Постоянный PLU за товаром</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Каждый товар получает свой номер PLU один раз и сохраняет его при каждой отправке: добавление товаров, поиск, фильтр и сортировка номер не меняют. Новому товару даётся наименьший свободный номер, начиная с «Начальный PLU». Номер можно исправить в колонке PLU — при отправке касса перепишет товар в новую ячейку, очистит старую и переведёт на новый номер клавиши весов. Снимите галочку, чтобы брать PLU из карточки товара на сайте.</x:String>
+    <x:String x:Key="loc.owner.scales.webPlu">PLU как на сайте</x:String>
+    <x:String x:Key="loc.owner.scales.webPluTip">Номер ячейки на весах = PLU товара на сайте. Отмеченным весовым товарам без PLU касса присвоит на сайте свободные номера — сайт, касса и весы будут совпадать.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Напрямую по кабелю</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Касса сама говорит с весами по локальной сети, без сервера. Не проверено на живых весах — сверьте порт в системном меню весов.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Настройки подключения…</x:String>
@@ -1449,6 +1451,7 @@
   <x:String x:Key="scaleSetup.rongta.hint">Своего сетевого протокола у Rongta нет: касса готовит список и запускает загрузку в программе RLS1000. Адрес и порт здесь — для «Проверить связь».</x:String>
   <x:String x:Key="scaleSetup.rongta.routeSite">Через сайт и RLS1000</x:String>
   <x:String x:Key="scaleSetup.rongta.routeServer">Свой сервер кассы</x:String>
+  <x:String x:Key="scaleSetup.rongta.routeLan">Напрямую по сети (без RLS1000)</x:String>
   <x:String x:Key="scaleSetup.rongta.serverPort">Порт своего сервера</x:String>
   <x:String x:Key="scaleSetup.tm.hint">Касса отправляет товары на весы сама, по сети (TCP). Порт по умолчанию — 4001; адрес весов — в программе «Русский масштаб»: «Настройка коммуникации → Настройка Ethernet».</x:String>
   <x:String x:Key="scaleSetup.ai.hint">У AI-весов нет общего протокола — каждая модель идёт со своей программой. Касса сохраняет файл (PLU, название, единица, цена), а вы загружаете его программой весов. Адрес не нужен.</x:String>

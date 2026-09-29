@@ -950,6 +950,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                             ? LocalProductEditor.GetLocalWeightProductCount()
                             : await _catalogApi.GetWeightProductCountAsync().ConfigureAwait(true);
                         pluValue = count + 1;
+                        // 2026-09-30: «число весовых + 1» бывает уже занято (товары удаляли, PLU
+                        // вписывали руками) — сервер тогда отвечает 400 «Этот PLU уже используется»,
+                        // и товар не сохранялся. Берём следующий номер, свободный в каталоге кассы.
+                        var usedPlu = CatalogCacheService.Products.Where(p => p.Plu is > 0).Select(p => p.Plu!.Value).ToHashSet();
+                        while (usedPlu.Contains(pluValue.Value))
+                            pluValue++;
                         Plu = pluValue.Value.ToString(CultureInfo.InvariantCulture);
                     }
                     catch (Exception ex)

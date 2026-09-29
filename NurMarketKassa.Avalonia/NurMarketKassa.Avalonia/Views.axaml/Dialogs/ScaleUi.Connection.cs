@@ -53,7 +53,8 @@ internal static partial class ScaleUi
         var prefs = UserPreferences.Instance;
         return NormalizeBrand(brand) switch
         {
-            BrandRongta => prefs.RongtaScalePort,
+            // 2026-09-30: напрямую касса говорит с Rongta на порту 4001 (протокол Dahua).
+            BrandRongta => prefs.RongtaDirectLan ? DahuaTmProtocol.DefaultPort : prefs.RongtaScalePort,
             BrandTm => prefs.TmScalePort,
             BrandAi => 0,
             _ => prefs.ScaleLanPort,
@@ -66,6 +67,7 @@ internal static partial class ScaleUi
         var prefs = UserPreferences.Instance;
         return NormalizeBrand(brand) switch
         {
+            BrandRongta when prefs.RongtaDirectLan => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
             BrandRongta => string.Equals(prefs.RongtaDataSource, "server", StringComparison.OrdinalIgnoreCase)
                 ? L($"свой сервер кассы, порт {prefs.RongtaServerPort}", $"кассанын өз сервери, {prefs.RongtaServerPort} порт", $"till's own server, port {prefs.RongtaServerPort}", $"kasanın kendi sunucusu, port {prefs.RongtaServerPort}", $"kassaning o‘z serveri, {prefs.RongtaServerPort} port")
                 : L("через сайт и программу RLS1000", "сайт жана RLS1000 программасы аркылуу", "via the website and RLS1000", "site ve RLS1000 programı üzerinden", "sayt va RLS1000 dasturi orqali"),
@@ -292,6 +294,8 @@ internal static partial class ScaleUi
             result = brand switch
             {
                 BrandTm => await CheckTmAsync(ip, prefs.TmScalePort, ct).ConfigureAwait(true),
+                // 2026-09-30: Rongta напрямую — то же чтение PLU №1 по протоколу Dahua (TCP 4001).
+                BrandRongta when prefs.RongtaDirectLan => await CheckTmAsync(ip, DahuaTmProtocol.DefaultPort, ct).ConfigureAwait(true),
                 BrandRongta => await CheckRongtaAsync(ip, prefs.RongtaScalePort).ConfigureAwait(true),
                 _ => await CheckShtrikhAsync(ip, prefs.ScaleLanPort, prefs.ScaleLanPassword, ct).ConfigureAwait(true),
             };

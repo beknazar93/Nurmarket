@@ -13,65 +13,79 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Обновления больше не меняют настройки клиента: вид магазина, выбранный в кассе, не заменяется видом с сервера при каждом запуске; сохранённые кассиры для входа без интернета не стираются при обновлении (начиная со следующего обновления)",
-        "Голосовое управление: касса больше не закрывается с ошибкой «0xc0000005» при записи своей озвучки и при регистрации голоса",
-        "Кыргызский счёт голосом: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); по-русски — «двадцать пять», «сто», «кило»",
-        "Выученные слова с числом («эки» → 2) теперь задают количество; «кассага …» тоже понимается",
-        "Поиск товара голосом точнее: «касса спрайт» и «касса сумка» больше не переспрашивают из-за слова «с» в чужих названиях, точное название товара выбирается сразу",
-        "Запись своей озвучки: мигающий индикатор, время «0:03 из 0:15» и уровень громкости — видно, слышит ли микрофон голос",
-        "Голосовой замок: модель и голос кассира больше не стираются при каждом обновлении кассы (начиная со следующего обновления; после этого один раз может понадобиться скачать модель и записать голос заново)",
-        "Программа владельца: внизу меню — «Выйти на рабочий стол», выход из учётной записи — в Настройки → Аккаунт (там он теперь работает)",
+        "Весы Rongta напрямую по сети, без программы RLS1000: товары, цены, названия (кириллица) и PLU уходят прямо в весы; проверено на весах Rongta RLS1100",
+        "PLU весовых товаров совпадают с сайтом: товарам без PLU касса назначает его на сайте сама; PLU можно поменять в окне «Весы» — изменится и на сайте",
+        "«Кнопки весов…»: нажмите кнопку весов и выберите товар; «Лист кнопок» — печать на A4 и сохранение в Word",
+        "Окно «Весы»: только весовые товары, фильтр «Показать» (весовые / все в кг / без PLU / с кнопкой); «Код в ШК», который открыл бы чужой товар, касса заменяет сама, а не останавливает отправку",
+        "«Инструкция подключения» у каждых весов (Настройки → Весы): пошаговый план с анимациями для Rongta, Штрих-ПРИНТ, TM-30F и AI весов",
+        "Этикетки весов, отправленных из программы владельца, находятся и в кассе на том же компьютере",
+        "Товары больше не добавляются в чек сами после входа и после продажи: Enter от сканера не нажимает плитки и кнопки",
+        "Окна не выходят за край маленьких и квадратных экранов",
+        "Весы Штрих-ПРИНТ: у товара постоянный PLU, клавиши весов идут за товаром при смене номера, «Обновить с сервера» загружает каталог заново",
+        "Сервер не отвечает — через 2 секунды продажа уходит в очередь и досылается сама; доп. штрих-код варианта — отдельной строкой; «+ Новый чек» и скан не создают лишний чек; «Напечатать чек» запоминается",
+        "Программа владельца: «Заказы с сайта» и «Настройки сайта»",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Жаңыртуулар кардардын жөндөөлөрүн өзгөртпөйт: кассада тандалган дүкөндүн түрү ар бир ачылганда серверден алынган түргө алмашпайт; интернетсиз кирүү үчүн сакталган кассирлер жаңыртууда өчпөйт (кийинки жаңыртуудан баштап)",
-        "Үн менен башкаруу: өз үнүңүз менен жазганда жана үндү каттаганда касса «0xc0000005» катасы менен жабылбайт",
-        "Кыргызча эсеп үн менен: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); орусча — «двадцать пять», «сто», «кило»",
-        "Сан менен үйрөтүлгөн сөздөр («эки» → 2) эми санды коёт; «кассага …» да түшүнүлөт",
-        "Товарды үн менен издөө тагыраак: «касса спрайт» жана «касса сумка» башка аталыштардагы «с» сөзүнөн улам кайра сурабайт, товардын так аталышы дароо тандалат",
-        "Өз үнүңүз менен жазуу: жымыңдаган белги, «0:03 / 0:15» убакыт жана үндүн деңгээли — микрофон үндү угуп жатканы көрүнөт",
-        "Үн кулпусу: модель жана кассирдин үнү кассаны жаңырткан сайын өчүп калбайт (кийинки жаңыртуудан баштап)",
-        "Ээсинин программасы: менюнун ылдыйында — «Иш столуна чыгуу», эсептик жазуудан чыгуу — Жөндөөлөр → Аккаунт (ал жерде эми иштейт)",
+        "Rongta таразасы тармак аркылуу түз, RLS1000 программасысыз: товарлар, баалар, аталыштар (кирилл) жана PLU түз таразага кетет; Rongta RLS1100 таразасында текшерилди",
+        "Салмактуу товарлардын PLU'су сайт менен дал келет: PLU'су жок товарларга касса аны сайтта өзү берет; PLU'ну «Таразалар» терезесинде өзгөртсө болот — сайтта да өзгөрөт",
+        "«Тараза баскычтары…»: таразанын баскычын басып товарды тандаңыз; «Баскычтар барагы» — A4 басып чыгаруу жана Word'го сактоо",
+        "«Таразалар» терезеси: салмактуу товарлар гана, «Көрсөтүү» чыпкасы (салмактуулар / кг'дагылар / PLU'суз / баскычы бар); башка товарды ача турган «ШКдагы кодду» касса өзү алмаштырат, жөнөтүүнү токтотпойт",
+        "Ар бир таразада «Туташтыруу нускамасы» (Жөндөөлөр → Таразалар): Rongta, Штрих-ПРИНТ, TM-30F жана AI тараза үчүн анимациялуу кадамдар",
+        "Ээсинин программасынан жөнөтүлгөн таразалардын этикеткалары ошол эле компьютердеги кассада да табылат",
+        "Кирүүдөн жана сатуудан кийин чекке товарлар өзүнөн-өзү кошулбайт: сканердин Enter'и плиткаларды жана баскычтарды баспайт",
+        "Терезелер кичине жана чарчы экрандардын четинен чыкпайт",
+        "Штрих-ПРИНТ таразасы: товардын туруктуу PLU'су бар, номер өзгөргөндө тараза баскычтары товар менен кошо көчөт, «Серверден жаңыртуу» каталогду кайра жүктөйт",
+        "Сервер жооп бербесе — 2 секунддан кийин сатуу кезекке кетет жана өзү жөнөтүлөт; варианттын кошумча штрих-коду — өзүнчө сап; «+ Жаңы чек» жана скан ашыкча чек түзбөйт; «Чекти басып чыгаруу» эстелет",
+        "Ээсинин программасы: «Сайттан заказдар» жана «Сайттын жөндөөлөрү»",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Updates no longer change the client’s settings: the store type chosen in the till is not replaced by the server one at every start; cashiers saved for offline sign-in are not erased by an update (from the next update on)",
-        "Voice control: the till no longer closes with error “0xc0000005” while recording your own prompts or enrolling a voice",
-        "Kyrgyz counting by voice: “уч”, “торт”, “он эки” (12), “жыйырма беш” (25), “эки жүз элүү” (250), “бир жарым кило” (1.5); in Russian — “двадцать пять”, “сто”, “кило”",
-        "Taught words with a number (“эки” → 2) now set the quantity; “кассага …” is understood too",
-        "Voice product search is more precise: “касса спрайт” and “касса сумка” no longer ask again because of the word “с” in other names; an exact product name is chosen at once",
-        "Recording your own prompts: a blinking indicator, time “0:03 of 0:15” and the volume level — you can see whether the microphone hears the voice",
-        "Voice lock: the model and the cashier’s voice are no longer erased by every till update (from the next update on)",
-        "Owner app: “Exit to desktop” at the bottom of the menu; sign-out is in Settings → Account (it works there now)",
+        "Rongta scales directly over the network, without RLS1000: goods, prices, names (Cyrillic) and PLUs go straight to the scale; checked on a Rongta RLS1100",
+        "Weighed-goods PLUs match the website: the till assigns a PLU on the website to goods without one; a PLU changed in the “Scales” window changes on the website too",
+        "“Scale keys…”: press a scale key and choose a product; “Key sheet” — print on A4 or save to Word",
+        "“Scales” window: weighed goods only, a “Show” filter (weighed / all in kg / without PLU / with a key); a “Barcode code” that would open another product is replaced by the till instead of stopping the upload",
+        "“Connection guide” for every scale (Settings → Scales): step-by-step plan with animations for Rongta, Shtrih-PRINT, TM-30F and AI scales",
+        "Labels of a scale loaded from the owner app are found by the till on the same computer",
+        "Goods no longer get added to the receipt by themselves after sign-in or after a sale: the scanner’s Enter no longer presses tiles and buttons",
+        "Windows no longer go past the edge of small and square screens",
+        "Shtrih-PRINT scales: a product keeps its PLU, scale keys follow the product when its number changes, “Refresh from server” reloads the catalog",
+        "Server not answering — after 2 seconds the sale goes to the queue and is sent later by itself; a variant’s extra barcode is a separate line; “+ New receipt” and a scan no longer create an extra receipt; “Print receipt” is remembered",
+        "Owner app: “Website orders” and “Website settings”",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Güncellemeler artık müşterinin ayarlarını değiştirmiyor: kasada seçilen mağaza türü her açılışta sunucudakiyle değiştirilmiyor; internetsiz giriş için kaydedilen kasiyerler güncellemede silinmiyor (bir sonraki güncellemeden itibaren)",
-        "Sesli kontrol: kendi seslendirmenizi kaydederken ve ses kaydı yaparken kasa artık «0xc0000005» hatasıyla kapanmıyor",
-        "Sesle Kırgızca sayma: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); Rusça — «двадцать пять», «сто», «кило»",
-        "Sayıyla öğretilen kelimeler («эки» → 2) artık miktarı belirliyor; «кассага …» da anlaşılıyor",
-        "Sesle ürün arama daha isabetli: «касса спрайт» ve «касса сумка» başka adlardaki «с» kelimesi yüzünden artık tekrar sormuyor, tam ürün adı hemen seçiliyor",
-        "Kendi seslendirmenizi kaydetme: yanıp sönen gösterge, «0:03 / 0:15» süre ve ses seviyesi — mikrofonun sesi duyup duymadığı görülüyor",
-        "Ses kilidi: model ve kasiyerin sesi artık her kasa güncellemesinde silinmiyor (bir sonraki güncellemeden itibaren)",
-        "Sahip programı: menünün altında «Masaüstüne çık»; oturumu kapatma Ayarlar → Hesap içinde (artık orada çalışıyor)",
+        "Rongta tartılar RLS1000 olmadan doğrudan ağ üzerinden: ürünler, fiyatlar, adlar (Kiril) ve PLU'lar doğrudan tartıya gider; Rongta RLS1100'de denendi",
+        "Tartılı ürünlerin PLU'ları siteyle aynı: PLU'su olmayan ürünlere kasa sitede PLU verir; «Tartı» penceresinde değiştirilen PLU sitede de değişir",
+        "«Tartı tuşları…»: tartı tuşuna basıp ürün seçin; «Tuş listesi» — A4 yazdırma ve Word'e kaydetme",
+        "«Tartı» penceresi: yalnızca tartılı ürünler, «Göster» filtresi (tartılı / kg'daki tümü / PLU'suz / tuşlu); başka ürünü açacak «Barkod kodu»nu kasa gönderimi durdurmadan kendisi değiştirir",
+        "Her tartıda «Bağlantı kılavuzu» (Ayarlar → Tartılar): Rongta, Shtrih-PRINT, TM-30F ve AI tartı için animasyonlu adımlar",
+        "Sahip programından yüklenen tartıların etiketleri aynı bilgisayardaki kasada da bulunur",
+        "Girişten ve satıştan sonra fişe kendiliğinden ürün eklenmiyor: tarayıcının Enter'ı karo ve düğmelere basmıyor",
+        "Pencereler küçük ve kare ekranların kenarından taşmıyor",
+        "Shtrih-PRINT tartılar: ürünün sabit PLU'su var, numara değişince tartı tuşları ürünü takip eder, «Sunucudan yenile» kataloğu yeniden yükler",
+        "Sunucu yanıt vermezse 2 saniye sonra satış kuyruğa gider ve kendiliğinden gönderilir; varyantın ek barkodu ayrı satır; «+ Yeni fiş» ve okutma fazladan fiş açmıyor; «Fişi yazdır» hatırlanıyor",
+        "Sahip programı: «Site siparişleri» ve «Site ayarları»",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Yangilanishlar endi mijoz sozlamalarini o'zgartirmaydi: kassada tanlangan do'kon turi har ishga tushganda serverdagi bilan almashtirilmaydi; internetsiz kirish uchun saqlangan kassirlar yangilanishda o'chmaydi (keyingi yangilanishdan boshlab)",
-        "Ovozli boshqaruv: o'z ovozingiz bilan yozishda va ovozni ro'yxatdan o'tkazishda kassa endi «0xc0000005» xatosi bilan yopilmaydi",
-        "Ovoz bilan qirg'izcha sanash: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); ruscha — «двадцать пять», «сто», «кило»",
-        "Son bilan o'rgatilgan so'zlar («эки» → 2) endi miqdorni belgilaydi; «кассага …» ham tushuniladi",
-        "Ovoz bilan mahsulot qidirish aniqroq: «касса спрайт» va «касса сумка» boshqa nomlardagi «с» so'zi tufayli endi qayta so'ramaydi, aniq mahsulot nomi darhol tanlanadi",
-        "O'z ovozingiz bilan yozish: miltillovchi belgi, «0:03 / 0:15» vaqt va ovoz darajasi — mikrofon ovozni eshityaptimi, ko'rinadi",
-        "Ovoz qulfi: model va kassir ovozi endi har bir kassa yangilanishida o'chib ketmaydi (keyingi yangilanishdan boshlab)",
-        "Egasi dasturi: menyu pastida — «Ish stoliga chiqish», hisobdan chiqish — Sozlamalar → Hisob (endi u yerda ishlaydi)",
+        "Rongta tarozilari RLS1000 dasturisiz to‘g‘ridan-to‘g‘ri tarmoq orqali: tovarlar, narxlar, nomlar (kirill) va PLU to‘g‘ridan-to‘g‘ri taroziga ketadi; Rongta RLS1100 da tekshirildi",
+        "Vaznli tovarlar PLU'si sayt bilan bir xil: PLU'si yo‘q tovarlarga kassa saytda PLU beradi; «Tarozi» oynasida o‘zgartirilgan PLU saytda ham o‘zgaradi",
+        "«Tarozi tugmalari…»: tarozi tugmasini bosing va tovarni tanlang; «Tugmalar varag‘i» — A4 chop etish va Word'ga saqlash",
+        "«Tarozi» oynasi: faqat vaznli tovarlar, «Ko‘rsatish» filtri (vaznli / kg dagi hammasi / PLU'siz / tugmali); boshqa tovarni ochadigan «ShKdagi kod»ni kassa yuborishni to‘xtatmasdan o‘zi almashtiradi",
+        "Har bir tarozida «Ulanish yo‘riqnomasi» (Sozlamalar → Tarozilar): Rongta, Shtrix-PRINT, TM-30F va AI tarozi uchun animatsiyali qadamlar",
+        "Egasi dasturidan yuklangan tarozi yorliqlari shu kompyuterdagi kassada ham topiladi",
+        "Kirishdan va sotuvdan keyin chekka tovarlar o‘z-o‘zidan qo‘shilmaydi: skanerning Enter'i plitkalar va tugmalarni bosmaydi",
+        "Oynalar kichik va kvadrat ekranlar chetidan chiqmaydi",
+        "Shtrix-PRINT tarozilari: tovarning doimiy PLU'si bor, raqam o‘zgarsa tarozi tugmalari tovar bilan birga ko‘chadi, «Serverdan yangilash» katalogni qayta yuklaydi",
+        "Server javob bermasa — 2 soniyadan keyin sotuv navbatga ketadi va o‘zi yuboriladi; variantning qo‘shimcha shtrix-kodi — alohida qator; «+ Yangi chek» va skan ortiqcha chek ochmaydi; «Chekni chop etish» eslab qolinadi",
+        "Egasi dasturi: «Saytdan buyurtmalar» va «Sayt sozlamalari»",
     ];
 
-    /// <summary>Список на языке интерфейса (2026-09-07).</summary>
     public static string[] LatestForCurrentLanguage() =>
         UserPreferences.Instance.Language switch
         {

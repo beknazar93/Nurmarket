@@ -183,6 +183,14 @@ public partial class ScaleSettingsView : UserControl
         var buttons = new WrapPanel { Margin = new Thickness(54, 8, -8, -8) };
         buttons.Children.Add(setup);
         buttons.Children.Add(send);
+        // 2026-09-30 (владелец): «Инструкция подключения» у каждых весов — пошаговый план с GIF для марки.
+        var guide = RowButton(L("Инструкция подключения", "Туташтыруу нускамасы", "Connection guide", "Bağlantı kılavuzu", "Ulanish yo‘riqnomasi"), false);
+        guide.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                await new NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleGuideWindow(profile.Brand).ShowDialog(owner).ConfigureAwait(true);
+        };
+        buttons.Children.Add(guide);
         if (canDelete)
         {
             var delete = RowButton(L("Удалить", "Өчүрүү", "Delete", "Sil", "O‘chirish"), false);
@@ -252,9 +260,11 @@ public partial class ScaleSettingsView : UserControl
             return L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl");
         var address = string.IsNullOrWhiteSpace(p.Ip)
             ? L("адрес не задан", "дарек коюлган эмес", "address not set", "adres girilmemiş", "manzil kiritilmagan")
-            : $"{p.Ip}:{p.Port}";
+            // 2026-09-30: Rongta «напрямую» работает через порт 4001, а не 5001 из профиля.
+            : $"{p.Ip}:{(p.Brand == "rongta" && p.RongtaSource == "lan" ? NurMarketKassa.Services.Hardware.DahuaTmProtocol.DefaultPort : p.Port)}";
         var route = p.Brand switch
         {
+            "rongta" when p.RongtaSource == "lan" => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
             "rongta" => p.RongtaSource == "server"
                 ? L("свой сервер кассы", "кассанын өз сервери", "till's own server", "kasanın kendi sunucusu", "kassaning o‘z serveri")
                 : L("через сайт и RLS1000", "сайт жана RLS1000 аркылуу", "via the website and RLS1000", "site ve RLS1000 üzerinden", "sayt va RLS1000 orqali"),

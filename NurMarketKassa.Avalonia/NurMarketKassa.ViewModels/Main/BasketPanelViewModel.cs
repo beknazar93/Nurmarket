@@ -821,6 +821,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 $"[DEBUG] Barcode scanned: '{barcode}' (len={barcode.Length}), " +
                 $"weightLayout={WeightBarcodeParser.Layout}, weightMode={WeightBarcodeParser.Mode}",
                 "CART");
+            // 2026-09-30: префиксы весов с прямой отправкой (Rongta — сумма в этикетке), в т.ч. записанные
+            // программой владельца на этом компьютере.
+            ScaleLabelCodeRegistry.ApplySharedAmountPrefixes();
 
             // Прямое совпадение по каталогу проверяем ПЕРВЫМ: у любого настоящего EAN-13
             // штрих-кода, начинающегося с "2", контрольная сумма технически валидна (это

@@ -61,6 +61,9 @@ public static class ScalePluPlanner
     /// <summary>То же для TM-30F: «TM-30F, раскладка PLU: 1 — Яблоки; 2 — Груши».</summary>
     public const string TmLayoutMarker = "TM-30F, раскладка PLU: ";
 
+    /// <summary>2026-09-30: то же для Rongta, отправленной кассой напрямую (протокол Dahua).</summary>
+    public const string RongtaLayoutMarker = "Rongta, раскладка PLU: ";
+
     /// <summary>Номера для товаров, у которых закреплённого номера ещё нет: каждому по порядку —
     /// наименьший свободный номер не меньше <paramref name="start"/>. Уже закреплённые номера не
     /// трогаются никогда.</summary>

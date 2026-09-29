@@ -361,7 +361,12 @@
                                          они просто начинаются ниже, а коробка плитки у всех одна,
                                          поэтому ряды остаются ровными. -->
                                     <Grid Width="{DynamicResource CatalogTileWidth}" Margin="6" Height="{DynamicResource CatalogTileHeight}">
+                                        <!-- 2026-09-30, владелец: «после входа и после продажи в чек сами добавляются товары». Плитка
+                                             товара оставалась в фокусе после нажатия, и Enter, которым сканер
+                                             заканчивает каждый код, нажимал её ещё раз — добавлялся тот же товар,
+                                             а отсканированный терялся (как «+ Новый чек», 978b762). Без фокуса. -->
                                         <Button Classes="main-ghost"
+                                                Focusable="False"
                                                 Padding="0"
                                                 Background="Transparent"
                                                 BorderThickness="0"
@@ -555,8 +560,10 @@
                                                 <!-- Whole clickable area is a real Button (not a same-Z-layer sibling
                                                      under IsHitTestVisible=False text) — same reliable pattern the
                                                      card view already uses, so a tap here always reaches SelectProductCommand. -->
+                                                <!-- 2026-09-30: без фокуса — см. плитку выше (Enter сканера). -->
                                                 <Button Grid.Column="0" Grid.ColumnSpan="5"
                                                         Classes="main-ghost"
+                                                        Focusable="False"
                                                         Background="Transparent" BorderThickness="0"
                                                         Padding="0"
                                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"

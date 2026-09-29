@@ -1260,6 +1260,8 @@
     <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
     <x:String x:Key="loc.owner.scales.sequentialPlu">Tovarga doimiy PLU</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Har bir tovar o'z PLU raqamini bir marta oladi va har yuborishda saqlaydi: tovar qo'shish, qidiruv, filtr va saralash raqamni o'zgartirmaydi. Yangi tovarga «Boshlang'ich PLU»dan boshlab eng kichik bo'sh raqam beriladi. Raqamni PLU ustunida tuzatish mumkin — yuborishda kassa tovarni yangi katakka yozadi, eskisini tozalaydi va tarozi tugmalarini yangi raqamga o'tkazadi. PLUni saytdagi tovar kartochkasidan olish uchun belgini olib tashlang.</x:String>
+    <x:String x:Key="loc.owner.scales.webPlu">Saytdagidek PLU</x:String>
+    <x:String x:Key="loc.owner.scales.webPluTip">Tarozidagi katak raqami = tovarning saytdagi PLU'si. PLU'si yo‘q belgilangan vaznli tovarlarga kassa saytda bo‘sh raqamlar beradi — sayt, kassa va tarozi bir xil bo‘ladi.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">To'g'ridan-to'g'ri kabel orqali</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Kassa tarozi bilan lokal tarmoq orqali serversiz o'zi bog'lanadi. Haqiqiy tarozilarda sinovdan o'tkazilmagan — portni tarozining tizim menyusida tekshiring.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Ulanish sozlamalari…</x:String>
@@ -1449,6 +1451,7 @@
   <x:String x:Key="scaleSetup.rongta.hint">Rongta’ning o‘z tarmoq protokoli yo‘q: kassa ro‘yxatni tayyorlaydi va RLS1000 dasturida yuklashni boshlaydi. Bu yerdagi manzil va port — «Aloqani tekshirish» uchun.</x:String>
   <x:String x:Key="scaleSetup.rongta.routeSite">Sayt va RLS1000 orqali</x:String>
   <x:String x:Key="scaleSetup.rongta.routeServer">Kassaning o‘z serveri</x:String>
+  <x:String x:Key="scaleSetup.rongta.routeLan">To‘g‘ridan-to‘g‘ri tarmoq orqali (RLS1000'siz)</x:String>
   <x:String x:Key="scaleSetup.rongta.serverPort">O‘z server porti</x:String>
   <x:String x:Key="scaleSetup.tm.hint">Kassa tovarlarni taroziga tarmoq orqali (TCP) o‘zi yuboradi. Odatiy port — 4001; tarozi manzili — «Русский масштаб» dasturida: «Настройка коммуникации → Настройка Ethernet».</x:String>
   <x:String x:Key="scaleSetup.ai.hint">AI tarozilarning umumiy protokoli yo‘q — har bir model o‘z dasturi bilan keladi. Kassa fayl saqlaydi (PLU, nomi, birligi, narxi), siz uni tarozi dasturi bilan yuklaysiz. Manzil kerak emas.</x:String>

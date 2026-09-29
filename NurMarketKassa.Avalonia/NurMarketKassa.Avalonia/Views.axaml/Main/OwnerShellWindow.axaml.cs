@@ -87,8 +87,12 @@ public partial class OwnerShellWindow : Window, IMainShell
             await RefreshAsync().ConfigureAwait(true);
             _timer.Start();
             // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
-            _ = PollSiteOrdersAsync();
-            _siteOrdersTimer.Start();
+            // 2026-09-30: опрос «Закупок» и значок — только когда список заказов включён.
+            if (ShowcaseApiService.OrdersListEnabled)
+            {
+                _ = PollSiteOrdersAsync();
+                _siteOrdersTimer.Start();
+            }
         };
         Closed += (_, _) =>
         {

@@ -36,7 +36,7 @@ public partial class ScalesPluWindow
 {
     /// <summary>Номера ячеек раздаёт касса: прямая отправка на ШТРИХ-ПРИНТ и TM-30F. Сервер NurCRM,
     /// Rongta и AI-весы нумеруют сами (там колонка PLU — номер из карточки товара).</summary>
-    private bool KassaNumbering => (_brand == BrandShtrikh && ShtrikhDirect) || IsTm;
+    private bool KassaNumbering => (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire;
 
     /// <summary>Галочка «Постоянный PLU за товаром» снята — номер ячейки = PLU из карточки товара
     /// (у товара без PLU в карточке — закреплённый номер).</summary>
@@ -46,7 +46,7 @@ public partial class ScalesPluWindow
     /// двухбайтовое поле номера ПЛУ протокола.</summary>
     private int _shtrikhTableSize;
 
-    private int MaxPlu => IsTm ? DahuaTmProtocol.MaxPluNumber : (_shtrikhTableSize > 0 ? _shtrikhTableSize : 65535);
+    private int MaxPlu => IsDahuaWire ? DahuaTmProtocol.MaxPluNumber : (_shtrikhTableSize > 0 ? _shtrikhTableSize : 65535);
 
     private int PluStart =>
         int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start) && start > 0 ? start : 1;
@@ -82,6 +82,7 @@ public partial class ScalesPluWindow
         {
             foreach (var row in _allRows)
                 row.SetPlu(CatalogPluText(row), tentative: false, readOnly: true, CatalogPluHint());
+            UpdateHotkeyAuto();
             return;
         }
 
@@ -102,7 +103,8 @@ public partial class ScalesPluWindow
         foreach (var row in _allRows)
         {
             if (catalogMode && row.CatalogPlu is > 0)
-                row.SetPlu(CatalogPluText(row), tentative: false, readOnly: true, CatalogPluHint());
+                // 2026-09-30: PLU с сайта можно исправить здесь — правка уходит и на сайт (PluText_LostFocus).
+                row.SetPlu(CatalogPluText(row), tentative: false, readOnly: false, CatalogPluHint());
             else if (profile.PluNumbers.TryGetValue(row.Id, out var pinned))
                 row.SetPlu(pinned.ToString(CultureInfo.InvariantCulture), tentative: false, readOnly: false,
                     Tr.T("Постоянный номер ячейки на весах. Можно исправить — при отправке касса перенесёт товар и клавиши.",
@@ -125,6 +127,7 @@ public partial class ScalesPluWindow
                          "Henüz numara yok — ürünü işaretleyin veya numarayı kendiniz yazın.",
                          "Raqam hali berilmagan — tovarni belgilang yoki raqamni o‘zingiz yozing."));
         }
+        UpdateHotkeyAuto();
     }
 
     private static string CatalogPluText(ScalePluRowVm row) =>
@@ -144,9 +147,133 @@ public partial class ScalesPluWindow
 
     private void PluStartBox_LostFocus(object? sender, RoutedEventArgs e) => RefreshPluNumbers();
 
+    /// <summary>2026-09-30, просьба владельца «на сайте PLU даётся автоматически — сделай синхронизацию с
+    /// вебом»: номер ячейки на весах = PLU товара на сайте (галочка «Постоянный PLU» снимается), а
+    /// отмеченным весовым товарам без PLU касса присваивает на сайте наименьшие свободные номера
+    /// (PATCH plu; сервер сам отказывает в занятом номере — тогда берём следующий). Номера не больше
+    /// таблицы весов (у TM-30F/Rongta — 4000), чтобы PLU с сайта годился как номер ячейки.</summary>
+    private async void WebPlu_Click(object? sender, RoutedEventArgs e) => await SyncWebPluAsync(ask: true).ConfigureAwait(true);
+
+    /// <summary>2026-09-30 (владелец: «сделай синхронизацию PLU с сайтом, если нет PLU — назначь их»):
+    /// то же, что кнопка, но без вопроса — вызывается перед каждой прямой отправкой на весы.
+    /// Возвращает текст итога для строки состояния («» — присваивать было нечего).</summary>
+    private async Task<string> SyncWebPluAsync(bool ask)
+    {
+        var missing = _allRows.Where(r => r.IsSelected && r.CatalogPlu is not > 0).ToList();
+        if (missing.Count > 0 && ask)
+        {
+            var ok = await PosDialogHost.ShowAsync(new PosConfirmDialog(
+                Tr.T("PLU как на сайте", "Сайттагыдай PLU", "PLU as on the website", "Sitedeki gibi PLU", "Saytdagidek PLU"),
+                Tr.T($"У {missing.Count} отмеченных товаров нет PLU на сайте. Касса присвоит им на сайте свободные номера PLU (как сайт делает при создании весового товара). Номер ячейки на весах будет равен PLU с сайта.",
+                     $"Белгиленген {missing.Count} товардын сайтта PLU'су жок. Касса аларга сайтта бош PLU номерлерин берет (сайт салмактуу товарды түзгөндөгүдөй). Таразадагы уячанын номери сайттагы PLU'га барабар болот.",
+                     $"{missing.Count} ticked products have no PLU on the website. The till will give them free PLU numbers on the website (as the website does when a weighed product is created). The scale slot number will equal the website PLU.",
+                     $"İşaretli {missing.Count} ürünün sitede PLU'su yok. Kasa onlara sitede boş PLU numaraları verir (site tartılı ürün oluştururken yaptığı gibi). Tartıdaki hücre numarası sitedeki PLU'ya eşit olur.",
+                     $"Belgilangan {missing.Count} ta tovarning saytda PLU'si yo‘q. Kassa ularga saytda bo‘sh PLU raqamlarini beradi (sayt vaznli tovar yaratganda qilganidek). Tarozidagi katak raqami saytdagi PLU'ga teng bo‘ladi."),
+                Tr.T("Присвоить", "Берүү", "Assign", "Ata", "Berish")), this).ConfigureAwait(true) == true;
+            if (!ok)
+                return "";
+        }
+
+        WebPluButton.IsEnabled = false;
+        var assigned = 0;
+        var failed = new List<string>();
+        try
+        {
+            // Все PLU компании (не только весовых) — сервер требует уникальности по компании.
+            var used = NurMarketKassa.Services.CatalogCacheService.Products
+                .Where(p => p.Plu is > 0).Select(p => p.Plu!.Value).ToHashSet();
+            var next = 1;
+            for (var i = 0; i < missing.Count; i++)
+            {
+                var row = missing[i];
+                StatusText.Text = Tr.T($"PLU на сайте: {i + 1} из {missing.Count}…", $"Сайттагы PLU: {missing.Count} ичинен {i + 1}…",
+                    $"PLU on the website: {i + 1} of {missing.Count}…", $"Sitede PLU: {i + 1} / {missing.Count}…", $"Saytdagi PLU: {missing.Count} dan {i + 1}…");
+                var done = false;
+                for (var attempt = 0; attempt < 20 && !done; attempt++)
+                {
+                    while (next <= MaxPlu && used.Contains(next))
+                        next++;
+                    if (next > MaxPlu)
+                        break;
+                    try
+                    {
+                        await App.CatalogApi.SetProductPluAsync(row.Id, next).ConfigureAwait(true);
+                        used.Add(next);
+                        row.CatalogPlu = next;
+                        var cached = NurMarketKassa.Services.CatalogCacheService.Products.FirstOrDefault(p => p.Id == row.Id);
+                        if (cached is not null)
+                            cached.Plu = next;
+                        PosLogger.Log($"Весы: PLU на сайте «{row.Name}» = {next}", "SCALES");
+                        assigned++;
+                        done = true;
+                    }
+                    catch (ApiException ex) when (ex.Message.Contains("PLU", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Номер занят товаром, которого нет в кэше кассы (удалён/скрыт) — следующий.
+                        used.Add(next);
+                    }
+                }
+                if (!done)
+                    failed.Add(row.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Весы: PLU на сайте не присвоены: {ex}", "SCALES");
+            failed.Add(ex.Message);
+        }
+        finally
+        {
+            WebPluButton.IsEnabled = true;
+        }
+
+        // Номер ячейки = PLU с сайта. 2026-09-30 (владелец: «постоянный PLU за товаром не сохраняется»):
+        // галочку «Постоянный PLU» больше НЕ снимаем — вместо этого закреплённый номер товара
+        // становится равен его PLU с сайта (если номер помещается в таблицу весов и не занят другим
+        // закреплённым товаром) и сохраняется. Перенос со старой ячейки — как при ручной правке PLU.
+        var profile = LabelScaleStore.Active;
+        var repinned = 0;
+        foreach (var row in _allRows.Where(r => r.IsSelected && r.CatalogPlu is > 0 && r.CatalogPlu <= MaxPlu))
+        {
+            var web = row.CatalogPlu!.Value;
+            if (profile.PluNumbers.TryGetValue(row.Id, out var pinned) && pinned == web)
+                continue;
+            // Номер держит другой товар: если тот тоже есть на сайте со своим PLU — он переедет на
+            // свой в этом же проходе; иначе номер освобождаем только у товаров, которых нет в каталоге.
+            var holder = profile.PluNumbers.FirstOrDefault(kv => kv.Value == web && kv.Key != row.Id).Key;
+            if (holder is not null)
+            {
+                var holderRow = _allRows.FirstOrDefault(r => r.Id == holder);
+                var holderWeb = holderRow?.CatalogPlu ?? NurMarketKassa.Services.CatalogCacheService.Products.FirstOrDefault(p => p.Id == holder)?.Plu;
+                if (holderWeb is > 0 && holderWeb != web)
+                    profile.PluNumbers.Remove(holder); // получит свой PLU с сайта (или новый номер при отправке)
+                else if (holderRow is not null || NurMarketKassa.Services.CatalogCacheService.Products.Any(p => p.Id == holder))
+                    continue; // живой товар без своего PLU держит этот номер — не отнимаем
+                else
+                    profile.PluNumbers.Remove(holder);
+            }
+            profile.PluNumbers[row.Id] = web;
+            repinned++;
+        }
+        if (repinned > 0)
+            PosLogger.Log($"Весы «{profile.Name}»: закреплённые номера = PLU с сайта у {repinned} товаров", "SCALES");
+        LabelScaleStore.Save();
+        RefreshPluNumbers();
+        UpdateBarcodeExample();
+
+        var summary = Tr.T($"Номер ячейки на весах = PLU с сайта. Присвоено на сайте: {assigned}.", $"Таразадагы уячанын номери = сайттагы PLU. Сайтта берилди: {assigned}.",
+                              $"Scale slot number = website PLU. Assigned on the website: {assigned}.", $"Tartı hücre numarası = sitedeki PLU. Sitede atanan: {assigned}.",
+                              $"Tarozi katak raqami = saytdagi PLU. Saytda berildi: {assigned}.")
+                          + (failed.Count > 0
+                              ? Tr.T($" Не удалось: {failed.Count} — ", $" Болбоду: {failed.Count} — ", $" Failed: {failed.Count} — ", $" Başarısız: {failed.Count} — ", $" Bo‘lmadi: {failed.Count} — ") + string.Join(", ", failed.Take(3))
+                              : "");
+        StatusText.Text = summary;
+        return assigned > 0 || failed.Count > 0 ? summary : "";
+    }
+
     /// <summary>Владелец вписал номер в колонку PLU: проверяем диапазон и что номер свободен, и
     /// закрепляем. Сам перенос на весах (новая ячейка, клавиши, очистка старой) — при отправке.</summary>
-    private void PluText_LostFocus(object? sender, RoutedEventArgs e)
+    private async void PluText_LostFocus(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is not ScalePluRowVm row || row.PluReadOnly || !KassaNumbering)
             return;
@@ -212,6 +339,28 @@ public partial class ScalesPluWindow
             : Tr.T($"«{row.Name}»: PLU {value} закреплён.", $"«{row.Name}»: PLU {value} бекитилди.", $"“{row.Name}”: PLU {value} fixed.",
                    $"«{row.Name}»: PLU {value} sabitlendi.", $"«{row.Name}»: PLU {value} biriktirildi.");
         RefreshPluNumbers();
+
+        // 2026-09-30 (владелец: «добавь возможность изменения PLU»): исправленный номер — и PLU товара на
+        // сайте, чтобы сайт, касса и весы не разошлись. Сервер сам откажет, если номер у другого товара.
+        if (!OfflineModeHelper.UseLocalOperations && row.CatalogPlu != value)
+        {
+            try
+            {
+                await App.CatalogApi.SetProductPluAsync(row.Id, value).ConfigureAwait(true);
+                row.CatalogPlu = value;
+                var cached = NurMarketKassa.Services.CatalogCacheService.Products.FirstOrDefault(p => p.Id == row.Id);
+                if (cached is not null)
+                    cached.Plu = value;
+                PosLogger.Log($"Весы: PLU на сайте «{row.Name}» = {value} (правка в окне «Весы»)", "SCALES");
+                StatusText.Text += Tr.T($" На сайте PLU тоже {value}.", $" Сайтта да PLU {value}.", $" The website PLU is {value} too.", $" Sitedeki PLU da {value}.", $" Saytda ham PLU {value}.");
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Весы: PLU на сайте «{row.Name}» не изменён: {ex.Message}", "SCALES");
+                StatusText.Text += Tr.T(" На сайте PLU не изменён: ", " Сайтта PLU өзгөргөн жок: ", " The website PLU was not changed: ", " Sitedeki PLU değişmedi: ", " Saytda PLU o‘zgarmadi: ") + ex.Message;
+            }
+            RefreshPluNumbers();
+        }
     }
 
     /// <summary>2026-09-29: клавиша проверяется сразу при вводе (число 1–120, не у другого товара), а
@@ -220,6 +369,12 @@ public partial class ScalesPluWindow
     {
         if ((sender as Control)?.DataContext is not ScalePluRowVm row)
             return;
+        // 2026-09-30: у Rongta кнопка = PLU — вписанная кнопка переставляет PLU товара.
+        if (KeyIsPlu)
+        {
+            _ = HotkeyEditAsPluAsync(row);
+            return;
+        }
         var text = (row.HotkeyText ?? "").Trim();
         if (text.Length > 0)
         {
@@ -318,6 +473,10 @@ public partial class ScalesPluWindow
         var rowsById = _allRows.ToDictionary(r => r.Id);
         var codes = new Dictionary<string, long>(StringComparer.Ordinal);
         var problems = new Dictionary<string, string>(StringComparer.Ordinal);
+        var autoCodeIds = new List<string>();
+        var explicitIds = new HashSet<string>(StringComparer.Ordinal);
+        var savedCodes = LabelScaleStore.Active.BarcodeCodes;
+        _codeReplaceNote = "";
         foreach (var id in selectedIds)
         {
             if (!rowsById.TryGetValue(id, out var row))
@@ -329,11 +488,33 @@ public partial class ScalesPluWindow
                 continue;
             }
             // Как и раньше: пустой или неверный «Код в ШК» — в код идёт номер ячейки.
-            codes[id] = long.TryParse((row.BarcodeCode ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var code)
-                        && code >= 1 && code <= maxCode
-                ? code
-                : plu;
+            var typed = long.TryParse((row.BarcodeCode ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var code)
+                        && code >= 1 && code <= maxCode;
+            // 2026-09-30 (владелец перенёс «Ак Кант» с PLU 66 на 1 — в «Код в ШК» осталось 66, а 66 уже
+            // получил другой товар, отправка встала): у весов «!0L» (Rongta, TM-30F) код, который владелец
+            // сам не вписывал, идёт за номером ячейки, а не за тем, что было в колонке при открытии окна.
+            var saved = savedCodes.TryGetValue(id, out var savedText)
+                        && long.TryParse(savedText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var savedCode)
+                        && savedCode >= 1 && savedCode <= maxCode;
+            if (IsDahuaWire && !saved)
+                typed = false;
+            codes[id] = typed ? code : plu;
+            if (!typed)
+                autoCodeIds.Add(id);
+            else
+                explicitIds.Add(id);
         }
+
+        // 2026-09-30, живой случай владельца (весы Rongta, 219 весовых товаров): у товаров без «Кода
+        // в ШК» код = номер ячейки (98, 99…), а такие числа уже были PLU/кодами ДРУГИХ товаров
+        // каталога — касса отказывалась отправлять весь список. Теперь пустой «Код в ШК» получает
+        // свободный код (не PLU/артикул/код другого весового товара, не код с этикеток других весов,
+        // в пределах цифр кода в штрих-коде кассы) и сразу записывается в колонку. Вписанный руками
+        // код проверяется как раньше.
+        // Вписанный код, который на кассе открыл бы ЧУЖОЙ товар, тоже заменяется (номером ячейки или
+        // свободным кодом) — с пометкой, а не остановкой всей отправки.
+        AssignFreeCodes(autoCodeIds, codes, rowsById, maxCode);
+        ResolveExplicitCodeConflicts(explicitIds, numbers, codes, rowsById, maxCode);
 
         // Один номер PLU у двух товаров (режим «PLU из карточки»: одинаковый PLU на сайте).
         foreach (var group in numbers.Where(kv => codes.ContainsKey(kv.Key)).GroupBy(kv => kv.Value).Where(g => g.Count() > 1))
@@ -383,6 +564,141 @@ public partial class ScalesPluWindow
                 row.SetStatus("⚠ " + text, RowState.Warning);
         }
         return (codes, problems);
+    }
+
+    /// <summary>Пустой «Код в ШК»: оставляем номер ячейки, если по нему касса откроет этот же товар
+    /// (или никакой), иначе берём наименьший свободный код. Свободный — не PLU/артикул/код другого
+    /// весового товара каталога, не код этикеток других весов (ScaleLabelCodeRegistry), не код
+    /// другого товара этой отправки и помещается в цифры кода штрих-кода кассы (5 — «по PLU», 6 —
+    /// «по коду»). Найденный код пишется в колонку и запоминается для этих весов.</summary>
+    private void AssignFreeCodes(List<string> autoIds, Dictionary<string, long> codes,
+        Dictionary<string, ScalePluRowVm> rowsById, long maxCode)
+    {
+        if (autoIds.Count == 0)
+            return;
+        var (codeLength, _) = ScaleBarcodeRules.Layout();
+        long limit = 1;
+        for (var i = 0; i < codeLength; i++)
+            limit *= 10;
+        limit = Math.Min(maxCode, limit - 1);
+
+        // Коды, которые касса по этикетке отдаст какому-то весовому товару каталога.
+        var taken = new Dictionary<long, string>();
+        void Take(string? text, string productId)
+        {
+            var digits = (text ?? "").Trim().TrimStart('0');
+            if (digits.Length > 0 && digits.Length <= 9 && digits.All(char.IsDigit))
+                taken.TryAdd(long.Parse(digits, CultureInfo.InvariantCulture), productId);
+        }
+        // Порядок — как у поиска кассы (LocalCartService.FindByEmbeddedCodeInCatalog): при раскладке «по
+        // PLU» сначала PLU весовых товаров, потом артикул/код товара; «по коду» — наоборот.
+        var weighed = NurMarketKassa.Services.CatalogCacheService.Products.Where(p => p.MustWeigh).ToList();
+        var codeLayout = string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase);
+        if (!codeLayout)
+            foreach (var p in weighed.Where(p => p.Plu is > 0))
+                taken.TryAdd(p.Plu!.Value, p.Id);
+        foreach (var p in weighed)
+        {
+            Take(p.Article, p.Id);
+            Take(p.ProductCode, p.Id);
+        }
+        if (codeLayout)
+            foreach (var p in weighed.Where(p => p.Plu is > 0))
+                taken.TryAdd(p.Plu!.Value, p.Id);
+        var autoSet = autoIds.ToHashSet(StringComparer.Ordinal);
+        var used = codes.Where(kv => !autoSet.Contains(kv.Key)).Select(kv => kv.Value).ToHashSet();
+
+        bool FreeFor(long candidate, string id)
+        {
+            if (candidate < 1 || candidate > limit || used.Contains(candidate))
+                return false;
+            if (taken.TryGetValue(candidate, out var owner) && !string.Equals(owner, id, StringComparison.Ordinal))
+                return false;
+            var registered = ScaleLabelCodeRegistry.ProductIdFor(candidate.ToString(CultureInfo.InvariantCulture));
+            // Код товара из этой же отправки в списке кодов весов перезапишется ею — не помеха.
+            return registered is null || string.Equals(registered, id, StringComparison.Ordinal) || codes.ContainsKey(registered);
+        }
+
+        long next = 1;
+        foreach (var id in autoIds)
+        {
+            var code = codes[id];
+            if (!FreeFor(code, id))
+            {
+                while (next <= limit && !FreeFor(next, id))
+                    next++;
+                if (next > limit)
+                    continue; // свободных нет — сработает обычная проверка и покажет, чей это код
+                code = next;
+            }
+            codes[id] = code;
+            used.Add(code);
+            if (rowsById.TryGetValue(id, out var row))
+            {
+                row.BarcodeCode = code.ToString(CultureInfo.InvariantCulture);
+                // Подобранный кассой код не «вписан владельцем»: при смене PLU он пойдёт за номером.
+                if (!IsDahuaWire)
+                    RememberBarcodeCode(row);
+            }
+        }
+    }
+
+    /// <summary>Итог замен кодов последней проверки — дописывается к строке состояния после отправки.</summary>
+    private string _codeReplaceNote = "";
+
+    /// <summary>Вписанный «Код в ШК», который открыл бы на кассе другой товар: берём номер ячейки товара,
+    /// если он свободен, иначе наименьший свободный код; новый код запоминается для этих весов.
+    /// Проверка — тем же поиском, что у кассы при скане этикетки.</summary>
+    private void ResolveExplicitCodeConflicts(HashSet<string> explicitIds, IReadOnlyDictionary<string, int> numbers,
+        Dictionary<string, long> codes, Dictionary<string, ScalePluRowVm> rowsById, long maxCode)
+    {
+        if (explicitIds.Count == 0)
+            return;
+        var (codeLength, _) = ScaleBarcodeRules.Layout();
+        long limit = 1;
+        for (var i = 0; i < codeLength; i++)
+            limit *= 10;
+        limit = Math.Min(maxCode, limit - 1);
+        bool Free(long candidate, string id)
+        {
+            if (candidate < 1 || candidate > limit)
+                return false;
+            if (codes.Any(kv => kv.Value == candidate && !string.Equals(kv.Key, id, StringComparison.Ordinal)))
+                return false;
+            var hit = LocalCartService.FindByEmbeddedCodeInCatalog(candidate.ToString(CultureInfo.InvariantCulture));
+            if (hit is not null)
+                return string.Equals(hit.Id, id, StringComparison.Ordinal);
+            var registered = ScaleLabelCodeRegistry.ProductIdFor(candidate.ToString(CultureInfo.InvariantCulture));
+            return registered is null || string.Equals(registered, id, StringComparison.Ordinal) || codes.ContainsKey(registered);
+        }
+        var notes = new List<string>();
+        foreach (var id in explicitIds)
+        {
+            var code = codes[id];
+            if (Free(code, id))
+                continue;
+            long replacement = numbers.TryGetValue(id, out var plu) && Free(plu, id) ? plu : 0;
+            for (long c = 1; replacement == 0 && c <= limit; c++)
+            {
+                if (Free(c, id))
+                    replacement = c;
+            }
+            if (replacement == 0)
+                continue; // свободных нет — обычная проверка покажет, чей это код
+            codes[id] = replacement;
+            if (rowsById.TryGetValue(id, out var row))
+            {
+                row.BarcodeCode = replacement.ToString(CultureInfo.InvariantCulture);
+                RememberBarcodeCode(row);
+                notes.Add($"«{row.Name}» {code} → {replacement}");
+            }
+        }
+        if (notes.Count > 0)
+        {
+            PosLogger.Log("Весы: «Код в ШК» заменён (открывал чужой товар): " + string.Join("; ", notes), "SCALES");
+            _codeReplaceNote = Tr.T(" «Код в ШК» заменён (открывал бы чужой товар): ", " «ШКдагы код» алмашты (башка товарды ачмак): ", " “Barcode code” replaced (it would open another product): ", " «Barkod kodu» değiştirildi (başka ürünü açardı): ", " «ShKdagi kod» almashtirildi (boshqa tovarni ochardi): ")
+                                + string.Join(", ", notes.Take(5)) + (notes.Count > 5 ? $" (+{notes.Count - 5})" : "") + ".";
+        }
     }
 
     private static string CodeTakenText(long code, string owner, bool quoted = true)
@@ -544,7 +860,9 @@ public partial class ScalesPluWindow
                 return;
             }
 
-            var marker = IsTm ? ScalePluPlanner.TmLayoutMarker : ScalePluPlanner.ShtrikhLayoutMarker;
+            var marker = IsTm ? ScalePluPlanner.TmLayoutMarker
+                : IsRongtaLan ? ScalePluPlanner.RongtaLayoutMarker
+                : ScalePluPlanner.ShtrikhLayoutMarker;
             var selected = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
             var products = _allRows.Select(r => (r.Id, r.Name)).ToList();
             // В строке журнала не записано, на какие весы шла отправка: при нескольких весах одной

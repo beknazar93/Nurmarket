@@ -11,7 +11,12 @@
              VerticalContentAlignment="Stretch">
 
     <UserControl.Styles>
+        <!-- 2026-09-30, владелец: «ловушку с Enter убрать и у остальных кнопок». Enter, которым сканер
+             заканчивает каждый код, нажимал кнопку, оставшуюся в фокусе после щелчка («Доп. услуга»,
+             «Скидка», «Ещё», «Печать последнего», «Оплатить»…), а код до сканера не доходил. Как у
+             Button.receipt-tab (978b762) и всех кнопок новых видов кассы — без фокуса. -->
         <Style Selector="Button.cart-action">
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Height" Value="42"/>
             <Setter Property="Padding" Value="8,10"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -77,6 +82,8 @@
         </Style>
 
         <Style Selector="Button.cart-accent">
+            <!-- 2026-09-30: без фокуса, см. Button.cart-action выше. -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -340,7 +347,9 @@
                                          текст посреди пустой панели, без намёка на то, что по ним
                                          можно нажать. Вид взят у карточки каталога — один и тот же
                                          товар должен выглядеть одинаково с обеих сторон экрана. -->
+                                    <!-- 2026-09-30: быстрый товар без фокуса — иначе Enter сканера добавлял его ещё раз. -->
                                     <Button Width="134" Height="66"
+                                            Focusable="False"
                                             Margin="4"
                                             Padding="10,6"
                                             Cursor="Hand"

@@ -86,6 +86,12 @@ public sealed class ShowcaseApiService
 
     public static int? LastNewOrdersCount { get; private set; }
 
+    /// <summary>2026-09-30, решение владельца: список /api/main/orders/ пока НЕ показываем. Витрина NurCRM
+    /// заказ на сервер не пишет (только открывает WhatsApp), а /orders/ на сайте — раздел «Закупки»: там
+    /// оказались бы закупки у поставщиков под видом заказов с сайта. Включить (true), когда NurCRM начнёт
+    /// сохранять заказы с витрины (ТЗ бэкенду, часть 3) — окно и значок в меню уже готовы.</summary>
+    public static readonly bool OrdersListEnabled = false;
+
     /// <summary>Число новых заказов изменилось без нового списка (владелец сменил статус в карточке).</summary>
     public static void PublishNewOrdersCount(int count)
     {

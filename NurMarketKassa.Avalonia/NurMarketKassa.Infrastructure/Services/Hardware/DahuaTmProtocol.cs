@@ -57,6 +57,14 @@ public sealed record DahuaTmPlu
     public IReadOnlyList<int>? ReservedAdv { get; init; }
 }
 
+/// <summary>2026-09-30: как записывать имя товара в «!0V». Dahua — по 3 цифры на байт CP1251
+/// (TM-30F); Rongta — парами по 4 цифры (<see cref="RongtaNameCodec"/>, подобрано на живых весах).</summary>
+public enum DahuaTmNameCodec
+{
+    Dahua = 0,
+    Rongta = 1,
+}
+
 /// <summary>Почему запись PLU не может уйти на весы (текст на 5 языках — в окне кассы).</summary>
 public enum DahuaTmPluProblem
 {
@@ -204,7 +212,9 @@ public static class DahuaTmProtocol
     /// проходит <see cref="Validate"/> — вызывающий должен проверить заранее.</summary>
     /// <param name="nameTerminator">«000» после каждого имени, как у настоящего сборщика mscale.
     /// false — как в демо-строках EXE (используется только самопроверкой).</param>
-    public static string BuildPluCommand(DahuaTmPlu plu, int priceDecimals, bool nameTerminator = true)
+    /// <param name="codec">2026-09-30: Rongta — имена парами (<see cref="RongtaNameCodec"/>).</param>
+    public static string BuildPluCommand(DahuaTmPlu plu, int priceDecimals, bool nameTerminator = true,
+        DahuaTmNameCodec codec = DahuaTmNameCodec.Dahua)
     {
         var problem = Validate(plu, priceDecimals);
         if (problem != DahuaTmPluProblem.None)
@@ -236,9 +246,38 @@ public static class DahuaTmProtocol
         foreach (var (column, length) in FixedFields)
             sb.Append(Digits(values.TryGetValue(column, out var v) ? v : 0, length));
         sb.Append('B');
-        sb.Append(EncodeName(plu.Name, nameTerminator)).Append('C');
-        sb.Append(EncodeName(plu.NoteA, nameTerminator)).Append('D');
-        sb.Append(EncodeName(plu.NoteB, nameTerminator)).Append('E');
+        if (codec == DahuaTmNameCodec.Rongta)
+        {
+            sb.Append(RongtaNameCodec.Encode(plu.Name)).Append('C');
+            sb.Append(RongtaNameCodec.Encode(plu.NoteA)).Append('D');
+            sb.Append(RongtaNameCodec.Encode(plu.NoteB)).Append('E');
+        }
+        else
+        {
+            sb.Append(EncodeName(plu.Name, nameTerminator)).Append('C');
+            sb.Append(EncodeName(plu.NoteA, nameTerminator)).Append('D');
+            sb.Append(EncodeName(plu.NoteB, nameTerminator)).Append('E');
+        }
+        sb.Append(LineEnd);
+        return sb.ToString();
+    }
+
+    /// <summary>Клавиш быстрого вызова на одной странице «!0L».</summary>
+    public const int HotkeysPerPage = 35;
+
+    /// <summary>2026-09-30: клавиши быстрого вызова — «!0L» + страница (2 цифры: 00 — клавиши 1–35,
+    /// 01 — 36–70 …) + «A» + 35 номеров PLU по 4 цифры + «\r\n». Формат — статья CSDN «大华条码秤开发之-
+    /// 快捷键传输»; на весах Rongta владельца строка с клавишей 1 = PLU 66 принята («0l00a\r\n\x03»).
+    /// По умолчанию на весах клавиша N вызывает PLU N — касса шлёт так же для клавиш без товара.</summary>
+    public static string BuildHotkeyPage(int page, IReadOnlyDictionary<int, int> pluByKey)
+    {
+        var sb = new StringBuilder(8 + HotkeysPerPage * 4);
+        sb.Append("!0L").Append(Digits(page, 2)).Append('A');
+        for (var i = 1; i <= HotkeysPerPage; i++)
+        {
+            var key = page * HotkeysPerPage + i;
+            sb.Append(Digits(pluByKey.TryGetValue(key, out var plu) ? plu : key, 4));
+        }
         sb.Append(LineEnd);
         return sb.ToString();
     }

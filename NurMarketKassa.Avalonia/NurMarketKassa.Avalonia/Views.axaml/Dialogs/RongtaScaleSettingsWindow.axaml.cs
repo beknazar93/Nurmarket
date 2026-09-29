@@ -49,12 +49,13 @@ public partial class RongtaScaleSettingsWindow : Window
         Opened += (_, _) => this.FitToKassaScreen();
         Title = L("Настройки весов Rongta", "Rongta таразасынын жөндөөлөрү", "Rongta scale settings", "Rongta tartı ayarları", "Rongta tarozi sozlamalari");
         TitleText.Text = Title;
+        // 2026-09-30: весы Rongta понимают протокол Dahua (порт 4001) — касса пишет товары сама.
         IntroText.Text = L(
-            "Весы Rongta (RLS1000/RLS1100) загружаются через их программу RLS1000 — касса готовит данные и «нажимает» в ней загрузку. Сетевой протокол самих весов в руководствах не описан, поэтому здесь нет команд весам: только адрес, проверка связи, способ загрузки и штрих-код.",
-            "Rongta таразасы (RLS1000/RLS1100) өз программасы RLS1000 аркылуу жүктөлөт — касса маалыматты даярдап, андагы жүктөөнү «басат». Таразанын тармак протоколу колдонмолордо жазылган эмес, ошондуктан бул жерде таразага буйруктар жок: дарек, байланышты текшерүү, жүктөө жолу жана штрих-код гана.",
-            "Rongta scales (RLS1000/RLS1100) are loaded through their RLS1000 software — the till prepares the data and “presses” download there. The scale's own network protocol is not described in the manuals, so there are no direct scale commands here: only the address, connection check, upload method and barcode.",
-            "Rongta tartılar (RLS1000/RLS1100) kendi RLS1000 programıyla yüklenir — kasa verileri hazırlar ve orada yüklemeye “basar”. Tartının ağ protokolü kılavuzlarda yok, bu yüzden burada tartıya komut yok: yalnızca adres, bağlantı kontrolü, yükleme yolu ve barkod.",
-            "Rongta tarozilari (RLS1000/RLS1100) o‘z RLS1000 dasturi orqali yuklanadi — kassa ma’lumotni tayyorlab, unda yuklashni «bosadi». Tarozining tarmoq protokoli qo‘llanmalarda yo‘q, shuning uchun bu yerda taroziga buyruqlar yo‘q: faqat manzil, aloqani tekshirish, yuklash usuli va shtrix-kod.");
+            "Весы Rongta (RLS1000/RLS1100): касса может записывать товары прямо в весы по сети (порт 4001, без RLS1000) или через программу RLS1000. Здесь — адрес, проверка связи, способ загрузки и штрих-код.",
+            "Rongta таразасы (RLS1000/RLS1100): касса товарларды тармак аркылуу түз таразага жаза алат (4001 порт, RLS1000'сиз) же RLS1000 программасы аркылуу. Бул жерде — дарек, байланышты текшерүү, жүктөө жолу жана штрих-код.",
+            "Rongta scales (RLS1000/RLS1100): the till can write goods straight into the scale over the network (port 4001, no RLS1000) or through RLS1000. Here: address, connection check, upload method and barcode.",
+            "Rongta tartılar (RLS1000/RLS1100): kasa ürünleri ağ üzerinden doğrudan tartıya yazabilir (port 4001, RLS1000'siz) ya da RLS1000 ile. Burada: adres, bağlantı kontrolü, yükleme yolu ve barkod.",
+            "Rongta tarozilari (RLS1000/RLS1100): kassa tovarlarni tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yoza oladi (4001 port, RLS1000'siz) yoki RLS1000 orqali. Bu yerda — manzil, aloqani tekshirish, yuklash usuli va shtrix-kod.");
 
         Tabs.Items.Add(MakeTab(L("Подключение", "Туташуу", "Connection", "Bağlantı", "Ulanish"), BuildConnectionTab()));
         Tabs.Items.Add(MakeTab(L("Загрузка товаров", "Товарларды жүктөө", "Uploading goods", "Ürün yükleme", "Tovarlarni yuklash"), BuildUploadTab()));
@@ -62,6 +63,9 @@ public partial class RongtaScaleSettingsWindow : Window
         UpdateHeader();
         ShowResult(L("Введите IP весов и нажмите «Проверить связь».", "Таразанын IP'син киргизип «Байланышты текшерүү» басыңыз.", "Enter the scale IP and press “Check connection”.", "Tartı IP'sini girip “Bağlantıyı kontrol et”e basın.", "Tarozi IP'sini kiriting va «Aloqani tekshirish»ni bosing."), false);
     }
+
+    /// <summary>2026-09-30: открыть сразу вкладку «Штрих-код» (кнопка в окне «Весы»).</summary>
+    public void ShowBarcodeTab() => Tabs.SelectedIndex = 2;
 
     private static TabItem MakeTab(string header, Control content) =>
         new() { Header = header, Content = new ScrollViewer { Content = content } };
@@ -172,7 +176,15 @@ public partial class RongtaScaleSettingsWindow : Window
             if (arp is not null)
                 lines.Add("MAC " + arp);
 
-            var ok = pingOk || tcpOk || arp is not null;
+            // 2026-09-30: порт 4001 — чтение PLU №1 протоколом Dahua (только чтение), им касса
+            // пишет товары напрямую. Ответ «0u0001a» — весы на связи (ячейка пустая).
+            var direct = DahuaTmScaleService.TryCreate(ip, DahuaTmProtocol.DefaultPort, DahuaTmNameCodec.Rongta);
+            var directCheck = direct is null ? null : await direct.TestConnectionAsync(CancellationToken.None).ConfigureAwait(true);
+            lines.Add(directCheck?.Replied == true
+                ? L("TCP 4001: весы ответили — можно отправлять напрямую", "TCP 4001: тараза жооп берди — түз жөнөтсө болот", "TCP 4001: the scale answered — direct sending works", "TCP 4001: tartı yanıt verdi — doğrudan gönderim olur", "TCP 4001: tarozi javob berdi — to‘g‘ridan-to‘g‘ri yuborish mumkin")
+                : L("TCP 4001: весы не ответили", "TCP 4001: тараза жооп берген жок", "TCP 4001: the scale did not answer", "TCP 4001: tartı yanıt vermedi", "TCP 4001: tarozi javob bermadi"));
+
+            var ok = pingOk || tcpOk || arp is not null || directCheck?.Replied == true;
             var summary = ok
                 ? L("Устройство по этому адресу в сети. ", "Бул даректеги түзмөк тармакта. ", "A device at this address is on the network. ", "Bu adresteki cihaz ağda. ", "Bu manzildagi qurilma tarmoqda. ")
                 : L("По этому адресу никого нет: проверьте IP на весах, кабель и что весы включены. ", "Бул даректе эч ким жок: таразадагы IP'ни, кабелди жана тараза күйүк экенин текшериңиз. ", "Nobody at this address: check the IP on the scale, the cable and that the scale is on. ", "Bu adreste kimse yok: tartıdaki IP'yi, kabloyu ve tartının açık olduğunu kontrol edin. ", "Bu manzilda hech kim yo‘q: tarozidagi IP, kabel va tarozi yoqilganini tekshiring. ");
@@ -213,9 +225,40 @@ public partial class RongtaScaleSettingsWindow : Window
         var panel = new StackPanel { Spacing = 12, Margin = new Thickness(0, 10, 8, 10) };
         var prefs = UserPreferences.Instance;
         var useServer = string.Equals(prefs.RongtaDataSource, "server", StringComparison.OrdinalIgnoreCase);
+        var useLan = prefs.RongtaDirectLan;
         string Current(bool active) => active ? "  ✓ " + L("выбрано сейчас", "азыр тандалган", "selected now", "şu an seçili", "hozir tanlangan") : "";
 
-        panel.Children.Add(Card(L("Способ 1 — файл .txp и F9 (по умолчанию)", "1-жол — .txp файлы жана F9 (демейки)", "Method 1 — .txp file and F9 (default)", "Yöntem 1 — .txp dosyası ve F9 (varsayılan)", "1-usul — .txp fayli va F9 (standart)") + Current(!useServer),
+        // 2026-09-30: способ 3 — касса сама пишет товары на весы (протокол Dahua, TCP 4001), без
+        // RLS1000. Весы владельца ответили на «!0V» и напечатали этикетки верно (6 серий проверок).
+        var lanCard = Card(L("Напрямую по сети — без RLS1000 (рекомендуется)", "Тармак аркылуу түз — RLS1000'сиз (сунушталат)", "Directly over the network — no RLS1000 (recommended)", "Doğrudan ağ üzerinden — RLS1000'siz (önerilir)", "To‘g‘ridan-to‘g‘ri tarmoq orqali — RLS1000'siz (tavsiya etiladi)") + Current(useLan),
+            L("Касса сама записывает отмеченные товары в ячейки PLU весов по сети (порт 4001) — как на весах TM-30F: название, цена за кг (два знака), код товара для штрих-кода, срок годности. У каждого товара постоянный номер PLU. Буквы, которых весы не печатают, касса заменяет похожими: «я» в конце названия — «Я», иногда «ш ы ь э ю» — заглавной.",
+              "Касса белгиленген товарларды таразанын PLU уячаларына тармак аркылуу өзү жазат (4001 порт) — TM-30F таразасындагыдай: аталышы, кг баасы (эки белги), штрих-код үчүн товар коду, жарактуулук мөөнөтү. Ар бир товардын туруктуу PLU номери бар. Тараза баса албаган тамгаларды касса окшошуна алмаштырат: аталыштын аягындагы «я» — «Я», кээде «ш ы ь э ю» — баш тамга.",
+              "The till writes the ticked goods into the scale's PLU slots itself over the network (port 4001) — like the TM-30F: name, price per kg (two decimals), item code for the barcode, shelf life. Every product keeps a fixed PLU number. Letters the scale cannot print are replaced with similar ones: a final «я» becomes «Я», sometimes «ш ы ь э ю» become capitals.",
+              "Kasa işaretli ürünleri tartının PLU hücrelerine ağ üzerinden kendisi yazar (port 4001) — TM-30F'teki gibi: ad, kg fiyatı (iki ondalık), barkod için ürün kodu, raf ömrü. Her ürünün sabit PLU numarası vardır. Tartının basamadığı harfler benzerleriyle değiştirilir: sondaki «я» → «Я», bazen «ш ы ь э ю» büyük harf olur.",
+              "Kassa belgilangan tovarlarni tarozining PLU kataklariga tarmoq orqali o‘zi yozadi (4001 port) — TM-30F dagi kabi: nomi, kg narxi (ikki kasr), shtrix-kod uchun tovar kodi, yaroqlilik muddati. Har bir tovarning doimiy PLU raqami bor. Tarozi chop eta olmaydigan harflar o‘xshashiga almashtiriladi: oxiridagi «я» — «Я», ba’zan «ш ы ь э ю» — bosh harf."),
+            out var lanBody);
+        // Префикс (отдел) штрих-кода — на вкладке «Штрих-код», рядом с типом и примером этикетки.
+        var shelfBox = new NumericUpDown { Minimum = 0, Maximum = 999, Increment = 1, FormatString = "0", Value = Math.Clamp(prefs.RongtaLanShelfLifeDays, 0, 999), MinWidth = 140 };
+        shelfBox.ValueChanged += (_, _) => { prefs.RongtaLanShelfLifeDays = (int)(shelfBox.Value ?? 0); prefs.SaveToDisk(); };
+        lanBody.Children.Add(Row(L("Срок годности, дней (0 — не задан)", "Жарактуулук мөөнөтү, күн (0 — коюлган эмес)", "Shelf life, days (0 — not set)", "Raf ömrü, gün (0 — yok)", "Yaroqlilik muddati, kun (0 — belgilanmagan)"), shelfBox));
+        lanBody.Children.Add(Text(L("Пример: «Шоколад молочный 90г» на весах будет «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ».",
+            "Мисал: «Шоколад молочный 90г» таразада «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ» болот.",
+            "Example: «Шоколад молочный 90г» shows as «Шоколад молочнЫй 90г», «Колбаса вареная» as «Колбаса варенаЯ».",
+            "Örnek: «Шоколад молочный 90г» tartıda «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ» olur.",
+            "Misol: «Шоколад молочный 90г» tarozida «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ» bo‘ladi."), "hint"));
+        if (!useLan)
+        {
+            lanBody.Children.Add(ButtonRow(MakeButton(L("Выбрать этот способ", "Бул жолду тандоо", "Use this method", "Bu yöntemi seç", "Shu usulni tanlash"), true, (_, _) =>
+            {
+                prefs.RongtaDataSource = "lan";
+                prefs.SaveToDisk();
+                NurMarketKassa.AvaloniaHost.Services.LabelScaleStore.CaptureActive();
+                ShowResult(L("Выбрано: напрямую по сети. Откройте окно «Весы» и нажмите «Отправить на весы».", "Тандалды: тармак аркылуу түз. «Таразалар» терезесин ачып «Таразага жөнөтүү» басыңыз.", "Selected: directly over the network. Open the “Scales” window and press “Send to scale”.", "Seçildi: doğrudan ağ üzerinden. «Tartı» penceresini açıp «Tartıya gönder»e basın.", "Tanlandi: to‘g‘ridan-to‘g‘ri tarmoq orqali. «Tarozi» oynasini ochib «Taroziga yuborish»ni bosing."), false);
+            })));
+        }
+        panel.Children.Add(lanCard);
+
+        panel.Children.Add(Card(L("Способ 1 — файл .txp и F9 (по умолчанию)", "1-жол — .txp файлы жана F9 (демейки)", "Method 1 — .txp file and F9 (default)", "Yöntem 1 — .txp dosyası ve F9 (varsayılan)", "1-usul — .txp fayli va F9 (standart)") + Current(!useServer && !useLan),
             L("Касса скачивает список весовых товаров в формате RLS1000 (.txp, как вкладка «Rongta» на сайте), кладёт его в рабочую папку RLS1000, запускает RLS1000 и «нажимает» F9 — «Download PLU» (полная перезапись товаров на весах). Касса видит только «команда передана»: успех показывает сама RLS1000.",
               "Касса салмактуу товарлардын тизмесин RLS1000 форматында (.txp, сайттагы «Rongta» өтмөгүндөй) жүктөп алып, RLS1000'дун жумушчу папкасына салат, RLS1000'ду иштетип F9 — «Download PLU» (таразадагы товарларды толук алмаштыруу) «басат». Касса «буйрук берилди» дегенди гана көрөт: ийгиликти RLS1000 өзү көрсөтөт.",
               "The till downloads the weighed goods in RLS1000 format (.txp, like the “Rongta” tab on the website), puts it into the RLS1000 work folder, starts RLS1000 and “presses” F9 — “Download PLU” (full overwrite of goods on the scale). The till only sees “command sent”; RLS1000 itself shows success.",
@@ -266,16 +309,38 @@ public partial class RongtaScaleSettingsWindow : Window
         _typeBox = new ComboBox { MinWidth = 360 };
         foreach (var t in _types)
             _typeBox.Items.Add($"{t.Type:00} — {t.Pattern}");
-        _typeBox.SelectedIndex = Math.Max(0, _types.FindIndex(t => t.Type == 7));
-        _typeBox.SelectionChanged += (_, _) => UpdateSample();
+        // 2026-09-30: тип запоминается (раньше всегда открывался 07). По умолчанию 02 — так стоит на
+        // весах владельца (этикетка 20 34567 00290 8: отдел 20, код 5 цифр, сумма 5 цифр).
+        _typeBox.SelectedIndex = Math.Max(0, _types.FindIndex(t => t.Type == UserPreferences.Instance.RongtaBarcodeType));
+        _typeBox.SelectionChanged += (_, _) =>
+        {
+            if (SelectedType is { } selected)
+            {
+                UserPreferences.Instance.RongtaBarcodeType = selected.Type;
+                UserPreferences.Instance.SaveToDisk();
+            }
+            UpdateSample();
+        };
         body.Children.Add(Row(L("Тип штрих-кода", "Штрих-коддун түрү", "Barcode type", "Barkod türü", "Shtrix-kod turi"), _typeBox));
 
         _typeHint = Text("", "hint");
         body.Children.Add(_typeHint);
 
-        _department = new NumericUpDown { Minimum = 0, Maximum = 99, Increment = 1, FormatString = "0", Value = 20, MinWidth = 140 };
-        _department.ValueChanged += (_, _) => UpdateSample();
-        body.Children.Add(Row(L("Отдел товара (DD / D)", "Товардын бөлүмү (DD / D)", "Item department (DD / D)", "Ürün reyonu (DD / D)", "Tovar bo‘limi (DD / D)"), _department));
+        // 2026-09-30: отдел = «префикс штрих-кода», который касса пишет в каждый товар при отправке
+        // напрямую (поле Dahua madv5; на этикетке весов владельца напечаталось 20).
+        _department = new NumericUpDown { Minimum = 0, Maximum = 99, Increment = 1, FormatString = "0", Value = Math.Clamp(UserPreferences.Instance.RongtaLanBarcodePrefix, 0, 99), MinWidth = 140 };
+        _department.ValueChanged += (_, _) =>
+        {
+            UserPreferences.Instance.RongtaLanBarcodePrefix = (int)(_department.Value ?? 20);
+            UserPreferences.Instance.SaveToDisk();
+            UpdateSample();
+        };
+        body.Children.Add(Row(L("Отдел / префикс товара (DD)", "Товардын бөлүмү / префикси (DD)", "Item department / prefix (DD)", "Ürün reyonu / öneki (DD)", "Tovar bo‘limi / prefiksi (DD)"), _department));
+        body.Children.Add(Text(L("При отправке «напрямую по сети» касса сама записывает этот отдел в каждый товар. Тип штрих-кода меняется только на весах: [SETTING] → «set default barcode type».",
+            "«Тармак аркылуу түз» жөнөткөндө касса бул бөлүмдү ар бир товарга өзү жазат. Штрих-коддун түрү таразада гана өзгөрөт: [SETTING] → «set default barcode type».",
+            "When sending “directly over the network” the till writes this department into every item. The barcode type is changed only on the scale: [SETTING] → “set default barcode type”.",
+            "“Doğrudan ağ üzerinden” gönderimde kasa bu reyonu her ürüne yazar. Barkod türü yalnızca tartıda değişir: [SETTING] → “set default barcode type”.",
+            "«To‘g‘ridan-to‘g‘ri tarmoq orqali» yuborishda kassa bu bo‘limni har bir tovarga o‘zi yozadi. Shtrix-kod turi faqat tarozida o‘zgaradi: [SETTING] → «set default barcode type»."), "hint"));
 
         _sampleCode = new NumericUpDown { Minimum = 1, Maximum = 9999999, Increment = 1, FormatString = "0", Value = 123, MinWidth = 140 };
         _sampleCode.ValueChanged += (_, _) => UpdateSample();

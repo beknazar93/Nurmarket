@@ -141,6 +141,23 @@ public sealed class UserPreferences
     /// <summary>Срок годности, дней, для всех отправляемых товаров (0 — не задан).</summary>
     public int TmScaleShelfLifeDays { get; set; }
 
+    /// <summary>2026-09-30: RongtaDataSource = «lan» — касса сама пишет товары на весы Rongta
+    /// (протокол Dahua «!0V», TCP 4001, проверено на весах владельца).</summary>
+    public bool RongtaDirectLan => string.Equals(RongtaDataSource, "lan", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Префикс весового штрих-кода, который Rongta печатает для отправленных кассой товаров.</summary>
+    public int RongtaLanBarcodePrefix { get; set; } = 20;
+
+    /// <summary>Срок годности, дней, для товаров, отправленных на Rongta напрямую (0 — не задан).</summary>
+    public int RongtaLanShelfLifeDays { get; set; }
+
+    /// <summary>Тип штрих-кода, выбранный на весах Rongta (Appendix II, RongtaBarcodeFormat). На весах
+    /// владельца 30.09 — 02: «DD IIIII PPPPP C» (этикетка 2034567002908).</summary>
+    public int RongtaBarcodeType { get; set; } = 2;
+
+    /// <summary>2026-09-30: сколько кнопок быстрого вызова на весах (окно «Кнопки весов»).</summary>
+    public int ScaleKeyCount { get; set; } = 70;
+
     // Дисплей цены покупателя (отдельная COM-коробочка, не второй монитор — см.
     // PoleDisplayService, 2026-09-04)
     public string PoleDisplayComPort { get; set; } = "COM3";
@@ -989,6 +1006,14 @@ public sealed class UserPreferences
                 p.TmScaleSendMode = fromFile.TmScaleSendMode;
             if (fromFile.TmScaleShelfLifeDays is >= 0 and <= 999)
                 p.TmScaleShelfLifeDays = fromFile.TmScaleShelfLifeDays.Value;
+            if (fromFile.RongtaLanBarcodePrefix is >= 0 and <= 99)
+                p.RongtaLanBarcodePrefix = fromFile.RongtaLanBarcodePrefix.Value;
+            if (fromFile.RongtaLanShelfLifeDays is >= 0 and <= 999)
+                p.RongtaLanShelfLifeDays = fromFile.RongtaLanShelfLifeDays.Value;
+            if (fromFile.RongtaBarcodeType is >= 0 and <= 99)
+                p.RongtaBarcodeType = fromFile.RongtaBarcodeType.Value;
+            if (fromFile.ScaleKeyCount is >= 1 and <= 240)
+                p.ScaleKeyCount = fromFile.ScaleKeyCount.Value;
             if (fromFile.LoyaltyEarnPercent is not null)
                 p.LoyaltyEarnPercent = Math.Clamp(fromFile.LoyaltyEarnPercent.Value, 0, 100);
             // 2026-09-28, BE-11: нет в файле (старые настройки) — остаётся значение по умолчанию.
@@ -1211,6 +1236,10 @@ public sealed class UserPreferences
                 TmScaleDahuaBarcode = TmScaleDahuaBarcode,
                 TmScaleSendMode = TmScaleSendMode,
                 TmScaleShelfLifeDays = TmScaleShelfLifeDays,
+                RongtaLanBarcodePrefix = RongtaLanBarcodePrefix,
+                RongtaLanShelfLifeDays = RongtaLanShelfLifeDays,
+                RongtaBarcodeType = RongtaBarcodeType,
+                ScaleKeyCount = ScaleKeyCount,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
                 QuickCheckoutEnabled = QuickCheckoutEnabled,
                 PosHotkeys = PosHotkeys,
@@ -1454,6 +1483,10 @@ public sealed class UserPreferences
         public string? TmScaleDahuaBarcode { get; set; }
         public string? TmScaleSendMode { get; set; }
         public int? TmScaleShelfLifeDays { get; set; }
+        public int? RongtaLanBarcodePrefix { get; set; }
+        public int? RongtaLanShelfLifeDays { get; set; }
+        public int? RongtaBarcodeType { get; set; }
+        public int? ScaleKeyCount { get; set; }
         public double? LoyaltyEarnPercent { get; set; }
         public bool? QuickCheckoutEnabled { get; set; }
         public Dictionary<string, string>? PosHotkeys { get; set; }

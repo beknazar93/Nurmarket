@@ -34,6 +34,8 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         <Style Selector="Button.receipt-pill">
+            <!-- 2026-09-30: без фокуса — иначе Enter, которым сканер заканчивает код, нажимал кнопку ещё раз (товар/чек добавлялся сам) -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="BorderThickness" Value="0"/>

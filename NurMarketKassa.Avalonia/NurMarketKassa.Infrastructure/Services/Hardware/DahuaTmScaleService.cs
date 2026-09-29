@@ -98,15 +98,19 @@ public sealed class DahuaTmScaleService
     }
 
     /// <summary>null — адрес не IP (окно показывает понятную ошибку само).</summary>
-    public static DahuaTmScaleService? TryCreate(string? host, int port)
+    public static DahuaTmScaleService? TryCreate(string? host, int port, DahuaTmNameCodec codec = DahuaTmNameCodec.Dahua)
     {
         if (!IPAddress.TryParse((host ?? "").Trim(), out var address))
             return null;
-        return new DahuaTmScaleService(address, port);
+        return new DahuaTmScaleService(address, port) { NameCodec = codec };
     }
 
     public string Host => _endPoint.Address.ToString();
     public int Port => _endPoint.Port;
+
+    /// <summary>2026-09-30: весы Rongta говорят тем же «!0V» на порту 4001, но имя у них — парами
+    /// (<see cref="RongtaNameCodec"/>). По умолчанию — как у TM-30F.</summary>
+    public DahuaTmNameCodec NameCodec { get; init; } = DahuaTmNameCodec.Dahua;
 
     /// <summary>%LOCALAPPDATA%\NurMarketKassa\Logs\tm30f-exchange.log (у программы владельца — своя папка).</summary>
     public static string ExchangeLogPath => ExchangeLogPathOverride ?? Path.Combine(
@@ -164,7 +168,28 @@ public sealed class DahuaTmScaleService
         }
     }
 
+    /// <summary>2026-09-30: весы Rongta владельца стоят на Wi-Fi и после простоя отвечают не с первого
+    /// раза (первый ping — 1076 мс, «проверить связь» раз не прошла, через секунду — прошла). Три
+    /// попытки подключения с паузой 0,7 с вместо одной.</summary>
+    private const int ConnectAttempts = 3;
+
     private async Task<(Connection? Connection, long Ms, string Detail)> ConnectAsync(CancellationToken ct)
+    {
+        var watch = Stopwatch.StartNew();
+        var detail = "";
+        for (var attempt = 1; attempt <= ConnectAttempts; attempt++)
+        {
+            var (connection, _, d) = await ConnectOnceAsync(ct).ConfigureAwait(false);
+            if (connection is not null)
+                return (connection, watch.ElapsedMilliseconds, "");
+            detail = d;
+            if (attempt < ConnectAttempts)
+                await Task.Delay(700, ct).ConfigureAwait(false);
+        }
+        return (null, watch.ElapsedMilliseconds, detail);
+    }
+
+    private async Task<(Connection? Connection, long Ms, string Detail)> ConnectOnceAsync(CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
         var client = new TcpClient { NoDelay = true };
@@ -314,7 +339,7 @@ public sealed class DahuaTmScaleService
     public async Task<DahuaTmUploadResult> UploadPlusAsync(IReadOnlyList<DahuaTmPlu> plus, int priceDecimals,
         DahuaTmSendMode mode, IProgress<DahuaTmUploadProgress>? progress, CancellationToken ct)
     {
-        var lines = plus.Select(p => DahuaTmProtocol.BuildPluCommand(p, priceDecimals)).ToList();
+        var lines = plus.Select(p => DahuaTmProtocol.BuildPluCommand(p, priceDecimals, codec: NameCodec)).ToList();
         var result = new DahuaTmUploadResult { Total = lines.Count };
         if (lines.Count == 0)
             return result;
@@ -427,6 +452,42 @@ public sealed class DahuaTmScaleService
             }
         }
         return connection;
+    }
+
+    /// <summary>2026-09-30: клавиши быстрого вызова (DahuaTmProtocol.BuildHotkeyPage) — страницы по 35
+    /// клавиш от первой до той, где последняя заданная клавиша. Клавиши без товара — по умолчанию
+    /// (клавиша N → PLU N). Возвращает (страниц принято, ошибка).</summary>
+    public async Task<(int Pages, DahuaTmError Error)> UploadHotkeysAsync(IReadOnlyDictionary<int, int> pluByKey, CancellationToken ct)
+    {
+        if (pluByKey.Count == 0)
+            return (0, DahuaTmError.None);
+        var lastPage = (pluByKey.Keys.Max() - 1) / DahuaTmProtocol.HotkeysPerPage;
+        Log("--", $"клавиши: {pluByKey.Count} шт., страниц {lastPage + 1}");
+        var (connection, _, _) = await ConnectAsync(ct).ConfigureAwait(false);
+        if (connection is null)
+            return (0, DahuaTmError.ConnectFailed);
+        using (connection)
+        {
+            var pages = 0;
+            for (var page = 0; page <= lastPage; page++)
+            {
+                var line = DahuaTmProtocol.BuildHotkeyPage(page, pluByKey);
+                var done = false;
+                for (var attempt = 0; attempt <= _retries && !done; attempt++)
+                {
+                    if (!await WriteAsync(connection, line, ct).ConfigureAwait(false))
+                        return (pages, DahuaTmError.SendFailed);
+                    var (outcome, _, _) = await ReadReplyAsync(connection, _replyTimeoutMs, ct).ConfigureAwait(false);
+                    done = outcome is ReadOutcome.Reply or ReadOutcome.Unframed;
+                    if (outcome == ReadOutcome.Closed)
+                        return (pages, DahuaTmError.ConnectionLost);
+                }
+                if (!done)
+                    return (pages, DahuaTmError.NoReply);
+                pages++;
+            }
+            return (pages, DahuaTmError.None);
+        }
     }
 
     private async Task SendBatchAsync(Connection connection, List<string> lines, IReadOnlyList<DahuaTmPlu> plus,

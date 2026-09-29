@@ -180,7 +180,8 @@ public static class LabelScaleStore
                 prefs.RongtaScaleIp = profile.Ip;
                 if (profile.Port is > 0 and <= 65535)
                     prefs.RongtaScalePort = profile.Port;
-                prefs.RongtaDataSource = profile.RongtaSource is "server" ? "server" : "site";
+                // 2026-09-30: «lan» — касса сама пишет товары на весы (протокол Dahua, порт 4001).
+                prefs.RongtaDataSource = profile.RongtaSource is "server" or "lan" ? profile.RongtaSource : "site";
                 if (profile.RongtaServerPort is > 0 and <= 65535)
                     prefs.RongtaServerPort = profile.RongtaServerPort;
                 break;
@@ -219,7 +220,7 @@ public static class LabelScaleStore
             case "rongta":
                 profile.Ip = !string.IsNullOrWhiteSpace(prefs.RongtaScaleIp) ? prefs.RongtaScaleIp! : "";
                 profile.Port = prefs.RongtaScalePort;
-                profile.RongtaSource = prefs.RongtaDataSource is "server" ? "server" : "site";
+                profile.RongtaSource = prefs.RongtaDataSource is "server" or "lan" ? prefs.RongtaDataSource : "site";
                 profile.RongtaServerPort = prefs.RongtaServerPort;
                 break;
             case "shtrikh":

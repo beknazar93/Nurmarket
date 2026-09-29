@@ -55,6 +55,19 @@ public partial class ScalesPluWindow : Window
 
     private bool IsRongta => _brand == BrandRongta;
 
+    /// <summary>2026-09-30: Rongta «напрямую по сети» — касса сама пишет PLU протоколом Dahua (TCP
+    /// 4001, имена — RongtaNameCodec), без RLS1000. Проверено на весах владельца по этикеткам.</summary>
+    private bool IsRongtaLan => IsRongta && UserPreferences.Instance.RongtaDirectLan;
+
+    /// <summary>Весы, которые касса пишет строками «!0V» (TM-30F и Rongta напрямую).</summary>
+    private bool IsDahuaWire => IsTm || IsRongtaLan;
+
+    /// <summary>Rongta показывает цену с двумя знаками (1234 → 12,34 на весах владельца, 30.09).</summary>
+    private const int RongtaPricePoint = 2;
+
+    /// <summary>Горячих кнопок у Rongta RLS1000/1100: 112 на клавиатуре × 2 уровня (руководство весов).</summary>
+    private const int RongtaHotkeyCount = 224;
+
     /// <summary>Штрих-ПРИНТ отправляется напрямую по сети (а не через сервер NurCRM).</summary>
     private static bool ShtrikhDirect => UserPreferences.Instance.ShtrikhDirectLan;
 
@@ -85,6 +98,8 @@ public partial class ScalesPluWindow : Window
             "Search: name, PLU or code", "Ara: ad, PLU veya kod", "Qidirish: nomi, PLU yoki kod");
 
         _brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
+        // 2026-09-30: «Показать» и «Лист кнопок» (ScalesPluWindow.KeySheet.cs) — до загрузки строк.
+        InitKeySheetControls();
         FillProfileCombo();
         ApplyBrandVisibility();
         LoadRows();
@@ -97,6 +112,8 @@ public partial class ScalesPluWindow : Window
     /// «Открыть окно «Весы»», «Изменить…») — перечитываем её из настроек.</summary>
     public void ReloadBrandFromPreferences()
     {
+        // 2026-09-30: способ/марку сменили во время ожидания «своего сервера» — ожидание больше не нужно.
+        _rongtaServerCts?.Cancel();
         _brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
         FillProfileCombo();
         ApplyBrandVisibility();
@@ -242,7 +259,7 @@ public partial class ScalesPluWindow : Window
     /// Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.</summary>
     private void ApplyDirectLanVisibility()
     {
-        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsTm;
+        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire;
         var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
         if (barcodeColumn is not null)
             barcodeColumn.IsVisible = direct;
@@ -250,7 +267,12 @@ public partial class ScalesPluWindow : Window
         // NurCRM команды записи клавиш в кассе нет.
         var hotkeyColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "Hotkey"));
         if (hotkeyColumn is not null)
-            hotkeyColumn.IsVisible = _brand == BrandShtrikh && ShtrikhDirect;
+            // 2026-09-30: и у весов «!0L» (Rongta напрямую, TM-30F) — клавиши пишутся страницами.
+            // 2026-09-30: у Rongta кнопка всегда = PLU: «!0L» весы подтверждают, но раскладку не меняют
+            // (проверено на весах владельца: кнопка 1 после «1 → 66» осталась на ячейке 1).
+            // Вписанная кнопка у Rongta = новый PLU товара (ScalesPluWindow.Keys.cs, HotkeyEditAsPluAsync).
+            hotkeyColumn.IsVisible = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire;
+        // 2026-09-30: у Rongta кнопка открывает «Настройки весов Rongta» → «Штрих-код».
         BarcodeSettingsButton.IsVisible = direct;
         UpdateBarcodeExample();
     }
@@ -266,7 +288,7 @@ public partial class ScalesPluWindow : Window
         if (BarcodeExampleText is null)
             return;
         UpdateBarcodeRuleText();
-        var visible = !IsRongta && !IsFileBrand;
+        var visible = (!IsRongta || IsRongtaLan) && !IsFileBrand;
         BarcodeExampleText.IsVisible = visible;
         if (!visible || _allRows is not IEnumerable<ScalePluRowVm> rows)
             return;
@@ -275,6 +297,11 @@ public partial class ScalesPluWindow : Window
         if (IsTm)
         {
             UpdateTmBarcodeExample(row);
+            return;
+        }
+        if (IsRongtaLan)
+        {
+            UpdateRongtaBarcodeExample(row);
             return;
         }
         var layout = NurMarketKassa.Core.Application.WeightBarcodeParser.Layout;
@@ -316,6 +343,16 @@ public partial class ScalesPluWindow : Window
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsRongtaLan)
+        {
+            // 2026-09-30: Rongta напрямую — «Настройки весов Rongta» на вкладке «Штрих-код».
+            var rongtaWindow = new NurMarketKassa.AvaloniaHost.Views.Dialogs.RongtaScaleSettingsWindow();
+            rongtaWindow.ShowBarcodeTab();
+            await rongtaWindow.ShowDialog(this).ConfigureAwait(true);
+            UpdateBarcodeExample();
+            return;
+        }
+
         if (IsTm)
         {
             // 2026-09-28: для TM-30F — окно «Настройки весов TM-30F» на вкладке «Штрих-код».
@@ -422,10 +459,12 @@ public partial class ScalesPluWindow : Window
         var isRongta = IsRongta;
         var isAi = IsFileBrand;
         // Номера PLU нужны только прямой отправке и серверу Штрих-М (у Rongta — свой файл, у AI — CSV).
-        PluStartRow.IsVisible = !isRongta && !isAi;
+        PluStartRow.IsVisible = (!isRongta || IsRongtaLan) && !isAi;
         // 2026-09-29: «Постоянный PLU за товаром» — только там, где номера раздаёт касса (сервер
         // NurCRM нумерует сам, галочка там ничего не меняла).
         SequentialPluCheck.IsVisible = KassaNumbering;
+        WebPluButton.IsVisible = KassaNumbering;
+        KeysButton.IsVisible = KassaNumbering;
         ApplyDirectLanVisibility();
         UpdateHeader();
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
@@ -450,6 +489,12 @@ public partial class ScalesPluWindow : Window
                 "The till saves a file (PLU, name, unit, price) — load it with the scale's software. There is no direct upload: AI scales have no common protocol.",
                 "Kasa bir dosya kaydeder (PLU, ad, birim, fiyat) — onu tartı programıyla yükleyin. Doğrudan yükleme yok: AI tartıların ortak protokolü yok.",
                 "Kassa fayl saqlaydi (PLU, nomi, birligi, narxi) — uni tarozi dasturi bilan yuklang. To‘g‘ridan-to‘g‘ri yuklash yo‘q: AI tarozilarning umumiy protokoli yo‘q."),
+            BrandRongta when IsRongtaLan => Tr.T(
+                "Отмеченные товары уйдут прямо на весы Rongta по сети, без RLS1000. У каждого товара постоянный номер PLU (колонка PLU); в штрих-код этикетки весы напечатают «Код в ШК». Буквы, которых весы не печатают, касса заменит похожими (например, «я» в конце — «Я»).",
+                "Белгиленген товарлар RLS1000'сиз тармак аркылуу түз Rongta таразасына кетет. Ар бир товардын туруктуу PLU номери бар (PLU тилкеси); этикетканын штрих-кодуна тараза «ШКдагы код» басат. Тараза баса албаган тамгаларды касса окшошуна алмаштырат (мисалы, аягындагы «я» — «Я»).",
+                "The ticked goods go straight to the Rongta scale over the network, without RLS1000. Every product has a fixed PLU number (PLU column); the scale prints the “Code in barcode” into the label barcode. Letters the scale cannot print are replaced with similar ones (e.g. a final «я» becomes «Я»).",
+                "İşaretli ürünler RLS1000 olmadan ağ üzerinden doğrudan Rongta tartıya gider. Her ürünün sabit bir PLU numarası var (PLU sütunu); tartı etiket barkoduna «Barkoddaki kod»u basar. Tartının basamadığı harfleri kasa benzerleriyle değiştirir (ör. sondaki «я» → «Я»).",
+                "Belgilangan tovarlar RLS1000'siz tarmoq orqali to‘g‘ridan-to‘g‘ri Rongta taroziga ketadi. Har bir tovarning doimiy PLU raqami bor (PLU ustuni); tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Tarozi chop eta olmaydigan harflarni kassa o‘xshashiga almashtiradi (masalan, oxiridagi «я» — «Я»)."),
             BrandRongta => Tr.T(
                 "На весы уйдёт весь список весовых товаров (галочки здесь не действуют) — через программу RLS1000.",
                 "Таразага бардык салмактуу товарлардын тизмеси кетет (бул жердеги белгилер эске алынбайт) — RLS1000 программасы аркылуу.",
@@ -521,8 +566,10 @@ public partial class ScalesPluWindow : Window
     private void LoadRows()
     {
         var profile = LabelScaleStore.Active;
+        // 2026-09-30: по умолчанию — только весовые на сайте (ScalesPluWindow.KeySheet.cs, «Показать»).
+        var anyMustWeigh = NurMarketKassa.Services.CatalogCacheService.Products.Any(p => p.MustWeigh);
         var rows = NurMarketKassa.Services.CatalogCacheService.Products
-            .Where(p => p.IsWeighted)
+            .Where(p => LoadsProduct(p, anyMustWeigh))
             .OrderBy(p => p.Title, System.StringComparer.CurrentCultureIgnoreCase)
             .Select(p => new ScalePluRowVm
             {
@@ -600,6 +647,7 @@ public partial class ScalesPluWindow : Window
         var category = SelectedCategory;
         var shown = _allRows
             .Where(r => category is null || string.Equals(r.Category, category, StringComparison.CurrentCultureIgnoreCase))
+            .Where(PassesShowFilter)
             .Where(r => words.All(w =>
                 (r.Name ?? "").Contains(w, StringComparison.CurrentCultureIgnoreCase)
                 || string.Equals(r.PluText, w, StringComparison.Ordinal)
@@ -608,7 +656,7 @@ public partial class ScalesPluWindow : Window
 
         ProductsGrid.ItemsSource = shown;
         EmptyText.IsVisible = shown.Count == 0;
-        SearchCountText.Tag = words.Length == 0 && category is null
+        SearchCountText.Tag = words.Length == 0 && category is null && _showMode is ShowMode.SiteWeighted or ShowMode.AllKg
             ? ""
             : Tr.T($"Найдено: {shown.Count} из {_allRows.Count}", $"Табылды: {_allRows.Count} ичинен {shown.Count}",
                    $"Found: {shown.Count} of {_allRows.Count}", $"Bulunan: {shown.Count} / {_allRows.Count}",
@@ -751,13 +799,34 @@ public partial class ScalesPluWindow : Window
             _tmCts.Cancel();
             return;
         }
+        // 2026-09-30: идёт ожидание программы весов («свой сервер») — кнопка «Остановить».
+        if (_rongtaServerCts is not null)
+        {
+            _rongtaServerCts.Cancel();
+            return;
+        }
 
         // 2026-09-28: результат по строкам — с чистого листа на каждую отправку.
         ClearRowStatuses();
         // Несколько весов: запоминаем для этих весов отмеченные товары и клавиши.
         RememberProfileSelection();
 
-        if (IsTm)
+        // 2026-09-30 (владелец): PLU синхронизируются с сайтом — товарам без PLU касса присваивает его
+        // на сайте, номер ячейки = PLU с сайта. Только там, где номера раздаёт касса.
+        if (KassaNumbering && !OfflineModeHelper.UseLocalOperations)
+        {
+            SendButton.IsEnabled = false;
+            try
+            {
+                await SyncWebPluAsync(ask: false).ConfigureAwait(true);
+            }
+            finally
+            {
+                SendButton.IsEnabled = true;
+            }
+        }
+
+        if (IsDahuaWire)
         {
             await SendToTmAsync().ConfigureAwait(true);
             return;
@@ -1051,6 +1120,36 @@ public partial class ScalesPluWindow : Window
             + (ok ? "✓ " : "⚠ ") + verdict;
     }
 
+    /// <summary>2026-09-30: пример этикетки Rongta (напрямую) для первого отмеченного товара: тип ШК
+    /// весов и отдел/префикс — из «Настроек весов Rongta» → «Штрих-код», код — «Код в ШК», сверка —
+    /// разбором кассы. Сам тип меняется только на весах.</summary>
+    private void UpdateRongtaBarcodeExample(ScalePluRowVm? row)
+    {
+        var prefs = UserPreferences.Instance;
+        var type = RongtaBarcodeFormat.Find(prefs.RongtaBarcodeType) ?? RongtaBarcodeFormat.Find(2)!;
+        var code = row is not null && long.TryParse(row.BarcodeCode, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c) && c > 0 ? c : 1;
+        const int grams = 392;
+        var amount = Math.Round((decimal)(row?.Price ?? 100) * grams / 1000m, 2, MidpointRounding.AwayFromZero);
+        var sample = RongtaBarcodeFormat.BuildSample(type, prefs.RongtaLanBarcodePrefix, code, grams, amount);
+        var name = row is null ? "" : RongtaNameCodec.Preview(row.Name);
+        var head = Tr.T($"Этикетка Rongta для «{name}» (0,392 кг): {sample ?? "—"} — тип {type.Type:00} ({type.Pattern}), отдел {prefs.RongtaLanBarcodePrefix:00}. ",
+            $"«{name}» үчүн Rongta этикеткасы (0,392 кг): {sample ?? "—"} — {type.Type:00} түрү ({type.Pattern}), бөлүм {prefs.RongtaLanBarcodePrefix:00}. ",
+            $"Rongta label for “{name}” (0.392 kg): {sample ?? "—"} — type {type.Type:00} ({type.Pattern}), department {prefs.RongtaLanBarcodePrefix:00}. ",
+            $"“{name}” için Rongta etiketi (0,392 kg): {sample ?? "—"} — tür {type.Type:00} ({type.Pattern}), reyon {prefs.RongtaLanBarcodePrefix:00}. ",
+            $"«{name}» uchun Rongta yorlig‘i (0,392 kg): {sample ?? "—"} — {type.Type:00} turi ({type.Pattern}), bo‘lim {prefs.RongtaLanBarcodePrefix:00}. ");
+        if (sample is null || type.Value == RongtaBarcodeFormat.ValueKind.None)
+        {
+            BarcodeExampleText.Text = head + "⚠ " + Tr.T("в этом типе нет веса/суммы, которые касса может прочесть — выберите другой тип на весах.",
+                "бул түрдө касса окуй турган салмак/сумма жок — таразада башка түр тандаңыз.",
+                "this type has no weight/amount the till can read — choose another type on the scale.",
+                "bu türde kasanın okuyabileceği ağırlık/tutar yok — tartıda başka tür seçin.",
+                "bu turda kassa o‘qiy oladigan vazn/summa yo‘q — tarozida boshqa tur tanlang.");
+            return;
+        }
+        var (ok, verdict) = NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.VerifyWithKassa(sample, code, type.Value == RongtaBarcodeFormat.ValueKind.Weight, grams, amount);
+        BarcodeExampleText.Text = head + (ok ? "✓ " : "⚠ ") + verdict;
+    }
+
     /// <summary>Собирает записи PLU для TM-30F так же, как для Штрих-М по LAN: номер — закреплённый
     /// за товаром (2026-09-29; раньше — подряд от «Начальный PLU»), в режиме «PLU из карточки» — PLU
     /// товара; «Код товара» — колонка «Код в штрих-коде» (иначе номер PLU), тип — весовой/штучный из
@@ -1059,7 +1158,10 @@ public partial class ScalesPluWindow : Window
     {
         var prefs = UserPreferences.Instance;
         var byId = NurMarketKassa.Services.CatalogCacheService.Products.ToDictionary(p => p.Id);
-        var decimals = Math.Clamp(prefs.TmScalePricePoint, 0, 3);
+        var decimals = DahuaPricePoint;
+        // 2026-09-30: у Rongta напрямую — свои префикс ШК и срок годности (окно «Настройки весов Rongta»).
+        var shelfLife = IsRongtaLan ? prefs.RongtaLanShelfLifeDays : prefs.TmScaleShelfLifeDays;
+        var barcodePrefix = IsRongtaLan ? prefs.RongtaLanBarcodePrefix : prefs.TmScaleBarcodePrefix;
         var records = new List<DahuaTmPlu>();
         var problems = new List<string>();
         var keyMap = new List<(int Plu, string Name)>();
@@ -1084,8 +1186,8 @@ public partial class ScalesPluWindow : Window
                 ProductCode = productCode,
                 Price = (decimal)LocalCartService.ParsePrice(product.PriceLine),
                 WeighMode = product.IsWeighted ? DahuaTmWeighMode.Weighed : DahuaTmWeighMode.Piece,
-                ShelfLifeDays = Math.Clamp(prefs.TmScaleShelfLifeDays, 0, 999),
-                BarcodePrefix = Math.Clamp(prefs.TmScaleBarcodePrefix, 0, 99),
+                ShelfLifeDays = Math.Clamp(shelfLife, 0, 999),
+                BarcodePrefix = Math.Clamp(barcodePrefix, 0, 99),
                 Name = product.Title,
             };
             var problem = DahuaTmProtocol.Validate(record, decimals);
@@ -1103,6 +1205,9 @@ public partial class ScalesPluWindow : Window
         }
         return (records, problems, keyMap);
     }
+
+    /// <summary>Знаков после запятой в цене на весах: TM-30F — из настроек, Rongta — 2.</summary>
+    private int DahuaPricePoint => IsRongtaLan ? RongtaPricePoint : Math.Clamp(UserPreferences.Instance.TmScalePricePoint, 0, 3);
 
     /// <summary>id товара для каждой записи последнего BuildTmRecords (в том же порядке) — для
     /// результата по строкам.</summary>
@@ -1129,8 +1234,9 @@ public partial class ScalesPluWindow : Window
         _ => problem.ToString(),
     };
 
-    private static string TmErrorText(DahuaTmError error) => error switch
+    private static string TmErrorText(DahuaTmError error, bool rongta = false) => error switch
     {
+        DahuaTmError.ConnectFailed when rongta => Tr.T("нет подключения к весам Rongta (IP, Wi-Fi/кабель, порт 4001; весы включены и не в меню настроек)", "Rongta таразасына туташуу жок (IP, Wi-Fi/кабель, 4001 порт; тараза күйүк жана жөндөө менюсунда эмес)", "no connection to the Rongta scale (IP, Wi-Fi/cable, port 4001; the scale is on and not in its settings menu)", "Rongta tartıya bağlantı yok (IP, Wi-Fi/kablo, port 4001; tartı açık ve ayar menüsünde değil)", "Rongta taroziga ulanish yo‘q (IP, Wi-Fi/kabel, 4001 port; tarozi yoqilgan va sozlamalar menyusida emas)"),
         DahuaTmError.ConnectFailed => Tr.T("нет подключения к весам (IP, порт, кабель; закройте «Русский масштаб», если он подключён к весам)", "таразага туташуу жок (IP, порт, кабель; «Русский масштаб» таразага туташып турса, аны жабыңыз)", "no connection to the scale (IP, port, cable; close “Russian Scale” if it is connected to the scale)", "tartıya bağlantı yok (IP, port, kablo; «Русский масштаб» tartıya bağlıysa kapatın)", "taroziga ulanish yo‘q (IP, port, kabel; «Русский масштаб» taroziga ulangan bo‘lsa, uni yoping)"),
         DahuaTmError.NoReply => Tr.T("весы не ответили за 2,5 с после 4 повторов", "тараза 4 кайталоодон кийин 2,5 с ичинде жооп берген жок", "the scale did not answer within 2.5 s after 4 retries", "tartı 4 tekrardan sonra 2,5 sn içinde yanıt vermedi", "tarozi 4 takrordan keyin 2,5 s ichida javob bermadi"),
         DahuaTmError.ConnectionLost => Tr.T("весы разорвали соединение", "тараза туташууну үздү", "the scale closed the connection", "tartı bağlantıyı kesti", "tarozi ulanishni uzdi"),
@@ -1150,7 +1256,21 @@ public partial class ScalesPluWindow : Window
         }
 
         var prefs = UserPreferences.Instance;
-        var scale = DahuaTmScaleService.TryCreate(prefs.TmScaleIp, prefs.TmScalePort);
+        var rongta = IsRongtaLan;
+        // 2026-09-30: Rongta напрямую — тот же протокол на порту 4001, имена парами (RongtaNameCodec).
+        var scale = rongta
+            ? DahuaTmScaleService.TryCreate(prefs.RongtaScaleIp, DahuaTmProtocol.DefaultPort, DahuaTmNameCodec.Rongta)
+            : DahuaTmScaleService.TryCreate(prefs.TmScaleIp, prefs.TmScalePort);
+        var brandLog = rongta ? "Rongta (напрямую)" : "TM-30F (Dahua)";
+        if (scale is null && rongta)
+        {
+            StatusText.Text = Tr.T("Не задан IP весов Rongta — «Настройки весов Rongta» → «Подключение».",
+                "Rongta таразасынын IP'си коюлган эмес — «Rongta таразасынын жөндөөлөрү» → «Туташуу».",
+                "The Rongta scale IP is not set — “Rongta scale settings” → “Connection”.",
+                "Rongta tartı IP'si girilmemiş — «Rongta tartı ayarları» → «Bağlantı».",
+                "Rongta tarozi IP'si kiritilmagan — «Rongta tarozi sozlamalari» → «Ulanish».");
+            return;
+        }
         if (scale is null)
         {
             StatusText.Text = Tr.T("Не задан IP весов TM-30F — «Настройки весов» → «Подключение».",
@@ -1182,7 +1302,7 @@ public partial class ScalesPluWindow : Window
 
         // 2026-09-28 (просьба владельца): формат ШК весов с суммой без веса (FFWWWWWEEEEEC) — префикс
         // этих весов сам получает правило «сумма», иначе касса прочтёт сумму с этикетки как вес.
-        var autoAmountPrefix = ScaleBarcodeRules.EnsureTmAmountRule();
+        var autoAmountPrefix = rongta ? null : ScaleBarcodeRules.EnsureTmAmountRule();
         if (autoAmountPrefix is not null)
             UpdateBarcodeExample();
 
@@ -1198,8 +1318,8 @@ public partial class ScalesPluWindow : Window
                 MarkTmRowsSent(p.Done);
                 StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…");
             });
-            var result = await scale.UploadPlusAsync(records, Math.Clamp(prefs.TmScalePricePoint, 0, 3), mode, progress, _tmCts.Token).ConfigureAwait(true);
-            PosLogger.Log($"TM-30F (Dahua): выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
+            var result = await scale.UploadPlusAsync(records, DahuaPricePoint, mode, progress, _tmCts.Token).ConfigureAwait(true);
+            PosLogger.Log($"{brandLog}: выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
 
             // Результат по строкам: принятые — ✓, строка, на которой остановились, — ✗, остальные — не отправлены.
             var accepted = result.Ok ? records.Count : result.Acknowledged + result.UnframedReplies;
@@ -1210,7 +1330,7 @@ public partial class ScalesPluWindow : Window
                 if (!rowsById.TryGetValue(_tmRecordIds[i], out var row))
                     continue;
                 if (result.FailedPlu > 0 && keyMap[i].Plu == result.FailedPlu)
-                    row.SetStatus("✗ " + TmErrorText(result.Error), RowState.Error);
+                    row.SetStatus("✗ " + TmErrorText(result.Error, rongta), RowState.Error);
                 else
                     row.SetStatus(NotSentText(), RowState.Warning);
             }
@@ -1229,17 +1349,47 @@ public partial class ScalesPluWindow : Window
                     Name = records[i].Name,
                 };
             }
+            // 2026-09-30: клавиши быстрого вызова из колонки «Клавиша» — страницами «!0L» (клавиша → PLU
+            // ячейки товара). Только если товары записаны и клавиши заданы.
+            var hotkeyNote = "";
+            if (result.Ok)
+            {
+                // Кнопка = PLU; вписанная в «Клавиша» — важнее (ScalesPluWindow.KeySheet.cs).
+                // 2026-09-30: у Rongta кнопки вызывают ячейки по таблице «!0L» (224 кнопки = 112 × 2); после
+                // чужих раскладок кнопки показывали «ПЛУ не привязан к горячей клавише» — касса каждый раз
+                // пишет «кнопка N → ячейка N» для всех 224 (товар на кнопку = PLU товара, KeyIsPlu).
+                var pluByKey = rongta
+                    ? new Dictionary<int, int> { [RongtaHotkeyCount] = RongtaHotkeyCount }
+                    : BuildDahuaKeyMap(_tmRecordIds, records.Select(r => r.PluNumber).ToList());
+                if (pluByKey.Count > 0)
+                {
+                    StatusText.Text = Tr.T("Запись клавиш весов…", "Тараза баскычтары жазылууда…", "Writing the scale keys…", "Tartı tuşları yazılıyor…", "Tarozi tugmalari yozilmoqda…");
+                    var (pages, keyError) = await scale.UploadHotkeysAsync(pluByKey, _tmCts.Token).ConfigureAwait(true);
+                    PosLogger.Log($"{brandLog}: клавиши {string.Join(", ", pluByKey.OrderBy(k => k.Key).Select(k => $"{k.Key}→{k.Value}"))}; страниц {pages}, ошибка {keyError}", "SCALES");
+                    hotkeyNote = keyError == DahuaTmError.None
+                        ? Tr.T($" Клавиши записаны: {pluByKey.Count}.", $" Баскычтар жазылды: {pluByKey.Count}.", $" Keys written: {pluByKey.Count}.", $" Tuşlar yazıldı: {pluByKey.Count}.", $" Tugmalar yozildi: {pluByKey.Count}.")
+                        : Tr.T(" Клавиши не записаны: ", " Баскычтар жазылган жок: ", " Keys not written: ", " Tuşlar yazılmadı: ", " Tugmalar yozilmadi: ") + TmErrorText(keyError, rongta) + ".";
+                }
+            }
+
             var tmPlan = ScalePluPlanner.PlanMoves(LabelScaleStore.Active.SentPlus, written);
             RememberSent(written, Array.Empty<int>());
+            var movesText = string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"));
             var movedNote = tmPlan.PluMoves.Count == 0
                 ? ""
+                : rongta
+                ? Tr.T($" Сменился PLU у товаров: {movesText}. В старых ячейках Rongta остались прежние товары — удалять ячейки касса пока не умеет.",
+                       $" PLU өзгөргөн товарлар: {movesText}. Rongta'нын эски уячаларында мурунку товарлар калды — уячаларды өчүрүүнү касса азырынча билбейт.",
+                       $" PLU changed for: {movesText}. The old Rongta slots still hold the previous goods — the till cannot delete slots yet.",
+                       $" PLU'su değişen ürünler: {movesText}. Rongta'nın eski hücrelerinde önceki ürünler kaldı — kasa henüz hücre silemiyor.",
+                       $" PLU o‘zgargan tovarlar: {movesText}. Rongta eski kataklarida oldingi tovarlar qoldi — kassa hozircha kataklarni o‘chira olmaydi.")
                 : Tr.T($" Сменился PLU у товаров: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. Старые ячейки и клавиши TM-30F проверьте в «Русском масштабе».",
                        $" PLU өзгөргөн товарлар: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'тин эски уячаларын жана баскычтарын «Русский масштаб»та текшериңиз.",
                        $" PLU changed for: {string.Join(", ", tmPlan.PluMoves.Select(m => $"“{rowsById.GetValueOrDefault(m.ProductId)?.Name}” {m.From} → {m.To}"))}. Check the old slots and keys of the TM-30F in “Russian Scale”.",
                        $" PLU'su değişen ürünler: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'in eski hücrelerini ve tuşlarını «Русский масштаб»da kontrol edin.",
                        $" PLU o‘zgargan tovarlar: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F eski kataklari va tugmalarini «Русский масштаб»da tekshiring.");
 
-            var autoRuleNote = movedNote + (autoAmountPrefix is null
+            var autoRuleNote = _codeReplaceNote + hotkeyNote + movedNote + (autoAmountPrefix is null
                 ? ""
                 : Tr.T($" Формат весов — с суммой: этикетки с префиксом {autoAmountPrefix} касса теперь читает как СУММУ.",
                        $" Тараза форматы — сумма менен: {autoAmountPrefix} префикстүү этикеткаларды касса эми СУММА катары окуйт.",
@@ -1259,15 +1409,31 @@ public partial class ScalesPluWindow : Window
                                       ? Tr.T($" Внимание: {result.UnframedReplies} ответ(ов) весов не по ожидаемой форме — см. журнал обмена.", $" Көңүл буруңуз: таразанын {result.UnframedReplies} жообу күтүлгөн формада эмес — алмашуу журналын караңыз.", $" Note: {result.UnframedReplies} scale reply(ies) not in the expected form — see the exchange log.", $" Dikkat: tartının {result.UnframedReplies} yanıtı beklenen biçimde değil — iletişim günlüğüne bakın.", $" Diqqat: tarozining {result.UnframedReplies} javobi kutilgan shaklda emas — almashuv jurnaliga qarang.")
                                       : "")
                                   + autoRuleNote;
-                PosLogger.Log("TM-30F, раскладка PLU: " + string.Join("; ", keyMap.Select(x => $"{x.Plu} — {x.Name}")), "SCALES");
+                PosLogger.Log((rongta ? ScalePluPlanner.RongtaLayoutMarker : ScalePluPlanner.TmLayoutMarker) + string.Join("; ", keyMap.Select(x => $"{x.Plu} — {x.Name}")), "SCALES");
+                if (rongta)
+                {
+                    // 2026-09-30: этикетки Rongta с суммой (тип ШК 02 и т. п.) — префикс этих весов = «сумма»
+                    // здесь и в соседней программе (касса ↔ программа владельца), иначе «21 — вес» читал
+                    // сумму как вес.
+                    var rongtaType = RongtaBarcodeFormat.Find(prefs.RongtaBarcodeType);
+                    if (rongtaType is null || rongtaType.Value == RongtaBarcodeFormat.ValueKind.Price)
+                    {
+                        var prefix = Math.Clamp(prefs.RongtaLanBarcodePrefix, 0, 99).ToString("00", CultureInfo.InvariantCulture);
+                        ScaleBarcodeRules.ApplyAndSave(prefix, NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Amount);
+                        ScaleLabelCodeRegistry.PublishAmountPrefix(prefix);
+                    }
+                }
+                if (rongta)
+                    PosLogger.Log("Rongta, имена на весах: " + string.Join("; ", records.Take(20).Select(r => $"{r.PluNumber} «{RongtaNameCodec.Preview(r.Name)}»")), "SCALES");
             }
             else
             {
-                StatusText.Text = Tr.T($"Отправка не завершена: {TmErrorText(result.Error)}. Принято весами: {result.Acknowledged + result.UnframedReplies} из {result.Total}",
-                                       $"Жөнөтүү аягына чыккан жок: {TmErrorText(result.Error)}. Тараза кабыл алды: {result.Total} ичинен {result.Acknowledged + result.UnframedReplies}",
-                                       $"Sending did not finish: {TmErrorText(result.Error)}. Accepted by the scale: {result.Acknowledged + result.UnframedReplies} of {result.Total}",
-                                       $"Gönderim tamamlanmadı: {TmErrorText(result.Error)}. Tartının kabul ettiği: {result.Acknowledged + result.UnframedReplies} / {result.Total}",
-                                       $"Yuborish tugamadi: {TmErrorText(result.Error)}. Tarozi qabul qildi: {result.Total} dan {result.Acknowledged + result.UnframedReplies}")
+                var errorText = TmErrorText(result.Error, rongta);
+                StatusText.Text = Tr.T($"Отправка не завершена: {errorText}. Принято весами: {result.Acknowledged + result.UnframedReplies} из {result.Total}",
+                                       $"Жөнөтүү аягына чыккан жок: {errorText}. Тараза кабыл алды: {result.Total} ичинен {result.Acknowledged + result.UnframedReplies}",
+                                       $"Sending did not finish: {errorText}. Accepted by the scale: {result.Acknowledged + result.UnframedReplies} of {result.Total}",
+                                       $"Gönderim tamamlanmadı: {errorText}. Tartının kabul ettiği: {result.Acknowledged + result.UnframedReplies} / {result.Total}",
+                                       $"Yuborish tugamadi: {errorText}. Tarozi qabul qildi: {result.Total} dan {result.Acknowledged + result.UnframedReplies}")
                                   + (result.FailedPlu > 0 ? $" (PLU {result.FailedPlu})" : "")
                                   + Tr.T(". Журнал обмена: ", ". Алмашуу журналы: ", ". Exchange log: ", ". İletişim günlüğü: ", ". Almashuv jurnali: ") + DahuaTmScaleService.ExchangeLogPath
                                   + autoRuleNote;
@@ -1275,7 +1441,7 @@ public partial class ScalesPluWindow : Window
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"TM-30F (Dahua): выгрузка не удалась: {ex}", "SCALES");
+            PosLogger.Log($"{brandLog}: выгрузка не удалась: {ex}", "SCALES");
             StatusText.Text = Tr.T("Ошибка отправки: ", "Жиберүү катасы: ", "Send error: ", "Gönderme hatası: ", "Yuborish xatosi: ") + ex.Message;
         }
         finally
@@ -1291,6 +1457,7 @@ public partial class ScalesPluWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _tmCts?.Cancel();
+        _rongtaServerCts?.Cancel();
         base.OnClosed(e);
     }
 
@@ -1397,9 +1564,17 @@ public partial class ScalesPluWindow : Window
     /// протокол RongtaTcpProtocol) и параллельно "нажимаем" F9, чтобы RLS1000 (заранее один
     /// раз настроенная на TCP/IP-режим, см. doc-comment RongtaScaleAutomationService)
     /// подключилась к нам сама. НЕ ПРОВЕРЕНО на реальном железе.</summary>
+    /// <summary>2026-09-30, живой баг владельца: «свой сервер» ждал программу весов 90 с с серой
+    /// кнопкой, и переключение на «напрямую по сети» в это время ничего не давало — кнопка оставалась
+    /// серой, а в строке висело «RLS1000 не найдена…». Теперь ожидание можно остановить кнопкой, и оно
+    /// прерывается само при смене способа/марки и закрытии окна.</summary>
+    private CancellationTokenSource? _rongtaServerCts;
+
     private async Task SendToRongtaViaOwnServerAsync()
     {
-        SendButton.IsEnabled = false;
+        _rongtaServerCts = new CancellationTokenSource();
+        var serverCt = _rongtaServerCts.Token;
+        SendButton.Content = Tr.T("Остановить", "Токтотуу", "Stop", "Durdur", "To‘xtatish");
         try
         {
             var products = NurMarketKassa.Services.CatalogCacheService.Products
@@ -1461,7 +1636,7 @@ public partial class ScalesPluWindow : Window
                     $"RLS1000ning {port} portiga ulanishi kutilmoqda…");
             }
 
-            var serverTask = RongtaTcpServerService.RunOnceAsync(port, products, connectTimeout, CancellationToken.None);
+            var serverTask = RongtaTcpServerService.RunOnceAsync(port, products, connectTimeout, serverCt);
 
             if (exePath is not null)
             {
@@ -1476,6 +1651,11 @@ public partial class ScalesPluWindow : Window
             }
 
             var serverResult = await serverTask.ConfigureAwait(true);
+            if (serverCt.IsCancellationRequested)
+            {
+                StatusText.Text = Tr.T("Ожидание программы весов остановлено.", "Тараза программасын күтүү токтотулду.", "Waiting for the scale software was stopped.", "Tartı programını bekleme durduruldu.", "Tarozi dasturini kutish to‘xtatildi.");
+                return;
+            }
             StatusText.Text = serverResult.IsSuccess
                 ? Tr.T(
                     $"Отправлено на весы через свой сервер: {serverResult.RecordsSent}. Проверьте PLU на весах.",
@@ -1492,7 +1672,10 @@ public partial class ScalesPluWindow : Window
         }
         finally
         {
+            _rongtaServerCts?.Dispose();
+            _rongtaServerCts = null;
             SendButton.IsEnabled = true;
+            SendButton.Content = _sendButtonDefaultText;
         }
     }
 
@@ -1636,7 +1819,7 @@ public partial class ScalesPluWindow : Window
         public string Name { get; init; } = "";
 
         /// <summary>2026-09-29: PLU из карточки товара (null — не задан).</summary>
-        public int? CatalogPlu { get; init; }
+        public int? CatalogPlu { get; set; } // 2026-09-30: set — «PLU как на сайте» присваивает PLU на сайте
 
         private string _pluText = "";
 
@@ -1717,6 +1900,21 @@ public partial class ScalesPluWindow : Window
         private string _hotkeyText = "";
 
         /// <summary>2026-09-28: клавиша быстрого доступа на весах (1–120), пусто — без клавиши.</summary>
+        private string _hotkeyAuto = "";
+
+        /// <summary>2026-09-30: серая подсказка в пустой «Клавише» — кнопка = PLU (весы «!0L»).</summary>
+        public string HotkeyAuto
+        {
+            get => _hotkeyAuto;
+            set
+            {
+                if (_hotkeyAuto == value)
+                    return;
+                _hotkeyAuto = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HotkeyAuto)));
+            }
+        }
+
         public string HotkeyText
         {
             get => _hotkeyText;

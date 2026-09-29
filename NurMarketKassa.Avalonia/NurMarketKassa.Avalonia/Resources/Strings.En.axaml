@@ -1260,6 +1260,8 @@
     <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
     <x:String x:Key="loc.owner.scales.sequentialPlu">Fixed PLU per product</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Each product gets its PLU number once and keeps it on every send: adding products, search, filters and sorting do not change it. A new product gets the lowest free number starting from “Start PLU”. You can correct the number in the PLU column — on the next send the till writes the product to the new slot, clears the old one and moves the scale keys to the new number. Untick to take the PLU from the product card on the website.</x:String>
+    <x:String x:Key="loc.owner.scales.webPlu">PLU as on the website</x:String>
+    <x:String x:Key="loc.owner.scales.webPluTip">The scale slot number = the product's PLU on the website. The till gives ticked weighed goods without a PLU free numbers on the website — website, till and scale match.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Directly via cable</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">The till talks to the scale directly over the local network, without the server. Not tested on real scales — check the port in the scale's system menu.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Connection settings…</x:String>
@@ -1449,6 +1451,7 @@
   <x:String x:Key="scaleSetup.rongta.hint">Rongta has no network protocol of its own: the till prepares the list and starts the upload in RLS1000. The address and port here are for “Check connection”.</x:String>
   <x:String x:Key="scaleSetup.rongta.routeSite">Via the website and RLS1000</x:String>
   <x:String x:Key="scaleSetup.rongta.routeServer">Till’s own server</x:String>
+  <x:String x:Key="scaleSetup.rongta.routeLan">Directly over the network (no RLS1000)</x:String>
   <x:String x:Key="scaleSetup.rongta.serverPort">Own server port</x:String>
   <x:String x:Key="scaleSetup.tm.hint">The till sends goods to the scale itself over the network (TCP). The default port is 4001; the scale address is in “Russian Scale”: “Communication settings → Ethernet settings”.</x:String>
   <x:String x:Key="scaleSetup.ai.hint">AI scales have no common protocol — each model comes with its own software. The till saves a file (PLU, name, unit, price) and you load it with the scale’s software. No address is needed.</x:String>

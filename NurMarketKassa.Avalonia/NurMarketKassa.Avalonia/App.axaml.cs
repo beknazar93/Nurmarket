@@ -147,6 +147,8 @@ public partial class App : Application
         // синхронизация из Infrastructure — связываем их здесь.
         SalesHistoryBackfillHook.Register(SalesHistoryBackfill.RunAsync);
         RegisterGlobalExceptionHandlers();
+        // 2026-09-30: все окна-модалки — в пределах экрана кассы (маленькие/квадратные экраны).
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit.RegisterForAllWindows();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

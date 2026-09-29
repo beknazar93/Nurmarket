@@ -65,7 +65,8 @@ public partial class LabelScaleSetupPanel : UserControl
             RongtaPortBox.Text = prefs.RongtaScalePort.ToString(CultureInfo.InvariantCulture);
             var ownServer = string.Equals(prefs.RongtaDataSource, "server", StringComparison.OrdinalIgnoreCase);
             RongtaRouteServer.IsChecked = ownServer;
-            RongtaRouteSite.IsChecked = !ownServer;
+            RongtaRouteLan.IsChecked = prefs.RongtaDirectLan;
+            RongtaRouteSite.IsChecked = !ownServer && !prefs.RongtaDirectLan;
             RongtaServerPortBox.Text = prefs.RongtaServerPort.ToString(CultureInfo.InvariantCulture);
 
             TmIpBox.Text = prefs.TmScaleIp ?? "";
@@ -114,7 +115,13 @@ public partial class LabelScaleSetupPanel : UserControl
 
         var ownServer = RongtaRouteServer.IsChecked == true;
         RongtaServerPortRow.IsVisible = ownServer;
-        RongtaRouteHint.Text = ownServer
+        RongtaRouteHint.Text = RongtaRouteLan.IsChecked == true
+            ? L("Касса сама записывает отмеченные товары на весы по сети (порт 4001), без RLS1000 и без сайта — как на TM-30F. Нужен только IP весов.",
+                "Касса белгиленген товарларды таразага тармак аркылуу өзү жазат (4001 порт), RLS1000'сиз жана сайтсыз — TM-30F'тегидей. Таразанын IP'си гана керек.",
+                "The till writes the ticked goods to the scale itself over the network (port 4001), without RLS1000 or the website — like the TM-30F. Only the scale IP is needed.",
+                "Kasa işaretli ürünleri tartıya ağ üzerinden kendisi yazar (port 4001), RLS1000 ve site olmadan — TM-30F'teki gibi. Yalnızca tartı IP'si gerekir.",
+                "Kassa belgilangan tovarlarni taroziga tarmoq orqali o‘zi yozadi (4001 port), RLS1000 va saytsiz — TM-30F dagi kabi. Faqat tarozi IP'si kerak.")
+            : ownServer
             ? L("Список строится из каталога кассы; касса ждёт подключения программы весов на этот порт и сама «нажимает» в RLS1000 загрузку (если RLS1000 нет — запустите загрузку в программе весов сами, есть 90 секунд).",
                 "Тизме кассанын каталогунан түзүлөт; касса тараза программасынын ушул портко туташуусун күтөт жана RLS1000'де жүктөөнү өзү «басат» (RLS1000 жок болсо — тараза программасында жүктөөнү өзүңүз баштаңыз, 90 секунд бар).",
                 "The list is built from the till catalog; the till waits for the scale software to connect to this port and “presses” download in RLS1000 itself (without RLS1000, start the upload in the scale software yourself, you have 90 seconds).",
@@ -211,7 +218,7 @@ public partial class LabelScaleSetupPanel : UserControl
             prefs.RongtaScaleIp = rongtaIp;
         if (TryPort(RongtaPortBox.Text, out var rongtaPort))
             prefs.RongtaScalePort = rongtaPort;
-        prefs.RongtaDataSource = RongtaRouteServer.IsChecked == true ? "server" : "site";
+        prefs.RongtaDataSource = RongtaRouteServer.IsChecked == true ? "server" : RongtaRouteLan.IsChecked == true ? "lan" : "site";
         if (TryPort(RongtaServerPortBox.Text, out var serverPort))
             prefs.RongtaServerPort = serverPort;
 

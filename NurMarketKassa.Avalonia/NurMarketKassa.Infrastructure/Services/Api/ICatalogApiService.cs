@@ -90,6 +90,11 @@ public interface ICatalogApiService
     /// и useAddProductBootstrap в исходниках сайта: plu = weightProductsCount + 1).</summary>
     Task<int> GetWeightProductCountAsync(CancellationToken ct = default);
 
+    /// <summary>2026-09-30: PATCH /api/main/products/{id}/ {"plu": N} — PLU товара на сайте (проверено на
+    /// тестовом аккаунте: 200; занятый номер — 400 «Этот PLU уже используется в вашей компании»,
+    /// приходит как ApiException). Остальные поля товара не трогаются.</summary>
+    Task SetProductPluAsync(string productId, int plu, CancellationToken ct = default);
+
     /// <summary>POST /api/users/scales/send-products/ — выгрузка весовых товаров на сетевые
     /// весы Штрих-М (сервер сам обращается к весам по LAN, см. scales-and-plu.md /
     /// ScalesPage.tsx на сайте). plu_start — стартовый PLU при автоназначении (веб всегда шлёт

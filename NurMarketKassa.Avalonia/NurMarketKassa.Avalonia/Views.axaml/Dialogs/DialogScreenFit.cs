@@ -108,6 +108,40 @@ internal static class DialogScreenFit
             area.Y + (int)Math.Max(0, (area.Height - height) / 2));
     }
 
+    private static bool _registered;
+
+    /// <summary>2026-09-30, просьба владельца «на некоторых экранах окна модалки выходят за рамки
+    /// экрана»: подгонка вызывалась только в 7 окнах из 104. Теперь — один раз на запуск: КАЖДОЕ
+    /// открывающееся обычное окно (не развёрнутое, не главное, не экран покупателя) ужимается до
+    /// рабочей области экрана кассы и ставится по центру, если вылезает за край. Окна, которые
+    /// уже зовут FitToKassaScreen сами, это не портит — повторный вызов ничего не меняет.</summary>
+    public static void RegisterForAllWindows()
+    {
+        if (_registered)
+            return;
+        _registered = true;
+        Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
+        {
+            try
+            {
+                if (window.WindowState != WindowState.Normal)
+                    return;
+                var name = window.GetType().Name;
+                if (name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow" or "MainWindow" or "OwnerShellWindow")
+                    return;
+                var main = (Avalonia.Application.Current?.ApplicationLifetime
+                    as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                if (ReferenceEquals(main, window))
+                    return;
+                window.FitToKassaScreen();
+            }
+            catch (Exception ex)
+            {
+                NurMarketKassa.Services.PosLogger.Log($"Подгонка окна {window.GetType().Name} под экран: {ex.Message}", "WARNING");
+            }
+        });
+    }
+
     /// <summary>Экран главного окна кассы (или программы владельца); если его не определить —
     /// экран владельца окна, затем основной.</summary>
     private static Avalonia.Platform.Screen? KassaScreen(Window window)

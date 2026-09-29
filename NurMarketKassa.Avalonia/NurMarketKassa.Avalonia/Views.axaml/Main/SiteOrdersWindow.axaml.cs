@@ -138,7 +138,10 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
             if (manual || _settings == null || DateTime.Now - _settingsLoadedAt > SettingsInterval)
                 await LoadSettingsAsync(cts.Token).ConfigureAwait(true);
 
-            var orders = await _api.ListOrdersAsync(cts.Token).ConfigureAwait(true);
+            // 2026-09-30: список «Закупок» выключен до доработки NurCRM (ShowcaseApiService.OrdersListEnabled).
+            IReadOnlyList<SiteOrder> orders = ShowcaseApiService.OrdersListEnabled
+                ? await _api.ListOrdersAsync(cts.Token).ConfigureAwait(true)
+                : Array.Empty<SiteOrder>();
             if (_knownIds != null)
             {
                 foreach (var order in orders.Where(o => !_knownIds.Contains(o.Id)))
@@ -233,6 +236,32 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         RenderList();
         RenderDetail();
         RenderUpdated();
+        if (!ShowcaseApiService.OrdersListEnabled)
+        {
+            // 2026-09-30: только карточка витрины и объяснение — списка заказов пока нет.
+            FilterPanel.IsVisible = false;
+            OrdersList.IsVisible = false;
+            DetailPanel.IsVisible = false;
+            LiveDot.IsVisible = false;
+            UpdatedText.IsVisible = false;
+            // Пояснение — на всю ширину: колонка карточки заказа не нужна.
+            if (EmptyText.Parent is Grid listCell && listCell.Parent is Grid split && split.ColumnDefinitions.Count >= 3)
+            {
+                split.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+                split.ColumnDefinitions[2].Width = new GridLength(0);
+                foreach (var child in split.Children)
+                    if (Grid.GetColumn(child) == 2)
+                        child.IsVisible = false;
+            }
+            EmptyText.MaxWidth = 720;
+            EmptyText.IsVisible = true;
+            EmptyText.Text = Tr.T(
+                "Заказы с витрины сейчас приходят только в WhatsApp на номер витрины — на сервер NurCRM они не записываются, поэтому здесь их пока нет. Как только NurCRM начнёт сохранять заказы с сайта, они появятся в этом разделе.",
+                "Витринадан заказдар азыр витринанын номерине WhatsApp аркылуу гана келет — NurCRM серверине жазылбайт, ошондуктан бул жерде азырынча жок. NurCRM сайттан заказдарды сактай баштаганда, алар ушул бөлүмдө пайда болот.",
+                "Showcase orders currently arrive only in WhatsApp on the showcase number — they are not saved on the NurCRM server, so they are not here yet. As soon as NurCRM starts saving website orders, they will appear in this section.",
+                "Vitrin siparişleri şu anda yalnızca vitrin numarasına WhatsApp üzerinden geliyor — NurCRM sunucusuna kaydedilmiyor, bu yüzden henüz burada yoklar. NurCRM web sitesi siparişlerini kaydetmeye başlar başlamaz bu bölümde görünecekler.",
+                "Vitrina buyurtmalari hozircha faqat vitrina raqamiga WhatsApp orqali keladi — NurCRM serveriga yozilmaydi, shuning uchun bu yerda hozircha yo'q. NurCRM saytdan buyurtmalarni saqlashni boshlashi bilan ular shu bo'limda paydo bo'ladi.");
+        }
     }
 
     private void RenderShowcaseCard()

@@ -1260,6 +1260,8 @@
     <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
     <x:String x:Key="loc.owner.scales.sequentialPlu">Ürüne sabit PLU</x:String>
     <x:String x:Key="loc.owner.scales.sequentialPluTip">Her ürün PLU numarasını bir kez alır ve her gönderimde korur: ürün eklemek, arama, filtre ve sıralama numarayı değiştirmez. Yeni ürüne «Başlangıç PLU»dan itibaren en küçük boş numara verilir. Numarayı PLU sütununda düzeltebilirsiniz — gönderimde kasa ürünü yeni hücreye yazar, eskisini temizler ve tartı tuşlarını yeni numaraya taşır. PLU'yu sitedeki ürün kartından almak için işareti kaldırın.</x:String>
+    <x:String x:Key="loc.owner.scales.webPlu">Sitedeki gibi PLU</x:String>
+    <x:String x:Key="loc.owner.scales.webPluTip">Tartıdaki hücre numarası = ürünün sitedeki PLU'su. PLU'su olmayan işaretli tartılı ürünlere kasa sitede boş numaralar verir — site, kasa ve tartı aynı olur.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Doğrudan kabloyla</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Kasa, tartıyla sunucu olmadan yerel ağ üzerinden kendisi iletişim kurar. Gerçek tartılarda test edilmedi — portu tartının sistem menüsünden kontrol edin.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Bağlantı ayarları…</x:String>
@@ -1449,6 +1451,7 @@
   <x:String x:Key="scaleSetup.rongta.hint">Rongta’nın kendi ağ protokolü yok: kasa listeyi hazırlar ve yüklemeyi RLS1000 programında başlatır. Buradaki adres ve port «Bağlantıyı kontrol et» içindir.</x:String>
   <x:String x:Key="scaleSetup.rongta.routeSite">Site ve RLS1000 ile</x:String>
   <x:String x:Key="scaleSetup.rongta.routeServer">Kasanın kendi sunucusu</x:String>
+  <x:String x:Key="scaleSetup.rongta.routeLan">Doğrudan ağ üzerinden (RLS1000'siz)</x:String>
   <x:String x:Key="scaleSetup.rongta.serverPort">Kendi sunucu portu</x:String>
   <x:String x:Key="scaleSetup.tm.hint">Kasa ürünleri tartıya ağ üzerinden (TCP) kendisi gönderir. Varsayılan port 4001; tartı adresi «Русский масштаб» programında: «Настройка коммуникации → Настройка Ethernet».</x:String>
   <x:String x:Key="scaleSetup.ai.hint">AI tartıların ortak protokolü yok — her model kendi programıyla gelir. Kasa bir dosya kaydeder (PLU, ad, birim, fiyat), siz onu tartı programıyla yüklersiniz. Adres gerekmez.</x:String>

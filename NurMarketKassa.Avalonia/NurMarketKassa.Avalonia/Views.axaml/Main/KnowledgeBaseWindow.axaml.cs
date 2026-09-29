@@ -372,7 +372,7 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
     /// <summary>Кадры анимации GIF (обучающие «гифки»): Avalonia сама GIF не проигрывает, поэтому
     /// кадры раскладываются через SkiaSharp и сменяются таймером. Кадры в файлах — полные (без
     /// наложения на предыдущий), так их сохраняет наш сборщик анимаций.</summary>
-    private static List<(Bitmap Frame, TimeSpan Delay)> ReadGifFrames(Stream stream)
+    internal static List<(Bitmap Frame, TimeSpan Delay)> ReadGifFrames(Stream stream) // 2026-09-30: и для инструкции весов (ScaleGuideWindow)
     {
         var frames = new List<(Bitmap, TimeSpan)>();
         using var codec = SkiaSharp.SKCodec.Create(stream);
