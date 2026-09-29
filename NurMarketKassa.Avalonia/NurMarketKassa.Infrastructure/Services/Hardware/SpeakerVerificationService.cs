@@ -27,7 +27,10 @@ public sealed class SpeakerVerificationService : IDisposable
     private const float DefaultThreshold = 0.6f;
     private const int SampleRate = 16000;
 
-    private static string VoiceLockDir => Path.Combine(AppContext.BaseDirectory, "VoiceLockModel");
+    // 2026-09-29: голос кассира — в %AppData% рядом с моделью, а не в папке программы, которую
+    // заменяет каждое обновление (см. SpeakerVerificationModelService.ModelDir). Старый файл
+    // переносит MigrateLegacyFiles (вызывается из IsModelAvailable до первого чтения).
+    private static string VoiceLockDir => SpeakerVerificationModelService.ModelDir;
     private static string VoiceprintPath => Path.Combine(VoiceLockDir, "voiceprint.json");
 
     private readonly object _lock = new();

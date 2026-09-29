@@ -9,7 +9,7 @@ namespace NurMarketKassa.Services.Hardware;
 /// (Apache 2.0, обучена на VoxCeleb, ~26 МБ), запускается через sherpa-onnx
 /// (SpeakerEmbeddingExtractor/SpeakerEmbeddingManager) — та же схема, что и модели Vosk
 /// (VoiceModelDownloadService): не входит в базовую установку, скачивается отдельно после
-/// разблокировки в AppContext.BaseDirectory/VoiceLockModel.
+/// разблокировки в %AppData%/NurMarketKassa/VoiceLockModel (до 2026-09-29 — в папке программы).
 /// </summary>
 public static class SpeakerVerificationModelService
 {
@@ -22,13 +22,49 @@ public static class SpeakerVerificationModelService
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx";
     public const int ApproxSizeMb = 27;
 
-    private static string ModelDir => Path.Combine(AppContext.BaseDirectory, "VoiceLockModel");
+    /// <summary>2026-09-29: модель и голос кассира (voiceprint.json) — в %AppData%, рядом с моделями
+    /// Vosk (VoiceModelDownloadService). Раньше они лежали в папке программы (current\VoiceLockModel),
+    /// а её каждое обновление заменяет целиком: после обновления модель пропадала, голос кассира —
+    /// тоже, и голосовой замок молча переставал что-либо проверять (Verify без голоса = null).</summary>
+    public static string ModelDir => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppMode.DataFolderName, "VoiceLockModel");
+
+    private static string LegacyModelDir => Path.Combine(AppContext.BaseDirectory, "VoiceLockModel");
     public static string ModelPath => Path.Combine(ModelDir, FileName);
+
+    /// <summary>Переносит модель и голос кассира из старой папки внутри программы — если они там
+    /// ещё есть (касса, поставленная копированием, или первый запуск после этой правки).</summary>
+    public static void MigrateLegacyFiles()
+    {
+        try
+        {
+            if (!Directory.Exists(LegacyModelDir))
+                return;
+            foreach (var source in Directory.GetFiles(LegacyModelDir))
+            {
+                if (source.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var target = Path.Combine(ModelDir, Path.GetFileName(source));
+                if (File.Exists(target))
+                    continue;
+                Directory.CreateDirectory(ModelDir);
+                File.Copy(source, target);
+                PosLogger.Log($"Голосовой замок: {Path.GetFileName(source)} перенесён в {ModelDir}.", "VOICE_LOCK");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Перенос — удобство: не вышло, модель скачается заново, голос запишется заново.
+            PosLogger.Log($"Voice lock files migration skipped: {ex.GetType().Name}: {ex.Message}", "WARNING");
+        }
+    }
 
     public static bool IsInstalled()
     {
         try
         {
+            MigrateLegacyFiles();
             return File.Exists(ModelPath) && new FileInfo(ModelPath).Length > 1_000_000;
         }
         catch (Exception ex)

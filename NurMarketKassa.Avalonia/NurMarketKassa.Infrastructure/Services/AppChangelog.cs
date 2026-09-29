@@ -13,62 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Товары с акцией NurCRM: сумма в окне оплаты теперь та же, что проводит сервер — раньше окно показывало 50,00, а продажа проходила на 42,50",
-        "Если сервер всё же провёл продажу на другую сумму, касса сразу предупреждает об этом",
-        "«Финансы», «Продажи», «Аналитика»: выручка, чеки, оплаты, возвраты, прибыль и топ товаров — ровно как на сайте NurCRM; плитки появляются за доли секунды",
-        "Большие магазины: окна аналитики больше не зависают на длинном периоде (месяц с 12 000 чеков — было до 40 с), список догружается в фоне",
-        "Настройки → Весы переделаны: вкладки «Весы на кассе», «Весы с этикетками», «Штрих-код: вес / сумма», мастер «Настроить по этикетке», несколько весов с категориями",
-        "Отправка на весы: клавиши быстрого доступа Штрих-ПРИНТ, фильтр по категории, результат по каждому товару",
-        "Настройки — вкладками сверху; вид кассы выбирается в Маркетплейсе → «Виды кассы»; база знаний: 30+ новых статей про весы",
-        "Телеграм-бот: длинные отчёты приходят частями, ответы и напоминания должникам не теряются при нагрузке, первая команда после включения кассы больше не пропадает",
+        "Голосовое управление: касса больше не закрывается с ошибкой «0xc0000005» при записи своей озвучки и при регистрации голоса",
+        "Кыргызский счёт голосом: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); по-русски — «двадцать пять», «сто», «кило»",
+        "Выученные слова с числом («эки» → 2) теперь задают количество; «кассага …» тоже понимается",
+        "Поиск товара голосом точнее: «касса спрайт» и «касса сумка» больше не переспрашивают из-за слова «с» в чужих названиях, точное название товара выбирается сразу",
+        "Запись своей озвучки: мигающий индикатор, время «0:03 из 0:15» и уровень громкости — видно, слышит ли микрофон голос",
+        "Голосовой замок: модель и голос кассира больше не стираются при каждом обновлении кассы",
+        "Программа владельца: внизу меню — «Выйти на рабочий стол», выход из учётной записи — в Настройки → Аккаунт (там он теперь работает)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "NurCRM акциясы бар товарлар: төлөм терезесиндеги сумма эми сервер өткөргөн суммага барабар — мурун терезе 50,00 көрсөтүп, сатуу 42,50 болуп өтчү",
-        "Эгер сервер сатууну башка суммага өткөрсө, касса дароо эскертет",
-        "«Каржы», «Сатуулар», «Аналитика»: түшүм, чектер, төлөмдөр, кайтаруулар, пайда жана топ товарлар — NurCRM сайтындагыдай; плиткалар секунданын ичинде чыгат",
-        "Чоң дүкөндөр: аналитика терезелери узун мезгилде катып калбайт (12 000 чектүү ай — 40 секундга чейин болчу), тизме фондо жүктөлөт",
-        "Жөндөөлөр → Таразалар жаңыланды: «Кассадагы тараза», «Этикеткалуу тараза», «Штрих-код: салмак / сумма» өтмөктөрү, «Этикетка боюнча жөндөө» устасы, категориялары менен бир нече тараза",
-        "Таразага жөнөтүү: Штрих-ПРИНТ ыкчам баскычтары, категория боюнча чыпка, ар бир товардын жыйынтыгы",
-        "Жөндөөлөр — өйдөдө өтмөктөр менен; кассанын түрү Маркетплейсте → «Кассанын түрлөрү»; билим базасы: таразалар жөнүндө 30дан ашык жаңы макала",
-        "Телеграм-бот: узун отчёттор бөлүктөп келет, жооптор жана карыздарга эскертмелер жүктөмдө жоголбойт, касса күйгөндөн кийинки биринчи буйрук эми жоголбойт",
+        "Үн менен башкаруу: өз үнүңүз менен жазганда жана үндү каттаганда касса «0xc0000005» катасы менен жабылбайт",
+        "Кыргызча эсеп үн менен: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); орусча — «двадцать пять», «сто», «кило»",
+        "Сан менен үйрөтүлгөн сөздөр («эки» → 2) эми санды коёт; «кассага …» да түшүнүлөт",
+        "Товарды үн менен издөө тагыраак: «касса спрайт» жана «касса сумка» башка аталыштардагы «с» сөзүнөн улам кайра сурабайт, товардын так аталышы дароо тандалат",
+        "Өз үнүңүз менен жазуу: жымыңдаган белги, «0:03 / 0:15» убакыт жана үндүн деңгээли — микрофон үндү угуп жатканы көрүнөт",
+        "Үн кулпусу: модель жана кассирдин үнү кассаны жаңырткан сайын өчүп калбайт",
+        "Ээсинин программасы: менюнун ылдыйында — «Иш столуна чыгуу», эсептик жазуудан чыгуу — Жөндөөлөр → Аккаунт (ал жерде эми иштейт)",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "NurCRM promo products: the amount in the payment window is now the same the server charges — before, the window showed 50.00 and the sale went through at 42.50",
-        "If the server still records the sale with a different amount, the till warns at once",
-        "“Finance”, “Sales”, “Analytics”: revenue, receipts, payments, returns, profit and top products exactly as on the NurCRM website; the tiles appear in a fraction of a second",
-        "Large stores: analytics windows no longer freeze on long periods (a month with 12,000 receipts took up to 40 s), the list loads in the background",
-        "Settings → Scales redesigned: tabs “Till scales”, “Label scales”, “Barcode: weight / total”, the “Set up from a label” wizard, several scales with categories",
-        "Sending to scales: Shtrikh-PRINT hot keys, category filter, result for each product",
-        "Settings as tabs at the top; the till layout is chosen in Marketplace → “Till layouts”; knowledge base: 30+ new articles on scales",
-        "Telegram bot: long reports arrive in parts, replies and debt reminders are not lost under load, the first command after the till starts is no longer skipped",
+        "Voice control: the till no longer closes with error “0xc0000005” while recording your own prompts or enrolling a voice",
+        "Kyrgyz counting by voice: “уч”, “торт”, “он эки” (12), “жыйырма беш” (25), “эки жүз элүү” (250), “бир жарым кило” (1.5); in Russian — “двадцать пять”, “сто”, “кило”",
+        "Taught words with a number (“эки” → 2) now set the quantity; “кассага …” is understood too",
+        "Voice product search is more precise: “касса спрайт” and “касса сумка” no longer ask again because of the word “с” in other names; an exact product name is chosen at once",
+        "Recording your own prompts: a blinking indicator, time “0:03 of 0:15” and the volume level — you can see whether the microphone hears the voice",
+        "Voice lock: the model and the cashier’s voice are no longer erased by every till update",
+        "Owner app: “Exit to desktop” at the bottom of the menu; sign-out is in Settings → Account (it works there now)",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "NurCRM kampanyalı ürünler: ödeme penceresindeki tutar artık sunucunun aldığıyla aynı — önce pencere 50,00 gösteriyor, satış 42,50 olarak geçiyordu",
-        "Sunucu satışı yine de farklı bir tutarla kaydederse kasa hemen uyarır",
-        "«Finans», «Satışlar», «Analitik»: ciro, fişler, ödemeler, iadeler, kâr ve en çok satanlar NurCRM sitesindeki gibi; kutucuklar bir saniyeden kısa sürede gelir",
-        "Büyük mağazalar: analitik pencereleri uzun dönemde artık donmuyor (12.000 fişli ay 40 sn’ye kadar sürüyordu), liste arka planda yüklenir",
-        "Ayarlar → Teraziler yenilendi: «Kasa terazisi», «Etiketli terazi», «Barkod: ağırlık / tutar» sekmeleri, «Etikete göre ayarla» sihirbazı, kategorili birden çok terazi",
-        "Teraziye gönderme: Shtrikh-PRINT kısayol tuşları, kategori filtresi, her ürün için sonuç",
-        "Ayarlar üstte sekmeler halinde; kasa görünümü Market → «Kasa görünümleri» içinden seçilir; bilgi bankası: teraziler hakkında 30’dan fazla yeni makale",
-        "Telegram botu: uzun raporlar parça parça gelir, yanıtlar ve borç hatırlatmaları yoğunlukta kaybolmaz, kasa açıldıktan sonraki ilk komut artık atlanmaz",
+        "Sesli kontrol: kendi seslendirmenizi kaydederken ve ses kaydı yaparken kasa artık «0xc0000005» hatasıyla kapanmıyor",
+        "Sesle Kırgızca sayma: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); Rusça — «двадцать пять», «сто», «кило»",
+        "Sayıyla öğretilen kelimeler («эки» → 2) artık miktarı belirliyor; «кассага …» da anlaşılıyor",
+        "Sesle ürün arama daha isabetli: «касса спрайт» ve «касса сумка» başka adlardaki «с» kelimesi yüzünden artık tekrar sormuyor, tam ürün adı hemen seçiliyor",
+        "Kendi seslendirmenizi kaydetme: yanıp sönen gösterge, «0:03 / 0:15» süre ve ses seviyesi — mikrofonun sesi duyup duymadığı görülüyor",
+        "Ses kilidi: model ve kasiyerin sesi artık her kasa güncellemesinde silinmiyor",
+        "Sahip programı: menünün altında «Masaüstüne çık»; oturumu kapatma Ayarlar → Hesap içinde (artık orada çalışıyor)",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "NurCRM aksiyali mahsulotlar: to'lov oynasidagi summa endi server o'tkazgan summa bilan bir xil — oldin oyna 50,00 ko'rsatib, savdo 42,50 bo'lib o'tardi",
-        "Agar server savdoni baribir boshqa summa bilan o'tkazsa, kassa darhol ogohlantiradi",
-        "«Moliya», «Savdolar», «Tahlil»: tushum, cheklar, to'lovlar, qaytarishlar, foyda va top mahsulotlar — NurCRM saytidagidek; plitkalar bir soniyadan kam vaqtda chiqadi",
-        "Katta do'konlar: tahlil oynalari uzun davrda endi qotib qolmaydi (12 000 chekli oy — 40 soniyagacha edi), ro'yxat fonda yuklanadi",
-        "Sozlamalar → Tarozilar yangilandi: «Kassadagi tarozi», «Yorliqli tarozi», «Shtrix-kod: vazn / summa» varaqlari, «Yorliq bo'yicha sozlash» ustasi, toifalari bilan bir nechta tarozi",
-        "Taroziga yuborish: Shtrix-PRINT tezkor tugmalari, toifa bo'yicha filtr, har bir mahsulot natijasi",
-        "Sozlamalar — tepada varaqlar bilan; kassa ko'rinishi Marketpleysda → «Kassa ko'rinishlari»; bilim bazasi: tarozilar haqida 30 dan ortiq yangi maqola",
-        "Telegram-bot: uzun hisobotlar qismlarga bo'lib keladi, javoblar va qarzdorlarga eslatmalar yuklamada yo'qolmaydi, kassa yoqilgandan keyingi birinchi buyruq endi o'tkazib yuborilmaydi",
+        "Ovozli boshqaruv: o'z ovozingiz bilan yozishda va ovozni ro'yxatdan o'tkazishda kassa endi «0xc0000005» xatosi bilan yopilmaydi",
+        "Ovoz bilan qirg'izcha sanash: «уч», «торт», «он эки» (12), «жыйырма беш» (25), «эки жүз элүү» (250), «бир жарым кило» (1,5); ruscha — «двадцать пять», «сто», «кило»",
+        "Son bilan o'rgatilgan so'zlar («эки» → 2) endi miqdorni belgilaydi; «кассага …» ham tushuniladi",
+        "Ovoz bilan mahsulot qidirish aniqroq: «касса спрайт» va «касса сумка» boshqa nomlardagi «с» so'zi tufayli endi qayta so'ramaydi, aniq mahsulot nomi darhol tanlanadi",
+        "O'z ovozingiz bilan yozish: miltillovchi belgi, «0:03 / 0:15» vaqt va ovoz darajasi — mikrofon ovozni eshityaptimi, ko'rinadi",
+        "Ovoz qulfi: model va kassir ovozi endi har bir kassa yangilanishida o'chib ketmaydi",
+        "Egasi dasturi: menyu pastida — «Ish stoliga chiqish», hisobdan chiqish — Sozlamalar → Hisob (endi u yerda ishlaydi)",
     ];
 
     /// <summary>Список на языке интерфейса (2026-09-07).</summary>

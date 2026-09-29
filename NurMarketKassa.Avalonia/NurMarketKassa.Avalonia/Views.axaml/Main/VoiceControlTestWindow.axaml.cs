@@ -108,6 +108,79 @@ public partial class VoiceControlTestWindow : Window
     private string? _recordingKey;
     private bool _voiceWasListening;
 
+    // Индикатор идущей записи (2026-09-29): элементы строки, которая пишется, и таймер обновления.
+    private const double RecLevelWidth = 120;
+    private DispatcherTimer? _recTimer;
+    private int _recTicks;
+    private Avalonia.Controls.Shapes.Ellipse? _recDot;
+    private TextBlock? _recTimeText;
+    private Border? _recLevelFill;
+    private Button? _recStopButton;
+
+    private static string FormatRecTime(TimeSpan t) => $"{(int)t.TotalMinutes}:{t.Seconds:00}";
+
+    private static string StopButtonText(TimeSpan elapsed) =>
+        Tr.T("■ Стоп", "■ Токтотуу", "■ Stop", "■ Durdur", "■ To'xtatish") + "  " + FormatRecTime(elapsed);
+
+    private void StartRecordingIndicator()
+    {
+        _recTicks = 0;
+        _recTimer?.Stop();
+        _recTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _recTimer.Tick += (_, _) => UpdateRecordingIndicator();
+        _recTimer.Start();
+        UpdateRecordingIndicator();
+    }
+
+    private void StopRecordingIndicator()
+    {
+        _recTimer?.Stop();
+        _recTimer = null;
+        _recDot = null;
+        _recTimeText = null;
+        _recLevelFill = null;
+        _recStopButton = null;
+    }
+
+    private void UpdateRecordingIndicator()
+    {
+        var recorder = _promptRecorder;
+        if (recorder == null)
+            return;
+
+        _recTicks++;
+        var elapsed = recorder.Elapsed;
+        var max = CustomVoicePrompts.MaxRecordLength;
+        var limit = recorder.LimitReached;
+
+        if (_recDot != null)
+            _recDot.Opacity = limit ? 0.35 : (_recTicks / 5) % 2 == 0 ? 1 : 0.25;
+        if (_recTimeText != null)
+        {
+            _recTimeText.Text = limit
+                ? Tr.T($"Запись {FormatRecTime(max)} из {FormatRecTime(max)} — предел, нажмите «Стоп»",
+                    $"Жазуу {FormatRecTime(max)} / {FormatRecTime(max)} — чеги, «Токтотуу» басыңыз",
+                    $"Recording {FormatRecTime(max)} of {FormatRecTime(max)} — limit reached, click “Stop”",
+                    $"Kayıt {FormatRecTime(max)} / {FormatRecTime(max)} — sınıra ulaşıldı, «Durdur»a basın",
+                    $"Yozuv {FormatRecTime(max)} / {FormatRecTime(max)} — chegara, «To'xtatish»ni bosing")
+                : Tr.T($"Запись {FormatRecTime(elapsed)} из {FormatRecTime(max)}",
+                    $"Жазуу {FormatRecTime(elapsed)} / {FormatRecTime(max)}",
+                    $"Recording {FormatRecTime(elapsed)} of {FormatRecTime(max)}",
+                    $"Kayıt {FormatRecTime(elapsed)} / {FormatRecTime(max)}",
+                    $"Yozuv {FormatRecTime(elapsed)} / {FormatRecTime(max)}");
+        }
+        if (_recLevelFill != null)
+        {
+            // Громкость в децибелах: −50 дБ и тише — пусто, 0 дБ — полная полоска. Линейная шкала
+            // почти не шевелилась бы на обычной речи.
+            var level = recorder.Level;
+            var db = level > 0 ? 20 * Math.Log10(level) : -100;
+            _recLevelFill.Width = RecLevelWidth * Math.Clamp((db + 50) / 50, 0, 1);
+        }
+        if (_recStopButton != null)
+            _recStopButton.Content = StopButtonText(limit ? max : elapsed);
+    }
+
     private void PromptLang_Click(object? sender, RoutedEventArgs e)
     {
         _promptLang = PromptLangKy.IsChecked == true ? "ky" : "ru";
@@ -135,6 +208,44 @@ public partial class VoiceControlTestWindow : Window
             });
             row.Children.Add(text);
 
+            // 2026-09-29, владелец: «индикатор записи и время записи тоже отображай» — у строки,
+            // которая сейчас пишется: мигающая красная точка, «Запись 0:03 из 0:15» и полоска
+            // громкости (видно, слышит ли микрофон голос, — иначе после «Стоп» было «Слишком тихо»).
+            if (recording && _recordingKey == prompt.Key)
+            {
+                _recDot = new Avalonia.Controls.Shapes.Ellipse
+                {
+                    Width = 10, Height = 10, Fill = ThemeBrush("BrushDanger"),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                };
+                _recTimeText = new TextBlock
+                {
+                    FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = ThemeBrush("BrushDanger"),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                };
+                _recLevelFill = new Border
+                {
+                    Width = 0, Height = 6, CornerRadius = new Avalonia.CornerRadius(3),
+                    Background = ThemeBrush("BrushSuccess"),
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                };
+                var levelTrack = new Border
+                {
+                    Width = RecLevelWidth, Height = 6, CornerRadius = new Avalonia.CornerRadius(3),
+                    Background = ThemeBrush("BrushBorder"),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    Child = _recLevelFill,
+                };
+                var indicator = new StackPanel
+                {
+                    Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Margin = new Avalonia.Thickness(0, 2, 0, 0),
+                };
+                indicator.Children.Add(_recDot);
+                indicator.Children.Add(_recTimeText);
+                indicator.Children.Add(levelTrack);
+                text.Children.Add(indicator);
+            }
+
             Button MakeButton(string content, int column, bool primary, Action onClick, bool enabled = true)
             {
                 var button = new Button
@@ -154,11 +265,13 @@ public partial class VoiceControlTestWindow : Window
             var key = prompt.Key;
             var isThisRecording = recording && _recordingKey == key;
             MakeButton("▶", 1, false, () => VoicePromptPlayer.PlayPrompt(key, _promptLang), !recording);
-            MakeButton(
+            var recordButton = MakeButton(
                 isThisRecording
-                    ? Tr.T("■ Стоп", "■ Токтотуу", "■ Stop", "■ Durdur", "■ To'xtatish")
+                    ? StopButtonText(TimeSpan.Zero)
                     : Tr.T("● Записать", "● Жазуу", "● Record", "● Kaydet", "● Yozish"),
                 2, true, () => _ = TogglePromptRecordingAsync(key), !recording || isThisRecording);
+            if (isThisRecording)
+                _recStopButton = recordButton;
             MakeButton(Tr.T("Файл…", "Файл…", "File…", "Dosya…", "Fayl…"), 3, false, () => _ = ImportPromptAsync(key), !recording);
             MakeButton(Tr.T("Стандартная", "Стандарттык", "Standard", "Standart", "Standart"), 4, false, () =>
             {
@@ -198,9 +311,12 @@ public partial class VoiceControlTestWindow : Window
             }
 
             RefreshCustomPrompts();
+            if (_promptRecorder != null)
+                StartRecordingIndicator();
             return;
         }
 
+        StopRecordingIndicator();
         var recorder = _promptRecorder;
         _promptRecorder = null;
         _recordingKey = null;
@@ -262,6 +378,7 @@ public partial class VoiceControlTestWindow : Window
 
     private void StopPromptRecordingSilently()
     {
+        StopRecordingIndicator();
         _promptRecorder?.Dispose();
         _promptRecorder = null;
         _recordingKey = null;

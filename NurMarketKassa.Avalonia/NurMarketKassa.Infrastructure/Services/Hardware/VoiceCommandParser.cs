@@ -35,11 +35,25 @@ public static class VoiceCommandParser
         ["девять"] = 9, ["девяти"] = 9, ["девятью"] = 9,
         ["десять"] = 10, ["десяти"] = 10, ["десятью"] = 10,
         ["полтора"] = 1.5, ["полторы"] = 1.5,
-        // Кыргызча (кыргыз тилинде) — "он" (10) намеренно НЕ добавлено: это же самое частое
-        // русское местоимение ("он купил...") — при смешанной русско-кыргызской речи кассира
-        // ложно срабатывало бы на каждое обычное "он" в предложении, приняв его за число 10.
+        // 2026-09-29: 11–19, десятки и сотни — раньше «двадцать пять» давало 5, а «сто» не
+        // понималось вовсе. Составные числа складываются в ExtractQuantity (см. CombineNumberRun).
+        ["одиннадцать"] = 11, ["двенадцать"] = 12, ["тринадцать"] = 13, ["четырнадцать"] = 14,
+        ["пятнадцать"] = 15, ["шестнадцать"] = 16, ["семнадцать"] = 17, ["восемнадцать"] = 18,
+        ["девятнадцать"] = 19,
+        ["двадцать"] = 20, ["тридцать"] = 30, ["сорок"] = 40, ["пятьдесят"] = 50, ["шестьдесят"] = 60,
+        ["семьдесят"] = 70, ["восемьдесят"] = 80, ["девяносто"] = 90,
+        ["сто"] = 100, ["двести"] = 200, ["триста"] = 300, ["четыреста"] = 400, ["пятьсот"] = 500,
+        // Кыргызча (кыргыз тилинде). "он" (10) — в AmbiguousNumberWords ниже: это же русское
+        // местоимение ("он купил...").
         ["бир"] = 1, ["эки"] = 2, ["үч"] = 3, ["төрт"] = 4, ["беш"] = 5,
         ["алты"] = 6, ["жети"] = 7, ["сегиз"] = 8, ["тогуз"] = 9,
+        // 2026-09-29, владелец: «с кыргызским проблемы — бир это 1, эки это 2». Кассир (и
+        // распознавание) часто обходится без «ү/ө»: «уч», «жуз», «элуу» — владелец даже учил
+        // «уч» как единицу измерения, но количество от этого не менялось.
+        ["уч"] = 3, ["бээш"] = 5, ["тогус"] = 9,
+        ["жыйырма"] = 20, ["жийирма"] = 20, ["жыйрма"] = 20, ["отуз"] = 30, ["кырк"] = 40, ["кырык"] = 40,
+        ["элүү"] = 50, ["элуу"] = 50, ["элү"] = 50, ["алтымыш"] = 60, ["жетимиш"] = 70, ["сексен"] = 80,
+        ["токсон"] = 90,
         // Русская акустическая модель Vosk (активна, пока язык кассы — русский, см.
         // VoiceControlService.ResolveVoskModelPath) плохо распознаёт кыргызские звуки, которых
         // нет в русском ("ү" и т.п.) — "эки" нередко слышится как "ики" (подтверждено в логах
@@ -50,12 +64,32 @@ public static class VoiceCommandParser
         ["ики"] = 2,
     };
 
+    /// <summary>«жүз» (сто) по-кыргызски — множитель: «эки жүз» = 200, «жүз элүү» = 150.</summary>
+    private static readonly HashSet<string> HundredMultiplierWords = new(StringComparer.OrdinalIgnoreCase) { "жүз", "жуз" };
+
+    /// <summary>«жарым» — половина: «бир жарым» = 1,5, «жарым» = 0,5 (2026-09-29).</summary>
+    private static readonly HashSet<string> HalfWords = new(StringComparer.OrdinalIgnoreCase) { "жарым", "половина", "половину" };
+
+    /// <summary>Слова, которые бывают и числом, и обычным русским словом: «он» (10 / местоимение),
+    /// «торт» (4 без «ө» / торт). Считаются числом, только если стоят рядом с другим числом или
+    /// единицей («он эки», «торт даана») или последними после названия («нан торт», 2026-09-29).
+    /// «касса торт наполеон» — это торт, а не 4.</summary>
+    private static readonly Dictionary<string, double> AmbiguousNumberWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["он"] = 10, ["торт"] = 4,
+        // Так кыргызская модель Vosk слышит «алты» (6) и «жети» (7) — проверено синтезированной
+        // речью 2026-09-29: «касса кымыз алты» → «касса кымыз алды». Сами по себе это обычные слова
+        // («алды» — взял, «жетти» — дошёл), поэтому тоже только рядом с числом или после названия.
+        ["алды"] = 6, ["жетти"] = 7,
+    };
+
     // Единицы веса/объёма — не влияют на выбор "поштучно/пачка" (весовой товар вообще не
     // проходит через PackageChoiceDialog, см. ProductUnitNormalizer.RequiresWeighing), но всё
     // равно должны вычленяться из фразы, чтобы не попасть в поисковый запрос по названию.
     private static readonly HashSet<string> WeightVolumeUnitWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "кг", "килограмм", "килограмма", "килограмму", "килограммов", "килограммами",
+        "кило", "килограм", "килограммдан", "килодон",
         "г", "грамм", "грамма", "грамму", "граммов", "граммами",
         "л", "литр", "литра", "литру", "литров", "литрами",
     };
@@ -103,61 +137,166 @@ public static class VoiceCommandParser
             .Replace("целая пачка", "пачка", StringComparison.OrdinalIgnoreCase)
             .Replace("целую пачку", "пачку", StringComparison.OrdinalIgnoreCase);
 
-        var tokens = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = command.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => t.Length > 0)
+            .ToList();
+        var customUnits = LoadCustomUnitWords();
+
+        // 2026-09-29: сначала каждое слово — число, единица или часть названия; потом подряд
+        // идущие числа складываются в одно («он эки» = 12, «жыйырма беш» = 25, «эки жүз элүү» =
+        // 250, «бир жарым» = 1,5). Раньше каждое число просто заменяло предыдущее — «он эки» было 2.
+        var kinds = new TokenKind[tokens.Count];
+        var values = new double[tokens.Count];
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+            if (NumberWords.TryGetValue(token, out var num)) { kinds[i] = TokenKind.Number; values[i] = num; }
+            else if (HundredMultiplierWords.Contains(token)) kinds[i] = TokenKind.Hundred;
+            else if (HalfWords.Contains(token)) kinds[i] = TokenKind.Half;
+            else if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out var digitNum) && digitNum > 0) { kinds[i] = TokenKind.Digits; values[i] = digitNum; }
+            else if (AmbiguousNumberWords.TryGetValue(token, out var ambiguous)) { kinds[i] = TokenKind.Ambiguous; values[i] = ambiguous; }
+            else if (PieceUnitWords.Contains(token)) kinds[i] = TokenKind.PieceUnit;
+            else if (PackUnitWords.Contains(token)) kinds[i] = TokenKind.PackUnit;
+            else if (WeightVolumeUnitWords.Contains(token)) kinds[i] = TokenKind.OtherUnit;
+            else if (customUnits.TryGetValue(token, out var customNumber))
+            {
+                // Своё слово из «Проверить голос». Если в сокращении число («эки» → «2»), это
+                // число: так владелец учил кассу кыргызскому счёту, но количество не менялось.
+                if (customNumber is { } n) { kinds[i] = TokenKind.Number; values[i] = n; }
+                else kinds[i] = TokenKind.OtherUnit;
+            }
+            else kinds[i] = TokenKind.Word;
+        }
+
+        // «он»/«торт» — число, только рядом с числом/единицей или последним словом после названия.
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            if (kinds[i] != TokenKind.Ambiguous)
+                continue;
+            static bool NumberOrUnit(TokenKind k) => k is not (TokenKind.Word or TokenKind.Ambiguous);
+            var nearNumberOrUnit = (i > 0 && NumberOrUnit(kinds[i - 1])) || (i + 1 < tokens.Count && NumberOrUnit(kinds[i + 1]));
+            var lastAfterName = i == tokens.Count - 1 && kinds.Take(i).Any(k => k == TokenKind.Word);
+            kinds[i] = nearNumberOrUnit || lastAfterName ? TokenKind.Number : TokenKind.Word;
+        }
+
         double quantity = 1;
         var unitKind = VoiceUnitKind.None;
         var remaining = new List<string>();
+        var run = new List<(TokenKind Kind, double Value)>();
 
-        foreach (var raw in tokens)
+        void FlushRun()
         {
-            var token = raw.Trim();
-            if (token.Length == 0)
-                continue;
-
-            if (NumberWords.TryGetValue(token, out var num))
-            {
-                quantity = num;
-                continue;
-            }
-            if (double.TryParse(token, NumberStyles.Any, CultureInfo.InvariantCulture, out var digitNum) && digitNum > 0)
-            {
-                quantity = digitNum;
-                continue;
-            }
-            if (PieceUnitWords.Contains(token))
-            {
-                unitKind = VoiceUnitKind.Piece;
-                continue;
-            }
-            if (PackUnitWords.Contains(token))
-            {
-                unitKind = VoiceUnitKind.Pack;
-                continue;
-            }
-            if (WeightVolumeUnitWords.Contains(token) || IsCustomUnitWord(token))
-                continue;
-
-            remaining.Add(token);
+            if (run.Count == 0)
+                return;
+            var value = CombineNumberRun(run);
+            if (value > 0)
+                quantity = value;
+            run.Clear();
         }
+
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            switch (kinds[i])
+            {
+                case TokenKind.Number:
+                case TokenKind.Hundred:
+                case TokenKind.Half:
+                    run.Add((kinds[i], values[i]));
+                    continue;
+                case TokenKind.Digits:
+                    FlushRun();
+                    quantity = values[i];
+                    continue;
+            }
+
+            FlushRun();
+            switch (kinds[i])
+            {
+                case TokenKind.PieceUnit:
+                    unitKind = VoiceUnitKind.Piece;
+                    break;
+                case TokenKind.PackUnit:
+                    unitKind = VoiceUnitKind.Pack;
+                    break;
+                case TokenKind.OtherUnit:
+                    break;
+                default:
+                    remaining.Add(tokens[i]);
+                    break;
+            }
+        }
+        FlushRun();
 
         return (string.Join(' ', remaining).Trim(), quantity, unitKind);
     }
 
-    /// <summary>Слова-единицы, добавленные кассиром через "Проверить голос" в Настройках
-    /// (VoiceLexiconStore), поверх встроенного русского/кыргызского списка выше. Читается из
-    /// локальной базы на каждый вызов — список крошечный (единицы записей), кешировать смысла
-    /// нет, а прочитать всегда актуальный список важнее сложности инвалидации кеша.</summary>
-    private static bool IsCustomUnitWord(string token)
+    private enum TokenKind { Word, Number, Hundred, Half, Digits, Ambiguous, PieceUnit, PackUnit, OtherUnit }
+
+    /// <summary>Подряд идущие числительные — одно число. Десятки прибавляются к сотням, единицы —
+    /// к десяткам («жыйырма беш» = 25, «сто двадцать» = 120), «жүз» умножает то, что перед ним
+    /// («эки жүз» = 200), «жарым» добавляет половину. Бессмысленная пара («эки эки», «беш он»)
+    /// не складывается — как и раньше, берётся последнее число.</summary>
+    private static double CombineNumberRun(List<(TokenKind Kind, double Value)> run)
     {
+        double total = 0, current = 0;
+        foreach (var (kind, value) in run)
+        {
+            if (kind == TokenKind.Hundred)
+            {
+                total += (current == 0 ? 1 : current) * 100;
+                current = 0;
+                continue;
+            }
+            if (kind == TokenKind.Half)
+            {
+                if (current % 1 != 0) { total = 0; current = 0; }
+                current += 0.5;
+                continue;
+            }
+
+            var fits = value switch
+            {
+                >= 100 => current == 0 && total == 0,
+                >= 10 => current == 0 || current % 100 == 0,
+                _ => current % 10 == 0 && current % 1 == 0,
+            };
+            if (!fits)
+            {
+                total = 0;
+                current = 0;
+            }
+            current += value;
+        }
+
+        return total + current;
+    }
+
+    /// <summary>Слова-единицы, добавленные кассиром через "Проверить голос" в Настройках
+    /// (VoiceLexiconStore), поверх встроенного русского/кыргызского списка выше: слово → число из
+    /// сокращения, если оно число (иначе null). Читается из локальной базы на каждый вызов — список
+    /// крошечный, а прочитать всегда актуальный список важнее сложности инвалидации кеша.</summary>
+    private static Dictionary<string, double?> LoadCustomUnitWords()
+    {
+        var result = new Dictionary<string, double?>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            return VoiceLexiconStore.LoadUnitWords().Any(w => string.Equals(w.Word, token, StringComparison.OrdinalIgnoreCase));
+            foreach (var (_, word, abbreviation) in VoiceLexiconStore.LoadUnitWords())
+            {
+                if (string.IsNullOrWhiteSpace(word))
+                    continue;
+                double? number = double.TryParse((abbreviation ?? "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) && n > 0
+                    ? n
+                    : null;
+                result[word.Trim()] = number;
+            }
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Голосовое управление: не удалось прочитать словарь единиц: {ex.Message}", "VOICE");
-            return false;
         }
+
+        return result;
     }
 
     /// <summary>Нечёткий поиск товара по общему началу слова (примитивный, но достаточный разбор
@@ -208,6 +347,17 @@ public static class VoiceCommandParser
                 matches.Add(product);
         }
 
+        // 2026-09-29: сказано ровно название одного товара («касса хлеб» при «хлеб», «черный хлеб»
+        // и «Хлеб от армянина») — берём его, а не переспрашиваем каждый раз.
+        if (matches.Count > 1)
+        {
+            var exact = matches
+                .Where(p => string.Equals(p.Title.Trim(), trimmedQuery, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (exact.Count == 1)
+                return exact;
+        }
+
         return matches;
     }
 
@@ -242,8 +392,11 @@ public static class VoiceCommandParser
     private static bool SharesStem(string queryStem, string titleWord)
     {
         var titleStem = Stem(titleWord);
+        // 2026-09-29, проверка голоса: короткое слово названия («с», «в», «от», «1л») — не корень.
+        // Раньше «с» из «Кекс … с какао» и «с тушеной говядиной» совпадало с ЛЮБЫМ сказанным словом
+        // на «с»: «касса спрайт» и «касса сумка» каждый раз переспрашивали, какой из 3–4 товаров.
         return titleWord.StartsWith(queryStem, StringComparison.OrdinalIgnoreCase)
-               || queryStem.StartsWith(titleStem, StringComparison.OrdinalIgnoreCase);
+               || (titleStem.Length >= 3 && queryStem.StartsWith(titleStem, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Ищет ключевое слово (в любом из принятых вариантов написания) в распознанном
@@ -273,7 +426,17 @@ public static class VoiceCommandParser
             return false;
         }
 
-        command = text[(bestIndex + bestLength)..].Trim();
+        var start = bestIndex + bestLength;
+        // 2026-09-29: по-кыргызски «кассага» (кассе), «кассада», «кассанын» — падежное окончание
+        // приклеено к слову. Раньше оно уходило в название товара («кассага алма» → товар «га алма»,
+        // не найден). Короткое окончание (до 3 букв) отбрасываем вместе со словом.
+        var wordEnd = start;
+        while (wordEnd < text.Length && char.IsLetter(text[wordEnd]))
+            wordEnd++;
+        if (wordEnd > start && wordEnd - start <= 3)
+            start = wordEnd;
+
+        command = text[start..].Trim();
         return true;
     }
 
