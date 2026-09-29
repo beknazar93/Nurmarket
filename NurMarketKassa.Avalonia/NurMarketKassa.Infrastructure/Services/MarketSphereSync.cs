@@ -7,7 +7,9 @@ namespace NurMarketKassa.Services;
 /// BE-18). Раньше вид жил только в настройках каждой кассы и выбирался вручную на каждом ПК.
 ///
 /// Правила:
-/// • при входе, если на сервере вид задан и отличается от кассы, касса берёт серверный;
+/// • при входе серверный вид берётся только на новой установке или если на сервере его сменили с
+///   тех пор, как касса видела его в прошлый раз (MarketSphereServerSeen, 2026-09-29) — выбор
+///   клиента на уже настроенной кассе при запуске и обновлении не затирается;
 /// • null с сервера («не задан») локальный выбор НЕ затирает;
 /// • серверное значение применяется один раз на значение: если кассир потом сам переключил вид
 ///   (а сохранить на сервер не смог — это может только владелец), повторная загрузка компании в
@@ -71,10 +73,32 @@ public static class MarketSphereSync
             sphere = _serverSphere;
         }
 
-        if (UserPreferences.Instance.MarketSphere == sphere)
+        // 2026-09-29, правило владельца «при обновлениях не меняй установленные клиентом настройки»:
+        // _appliedKey живёт только до закрытия программы, поэтому раньше серверный вид затирал выбор
+        // клиента при КАЖДОМ запуске и после каждого обновления («clothing → grocery»). Теперь касса
+        // помнит на диске, какой серверный вид уже видела (MarketSphereServerSeen), и берёт его только
+        // на новой установке или когда владелец поменял вид на сайте после этого.
+        var prefs = UserPreferences.Instance;
+        var seen = prefs.MarketSphereServerSeen;
+        if (seen != sphere)
+        {
+            prefs.MarketSphereServerSeen = sphere;
+            prefs.SaveToDisk();
+        }
+
+        var firstSightOnConfiguredTill = seen is null && prefs.MarketSphereWasInFile;
+        if (seen == sphere || firstSightOnConfiguredTill)
+        {
+            if (firstSightOnConfiguredTill && prefs.MarketSphere != sphere)
+                PosLogger.Log($"Вид магазина кассы оставлен: {prefs.MarketSphere} (на сервере {sphere}) — выбор клиента не меняем.", "API");
+            return false;
+        }
+
+        if (prefs.MarketSphere == sphere)
             return false;
 
-        PosLogger.Log($"Вид магазина взят с сервера: {UserPreferences.Instance.MarketSphere} → {sphere}.", "API");
+        PosLogger.Log($"Вид магазина взят с сервера: {prefs.MarketSphere} → {sphere} ("
+            + (seen is null ? "новая установка" : $"на сервере сменили {seen} → {sphere}") + ").", "API");
         MarketSpheres.Set(sphere);
         return true;
     }
@@ -88,5 +112,8 @@ public static class MarketSphereSync
             _serverSphere = normalized;
             _appliedKey = (_companyId ?? "") + "|" + normalized;
         }
+
+        UserPreferences.Instance.MarketSphereServerSeen = normalized;
+        UserPreferences.Instance.SaveToDisk();
     }
 }

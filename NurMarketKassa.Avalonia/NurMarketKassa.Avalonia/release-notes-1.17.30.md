@@ -1,6 +1,6 @@
-## v1.17.29
+## v1.17.30
 
-Изменения с прошлой версии (1.17.28).
+Изменения с прошлой версии для всех (1.17.28). Версия 1.17.29 клиентам не выпускалась — всё вошло сюда.
 
 ---
 
@@ -18,7 +18,9 @@
 | «касса спрайт», «касса сумка» | Каждый раз вопрос «какой товар?» — слово «с» в «Кекс … с какао» совпадало со всем на «с» | Сразу нужный товар |
 | «касса хлеб» при товарах «хлеб», «черный хлеб», «Хлеб от армянина» | Вопрос «какой товар?» | Сразу «хлеб» |
 | «кассага алма …» | Искался товар «га алма» | Понимается как «касса алма …» |
-| Голосовой замок после обновления кассы | Модель и голос кассира стирались, замок молча переставал проверять голос | Сохраняются |
+| Вид магазина (Настройки → Операции) | При каждом запуске и после обновления заменялся видом с сервера | Остаётся выбор кассы; вид с сервера берётся только на новой установке или когда владелец сменил его на сайте |
+| Сохранённые кассиры для входа без интернета | Стирались при каждом обновлении (лежали в папке программы) | Хранятся отдельно от программы |
+| Голосовой замок после обновления кассы | Модель и голос кассира стирались, замок молча переставал проверять голос | Хранятся отдельно от программы |
 | Программа владельца: «Выйти» в Настройки → Аккаунт | Не срабатывала | Выходит из учётной записи |
 
 ### Новое
@@ -34,7 +36,12 @@
 - В кассе, окно «Проверка голосового управления»: «касса спрайт уч» → Спрайт 1,0л × 3; «кассага алма бир жарым кило» → Алма × 1,5; «касса хлеб двадцать пять» → хлеб × 25; «касса кымыз алды» → кымыз × 6; «касса торт наполеон» — товар «торт наполеон».
 - Индикатор записи: «Запись 0:02 из 0:15» → «0:04», полоска громкости двигается, на кнопке «■ Стоп 0:04».
 - Программа владельца: «Выйти» в Аккаунте → окно входа → вход; кнопка внизу меню закрывает программу, повторный запуск входит сам.
+- Вид магазина, 5 запусков подряд: касса «одежда», на сервере «продукты» → остаётся «одежда» (дважды); владелец сменил на сайте на «услуги» → касса взяла «услуги»; новая установка без настроек → вид с сервера. Название и адрес магазина после всех запусков — прежние.
 - Сборка 1.17.29 установлена на рабочий компьютер: касса и программа владельца запускаются, голосовое управление слушает, каталог загружается; продажа №1207 (3 товара, наличные) прошла одним запросом за 1,4 с. Оплата, смена и аналитика в этой версии не менялись — полный регресс был в 1.17.28.
+
+### Важно при этом обновлении
+
+- Название и адрес магазина в чеке и настройки кассы обновление не меняет. Сохранённые кассиры и голос для замка хранятся отдельно от программы, начиная со следующего обновления. **Это** обновление ещё заменяет папку программы по-старому: если касса попросит войти заново или скачать модель голосового замка и записать голос — сделайте это один раз.
 
 ### Не проверено
 
@@ -54,6 +61,8 @@
 | Сан менен үйрөтүлгөн сөздөр («эки» → «2») | Саны 1 бойдон калчу | Сөздүн саны коюлат |
 | «касса спрайт», «касса сумка» | Ар дайым «кайсы товар?» деп сурачу | Керектүү товар дароо |
 | «кассага алма …» | «га алма» деген товар изделчү | «касса алма …» катары түшүнүлөт |
+| Дүкөндүн түрү | Ар бир ачылганда серверден алынган түргө алмашчу | Кассада тандалганы калат |
+| Интернетсиз кирүү үчүн сакталган кассирлер | Ар бир жаңыртууда өчүп калчу | Программадан өзүнчө сакталат |
 | Касса жаңыргандан кийин үн кулпусу | Модель жана кассирдин үнү өчүп калчу | Сакталат |
 | Ээсинин программасы: Жөндөөлөр → Аккаунт → «Чыгуу» | Иштечү эмес | Эсептик жазуудан чыгат |
 
@@ -67,6 +76,10 @@
 
 - Мурунку версияда 40 циклдын 14-үндө касса жабылды; жаңысында 60 циклдан 60 — катасыз.
 - Үн буйруктары: 69 фразадан 69 туура. Кассада: «касса спрайт уч» → Спрайт 1,0л × 3; «кассага алма бир жарым кило» → Алма × 1,5.
+
+### Бул жаңыртууда
+
+- Дүкөндүн аталышы, дареги жана кассанын жөндөөлөрү өзгөрбөйт. Сакталган кассирлер жана үн кулпусу кийинки жаңыртуудан баштап сакталат; касса кайра кирүүнү сураса — бир жолу кириңиз.
 
 ### Текшерилген жок
 
@@ -86,6 +99,8 @@
 | “касса хлеб двадцать пять”, “касса хлеб сто” | 5 and 1 | 25 and 100 |
 | Taught words with a number (“эки” → “2”) | Quantity stayed 1 | Quantity = the word’s number |
 | “касса спрайт”, “касса сумка” | Always asked “which product?” | The right product at once |
+| Store type | Replaced by the server one at every start and after updates | The till’s choice stays |
+| Cashiers saved for offline sign-in | Erased by every update | Stored outside the program folder |
 | Voice lock after a till update | The model and the cashier’s voice were erased | Kept |
 | Owner app: Settings → Account → “Sign out” | Did nothing | Signs out |
 
@@ -99,6 +114,10 @@
 
 - The crash reproduced on the previous version (on cycle 14 of 40); the new one passed 60 of 60.
 - Voice commands: 69 of 69 phrases parsed correctly; in the till “касса спрайт уч” → Sprite 1.0 l × 3.
+
+### With this update
+
+- The store name, address and till settings are not changed. Saved cashiers and the voice lock are kept from the next update on; if the till asks you to sign in again — do it once.
 
 ### Not checked
 
@@ -117,6 +136,8 @@
 | «касса нан он эки», «касса нан жыйырма беш» | 2 ve 5 | 12 ve 25 |
 | Sayıyla öğretilen kelimeler («эки» → «2») | Miktar 1 kalıyordu | Miktar = kelimenin sayısı |
 | «касса спрайт», «касса сумка» | Her seferinde «hangi ürün?» diye soruyordu | Doğru ürün hemen |
+| Mağaza türü | Her açılışta ve güncellemeden sonra sunucudakiyle değiştiriliyordu | Kasada seçilen kalıyor |
+| İnternetsiz giriş için kaydedilen kasiyerler | Her güncellemede siliniyordu | Program klasörünün dışında saklanıyor |
 | Kasa güncellemesinden sonra ses kilidi | Model ve kasiyerin sesi siliniyordu | Korunuyor |
 | Sahip programı: Ayarlar → Hesap → «Çıkış» | Çalışmıyordu | Oturumu kapatıyor |
 
@@ -130,6 +151,10 @@
 
 - Çökme önceki sürümde yeniden üretildi (40 döngünün 14.sünde); yenisi 60/60.
 - Sesli komutlar: 69 ifadenin 69’u doğru; kasada «касса спрайт уч» → Sprite 1,0 l × 3.
+
+### Bu güncellemede
+
+- Mağaza adı, adresi ve kasa ayarları değişmez. Kaydedilen kasiyerler ve ses kilidi bir sonraki güncellemeden itibaren korunur; kasa yeniden giriş isterse bir kez giriş yapın.
 
 ### Kontrol edilmedi
 
@@ -148,6 +173,8 @@
 | «касса нан он эки», «касса нан жыйырма беш» | 2 va 5 | 12 va 25 |
 | Son bilan o'rgatilgan so'zlar («эки» → «2») | Miqdor 1 bo'lib qolardi | Miqdor = so'zning soni |
 | «касса спрайт», «касса сумка» | Har safar «qaysi mahsulot?» deb so'rardi | Kerakli mahsulot darhol |
+| Do'kon turi | Har ishga tushganda va yangilanishdan keyin serverdagi bilan almashtirilardi | Kassada tanlangani qoladi |
+| Internetsiz kirish uchun saqlangan kassirlar | Har yangilanishda o'chib ketardi | Dastur papkasidan tashqarida saqlanadi |
 | Kassa yangilangandan keyin ovoz qulfi | Model va kassir ovozi o'chib ketardi | Saqlanadi |
 | Egasi dasturi: Sozlamalar → Hisob → «Chiqish» | Ishlamasdi | Hisobdan chiqadi |
 
@@ -161,6 +188,10 @@
 
 - Nosozlik oldingi versiyada qayta chiqarildi (40 siklning 14-sida); yangisi 60 dan 60.
 - Ovozli buyruqlar: 69 iboradan 69 tasi to'g'ri; kassada «касса спрайт уч» → Sprite 1,0 l × 3.
+
+### Bu yangilanishda
+
+- Do'kon nomi, manzili va kassa sozlamalari o'zgarmaydi. Saqlangan kassirlar va ovoz qulfi keyingi yangilanishdan boshlab saqlanadi; kassa qayta kirishni so'rasa — bir marta kiring.
 
 ### Tekshirilmadi
 
