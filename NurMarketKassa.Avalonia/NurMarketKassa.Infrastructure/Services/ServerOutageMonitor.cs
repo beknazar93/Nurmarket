@@ -60,6 +60,47 @@ public static class ServerOutageMonitor
     ];
 
     private static readonly object Sync = new();
+
+    /// <summary>2026-09-29: ответы сервера на запросы ТЕКУЩЕЙ операции (оплаты). Видна только в её
+    /// асинхронном потоке — фоновые запросы кассы (каталог, остатки) ответы оплаты не подменяют.</summary>
+    private static readonly AsyncLocal<ResponseWatch?> CurrentWatch = new();
+
+    /// <summary>Следит, отвечает ли сервер на запросы одной операции (см. PosCheckoutService: не
+    /// больше ~2 с ожидания без ответа сервера). Успешный ответ или отказ 4xx вызывает
+    /// <paramref name="onAnswer"/>. Действует до конца асинхронного метода, который его начал.</summary>
+    public static ResponseWatch BeginResponseWatch(Action? onAnswer)
+    {
+        var watch = new ResponseWatch(onAnswer);
+        CurrentWatch.Value = watch;
+        return watch;
+    }
+
+    public sealed class ResponseWatch
+    {
+        private Action? _onAnswer;
+        private int _answers;
+
+        internal ResponseWatch(Action? onAnswer) => _onAnswer = onAnswer;
+
+        /// <summary>Сколько раз сервер ответил в этой операции.</summary>
+        public int Answers => Volatile.Read(ref _answers);
+
+        /// <summary>Больше не следить (операция завершена): фоновые задачи, начатые внутри неё,
+        /// не должны трогать её таймер.</summary>
+        public void Stop() => Volatile.Write(ref _onAnswer, null);
+
+        internal void Answered()
+        {
+            Interlocked.Increment(ref _answers);
+            try
+            {
+                Volatile.Read(ref _onAnswer)?.Invoke();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
     private static ServerLinkState _state = ServerLinkState.Online;
     private static int _consecutiveFailures;
     private static DateTimeOffset? _outageSince;
@@ -160,6 +201,8 @@ public static class ServerOutageMonitor
     /// <summary>Успешный ответ сервера (разобранный JSON или отказ 4xx — сервер жив).</summary>
     public static void ReportSuccess(string context)
     {
+        CurrentWatch.Value?.Answered();
+
         ServerLinkState from;
         lock (Sync)
         {
