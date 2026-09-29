@@ -64,6 +64,8 @@ internal static class AvaloniaHostServiceRegistration
         // 2026-09-28: новые адреса NurCRM — должники, погашение долга одной суммой, telegram_chat_id,
         // малый остаток, вид магазина (docs/BACKEND_API.md, BE-03/04/05/12/18).
         services.AddSingleton<ClientDebtsApiService>();
+        // 2026-09-29: заказы и настройки витрины (сайта) для программы владельца.
+        services.AddSingleton<ShowcaseApiService>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
         services.AddSingleton<IInventoryApiService, InventoryApiService>();
         services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();

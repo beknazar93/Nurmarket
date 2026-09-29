@@ -1,0 +1,145 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.SiteSettingsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
+        Title="Настройки сайта"
+        Height="760"
+        Width="1100"
+        MinWidth="860"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushWindow}"
+        Loaded="Window_Loaded">
+
+    <!-- 2026-09-29, программа владельца: «настройки сайта тоже». Только поля витрины, которые
+         отдаёт сервер (api/users/settings/company/): адрес витрины и номер WhatsApp для заказов.
+         Название и адрес магазина здесь не меняются (правило владельца). -->
+    <Window.Styles>
+        <Style Selector="Button.period">
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.period.accent">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.period.accent /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.period.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.period.accent:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="18,16"/>
+        </Style>
+        <Style Selector="TextBlock.fieldTitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+        <Style Selector="TextBlock.status">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid x:Name="RootGrid" Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+        <ProgressBar x:Name="LoadingBar" Grid.Row="0" Margin="0,-8,0,0" IsVisible="False" IsIndeterminate="True" Height="3" MinHeight="3" CornerRadius="2" VerticalAlignment="Top" IsHitTestVisible="False" ZIndex="100" Foreground="{DynamicResource BrushAccent}" Background="Transparent"/>
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="SubtitleText" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="RefreshButton" Classes="period" Click="Refresh_Click"/>
+                <Button IsCancel="True" x:Name="CloseButton" Classes="period" Click="Close_Click"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Витрина сейчас: подключена ли, ссылка, сколько товаров, название магазина. -->
+        <Border Grid.Row="1" Classes="card" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border x:Name="StateDot" Width="10" Height="10" CornerRadius="5" VerticalAlignment="Top" Margin="0,6,12,0"
+                        Background="{DynamicResource BrushTextSoft}"/>
+                <StackPanel Grid.Column="1" Spacing="4" Margin="0,0,12,0">
+                    <TextBlock x:Name="StateText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="LinkText" FontSize="13" FontWeight="Medium" TextDecorations="Underline" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="StateHintText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="OpenShowcaseButton" Classes="period" Click="OpenShowcase_Click"/>
+                    <Button x:Name="CopyLinkButton" Classes="period" Click="CopyLink_Click" Margin="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Border Classes="card" VerticalAlignment="Top">
+                <StackPanel Spacing="22" MaxWidth="760" HorizontalAlignment="Left">
+                    <!-- Адрес витрины -->
+                    <StackPanel>
+                        <TextBlock x:Name="SlugTitle" Classes="fieldTitle"/>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Border Background="{DynamicResource BrushInputAlt}" CornerRadius="8,0,0,8" Padding="10,0" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1,1,0,1">
+                                <TextBlock x:Name="SlugPrefixText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                            </Border>
+                            <TextBox x:Name="SlugBox" Grid.Column="1" MaxLength="50" FontSize="14" CornerRadius="0,8,8,0" MinHeight="36"
+                                     VerticalContentAlignment="Center" TextChanged="SlugBox_TextChanged"/>
+                        </Grid>
+                        <TextBlock x:Name="SlugStatusText" Classes="status" IsVisible="False"/>
+                        <TextBlock x:Name="SlugHintText" Classes="hint"/>
+                    </StackPanel>
+
+                    <!-- Номер WhatsApp для заказов с витрины -->
+                    <StackPanel>
+                        <TextBlock x:Name="PhoneTitle" Classes="fieldTitle"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox x:Name="PhoneBox" MaxLength="60" FontSize="14" MinHeight="36" CornerRadius="8"
+                                     VerticalContentAlignment="Center" TextChanged="PhoneBox_TextChanged"/>
+                            <Button x:Name="AddCodeButton" Grid.Column="1" Classes="period" Margin="8,0,0,0" IsVisible="False" Click="AddCode_Click"/>
+                        </Grid>
+                        <TextBlock x:Name="PhoneStatusText" Classes="status" IsVisible="False"/>
+                        <TextBlock x:Name="PhoneHintText" Classes="hint"/>
+                    </StackPanel>
+
+                    <!-- Что меняется только на сайте NurCRM -->
+                    <StackPanel>
+                        <TextBlock x:Name="ReadonlyTitle" Classes="fieldTitle"/>
+                        <TextBlock x:Name="ReadonlyText" Classes="hint" Margin="0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="SaveButton" Classes="period accent" Click="Save_Click" IsEnabled="False"/>
+                        <Button x:Name="ResetButton" Classes="period" Click="Reset_Click" IsEnabled="False"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <Border Grid.Row="3" Margin="0,10,0,0" Padding="10"
+                Background="{DynamicResource BrushDangerSoft}" CornerRadius="8"
+                IsVisible="False" x:Name="NoticeBox">
+            <TextBlock x:Name="NoticeText" Foreground="{DynamicResource BrushDanger}" TextWrapping="Wrap"/>
+        </Border>
+    </Grid>
+</Window>

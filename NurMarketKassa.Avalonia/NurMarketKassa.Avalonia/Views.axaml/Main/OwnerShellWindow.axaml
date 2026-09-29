@@ -49,6 +49,9 @@
         <StreamGeometry x:Key="ReturnIcon">M9,7 L4,12 L9,17 M5,12 H14 A6,6 0 0 1 20,18</StreamGeometry>
         <StreamGeometry x:Key="CalculatorIcon">M6,3 H18 V21 H6 Z M8.5,6 H15.5 V9.5 H8.5 Z M9,13 V13.01 M12,13 V13.01 M15,13 V13.01 M9,16 V16.01 M12,16 V16.01 M15,16 V16.01 M9,19 V19.01 M12,19 V19.01 M15,19 V19.01</StreamGeometry>
         <StreamGeometry x:Key="ChevronRightIcon">M9,5 L16,12 L9,19</StreamGeometry>
+        <!-- 2026-09-29, раздел «Сайт»: заказы — лоток входящих, настройки — глобус. -->
+        <StreamGeometry x:Key="SiteOrdersIcon">M3,13 L6,4 H18 L21,13 V20 H3 Z M3,13 H8 L9.5,16 H14.5 L16,13 H21</StreamGeometry>
+        <StreamGeometry x:Key="SiteSettingsIcon">M12,3 A9,9 0 1 1 11.99,3 M3,12 H21 M12,3 A14,14 0 0 1 12,21 M12,3 A14,14 0 0 0 12,21</StreamGeometry>
     </Window.Resources>
 
     <Window.Styles>
@@ -95,6 +98,23 @@
         </Style>
         <Style Selector="Button.nav:pointerover Path.navIcon, Button.nav.active Path.navIcon">
             <Setter Property="Stroke" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <!-- Число новых заказов с сайта у пункта меню (2026-09-29). -->
+        <Style Selector="Border.navBadge">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="MinWidth" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border.navBadge TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="TextBlock.navGroup">
             <Setter Property="FontSize" Value="11"/>
