@@ -70,6 +70,9 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.onec-tab">
+            <!-- 2026-09-29: вкладки чеков и «Новый» без фокуса — иначе Enter сканера нажимал
+                 оставшуюся в фокусе кнопку ещё раз (см. BasketPanelView, Button.receipt-tab). -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>

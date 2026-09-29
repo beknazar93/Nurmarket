@@ -259,7 +259,11 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             await _salesApi
                 .PosCartPatchAsync(_cart.CartId!, discountBody, cancellationToken)
                 .ConfigureAwait(false);
-            _cart.SetCart(await _salesApi.PosCartGetAsync(_cart.CartId!, cancellationToken).ConfigureAwait(false));
+            // 2026-09-29: названия строк (варианты по доп. штрихкоду) — прежние, как видел кассир
+            // (см. StagingCartService.WithSnapshotLineNames).
+            var namesSource = _cart.GetRawText();
+            _cart.SetCart(StagingCartService.WithSnapshotLineNames(
+                await _salesApi.PosCartGetAsync(_cart.CartId!, cancellationToken).ConfigureAwait(false), namesSource));
             return true;
         }
         catch (Exception ex)
@@ -1558,6 +1562,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         try
         {
             using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            var stockLeft = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in CartDisplayHelper.EnumerateItems(doc.RootElement))
             {
                 var productId = CartDisplayHelper.TryProductId(item);
@@ -1573,7 +1578,12 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 if (soldQty <= 0)
                     continue;
 
-                var next = Math.Max(0, tile.Quantity - soldQty);
+                // 2026-09-29: у товара бывает несколько строк (основной штрихкод и варианты по доп.
+                // штрихкодам, пачка и поштучно). Плитка обновляется в UI-потоке позже, и вторая строка
+                // считала остаток от старого значения плитки, затирая списание первой, — поэтому
+                // остаток уменьшаем от уже уменьшенного в этом чеке.
+                var next = Math.Max(0, (stockLeft.TryGetValue(productId, out var left) ? left : tile.Quantity) - soldQty);
+                stockLeft[productId] = next;
                 LocalProductRepository.Instance.UpdateStock(productId, next, tile.MustWeigh);
                 // 2026-09-23: OnUi, а не прямой вызов. Этот код выполняется в продолжении
                 // после ConfigureAwait(false), то есть в потоке пула, а плитка уже

@@ -178,7 +178,8 @@ public partial class CheckoutDialog : Window
                 if (decision == PrinterNotConnectedResult.Cancel)
                     return;
 
-                _viewModel.IsPrintReceiptEnabled = false;
+                // 2026-09-29: только для этой оплаты — выбор кассира в «Напечатать чек» не меняем.
+                _viewModel.SkipPrintForThisPayment();
             }
 
             // Clicking "Оплатить" here is already the cashier's confirmation — the extra

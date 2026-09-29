@@ -103,7 +103,13 @@
         </Style>
 
         <!-- Стили для вкладок чека -->
+        <!-- 2026-09-29, жалоба магазина «нажал "+ Новый чек", отсканировал товар — создаётся ещё
+             один новый чек»: кнопка после щелчка мышью оставалась в фокусе (рамки фокуса не видно —
+             FocusAdorner пустой), и Enter, которым сканер заканчивает каждый код, нажимал её ещё раз,
+             а сам код до сканера не доходил. Кнопки вкладок и «+ Новый чек» фокус не берут — как
+             +/− у строк чека и все кнопки новых видов кассы (LayoutStyles.axaml). -->
         <Style Selector="Button.receipt-tab">
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="MinHeight" Value="34"/>
             <Setter Property="Padding" Value="9,7"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -199,6 +205,8 @@
         </Style>
 
         <Style Selector="Button.new-receipt-tab">
+            <!-- 2026-09-29: без фокуса, см. комментарий у Button.receipt-tab выше. -->
+            <Setter Property="Focusable" Value="False"/>
             <Setter Property="MinHeight" Value="34"/>
             <Setter Property="Padding" Value="9,7"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
@@ -608,8 +616,11 @@
                       ColumnDefinitions="*,8,*,8,*,8,*"
                       HorizontalAlignment="Stretch"
                       Margin="0,0,0,6">
+                    <!-- 2026-09-29: «Отложить чек» и «Удалить чек» тоже открывают/убирают чек — без
+                         фокуса, иначе Enter сканера нажал бы их ещё раз (см. Button.receipt-tab). -->
                     <Button Grid.Column="0"
                             Classes="cart-action"
+                            Focusable="False"
                             Command="{Binding DeferCartCommand}"
                             IsEnabled="{Binding HasItems}"
                             ToolTip.Tip="{DynamicResource csh.cart.deferTooltip}">
@@ -632,6 +643,7 @@
 
                     <Button Grid.Column="2"
                             Classes="cart-action"
+                            Focusable="False"
                             Command="{Binding DeleteReceiptCommand}"
                             ToolTip.Tip="{DynamicResource csh.cart.deleteReceiptTooltip}">
                         <Grid ColumnDefinitions="Auto,*"

@@ -141,7 +141,9 @@ namespace NurMarketKassa.ViewModels
 
             CashReceived = totals.TotalDue.ToString("0.00", CultureInfo.InvariantCulture);
             _lastCashReceived = CashReceived;
-            _isPrintReceiptEnabled = UserPreferences.Instance.ReceiptEnabled;
+            // 2026-09-29: последний выбор кассира в «Напечатать чек» (UserPreferences.CheckoutPrintReceipt);
+            // кто его не трогал — как раньше, по «Печатать чек после оплаты» в настройках.
+            _isPrintReceiptEnabled = UserPreferences.Instance.CheckoutPrintReceiptDefault;
 
             PayCommand = new RelayCommand(ExecutePay);
             CancelCommand = new RelayCommand(() =>
@@ -409,10 +411,32 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
+        /// <summary>Переключатель «Напечатать чек» в окне оплаты. 2026-09-29, просьба магазина: выбор
+        /// кассира запоминается сразу (UserPreferences.CheckoutPrintReceipt + запись на диск) — следующая
+        /// оплата, перезапуск и обновление открывают окно с тем же положением.</summary>
         public bool IsPrintReceiptEnabled
         {
             get => _isPrintReceiptEnabled;
-            set { _isPrintReceiptEnabled = value; OnPropertyChanged(); }
+            set
+            {
+                if (_isPrintReceiptEnabled == value)
+                    return;
+                _isPrintReceiptEnabled = value;
+                OnPropertyChanged();
+                var prefs = UserPreferences.Instance;
+                prefs.CheckoutPrintReceipt = value;
+                prefs.SaveToDisk();
+            }
+        }
+
+        /// <summary>2026-09-29: принтер не подключён и кассир выбрал «Продолжить без печати» — чек не
+        /// печатается только в этой оплате. Это не выбор в переключателе, поэтому не запоминается.</summary>
+        public void SkipPrintForThisPayment()
+        {
+            if (!_isPrintReceiptEnabled)
+                return;
+            _isPrintReceiptEnabled = false;
+            OnPropertyChanged(nameof(IsPrintReceiptEnabled));
         }
 
         public bool IsCashMode => _paymentMethod == "cash";

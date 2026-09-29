@@ -43,11 +43,25 @@ public static class ReceiptSnapshotCartEditor
         var unitPrice = unitPriceOverride ?? ParsePrice(product.PriceLine);
         var productId = product.Id;
         var title = string.IsNullOrWhiteSpace(nameOverride) ? product.Title : nameOverride;
+        var variantName = string.IsNullOrWhiteSpace(nameOverride) ? null : nameOverride.Trim();
 
         // Сливаем только со строкой той же цены за единицу — иначе, например, продажа целой
         // упаковкой и поштучная продажа того же товара (или наоборот, в любом порядке
         // добавления) слились бы в одну строку по чужой цене и исказили сумму чека.
-        var existing = FindLineByProductIdAndPrice(items, productId, unitPrice);
+        //
+        // 2026-09-29, жалоба магазина «при сканировании доп. штрихкода резко переходит на
+        // основное»: скан доп. штрихкода варианта («Asu Клубничный») сливался в уже пробитую
+        // строку основного товара («Asu» — количество +1, варианта в чеке нет), и наоборот.
+        // Теперь вариант — своя строка: сливаются только строки того же варианта (у основного
+        // товара варианта нет). Исключения — весовой товар и товар с акцией NurCRM: сервер
+        // хранит такой товар одной строкой и считает акцию от её суммы, две строки дали бы
+        // другую скидку, чем у сервера, — они сливаются, как раньше. На сервер строки одного
+        // товара уходят одной позицией (QuickCheckoutBody / StagingCartService) — сервер
+        // вариантов не различает (проверено на тестовом аккаунте: скан доп. штрихкода даёт строку
+        // с названием основного товара, своё название строки add-item и PATCH не принимают).
+        var existing = FindLineByProductIdAndPrice(items, productId, unitPrice, variantName);
+        if (existing == null && (product.MustWeigh || PromotionRules.ApplyToLine(new JsonObject(), productId)))
+            existing = FindLineByProductIdAndPrice(items, productId, unitPrice);
 
         if (existing != null)
         {
@@ -71,7 +85,12 @@ public static class ReceiptSnapshotCartEditor
         }
         else
         {
-            items.Add(BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId));
+            var line = BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId);
+            // 2026-09-29: метка варианта — по ней следующий скан того же варианта сливается в эту
+            // строку, а скан основного штрихкода или другого варианта — нет.
+            if (variantName != null)
+                line[VariantNameField] = variantName;
+            items.Add(line);
         }
 
         if (product.MustWeigh)
@@ -300,7 +319,17 @@ public static class ReceiptSnapshotCartEditor
     /// <summary>Совпадение по товару и цене за единицу — нужно, чтобы продажа целой упаковкой
     /// и поштучная продажа того же товара (в любом порядке добавления) не сливались в одну
     /// строку по чужой цене.</summary>
-    private static JsonObject? FindLineByProductIdAndPrice(JsonArray items, string productId, double unitPrice)
+    private static JsonObject? FindLineByProductIdAndPrice(JsonArray items, string productId, double unitPrice) =>
+        FindLineByProductIdAndPrice(items, productId, unitPrice, variantName: null, matchVariant: false);
+
+    /// <summary>2026-09-29: то же, но строка должна быть того же варианта (доп. штрихкод):
+    /// variantName = null — строка основного товара (без метки варианта).</summary>
+    private static JsonObject? FindLineByProductIdAndPrice(
+        JsonArray items, string productId, double unitPrice, string? variantName) =>
+        FindLineByProductIdAndPrice(items, productId, unitPrice, variantName, matchVariant: true);
+
+    private static JsonObject? FindLineByProductIdAndPrice(
+        JsonArray items, string productId, double unitPrice, string? variantName, bool matchVariant)
     {
         if (items == null) return null;
         string normalizedSearchId = productId?.Trim() ?? "";
@@ -315,11 +344,21 @@ public static class ReceiptSnapshotCartEditor
                 pid = ExtractId(productObj["id"]);
 
             if (string.Equals(pid?.Trim(), normalizedSearchId, StringComparison.OrdinalIgnoreCase)
-                && PriceMatches(obj, unitPrice))
+                && PriceMatches(obj, unitPrice)
+                && (!matchVariant || string.Equals(LineVariantName(obj), variantName, StringComparison.Ordinal)))
                 return obj;
         }
         return null;
     }
+
+    /// <summary>2026-09-29: поле строки чека с названием варианта (доп. штрихкод), с которым её
+    /// пробили. Только для кассы: на сервер не уходит, сервер вариантов не хранит.</summary>
+    public const string VariantNameField = "variant_name";
+
+    private static string? LineVariantName(JsonObject line) =>
+        line[VariantNameField] is JsonValue value && value.TryGetValue<string>(out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name.Trim()
+            : null;
 
     private static JsonObject BuildLine(
         string productId,

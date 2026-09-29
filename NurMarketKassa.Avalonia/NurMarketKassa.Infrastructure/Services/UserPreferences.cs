@@ -154,6 +154,16 @@ public sealed class UserPreferences
     public string ReceiptDevicePath { get; set; } = "LPT1";
     public bool ReceiptEnabled { get; set; }
 
+    /// <summary>2026-09-29, просьба магазина: переключатель «Напечатать чек» в окне оплаты
+    /// запоминает последний выбор кассира — между оплатами, после перезапуска и обновления.
+    /// null — кассир его ещё не трогал: окно оплаты, как и раньше, берёт <see cref="ReceiptEnabled"/>
+    /// («Печатать чек после оплаты» в настройках). Без включённой печати в настройках чек не
+    /// печатается при любом значении.</summary>
+    public bool? CheckoutPrintReceipt { get; set; }
+
+    /// <summary>Начальное положение «Напечатать чек» в окне оплаты (см. <see cref="CheckoutPrintReceipt"/>).</summary>
+    public bool CheckoutPrintReceiptDefault => ReceiptEnabled && (CheckoutPrintReceipt ?? true);
+
     /// <summary>Денежный ящик подключается не к компьютеру, а к чековому принтеру (разъём "DK"),
     /// поэтому отдельного порта у него нет — импульс уходит в <see cref="ReceiptDevicePath"/>.
     /// Выключено по умолчанию: у кассы без ящика лишняя команда принтеру не нужна.</summary>
@@ -700,6 +710,9 @@ public sealed class UserPreferences
                 p.LabelPrinterDevicePath = fromFile.LabelPrinterDevicePath;
             if (fromFile.ReceiptEnabled is not null)
                 p.ReceiptEnabled = fromFile.ReceiptEnabled.Value;
+            // 2026-09-29: нет в файле (кассир не трогал «Напечатать чек») — остаётся null, как раньше.
+            if (fromFile.CheckoutPrintReceipt is not null)
+                p.CheckoutPrintReceipt = fromFile.CheckoutPrintReceipt.Value;
             if (fromFile.CashDrawerEnabled is not null)
                 p.CashDrawerEnabled = fromFile.CashDrawerEnabled.Value;
             if (fromFile.CashDrawerPin is 0 or 1)
@@ -1089,6 +1102,7 @@ public sealed class UserPreferences
                 ReceiptEscPosTable = ReceiptEscPosTable,
                 ReceiptEscR = ReceiptEscR,
                 ReceiptEnabled = ReceiptEnabled,
+                CheckoutPrintReceipt = CheckoutPrintReceipt,
                 CashDrawerEnabled = CashDrawerEnabled,
                 CashDrawerPin = CashDrawerPin,
                 ReceiptPaperWidthMm = ReceiptPaperWidthMm,
@@ -1329,6 +1343,7 @@ public sealed class UserPreferences
         public int? ReceiptEscPosTable { get; set; }
         public int? ReceiptEscR { get; set; }
         public bool? ReceiptEnabled { get; set; }
+        public bool? CheckoutPrintReceipt { get; set; }
         public bool? CashDrawerEnabled { get; set; }
         public int? CashDrawerPin { get; set; }
         public int? ReceiptPaperWidthMm { get; set; }

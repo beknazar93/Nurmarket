@@ -73,7 +73,10 @@ public static class StagingCartService
         await ApplyOrderDiscountFromSnapshotAsync(api, cartId, snapshotJson, cancellationToken, cart.Root).ConfigureAwait(false);
         PosLogger.Log($"STAGING materialize: discount applied at {sw.ElapsedMilliseconds}ms", "PAYMENT");
 
-        cart.SetCart(await api.PosCartGetAsync(cartId, cancellationToken).ConfigureAwait(false));
+        // 2026-09-29: названия строк — те, что видел кассир (варианты по доп. штрихкоду), см.
+        // WithSnapshotLineNames; суммы и количества — как у сервера.
+        cart.SetCart(WithSnapshotLineNames(
+            await api.PosCartGetAsync(cartId, cancellationToken).ConfigureAwait(false), snapshotJson));
         PosLogger.Log(
             $"STAGING: снимок перенесён на сервер cartId={cartId}, total={sw.ElapsedMilliseconds}ms for {lineCount} line(s)",
             "PAYMENT");
@@ -90,6 +93,23 @@ public static class StagingCartService
         CancellationToken cancellationToken)
     {
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(snapshotJson) ? "{}" : snapshotJson);
+
+        // 2026-09-29: строки одного товара по одной цене (основной штрихкод и варианты по доп.
+        // штрихкодам — в чеке кассы это разные строки, см. ReceiptSnapshotCartEditor.AddProduct)
+        // уходят на сервер одной позицией с общим количеством и общей скидкой — как и до
+        // разделения строк. Сервер сам сливает add-item одного товара в одну строку, и вторая
+        // скидка строки могла бы заменить первую.
+        var groups = new Dictionary<string, (double Qty, double Discount)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var it in CartDisplayHelper.EnumerateItems(doc.RootElement))
+        {
+            if (PushGroupKey(it) is not { } groupKey)
+                continue;
+            groups.TryGetValue(groupKey, out var sum);
+            groups[groupKey] = (sum.Qty + CartDisplayHelper.LineQuantity(it),
+                sum.Discount + CartDisplayHelper.EffectiveLineDiscount(it));
+        }
+
+        var pushedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in CartDisplayHelper.EnumerateItems(doc.RootElement))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -112,6 +132,17 @@ public static class StagingCartService
             }
 
             var qty = CartDisplayHelper.LineQuantity(it);
+            var disc = CartDisplayHelper.OptionalDiscountTotalParam(it);
+            // 2026-09-29: вторая и следующие строки того же товара уже ушли первой (см. groups выше).
+            if (PushGroupKey(it) is { } groupKey)
+            {
+                if (!pushedGroups.Add(groupKey))
+                    continue;
+                var group = groups[groupKey];
+                qty = group.Qty;
+                disc = group.Discount > 1e-6 ? CartDisplayHelper.FormatMoney(group.Discount) : null;
+            }
+
             // Без TrimEnd: формат "0.###" и так не печатает хвостовые нули, а у ЦЕЛОГО количества
             // он не печатает и точку — поэтому TrimEnd('0') откусывал нули самого числа и
             // 10.000 кг уходило на сервер как "1" (живой баг: чек на 1000 сом проводился как 100).
@@ -119,7 +150,6 @@ public static class StagingCartService
                 ? qty.ToString("0.###", CultureInfo.InvariantCulture)
                 : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
             var unitPrice = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it));
-            var disc = CartDisplayHelper.OptionalDiscountTotalParam(it);
             var salePackageId = CartDisplayHelper.SalePackageId(it);
 
             try
@@ -157,6 +187,87 @@ public static class StagingCartService
                     ex.StatusCode,
                     ex.Payload);
             }
+        }
+    }
+
+    /// <summary>2026-09-29: ключ «одна позиция на сервере» для строки чека с товаром: товар, цена за
+    /// единицу и упаковка поштучной продажи. null — строка без товара («Доп. услуга»).</summary>
+    private static string? PushGroupKey(JsonElement it)
+    {
+        var productId = CartDisplayHelper.TryProductId(it);
+        if (string.IsNullOrEmpty(productId))
+            return null;
+        return productId.Trim() + "|"
+               + CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it)) + "|"
+               + (CartDisplayHelper.SalePackageId(it) ?? "");
+    }
+
+    /// <summary>2026-09-29, жалоба магазина «доп. штрихкод резко переходит на основное»: после
+    /// переноса чека на сервер касса брала строки серверной корзины, а сервер вариантов не знает —
+    /// «Asu Клубничный» становилась «Asu» и на экране (если оплата не прошла), и в напечатанном
+    /// чеке. Название, которое видел кассир, возвращается в строку серверной корзины, когда ей
+    /// соответствует одна строка кассы (тот же товар и цена). Если строк несколько (основной
+    /// товар и вариант), сервер держит их одной строкой — у неё остаётся название сервера.
+    /// Суммы и количества не трогаются.</summary>
+    internal static JsonElement WithSnapshotLineNames(JsonElement serverCart, string? snapshotJson)
+    {
+        if (serverCart.ValueKind != JsonValueKind.Object || string.IsNullOrWhiteSpace(snapshotJson))
+            return serverCart;
+
+        try
+        {
+            var names = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            using (var snapshot = JsonDocument.Parse(snapshotJson))
+            {
+                foreach (var it in CartDisplayHelper.EnumerateItems(snapshot.RootElement))
+                {
+                    if (PushGroupKey(it) is not { } key)
+                        continue;
+                    if (!names.TryGetValue(key, out var set))
+                        names[key] = set = new HashSet<string>(StringComparer.Ordinal);
+                    set.Add(CartDisplayHelper.ItemName(it));
+                }
+            }
+
+            if (names.Count == 0 || JsonNode.Parse(serverCart.GetRawText()) is not JsonObject root
+                || root["items"] is not JsonArray items)
+                return serverCart;
+
+            var changed = false;
+            foreach (var node in items)
+            {
+                if (node is not JsonObject line)
+                    continue;
+                using var lineDoc = JsonDocument.Parse(line.ToJsonString());
+                if (PushGroupKey(lineDoc.RootElement) is not { } key
+                    || !names.TryGetValue(key, out var set) || set.Count != 1)
+                    continue;
+                var name = set.First();
+                if (string.IsNullOrWhiteSpace(name) || name == "—"
+                    || string.Equals(CartDisplayHelper.ItemName(lineDoc.RootElement), name, StringComparison.Ordinal))
+                    continue;
+
+                // CartDisplayHelper.ItemName читает product{}.name, затем product_snapshot{}.name,
+                // затем product_name — ставим во все, что есть у строки.
+                line["product_name"] = name;
+                if (line.ContainsKey("display_name"))
+                    line["display_name"] = name;
+                if (line["product"] is JsonObject product)
+                    product["name"] = name;
+                if (line["product_snapshot"] is JsonObject productSnapshot)
+                    productSnapshot["name"] = name;
+                changed = true;
+            }
+
+            if (!changed)
+                return serverCart;
+            using var result = JsonDocument.Parse(root.ToJsonString());
+            return result.RootElement.Clone();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Названия строк чека не перенесены в серверную корзину: {ex.Message}", "WARNING");
+            return serverCart;
         }
     }
 
