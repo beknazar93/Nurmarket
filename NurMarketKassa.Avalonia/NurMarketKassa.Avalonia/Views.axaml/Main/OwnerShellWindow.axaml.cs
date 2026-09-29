@@ -213,7 +213,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         UserRoleText.Text = Tr.T("Вход через NurCRM", "NurCRM аркылуу кирүү", "Signed in via NurCRM", "NurCRM ile giriş", "NurCRM orqali kirish");
         AvatarText.Text = Initials(name);
         ToolTip.SetTip(ThemeButton, Tr.T("Светлая / тёмная тема", "Жарык / караңгы тема", "Light / dark theme", "Açık / koyu tema", "Yorug' / qorong'i mavzu"));
-        ToolTip.SetTip(LogoutButton, Tr.T("Выйти из учётной записи", "Эсептик жазуудан чыгуу", "Sign out", "Oturumu kapat", "Hisobdan chiqish"));
+        ToolTip.SetTip(ExitButton, Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"));
         ToolTip.SetTip(RefreshButton, Tr.T("Обновить сейчас", "Азыр жаңыртуу", "Refresh now", "Şimdi yenile", "Hozir yangilash"));
         ToolTip.SetTip(CollapseButton, Tr.T("Свернуть / развернуть меню", "Менюну жыйноо / ачуу", "Collapse / expand menu", "Menüyü daralt / genişlet", "Menyuni yig'ish / yoyish"));
         UpdateThemeIcon();
@@ -381,12 +381,8 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         // Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).
         Group(Tr.T("Система", "Система", "System", "Sistem", "Tizim"));
-        Add("exit", "PowerIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
-            () =>
-            {
-                App.ExitWithoutLoginRedirect = true;
-                Close();
-            });
+        Add("exit", "ExitIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
+            ExitToDesktop);
 
         UpdateNavHighlight();
     }
@@ -415,7 +411,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         CompanyCard.IsVisible = !collapsed;
         UserInfoPanel.IsVisible = !collapsed;
         ThemeButton.IsVisible = !collapsed;
-        LogoutButton.IsVisible = !collapsed;
+        ExitButton.IsVisible = !collapsed;
         UserFooter.Padding = collapsed ? new Thickness(16, 12) : new Thickness(14, 12);
         ToolTip.SetTip(AvatarText, collapsed ? UserNameText.Text : null);
     }
@@ -1893,9 +1889,19 @@ public partial class OwnerShellWindow : Window, IMainShell
             ThemeIconPath.Data = geometry;
     }
 
+    /// <summary>Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).</summary>
+    private void ExitToDesktop()
+    {
+        App.ExitWithoutLoginRedirect = true;
+        Close();
+    }
+
+    private void ExitToDesktop_Click(object? sender, RoutedEventArgs e) => ExitToDesktop();
+
     /// <summary>Выход из учётной записи — как в кассе (MainWindow.NavigateToLoginAsync): стираем
-    /// сессию и сохранённый вход, показываем окно входа.</summary>
-    private async void Logout_Click(object? sender, RoutedEventArgs e)
+    /// сессию и сохранённый вход, показываем окно входа. 2026-09-29: кнопка — в Настройки → Аккаунт
+    /// («Выйти», AccountView.LogoutButton_Click), а не внизу меню.</summary>
+    public async Task SignOutAsync()
     {
         _loggingOut = true;
         _timer.Stop();

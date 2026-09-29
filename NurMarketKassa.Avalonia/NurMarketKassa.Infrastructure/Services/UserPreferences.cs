@@ -261,6 +261,16 @@ public sealed class UserPreferences
     /// продаются услуги, каталог открывается на них.</summary>
     public string MarketSphere { get; set; } = MarketSpheres.Grocery;
 
+    /// <summary>2026-09-29, правило владельца «при обновлениях не меняй установленные клиентом
+    /// настройки»: вид магазина с сервера, который касса уже видела (см. MarketSphereSync). Пока он не
+    /// меняется на сервере, выбор клиента в этой кассе не перезаписывается — раньше серверный вид
+    /// затирал его при каждом запуске и после каждого обновления. null — ещё не видела.</summary>
+    public string? MarketSphereServerSeen { get; set; }
+
+    /// <summary>В файле настроек был вид магазина — касса уже была настроена (не новая установка).
+    /// Только на время запуска, на диск не пишется.</summary>
+    public bool MarketSphereWasInFile { get; private set; }
+
     /// <summary>Ручной оверрайд скруглённости кнопок (px) поверх значения активной темы —
     /// null означает "как задано в теме" (см. AccentThemeService.Apply).</summary>
     public double? CustomButtonRadius { get; set; }
@@ -1004,7 +1014,11 @@ public sealed class UserPreferences
             if (fromFile.CatalogTileScalePercent is not null)
                 p.CatalogTileScalePercent = Math.Clamp(fromFile.CatalogTileScalePercent.Value, 70, 160);
             if (fromFile.MarketSphere is not null)
+            {
                 p.MarketSphere = MarketSpheres.Normalize(fromFile.MarketSphere);
+                p.MarketSphereWasInFile = true;
+            }
+            p.MarketSphereServerSeen = fromFile.MarketSphereServerSeen;
             if (fromFile.CustomerDisplay is not null)
             {
                 fromFile.CustomerDisplay.Normalize();
@@ -1225,6 +1239,7 @@ public sealed class UserPreferences
                 UiScalePercent = UiScalePercent,
                 CatalogTileScalePercent = CatalogTileScalePercent,
                 MarketSphere = MarketSphere,
+                MarketSphereServerSeen = MarketSphereServerSeen,
                 UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
@@ -1465,6 +1480,7 @@ public sealed class UserPreferences
         public double? UiScalePercent { get; set; }
         public double? CatalogTileScalePercent { get; set; }
         public string? MarketSphere { get; set; }
+        public string? MarketSphereServerSeen { get; set; }
         public string? UpdateTesterCode { get; set; }
         public double? BackgroundOpacity { get; set; }
         public CustomerDisplaySettings? CustomerDisplay { get; set; }

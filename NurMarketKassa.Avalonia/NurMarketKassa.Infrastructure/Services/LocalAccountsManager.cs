@@ -9,10 +9,40 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed class LocalAccountsManager : ILocalAccountsStore
 {
-    private static readonly string AccountsDirectory =
+    // 2026-09-29, правило владельца «при обновлениях не меняй установленные клиентом настройки»:
+    // профили лежали в папке программы (current\accounts), а её каждое обновление заменяет целиком —
+    // после обновления сохранённые кассиры для входа без интернета пропадали. Теперь — в %AppData%
+    // (как база и настройки); старый файл переносится при первом открытии (MigrateLegacy).
+    // «local_accounts», а не «accounts»: в data\accounts AccountDataIsolation откладывает данные компаний.
+    private static readonly string AccountsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        AppMode.DataFolderName, "local_accounts");
+
+    private static readonly string LegacyAccountsDirectory =
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "accounts");
 
     private static readonly string DbPath = Path.Combine(AccountsDirectory, "accounts.db");
+
+    private static void MigrateLegacy()
+    {
+        try
+        {
+            var legacyDb = Path.Combine(LegacyAccountsDirectory, "accounts.db");
+            if (File.Exists(DbPath) || !File.Exists(legacyDb))
+                return;
+            Directory.CreateDirectory(AccountsDirectory);
+            foreach (var suffix in new[] { "", "-wal", "-shm" })
+            {
+                if (File.Exists(legacyDb + suffix))
+                    File.Copy(legacyDb + suffix, DbPath + suffix);
+            }
+            PosLogger.Log($"Сохранённые кассиры перенесены в {AccountsDirectory}.", "AUTH");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Local accounts migration skipped: {ex.GetType().Name}: {ex.Message}", "WARNING");
+        }
+    }
 
     private readonly object _initLock = new();
     private bool _initialized;
@@ -24,6 +54,7 @@ public sealed class LocalAccountsManager : ILocalAccountsStore
             if (_initialized)
                 return;
 
+            MigrateLegacy();
             Directory.CreateDirectory(AccountsDirectory);
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();

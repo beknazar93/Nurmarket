@@ -116,40 +116,28 @@ public sealed class VoiceControlService : IVoiceControlService
 
     private void OnAudioData(object? sender, WaveInEventArgs e)
     {
-        VoskRecognizer? recognizer;
         byte[] utteranceAudio;
+        string resultJson;
+        // 2026-09-29, живой сбой у владельца (касса закрылась с «0xc0000005» во время записи своей
+        // озвучки): AcceptWaveform шёл ВНЕ блокировки, а «Записать» останавливает прослушивание —
+        // StopInternal освобождал распознаватель и модель Vosk, пока поток микрофона ещё был внутри
+        // AcceptWaveform. Нативный Vosk читал освобождённую память — процесс падал целиком, мимо
+        // любого catch (ObjectDisposedException обёртка Vosk не бросает). Теперь все вызовы Vosk и
+        // его освобождение — под одной _lock; Stop ждёт текущий кусок звука (десятки мс). Запоздавший
+        // кусок от уже остановленного микрофона (sender — не текущий _waveIn) не распознаётся.
         lock (_lock)
         {
-            recognizer = _recognizer;
-            if (recognizer is null || e.BytesRecorded <= 0)
+            if (_recognizer is null || e.BytesRecorded <= 0 || !ReferenceEquals(sender, _waveIn))
                 return;
 
             // Копится ВСЕГДА, параллельно с Vosk — на момент isFinal ниже это ровно звук той
             // фразы, что распозналась (голосовой замок сверяет его с зарегистрированным голосом).
             _utteranceAudio.Write(e.Buffer, 0, e.BytesRecorded);
-            utteranceAudio = [];
-        }
 
-        bool isFinal;
-        try
-        {
-            isFinal = recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded);
-        }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-
-        if (!isFinal)
-            return;
-
-        string resultJson;
-        lock (_lock)
-        {
-            if (_recognizer is null)
+            if (!_recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
                 return;
-            resultJson = _recognizer.Result();
 
+            resultJson = _recognizer.Result();
             utteranceAudio = _utteranceAudio.ToArray();
             _utteranceAudio.SetLength(0);
         }
@@ -410,22 +398,35 @@ public sealed class VoiceControlService : IVoiceControlService
         var waveIn = new WaveInEvent { WaveFormat = new WaveFormat(SampleRate, 16, 1), BufferMilliseconds = 300 };
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+        // 2026-09-29: тот же сбой, что в OnAudioData, — по таймауту (тишина 10 с) запись
+        // заканчивалась, и EnrollVoiceAsync освобождал распознаватель (using), пока поток микрофона
+        // мог ещё быть внутри AcceptWaveform. Теперь вызовы Vosk — под gate, и после finished
+        // (выставляется под тем же gate до возврата результата) распознаватель больше не трогается.
+        var gate = new object();
+        var finished = false;
 
         void OnData(object? sender, WaveInEventArgs e)
         {
-            accumulated.Write(e.Buffer, 0, e.BytesRecorded);
-            bool isFinal;
-            try { isFinal = recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded); }
-            catch (ObjectDisposedException) { return; }
-
-            if (isFinal)
+            lock (gate)
             {
+                if (finished)
+                    return;
+                accumulated.Write(e.Buffer, 0, e.BytesRecorded);
+                if (!recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
+                    return;
+
                 try { recognizer.Result(); } catch { /* результат не нужен, только сброс состояния распознавателя */ }
+                finished = true;
                 tcs.TrySetResult(accumulated.ToArray());
             }
         }
 
-        timeoutCts.Token.Register(() => tcs.TrySetResult(null));
+        timeoutCts.Token.Register(() =>
+        {
+            lock (gate)
+                finished = true;
+            tcs.TrySetResult(null);
+        });
 
         waveIn.DataAvailable += OnData;
         try { Task.Run(() => Console.Beep(1200, 100)); }

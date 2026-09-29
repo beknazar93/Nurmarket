@@ -147,6 +147,9 @@ public static class CustomVoicePrompts
         PosLogger.Log($"Своя озвучка сохранена: {FileName(key, lang)} ({samples.Length / (double)SampleRate:0.0} с).", "VOICE_PROMPT");
     }
 
+    /// <summary>Самая длинная фраза, которую можно записать (окно показывает «0:03 из 0:15»).</summary>
+    public static TimeSpan MaxRecordLength => MaxLength;
+
     /// <summary>Запись одной фразы с микрофона: Start — Stop (или сама остановится через 15 с).</summary>
     public sealed class Recorder : IDisposable
     {
@@ -154,18 +157,47 @@ public static class CustomVoicePrompts
         private readonly MemoryStream _pcm = new();
         private readonly TaskCompletionSource<bool> _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private Exception? _error;
+        // 2026-09-29, владелец: «индикатор записи и время записи тоже отображай» — окно каждые
+        // 100 мс читает, сколько уже записано и насколько громко (два раза подряд было «Слишком
+        // тихо», а по экрану не было видно, слышит ли микрофон голос вообще).
+        private long _recordedBytes;
+        private float _level;
+        private volatile bool _limitReached;
+
+        /// <summary>Сколько уже записано.</summary>
+        public TimeSpan Elapsed => TimeSpan.FromSeconds(Interlocked.Read(ref _recordedBytes) / (double)OutputFormat.AverageBytesPerSecond);
+
+        /// <summary>Громкость последнего кусочка звука (50 мс): 0 — тишина, 1 — предел.</summary>
+        public float Level => Volatile.Read(ref _level);
+
+        /// <summary>Запись дошла до 15 с и остановилась сама — осталось нажать «Стоп».</summary>
+        public bool LimitReached => _limitReached;
 
         public Recorder()
         {
             _waveIn = new WaveInEvent { WaveFormat = OutputFormat, BufferMilliseconds = 50 };
             _waveIn.DataAvailable += (_, e) =>
             {
+                var peak = 0;
+                for (var i = 0; i + 1 < e.BytesRecorded; i += 2)
+                    peak = Math.Max(peak, Math.Abs((int)BitConverter.ToInt16(e.Buffer, i)));
+                Volatile.Write(ref _level, peak / 32768f);
+
                 lock (_pcm)
                 {
+                    if (_limitReached)
+                        return;
                     if (_pcm.Length < OutputFormat.AverageBytesPerSecond * MaxLength.TotalSeconds)
+                    {
                         _pcm.Write(e.Buffer, 0, e.BytesRecorded);
+                        Interlocked.Add(ref _recordedBytes, e.BytesRecorded);
+                    }
                     else
+                    {
+                        _limitReached = true;
+                        Volatile.Write(ref _level, 0f);
                         _waveIn.StopRecording();
+                    }
                 }
             };
             _waveIn.RecordingStopped += (_, e) =>
