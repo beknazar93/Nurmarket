@@ -31,9 +31,12 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             var status = (int)response.StatusCode;
             // Пауза, о которой просит сервер (Retry-After), — её соблюдают массовые загрузки и
             // проверка связи ServerOutageMonitor (раньше запоминалась только в неиспользуемом пути).
+            // 429 — сервер жив и просит паузу: это не авария. Иначе поток 429 при загрузке
+            // аналитики (программа владельца, тот же пользователь) переводил бы кассу в автономный
+            // режим. Оплата, которая упёрлась в 429 после своих повторов, сама объявит аварию.
             if (status == 429)
                 ApiThrottle.ReportThrottled(response, null);
-            if (ServerOutageMonitor.IsServerFailureStatus(status))
+            else if (ServerOutageMonitor.IsServerFailureStatus(status))
                 ServerOutageMonitor.ReportFailure(DescribeRequest(request), $"HTTP {status}");
             else if (status >= 400)
                 ServerOutageMonitor.ReportSuccess(DescribeRequest(request));
