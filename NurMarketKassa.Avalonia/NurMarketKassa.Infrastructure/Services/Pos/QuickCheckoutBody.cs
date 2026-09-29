@@ -63,11 +63,30 @@ public static class QuickCheckoutBody
         {
             var root = doc.RootElement;
             var items = new JsonArray();
+            // 2026-09-29: строки одного товара по одной цене (основной штрихкод и варианты по доп.
+            // штрихкодам — в чеке кассы это разные строки, см. ReceiptSnapshotCartEditor.AddProduct)
+            // уходят одной позицией: так сервер получает ровно то же, что и до разделения строк.
+            var byProductAndPrice = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
             foreach (var it in CartDisplayHelper.EnumerateItems(root))
             {
                 var line = TryBuildLine(it, out unsupportedReason);
                 if (line == null)
                     return null;
+                if (line["product"] is JsonValue productValue && productValue.TryGetValue<string>(out var product)
+                    && line["price"] is JsonValue priceValue && priceValue.TryGetValue<string>(out var price))
+                {
+                    var key = product + "|" + price;
+                    if (byProductAndPrice.TryGetValue(key, out var first))
+                    {
+                        first["qty"] = SumDecimalText(first["qty"], line["qty"]);
+                        if (line["discount"] is not null)
+                            first["discount"] = SumDecimalText(first["discount"], line["discount"], money: true);
+                        continue;
+                    }
+
+                    byProductAndPrice[key] = line;
+                }
+
                 items.Add(line);
             }
 
@@ -242,6 +261,23 @@ public static class QuickCheckoutBody
         CartDisplayHelper.LineMustWeigh(it)
             ? qty.ToString("0.###", CultureInfo.InvariantCulture)
             : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>2026-09-29: сумма двух чисел тела запроса («2» + «1» → «3», «1.50» + «0.50» → «2.00»)
+    /// для строк одного товара, объединённых в одну позицию. Количество — без хвостовых нулей
+    /// (штучное остаётся целым, весовое — до граммов), деньги — до копейки.</summary>
+    private static string SumDecimalText(JsonNode? a, JsonNode? b, bool money = false)
+    {
+        static decimal Read(JsonNode? node) =>
+            node is JsonValue value && value.TryGetValue<string>(out var text)
+            && decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var number)
+                ? number
+                : 0m;
+
+        var sum = Read(a) + Read(b);
+        return money
+            ? sum.ToString("0.00", CultureInfo.InvariantCulture)
+            : sum.ToString("0.###", CultureInfo.InvariantCulture);
+    }
 
     private static string? Money(string? raw)
     {

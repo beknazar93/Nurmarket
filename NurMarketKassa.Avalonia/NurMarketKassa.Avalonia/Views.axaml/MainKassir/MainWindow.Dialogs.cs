@@ -700,7 +700,16 @@ public partial class MainWindow
             if (product == null)
                 continue;
 
-            cart.AddItem(product, qty);
+            // 2026-09-29: строка варианта (доп. штрихкод) остаётся своей строкой со своим
+            // названием, а не сливается в основной товар (см. ReceiptSnapshotCartEditor.AddProduct).
+            var variantName = line.TryGetProperty(ReceiptSnapshotCartEditor.VariantNameField, out var variantEl)
+                              && variantEl.ValueKind == JsonValueKind.String
+                ? variantEl.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(variantName))
+                cart.AddItem(product, qty);
+            else
+                cart.AddItem(product, qty, variantName);
             ApplyDeferredLineDiscount(cart, line, productId);
         }
 

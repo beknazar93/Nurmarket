@@ -1163,7 +1163,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             var prefs = UserPreferences.Instance;
 
+            var receiptWasEnabled = prefs.ReceiptEnabled;
             prefs.ReceiptEnabled = ReceiptEnabledCheck.IsChecked == true;
+            // 2026-09-29: печать чека включили здесь заново — окно оплаты снова предлагает печатать,
+            // даже если раньше кассир выключил там «Напечатать чек» (UserPreferences.CheckoutPrintReceipt).
+            if (!receiptWasEnabled && prefs.ReceiptEnabled)
+                prefs.CheckoutPrintReceipt = null;
             prefs.ReceiptDevicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
             // Процент начисления бонусов. Пустое или нечисловое значение оставляет прежнее, а не
             // обнуляет программу молча; диапазон тот же, что при чтении файла настроек (0..100).
