@@ -57,6 +57,8 @@ public partial class TmScaleSettingsWindow : Window
     public TmScaleSettingsWindow()
     {
         InitializeComponent();
+        // 2026-09-29: 900×720 не помещалось на 1024×768 при 125–150 % — по экрану кассы (DialogScreenFit).
+        Opened += (_, _) => this.FitToKassaScreen();
         Title = L("Настройки весов TM-30F", "TM-30F таразасынын жөндөөлөрү", "TM-30F scale settings", "TM-30F tartı ayarları", "TM-30F tarozi sozlamalari");
         TitleText.Text = Title;
         IntroText.Text = L(

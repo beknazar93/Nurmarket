@@ -1257,8 +1257,9 @@
     <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
     <x:String x:Key="loc.owner.scales.tmExportFile">Файл для «Русского масштаба»</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI весы</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPlu">Нумеровать под клавиши весов</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPluTip">Клавиши на панели весов вызывают ПЛУ по его НОМЕРУ: клавиша 1 — ПЛУ 1, клавиша 2 — ПЛУ 2 и так далее. Если записать товар под его собственным номером (например 10007), ни одна клавиша его не найдёт. С этой галочкой товары получают номера подряд, начиная с указанного, и порядок в списке ниже — это порядок клавиш.</x:String>
+    <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку» (из-за нумерации подряд PLU товаров менялись при каждой отправке). -->
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Постоянный PLU за товаром</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Каждый товар получает свой номер PLU один раз и сохраняет его при каждой отправке: добавление товаров, поиск, фильтр и сортировка номер не меняют. Новому товару даётся наименьший свободный номер, начиная с «Начальный PLU». Номер можно исправить в колонке PLU — при отправке касса перепишет товар в новую ячейку, очистит старую и переведёт на новый номер клавиши весов. Снимите галочку, чтобы брать PLU из карточки товара на сайте.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Напрямую по кабелю</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Касса сама говорит с весами по локальной сети, без сервера. Не проверено на живых весах — сверьте порт в системном меню весов.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Настройки подключения…</x:String>
@@ -1472,5 +1473,8 @@
   <x:String x:Key="scaleSetup.list.desc">У каждых весов свои марка, адрес и категории товаров. «Настроить…» — окно этих весов, «Отправить товары» — их товары на них.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Добавить весы</x:String>
   <x:String x:Key="scalesPlu.colHotkey">Клавиша</x:String>
+  <!-- 2026-09-29: кнопка «Обновить» в окне «Весы» теперь явно загружает каталог с сервера NurCRM. -->
+  <x:String x:Key="scalesPlu.refreshFromServer">Обновить с сервера</x:String>
+  <x:String x:Key="scalesPlu.refreshFromServerTip">Заново скачать товары, цены и PLU с сервера NurCRM и пересобрать список. Без интернета останется сохранённый каталог.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Категория</x:String>
 </ResourceDictionary>

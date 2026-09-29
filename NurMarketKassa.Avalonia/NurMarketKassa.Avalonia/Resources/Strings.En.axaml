@@ -1257,8 +1257,9 @@
     <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
     <x:String x:Key="loc.owner.scales.tmExportFile">File for “Russian Scale”</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI scales</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPlu">Number to match scale keys</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPluTip">Keys on the scale panel call up a PLU by its NUMBER: key 1 is PLU 1, key 2 is PLU 2, and so on. If a product is saved under its own number (for example, 10007), no key will find it. With this box checked, products get consecutive numbers starting from the one you enter, and the order of the list below is the order of the keys.</x:String>
+    <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Fixed PLU per product</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Each product gets its PLU number once and keeps it on every send: adding products, search, filters and sorting do not change it. A new product gets the lowest free number starting from “Start PLU”. You can correct the number in the PLU column — on the next send the till writes the product to the new slot, clears the old one and moves the scale keys to the new number. Untick to take the PLU from the product card on the website.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Directly via cable</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">The till talks to the scale directly over the local network, without the server. Not tested on real scales — check the port in the scale's system menu.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Connection settings…</x:String>
@@ -1472,5 +1473,8 @@
   <x:String x:Key="scaleSetup.list.desc">Each scale has its own brand, address and product categories. “Configure…” opens that scale, “Send goods” sends its goods to it.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Add a scale</x:String>
   <x:String x:Key="scalesPlu.colHotkey">Key</x:String>
+  <!-- 2026-09-29: кнопка «Обновить» в окне «Весы» теперь явно загружает каталог с сервера NurCRM. -->
+  <x:String x:Key="scalesPlu.refreshFromServer">Refresh from server</x:String>
+  <x:String x:Key="scalesPlu.refreshFromServerTip">Download products, prices and PLUs from the NurCRM server again and rebuild the list. Without internet the saved catalog stays.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Category</x:String>
 </ResourceDictionary>

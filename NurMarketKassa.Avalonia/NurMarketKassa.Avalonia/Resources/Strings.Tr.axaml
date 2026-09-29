@@ -1257,8 +1257,9 @@
     <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
     <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» için dosya</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI tartı</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPlu">Tartı tuşlarına göre numarala</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPluTip">Tartı panelindeki tuşlar PLU'yu NUMARASINA göre çağırır: 1. tuş — PLU 1, 2. tuş — PLU 2 ve bu şekilde devam eder. Ürünü kendi numarasıyla (örneğin 10007) kaydederseniz hiçbir tuş onu bulamaz. Bu kutu işaretliyken ürünler girilen numaradan başlayarak sırayla numaralanır ve aşağıdaki listenin sırası tuşların sırasıdır.</x:String>
+    <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Ürüne sabit PLU</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Her ürün PLU numarasını bir kez alır ve her gönderimde korur: ürün eklemek, arama, filtre ve sıralama numarayı değiştirmez. Yeni ürüne «Başlangıç PLU»dan itibaren en küçük boş numara verilir. Numarayı PLU sütununda düzeltebilirsiniz — gönderimde kasa ürünü yeni hücreye yazar, eskisini temizler ve tartı tuşlarını yeni numaraya taşır. PLU'yu sitedeki ürün kartından almak için işareti kaldırın.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Doğrudan kabloyla</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Kasa, tartıyla sunucu olmadan yerel ağ üzerinden kendisi iletişim kurar. Gerçek tartılarda test edilmedi — portu tartının sistem menüsünden kontrol edin.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Bağlantı ayarları…</x:String>
@@ -1472,5 +1473,8 @@
   <x:String x:Key="scaleSetup.list.desc">Her tartının kendi markası, adresi ve ürün kategorileri vardır. «Ayarla…» o tartının penceresi, «Ürünleri gönder» onun ürünlerini ona gönderir.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Tartı ekle</x:String>
   <x:String x:Key="scalesPlu.colHotkey">Tuş</x:String>
+  <!-- 2026-09-29: кнопка «Обновить» в окне «Весы» теперь явно загружает каталог с сервера NurCRM. -->
+  <x:String x:Key="scalesPlu.refreshFromServer">Sunucudan yenile</x:String>
+  <x:String x:Key="scalesPlu.refreshFromServerTip">Ürünleri, fiyatları ve PLU'ları NurCRM sunucusundan yeniden indirip listeyi yenile. İnternet yoksa kayıtlı katalog kalır.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategori</x:String>
 </ResourceDictionary>

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Hardware;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
@@ -37,6 +38,27 @@ public sealed class LabelScaleProfile
     /// Пишется на весы командой B1h только при прямой отправке на Штрих-ПРИНТ.</summary>
     public Dictionary<string, int> Hotkeys { get; set; } = new();
 
+    /// <summary>2026-09-29 (клиент «Алтымыш ата»: «при каждой отправке ПЛУ меняются»): закреплённый
+    /// номер ячейки ПЛУ на этих весах: id товара → номер. Выдаётся товару один раз и больше не
+    /// зависит от порядка, поиска и выбора строк (правила — ScalePluPlanner).</summary>
+    public Dictionary<string, int> PluNumbers { get; set; } = new();
+
+    /// <summary>2026-09-29: «Код в ШК», который владелец вписал сам (только если он отличается от
+    /// кода по умолчанию — PLU/код из карточки). Раньше правка терялась при следующем открытии окна.</summary>
+    public Dictionary<string, string> BarcodeCodes { get; set; } = new();
+
+    /// <summary>2026-09-29: что реально записано на весы при последних отправках: id товара →
+    /// номер, код и название. По нему при смене номера находятся старая ячейка и клавиши весов.</summary>
+    public Dictionary<string, ScaleSentPlu> SentPlus { get; set; } = new();
+
+    /// <summary>2026-09-29: номер ПЛУ брать из карточки товара (галочка «Постоянный PLU» снята).</summary>
+    public bool PluFromCatalog { get; set; }
+
+    /// <summary>2026-09-29: откуда закреплены номера при первом запуске после обновления («журнал
+    /// 28.09 18:12» / «порядок списка»). null — ещё не закреплялись (тогда окно «Весы» один раз
+    /// закрепит их и покажет владельцу, какой PLU у какого товара).</summary>
+    public string? PluPinnedFrom { get; set; }
+
     public LabelScaleProfile Clone() => new()
     {
         Id = Id,
@@ -51,6 +73,12 @@ public sealed class LabelScaleProfile
         Categories = new List<string>(Categories),
         ProductIds = new List<string>(ProductIds),
         Hotkeys = new Dictionary<string, int>(Hotkeys),
+        // 2026-09-29: без этих полей «Отмена» в окне настроек весов (Restore) стирала бы номера PLU.
+        PluNumbers = new Dictionary<string, int>(PluNumbers),
+        BarcodeCodes = new Dictionary<string, string>(BarcodeCodes),
+        SentPlus = SentPlus.ToDictionary(kv => kv.Key, kv => new ScaleSentPlu { Plu = kv.Value.Plu, Code = kv.Value.Code, Name = kv.Value.Name }),
+        PluFromCatalog = PluFromCatalog,
+        PluPinnedFrom = PluPinnedFrom,
     };
 }
 
@@ -220,6 +248,16 @@ public static class LabelScaleStore
     /// <summary>Имя, категории, отмеченные товары, клавиши — сохранить файл.</summary>
     public static void Save() => Persist();
 
+    /// <summary>2026-09-29: коды этикеток, записанные на все весы, — в запасной поиск кассы по
+    /// весовому штрих-коду (ScaleLabelCodeRegistry). Вызывается после отправки товаров.</summary>
+    public static void PublishLabelCodes()
+    {
+        ScaleLabelCodeRegistry.Replace(Model.Scales
+            .SelectMany(s => s.SentPlus)
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value.Code))
+            .Select(kv => (kv.Value.Code!, kv.Key)));
+    }
+
     private static string NormalizeBrand(string? brand) => brand is "rongta" or "tm" or "ai" ? brand : "shtrikh";
 
     // ------------------------------------------------------------------ файл
@@ -243,6 +281,10 @@ public static class LabelScaleStore
                         s.Categories ??= new();
                         s.ProductIds ??= new();
                         s.Hotkeys ??= new();
+                        // 2026-09-29: файл от прежней версии — полей закреплённых PLU в нём нет.
+                        s.PluNumbers ??= new();
+                        s.BarcodeCodes ??= new();
+                        s.SentPlus ??= new();
                         if (string.IsNullOrWhiteSpace(s.Id))
                             s.Id = Guid.NewGuid().ToString("N")[..10];
                     }

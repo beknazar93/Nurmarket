@@ -1257,8 +1257,9 @@
     <!-- 2026-09-28: TM-30F (Dahua) — файл импорта DIGI_TOP2000 для их программы. -->
     <x:String x:Key="loc.owner.scales.tmExportFile">«Русский масштаб» үчүн файл</x:String>
     <x:String x:Key="loc.owner.scales.brandAi">AI тараза</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPlu">Тараза баскычтарына ылайык номерлөө</x:String>
-    <x:String x:Key="loc.owner.scales.sequentialPluTip">Тараза панелиндеги баскычтар PLU'ну анын НОМЕРИ боюнча чакырат: 1-баскыч — PLU 1, 2-баскыч — PLU 2 жана башкалар. Эгер товарды өзүнүн номери менен жазсаңыз (мисалы, 10007), аны бир да баскыч таппайт. Бул белги коюлганда товарлар көрсөтүлгөн номерден баштап катары менен номер алат, ал эми төмөнкү тизменин тартиби — баскычтардын тартиби.</x:String>
+    <!-- 2026-09-29: галочка теперь значит «постоянный PLU за товаром», а не «подряд по списку». -->
+    <x:String x:Key="loc.owner.scales.sequentialPlu">Товарга туруктуу PLU</x:String>
+    <x:String x:Key="loc.owner.scales.sequentialPluTip">Ар бир товар өзүнүн PLU номерин бир жолу алат жана аны ар бир жөнөтүүдө сактайт: товар кошуу, издөө, чыпка жана иреттөө номерди өзгөртпөйт. Жаңы товарга «Баштапкы PLU»дан баштап эң кичине бош номер берилет. Номерди PLU тилкесинде оңдосо болот — жөнөткөндө касса товарды жаңы уячага жазат, эскисин тазалайт жана тараза баскычтарын жаңы номерге которот. PLU'ну сайттагы товар карточкасынан алуу үчүн белгини алып салыңыз.</x:String>
     <x:String x:Key="loc.owner.scales.directLan">Түздөн-түз кабель аркылуу</x:String>
     <x:String x:Key="loc.owner.scales.directLanTip">Касса тараза менен локалдык тармак аркылуу серверсиз өзү байланышат. Чыныгы таразаларда текшерилген эмес — портту таразанын системалык менюсунан салыштырып көрүңүз.</x:String>
     <x:String x:Key="loc.owner.scales.lanSettings">Туташуу жөндөөлөрү…</x:String>
@@ -1472,5 +1473,8 @@
   <x:String x:Key="scaleSetup.list.desc">Ар бир таразанын өз маркасы, дареги жана товар категориялары бар. «Жөндөө…» — ушул таразанын терезеси, «Товарларды жөнөтүү» — анын товарлары ага.</x:String>
   <x:String x:Key="scaleSetup.list.add">+ Тараза кошуу</x:String>
   <x:String x:Key="scalesPlu.colHotkey">Баскыч</x:String>
+  <!-- 2026-09-29: кнопка «Обновить» в окне «Весы» теперь явно загружает каталог с сервера NurCRM. -->
+  <x:String x:Key="scalesPlu.refreshFromServer">Серверден жаңылоо</x:String>
+  <x:String x:Key="scalesPlu.refreshFromServerTip">Товарларды, бааларды жана PLU'ну NurCRM серверинен кайра жүктөп, тизмени жаңылоо. Интернет жок болсо, сакталган каталог калат.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Категория</x:String>
 </ResourceDictionary>

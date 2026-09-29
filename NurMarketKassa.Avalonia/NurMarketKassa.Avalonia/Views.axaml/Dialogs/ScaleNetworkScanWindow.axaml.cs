@@ -22,7 +22,17 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public partial class ScaleNetworkScanWindow : Window
 {
     // 2026-09-28: добавлена колонка «Как найдено» (ping / ARP / широковещание / временный адрес / через роутер).
-    private const string ColumnsSpec = "115,130,*,70,185,165,150,150";
+    // 2026-09-29: колонка кнопки 150 → 175 — «Использовать для…» обрезалась даже на большом экране.
+    private const string ColumnsSpec = "115,130,*,70,185,165,150,175";
+
+    /// <summary>2026-09-29 (сенсорный монитор клиента «Алтымыш ата»: таблица и кнопки «Использовать
+    /// для…» уходили за левый и правый край): восемь колонок требуют ~1000 точек ширины, а на
+    /// 1024×768 при масштабе Windows 125–150 % доступно 680–820. На узком окне таблица складывается
+    /// в четыре колонки: адрес (+ MAC и ping под ним), имя (+ как найдено), что это (+ порты), кнопка.</summary>
+    private const string CompactColumnsSpec = "150,*,*,175";
+    private const double CompactBelowWidth = 1150;
+    private bool _compact;
+    private IReadOnlyList<ScaleNetworkDevice>? _shownDevices;
 
     private readonly string? _preferredBrand;
     private IReadOnlyList<LocalSubnet> _subnets = Array.Empty<LocalSubnet>();
@@ -55,6 +65,27 @@ public partial class ScaleNetworkScanWindow : Window
         LoadSubnets();
         ShowResult(L("Нажмите «Начать поиск». Обычно это занимает 10–30 секунд.", "«Издөөнү баштоо» басыңыз. Адатта 10–30 секунд созулат.", "Press “Start search”. It usually takes 10–30 seconds.", "“Aramayı başlat”a basın. Genellikle 10–30 saniye sürer.", "«Qidiruvni boshlash»ni bosing. Odatda 10–30 soniya davom etadi."), false);
         Closing += (_, _) => _cts?.Cancel();
+        // 2026-09-29: окно по размеру экрана кассы и на нём (не на экране покупателя) — DialogScreenFit.
+        Opened += (_, _) => this.FitToKassaScreen();
+    }
+
+    /// <summary>2026-09-29: на узком окне — компактная таблица (см. CompactColumnsSpec).</summary>
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    {
+        base.OnSizeChanged(e);
+        // Низкое окно (1024×768 при 150 %): длинное пояснение — две строки, целиком во всплывающей
+        // подсказке, чтобы таблице найденных устройств оставалось место.
+        var low = e.NewSize.Height < 600;
+        IntroText.MaxLines = low ? 2 : 0;
+        IntroText.TextTrimming = low ? TextTrimming.CharacterEllipsis : TextTrimming.None;
+        ToolTip.SetTip(IntroText, low ? IntroText.Text : null);
+        var compact = e.NewSize.Width < CompactBelowWidth;
+        if (compact == _compact)
+            return;
+        _compact = compact;
+        BuildHeader();
+        if (_shownDevices is not null)
+            ShowDevices(_shownDevices);
     }
 
     private static string StartText => L("Начать поиск", "Издөөнү баштоо", "Start search", "Aramayı başlat", "Qidiruvni boshlash");
@@ -111,8 +142,17 @@ public partial class ScaleNetworkScanWindow : Window
 
     private void BuildHeader()
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(ColumnsSpec) };
-        string[] titles =
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(_compact ? CompactColumnsSpec : ColumnsSpec) };
+        // 2026-09-29: компактная таблица — четыре колонки, подписи объединённых.
+        string[] titles = _compact
+            ? new[]
+            {
+                L("IP-адрес · MAC · ping", "IP-дарек · MAC · ping", "IP address · MAC · ping", "IP adresi · MAC · ping", "IP manzil · MAC · ping"),
+                L("Производитель / имя · как найдено", "Өндүрүүчү / аты · кантип табылды", "Vendor / name · how found", "Üretici / ad · nasıl bulundu", "Ishlab chiqaruvchi / nomi · qanday topildi"),
+                L("Что это · порты весов", "Бул эмне · тараза порттору", "What it is · scale ports", "Bu ne · tartı portları", "Bu nima · tarozi portlari"),
+                "",
+            }
+            : new[]
         {
             L("IP-адрес", "IP-дарек", "IP address", "IP adresi", "IP manzil"),
             "MAC",
@@ -125,7 +165,7 @@ public partial class ScaleNetworkScanWindow : Window
         };
         for (var i = 0; i < titles.Length; i++)
         {
-            var t = new TextBlock { Text = titles[i], FontWeight = FontWeight.SemiBold, FontSize = 12, Foreground = ThemeBrush(this, "BrushTextSoft", Brushes.Gray), Margin = new Thickness(0, 0, 8, 0) };
+            var t = new TextBlock { Text = titles[i], FontWeight = FontWeight.SemiBold, FontSize = 12, Foreground = ThemeBrush(this, "BrushTextSoft", Brushes.Gray), Margin = new Thickness(0, 0, 8, 0), TextWrapping = TextWrapping.Wrap };
             Grid.SetColumn(t, i);
             grid.Children.Add(t);
         }
@@ -228,6 +268,7 @@ public partial class ScaleNetworkScanWindow : Window
 
     private void ShowDevices(IReadOnlyList<ScaleNetworkDevice> devices)
     {
+        _shownDevices = devices; // 2026-09-29: перестроить строки при смене ширины окна (компактная таблица)
         RowsPanel.Children.Clear();
         if (devices.Count == 0)
         {
@@ -242,16 +283,18 @@ public partial class ScaleNetworkScanWindow : Window
 
     private Control BuildRow(ScaleNetworkDevice d, string? suggest = null)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(ColumnsSpec), Margin = new Thickness(0, 6) };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(_compact ? CompactColumnsSpec : ColumnsSpec), Margin = new Thickness(0, 6) };
         var mono = new FontFamily("Consolas, Segoe UI");
+        // 2026-09-29: в компактной таблице в одну колонку идут несколько строк (StackPanel на колонку).
+        var stacks = new Dictionary<int, StackPanel>();
 
-        void Cell(int column, string text, bool bold = false, FontFamily? font = null, IBrush? brush = null)
+        void Cell(int column, string text, bool bold = false, FontFamily? font = null, IBrush? brush = null, double size = 13)
         {
             var t = new TextBlock
             {
                 Text = text,
                 TextWrapping = TextWrapping.Wrap,
-                FontSize = 13,
+                FontSize = size,
                 FontWeight = bold ? FontWeight.SemiBold : FontWeight.Normal,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 8, 0),
@@ -259,12 +302,26 @@ public partial class ScaleNetworkScanWindow : Window
             };
             if (font is not null)
                 t.FontFamily = font;
-            Grid.SetColumn(t, column);
-            grid.Children.Add(t);
+            if (!_compact)
+            {
+                Grid.SetColumn(t, column);
+                grid.Children.Add(t);
+                return;
+            }
+            if (!stacks.TryGetValue(column, out var stack))
+            {
+                stack = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(stack, column);
+                grid.Children.Add(stack);
+                stacks[column] = stack;
+            }
+            stack.Children.Add(t);
         }
 
+        // Компактно: 0 — IP, MAC, ping; 1 — имя, как найдено; 2 — что это, порты; 3 — кнопка.
+        var soft = ThemeBrush(this, "BrushTextSoft", Brushes.Gray);
         Cell(0, d.Ip, bold: true, font: mono);
-        Cell(1, d.Mac ?? "—", font: mono);
+        Cell(_compact ? 0 : 1, d.Mac ?? "—", font: mono, brush: _compact ? soft : null, size: _compact ? 12 : 13);
 
         var who = new List<string>();
         if (d.IsGateway)
@@ -274,18 +331,23 @@ public partial class ScaleNetworkScanWindow : Window
             : "—"));
         if (!string.IsNullOrWhiteSpace(d.HostName))
             who.Add(d.HostName!);
-        Cell(2, string.Join(" · ", who));
+        Cell(_compact ? 1 : 2, string.Join(" · ", who));
 
-        Cell(3, d.PingReplied
+        var ping = d.PingReplied
             ? $"{d.RoundtripMs?.ToString(CultureInfo.InvariantCulture) ?? "?"} " + L("мс", "мс", "ms", "ms", "ms")
             : d.InArpTable || !d.FoundBy.HasFlag(ScaleFoundBy.Broadcast) // 2026-09-28: найденные только широковещанием в ARP нет
                 ? L("нет (ARP)", "жок (ARP)", "no (ARP)", "yok (ARP)", "yo‘q (ARP)")
-                : "—");
+                : "—";
+        if (_compact)
+            Cell(0, "ping: " + ping, brush: soft, size: 12);
+        else
+            Cell(3, ping);
 
         string Mark(bool? open) => open == true ? "✓" : "—";
         var ports = $"TCP 5001 {Mark(d.Tcp5001Open)} · TCP {ScaleNetworkScanner.TmServerPort} {Mark(d.TmPortOpen)} · "
                     + L("Штрих", "Штрих", "Shtrih", "Shtrih", "Shtrix") + $" UDP {UserPreferences.Instance.ScaleLanPort} {(d.ShtrikhInfo is null ? "—" : "✓")}";
-        Cell(4, ports, font: mono);
+        if (!_compact)
+            Cell(4, ports, font: mono);
 
         var (guessText, guessBrush) = d.Guess switch
         {
@@ -294,8 +356,10 @@ public partial class ScaleNetworkScanWindow : Window
             ScaleDeviceGuess.Rongta => (L("Возможно Rongta (открыт 5001)", "Rongta болушу мүмкүн (5001 ачык)", "Possibly Rongta (5001 open)", "Rongta olabilir (5001 açık)", "Rongta bo‘lishi mumkin (5001 ochiq)"), ThemeBrush(this, "BrushWarning", Brushes.DarkOrange)),
             _ => (L("неизвестное устройство", "белгисиз түзмөк", "unknown device", "bilinmeyen cihaz", "noma’lum qurilma"), ThemeBrush(this, "BrushTextSoft", Brushes.Gray)),
         };
-        Cell(5, guessText, bold: d.Guess != ScaleDeviceGuess.Unknown, brush: guessBrush);
-        Cell(6, FoundByText(d), brush: ThemeBrush(this, "BrushTextSoft", Brushes.Gray)); // 2026-09-28: «Как найдено»
+        Cell(_compact ? 2 : 5, guessText, bold: d.Guess != ScaleDeviceGuess.Unknown, brush: guessBrush);
+        if (_compact)
+            Cell(2, ports, font: mono, brush: soft, size: 11);
+        Cell(_compact ? 1 : 6, FoundByText(d), brush: soft, size: _compact ? 12 : 13); // 2026-09-28: «Как найдено»
 
         var use = new Button
         {
@@ -333,7 +397,7 @@ public partial class ScaleNetworkScanWindow : Window
             }
         }
         use.Flyout = menu;
-        Grid.SetColumn(use, 7);
+        Grid.SetColumn(use, _compact ? 3 : 7);
         grid.Children.Add(use);
 
         var row = new StackPanel
