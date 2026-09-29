@@ -419,22 +419,27 @@
                 MaxWidth="720"
                 Padding="14,8"
                 CornerRadius="10"
+                BorderThickness="1"
                 Classes="outageToast"
                 IsVisible="{Binding Toolbar.Status.HasOutageToast}"
                 Classes.recovery="{Binding Toolbar.Status.IsOutageToastRecovery}"
                 PointerPressed="OnOutageToastPressed">
+            <!-- Мягкий фон и текст темы, как у плашки смены: белый текст на жёлтом в тёмной
+                 теме не читался (проверено снимком стенда 29.09). -->
             <Border.Styles>
                 <Style Selector="Border.outageToast">
-                    <Setter Property="Background" Value="{DynamicResource BrushUiStatusWarn}"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushShiftWarnBg}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushShiftWarnBorder}"/>
                 </Style>
                 <Style Selector="Border.outageToast.recovery">
-                    <Setter Property="Background" Value="{DynamicResource BrushUiStatusOk}"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushUiStatusOk}"/>
                 </Style>
             </Border.Styles>
             <TextBlock Text="{Binding Toolbar.Status.OutageToastText}"
                        FontSize="13"
                        FontWeight="SemiBold"
-                       Foreground="White"
+                       Foreground="{DynamicResource BrushText}"
                        TextWrapping="Wrap"/>
         </Border>
         <Panel Grid.RowSpan="2"
