@@ -88,7 +88,7 @@
       {
        "id": "продажи-как-продать-весовой-товар",
        "title": "Vaznli mahsulotni qanday sotish",
-       "text": "Шаг 1. Katalogdagi vaznli mahsulotni bosing (buni «Vaznli» varag'ida qilish qulay) yoki uning shtrix-kodini skanerlang.\nШаг 2. «Mahsulotni tortish» oynasi ochiladi; agar tarozi ulangan bo'lsa, yuqorida «Hozir tarozida» ko'rinadi.\nШаг 3. «Og'irlik bo'yicha» varag'ida «Tarozidan olish» tugmasini bosing yoki «Og'irlik, kg» maydoniga og'irlikni kiriting (0,1 kg, 0,5 kg, 1 kg, 2 kg, 5 kg tezkor tugmalari va raqamlar bor).\nШаг 4. Agar xaridor ma'lum bir summaga olmoqchi bo'lsa, «Summa bo'yicha» varag'ini oching va «Summa, so'm» maydoniga summani kiriting — og'irlik o'zi hisoblanadi.\nШаг 5. «Chekka» tugmasini bosing.",
+       "text": "Шаг 1. Katalogdagi vaznli mahsulotni bosing (buni «Vaznli» varag'ida qilish qulay) yoki uning shtrix-kodini skanerlang.\nШаг 2. «Mahsulotni tortish» oynasi ochiladi; agar tarozi ulangan bo'lsa, yuqorida «Hozir tarozida» ko'rinadi.\nШаг 3. «Og'irlik bo'yicha» varag'ida «Tarozidan olish» tugmasini bosing yoki «Og'irlik, kg» maydoniga og'irlikni kiriting (0,1 kg, 0,5 kg, 1 kg, 2 kg, 5 kg tezkor tugmalari va raqamlar bor).\nШаг 4. Agar xaridor ma'lum bir summaga olmoqchi bo'lsa, «Summa bo'yicha» varag'ini oching va «Summa, so'm» maydoniga summani kiriting — og'irlik o'zi hisoblanadi.\nШаг 5. «Chekka qo'shish» tugmasini bosing.\nВажно: Shtrix-kodli tarozi yorlig'ini (20–29 bilan boshlanadi) shunchaki skanerlang — vazn va summali qator chekka o'zi tushadi. Batafsil — «Tarozilar» bo'limi.",
        "keywords": [
         "vaznli",
         "tortish",
@@ -1761,7 +1761,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-весы-к-кассе",
        "title": "Tarozini kassaga qanday ulash",
-       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limini oching.\nШаг 2. «Tarozi so'rovini yoqish» belgisini yoqing.\nШаг 3. «COM port»ni tanlang, «Tezlik (baud)»ni belgilang (odatda 9600), kerak bo'lsa «Og'irlik so'rovi (hex)» va «So'rov oralig'i (ms)»ni ham kiriting.\nШаг 4. Tarozi ustiga mahsulot qo'ying va «Tarozini tekshirish» tugmasini bosing.\nШаг 5. «Saqlash» tugmasini bosing.\nВажно: Shundan so'ng «Mahsulotni tortish» oynasida «Tarozidan olish» tugmasi ishlaydi. Agar tarozi bir nechta bo'lsa, «Bir vaqtning o'zida bir nechta tarozini qanday ulash» maqolasiga qarang.",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limida «Kassadagi tarozi» varag'ini oching.\nШаг 2. «Tarozi so'rovini yoqish» belgisini yoqing.\nШаг 3. «COM port»ni tanlang, «Tezlik (baud)»ni belgilang (odatda 9600), kerak bo'lsa «Og'irlik so'rovi (hex)» va «So'rov oralig'i (ms)»ni ham kiriting.\nШаг 4. «Saqlash» tugmasini bosing.\nШаг 5. Tarozi ustiga mahsulot qo'ying va «Tarozini tekshirish» tugmasini bosing.\nВажно: Shundan so'ng «Mahsulotni tortish» oynasida «Tarozidan olish» tugmasi ishlaydi. Agar tarozi bir nechta bo'lsa, «Bir vaqtning o'zida bir nechta tarozini qanday ulash» maqolasiga qarang. Barcha tarozilar bo'yicha to'liq qo'llanma — «Tarozilar» bo'limida.",
        "keywords": [
         "tarozi",
         "весы",
@@ -1786,7 +1786,7 @@
       {
        "id": "настройки-и-оборудование-как-отправить-весовые-товары-на-вес",
        "title": "Vaznli mahsulotlarni yorliq chop etadigan tarozilarga qanday yuborish",
-       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limini oching, «Tarmoq tarozilari (mahsulotlarni yuklash)» blokida «Tarozi IP-manzili», «Port», «Parol»ni yozing va «Tarozi bilan aloqani tekshirish» tugmasini bosing.\nШаг 2. «Shtrix-M tarozilarida PLU» blokida «Tarozi modeli:» ro'yxatidan modelni tanlang («Shtrix-M», «Rongta» yoki «AI tarozi»).\nШаг 3. «Mahsulotlarni taroziga yuborish →» tugmasini bosing.\nШаг 4. «Tarozi» oynasida mahsulotlarni belgilang («Barchasini tanlash» / «Tanlovni bekor qilish»), kerak bo'lsa «Boshlang'ich PLU:»ni kiriting.\nШаг 5. «Taroziga yuborish» tugmasini bosing yoki faylni taroziga qo'lda yuklash uchun «CSV'ga eksport» tugmasini bosing.\nВажно: «Start» tarifida tarmoq tarozilariga yuborish — pullik qo'shimcha xizmat (Marketpleys → «Qo'shimcha funksiyalar»).",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limida «Yorliqli tarozi» varag'ini oching.\nШаг 2. Tarozining «Sozlash…» tugmasini (yoki «+ Tarozi qo‘shish») bosing, markani — «Shtrix-PRINT (Shtrix-M)», «Rongta», «TM-30F (Dahua)» yoki «AI tarozi» — tanlang, manzilni kiriting, «Aloqani tekshirish» va «Saqlash»ni bosing.\nШаг 3. Shu tarozining «Tovarlarni yuborish →» tugmasini bosing.\nШаг 4. «Tovarlarni taroziga yuborish» oynasida mahsulotlarni belgilang («Barchasini tanlash» / «Tanlovni bekor qilish»), kerak bo'lsa «Boshlang'ich PLU:»ni kiriting.\nШаг 5. «Taroziga yuborish» tugmasini bosing yoki faylni taroziga qo'lda yuklash uchun «CSV saqlash» tugmasini bosing.\nВажно: «Start» tarifida taroziga yuborish — pullik qo'shimcha xizmat (Marketpleys → «Qo'shimcha funksiyalar»). Barcha tarozilar bo'yicha to'liq qo'llanma — «Tarozilar» bo'limida.",
        "keywords": [
         "plu",
         "tarozi shtrix",
@@ -1822,7 +1822,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-дисплей-цены-покупат",
        "title": "Xaridor narx displeyini (tablo) qanday ulash",
-       "text": "Шаг 1. Tabloni kompyuterga ulang. POS-monobloklarda (masalan, CY25) «0.00» raqamli tablo korpusga o'rnatilgan va COM portlardan biriga ulangan bo'ladi.\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» bo'limini oching, «Xaridor uchun narx displeyi» blokini toping va uni yoqing.\nШаг 3. «Tablo turi» ro'yxatidan «Raqamli tablo «0.00» (8 raqam, LED)»ni tanlang yoki, tablongiz harfli bo'lsa, «Matnli displey, 2 qator (CD5220)»ni tanlang.\nШаг 4. Portni bilmasangiz, «Tabloni topish» tugmasini bosing: kassa navbat bilan har bir COM portga 3.2400 ko'rinishidagi son yuboradi (3-port, tezlik 2400). Tabloga qarang va unda qolgan songa mos tugmani bosing.\nШаг 5. «Saqlash» tugmasini, keyin «Displeyni sinash» tugmasini bosing — tabloda 1234.56 paydo bo'ladi.\nВажно: Raqamli tablolar odatda 2400 tezlikda ishlaydi. Chekda mahsulotlar bo'lsa, tablo jami summani ko'rsatadi va «Jami» chirog'ini yoqadi.",
+       "text": "Шаг 1. Tabloni kompyuterga ulang. POS-monobloklarda (masalan, CY25) «0.00» raqamli tablo korpusga o'rnatilgan va COM portlardan biriga ulangan bo'ladi.\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» bo'limini oching, «Narx tablosi» varag'ida «Xaridor uchun narx displeyi» blokini toping va uni yoqing.\nШаг 3. «Tablo turi» ro'yxatidan «Raqamli tablo «0.00» (8 raqam, LED)»ni tanlang yoki, tablongiz harfli bo'lsa, «Matnli displey, 2 qator (CD5220)»ni tanlang.\nШаг 4. Portni bilmasangiz, «Tabloni topish» tugmasini bosing: kassa navbat bilan har bir COM portga 3.2400 ko'rinishidagi son yuboradi (3-port, tezlik 2400). Tabloga qarang va unda qolgan songa mos tugmani bosing.\nШаг 5. «Saqlash» tugmasini, keyin «Displeyni sinash» tugmasini bosing — tabloda 1234.56 paydo bo'ladi.\nВажно: Raqamli tablolar odatda 2400 tezlikda ishlaydi. Chekda mahsulotlar bo'lsa, tablo jami summani ko'rsatadi va «Jami» chirog'ini yoqadi.",
        "keywords": [
         "tablo",
         "табло",
@@ -2049,7 +2049,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-несколько-весов-одно",
        "title": "Bir vaqtning o'zida bir nechta tarozini qanday ulash",
-       "text": "Шаг 1. Asosiy tarozini «Tarozini kassaga qanday ulash» maqolasida yozilganidek ulang.\nШаг 2. O'sha «Tarozilar» bo'limida «Qo'shimcha tarozilar» blokini toping.\nШаг 3. «Tarozi 2»ni (kerak bo'lsa «Tarozi 3»ni ham) yoqing, har biri uchun o'z COM portini va tezligini tanlang.\nШаг 4. «Saqlash» tugmasini bosing.\nШаг 5. Tortish paytida kassa og'irlikni mahsulot turgan tarozidan o'zi oladi. Agar mahsulot bir nechta tarozida tursa, og'irlik eng oxirgi paydo bo'lgan tarozidan olinadi.\nВажно: Qo'shimcha tarozilarda og'irlik so'rovi va so'rash oralig'i asosiy tarozidagi bilan bir xil; har bir tarozi o'z portiga ulangan bo'lishi kerak.",
+       "text": "Шаг 1. Yorliq chop etadigan tarozilar: ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» varag'ida «+ Tarozi qo‘shish»ni bosing — har bir tarozining o'z markasi, manzili va mahsulot kategoriyalari bor.\nШаг 2. Batafsil — «Tarozilar» bo'limidagi «Bir nechta tarozini qanday qo'shish va ularga kategoriyalar berish» maqolasi.\nШаг 3. Kassadagi tarozi (COM port) bitta ulanadi — «Kassadagi tarozi» varag'ida.\nВажно: Agar avval kassada qo'shimcha tarozilar («Tarozi 2», «Tarozi 3») yoqilgan bo'lsa, ularni o'chirish uchun «Qo'shimcha tarozilar» bloki ko'rinib turadi.",
        "keywords": [
         "tarozi",
         "весы",
@@ -2068,6 +2068,644 @@
          "caption": "«Qo'shimcha tarozilar» bloki"
         }
        ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Tarozilar",
+   "note": "",
+   "groups": [
+    {
+     "title": "Ulash",
+     "articles": [
+      {
+       "id": "весы-с-чего-начать-какие-бывают-весы-и-где-их-настройки",
+       "title": "Nimadan boshlash kerak: tarozi turlari va ularning sozlamalari qayerda",
+       "text": "Kassa ikki turdagi tarozi bilan ishlaydi.\n1) Kassadagi tarozi — mahsulotni sotuv paytida tortadi. Kabel orqali COM portga (yoki Windows COM port deb ko'radigan USB adapterga) ulanadi; og'irlik «Mahsulotni tortish» oynasiga keladi.\n2) Yorliq chop etadigan tarozilar — Shtrix-PRINT (Shtrix-M), Rongta, TM-30F (Dahua) va «AI tarozi». Kassa ularga vaznli mahsulotlar ro'yxatini (PLU) yuboradi, tarozi shtrix-kodli yorliq chop etadi, kassa esa bu yorliqni skaner bilan o'qiydi.\nШаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limini oching. Yuqorida to'rtta varaq bor.\nШаг 2. «Kassadagi tarozi» — «Tarozi so'rovini yoqish» va COM port sozlamalari.\nШаг 3. «Yorliqli tarozi» — «Do‘kondagi tarozilar» ro'yxati (har bir tarozining o'z nomi, markasi, manzili va kategoriyalari bor), «+ Tarozi qo‘shish» tugmasi, pastroqda esa «Tarozi shtrix-kodda nimani chop etadi».\nШаг 4. «Shtrix-kod: vazn / summa» — kassa yorliqlarni qanday o'qiydi: har bir 20–29 prefiks uchun vazn yoki summa va «Yorliq bo‘yicha sozlash».\nШаг 5. «Narx tablosi» — xaridor uchun narx displeyi (bu tarozi emas).\nШаг 6. «Kassadagi tarozi» va «Narx tablosi» varaqlarida o'zgartirgandan keyin sahifa pastidagi «Saqlash» tugmasini bosing. Yorliqli tarozilar o'z sozlamalari oynasida saqlanadi.\nВажно: «Start» tarifida «Yorliqli tarozi» varag'i qo'shimcha funksiya sotib olinmaguncha yashirin (Marketpleys → «Qo'shimcha funksiyalar»).",
+       "keywords": [
+        "tarozi",
+        "tarozi sozlamalari",
+        "tarozi turlari",
+        "tarozini ulash",
+        "shtrix-m",
+        "rongta",
+        "tm-30f",
+        "ai tarozi",
+        "com port",
+        "весы",
+        "настройки весов",
+        "какие весы",
+        "подключение весов",
+        "штрих-м",
+        "ai весы",
+        "com порт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "☰ → «Sozlamalar» → «Tarozilar»"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-подключить-весы-к-кассе-по-com-порту",
+       "title": "Tarozini kassaga COM port orqali qanday ulash",
+       "text": "Шаг 1. Tarozini kompyuterga kabel bilan ulang va yoqing.\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» bo'limida «Kassadagi tarozi» varag'ini oching va «Tarozi so'rovini yoqish» belgisini yoqing — «Ulanish sozlamalari» paydo bo'ladi.\nШаг 3. «COM port» ro'yxatidan tarozi portini tanlang. Ro'yxat ostida kassa port holatini yozadi: «COM port topilmadi» — port tanlanmagan yoki Windows'da yo'q; «Portdan tarozi foydalanmoqda» — hammasi joyida.\nШаг 4. «Tezlik (baud)» — tarozi sozlamalaridagidek (odatda 9600).\nШаг 5. «Og'irlik so'rovi (hex)» va «So'rov oralig'i (ms)»: tarozi og'irlikni o'zi doimiy yuborsa, so'rovni bo'sh, oraliqni 0 qoldiring. Tarozi faqat so'rovga javob bersa — tarozi qo'llanmasidagi buyruqni (masalan, 05 yoki 57 0D) va oraliqni, masalan 500, kiriting.\nШаг 6. Sahifa pastidagi «Saqlash» tugmasini bosing.\nШаг 7. Taroziga mahsulot qo'ying va «Tarozini tekshirish» tugmasini bosing — kassa «Joriy og'irlik: … kg» yoki «Ma'lumot olinmadi» deb ko'rsatadi.\nВажно: «Tarozini tekshirish» saqlangan sozlamalarni tekshiradi — avval «Saqlash»ni bosing. Agar avval qo'shimcha tarozilar yoqilgan bo'lsa, ularni o'chirish uchun «Qo'shimcha tarozilar» bloki ko'rinib turadi.",
+       "keywords": [
+        "tarozi",
+        "com port",
+        "tarozini ulash",
+        "tarozi so'rovi",
+        "tezlik",
+        "baud",
+        "hex",
+        "tarozini tekshirish",
+        "kassadagi tarozi",
+        "весы",
+        "com порт",
+        "подключить весы",
+        "опрос весов",
+        "скорость",
+        "проверить весы",
+        "весы на кассе"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Kassadagi tarozi» varag'i"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-выбрать-марку-весов-с-печатью-этикеток",
+       "title": "Yorliqli tarozini qanday qo'shish va markasini tanlash",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» bo'limida «Yorliqli tarozi» varag'ini oching. «Do‘kondagi tarozilar» ro'yxatida har bir tarozi uchun qator bor: nomi va markasi, manzili va yuborish usuli, kategoriyalari hamda «Sozlash…», «Tovarlarni yuborish →», «O‘chirish» tugmalari (tarozi bittadan ko'p bo'lsa).\nШаг 2. Kerakli tarozining «Sozlash…» tugmasini yoki «+ Tarozi qo‘shish»ni bosing — tarozi nomi bilan «Tarozi sozlamalari — …» oynasi ochiladi.\nШаг 3. «Tarozi nomi» — tarozi ro'yxatda qanday nomlanadi (masalan, «Go'sht bo'limi tarozisi»).\nШаг 4. Markani plitka bilan tanlang: «Shtrix-PRINT (Shtrix-M)», «Rongta», «TM-30F (Dahua)» yoki «AI tarozi» — pastda faqat shu markaning maydonlari chiqadi.\nШаг 5. «Tarozi IP manzili» va «Port»ni kiriting. Manzil ostida kassa darhol maslahat beradi: «… ulanishi bilan bir tarmoq», «Kompyuter bu tarmoqda emas…» yoki «Xato yozilganga o‘xshaydi… Ehtimol, 192.168… kerak» (masalan, 192.169… terilgan bo'lsa).\nШаг 6. «Aloqani tekshirish»ni bosing — natija «… da tekshirildi» qatoriga yoziladi. Manzilni bilmasangiz — «Tarmoqda topish…». Tarozining o'z sozlamalari (shtrix-kod, yorliq, klaviatura) — «Tarozi sozlamalari…».\nШаг 7. Kerak bo'lsa, «Bu tarozidagi kategoriyalar»ni belgilang va «Saqlash»ni bosing («Bekor qilish» hammasini avvalgidek qaytaradi).\nВажно: «AI tarozi» uchun manzil yo'q — kassa faqat fayl tayyorlaydi, shuning uchun ro'yxatdagi tugma «Faylni tayyorlash →» deb ataladi. Kassadagi tarozi (COM port) «Kassadagi tarozi» varag'ida sozlanadi va markaga bog'liq emas.",
+       "keywords": [
+        "tarozi qo'shish",
+        "tarozi markasi",
+        "tarozi modeli",
+        "shtrix-m",
+        "rongta",
+        "tm-30f",
+        "dahua",
+        "ai tarozi",
+        "tarozi ip",
+        "tarozini sozlash",
+        "добавить весы",
+        "марка весов",
+        "модель весов",
+        "штрих-м",
+        "ai весы",
+        "ip весов",
+        "настроить весы"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Yorliqli tarozi» varag'i"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-добавить-несколько-весов-и-назначить-им-категории",
+       "title": "Bir nechta tarozini qanday qo'shish va ularga kategoriyalar berish",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» varag'ini oching va «+ Tarozi qo‘shish»ni bosing. Yangi tarozilar «Tarozi 2», «Tarozi 3»… deb nomlanadi va ularning sozlamalari oynasi darhol ochiladi.\nШаг 2. Har bir tarozining o'z markasi, IP manzili, porti va yuborish usuli bor — ularni kiriting («Yorliqli tarozini qanday qo'shish va markasini tanlash» maqolasi).\nШаг 3. «Bu tarozidagi kategoriyalar» blokida shu tarozida bo'lishi kerak bo'lgan mahsulotlar kategoriyalarini belgilang (masalan, go'sht bo'limi tarozisi uchun «Go'sht»). Hech narsa belgilanmasa — taroziga barcha vaznli mahsulotlar yoki o'tgan safar qo'lda belgilaganlaringiz ketadi.\nШаг 4. «Saqlash»ni bosing. Tarozi qatorida «Kategoriyalar: …» paydo bo'ladi.\nШаг 5. Kerakli tarozining «Tovarlarni yuborish →» tugmasini bosing — «Tovarlarni taroziga yuborish» oynasida faqat uning kategoriyalaridagi mahsulotlar belgilanadi.\nШаг 6. Bu oynada tarozilar yuqoridagi ro'yxat bilan almashtiriladi: har birining o'z belgilangan mahsulotlari va tugmalari bor.\nВажно: Tarozilar ro'yxati shu kompyuterda saqlanadi. «O‘chirish» tarozini faqat kassa ro'yxatidan olib tashlaydi — tarozining o'zida hech narsa o'zgarmaydi. Vaznli mahsulotlarning kategoriyalari bo'lmasa, mahsulotlarni qo'lda belgilang.",
+       "keywords": [
+        "bir nechta tarozi",
+        "ikkita tarozi",
+        "tarozidagi kategoriyalar",
+        "tarozi qo'shish",
+        "tarozi 2",
+        "turli tarozilar",
+        "несколько весов",
+        "двое весов",
+        "категории на весах",
+        "добавить весы",
+        "весы 2",
+        "разные весы"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-узнать-ip-адрес-весов-поиск-весов-в-сети",
+       "title": "Tarozi IP manzilini qanday bilish: tarmoqda tarozi qidirish",
+       "text": "Шаг 1. Tarozini yoqing va kassa kompyuteri ulangan tarmoqqa (routerga, kommutatorga) ulang.\nШаг 2. «Tarmoqda tarozi qidirish» oynasini oching: tarozi sozlamalari oynasidagi «Tarmoqda topish…» tugmasi (☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» → «Sozlash…») yoki Rongta hamda TM-30F sozlamalari oynalaridagi «Tarmoqda tarozi topish…».\nШаг 3. «Tarmoq:» ro'yxatidan kompyuter tarmog'ini tanlang. Tarozining zavod manzili boshqa quyi tarmoqdan bo'lsa (Shtrix-PRINT — 192.168.0.202, Rongta — 192.168.1.87), uni «— Boshqa quyi tarmoqlar (zavod manzilli tarozilar) —» qatori ostidan tanlang: quyi tarmoqlardan birini, «Barcha odatiy tarozi quyi tarmoqlari ketma-ket» yoki «O‘z quyi tarmog‘ingiz yoki oraliq…» (masalan, 192.168.5.0/24).\nШаг 4. Boshqa quyi tarmoq uchun «Qidiruv davomida kompyuterga shu quyi tarmoqda ikkinchi manzil qo‘shish…» belgisini qo'yish mumkin — Windows bir marta administrator huquqini so'raydi, qidiruvdan keyin manzil o'chiriladi.\nШаг 5. «Qidiruvni boshlash» tugmasini bosing (odatda 10–30 soniya; «To‘xtatish» — to'xtatish).\nШаг 6. Jadvaldagi «Bu nima» ustuniga qarang: «Shtrix-PRINT tarozi», «TM-30F / Dahua'ga o‘xshaydi (4001 port)», «Rongta bo‘lishi mumkin (5001 ochiq)» yoki «noma’lum qurilma». «Qanday topildi» ustuni manzil qayerdan olinganini ko'rsatadi.\nШаг 7. Kerakli qatordagi «Foydalanish…» tugmasini bosing va markani tanlang — manzil shu marka sozlamalariga yoziladi.\nВажно: Qidiruv qurilmalarga hech narsa yozmaydi. Qator ostida tarozi boshqa quyi tarmoqda deb yozilgan bo'lsa, kassa u bilan ishlay olmaydi — tarozi manzilini taklif qilinganiga o'zgartiring («Foydalanish…» ichidagi yangi manzilli band) yoki kompyuterga tarozi tarmog'idan manzil bering.",
+       "keywords": [
+        "tarozi ip",
+        "tarozi manzili",
+        "tarozi qidirish",
+        "tarozini topish",
+        "tarmoq",
+        "quyi tarmoq",
+        "arp",
+        "ping",
+        "ip весов",
+        "адрес весов",
+        "поиск весов",
+        "найти весы",
+        "сеть",
+        "подсеть"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Shtrix-PRINT (Shtrix-M)",
+     "articles": [
+      {
+       "id": "весы-штрих-принт-адрес-порт-и-пароль-весов",
+       "title": "Shtrix-PRINT: tarozi manzili, porti va paroli",
+       "text": "Шаг 1. Tarozining IP manzili, porti va parolini tarozining o'z tizim menyusidan biling (yoki tarozini «Tarmoqda topish…» tugmasi bilan toping).\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» → kerakli tarozining «Sozlash…» tugmasini bosing va «Shtrix-PRINT (Shtrix-M)» markasini tanlang.\nШаг 3. «Tovarlarni qanday yuborish»: «NurCRM serveri orqali» — tovarlarni taroziga server o'zi uzatadi (sinalgan yo'l, manzil faqat aloqani tekshirish uchun kerak); «To‘g‘ridan-to‘g‘ri tarmoq orqali» — kassa tovarlarni serversiz o'zi yuboradi (manzil, port va parol kerak).\nШаг 4. «Tarozi IP manzili», «Port» (odatda 1111) va «Parol» (aniq 4 ta raqam, odatda 0030) maydonlarini to'ldiring.\nШаг 5. «Aloqani tekshirish»ni bosing — kassa «tarozi aloqada: …» yoki sababini yozadi (masalan, qurilma ping'ga javob beradi, lekin 1111 port orqali javob bermaydi).\nШаг 6. «Saqlash»ni bosing.\nВажно: Parol noto'g'ri bo'lsa, bir necha urinishdan keyin tarozi kirishni bloklaydi — tarozini o'chirib-yoqing va to'g'ri parolni kiriting.",
+       "keywords": [
+        "shtrix-print",
+        "shtrix-m",
+        "tarozi paroli",
+        "0030",
+        "1111 port",
+        "tarozi ip",
+        "to'g'ridan-to'g'ri tarmoq orqali",
+        "server orqali",
+        "штрих-принт",
+        "штрих-м",
+        "пароль весов",
+        "порт 1111",
+        "ip весов",
+        "напрямую по сети",
+        "через сервер"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-окно-настроек-весов-как-читать-и-записывать",
+       "title": "Shtrix-PRINT: tarozi sozlamalari oynasi — qanday o'qish va yozish",
+       "text": "Шаг 1. Tarozi manzili, porti va parolini kiriting («Shtrix-PRINT: tarozi manzili, porti va paroli» maqolasi).\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» → Shtrix-PRINT tarozisining «Sozlash…» → «Tarozi sozlamalari…» tugmasini bosing.\nШаг 3. «ShTRIX-PRINT tarozi sozlamalari» oynasining yuqorisida — tarozi manzili va «Aloqani tekshirish» tugmasi.\nШаг 4. Bo'limlar: «Klaviatura», «Holat», «Tizim», «Tovarlar», «Chop etish va yorliq», «Shtrix-kod», «Matnlar», «Valyuta», «Yorliq maketi».\nШаг 5. Bo'limda avval «Tarozidan o‘qish»ni bosing, keraklisini o'zgartiring va «Taroziga yozish»ni bosing — faqat o'zgargan qiymatlar yuboriladi.\nШаг 6. Fikringizdan qaytsangiz — «O‘qilganiga qaytarish». Har bir buyruq natijasi oyna pastidagi qatorda ko'rinadi.\nВажно: «Tarozidan o‘qish»siz yozib bo'lmaydi — shunday qilib kassa tarozi sozlamalarini bo'sh qiymatlar bilan o'chirib yubormaydi. Tarozi parolni qabul qilmasa, tarozi kirishni bloklamasligi uchun almashuv darhol to'xtaydi: parolni «Sozlamalar» → «Tarozilar» bo'limida tekshiring (odatda 0030).",
+       "keywords": [
+        "shtrix-print",
+        "tarozi sozlamalari",
+        "tarozidan o'qish",
+        "taroziga yozish",
+        "tarozi drayveri testi",
+        "штрих-принт",
+        "настройки весов",
+        "прочитать с весов",
+        "записать в весы",
+        "тест драйвера весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-клавиатура-состояние-система",
+       "title": "Shtrix-PRINT: «Klaviatura», «Holat» va «Tizim» bo'limlari",
+       "text": "«Klaviatura» bo'limi.\nШаг 1. «Tezkor tugmalar»: «Tugma raqami»ni kiriting (ShTRIX-PRINT'da 1–45, «РЕГ» bilan — 46–90), «Tugma vazifasi» ro'yxatidan narx, tovar (PLU raqami yoki kodi bo'yicha) yoki funksiyani tanlang, qiymatni to'ldiring va «Tugmani yozish»ni bosing. «Tugmani o‘qish» va «Barcha tugmalarni ko‘rsatish» — nima yozilganini ko'rish; «Maydonlarni tozalash» — formani tozalash.\nШаг 2. «Funksional tugmalar»: «Tarozidan o‘qish», o'chirmoqchi bo'lgan tugmaning belgisini olib tashlang, so'ng «Taroziga yozish».\nШаг 3. «Klaviaturani bloklash»: «Bloklash» tarozidagi bosishlarni vaqtincha taqiqlaydi (masalan, tovarlar yuklanayotganda), «Blokdan chiqarish» — qaytarish.\n«Holat» bo'limi.\nШаг 4. «Tarozi holati» → «Yangilash»: ijrosi, dastur versiyasi, tovarlar va tugmalar soni, tarozidagi narxlar (tiyinli yoki butun so'm), printer holati. «Vaznni bilish» — joriy og'irlik.\nШаг 5. «Sana va vaqt» → «Kompyuter bilan moslashtirish» — taroziga kompyuter vaqtini o'rnatish (u yorliqqa chop etiladi).\n«Tizim» bo'limi.\nШаг 6. «Tizim sozlamalari»: «Tarozi raqami (1–99)», «Chop rejimi», «Avtochop chegarasi, g (0 — o‘chiq)», «Tugma ovozi», «Qadoqlash rejimi», «Vaqt formati», «Sana formati», «Tarozida tovarni chaqirish» (PLU raqami yoki tovar kodi bo'yicha). «Tarozidan o‘qish» → o'zgartirish → «Taroziga yozish».\nВажно: Kassa kompyuterdan tarozi tugmalarini bosa olmaydi («Tugma emulyatsiyasi») — buning uchun Shtrix-M tarozining zavod raqamiga beradigan maxsus parol kerak.",
+       "keywords": [
+        "shtrix-print",
+        "tarozi tugmalari",
+        "tarozi tezkor tugmalari",
+        "klaviaturani bloklash",
+        "tarozi holati",
+        "tarozidagi vaqt",
+        "tarozi raqami",
+        "avtochop",
+        "штрих-принт",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "блокировка клавиатуры",
+        "состояние весов",
+        "время на весах",
+        "номер весов",
+        "автопечать"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-товары-печать-и-этикетка-тексты",
+       "title": "Shtrix-PRINT: «Tovarlar», «Chop etish va yorliq» va «Matnlar» bo'limlari",
+       "text": "«Tovarlar» bo'limi faqat sotuvchining tarozi klaviaturasi bilan ishlashiga ta'sir qiladi.\nШаг 1. «Tovarlar bilan ishlash»: «Tarozidan PLU narxini yozishga ruxsat», «Tanlangan tovar narxini o‘zgartirishga ruxsat», «Erkin narxga ruxsat (tovarsiz)», «PLU bo‘yicha savdo hisobini yuritish», «Chopdan keyin tovarni tashlash», «Taymer bo‘yicha tovarni tashlash», «Tovarning «guruh kodi» maydoni — bu».\n«Chop etish va yorliq» bo'limi.\nШаг 2. «Yorliq»: «Yorliq formati» (58×30 … 58×120 yoki «Format 1–5 (o‘z)»), «Tovar nomidagi qatorlar», «Yorliqqa nima chop etiladi» (sana, vaqt, yorliq raqami, tarozi raqami, tara, yaroqlilik muddati, narx va qiymat, valyuta belgilari).\nШаг 3. «Tarozi printeri»: «Uzluksiz lentaga chop (yorliqqa emas)», «Chopni 180° burish», «Olingan yorliq datchigi», «Chop siljishi (0,125 mm qadam)», «Chop kontrasti», «P+ bosilganda chop (summatorga)», «Tovar tanlanishi bilan chop».\nШаг 4. «Lentani aylantirish» va «Sinov yorlig‘ini chop etish» — tarozi printerini tekshirish.\n«Matnlar» bo'limi.\nШаг 5. «Yorliq va displeydagi matnlar»: «Do‘kon nomi, 1-qator» va «2-qator» (yorliq pastiga chop etiladi), «Yorliq sarlavhasi (tovar tanlanmasa)», «Yakuniy yorliq sarlavhasi», «Displeydagi reklama qatori» (tarozidan 5 daqiqa foydalanilmaganda yuguradi), «O‘z matn 1…5 (o‘z formatlar uchun)».\nШаг 6. «Sotuvchiga shoshilinch xabar» (22 belgigacha) → «Tarozida ko‘rsatish» — tarozidagi istalgan tugma bosilganda xabar yo'qoladi.\nВажно: Har bir bo'limda avval «Tarozidan o‘qish», so'ng «Taroziga yozish». Tarozi ң, ө, ү harflarini chop etmaydi.",
+       "keywords": [
+        "shtrix-print",
+        "yorliq formati",
+        "tarozi printeri",
+        "sinov yorlig'i",
+        "yorliqdagi do'kon nomi",
+        "tarozidagi reklama",
+        "kontrast",
+        "штрих-принт",
+        "формат этикетки",
+        "принтер весов",
+        "тестовая этикетка",
+        "название магазина на этикетке",
+        "реклама на весах",
+        "контраст"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-штрих-код",
+       "title": "Shtrix-PRINT: «Shtrix-kod» bo'limi",
+       "text": "Yorliqdagi shtrix-kod kassa kutgan formatga mos bo'lishi kerak, aks holda kassa tovarni tanimaydi.\nШаг 1. «ShTRIX-PRINT tarozi sozlamalari» → «Shtrix-kod» bo'limini oching (yoki «Tovarlarni taroziga yuborish» oynasida «To‘g‘ridan-to‘g‘ri tarmoq orqali» usulida — «Yorliq shtrix-kodi…» tugmasi).\nШаг 2. «Tarozidan o‘qish» tugmasini bosing.\nШаг 3. «Tarozi qanday shtrix-kod chop etadi» blokidagi «Kompaniya sozlamasi (sayt → Tarozilar → Sozlamalar)» qatori kassa nimani kutayotganini ko'rsatadi: «PLU bo‘yicha» 2+5+5+1 yoki «kod bo‘yicha» 2+6+4+1 tartibi, rejim va kerakli tuzilma.\nШаг 4. «Kassaga moslash» tugmasini bosing — kassa «Shtrix-kod tuzilmasi», «Prefiksga (П) nima qo‘yiladi» = «vazn / dona prefiksi» va «Tortiladigan tovar prefiksi (0–99)» (20; «summa bo'yicha» rejimida — 25) maydonlarini o'zi qo'yadi.\nШаг 5. Namunani tekshiring: «Shtrix-koddagi tovar kodi» va «Namuna uchun massa, g» — shtrix-kod ostida «Kassa o‘qiydi: …» yoki sababi bilan «Kassa tovarni TANIMAYDI: …» chiqadi.\nШаг 6. «Taroziga yozish» tugmasini bosing.\nTuzilma harflari: П — prefiks, Т — tovar kodi, С — qiymat, В — massa, З — GS1 korxona raqami, К — nazorat raqami. Kassaga mos: ППТТТТТВВВВВК (PLU bo'yicha, vazn) va ППТТТТТТВВВВК (kod bo'yicha, vazn); summa bilan — ППТТТТТСССССК va ППТТТТТТССССК.\nВажно: Prefiks 20–29 bo'lishi kerak. Kassa shtrix-kodda vaznni yoki summani o'qishi «Shtrix-kod: vazn / summa» varag'ida prefikslar bo'yicha belgilanadi.",
+       "keywords": [
+        "shtrix-print",
+        "tarozi shtrix-kodi",
+        "shtrix-kod tuzilmasi",
+        "prefiks",
+        "kassaga moslash",
+        "vazn shtrix-kodi",
+        "штрих-принт",
+        "штрихкод весов",
+        "структура штрих-кода",
+        "префикс",
+        "подобрать под кассу",
+        "весовой штрихкод"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-сом-вместо-руб-на-этикетке-вкладка-валюта",
+       "title": "Shtrix-PRINT: yorliqda «РУБ» o'rniga «СОМ» («Valyuta» bo'limi)",
+       "text": "«ЦЕНА, РУБ/КГ» yozuvi tarozi dasturiga mahkamlangan — uning matnini o'zgartirib bo'lmaydi. «Valyuta» bo'limidagi usta yorliq formatini o'zingizning «Format 1–5»ga nusxalaydi, bu yozuvni yashiradi va uning o'rniga sizning matningizni qo'yadi.\nШаг 1. «ShTRIX-PRINT tarozi sozlamalari» → «Valyuta» bo'limini oching, ««ЦЕНА, РУБ/КГ» yozuvi → o‘z valyutangiz» bloki.\nШаг 2. «Asos format» — tarozi hozir chop etayotgan format; «Sifatida saqlash» — «Format 1 (o‘z)» … «Format 5 (o‘z)».\nШаг 3. ««ЦЕНА, РУБ/КГ» o‘rniga matn» — masalan, «ЦЕНА, СОМ/КГ» (tayyor tugmalar bor); «Qaysi o‘z matnga yozish (1–5)».\nШаг 4. Xohlasangiz, ««СТОИМОСТЬ» yozuvini ham almashtirish» belgisini qo'ying, ««СТОИМОСТЬ» o‘rniga matn» (masalan, «СУММА, СОМ») va «Uning o‘z matni (1–5)»ni to'ldiring — raqam boshqacha bo'lishi kerak.\nШаг 5. «Yozgandan so‘ng shu format bilan chop etish» belgisini qoldiring, «Tarozidan o‘qish»ni bosing, yorliq sxemasini tekshiring va «Taroziga yozish»ni bosib, tasdiqlang.\nШаг 6. «Valyuta belgisi»: «Qayerga» (asosiy valyuta — qiymatdan o'ngda, yoki qo'shimcha valyuta) va «Qaysi belgi» (masalan, «⃀ (so‘m belgisi)» yoki «сом (mayda)») tanlang, kerak bo'lsa nuqtalar bo'yicha tuzating yoki «Matnni chizish»dan foydalaning va «Taroziga yuklash»ni bosing. Belgi chop etilishi uchun «Chop etish va yorliq» bo'limida «valyuta belgilari»ni yoqing.\nШаг 7. «Ikkinchi valyuta kursi» faqat ikkinchi valyutadagi qiymat chop etilsa kerak: «Tarozidan o‘qish» → «Kurs, 1 birlik uchun so‘m» → «Kursni yozish».\nВажно: Donali tovarda tarozi o'zi «ЦЕНА, РУБ/ШТ» yozadi — donali tovarlar uchun alohida format qiling. «Belgili» formatlarda yozuvlar chop etilmaydi. Yozgandan keyingi birinchi yorliqni tarozida tekshiring.",
+       "keywords": [
+        "rub",
+        "so'm",
+        "yorliqdagi valyuta",
+        "цена руб кг",
+        "so'm belgisi",
+        "shtrix-print",
+        "valyuta kursi",
+        "руб",
+        "сом",
+        "валюта на этикетке",
+        "знак сома",
+        "штрих-принт",
+        "курс валюты"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-макет-этикетки",
+       "title": "Shtrix-PRINT: «Yorliq maketi» bo'limi",
+       "text": "Шаг 1. «ShTRIX-PRINT tarozi sozlamalari» → «Yorliq maketi» bo'limini oching, «O‘z yorliq formatlari (Format 1–5)» bloki.\nШаг 2. «Tahrir qilinadigan format» ro'yxatidan «Format 1 (o‘z)» … «Format 5 (o‘z)»ni tanlang va «Tarozidan o‘qish»ni bosing.\nШаг 3. Tarozining standart formatlarini o'zgartirib bo'lmaydi — ulardan boshlash uchun «Formatdan nusxalash» ro'yxatidan formatni tanlang va «Asos qilish»ni bosing.\nШаг 4. Elementlarni sxemada sichqoncha bilan suring (qadam 1 mm) yoki jadvalga X/Y kiriting; «Element (belgi — chop etish)» ustunidagi belgi element chop etilishini yoqadi, «Shrift / o‘lcham» — uning shrifti. O'sha yerda «Yorliq uzunligi, mm» va «Shtrix-koddagi tekshiruv chizig‘i».\nШаг 5. Element yorliq chetidan chiqib ketsa yoki elementlar ustma-ust tushsa, kassa ogohlantiradi.\nШаг 6. «Taroziga yozish»ni bosing va tasdiqlang. Tarozi shu format bilan chop etishi uchun — «Shu format bilan chop etish».\nВажно: Tovar nomidagi qatorlar soni «Chop etish va yorliq» bo'limida o'zgartiriladi. «O‘qilganiga qaytarish» yozishdan oldingi tuzatishlarni bekor qiladi.",
+       "keywords": [
+        "yorliq maketi",
+        "tarozi yorlig'i muharriri",
+        "yorliq formati",
+        "yorliqdagi shrift",
+        "shtrix-print",
+        "макет этикетки",
+        "редактор этикетки весов",
+        "формат этикетки",
+        "шрифт на этикетке",
+        "штрих-принт"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Rongta",
+     "articles": [
+      {
+       "id": "весы-rongta-подключение-загрузка-товаров-и-штрихкод",
+       "title": "Rongta: ulash, mahsulotlarni yuklash va shtrix-kod",
+       "text": "Rongta tarozilari (RLS1000/RLS1100) ularning RLS1000 dasturi orqali yuklanadi — kassa ro'yxatni tayyorlaydi va shu dasturda yuklashni boshlaydi. Kassa tarozining o'ziga buyruq yubormaydi.\nШаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» → kerakli tarozining «Sozlash…» tugmasini (yoki «+ Tarozi qo‘shish») bosing va «Rongta» markasini tanlang.\nШаг 2. «Tarozi IP manzili» (zavod manzili — 192.168.1.87; tarozida bunday o'zgartiriladi: [SETTING] tugmasini 2 soniya bosib turing → «@ IP address») va «Port» (5001) «Aloqani tekshirish» uchun kerak. Shu manzilni RLS1000 ga ham kiriting: «Creat Connection» → «IP add. of label scale» ustuni.\nШаг 3. «Tovarlarni qanday yuborish»: «Sayt va RLS1000 orqali» — kassa NurCRM saytidan .txp faylini yuklab olib, RLS1000 da yuklashni boshlaydi; «Kassaning o‘z serveri» — ro'yxat kassa katalogidan tuziladi va kassa RLS1000 ning «O‘z server porti» orqali ulanishini kutadi (RLS1000 da bir marta: File → Options → TCP/IP, shu kompyuter manzili va shu port).\nШаг 4. «Saqlash»ni bosing. «Tarozi sozlamalari…» tugmasi «Rongta tarozi sozlamalari» oynasini ochadi: «Ulanish», «Tovarlarni yuklash» (RLS1000 o'rnatilganmi — shu yerda ko'rinadi) va «Shtrix-kod» bo'limlari.\nШаг 5. «Shtrix-kod» bo'limi: «Shtrix-kod turi» va «Tovar bo‘limi (DD / D)»ni tanlang, namunani tekshiring yoki «Kassaga moslash»ni bosing. Mos turni RLS1000 da («Setting» → «barcode type») va tarozida o'rnating.\nШаг 6. Yuborish: shu tarozining «Tovarlarni yuborish →» → «Taroziga yuborish». Taroziga vaznli mahsulotlarning butun ro'yxati ketadi (belgilar hisobga olinmaydi).\nВажно: 00–09 turdagi shtrix-kodlarda tovar bo'limi 20–29 bo'lishi kerak, aks holda kassa yorliqni tanimaydi. Rongta tarozilari kirill harflarini chop etmaydi — nomlar lotin harflarida ketadi. Birinchi yorliqni kassa skaneri bilan tekshiring.",
+       "keywords": [
+        "rongta",
+        "rls1000",
+        "rls1100",
+        "txp",
+        "192.168.1.87",
+        "shtrix-kod turi",
+        "tovar bo'limi",
+        "тип штрих-кода",
+        "отдел товара"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "TM-30F (Dahua)",
+     "articles": [
+      {
+       "id": "весы-tm-30f-dahua-подключение-и-сеть",
+       "title": "TM-30F (Dahua): ulash va tarmoq",
+       "text": "TM-30F tarozilari — Shanghai Dahua Scale ishlab chiqarishi (TM-A / TM-F seriyasi), ularning dasturi — «Русский масштаб». Kassa ularga tovarlarni tarmoq orqali o'zi yuboradi (TCP, 4001 port).\nШаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» → kerakli tarozining «Sozlash…» tugmasini bosing va «TM-30F (Dahua)» markasini tanlang.\nШаг 2. «Tarozi IP manzili» («Русский масштаб»dagidek: «Настройка коммуникации → Настройка Ethernet») va «Port» 4001 ni kiriting.\nШаг 3. «Aloqani tekshirish»ni bosing: kassa faqat PLU №1 yozuvini o'qiydi, tarozida hech narsani o'zgartirmaydi. «tarozi aloqada (… ms) va PLU №1 o‘qishga javob berdi» degan javob — tovarlarni yuborish mumkin. Manzilni bilmasangiz — «Tarmoqda topish…». So'ng «Saqlash».\nШаг 4. «Tarozi sozlamalari…» «TM-30F tarozi sozlamalari» oynasini ochadi: «Ulanish» (manzil, «Aloqani tekshirish», «Almashuv jurnali»), «Tarmoq», «Shtrix-kod», «Tovarlarni yuklash» bo'limlari.\nШаг 5. «Tarmoq» bo'limi: «Tarozi IP'sini qanday bilish» va «Kompyuter va tarozi tarmog‘i» — kompyuter manzillari va «tarozi shu tarmoqda» belgisi. Kompyuter va tarozi manzilining dastlabki uch soni mos kelishi kerak (niqob 255.255.255.0).\nВажно: Kassa 4001 port yopiq deb yozsa — kompyuterdagi «Русский масштаб» dasturini yoping: u tarozini band qilib turgan bo'lishi mumkin.",
+       "keywords": [
+        "tm-30f",
+        "tm30f",
+        "dahua",
+        "русский масштаб",
+        "4001 port",
+        "tarozi ip",
+        "almashuv jurnali",
+        "порт 4001",
+        "ip весов",
+        "журнал обмена"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-tm-30f-dahua-штрихкод-цена-и-загрузка-товаров",
+       "title": "TM-30F (Dahua): shtrix-kod, narx va mahsulotlarni yuklash",
+       "text": "Шаг 1. «TM-30F tarozi sozlamalari» → «Shtrix-kod» bo'limi. Format harflari: F — prefiks, W — tovar kodi, N — vazn, E — summa, C — nazorat raqami. Kassa 13 raqamni o'qiydi: FFWWWWWNNNNNC (vazn) yoki FFWWWWWEEEEEC (summa).\nШаг 2. «Format (Barcode)» ro'yxatidan tarozida o'rnatilgan formatni, «Shtrix-kod prefiksi (F)» maydoniga 20–29 prefiksni tanlang. «Kassa uchun tavsiya» tugmasi kompaniya rejimiga mos format va prefiksni qo'yadi.\nШаг 3. Namunani tekshiring («Namuna tovar kodi (PLU)», «Namuna uchun massa, g», «Kg narxi, so‘m»): «✓ Kassa o‘qiydi: …» yoki «⚠ Kassa tovarni TANIMAYDI: …».\nШаг 4. «Saqlash»ni bosing. Prefiks taroziga tovarlar bilan birga ketadi. Kassa yorliqlarni qanday o'qishini bu bo'lim o'zgartirmaydi — bu «Shtrix-kod: vazn / summa» varag'idagi qoidalar.\nШаг 5. Tarozidagi format vaznsiz summali bo'lsa (FFWWWWWEEEEEC), kassa shu tarozi prefiksiga «Summa» qoidasini o'zi qo'yadi: TM-30F markasi tanlanganda va tovarlar yuborilganda (yuborish natijasida bu prefiksli yorliqlar endi SUMMA sifatida o'qilishi yoziladi).\nШаг 6. Formatning o'zi tarozida «Русский масштаб» orqali o'zgartiriladi: «Базовая настройка → Системные параметры» → «Common param» → «Barcode» → «Download».\nШаг 7. «Tovarlarni yuklash» bo'limi: «Tarozidagi narx (Price point)» — tarozidagi «Price point» kabi (masalan, «Integer [123] — butun so‘m»), aks holda tarozidagi narxlar 10/100/1000 marta katta yoki kichik bo'ladi; «Yaroqlilik muddati, kun (0 — yo‘q)»; «Tarozi javobi bilan bittadan (ularning dasturidek) — tavsiya etiladi» yoki «Barcha yozuvlar bitta paketda…». «Saqlash»ni bosing.\nШаг 8. «Tovarlarni taroziga yuborish» oynasida tovarlarni belgilang va «Taroziga yuborish»ni bosing (yuborish paytida tugma «To‘xtatish»ga aylanadi). Zaxira yo'l — «Faylni saqlash ▾» → ««Русский масштаб» uchun fayl (DIGI_TOP2000)»; ularning dasturida «Настройки товаров» → «Импорт» → «Text Files» → DIGI_TOP2000 → «Скачать».\nВажно: Kassa TM-30F ga hech qachon PLU tozalash, yorliqlar, tezkor tugmalar va tizim parametrlarini yubormaydi. Tarozidagi nom 43 belgigacha; ң, ө, ү harflari н, о, у bilan almashtiriladi.",
+       "keywords": [
+        "tm-30f",
+        "dahua",
+        "ffwwwwweeeeec",
+        "ffwwwwwnnnnnc",
+        "price point",
+        "digi_top2000",
+        "shtrix-kod prefiksi",
+        "русский масштаб",
+        "префикс штрихкода"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Mahsulotlarni taroziga yuborish",
+     "articles": [
+      {
+       "id": "весы-как-отправить-товары-на-весы-окно-весы",
+       "title": "Mahsulotlarni taroziga qanday yuborish: «Tovarlarni taroziga yuborish» oynasi",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Yorliqli tarozi» varag'ini oching va kerakli tarozining «Tovarlarni yuborish →» tugmasini bosing. «Tovarlarni taroziga yuborish» oynasi ochiladi.\nШаг 2. Yuqorida — tarozilar ro'yxati (tarozini almashtiradi), uning ostida marka, manzil, yuborish usuli va oxirgi aloqa tekshiruvi. «Aloqani tekshirish» — hozir tekshirish, «O‘zgartirish…» — shu tarozi sozlamalari oynasi.\nШаг 3. Jadvalda — «Vaznli mahsulot» yoqilgan barcha mahsulotlar: «Mahsulot», «PLU», «Kategoriya», «Birl.», «Narx», «Natija». Shu tarozi kategoriyalaridagi mahsulotlar (yoki o'tgan safar belgilanganlar) belgilangan. «Qidirish: nomi, PLU yoki kod» maydoni va kategoriyalar ro'yxati jadvalni qisqartiradi; «Barchasini tanlash» / «Tanlovni bekor qilish» ko'rinib turgan qatorlarga ta'sir qiladi; yonida «Belgilangan: M dan N» yoziladi.\nШаг 4. «Boshlang'ich PLU:» va «Tarozi tugmalariga moslab raqamlash» — PLU raqamlari boshlang'ichdan ketma-ket: tarozidagi 1-tugma — ro'yxatdagi birinchi mahsulot.\nШаг 5. To'g'ridan-to'g'ri yuborishda (Shtrix-PRINT «To‘g‘ridan-to‘g‘ri tarmoq orqali» va TM-30F) «ShKdagi kod» ustuni va «Yorliq shtrix-kodi…» tugmasi ko'rinadi; Shtrix-PRINT to'g'ridan-to'g'ri bo'lsa — yana «Tugma» ustuni.\nШаг 6. Pastda «Kassa yorliqlarni o‘qiydi: 20 — vazn · 21 — summa…» qatori va «Yorliq bo‘yicha sozlash…» tugmasi — chekdagi summa yorliq bilan mos kelmasa.\nШаг 7. «Taroziga yuborish»ni bosing. «Natija» ustunida har bir qator uchun «✓ yuborildi» (server orqali — «✓ serverga uzatildi») yoki sababi, yakun — pastki qatorda. «CSV saqlash» (TM-30F da — «Faylni saqlash ▾») ro'yxatni faylga saqlaydi.\nВажно: Shtrix-PRINT ga to'g'ridan-to'g'ri yuborishda tarozida dasturlash rejimi ochiq bo'lsa, kassa «Tarozi band» deb javob beradi — tarozini oddiy rejimga o'tkazing. «Start» tarifida taroziga yuborish — pullik qo'shimcha funksiya (Marketpleys → «Qo'shimcha funksiyalar»).",
+       "keywords": [
+        "taroziga yuborish",
+        "taroziga yuklash",
+        "mahsulotlarni taroziga",
+        "plu",
+        "boshlang'ich plu",
+        "tovarlarni taroziga yuborish",
+        "kategoriya",
+        "отправить на весы",
+        "выгрузка на весы",
+        "товары на весы",
+        "начальный plu",
+        "отправка товаров на весы",
+        "категория"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-назначить-товары-на-клавиши-весов-штрих-принт",
+       "title": "Mahsulotlarni Shtrix-PRINT tarozisi tugmalariga qanday biriktirish",
+       "text": "Shtrix-PRINT tarozisi panelidagi tezkor tugmalarni (1–120) kassa o'zi yozadi — faqat «To‘g‘ridan-to‘g‘ri tarmoq orqali» yuborilganda.\nШаг 1. Shu tarozi sozlamalarida «Tovarlarni qanday yuborish» → «To‘g‘ridan-to‘g‘ri tarmoq orqali»ni tanlang va manzil, port hamda parolni kiriting.\nШаг 2. Shu tarozining «Tovarlarni yuborish →» tugmasini bosing — jadvalda «Tugma» ustuni paydo bo'ladi.\nШаг 3. Kerakli mahsulotlarga tugma raqamini (1–120) kiriting. Raqamsiz mahsulot taroziga tugmasiz ketadi.\nШаг 4. Mahsulotlarni belgilang va «Taroziga yuborish»ni bosing. Kassa mahsulotni PLU ga yozadi, tugmani esa shu PLU ni tanlashga sozlaydi.\nШаг 5. «Natija» ustunida — masalan, «✓ yuborildi · PLU 5 · tugma 3» yoki xato: «⚠ tugma — 1–120 son», «⚠ 3-tugma band». Pastdagi yakunda — «Tugmalar: N yozildi».\nШаг 6. Tugma raqamlari shu tarozi uchun eslab qolinadi va keyingi yuborishda o'zi qo'yiladi.\nВажно: TM-30F, Rongta va NurCRM serveri orqali yuborishda «Tugma» ustuni yo'q. Bitta tugmani ikkita mahsulotga berib bo'lmaydi. Tugmalarni qo'lda ham yozish mumkin — «ShTRIX-PRINT tarozi sozlamalari» oynasining «Klaviatura» bo'limi.",
+       "keywords": [
+        "tarozi tugmalari",
+        "tarozi tezkor tugmalari",
+        "tugma",
+        "shtrix-print",
+        "mahsulotni tugmaga",
+        "plu tugma",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "клавиша",
+        "штрих-принт",
+        "товар на клавишу",
+        "plu клавиша"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-plu-и-код-в-шк-как-касса-находит-товар-по-этикетке",
+       "title": "PLU va «ShKdagi kod»: kassa mahsulotni yorliq bo'yicha qanday topadi",
+       "text": "PLU — mahsulotning tarozidagi raqami. «ShKdagi kod» — tarozi yorliq shtrix-kodiga chop etadigan son. Skanerlashda kassa mahsulotni shu kod bo'yicha topadi.\nШаг 1. Mahsulot kartochkasida «Vaznli mahsulot»ni yoqing va «PLU kodi (tarozilar uchun)»ni to'ldiring — faqat shunday mahsulotlar «Tovarlarni taroziga yuborish» oynasiga tushadi.\nШаг 2. Kompaniya tartibi «PLU bo‘yicha» bo'lsa, kassa vaznli mahsulotlar orasidan PLU bo'yicha qidiradi; «kod bo‘yicha» bo'lsa — «Artikul» bo'yicha (saytdagi «tovar kodi»), agar u 6 raqamgacha bo'lgan son bo'lsa, so'ng PLU bo'yicha.\nШаг 3. «ShKdagi kod» ustuni (TM-30F da va «To‘g‘ridan-to‘g‘ri tarmoq orqali» usulidagi Shtrix-PRINT da) o'zi to'ldiriladi: mahsulotning PLU'si yoki kodi. Nima uchunligini bilsangizgina o'zgartiring.\nШаг 4. Yuborgandan keyin mahsulotni torting, yorliq chop eting va uni kassa bilan skanerlang — mahsulot chekka tushishi kerak.\nВажно: «Tarozi tugmalariga moslab raqamlash» belgilanganda tarozidagi katak raqami mahsulot PLU'sidan farq qilishi mumkin — bu odatiy: kassa mahsulotni katak raqami bo'yicha emas, «ShKdagi kod» bo'yicha topadi.",
+       "keywords": [
+        "plu",
+        "shkdagi kod",
+        "tovar kodi",
+        "vaznli mahsulot",
+        "plu kodi",
+        "artikul",
+        "код в шк",
+        "код товара",
+        "весовой товар",
+        "plu код",
+        "артикул"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-ai-весы-и-выгрузка-списка-в-csv",
+       "title": "AI tarozi va ro'yxatni CSV'ga saqlash",
+       "text": "«AI tarozi»larning umumiy protokoli yo'q: har bir model o'z dasturi bilan keladi. Kassa fayl tayyorlaydi, uni esa siz tarozi dasturi bilan yuklaysiz.\nШаг 1. «AI tarozi» markasi bilan tarozi qo'shing (manzil kerak emas) va uning «Faylni tayyorlash →» tugmasini bosing.\nШаг 2. «Tovarlarni taroziga yuborish» oynasida mahsulotlarni belgilang (hech biri belgilanmasa — barcha vaznli mahsulotlar eksport qilinadi) va «Tarozi uchun faylni saqlash»ni bosing. Faylni qayerga saqlashni tanlang.\nШаг 3. Faylni taroziga ularning dasturi bilan yuklang.\nШаг 4. Boshqa markalar uchun xuddi shu ro'yxatni «CSV saqlash» tugmasi saqlaydi (TM-30F da — «Faylni saqlash ▾» → «CSV (PLU; nomi; birligi; narxi)»): PLU, Название, Единица, Цена ustunlari; ajratuvchi «;», UTF-8 kodlash, qatorlar PLU o'sish tartibida.\nВажно: Kassa «…shundan PLUsiz: …» deb yozsa — shu mahsulotlar kartochkasida «PLU kodi (tarozilar uchun)»ni to'ldiring, aks holda faylda ularning raqami bo'sh qoladi.",
+       "keywords": [
+        "ai tarozi",
+        "csv",
+        "csv saqlash",
+        "tarozi uchun fayl",
+        "plu ro'yxati",
+        "ai весы",
+        "сохранить csv",
+        "файл для весов",
+        "plu список"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Tarozi shtrix-kodi va sotish",
+     "articles": [
+      {
+       "id": "весы-как-касса-читает-штрихкод-с-этикетки-весов",
+       "title": "Kassa tarozi yorlig'idagi shtrix-kodni qanday o'qiydi",
+       "text": "Tarozi yorlig'i — 13 raqamli EAN-13 shtrix-kodi, dastlabki ikki raqami — 20–29 prefiksi.\nШаг 1. Tartib va rejimni ega NurCRM saytida belgilaydi (Tarozilar → Sozlamalar); kassa ularni kirishda va sinxronlashda oladi.\nШаг 2. «PLU bo‘yicha» tartib: 2 ta prefiks raqami + 5 ta PLU raqami + 5 ta qiymat raqami + nazorat raqami. «Kod bo‘yicha» tartib: 2 + 6 ta kod raqami + 4 ta qiymat raqami + nazorat raqami.\nШаг 3. Qiymat — grammdagi og'irlik (0,220 kg = 00220) yoki tiyindagi summa (13,20 so'm = 01320; saytda summa birligi «so'm» bo'lsa — so'mda).\nШаг 4. Vaznmi yoki summami — prefiks uchun kassa qoidasi hal qiladi («Shtrix-kod: vazn / summa» varag'i). Qoida bo'lmasa — kompaniya rejimi: «vazn bo'yicha», «summa bo'yicha» yoki «avto» (20 — vazn, 25 — summa). Qoidasi yo'q 21–24 va 26–29 uchun kassa birinchi skanerlashda o'zi so'raydi.\nMisol: «Алма» 0,220 kg × 60 so'm = 13,20 so'm, shtrix-kod 2101003013207 = 21 | 01003 | 01320 | 7: prefiks 21, PLU 1003, qiymat 01320 (bu 1,320 kg emas, 13,20 so'm), nazorat raqami 7.\nВажно: Shtrix-kodda summa bo'lsa, kassa vaznni o'zi hisoblaydi: summa ÷ kg narxi (13,20 ÷ 60 = 0,220 kg), va chekdagi qator summasi yorliq bilan mos keladi.",
+       "keywords": [
+        "tarozi shtrix-kodi",
+        "tarozi yorlig'i",
+        "20 prefiks",
+        "21 prefiks",
+        "25 prefiks",
+        "ean-13",
+        "vazn bo'yicha",
+        "summa bo'yicha",
+        "штрихкод весов",
+        "этикетка весов",
+        "префикс 20",
+        "префикс 21",
+        "префикс 25",
+        "по весу",
+        "по сумме"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-касса-спрашивает-сумма-или-вес-при-первом-скане-этикетк",
+       "title": "Kassa yorliqni birinchi skanerlashda «summa yoki vazn» deb so'raydi",
+       "text": "1.17.27 versiyasidan boshlab qoidasi yo'q 21–24 yoki 26–29 prefiksli yorliq birinchi marta skanerlanganda kassa «Tasdiqlash» oynasini ko'rsatadi: «21 prefiksli tarozi yorlig'i (Алма). Yorliqda nima bosilgan?» — ikkala variant ham pulda:\n«HA — SUMMA 13.20 so'm (vazn 0.220 kg)»\n«YO'Q — VAZN 1.320 kg (summa 79.20 so'm)»\nШаг 1. Yorliq bilan solishtiring: unda qiymat 13,20 bo'lsa — «Ha»ni bosing; vazn 1,320 kg bo'lsa — «Yo'q».\nШаг 2. Mahsulot chekka tushadi, javob esa shu prefiks uchun kassa qoidasiga aylanadi — kassa qayta so'ramaydi.\nШаг 3. 20 va 25 prefikslarini kassa so'ramaydi — ularni kompaniya rejimi (yoki sizning qoidangiz) bo'yicha o'qiydi.\nXato javob bergan bo'lsangiz, uni qanday o'zgartirish mumkin:\nШаг 4. ☰ → «Sozlamalar» → «Tarozilar» → «Shtrix-kod: vazn / summa» varag'ini oching (xuddi shu tugmalar «Yorliqli tarozi» varag'ining pastida ham bor).\nШаг 5. «Tarozi shtrix-kodda nimani chop etadi» blokida kerakli prefiksning «Vazn» yoki «Summa» tugmasini bosing — darhol ishlaydi.\nШаг 6. Ishonchingiz komil bo'lmasa — «Yorliq bo‘yicha sozlash…»: yorliqni skanerlang va unga mos variantni bosing.\nШаг 7. Kassa yana so'rashi uchun «Qoidalarni tozalash (kassa yana so‘raydi)»ni bosing — barcha prefikslar qoidalari olib tashlanadi.\nВажно: Savol oynasini yopish «Yo'q» javobi hisoblanadi. Qoidalar faqat shu kompyuterda saqlanadi — boshqa kassa o'zi so'raydi.",
+       "keywords": [
+        "summa yoki vazn",
+        "21 prefiks",
+        "tarozi yorlig'i",
+        "skanerlashda savol",
+        "noto'g'ri summa",
+        "qoidalarni tozalash",
+        "сумма или вес",
+        "префикс 21",
+        "этикетка весов",
+        "вопрос при скане",
+        "неправильная сумма",
+        "сбросить правила"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вкладка-штрих-код-вес-сумма-правила-по-префиксам",
+       "title": "«Shtrix-kod: vazn / summa» varag'i: prefikslar bo'yicha qoidalar",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Shtrix-kod: vazn / summa» varag'ini oching.\nШаг 2. «Yorliq bo‘yicha sozlash» bloki: chop etilgan yorliqdagi shtrix-kodni skanerlang (yoki 13 raqam kiriting) va «Tahlil qilish»ni bosing. Kassa uni qismlarga (prefiks, tovar kodi, vazn yoki summa, nazorat raqami) ajratadi va mahsulotni topadi.\nШаг 3. Kassa ikki o'qishni ko'rsatadi — «VAZN» (raqamlar — gramm) va «SUMMA» (raqamlar — tiyin) — chek qatori summasi bilan birga. Yorliq bilan mos kelganini bosing: kassa «Tayyor: kassa … prefiksli yorliqlarni … sifatida o‘qiydi» deb javob beradi.\nШаг 4. «Tarozi shtrix-kodda nimani chop etadi» bloki: har bir prefiksda «Vazn» va «Summa» tugmalari bor. Yonidagi yozuv: «kassa qoidasi», «kompaniya rejimi bo‘yicha» yoki «kassa birinchi skanda so‘raydi».\nШаг 5. «Barcha 20–29 prefikslar» barcha prefikslarni ko'rsatadi, «Faqat ishlatilgan prefikslar» — qisqa ro'yxat. «Qoidalarni tozalash (kassa yana so‘raydi)» kassaning barcha qoidalarini olib tashlaydi.\nШаг 6. «Kassa tarozi yorlig‘idagi shtrix-kodni qanday o‘qiydi» bloki: shtrix-kod namunasi, saytdagi kompaniya tartibi va rejimi, summa birligi; «Tarozining o‘zidagi shtrix-kod formati: …» tugmasi marka sozlamalarini «Shtrix-kod» bo'limida ochadi.\nВажно: Kassa qoidasi saytdagi kompaniya rejimidan kuchliroq va qayta ishga tushirmasdan darhol ishlaydi. Xuddi shu «Vazn» / «Summa» tugmalari «Yorliqli tarozi» varag'ining pastida, «Yorliq bo‘yicha sozlash…» esa «Tovarlarni taroziga yuborish» oynasida ham bor. Qoidalar faqat shu kompyuterda saqlanadi.",
+       "keywords": [
+        "vazn yoki summa",
+        "prefiks qoidalari",
+        "yorliq bo'yicha sozlash",
+        "21 prefiks",
+        "qoidalarni tozalash",
+        "shtrix-kod vazn summa",
+        "вес или сумма",
+        "правила префиксов",
+        "настроить по этикетке",
+        "префикс 21",
+        "сбросить правила",
+        "штрих-код вес сумма"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-продать-товар-с-этикеткой-весов",
+       "title": "Tarozi yorlig'i bor mahsulotni qanday sotish",
+       "text": "Шаг 1. Tarozi yorlig'idagi shtrix-kodni skanerlang (kursor kiritish maydonida turmasligi kerak — Esc'ni bosing).\nШаг 2. Kassa vaznli mahsulotni shtrix-koddagi kod bo'yicha topadi va yorliqdagi vazn va summa bilan chekka darhol qator qo'shadi — «Mahsulotni tortish» oynasi ochilmaydi.\nШаг 3. Bunday prefiks (21–24 yoki 26–29) birinchi marta skanerlansa — «summa yoki vazn» savoliga javob bering.\nШаг 4. Chekdagi qatorni yorliq bilan solishtiring va to'lovni odatdagidek qabul qiling.\nШаг 5. Yorliqsiz mahsulotni kassadagi tarozida torting: katalogdagi mahsulotni bosing («Vaznli» varag'i), «Mahsulotni tortish» oynasida — «Tarozidan olish» yoki «Og'irlik, kg» ni qo'lda kiriting (yoki «Summa bo'yicha» varag'i), so'ng «Chekka qo'shish».\nВажно: «… kodli mahsulot katalogda topilmadi.» xabari mahsulot PLU'si yoki kodi mos kelmasligini yoki «Vaznli mahsulot» yoqilmaganini bildiradi — «Tarozi yorlig'i bo'yicha mahsulot topilmadi» maqolasiga qarang.",
+       "keywords": [
+        "vaznli mahsulotni sotish",
+        "tarozi yorlig'i",
+        "yorliqni skanerlash",
+        "mahsulotni tortish",
+        "tarozidan olish",
+        "продать весовой",
+        "этикетка весов",
+        "скан этикетки",
+        "взвесить товар",
+        "подставить с весов"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Ko'p uchraydigan muammolar",
+     "articles": [
+      {
+       "id": "весы-весы-не-находятся-в-сети-или-нет-связи",
+       "title": "Tarozi tarmoqda topilmaydi yoki aloqa yo'q",
+       "text": "Шаг 1. Tarozi yoqilganini va tarmoq kabeli ulanganini tekshiring (ulagichdagi chiroqlar yonib turadi).\nШаг 2. Kompyuter va tarozi bitta quyi tarmoqda bo'lishi kerak: manzilning dastlabki uch soni mos keladi (masalan, 192.168.1.20 va 192.168.1.151). Tarozi sozlamalari oynasida «Tarmoqda topish…»ni bosing — tarozi boshqa quyi tarmoqda bo'lsa, kassa buni qator ostiga yozadi va yangi manzil taklif qiladi.\nШаг 3. Portni tekshiring: Shtrix-PRINT — 1111, TM-30F — 4001, Rongta — 5001 (tekshirish uchun).\nШаг 4. Ishlab chiqaruvchi dasturlari («Русский масштаб», RLS1000) tarozini band qilib turgan bo'lsa, ularni yoping.\nШаг 5. Windows brandmaueri yoki antivirus aloqani bloklashi mumkin — kassaga tarmoqqa kirishga ruxsat bering.\nШаг 6. Shtrix-PRINT parolni qabul qilmadi — tarozini o'chirib-yoqing va to'g'ri parolni kiriting (odatda 0030).\nВажно: Tarozilar ko'pincha ping'ga javob bermaydi, lekin ARP jadvalida ko'rinadi — shuning uchun faqat «Aloqani tekshirish»ga emas, tarmoqda qidirish natijasiga tayaning.",
+       "keywords": [
+        "tarozi topilmaydi",
+        "tarozi bilan aloqa yo'q",
+        "tarozi javob bermayapti",
+        "tarozi ip",
+        "quyi tarmoq",
+        "brandmauer",
+        "port",
+        "весы не найдены",
+        "нет связи с весами",
+        "весы не отвечают",
+        "ip весов",
+        "подсеть",
+        "брандмауэр",
+        "порт"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-товар-не-найден-по-этикетке-весов",
+       "title": "Tarozi yorlig'i bo'yicha mahsulot topilmadi",
+       "text": "Kassa «01003 kodli mahsulot katalogda topilmadi.» deb yozadi.\nШаг 1. Mahsulot kartochkasini oching: «Vaznli mahsulot» yoqilgan va «PLU kodi (tarozilar uchun)» to'ldirilgan bo'lishi kerak («kod bo‘yicha» tartibda — «Artikul»).\nШаг 2. Xabardagi kodni mahsulot PLU'si bilan solishtiring: 01003 = PLU 1003.\nШаг 3. Kod boshqacha bo'lsa — «Tovarlarni taroziga yuborish» oynasidagi «ShKdagi kod» ustunini tekshiring va mahsulotlarni taroziga qayta yuboring.\nШаг 4. Shtrix-kod formatini tekshiring: markangiz sozlamalari oynasidagi «Shtrix-kod» bo'limi «Kassa o‘qiydi: …» deb ko'rsatishi kerak. «Kassa tovarni TANIMAYDI» deb yozilgan bo'lsa — «Kassaga moslash» yoki «Kassa uchun tavsiya»ni bosing.\nШаг 5. Kassa yorliqni vaznli deb tanimasa va omborga mahsulot qo'shishni taklif qilsa — shtrix-kod 20–29 bilan boshlanmaydi yoki 13 raqam emas: tarozidagi prefiksni o'zgartiring.\nВажно: Saytga yangi qo'shilgan mahsulot katalog sinxronlangandan keyin (bir-ikki daqiqagacha) kassada paydo bo'ladi.",
+       "keywords": [
+        "mahsulot topilmadi",
+        "tarozi yorlig'i",
+        "kod topilmadi",
+        "plu",
+        "vazn shtrix-kodi o'qilmaydi",
+        "товар не найден",
+        "этикетка весов",
+        "код не найден",
+        "весовой штрихкод не читается"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-сумма-в-чеке-не-совпадает-с-этикеткой",
+       "title": "Chekdagi summa yorliq bilan mos kelmaydi",
+       "text": "Шаг 1. Yorliq va chekni solishtiring. Yorliqda 13,20 so'm, chekda esa 1,320 kg va 79,20 so'm bo'lsa — kassa summani vazn deb o'qigan (yoki aksincha).\nШаг 2. ☰ → «Sozlamalar» → «Tarozilar» → «Shtrix-kod: vazn / summa», «Yorliq bo‘yicha sozlash» blokini oching: shu yorliqni skanerlang, «Tahlil qilish»ni bosing va yorliqqa mos variantni tanlang. Kassa bu prefiksni darhol shunday o'qiy boshlaydi.\nШаг 3. Yoki «Tarozi shtrix-kodda nimani chop etadi» blokida prefiksning «Vazn» yoki «Summa» tugmasini bosing. Bu 20–29 istalgan prefiks uchun ishlaydi: kassa qoidasi saytdagi kompaniya rejimidan kuchliroq.\nШаг 4. Summa 100 marta kam yoki ko'p — saytdagi kompaniya sozlamalarida summa birligi (tiyin yoki so'm) mos emas, TM-30F da esa yana «Tarozidagi narx (Price point)».\nШаг 5. Bir necha tiyin farq — yaxlitlash. Mahsulotning kassadagi va tarozidagi narxi bir xil ekanini tekshiring: narx o'zgargandan keyin mahsulotlarni taroziga qayta yuboring.\nВажно: Tarozidagi narx faqat mahsulotlar taroziga qayta yuborilgandan keyin o'zgaradi.",
+       "keywords": [
+        "summa mos emas",
+        "noto'g'ri summa",
+        "summa o'rniga vazn",
+        "100 marta",
+        "tarozi yorlig'i",
+        "yorliq bo'yicha sozlash",
+        "сумма не совпадает",
+        "неправильная сумма",
+        "вес вместо суммы",
+        "в 100 раз",
+        "этикетка весов",
+        "настроить по этикетке"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-на-этикетке-руб-вместо-сом",
+       "title": "Yorliqda «СОМ» o'rniga «РУБ» yozilgan",
+       "text": "Шаг 1. Shtrix-PRINT tarozisi: «ShTRIX-PRINT tarozi sozlamalari» → «Valyuta» bo'limini oching va ««ЦЕНА, РУБ/КГ» yozuvi → o‘z valyutangiz» ustasidan o'ting («Shtrix-PRINT: yorliqda «РУБ» o'rniga «СОМ»» maqolasi).\nШаг 2. O'sha yerda «Valyuta belgisi» qismidan so'm belgisini yuklang va «Chop etish va yorliq» bo'limida «valyuta belgilari»ni yoqing.\nШаг 3. TM-30F va Rongta: yorliqdagi yozuvlar ishlab chiqaruvchi dasturida («Русский масштаб», RLS1000) o'zgartiriladi — kassa ularni yubormaydi.\nВажно: «ЦЕНА, РУБ/КГ» matni Shtrix-PRINT dasturiga mahkamlangan — kassa uni qayta yozmaydi, balki yashiradi va uning o'rniga o'zingizning 1–5 formatingizda sizning matningizni qo'yadi.",
+       "keywords": [
+        "rub",
+        "yorliqda rubl",
+        "so'm",
+        "valyuta",
+        "цена руб кг",
+        "руб",
+        "рубли на этикетке",
+        "сом",
+        "валюта"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вес-не-приходит-с-весов-у-кассы-com-порт",
+       "title": "Kassadagi tarozidan og'irlik kelmayapti (COM port)",
+       "text": "Шаг 1. ☰ → «Sozlamalar» → «Tarozilar» → «Kassadagi tarozi» varag'ida «Tarozi so'rovini yoqish» yoqilganini va to'g'ri «COM port» tanlanganini tekshiring (port raqami Windows Qurilmalar dispetcheri → «Ports (COM & LPT)» bo'limida ko'rinadi).\nШаг 2. «Tezlik (baud)» tarozinikiga mos bo'lishi kerak (ko'pincha 9600, ba'zan 4800 yoki 2400).\nШаг 3. Tarozi og'irlikni faqat so'rov bo'yicha bersa — tarozi qo'llanmasidagi «Og'irlik so'rovi (hex)»ni va 0 dan katta «So'rov oralig'i (ms)»ni kiriting.\nШаг 4. «Saqlash»ni bosing, mahsulotni qo'ying va «Tarozini tekshirish»ni bosing.\nШаг 5. Portdan boshqa dastur foydalanayotgan bo'lsa — uni yoping (portlar ro'yxati ostida kassa port holatini yozadi).\nШаг 6. «Mahsulotni tortish» oynasidagi «Tarozi ulanmagan — og'irlikni qo'lda kiriting.» xabari kassa hozir og'irlik olmayotganini bildiradi: og'irlikni qo'lda kiriting va sotuvdan keyin ulanishni tekshiring.\nВажно: «Tarozidan olish» bosilganda «Tarozidan og'irlik kelmadi.» chiqsa — og'irlik hali kelmagan: tarozi tinchlanishini kuting va qayta bosing.",
+       "keywords": [
+        "og'irlik kelmayapti",
+        "tarozi ko'rsatmayapti",
+        "com port",
+        "tarozi ulanmagan",
+        "tarozidan og'irlik yo'q",
+        "вес не приходит",
+        "весы не показывают",
+        "com порт",
+        "весы не подключены",
+        "нет веса с весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-буквы-ң-ө-ү-и-длинные-названия-на-весах",
+       "title": "Tarozidagi ң, ө, ү harflari va uzun nomlar",
+       "text": "Шаг 1. TM-30F: tarozi faqat Windows-1251 kodlashni tushunadi, shuning uchun kassa ң, ө, ү harflarini н, о, у bilan almashtiradi va nomni 43 belgigacha qisqartiradi.\nШаг 2. Shtrix-PRINT: tarozi ң, ө, ү harflarini chop etmaydi — tarozi uchun nomni ularsiz yozing.\nШаг 3. Rongta: tarozi kirill harflarini chop etmaydi — nom lotin harflarida ketadi.\nШаг 4. Yorliqdagi nom tushunarli bo'lishi uchun uni mahsulot kartochkasida qisqartiring va mahsulotlarni taroziga qayta yuboring.\nВажно: Kassada va chekda nom to'liq va qirg'iz harflari bilan qoladi — faqat taroziga ketadigani o'zgaradi.",
+       "keywords": [
+        "ң ө ү",
+        "qirg'iz harflari",
+        "yorliqda savol belgilari",
+        "tarozidagi nom",
+        "kirill tarozi",
+        "кыргызские буквы",
+        "вопросики на этикетке",
+        "название на весах",
+        "кириллица весы"
+       ],
+       "images": []
       }
      ]
     }

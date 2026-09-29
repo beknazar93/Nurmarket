@@ -1,31 +1,43 @@
-﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.ScalesPluWindow"
+<!-- 2026-09-28, редизайн по просьбе владельца: окно было перегружено (радиокнопки марок, строка
+     Rongta, «Начальный PLU», «Напрямую по кабелю», пять кнопок в шапке). Теперь: сверху выбранная
+     марка и адрес (кнопка «Изменить…» открывает те же настройки, что Настройки → Весы), таблица с
+     поиском и колонкой результата по строкам, внизу — одна главная кнопка «Отправить на весы»,
+     вторичная «Сохранить файл…» и ход отправки. Марка и способ отправки выбираются только в
+     настройках — здесь их больше не дублируем. -->
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.ScalesPluWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:CompileBindings="False"
         Title="{DynamicResource scalesPlu.title}"
-        Height="700"
+        Height="720"
         Width="1180"
-        MinWidth="900"
+        MinWidth="720"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
         Loaded="Window_Loaded">
 
     <Window.Styles>
         <Style Selector="Button.PrimaryActionButton">
-            <Setter Property="Height" Value="36" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="MinWidth" Value="200" />
             <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource SettingsButtonRadius}"
                                 Opacity="{TemplateBinding Opacity}">
-                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="15,0" />
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="18,0" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style Selector="Button.PrimaryActionButton:disabled">
+            <Setter Property="Opacity" Value="0.55" />
         </Style>
 
         <Style Selector="Button.SecondaryActionButton">
@@ -34,6 +46,7 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -46,6 +59,17 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style Selector="Button.SecondaryActionButton:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}" />
+        </Style>
+
+        <Style Selector="Border.Strip">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}" />
+            <Setter Property="Padding" Value="14,12" />
+        </Style>
 
         <Style Selector="DataGrid.ModernGrid">
             <Setter Property="Background" Value="#00FFFFFF" />
@@ -54,144 +78,188 @@
             <Setter Property="GridLinesVisibility" Value="None" />
             <Setter Property="VerticalAlignment" Value="Stretch"/>
         </Style>
+
+        <!-- Результат по строке -->
+        <Style Selector="TextBlock.rowStatus">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+        </Style>
+        <Style Selector="TextBlock.rowStatus.ok">
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.rowStatus.err">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.rowStatus.warn">
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </Window.Styles>
 
-    <Grid Margin="16" Background="{DynamicResource BrushPanel}" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-            <TextBlock Grid.Column="0" Text="{DynamicResource scalesPlu.title}"
-                       FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <!-- 2026-09-28: поиск весов в сети (анализ IP-адресов) и окно настроек выбранной марки. -->
-                <Button Content="{DynamicResource loc.settings.scaleScan.open}" Classes="SecondaryActionButton"
-                        Margin="0,0,8,0" Click="ScanNetwork_Click"/>
-                <Button Content="{DynamicResource loc.settings.scaleBrandSettings.open}" Classes="SecondaryActionButton"
-                        Margin="0,0,8,0" Click="BrandSettings_Click"/>
-                <Button x:Name="ExportCsvButton" Content="{DynamicResource loc.owner.scales.exportCsv}" Classes="SecondaryActionButton"
-                        Margin="0,0,8,0" Click="ExportCsv_Click"/>
-                <!-- 2026-09-28: TM-30F (Dahua) — запасной путь: файл импорта DIGI_TOP2000 для «Русского масштаба». -->
-                <Button x:Name="TmExportButton" Content="{DynamicResource loc.owner.scales.tmExportFile}" Classes="SecondaryActionButton"
-                        Margin="0,0,8,0" IsVisible="False" Click="TmExport_Click"/>
-                <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
-                        Margin="0,0,10,0" Click="Refresh_Click"/>
-                <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
-            </StackPanel>
+    <Grid Margin="16" Background="{DynamicResource BrushWindow}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+
+        <!-- Заголовок -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+            <TextBlock Grid.Column="0" Text="{DynamicResource scalesPlu.windowTitle}" VerticalAlignment="Center"
+                       FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
+            <!-- 2026-09-28: несколько весов — какие весы сейчас (у каждых свой адрес и категории). -->
+            <ComboBox Grid.Column="1" x:Name="ScaleProfileCombo" MinWidth="200" MaxWidth="320" Height="36" Margin="10,0,10,0"
+                      VerticalAlignment="Center" SelectionChanged="ScaleProfileCombo_SelectionChanged"/>
+            <Button Grid.Column="2" IsCancel="True" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
         </Grid>
 
-        <TextBlock Grid.Row="1" x:Name="SubtitleText" Text="{DynamicResource scalesPlu.subtitle}"
-                   Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap"/>
+        <!-- Выбранная марка, адрес, связь -->
+        <Border Grid.Row="1" Classes="Strip" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Width="46" Height="46" CornerRadius="23" Margin="0,0,12,0" VerticalAlignment="Top"
+                        Background="{DynamicResource BrushAccentSoft}" BorderBrush="{DynamicResource BrushAccent}" BorderThickness="1">
+                    <TextBlock x:Name="BrandBadgeText" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="BrandNameText" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="BrandAddressText" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ConnectionStateText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                    <TextBlock x:Name="SubtitleText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <WrapPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right" MaxWidth="340" Margin="12,0,0,0">
+                    <Button x:Name="CheckConnectionButton" Classes="SecondaryActionButton" Margin="0,0,8,6"
+                            Content="{DynamicResource scaleSetup.btn.check}" Click="CheckConnection_Click"/>
+                    <Button Classes="SecondaryActionButton" Margin="0,0,0,6"
+                            Content="{DynamicResource scalesPlu.change}" Click="ChangeSetup_Click"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16" Margin="0,0,0,10">
-            <RadioButton x:Name="BrandShtrikhRadio" GroupName="ScaleBrand" IsChecked="True"
-                         Content="{DynamicResource scalesPlu.brandShtrikh}" Click="BrandRadio_Click"/>
-            <RadioButton x:Name="BrandRongtaRadio" GroupName="ScaleBrand"
-                         Content="{DynamicResource scalesPlu.brandRongta}" Click="BrandRadio_Click"/>
-            <RadioButton x:Name="BrandAiRadio" GroupName="ScaleBrand" Margin="16,0,0,0"
-                         Content="{DynamicResource loc.owner.scales.brandAi}" Click="BrandRadio_Click"/>
-            <!-- 2026-09-28: весы TM-30F у владельца. Вечером 28.09: это Dahua (TM-A/TM-F, программа
-                 «Русский масштаб») — касса шлёт PLU напрямую по сети (DahuaTmScaleService). -->
-            <RadioButton x:Name="BrandTmRadio" GroupName="ScaleBrand"
-                         Content="TM-30F (Dahua)" Click="BrandRadio_Click"/>
-        </StackPanel>
-
-        <Grid Grid.Row="3" x:Name="RongtaSourceRow" IsVisible="False" ColumnDefinitions="Auto,Auto,Auto,Auto"
-              Margin="0,0,0,10">
-            <RadioButton Grid.Column="0" x:Name="RongtaSourceSiteRadio" GroupName="RongtaSource" IsChecked="True"
-                         Content="{DynamicResource scalesPlu.rongtaSourceSite}" Click="RongtaSourceRadio_Click"/>
-            <RadioButton Grid.Column="1" x:Name="RongtaSourceServerRadio" GroupName="RongtaSource" Margin="16,0,0,0"
-                         Content="{DynamicResource scalesPlu.rongtaSourceServer}" Click="RongtaSourceRadio_Click"/>
-            <TextBlock Grid.Column="2" x:Name="RongtaPortLabel" Text="{DynamicResource scalesPlu.rongtaPortLabel}"
-                       VerticalAlignment="Center" Margin="16,0,8,0" FontSize="12"
-                       Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
-            <TextBox Grid.Column="3" x:Name="RongtaPortBox" Width="80" Text="5001" IsVisible="False"/>
-        </Grid>
-
-        <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,10">
-            <Button Grid.Column="0" Content="{DynamicResource scalesPlu.selectAll}" Classes="SecondaryActionButton"
-                    Margin="0,0,10,0" Click="SelectAll_Click"/>
-            <Button Grid.Column="1" Content="{DynamicResource scalesPlu.selectNone}" Classes="SecondaryActionButton"
-                    Margin="0,0,10,0" Click="SelectNone_Click"/>
+        <!-- Поиск, категория, выбор, нумерация PLU — одна «текучая» строка: на узком окне
+             (800×600, 1024×1024) элементы переносятся, а не уезжают за край и не съедают таблицу. -->
+        <WrapPanel Grid.Row="2" Margin="0,0,0,4" VerticalAlignment="Center">
             <!-- Поиск по весовым товарам (2026-09-28, просьба владельца). -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                <TextBox x:Name="SearchBox" Width="240" TextChanged="SearchBox_TextChanged"/>
-                <TextBlock x:Name="SearchCountText" VerticalAlignment="Center" Margin="8,0,0,0"
-                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-            </StackPanel>
-            <!-- WrapPanel, а не StackPanel: в одну строку поля «Начальный PLU», галочка
-                 «Напрямую по кабелю», IP, порт, пароль и кнопка «Проверить» не помещались —
-                 на окне 900 px последние из них уезжали за правый край и были недоступны.
-                 Теперь при нехватке ширины они переносятся на следующую строку. -->
-            <WrapPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
-                       x:Name="PluStartRow">
+            <TextBox x:Name="SearchBox" Width="210" Height="36" Margin="0,0,8,6" TextChanged="SearchBox_TextChanged"/>
+            <!-- 2026-09-28: фильтр по категории. -->
+            <ComboBox x:Name="CategoryCombo" Width="180" Height="36" Margin="0,0,8,6" VerticalAlignment="Center"
+                      SelectionChanged="CategoryCombo_SelectionChanged"/>
+            <Button Content="{DynamicResource scalesPlu.selectAll}" Classes="SecondaryActionButton"
+                    Margin="0,0,8,6" Click="SelectAll_Click"/>
+            <Button Content="{DynamicResource scalesPlu.selectNone}" Classes="SecondaryActionButton"
+                    Margin="0,0,8,6" Click="SelectNone_Click"/>
+            <Button Content="{DynamicResource common.refresh}" Classes="SecondaryActionButton"
+                    Margin="0,0,8,6" Click="Refresh_Click"/>
+            <TextBlock x:Name="SearchCountText" VerticalAlignment="Center" Margin="4,0,16,6"
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- Номера PLU: только для прямой отправки (Штрих-ПРИНТ, TM-30F) и сервера Штрих-М. -->
+            <StackPanel x:Name="PluStartRow" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
                 <TextBlock Text="{DynamicResource scalesPlu.pluStartLabel}" VerticalAlignment="Center" Margin="0,0,6,0"
                            Foreground="{DynamicResource BrushTextSoft}" FontSize="12"/>
-                <TextBox Margin="0,2,8,2" x:Name="PluStartBox" Width="70" Text="1"/>
-
+                <TextBox Margin="0,0,10,0" x:Name="PluStartBox" Width="64" Height="36" Text="1"/>
                 <CheckBox x:Name="SequentialPluCheck" Content="{DynamicResource loc.owner.scales.sequentialPlu}"
-                          IsChecked="True"
-                          Margin="12,2,0,2"
+                          IsChecked="True" VerticalAlignment="Center"
                           ToolTip.Tip="{DynamicResource loc.owner.scales.sequentialPluTip}"/>
-
-                <CheckBox x:Name="DirectLanCheck" Content="{DynamicResource loc.owner.scales.directLan}"
-                          VerticalAlignment="Center" Margin="16,0,0,0"
-                          IsCheckedChanged="DirectLan_Changed"
-                          ToolTip.Tip="{DynamicResource loc.owner.scales.directLanTip}"/>
-                <Button x:Name="LanSettingsButton" Margin="8,2,0,2"
-                        Content="{DynamicResource loc.owner.scales.lanSettings}"
-                        Click="LanSettings_Click"
-                        ToolTip.Tip="{DynamicResource loc.owner.scales.lanSettingsTip}"/>
-            </WrapPanel>
-        </Grid>
-
-        <Grid Grid.Row="5">
-            <DataGrid x:Name="ProductsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="False">
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn Width="44">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{ReflectionBinding IsSelected}" HorizontalAlignment="Center"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="*" Binding="{ReflectionBinding Name}"/>
-                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="90" Binding="{ReflectionBinding PluText}"/>
-                    <!-- 2026-09-28: «Код в штрих-коде» — число, которое весы напечатают в ШК
-                         этикетки (поле «Код товара» записи ПЛУ). Правится перед отправкой;
-                         только для «Напрямую по кабелю» — серверный путь пишет код сам. -->
-                    <DataGridTemplateColumn Tag="BarcodeCode" Header="{DynamicResource loc.owner.scales.colBarcodeCode}" Width="140" IsVisible="False">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBox Text="{ReflectionBinding BarcodeCode, Mode=TwoWay}" MaxLength="6"
-                                         VerticalAlignment="Center" Margin="4,2" LostFocus="BarcodeCode_LostFocus"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="{DynamicResource warehouse.receivingUnit}" Width="70" Binding="{ReflectionBinding Unit}"/>
-                    <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="140" Binding="{ReflectionBinding PriceLine}"/>
-                </DataGrid.Columns>
-            </DataGrid>
-
-            <TextBlock x:Name="EmptyText" IsVisible="False" Text="{DynamicResource scalesPlu.empty}"
-                       Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Grid.Row="6" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
-            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
-                <!-- 2026-09-28: живой пример весового штрих-кода, который ждёт касса. -->
-                <TextBlock x:Name="BarcodeExampleText" FontSize="12" TextWrapping="Wrap"
-                           Foreground="{DynamicResource BrushText}" IsVisible="False"/>
-                <TextBlock x:Name="StatusText" FontSize="12"
-                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
             </StackPanel>
-            <!-- 2026-09-28: штрих-код этикетки весов — пример и настройка (окно «Настройки весов
-                 Штрих-ПРИНТ», вкладка «Штрих-код»). Здесь, а не в ряду над таблицей: там уже
-                 нет места, и кнопка уезжала за правый край. -->
-            <Button Grid.Column="1" x:Name="BarcodeSettingsButton" Classes="SecondaryActionButton"
-                    Margin="12,0,10,0" VerticalAlignment="Center"
-                    Content="{DynamicResource loc.owner.scales.barcodeSettings}"
-                    Click="BarcodeSettings_Click"/>
-            <Button Grid.Column="2" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
-                    Classes="PrimaryActionButton" Padding="16,0" Click="Send_Click"/>
-        </Grid>
+        </WrapPanel>
+
+        <!-- Товары -->
+        <Border Grid.Row="3" Classes="Strip" Padding="4">
+            <Grid>
+                <DataGrid x:Name="ProductsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="False">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="44">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{ReflectionBinding IsSelected}" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colName}" Width="2*" MinWidth="160" Binding="{ReflectionBinding Name}"/>
+                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colPlu}" Width="70" Binding="{ReflectionBinding PluText}"/>
+                        <!-- 2026-09-28: «Код в штрих-коде» — число, которое весы напечатают в ШК
+                             этикетки (поле «Код товара» записи ПЛУ). Правится перед отправкой;
+                             только для прямой отправки — серверный путь пишет код сам. -->
+                        <DataGridTemplateColumn Tag="BarcodeCode" Header="{DynamicResource loc.owner.scales.colBarcodeCode}" Width="110" IsVisible="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{ReflectionBinding BarcodeCode, Mode=TwoWay}" MaxLength="7"
+                                             VerticalAlignment="Center" Margin="4,2" LostFocus="BarcodeCode_LostFocus"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <!-- 2026-09-28: клавиша быстрого доступа на весах Штрих-ПРИНТ (1–120), команда B1h
+                             «Выбрать товар по номеру ПЛУ» — только при прямой отправке. -->
+                        <DataGridTemplateColumn Tag="Hotkey" Header="{DynamicResource scalesPlu.colHotkey}" Width="104" IsVisible="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{ReflectionBinding HotkeyText, Mode=TwoWay}" MaxLength="3"
+                                             VerticalAlignment="Center" Margin="4,2"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Tag="Category" Header="{DynamicResource scalesPlu.colCategory}" Width="*" MinWidth="90" Binding="{ReflectionBinding Category}"/>
+                        <DataGridTextColumn Tag="Unit" Header="{DynamicResource warehouse.receivingUnit}" Width="60" Binding="{ReflectionBinding Unit}"/>
+                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="100" Binding="{ReflectionBinding PriceLine}"/>
+                        <!-- 2026-09-28: результат отправки по строке (отправлено / ошибка / пропущено). -->
+                        <DataGridTemplateColumn Header="{DynamicResource scalesPlu.colStatus}" Width="*" MinWidth="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Classes="rowStatus"
+                                               Classes.ok="{ReflectionBinding StatusOk}"
+                                               Classes.err="{ReflectionBinding StatusError}"
+                                               Classes.warn="{ReflectionBinding StatusWarn}"
+                                               Text="{ReflectionBinding Status}"
+                                               ToolTip.Tip="{ReflectionBinding Status}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock x:Name="EmptyText" IsVisible="False" Text="{DynamicResource scalesPlu.empty}"
+                           Foreground="{DynamicResource BrushTextSoft}" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Штрих-код этикетки: как касса прочтёт, «Настроить по этикетке», формат на весах -->
+        <Border Grid.Row="4" x:Name="BarcodeStrip" Classes="Strip" Margin="0,10,0,0" Padding="12,8">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <!-- 2026-09-28: живой пример весового штрих-кода, который ждёт касса. -->
+                    <TextBlock x:Name="BarcodeRuleText" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <TextBlock x:Name="BarcodeExampleText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSoft}"/>
+                </StackPanel>
+                <WrapPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" MaxWidth="400">
+                    <Button x:Name="LabelWizardButton" Classes="SecondaryActionButton" Margin="0,2,8,2"
+                            Content="{DynamicResource scaleSetup.wizard.open}" Click="LabelWizard_Click"/>
+                    <!-- 2026-09-28: штрих-код этикетки весов — формат на самих весах (окно «Настройки весов
+                         Штрих-ПРИНТ»/«TM-30F», вкладка «Штрих-код»). -->
+                    <Button x:Name="BarcodeSettingsButton" Classes="SecondaryActionButton" Margin="0,2,0,2"
+                            Content="{DynamicResource loc.owner.scales.barcodeSettings}"
+                            Click="BarcodeSettings_Click"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <!-- Действия и ход отправки -->
+        <Border Grid.Row="5" Classes="Strip" Margin="0,10,0,0">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="6" Margin="0,0,12,0">
+                    <ProgressBar x:Name="SendProgress" Height="6" Minimum="0" Maximum="1" IsVisible="False"
+                                 Foreground="{DynamicResource BrushAccent}"/>
+                    <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="SaveFileButton" Classes="SecondaryActionButton" Height="44"
+                        Margin="0,0,10,0" VerticalAlignment="Center"
+                        Content="{DynamicResource scalesPlu.saveFile}" Click="SaveFile_Click"/>
+                <Button Grid.Column="2" x:Name="SendButton" Content="{DynamicResource scalesPlu.sendButton}"
+                        Classes="PrimaryActionButton" VerticalAlignment="Center" Click="Send_Click"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

@@ -251,33 +251,46 @@ public sealed class AnalyticsReportData
         /// в «Продажах». null — список продаж не дочитан (тогда в отчёте останется локальная цифра).</summary>
         private static async Task<double?> SumDiscountsAsync(ISalesApiService api, DateTime from, DateTime to, CancellationToken ct)
         {
-            const int pageSize = 80;
-            const int maxPages = 60;
+            // 2026-09-28: по 500 строк (сервер отдаёт до 500) и до 100 страниц — раньше 60 по 80
+            // (4 800 чеков): у больших магазинов скидки за месяц считались не по всем чекам.
+            // 2026-09-29, стресс-тест: страницы — по 3 сразу, как в «Финансах» (100 страниц одна за
+            // другой — это минуты, выгрузка упиралась в свой тайм-аут и молча уходила на локальную
+            // историю кассы). Упёрлись в предел — сумма неполная: null (в отчёте — локальная цифра
+            // и запись в журнале), а не заниженная «сумма за период».
+            const int pageSize = 500;
+            const int maxPages = 100;
+            const int parallelPages = 3;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var sum = 0.0;
             try
             {
-                for (var page = 1; page <= maxPages; page++)
+                for (var first = 1; first <= maxPages; first += parallelPages)
                 {
-                    var rows = await api.PosSalesListAsync(page, pageSize, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))
+                    var batch = await Task.WhenAll(Enumerable
+                            .Range(first, Math.Min(parallelPages, maxPages - first + 1))
+                            .Select(page => api.PosSalesListAsync(page, pageSize, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))))
                         .ConfigureAwait(false);
-                    var added = 0;
-                    foreach (var row in rows)
+                    foreach (var rows in batch)
                     {
-                        var id = Text(row, "id") ?? "";
-                        if (id.Length > 0 && !seen.Add(id))
-                            continue;
-                        added++;
-                        var status = (Text(row, "status") ?? "").ToLowerInvariant();
-                        if (status is "paid" or "partially_returned")
-                            sum += Num(row, "discount_total");
-                    }
+                        var added = 0;
+                        foreach (var row in rows)
+                        {
+                            var id = Text(row, "id") ?? "";
+                            if (id.Length > 0 && !seen.Add(id))
+                                continue;
+                            added++;
+                            var status = (Text(row, "status") ?? "").ToLowerInvariant();
+                            if (status is "paid" or "partially_returned")
+                                sum += Num(row, "discount_total");
+                        }
 
-                    if (added == 0 || rows.Count < pageSize)
-                        return sum;
+                        if (added == 0 || rows.Count < pageSize)
+                            return sum;
+                    }
                 }
 
-                return sum;
+                PosLogger.Log($"Аналитика: скидки {from:dd.MM.yyyy}–{to:dd.MM.yyyy} не посчитаны — больше {maxPages * pageSize} чеков.", "WARNING");
+                return null;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -323,8 +336,11 @@ public sealed class AnalyticsReportData
         {
             // Не дольше 20 с: ABC и выгрузка без сервера всё равно строятся — по истории кассы,
             // а общий тайм-аут запроса (55 с) заставил бы ждать почти минуту.
+            // 2026-09-29, стресс-тест: выгрузке (full) — до 150 с. Она ещё листает список чеков ради
+            // скидок (у большого магазина за квартал — сотня страниц), и за 20 с не успевала: отчёт
+            // молча строился по локальной истории кассы — выручка, чеки и ABC расходились с экраном.
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            timeout.CancelAfter(TimeSpan.FromSeconds(full ? 150 : 20));
             try
             {
                 server = await ServerFigures.FetchAsync(api, fromLocal, toLocal, full, timeout.Token).ConfigureAwait(false);

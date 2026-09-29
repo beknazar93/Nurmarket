@@ -26,15 +26,50 @@ public sealed class TgClient
         };
     }
 
-    /// <summary>Вызов метода Bot API. Ошибку Telegram бросает как <see cref="TgException"/>.</summary>
+    /// <summary>Вызов метода Bot API. Ошибку Telegram бросает как <see cref="TgException"/>.
+    /// 2026-09-29 (стресс-тест): на 429 Telegram говорит, сколько подождать (retry_after), и запрос
+    /// НЕ выполняет — ждём и повторяем (до трёх раз). Раньше исключение уходило наверх, ответ этому
+    /// пользователю терялся: при 100 сообщениях в секунду пропадало 1–2 % ответов.</summary>
     public async Task<JsonNode?> CallAsync(string method, object args, CancellationToken ct = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await CallOnceAsync(method, args, ct).ConfigureAwait(false);
+            }
+            catch (TgException ex) when (ex.Status == 429 && ex.RetryAfter is > 0 and <= 60 && attempt <= 3 && method != "getUpdates")
+            {
+                await Task.Delay(TimeSpan.FromSeconds(ex.RetryAfter.Value), ct).ConfigureAwait(false);
+            }
+            catch (TgException ex) when (ex.Status >= 500 && attempt == 1 && method != "getUpdates")
+            {
+                // Сбой шлюза Telegram (502/503/504) — один повтор через 2 с.
+                await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<JsonNode?> CallOnceAsync(string method, object args, CancellationToken ct)
     {
         using var resp = await _http.PostAsJsonAsync(method, args, Json, ct).ConfigureAwait(false);
         var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        var node = JsonNode.Parse(body);
+        JsonNode? node;
+        try
+        {
+            node = JsonNode.Parse(body);
+        }
+        catch (JsonException)
+        {
+            // 2026-09-29: прокси перед Telegram отвечает на сбой HTML-страницей (502/504).
+            throw new TgException(method, (int)resp.StatusCode, "ответ не JSON", null);
+        }
         if (node?["ok"]?.GetValue<bool>() != true)
             throw new TgException(method, (int)resp.StatusCode, node?["description"]?.GetValue<string>() ?? body,
-                node?["parameters"]?["retry_after"]?.GetValue<int>());
+                node?["parameters"]?["retry_after"]?.GetValue<int>())
+            {
+                MigrateToChatId = node?["parameters"]?["migrate_to_chat_id"]?.GetValue<long>(),
+            };
         return node["result"];
     }
 
@@ -52,6 +87,23 @@ public sealed class TgClient
     public async Task<Message?> SendMessageAsync(long chatId, string html, InlineKeyboard? keyboard = null,
         long? replyTo = null, CancellationToken ct = default)
     {
+        // 2026-09-29 (стресс-тест): текст длиннее 4096 символов Telegram отклоняет целиком — клиент не
+        // получал длинную инструкцию вовсе. Делим по строкам; кнопки — у последней части.
+        var parts = SplitHtml(html);
+        for (var i = 0; i < parts.Count - 1; i++)
+        {
+            await CallAsync("sendMessage", new
+            {
+                chat_id = chatId,
+                text = parts[i],
+                parse_mode = "HTML",
+                link_preview_options = new { is_disabled = true },
+                reply_parameters = i == 0 && replyTo is { } first ? new { message_id = first, allow_sending_without_reply = true } : null,
+            }, ct).ConfigureAwait(false);
+            replyTo = null;
+        }
+        html = parts[^1];
+
         var result = await CallAsync("sendMessage", new
         {
             chat_id = chatId,
@@ -62,6 +114,67 @@ public sealed class TgClient
             reply_parameters = replyTo is { } r ? new { message_id = r, allow_sending_without_reply = true } : null,
         }, ct).ConfigureAwait(false);
         return result?.Deserialize<Message>(Json);
+    }
+
+    /// <summary>Предел Telegram — 4096 символов видимого текста (теги не в счёт). Режем по строкам, чтобы
+    /// не разорвать тег; одну строку длиннее предела — по символам.</summary>
+    public static List<string> SplitHtml(string html, int limit = 4000)
+    {
+        var parts = new List<string>();
+        if (VisibleLength(html) <= limit)
+        {
+            parts.Add(html);
+            return parts;
+        }
+        var current = new System.Text.StringBuilder();
+        var length = 0;
+        foreach (var raw in html.Split('\n'))
+        {
+            var line = raw;
+            var lineLength = VisibleLength(line) + 1;
+            if (length + lineLength > limit && current.Length > 0)
+            {
+                parts.Add(current.ToString().TrimEnd());
+                current.Clear();
+                length = 0;
+            }
+            while (lineLength > limit)
+            {
+                var cut = char.IsHighSurrogate(line[limit - 1]) ? limit - 1 : limit;
+                var amp = line.LastIndexOf('&', cut - 1);
+                if (amp > cut - 8 && line.IndexOf(';', amp) >= cut)
+                    cut = amp;
+                parts.Add(line[..cut]);
+                line = line[cut..];
+                lineLength = VisibleLength(line) + 1;
+            }
+            current.Append(line).Append('\n');
+            length += lineLength;
+        }
+        if (current.ToString().Trim().Length > 0)
+            parts.Add(current.ToString().TrimEnd());
+        return parts;
+    }
+
+    private static int VisibleLength(string html)
+    {
+        var length = 0;
+        var inTag = false;
+        for (var i = 0; i < html.Length; i++)
+        {
+            var ch = html[i];
+            if (ch == '<')
+                inTag = true;
+            else if (ch == '>' && inTag)
+                inTag = false;
+            else if (!inTag)
+            {
+                if (ch == '&' && html.IndexOf(';', i) is var semicolon && semicolon > i && semicolon - i <= 8)
+                    i = semicolon;
+                length++;
+            }
+        }
+        return length;
     }
 
     public Task EditMessageAsync(long chatId, long messageId, string html, InlineKeyboard? keyboard = null,
@@ -179,6 +292,9 @@ public sealed class TgException : Exception
     public int Status { get; }
     public string Description { get; }
     public int? RetryAfter { get; }
+
+    /// <summary>2026-09-29: группу превратили в супергруппу — её новый chat_id.</summary>
+    public long? MigrateToChatId { get; init; }
 }
 
 public sealed class InlineKeyboard
@@ -226,6 +342,9 @@ public sealed class Message
     public FileRef? VideoNote { get; set; }
     public FileRef? Voice { get; set; }
     public Message? ReplyToMessage { get; set; }
+
+    /// <summary>2026-09-29: служебное сообщение «группа стала супергруппой» — новый chat_id.</summary>
+    public long? MigrateToChatId { get; set; }
 
     [JsonIgnore]
     public bool HasMedia => Photo is { Count: > 0 } || Video != null || Animation != null || Document != null

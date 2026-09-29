@@ -65,6 +65,8 @@ public static class ReceiptSnapshotCartEditor
                 }
             }
 
+            // 2026-09-28: акции товара могли смениться с момента первого добавления.
+            PromotionRules.ApplyToLine(existing, productId);
             RecalcLine(existing);
         }
         else
@@ -347,8 +349,57 @@ public static class ReceiptSnapshotCartEditor
         };
         if (!string.IsNullOrWhiteSpace(salePackageId))
             line["sale_package_id"] = salePackageId;
+        // 2026-09-28, продажа №1136: акции товара NurCRM едут в строке чека — сервер применит
+        // их сам, и касса должна показать и взять ту же сумму (см. PromotionRules).
+        PromotionRules.ApplyToLine(line, productId);
         RecalcLine(line);
         return line;
+    }
+
+    /// <summary>2026-09-28, продажа №1136: перед оплатой обновляет в локальном чеке акции товаров
+    /// по последнему каталогу (строка могла попасть в чек до первой загрузки каталога или акцию
+    /// поменяли на сайте, пока чек лежал отложенным). Серверную корзину не трогает — её строки
+    /// сервер прислал уже со своими акциями. true — чек изменился (надо обновить экран).</summary>
+    public static bool RefreshPromotionRules(ICartService cart)
+    {
+        if (!cart.HasCart || !(cart.IsStaging || cart.IsLocalOffline))
+            return false;
+
+        var root = ParseRoot(cart);
+        if (root["items"] is not JsonArray items)
+            return false;
+
+        var changed = false;
+        foreach (var node in items)
+        {
+            if (node is not JsonObject line)
+                continue;
+            var productId = ExtractId(line["product_id"])
+                            ?? (line["product"] is JsonObject productObj ? ExtractId(productObj["id"]) : null);
+            if (PromotionRules.ApplyToLine(line, productId))
+            {
+                RecalcLine(line);
+                changed = true;
+            }
+        }
+
+        if (!changed)
+            return false;
+
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
+    /// <summary>Есть ли у строки чека акция товара NurCRM — тогда скидку строки назначает сервер
+    /// (скидку кассира на такую строку он не принимает, см. PromotionRules).</summary>
+    public static bool LineHasPromotion(ICartService cart, string? itemId)
+    {
+        if (!cart.HasCart || string.IsNullOrEmpty(itemId))
+            return false;
+        return CartDisplayHelper.EnumerateItems(cart.Root)
+            .Any(it => string.Equals(CartDisplayHelper.TryItemId(it), itemId, StringComparison.Ordinal)
+                       && PromotionRules.LineHasRules(it));
     }
 
     private static void RecalcLine(JsonObject line)
@@ -356,11 +407,12 @@ public static class ReceiptSnapshotCartEditor
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
         var gross = Math.Round(qty * unitPrice, 2, MidpointRounding.AwayFromZero);
-        double discount = 0;
-        if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
-            discount = JsonNumericReader.ToDouble(dt);
-        else if (line.TryGetPropertyValue("discount_percent", out var dp) && dp != null)
-            discount = gross * JsonNumericReader.ToDouble(dp) / 100.0;
+        // 2026-09-28, продажа №1136: сумма строки — с той же скидкой, что в итоге чека и в запросе
+        // на сервер (CartDisplayHelper.EffectiveLineDiscount: скидка кассира или акция товара).
+        // Раньше здесь был свой разбор (только discount_total / discount_percent, без акций).
+        double discount;
+        using (var lineDoc = JsonDocument.Parse(line.ToJsonString()))
+            discount = CartDisplayHelper.EffectiveLineDiscount(lineDoc.RootElement);
 
         discount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
         // Отрицательная строка = «Расход» (доп. услуга, 2026-09-07) — её сумму не обнуляем.

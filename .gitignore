@@ -83,5 +83,8 @@ releases/
 
 # ---- Бот поддержки: токен и данные не коммитить ----
 NurSupportBot/appsettings.json
-NurSupportBot/data/
+# 2026-09-29: «NurSupportBot/data/» на Windows (регистр не важен) ловил и папку с кодом Data/ —
+# Data/Db.cs не попал в репозиторий. Прячем только содержимое, кроме исходников.
+NurSupportBot/data/*
+!NurSupportBot/data/*.cs
 NurSupportBot/out-linux/

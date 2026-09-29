@@ -380,19 +380,13 @@ public partial class TmScaleSettingsWindow : Window
         prefs.TmScaleDahuaBarcode = SelectedFormat;
         prefs.TmScaleBarcodePrefix = (int)(_flag.Value ?? 20);
 
-        // 2026-09-28, живая проверка владельца: весы с форматом FFWWWWWEEEEEC (сумма) отправляли
-        // товары, касса находила товар, но сумма в чеке была неверной — сумму из штрихкода она
-        // читала как вес. Формат с суммой (E без N) → префикс в список «в штрихкоде сумма»,
-        // формат с весом → убираем префикс из списка.
-        var prefix = prefs.TmScaleBarcodePrefix.ToString("00", System.Globalization.CultureInfo.InvariantCulture);
-        var amountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
-        var format = SelectedFormat;
-        if (format.Contains('E') && !format.Contains('N'))
-            amountPrefixes.Add(prefix);
-        else
-            amountPrefixes.Remove(prefix);
-        prefs.ScaleAmountPrefixes = string.Join(",", amountPrefixes.OrderBy(p => p, StringComparer.Ordinal));
-        WeightBarcodeParser.AmountPrefixes = amountPrefixes;
+        // 2026-09-28 (поздно вечером), живой баг владельца «опять сумма неправильно»: здесь при
+        // сохранении формата префикс сам добавлялся в список «в штрихкоде сумма» или УБИРАЛСЯ из
+        // него. Владелец сохранил формат с весом (FFWWWWWNNNNNC, префикс 20), а весы печатают
+        // СУММУ с префиксом 21 — правило для 21 не появилось, и касса снова читала 35,20 сом как
+        // 3,520 кг. Формат в этом окне — только пример и сверка (на весы касса его не шлёт), поэтому
+        // правила по префиксам теперь меняют ТОЛЬКО мастер «Настроить по этикетке» и список
+        // правил в Настройки → Весы → «Штрих-код этикеток» (ScaleBarcodeSetupPanel).
         prefs.SaveToDisk();
     }
 

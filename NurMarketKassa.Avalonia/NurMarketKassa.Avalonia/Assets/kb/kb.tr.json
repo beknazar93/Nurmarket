@@ -89,7 +89,7 @@
       {
        "id": "продажи-как-продать-весовой-товар",
        "title": "Tartılı ürün nasıl satılır",
-       "text": "Шаг 1. Katalogda tartılı ürüne basın («Tartılı» sekmesinde bulmak kolaydır) veya barkodunu okutun.\nШаг 2. «Ürünü tart» penceresi açılır; tartı bağlıysa üstte «Şu anda tartıda» görünür.\nШаг 3. «Ağırlığa göre» sekmesinde «Tartıdan al» düğmesine basın veya ağırlığı «Ağırlık, kg» alanına girin (0,1 kg, 0,5 kg, 1 kg, 2 kg, 5 kg hızlı düğmeleri ve rakam tuşları vardır).\nШаг 4. Müşteri belirli bir tutarlık ürün isterse «Tutara göre» sekmesini açın ve «Tutar, som» alanını doldurun — ağırlık kendiliğinden hesaplanır.\nШаг 5. «Fişe ekle» düğmesine basın.",
+       "text": "Шаг 1. Katalogda tartılı ürüne basın («Tartılı» sekmesinde bulmak kolaydır) veya barkodunu okutun.\nШаг 2. «Ürünü tart» penceresi açılır; tartı bağlıysa üstte «Şu anda tartıda» görünür.\nШаг 3. «Ağırlığa göre» sekmesinde «Tartıdan al» düğmesine basın veya ağırlığı «Ağırlık, kg» alanına girin (0,1 kg, 0,5 kg, 1 kg, 2 kg, 5 kg hızlı düğmeleri ve rakam tuşları vardır).\nШаг 4. Müşteri belirli bir tutarlık ürün isterse «Tutara göre» sekmesini açın ve «Tutar, som» alanını doldurun — ağırlık kendiliğinden hesaplanır.\nШаг 5. «Fişe ekle» düğmesine basın.\nВажно: Barkodlu tartı etiketini (20–29 ile başlar) okutmanız yeterli — ağırlık ve tutarlı satır fişe kendiliğinden eklenir. Ayrıntılar — «Tartılar» bölümü.",
        "keywords": [
         "tartılı",
         "tartmak",
@@ -1747,7 +1747,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-весы-к-кассе",
        "title": "Tartı kasaya nasıl bağlanır",
-       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünü açın.\nШаг 2. «Tartı sorgulamasını etkinleştir» seçeneğini açın.\nШаг 3. «COM portu» alanında portu seçin, «Hız (baud)» değerini girin (genelde 9600), gerekirse «Ağırlık sorgusu (hex)» ve «Sorgulama aralığı (ms)» alanlarını doldurun.\nШаг 4. Ürünü tartıya koyun ve «Tartıyı test et» düğmesine basın.\nШаг 5. «Kaydet» düğmesine basın.\nВажно: Bundan sonra «Ürünü tart» penceresindeki «Tartıdan al» düğmesi çalışır. Birden fazla tartınız varsa «Birden fazla tartı aynı anda nasıl bağlanır» makalesine bakın.",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünde «Kasadaki tartı» sekmesini açın.\nШаг 2. «Tartı sorgulamasını etkinleştir» seçeneğini açın.\nШаг 3. «COM portu» alanında portu seçin, «Hız (baud)» değerini girin (genelde 9600), gerekirse «Ağırlık sorgusu (hex)» ve «Sorgulama aralığı (ms)» alanlarını doldurun.\nШаг 4. «Kaydet» düğmesine basın.\nШаг 5. Ürünü tartıya koyun ve «Tartıyı test et» düğmesine basın.\nВажно: Bundan sonra «Ürünü tart» penceresindeki «Tartıdan al» düğmesi çalışır. Birden fazla tartınız varsa «Birden fazla tartı aynı anda nasıl bağlanır» makalesine bakın. Tüm tartılar için tam kılavuz «Tartılar» bölümündedir.",
        "keywords": [
         "terazi",
         "tartı",
@@ -1776,7 +1776,7 @@
       {
        "id": "настройки-и-оборудование-как-отправить-весовые-товары-на-вес",
        "title": "Tartılı ürünler etiket basan tartıya nasıl gönderilir",
-       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünü açın; «Ağ tartıları (ürün aktarımı)» bölümünde «Tartı IP adresi», «Port», «Şifre» alanlarını doldurun ve «Tartı bağlantısını kontrol et» düğmesine basın.\nШаг 2. «Shtrikh-M tartılarında PLU» bölümünde «Tartı modeli:» alanından modeli seçin («Shtrikh-M», «Rongta» veya «AI tartı»).\nШаг 3. «Ürünleri tartıya gönder →» düğmesine basın.\nШаг 4. «Tartılar» penceresinde ürünleri işaretleyin («Tümünü seç» / «Seçimi kaldır»), gerekirse «Başlangıç PLU:» değerini girin.\nШаг 5. «Tartıya gönder» düğmesine basın ya da dosyayı tartıya elle yüklemek için «CSV'ye aktar» düğmesine basın.\nВажно: «Start» planında ağ tartısına ürün gönderme ücretli bir ek özelliktir («Pazaryeri» → «Ek özellikler»).",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünde «Etiketli tartı» sekmesini açın.\nШаг 2. Tartının «Ayarla…» düğmesine (veya «+ Tartı ekle») basın, markayı — «Shtrih-PRINT (Shtrih-M)», «Rongta», «TM-30F (Dahua)» veya «AI tartı» — seçin, adresi girin, «Bağlantıyı kontrol et» ve «Kaydet» düğmelerine basın.\nШаг 3. Bu tartının «Ürünleri gönder →» düğmesine basın.\nШаг 4. «Ürünleri tartıya gönder» penceresinde ürünleri işaretleyin («Tümünü seç» / «Seçimi kaldır»), gerekirse «Başlangıç PLU:» değerini girin.\nШаг 5. «Tartıya gönder» düğmesine basın ya da dosyayı tartıya elle yüklemek için «CSV kaydet» düğmesine basın.\nВажно: «Start» planında tartıya gönderim ücretli bir ek özelliktir («Pazaryeri» → «Ek özellikler»). Tüm tartılar için tam kılavuz «Tartılar» bölümündedir.",
        "keywords": [
         "plu",
         "shtrikh terazi",
@@ -1814,7 +1814,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-дисплей-цены-покупат",
        "title": "Müşteri fiyat ekranı (gösterge) nasıl bağlanır",
-       "text": "Шаг 1. Göstergeyi bilgisayara bağlayın. POS monoblok cihazlarda (örneğin CY25) «0.00» sayısal göstergesi gövdeye zaten yerleşiktir ve COM portlarından birine bağlıdır.\nШаг 2. ☰ → «Ayarlar» → «Tartılar» bölümünü açın ve «Müşteri fiyat ekranı» bölümünde ekranı etkinleştirin.\nШаг 3. «Ekran türü» alanında «Sayısal ekran «0.00» (8 hane, LED)» seçeneğini seçin; göstergeniz harf de gösteriyorsa «Metin ekranı, 2 satır (CD5220)» seçeneğini seçin.\nШаг 4. Portu bilmiyorsanız «Ekranı bul» düğmesine basın: kasa her COM portuna sırayla 3.2400 gibi bir sayı gönderir (port 3, hız 2400). Göstergeye bakın ve üzerinde kalan sayının yazılı olduğu düğmeye basın.\nШаг 5. «Kaydet», ardından «Ekranı test et» düğmesine basın — göstergede 1234.56 görünür.\nВажно: Sayısal göstergeler genelde 2400 baud hızında çalışır. Fişte ürün varken gösterge toplam tutarı gösterir ve «Toplam» lambası yanar.",
+       "text": "Шаг 1. Göstergeyi bilgisayara bağlayın. POS monoblok cihazlarda (örneğin CY25) «0.00» sayısal göstergesi gövdeye zaten yerleşiktir ve COM portlarından birine bağlıdır.\nШаг 2. ☰ → «Ayarlar» → «Tartılar» bölümünü açın, «Fiyat ekranı» sekmesinde «Müşteri fiyat ekranı» bölümünde ekranı etkinleştirin.\nШаг 3. «Ekran türü» alanında «Sayısal ekran «0.00» (8 hane, LED)» seçeneğini seçin; göstergeniz harf de gösteriyorsa «Metin ekranı, 2 satır (CD5220)» seçeneğini seçin.\nШаг 4. Portu bilmiyorsanız «Ekranı bul» düğmesine basın: kasa her COM portuna sırayla 3.2400 gibi bir sayı gönderir (port 3, hız 2400). Göstergeye bakın ve üzerinde kalan sayının yazılı olduğu düğmeye basın.\nШаг 5. «Kaydet», ardından «Ekranı test et» düğmesine basın — göstergede 1234.56 görünür.\nВажно: Sayısal göstergeler genelde 2400 baud hızında çalışır. Fişte ürün varken gösterge toplam tutarı gösterir ve «Toplam» lambası yanar.",
        "keywords": [
         "gösterge",
         "fiyat ekranı",
@@ -2045,7 +2045,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-несколько-весов-одно",
        "title": "Birden fazla tartı aynı anda nasıl bağlanır",
-       "text": "Шаг 1. Ana tartıyı «Tartı kasaya nasıl bağlanır» makalesinde anlatıldığı gibi bağlayın.\nШаг 2. Aynı «Tartılar» penceresinde «Ek tartılar» bölümünü bulun.\nШаг 3. «Tartı 2» seçeneğini (gerekirse «Tartı 3» seçeneğini de) açın, her biri için kendi COM portunu ve hızını seçin.\nШаг 4. «Kaydet» düğmesine basın.\nШаг 5. Tartım sırasında kasa, ağırlığı ürünün konduğu tartıdan kendisi alır. Ürün birden fazla tartıdaysa ağırlık, en son ağırlığın göründüğü tartıdan alınır.\nВажно: Ek tartıların ağırlık sorgusu ve sorgulama aralığı ana tartınınkiyle aynıdır; her tartının kendi portu olmalıdır.",
+       "text": "Шаг 1. Etiket basan tartılar: ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» sekmesinde «+ Tartı ekle» düğmesine basın — her tartının kendi markası, adresi ve ürün kategorileri vardır.\nШаг 2. Ayrıntılar — «Tartılar» bölümündeki «Birden fazla tartı nasıl eklenir ve onlara kategori nasıl atanır» makalesi.\nШаг 3. Kasadaki tartı (COM portu) tek olarak bağlanır — «Kasadaki tartı» sekmesinde.\nВажно: Daha önce kasada ek tartılar («Tartı 2», «Tartı 3») açıldıysa, onları kapatabilmeniz için «Ek tartılar» bölümü görünür.",
        "keywords": [
         "terazi",
         "tartı",
@@ -2069,6 +2069,644 @@
          "caption": "«Ek tartılar» bölümü"
         }
        ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Tartılar",
+   "note": "",
+   "groups": [
+    {
+     "title": "Bağlantı",
+     "articles": [
+      {
+       "id": "весы-с-чего-начать-какие-бывают-весы-и-где-их-настройки",
+       "title": "Nereden başlamalı: tartı türleri ve ayarlarının yeri",
+       "text": "Kasa iki tür tartıyla çalışır.\n1) Kasadaki tartı — ürünü satış sırasında tartar. Kabloyla COM portuna (veya Windows'un COM portu olarak gördüğü USB adaptöre) bağlanır; ağırlık «Ürünü tart» penceresine gelir.\n2) Etiket basan tartılar — Shtrih-PRINT (Shtrikh-M), Rongta, TM-30F (Dahua) ve «AI tartı». Kasa bunlara tartılı ürün listesini (PLU) gönderir, tartı barkodlu etiket basar, kasa da bu etiketi tarayıcıyla okur.\nШаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünü açın. Üstte dört sekme vardır.\nШаг 2. «Kasadaki tartı» — «Tartı sorgulamasını etkinleştir» ve COM portu ayarları.\nШаг 3. «Etiketli tartı» — «Mağazadaki tartılar» listesi (her tartının kendi adı, markası, adresi ve kategorileri vardır), «+ Tartı ekle» düğmesi ve altta «Tartı barkoda ne basar».\nШаг 4. «Barkod: ağırlık / tutar» — kasanın etiketleri nasıl okuduğu: her 20–29 öneki için ağırlık veya tutar ve «Etiketten ayarla».\nШаг 5. «Fiyat ekranı» — müşteri fiyat göstergesi (tartı değildir).\nШаг 6. «Kasadaki tartı» ve «Fiyat ekranı» sekmelerinde değişiklik yaptıktan sonra sayfanın altındaki «Kaydet» düğmesine basın. Etiketli tartılar kendi ayar penceresinde kaydedilir.\nВажно: «Start» planında «Etiketli tartı» sekmesi, ek özellik satın alınana kadar gizlidir («Pazaryeri» → «Ek özellikler»).",
+       "keywords": [
+        "tartı",
+        "terazi",
+        "tartı ayarları",
+        "tartı türleri",
+        "tartı bağlama",
+        "shtrikh-m",
+        "rongta",
+        "tm-30f",
+        "ai tartı",
+        "com port",
+        "весы",
+        "настройки весов",
+        "какие весы",
+        "подключение весов",
+        "штрих-м",
+        "ai весы",
+        "com порт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "☰ → «Ayarlar» → «Tartılar»"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-подключить-весы-к-кассе-по-com-порту",
+       "title": "Tartı kasaya COM portu üzerinden nasıl bağlanır",
+       "text": "Шаг 1. Tartıyı kabloyla bilgisayara bağlayın ve açın.\nШаг 2. ☰ → «Ayarlar» → «Tartılar» bölümünde «Kasadaki tartı» sekmesini açın ve «Tartı sorgulamasını etkinleştir» seçeneğini açın — «Bağlantı ayarları» görünür.\nШаг 3. «COM portu» alanında tartının portunu seçin. Listenin altında kasa portun durumunu yazar: «COM portu bulunamadı» — port seçilmemiş veya Windows'ta yok; «Port tartı tarafından kullanılıyor» — her şey yolunda.\nШаг 4. «Hız (baud)» — tartının ayarlarındaki gibi (genelde 9600).\nШаг 5. «Ağırlık sorgusu (hex)» ve «Sorgulama aralığı (ms)»: tartı ağırlığı kendisi sürekli gönderiyorsa sorguyu boş, aralığı 0 bırakın. Tartı yalnızca sorguya yanıt veriyorsa tartı kılavuzundaki komutu (örneğin 05 veya 57 0D) ve bir aralık (örneğin 500) girin.\nШаг 6. Sayfanın altındaki «Kaydet» düğmesine basın.\nШаг 7. Tartıya bir ürün koyun ve «Tartıyı test et» düğmesine basın — kasa «Mevcut ağırlık: … kg» veya «Veri alınamadı» gösterir.\nВажно: «Tartıyı test et» kayıtlı ayarları kontrol eder — önce «Kaydet» düğmesine basın. Daha önce ek tartılar açıldıysa, onları kapatabilmeniz için «Ek tartılar» bölümü görünür.",
+       "keywords": [
+        "tartı",
+        "terazi",
+        "com port",
+        "tartı bağlama",
+        "tartı sorgulama",
+        "baud",
+        "hex",
+        "tartıyı test et",
+        "kasadaki tartı",
+        "весы",
+        "com порт",
+        "подключить весы",
+        "опрос весов",
+        "скорость",
+        "проверить весы",
+        "весы на кассе"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Kasadaki tartı» sekmesi"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-выбрать-марку-весов-с-печатью-этикеток",
+       "title": "Etiketli tartı nasıl eklenir ve markası nasıl seçilir",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» bölümünde «Etiketli tartı» sekmesini açın. «Mağazadaki tartılar» listesinde her tartının bir satırı vardır: adı ve markası, adresi ve gönderim yolu, kategorileri ve «Ayarla…», «Ürünleri gönder →», «Sil» düğmeleri (birden fazla tartı varsa).\nШаг 2. İstediğiniz tartının «Ayarla…» düğmesine veya «+ Tartı ekle» düğmesine basın — tartının adıyla «Tartı ayarları — …» penceresi açılır.\nШаг 3. «Tartı adı» — tartının listede nasıl görüneceği (örneğin «Et reyonu tartısı»).\nШаг 4. Markayı döşemeyle seçin: «Shtrih-PRINT (Shtrih-M)», «Rongta», «TM-30F (Dahua)» veya «AI tartı» — altta yalnızca o markanın alanları görünür.\nШаг 5. «Tartı IP adresi» ve «Port» alanlarını doldurun. Adresin altında kasa hemen ipucu verir: «“…” bağlantısıyla aynı ağ», «Bilgisayar bu ağda değil…» veya «Yazım hatası gibi görünüyor… Muhtemelen 192.168… olmalı» (örneğin 192.169… yazıldıysa).\nШаг 6. «Bağlantıyı kontrol et» düğmesine basın — sonuç «… kontrol edildi» satırına yazılır. Adresi bilmiyorsanız — «Ağda bul…». Tartının kendi ayarları (barkod, etiket, klavye) — «Tartı ayarları…».\nШаг 7. Gerekirse «Bu tartıdaki kategoriler» bölümünü işaretleyin ve «Kaydet» düğmesine basın («İptal» her şeyi eski haline getirir).\nВажно: «AI tartı» için adres yoktur — kasa yalnızca dosya hazırlar, bu yüzden listedeki düğmenin adı «Dosyayı hazırla →». Kasadaki tartı (COM portu) «Kasadaki tartı» sekmesinde ayarlanır ve markaya bağlı değildir.",
+       "keywords": [
+        "tartı ekle",
+        "tartı markası",
+        "tartı modeli",
+        "shtrikh-m",
+        "rongta",
+        "tm-30f",
+        "dahua",
+        "ai tartı",
+        "tartı ip",
+        "tartıyı ayarla",
+        "добавить весы",
+        "марка весов",
+        "модель весов",
+        "штрих-м",
+        "ai весы",
+        "ip весов",
+        "настроить весы"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "«Etiketli tartı» sekmesi"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-добавить-несколько-весов-и-назначить-им-категории",
+       "title": "Birden fazla tartı nasıl eklenir ve onlara kategori nasıl atanır",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» sekmesini açın ve «+ Tartı ekle» düğmesine basın. Yeni tartılar «Tartı 2», «Tartı 3»… adını alır ve ayar pencereleri hemen açılır.\nШаг 2. Her tartının kendi markası, IP adresi, portu ve gönderim yolu vardır — bunları girin («Etiketli tartı nasıl eklenir ve markası nasıl seçilir» makalesi).\nШаг 3. «Bu tartıdaki kategoriler» bölümünde bu tartıda olması gereken ürünlerin kategorilerini işaretleyin (örneğin et reyonu tartısı için «Et»). Hiçbir şey işaretli değilse tartıya tüm tartılı ürünler veya geçen sefer elle işaretledikleriniz gider.\nШаг 4. «Kaydet» düğmesine basın. Tartının satırında «Kategoriler: …» görünür.\nШаг 5. İstediğiniz tartının «Ürünleri gönder →» düğmesine basın — «Ürünleri tartıya gönder» penceresinde yalnızca onun kategorilerindeki ürünler işaretli olur.\nШаг 6. O pencerede tartılar üstteki listeyle değiştirilir: her birinin kendi işaretli ürünleri ve tuşları vardır.\nВажно: Tartı listesi bu bilgisayarda saklanır. «Sil» tartıyı yalnızca kasanın listesinden kaldırır — tartının kendisinde hiçbir şey değişmez. Tartılı ürünlerin kategorisi yoksa ürünleri elle işaretleyin.",
+       "keywords": [
+        "birden fazla tartı",
+        "iki tartı",
+        "tartıdaki kategoriler",
+        "tartı ekle",
+        "tartı 2",
+        "farklı tartılar",
+        "несколько весов",
+        "двое весов",
+        "категории на весах",
+        "добавить весы",
+        "весы 2",
+        "разные весы"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-узнать-ip-адрес-весов-поиск-весов-в-сети",
+       "title": "Tartının IP adresi nasıl öğrenilir: ağda tartı arama",
+       "text": "Шаг 1. Tartıyı açın ve kasa bilgisayarıyla aynı ağa (yönlendirici, anahtar) bağlayın.\nШаг 2. «Ağda tartı ara» penceresini açın: tartı ayar penceresindeki «Ağda bul…» düğmesi (☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» → «Ayarla…») veya Rongta ile TM-30F ayar pencerelerindeki «Ağda tartı bul…».\nШаг 3. «Ağ:» listesinde bilgisayarın ağını seçin. Tartının fabrika adresi başka bir alt ağdaysa (Shtrih-PRINT — 192.168.0.202, Rongta — 192.168.1.87), onu «— Diğer alt ağlar (fabrika adresli tartılar) —» satırının altından seçin: alt ağlardan birini, «Tüm tipik tartı alt ağları sırayla» veya «Kendi alt ağınız veya aralık…» (örneğin 192.168.5.0/24).\nШаг 4. Başka bir alt ağ için «Arama süresince bilgisayara bu alt ağda ikinci bir adres ekle…» seçeneğini işaretleyebilirsiniz — Windows bir kez yönetici hakkı ister, aramadan sonra adres silinir.\nШаг 5. «Aramayı başlat» düğmesine basın (genellikle 10–30 saniye; «Durdur» — kesmek için).\nШаг 6. Tablodaki «Bu ne» sütununa bakın: «Shtrih-PRINT tartı», «TM-30F / Dahua'ya benziyor (port 4001)», «Rongta olabilir (5001 açık)» veya «bilinmeyen cihaz». «Nasıl bulundu» sütunu adresin nereden alındığını gösterir.\nШаг 7. Gereken satırda «Şunun için kullan…» düğmesine basın ve markayı seçin — adres o markanın ayarlarına yazılır.\nВажно: Arama cihazlara hiçbir şey yazmaz. Satırın altında tartının başka bir alt ağda olduğu yazıyorsa kasa onunla çalışamaz — tartının adresini önerilen adrese değiştirin («Şunun için kullan…» içindeki yeni adresli öğe) veya bilgisayara tartının ağından bir adres verin.",
+       "keywords": [
+        "tartı ip",
+        "tartı adresi",
+        "tartı arama",
+        "tartı bulma",
+        "ağ",
+        "alt ağ",
+        "arp",
+        "ping",
+        "ip весов",
+        "адрес весов",
+        "поиск весов",
+        "найти весы",
+        "сеть",
+        "подсеть"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Shtrih-PRINT (Shtrikh-M)",
+     "articles": [
+      {
+       "id": "весы-штрих-принт-адрес-порт-и-пароль-весов",
+       "title": "Shtrih-PRINT: tartının adresi, portu ve şifresi",
+       "text": "Шаг 1. Tartının IP adresini, portunu ve şifresini tartının kendi sistem menüsünden öğrenin (veya tartıyı «Ağda bul…» düğmesiyle bulun).\nШаг 2. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» → istediğiniz tartının «Ayarla…» düğmesine basın ve «Shtrih-PRINT (Shtrih-M)» markasını seçin.\nШаг 3. «Ürünler nasıl gönderilsin»: «NurCRM sunucusu ile» — ürünleri tartıya sunucu kendisi aktarır (denenmiş yol, adres yalnızca bağlantı kontrolü için gerekir); «Doğrudan ağ üzerinden» — kasa ürünleri sunucusuz kendisi gönderir (adres, port ve şifre gerekir).\nШаг 4. «Tartı IP adresi», «Port» (genelde 1111) ve «Şifre» (tam 4 hane, genelde 0030) alanlarını doldurun.\nШаг 5. «Bağlantıyı kontrol et» düğmesine basın — kasa «tartı bağlı: …» ya da nedenini yazar (örneğin cihazın ping'e yanıt verdiğini ama 1111 portundan yanıt vermediğini).\nШаг 6. «Kaydet» düğmesine basın.\nВажно: Şifre yanlışsa tartı birkaç denemeden sonra erişimi engeller — tartıyı kapatıp açın ve doğru şifreyi girin.",
+       "keywords": [
+        "shtrih-print",
+        "shtrikh-m",
+        "tartı şifresi",
+        "0030",
+        "port 1111",
+        "tartı ip",
+        "doğrudan ağ üzerinden",
+        "sunucu ile",
+        "штрих-принт",
+        "штрих-м",
+        "пароль весов",
+        "порт 1111",
+        "ip весов",
+        "напрямую по сети",
+        "через сервер"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-окно-настроек-весов-как-читать-и-записывать",
+       "title": "Shtrih-PRINT: tartı ayarları penceresi — okuma ve yazma",
+       "text": "Шаг 1. Tartının adresini, portunu ve şifresini girin («Shtrih-PRINT: tartının adresi, portu ve şifresi» makalesi).\nШаг 2. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» → Shtrih-PRINT tartısının «Ayarla…» → «Tartı ayarları…» düğmesine basın.\nШаг 3. «ŞTRİH-PRİNT tartı ayarları» penceresinin üstünde tartının adresi ve «Bağlantıyı kontrol et» düğmesi bulunur.\nШаг 4. Sekmeler: «Klavye», «Durum», «Sistem», «Ürünler», «Baskı ve etiket», «Barkod», «Metinler», «Para birimi», «Etiket düzeni».\nШаг 5. Sekmede önce «Tartıdan oku» düğmesine basın, gerekeni değiştirin ve «Tartıya yaz» düğmesine basın — yalnızca değişen değerler gönderilir.\nШаг 6. Vazgeçtiyseniz — «Okunan değerlere dön». Her komutun sonucu pencerenin altındaki satırda görünür.\nВажно: «Tartıdan oku» yapılmadan yazılamaz — böylece kasa tartı ayarlarını boş değerlerle silmez. Tartı şifreyi kabul etmezse tartı erişimi kilitlemesin diye iletişim hemen durur: şifreyi «Ayarlar» → «Tartılar» bölümünde kontrol edin (genelde 0030).",
+       "keywords": [
+        "shtrih-print",
+        "tartı ayarları",
+        "tartıdan oku",
+        "tartıya yaz",
+        "tartı sürücüsü testi",
+        "штрих-принт",
+        "настройки весов",
+        "прочитать с весов",
+        "записать в весы",
+        "тест драйвера весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-клавиатура-состояние-система",
+       "title": "Shtrih-PRINT: «Klavye», «Durum» ve «Sistem» sekmeleri",
+       "text": "«Klavye» sekmesi.\nШаг 1. «Hızlı erişim tuşları»: «Tuş numarası» girin (ŞTRİH-PRİNT'te 1–45, «РЕГ» ile 46–90), «Tuşun işlevi» listesinden fiyat, ürün (PLU numarasına veya koda göre) ya da işlev seçin, değeri doldurun ve «Tuşu yaz» düğmesine basın. «Tuşu oku» ve «Tüm tuşları göster» — kayıtlı olanları görmek için; «Alanları sıfırla» — formu temizlemek için.\nШаг 2. «İşlev tuşları»: «Tartıdan oku», kapatmak istediğiniz tuşun işaretini kaldırın, ardından «Tartıya yaz».\nШаг 3. «Klavye kilidi»: «Kilitle» tartıdaki tuş basışlarını geçici olarak engeller (örneğin ürünler yüklenirken), «Kilidi aç» geri açar.\n«Durum» sekmesi.\nШаг 4. «Tartı durumu» → «Yenile»: model, yazılım sürümü, ürün ve tuş sayısı, tartıdaki fiyatlar (tiyinli veya tam som), yazıcı durumu. «Ağırlığı al» — mevcut ağırlık.\nШаг 5. «Tarih ve saat» → «Bilgisayarla eşitle» — tartıya bilgisayarın saatini ayarlar (etikete basılır).\n«Sistem» sekmesi.\nШаг 6. «Sistem ayarları»: «Tartı numarası (1–99)», «Baskı modu», «Otomatik baskı eşiği, g (0 kapalı)», «Tuş sesi», «Paketleme modu», «Saat biçimi», «Tarih biçimi», «Tartıda ürün çağırma» (PLU numarasına veya ürün koduna göre). «Tartıdan oku» → değiştir → «Tartıya yaz».\nВажно: Kasa bilgisayardan tartı tuşlarına basamaz («Tuş emülasyonu») — bunun için Shtrikh-M'in tartının seri numarasına göre verdiği özel şifre gerekir.",
+       "keywords": [
+        "shtrih-print",
+        "tartı tuşları",
+        "tartı kısayol tuşları",
+        "klavye kilidi",
+        "tartı durumu",
+        "tartı saati",
+        "tartı numarası",
+        "otomatik baskı",
+        "штрих-принт",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "блокировка клавиатуры",
+        "состояние весов",
+        "время на весах",
+        "номер весов",
+        "автопечать"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-товары-печать-и-этикетка-тексты",
+       "title": "Shtrih-PRINT: «Ürünler», «Baskı ve etiket» ve «Metinler» sekmeleri",
+       "text": "«Ürünler» sekmesi yalnızca satıcının tartı klavyesiyle çalışmasını etkiler.\nШаг 1. «Ürünlerle çalışma»: «Tartıdan PLU fiyatı kaydetmeye izin ver», «Seçili ürünün fiyatını değiştirmeye izin ver», «Serbest fiyata izin ver (ürünsüz)», «PLU bazında satış kaydı tut», «Baskıdan sonra ürünü sıfırla», «Zamanlayıcıyla ürün sıfırlama», «Ürünün “grup kodu” alanı».\n«Baskı ve etiket» sekmesi.\nШаг 2. «Etiket»: «Etiket formatı» (58×30 … 58×120 veya «Format 1–5 (özel)»), «Ürün adı satır sayısı», «Etikete basılacaklar» (tarih, saat, etiket numarası, tartı numarası, dara, son kullanma, fiyat ve tutar, para birimi işareti).\nШаг 3. «Tartı yazıcısı»: «Sürekli ruloya baskı (etiket değil)», «Baskıyı 180° döndür», «Alınan etiket sensörü», «Baskı kayması (0,125 mm adım)», «Baskı kontrastı», «P+ ile baskı (toplama)», «Ürün seçilince hemen bas».\nШаг 4. «Şerit ilerlet» ve «Test etiketi bas» — tartının yazıcısını kontrol etmek için.\n«Metinler» sekmesi.\nШаг 5. «Etiket ve ekran metinleri»: «Mağaza adı, satır 1» ve «satır 2» (etiketin altına basılır), «Etiket başlığı (ürün seçilmezse)», «Toplam etiket başlığı», «Ekrandaki reklam satırı» (tartı 5 dakika kullanılmadığında kayar), «Özel metin 1…5 (özel formatlar)».\nШаг 6. «Satıcıya acil mesaj» (22 karaktere kadar) → «Tartıda göster» — tartıda herhangi bir tuşa basılınca mesaj kaybolur.\nВажно: Her sekmede önce «Tartıdan oku», sonra «Tartıya yaz». Tartı ң, ө, ү harflerini basamaz.",
+       "keywords": [
+        "shtrih-print",
+        "etiket formatı",
+        "tartı yazıcısı",
+        "test etiketi",
+        "etikette mağaza adı",
+        "tartıda reklam",
+        "kontrast",
+        "штрих-принт",
+        "формат этикетки",
+        "принтер весов",
+        "тестовая этикетка",
+        "название магазина на этикетке",
+        "реклама на весах",
+        "контраст"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-штрих-код",
+       "title": "Shtrih-PRINT: «Barkod» sekmesi",
+       "text": "Etiketteki barkod kasanın beklediğiyle aynı olmalı, yoksa kasa ürünü tanımaz.\nШаг 1. «ŞTRİH-PRİNT tartı ayarları» → «Barkod» sekmesini açın (veya «Ürünleri tartıya gönder» penceresinde «Doğrudan ağ üzerinden» yolunda «Etiket barkodu…» düğmesi).\nШаг 2. «Tartıdan oku» düğmesine basın.\nШаг 3. «Tartı hangi barkodu basacak» bölümündeki «Şirket ayarı (site → Tartılar → Ayarlar)» satırı kasanın ne beklediğini gösterir: «PLU’ya göre» 2+5+5+1 veya «koda göre» 2+6+4+1 düzeni, mod ve gereken yapı.\nШаг 4. «Kasaya uydur» düğmesine basın — kasa «Barkod yapısı», «Öneke (П) ne yazılır» = «tartılı / adet öneki» ve «Tartılı ürün öneki (0–99)» (20; «tutara göre» modunda 25) alanlarını kendisi ayarlar.\nШаг 5. Örneği kontrol edin: «Barkoddaki ürün kodu» ve «Örnek ağırlık, g» — barkodun altında «Kasa okur: …» veya nedeniyle birlikte «Kasa ürünü TANIMAZ: …» görünür.\nШаг 6. «Tartıya yaz» düğmesine basın.\nYapı harfleri: П — önek, Т — ürün kodu, С — tutar, В — ağırlık, З — GS1 firma numarası, К — kontrol hanesi. Kasaya uygun olanlar: ППТТТТТВВВВВК (PLU'ya göre, ağırlık) ve ППТТТТТТВВВВК (koda göre, ağırlık); tutarla — ППТТТТТСССССК ve ППТТТТТТССССК.\nВажно: Önek 20–29 olmalıdır. Kasanın barkodda ağırlık mı tutar mı okuyacağı «Barkod: ağırlık / tutar» sekmesinde öneklere göre ayarlanır.",
+       "keywords": [
+        "shtrih-print",
+        "tartı barkodu",
+        "barkod yapısı",
+        "önek",
+        "kasaya uydur",
+        "штрих-принт",
+        "штрихкод весов",
+        "структура штрих-кода",
+        "префикс",
+        "подобрать под кассу",
+        "весовой штрихкод"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-сом-вместо-руб-на-этикетке-вкладка-валюта",
+       "title": "Shtrih-PRINT: etikette «РУБ» yerine «СОМ» («Para birimi» sekmesi)",
+       "text": "«ЦЕНА, РУБ/КГ» yazısı tartının yazılımına gömülüdür — metni değiştirilemez. «Para birimi» sekmesindeki sihirbaz etiket formatını kendi «Format 1–5»inize kopyalar, bu yazıyı gizler ve yerine sizin metninizi koyar.\nШаг 1. «ŞTRİH-PRİNT tartı ayarları» → «Para birimi» sekmesini açın, ««ЦЕНА, РУБ/КГ» yazısı → kendi para biriminiz» bölümü.\nШаг 2. «Temel format» — tartının şu an bastığı format; «Farklı kaydet» — «Format 1 (özel)» … «Format 5 (özel)».\nШаг 3. ««ЦЕНА, РУБ/КГ» yerine metin» — örneğin «ЦЕНА, СОМ/КГ» (hazır düğmeler var); «Hangi özel metin (1–5)».\nШаг 4. İsterseniz ««СТОИМОСТЬ» yazısını da değiştir» seçeneğini işaretleyin, ««СТОИМОСТЬ» yerine metin» (örneğin «СУММА, СОМ») ve «Özel metni (1–5)» alanlarını doldurun — numara farklı olmalıdır.\nШаг 5. «Yazdıktan sonra bu formatla bas» işaretli kalsın, «Tartıdan oku» düğmesine basın, etiket şemasını kontrol edin ve «Tartıya yaz» düğmesine basıp onaylayın.\nШаг 6. «Para birimi işareti»: «Nereye» (ana para birimi — tutarın sağında, veya ikinci para birimi) ve «Hangi işaret» (örneğin «⃀ (som işareti)» veya «сом (küçük)») seçin, gerekirse noktalarla düzeltin veya «Metni çiz» kullanın ve «Tartıya yükle» düğmesine basın. İşaretin basılması için «Baskı ve etiket» sekmesinde «para birimi işareti» seçeneğini açın.\nШаг 7. «İkinci para birimi kuru» yalnızca ikinci para biriminde tutar basılıyorsa gerekir: «Tartıdan oku» → «Kur, 1 birim için som» → «Kuru yaz».\nВажно: Adetli üründe tartı kendisi «ЦЕНА, РУБ/ШТ» yazar — adetli ürünler için ayrı format yapın. «Baskılı» formatlarda yazılar basılmaz. Yazdıktan sonraki ilk etiketi tartıda kontrol edin.",
+       "keywords": [
+        "rub",
+        "som",
+        "etikette para birimi",
+        "цена руб кг",
+        "som işareti",
+        "shtrih-print",
+        "döviz kuru",
+        "руб",
+        "сом",
+        "валюта на этикетке",
+        "знак сома",
+        "штрих-принт",
+        "курс валюты"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-макет-этикетки",
+       "title": "Shtrih-PRINT: «Etiket düzeni» sekmesi",
+       "text": "Шаг 1. «ŞTRİH-PRİNT tartı ayarları» → «Etiket düzeni» sekmesini açın, «Özel etiket formatları (Format 1–5)» bölümü.\nШаг 2. «Düzenlenecek format» listesinden «Format 1 (özel)» … «Format 5 (özel)» seçin ve «Tartıdan oku» düğmesine basın.\nШаг 3. Tartının standart formatları değiştirilemez — onlardan başlamak için «Formattan kopyala» listesinden formatı seçin ve «Temel al» düğmesine basın.\nШаг 4. Öğeleri şemada fareyle sürükleyin (1 mm adım) veya tabloya X/Y girin; «Öğe (işaret — bas)» sütunundaki işaret öğenin basılmasını açar, «Yazı tipi / boyut» yazı tipini belirler. «Etiket uzunluğu, mm» ve «Barkodda test çizgisi» de oradadır.\nШаг 5. Bir öğe etiketin kenarından taşarsa veya öğeler üst üste binerse kasa uyarır.\nШаг 6. «Tartıya yaz» düğmesine basın ve onaylayın. Tartının bu formatla basması için — «Bu formatla bas».\nВажно: Ürün adının satır sayısı «Baskı ve etiket» sekmesinde değiştirilir. «Okunan değerlere dön» yazmadan önceki düzeltmeleri geri alır.",
+       "keywords": [
+        "etiket düzeni",
+        "tartı etiket düzenleyici",
+        "etiket formatı",
+        "etiket yazı tipi",
+        "shtrih-print",
+        "макет этикетки",
+        "редактор этикетки весов",
+        "формат этикетки",
+        "шрифт на этикетке",
+        "штрих-принт"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Rongta",
+     "articles": [
+      {
+       "id": "весы-rongta-подключение-загрузка-товаров-и-штрихкод",
+       "title": "Rongta: bağlantı, ürün yükleme ve barkod",
+       "text": "Rongta tartılar (RLS1000/RLS1100) kendi RLS1000 programı üzerinden yüklenir — kasa listeyi hazırlar ve bu programda yüklemeyi başlatır. Kasa tartının kendisine komut göndermez.\nШаг 1. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» → istediğiniz tartının «Ayarla…» düğmesine (veya «+ Tartı ekle») basın ve «Rongta» markasını seçin.\nШаг 2. «Tartı IP adresi» (fabrika adresi 192.168.1.87; tartıda şöyle değiştirilir: [SETTING] tuşunu 2 saniye basılı tutun → «@ IP address») ve «Port» (5001) «Bağlantıyı kontrol et» için gereklidir. Aynı adresi RLS1000'e girin: «Creat Connection» → «IP add. of label scale» sütunu.\nШаг 3. «Ürünler nasıl gönderilsin»: «Site ve RLS1000 ile» — kasa NurCRM sitesinden .txp dosyasını indirir ve RLS1000'de yüklemeyi başlatır; «Kasanın kendi sunucusu» — liste kasanın kataloğundan oluşturulur ve kasa RLS1000'in «Kendi sunucu portu» üzerinden bağlanmasını bekler (RLS1000'de bir kez: File → Options → TCP/IP, bu bilgisayarın adresi ve bu port).\nШаг 4. «Kaydet» düğmesine basın. «Tartı ayarları…» düğmesi «Rongta tartı ayarları» penceresini açar: «Bağlantı», «Ürün yükleme» (RLS1000'in kurulu olup olmadığı burada görünür) ve «Barkod» sekmeleri.\nШаг 5. «Barkod» sekmesi: «Barkod türü» ve «Ürün reyonu (DD / D)» seçin, örneği kontrol edin veya «Kasaya uydur» düğmesine basın. Uygun türü RLS1000'de («Setting» → «barcode type») ve tartıda ayarlayın.\nШаг 6. Gönderim: bu tartının «Ürünleri gönder →» → «Tartıya gönder». Tartıya tartılı ürünlerin tüm listesi gider (işaretler dikkate alınmaz).\nВажно: 00–09 barkod türlerinde ürün reyonu 20–29 olmalıdır, yoksa kasa etiketi tanımaz. Rongta tartılar Kiril harflerini basmaz — adlar Latin harfleriyle gönderilir. İlk etiketi kasa tarayıcısıyla kontrol edin.",
+       "keywords": [
+        "rongta",
+        "rls1000",
+        "rls1100",
+        "txp",
+        "192.168.1.87",
+        "barkod türü",
+        "ürün reyonu",
+        "тип штрих-кода",
+        "отдел товара"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "TM-30F (Dahua)",
+     "articles": [
+      {
+       "id": "весы-tm-30f-dahua-подключение-и-сеть",
+       "title": "TM-30F (Dahua): bağlantı ve ağ",
+       "text": "TM-30F tartılar Shanghai Dahua Scale üretimidir (TM-A / TM-F serisi), programları «Русский масштаб»dır. Kasa ürünleri onlara ağ üzerinden kendisi gönderir (TCP, port 4001).\nШаг 1. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» → istediğiniz tartının «Ayarla…» düğmesine basın ve «TM-30F (Dahua)» markasını seçin.\nШаг 2. «Tartı IP adresi» («Русский масштаб»daki ile aynı: «Настройка коммуникации → Настройка Ethernet») ve «Port» 4001 girin.\nШаг 3. «Bağlantıyı kontrol et» düğmesine basın: kasa yalnızca PLU No. 1 kaydını okur, tartıda hiçbir şeyi değiştirmez. «tartı bağlı (… ms) ve PLU No. 1 okumasına yanıt verdi» yanıtı ürün gönderebileceğiniz anlamına gelir. Adresi bilmiyorsanız — «Ağda bul…». Sonra «Kaydet».\nШаг 4. «Tartı ayarları…» «TM-30F tartı ayarları» penceresini açar: «Bağlantı» (adres, «Bağlantıyı kontrol et», «İletişim günlüğü»), «Ağ», «Barkod», «Ürün yükleme» sekmeleri.\nШаг 5. «Ağ» sekmesi: «Tartı IP'si nasıl öğrenilir» ve «Bilgisayar ve tartı ağı» — bilgisayarın adresleri ve «tartı bu ağda» işareti. Bilgisayar ve tartı adresinin ilk üç sayısı aynı olmalıdır (maske 255.255.255.0).\nВажно: Kasa 4001 portunun kapalı olduğunu yazarsa bilgisayardaki «Русский масштаб» programını kapatın: tartıyı meşgul tutuyor olabilir.",
+       "keywords": [
+        "tm-30f",
+        "tm30f",
+        "dahua",
+        "русский масштаб",
+        "port 4001",
+        "tartı ip",
+        "iletişim günlüğü",
+        "порт 4001",
+        "ip весов",
+        "журнал обмена"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-tm-30f-dahua-штрихкод-цена-и-загрузка-товаров",
+       "title": "TM-30F (Dahua): barkod, fiyat ve ürün yükleme",
+       "text": "Шаг 1. «TM-30F tartı ayarları» → «Barkod» sekmesi. Biçim harfleri: F — önek, W — ürün kodu, N — ağırlık, E — tutar, C — kontrol hanesi. Kasa 13 hane okur: FFWWWWWNNNNNC (ağırlık) veya FFWWWWWEEEEEC (tutar).\nШаг 2. «Biçim (Barcode)» listesinden tartıda ayarlı biçimi, «Barkod öneki (F)» alanına 20–29 arası öneki seçin. «Kasa için önerilen» düğmesi şirket moduna göre biçimi ve öneki ayarlar.\nШаг 3. Örneği kontrol edin («Örnek ürün kodu (PLU)», «Örnek ağırlık, g», «Kg fiyatı, som»): «✓ Kasa okur: …» veya «⚠ Kasa ürünü TANIMAZ: …».\nШаг 4. «Kaydet» düğmesine basın. Önek ürünlerle birlikte tartıya gider. Kasanın etiketleri nasıl okuduğunu bu sekme değiştirmez — bunlar «Barkod: ağırlık / tutar» sekmesindeki kurallardır.\nШаг 5. Tartıdaki biçim ağırlıksız tutar içeriyorsa (FFWWWWWEEEEEC), kasa bu tartının önekine «Tutar» kuralını kendisi koyar: TM-30F markası seçildiğinde ve ürünler gönderildiğinde (gönderim sonucunda bu önekli etiketlerin artık TUTAR olarak okunduğu yazar).\nШаг 6. Biçimin kendisi tartıda «Русский масштаб» ile değiştirilir: «Базовая настройка → Системные параметры» → «Common param» → «Barcode» → «Download».\nШаг 7. «Ürün yükleme» sekmesi: «Tartıdaki fiyat (Price point)» — tartıdaki «Price point» ile aynı (örneğin «Integer [123] — tam som»), yoksa tartıdaki fiyatlar 10/100/1000 kat büyük veya küçük olur; «Raf ömrü, gün (0 — yok)»; «Tartı yanıtıyla tek tek (programı gibi) — önerilir» veya «Tüm kayıtlar tek pakette…». «Kaydet» düğmesine basın.\nШаг 8. «Ürünleri tartıya gönder» penceresinde ürünleri işaretleyin ve «Tartıya gönder» düğmesine basın (gönderim sırasında düğme «Durdur» olur). Yedek yol — «Dosyayı kaydet ▾» → ««Русский масштаб» için dosya (DIGI_TOP2000)»; programlarında «Настройки товаров» → «Импорт» → «Text Files» → DIGI_TOP2000 → «Скачать».\nВажно: Kasa TM-30F'e hiçbir zaman PLU silme, etiket, kısayol tuşu ve sistem parametresi göndermez. Tartıdaki ad en fazla 43 karakterdir; ң, ө, ү harfleri н, о, у ile değiştirilir.",
+       "keywords": [
+        "tm-30f",
+        "dahua",
+        "ffwwwwweeeeec",
+        "ffwwwwwnnnnnc",
+        "price point",
+        "digi_top2000",
+        "barkod öneki",
+        "русский масштаб",
+        "префикс штрихкода"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Ürünleri tartıya gönderme",
+     "articles": [
+      {
+       "id": "весы-как-отправить-товары-на-весы-окно-весы",
+       "title": "Ürünler tartıya nasıl gönderilir: «Ürünleri tartıya gönder» penceresi",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» → «Etiketli tartı» sekmesini açın ve istediğiniz tartının «Ürünleri gönder →» düğmesine basın. «Ürünleri tartıya gönder» penceresi açılır.\nШаг 2. Üstte tartı listesi (tartıyı değiştirir), altında marka, adres, gönderim yolu ve son bağlantı kontrolü bulunur. «Bağlantıyı kontrol et» — şimdi kontrol et, «Değiştir…» — bu tartının ayar penceresi.\nШаг 3. Tabloda «Tartılı ürün» açık olan tüm ürünler var: «Ürün», «PLU», «Kategori», «Birim», «Fiyat», «Sonuç». Bu tartının kategorilerindeki ürünler (veya geçen sefer işaretlenenler) işaretlidir. «Ara: ad, PLU veya kod» alanı ve kategori listesi tabloyu daraltır; «Tümünü seç» / «Seçimi kaldır» görünen satırlara uygulanır; yanında «İşaretli: N / M» yazar.\nШаг 4. «Başlangıç PLU:» ve «Tartı tuşlarına göre numarala» — başlangıçtan itibaren sıralı PLU numaraları: tartıdaki 1. tuş listenin ilk ürünüdür.\nШаг 5. Doğrudan gönderimde (Shtrih-PRINT «Doğrudan ağ üzerinden» ve TM-30F) «Barkod kodu» sütunu ve «Etiket barkodu…» düğmesi görünür; Shtrih-PRINT doğrudanda ayrıca «Tuş» sütunu vardır.\nШаг 6. Altta «Kasa etiketleri okur: 20 — ağırlık · 21 — tutar…» satırı ve «Etiketten ayarla…» düğmesi bulunur — fişteki tutar etiketle uyuşmuyorsa.\nШаг 7. «Tartıya gönder» düğmesine basın. «Sonuç» sütununda her satır için «✓ gönderildi» (sunucu üzerinden — «✓ sunucuya iletildi») veya neden, özet ise alttaki satırda görünür. «CSV kaydet» (TM-30F'te — «Dosyayı kaydet ▾») listeyi dosyaya kaydeder.\nВажно: Shtrih-PRINT'e doğrudan gönderimde tartıda programlama modu açıksa kasa «Tartı meşgul» yanıtını verir — tartıda normal moda dönün. «Start» planında tartıya gönderim ücretli bir ek özelliktir («Pazaryeri» → «Ek özellikler»).",
+       "keywords": [
+        "tartıya gönder",
+        "tartıya aktarım",
+        "ürünleri tartıya",
+        "plu",
+        "başlangıç plu",
+        "ürünleri tartıya gönder",
+        "kategori",
+        "отправить на весы",
+        "выгрузка на весы",
+        "товары на весы",
+        "начальный plu",
+        "отправка товаров на весы",
+        "категория"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-назначить-товары-на-клавиши-весов-штрих-принт",
+       "title": "Ürünler Shtrih-PRINT tartı tuşlarına nasıl atanır",
+       "text": "Kasa, Shtrih-PRINT tartı panelindeki hızlı erişim tuşlarını (1–120) kendisi yazar — yalnızca «Doğrudan ağ üzerinden» gönderimde.\nШаг 1. Bu tartının ayarlarında «Ürünler nasıl gönderilsin» → «Doğrudan ağ üzerinden» seçin ve adresi, portu ve şifreyi girin.\nШаг 2. Bu tartının «Ürünleri gönder →» düğmesine basın — tabloda «Tuş» sütunu görünür.\nШаг 3. İstediğiniz ürünlere tuş numarası (1–120) girin. Numarasız ürün tartıya tuşsuz gider.\nШаг 4. Ürünleri işaretleyin ve «Tartıya gönder» düğmesine basın. Kasa ürünü bir PLU'ya yazar ve tuşu o PLU'yu seçecek şekilde ayarlar.\nШаг 5. «Sonuç» sütununda örneğin «✓ gönderildi · PLU 5 · tuş 3» veya hata görünür: «⚠ tuş 1–120 olmalı», «⚠ 3. tuş zaten kullanılıyor». Alttaki özette — «Tuşlar: N yazıldı».\nШаг 6. Tuş numaraları bu tartı için hatırlanır ve bir sonraki gönderimde kendiliğinden gelir.\nВажно: TM-30F'te, Rongta'da ve NurCRM sunucusu üzerinden gönderimde «Tuş» sütunu yoktur. Bir tuş iki ürüne verilemez. Tuşlar elle de yazılabilir — «ŞTRİH-PRİNT tartı ayarları» penceresinin «Klavye» sekmesi.",
+       "keywords": [
+        "tartı tuşları",
+        "tartı kısayol tuşları",
+        "tuş",
+        "shtrih-print",
+        "tuşa ürün",
+        "plu tuş",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "клавиша",
+        "штрих-принт",
+        "товар на клавишу",
+        "plu клавиша"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-plu-и-код-в-шк-как-касса-находит-товар-по-этикетке",
+       "title": "PLU ve «Barkod kodu»: kasa ürünü etiketten nasıl bulur",
+       "text": "PLU — ürünün tartıdaki numarasıdır. «Barkod kodu» — tartının etiket barkoduna bastığı sayıdır. Kasa taramada ürünü bu koda göre bulur.\nШаг 1. Ürün kartında «Tartılı ürün» seçeneğini açın ve «PLU kodu (tartılar için)» alanını doldurun — yalnızca bu ürünler «Ürünleri tartıya gönder» penceresine gelir.\nШаг 2. Şirket düzeni «PLU’ya göre» ise kasa tartılı ürünler arasında PLU'ya göre arar; «koda göre» ise — «Stok kodu»na göre (sitedeki «ürün kodu»), 6 haneye kadar bir sayıysa, sonra PLU'ya göre.\nШаг 3. «Barkod kodu» sütunu (TM-30F'te ve «Doğrudan ağ üzerinden» yolundaki Shtrih-PRINT'te) kendiliğinden doldurulur: ürünün PLU'su veya kodu. Nedenini bilmiyorsanız değiştirmeyin.\nШаг 4. Gönderdikten sonra bir ürünü tartın, etiket basın ve kasayla okutun — ürün fişe eklenmelidir.\nВажно: «Tartı tuşlarına göre numarala» işaretliyken tartıdaki hücre numarası ürünün PLU'sundan farklı olabilir — bu normaldir: kasa ürünü hücre numarasına göre değil, «Barkod kodu»na göre bulur.",
+       "keywords": [
+        "plu",
+        "barkod kodu",
+        "ürün kodu",
+        "tartılı ürün",
+        "plu kodu",
+        "stok kodu",
+        "код в шк",
+        "код товара",
+        "весовой товар",
+        "plu код",
+        "артикул"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-ai-весы-и-выгрузка-списка-в-csv",
+       "title": "AI tartı ve listenin CSV olarak kaydedilmesi",
+       "text": "«AI tartı»ların ortak protokolü yoktur: her model kendi programıyla gelir. Kasa dosyayı hazırlar, siz de tartının programıyla yüklersiniz.\nШаг 1. «AI tartı» markasıyla bir tartı ekleyin (adres gerekmez) ve onun «Dosyayı hazırla →» düğmesine basın.\nШаг 2. «Ürünleri tartıya gönder» penceresinde ürünleri işaretleyin (hiçbiri işaretli değilse tüm tartılı ürünler aktarılır) ve «Tartı için dosyayı kaydet» düğmesine basın. Dosyanın kaydedileceği yeri seçin.\nШаг 3. Dosyayı tartıya kendi programıyla yükleyin.\nШаг 4. Diğer markalar için aynı listeyi «CSV kaydet» düğmesi kaydeder (TM-30F'te — «Dosyayı kaydet ▾» → «CSV (PLU; ad; birim; fiyat)»): PLU, Название, Единица, Цена sütunları; ayırıcı «;», UTF-8 kodlama, satırlar PLU'ya göre artan sırada.\nВажно: Kasa «…bunlardan PLU'suz olan: …» yazarsa bu ürünlerin kartında «PLU kodu (tartılar için)» alanını doldurun, yoksa dosyada numaraları boş kalır.",
+       "keywords": [
+        "ai tartı",
+        "csv",
+        "csv kaydet",
+        "tartı için dosya",
+        "plu listesi",
+        "ai весы",
+        "сохранить csv",
+        "файл для весов",
+        "plu список"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Tartı barkodu ve satış",
+     "articles": [
+      {
+       "id": "весы-как-касса-читает-штрихкод-с-этикетки-весов",
+       "title": "Kasa tartı etiketindeki barkodu nasıl okur",
+       "text": "Tartı etiketi 13 haneli bir EAN-13 barkodudur; ilk iki hane 20–29 önekidir.\nШаг 1. Düzeni ve modu işletme sahibi NurCRM sitesinde ayarlar (Tartılar → Ayarlar); kasa bunları girişte ve eşitlemede alır.\nШаг 2. «PLU’ya göre» düzen: 2 önek hanesi + 5 PLU hanesi + 5 değer hanesi + kontrol hanesi. «Koda göre» düzen: 2 + 6 kod hanesi + 4 değer hanesi + kontrol hanesi.\nШаг 3. Değer, gram cinsinden ağırlık (0,220 kg = 00220) veya tiyin cinsinden tutardır (13,20 som = 01320; sitede tutar birimi «som» ise som cinsinden).\nШаг 4. Ağırlık mı tutar mı, önek için kasa kuralı belirler («Barkod: ağırlık / tutar» sekmesi). Kural yoksa — şirket modu: «ağırlığa göre», «tutara göre» veya «otomatik» (20 — ağırlık, 25 — tutar). Kuralı olmayan 21–24 ve 26–29 için kasa ilk taramada kendisi sorar.\nÖrnek: «Алма» 0,220 kg × 60 som = 13,20 som, barkod 2101003013207 = 21 | 01003 | 01320 | 7: önek 21, PLU 1003, değer 01320 (bu 1,320 kg değil, 13,20 som'dur), kontrol hanesi 7.\nВажно: Barkodda tutar varsa kasa ağırlığı kendisi hesaplar: tutar ÷ kg fiyatı (13,20 ÷ 60 = 0,220 kg) ve fişteki satır tutarı etiketle aynı olur.",
+       "keywords": [
+        "tartı barkodu",
+        "tartı etiketi",
+        "önek 20",
+        "önek 21",
+        "önek 25",
+        "ean-13",
+        "ağırlığa göre",
+        "tutara göre",
+        "штрихкод весов",
+        "этикетка весов",
+        "префикс 20",
+        "префикс 21",
+        "префикс 25",
+        "по весу",
+        "по сумме"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-касса-спрашивает-сумма-или-вес-при-первом-скане-этикетк",
+       "title": "Kasa, etiketin ilk taramasında «tutar mı ağırlık mı» diye sorar",
+       "text": "1.17.27 sürümünden itibaren kuralı olmayan 21–24 veya 26–29 önekli bir etiket ilk kez okutulduğunda kasa «Onay» penceresini gösterir: «21 önekli terazi etiketi (Алма). Etikette ne basılı?» — iki seçenek de para cinsinden:\n«EVET — TUTAR 13.20 som (ağırlık 0.220 kg)»\n«HAYIR — AĞIRLIK 1.320 kg (tutar 79.20 som)»\nШаг 1. Etiketle karşılaştırın: etikette tutar 13,20 yazıyorsa «Evet», ağırlık 1,320 kg yazıyorsa «Hayır» düğmesine basın.\nШаг 2. Ürün fişe eklenir ve cevap bu önek için kasa kuralı olur — kasa bir daha sormaz.\nШаг 3. Kasa 20 ve 25 öneklerini sormaz — bunları şirket moduna (veya sizin kuralınıza) göre okur.\nYanlış cevap verdiyseniz nasıl değiştirilir:\nШаг 4. ☰ → «Ayarlar» → «Tartılar» → «Barkod: ağırlık / tutar» sekmesini açın (aynı düğmeler «Etiketli tartı» sekmesinin altında da vardır).\nШаг 5. «Tartı barkoda ne basar» bölümünde istediğiniz önekin «Ağırlık» veya «Tutar» düğmesine basın — hemen geçerli olur.\nШаг 6. Emin değilseniz — «Etiketten ayarla…»: etiketi okutun ve onunla eşleşen seçeneğe basın.\nШаг 7. Kasanın yeniden sorması için «Kuralları sıfırla (kasa yeniden sorar)» düğmesine basın — tüm öneklerin kuralları kaldırılır.\nВажно: Soru penceresini kapatmak «Hayır» cevabı sayılır. Kurallar yalnızca bu bilgisayarda saklanır — başka bir kasa kendisi sorar.",
+       "keywords": [
+        "tutar mı ağırlık mı",
+        "önek 21",
+        "tartı etiketi",
+        "taramada soru",
+        "yanlış tutar",
+        "kuralları sıfırla",
+        "сумма или вес",
+        "префикс 21",
+        "этикетка весов",
+        "вопрос при скане",
+        "неправильная сумма",
+        "сбросить правила"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вкладка-штрих-код-вес-сумма-правила-по-префиксам",
+       "title": "«Barkod: ağırlık / tutar» sekmesi: öneklere göre kurallar",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» → «Barkod: ağırlık / tutar» sekmesini açın.\nШаг 2. «Etiketten ayarla» bölümü: basılı etiketin barkodunu okutun (veya 13 hane girin) ve «Çöz» düğmesine basın. Kasa barkodu parçalara (önek, ürün kodu, ağırlık veya tutar, kontrol hanesi) ayırır ve ürünü bulur.\nШаг 3. Kasa iki okuma gösterir — «AĞIRLIK» (rakamlar gram) ve «TUTAR» (rakamlar tiyin) — fiş satırının tutarıyla birlikte. Etiketle eşleşene basın: kasa «Tamam: kasa … önekli etiketleri … olarak okur» yanıtını verir.\nШаг 4. «Tartı barkoda ne basar» bölümü: her önekin «Ağırlık» ve «Tutar» düğmeleri vardır. Yanındaki not: «kasa kuralı», «şirket moduna göre» veya «kasa ilk okutmada sorar».\nШаг 5. «Tüm 20–29 önekleri» tüm önekleri gösterir, «Yalnızca kullanılan önekler» — kısa liste. «Kuralları sıfırla (kasa yeniden sorar)» tüm kasa kurallarını kaldırır.\nШаг 6. «Kasa tartı etiketindeki barkodu nasıl okur» bölümü: örnek barkod, sitedeki şirket düzeni ve modu, tutar birimi; «Tartının kendi barkod biçimi: …» düğmesi marka ayarlarını «Barkod» sekmesinde açar.\nВажно: Kasa kuralı sitedeki şirket modundan güçlüdür ve yeniden başlatmadan hemen çalışır. Aynı «Ağırlık» / «Tutar» düğmeleri «Etiketli tartı» sekmesinin altında, «Etiketten ayarla…» ise «Ürünleri tartıya gönder» penceresinde de vardır. Kurallar yalnızca bu bilgisayarda saklanır.",
+       "keywords": [
+        "ağırlık veya tutar",
+        "önek kuralları",
+        "etiketten ayarla",
+        "önek 21",
+        "kuralları sıfırla",
+        "barkod ağırlık tutar",
+        "вес или сумма",
+        "правила префиксов",
+        "настроить по этикетке",
+        "префикс 21",
+        "сбросить правила",
+        "штрих-код вес сумма"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-продать-товар-с-этикеткой-весов",
+       "title": "Tartı etiketli ürün nasıl satılır",
+       "text": "Шаг 1. Tartı etiketindeki barkodu okutun (imleç bir giriş alanında olmamalı — Esc tuşuna basın).\nШаг 2. Kasa tartılı ürünü barkoddaki koda göre bulur ve etiketteki ağırlık ve tutarla fişe hemen bir satır ekler — «Ürünü tart» penceresi açılmaz.\nШаг 3. Bu önek (21–24 veya 26–29) ilk kez okutuluyorsa «tutar mı ağırlık mı» sorusunu cevaplayın.\nШаг 4. Fişteki satırı etiketle karşılaştırın ve ödemeyi her zamanki gibi alın.\nШаг 5. Etiketsiz ürünü kasadaki tartıda tartın: katalogda ürüne basın («Tartılı» sekmesi), «Ürünü tart» penceresinde «Tartıdan al» veya «Ağırlık, kg» alanına elle girin (ya da «Tutara göre» sekmesi), ardından «Fişe ekle».\nВажно: «Kodu … olan ürün katalogda bulunamadı.» mesajı, ürünün PLU'sunun veya kodunun uyuşmadığı ya da «Tartılı ürün» seçeneğinin açık olmadığı anlamına gelir — «Tartı etiketinden ürün bulunamadı» makalesine bakın.",
+       "keywords": [
+        "tartılı ürün satışı",
+        "tartı etiketi",
+        "etiket okutma",
+        "ürünü tart",
+        "tartıdan al",
+        "продать весовой",
+        "этикетка весов",
+        "скан этикетки",
+        "взвесить товар",
+        "подставить с весов"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Sık karşılaşılan sorunlar",
+     "articles": [
+      {
+       "id": "весы-весы-не-находятся-в-сети-или-нет-связи",
+       "title": "Tartı ağda bulunamıyor veya bağlantı yok",
+       "text": "Шаг 1. Tartının açık olduğunu ve ağ kablosunun takılı olduğunu kontrol edin (soketteki ışıklar yanıyor).\nШаг 2. Bilgisayar ve tartı aynı alt ağda olmalıdır: adresin ilk üç sayısı aynıdır (örneğin 192.168.1.20 ve 192.168.1.151). Tartı ayar penceresinde «Ağda bul…» düğmesine basın — tartı başka bir alt ağdaysa kasa bunu satırın altına yazar ve yeni bir adres önerir.\nШаг 3. Portu kontrol edin: Shtrih-PRINT — 1111, TM-30F — 4001, Rongta — 5001 (kontrol için).\nШаг 4. Üreticinin programları («Русский масштаб», RLS1000) tartıyı meşgul tutuyorsa kapatın.\nШаг 5. Windows Güvenlik Duvarı veya antivirüs bağlantıyı engelleyebilir — kasaya ağ erişimi izni verin.\nШаг 6. Shtrih-PRINT şifreyi kabul etmedi — tartıyı kapatıp açın ve doğru şifreyi girin (genelde 0030).\nВажно: Tartılar çoğu zaman ping'e yanıt vermez ama ARP tablosunda görünür — bu yüzden yalnızca «Bağlantıyı kontrol et»e değil, ağda arama sonucuna güvenin.",
+       "keywords": [
+        "tartı bulunamıyor",
+        "tartı bağlantısı yok",
+        "tartı yanıt vermiyor",
+        "tartı ip",
+        "alt ağ",
+        "güvenlik duvarı",
+        "port",
+        "весы не найдены",
+        "нет связи с весами",
+        "весы не отвечают",
+        "ip весов",
+        "подсеть",
+        "брандмауэр",
+        "порт"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-товар-не-найден-по-этикетке-весов",
+       "title": "Tartı etiketinden ürün bulunamadı",
+       "text": "Kasa «Kodu 01003 olan ürün katalogda bulunamadı.» yazar.\nШаг 1. Ürün kartını açın: «Tartılı ürün» açık ve «PLU kodu (tartılar için)» dolu olmalıdır («koda göre» düzende — «Stok kodu»).\nШаг 2. Mesajdaki kodu ürünün PLU'suyla karşılaştırın: 01003 = PLU 1003.\nШаг 3. Kod farklıysa «Ürünleri tartıya gönder» penceresindeki «Barkod kodu» sütununu kontrol edin ve ürünleri tartıya yeniden gönderin.\nШаг 4. Barkod biçimini kontrol edin: markanızın ayar penceresindeki «Barkod» sekmesi «Kasa okur: …» göstermelidir. «Kasa ürünü TANIMAZ» yazıyorsa «Kasaya uydur» veya «Kasa için önerilen» düğmesine basın.\nШаг 5. Kasa etiketi tartı etiketi olarak tanımayıp depoya ürün eklemeyi öneriyorsa barkod 20–29 ile başlamıyor veya 13 haneli değil: tartıdaki öneki değiştirin.\nВажно: Sitede yeni eklenen ürün, katalog eşitlendikten sonra (birkaç dakikaya kadar) kasada görünür.",
+       "keywords": [
+        "ürün bulunamadı",
+        "tartı etiketi",
+        "kod bulunamadı",
+        "plu",
+        "tartı barkodu okunmuyor",
+        "товар не найден",
+        "этикетка весов",
+        "код не найден",
+        "весовой штрихкод не читается"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-сумма-в-чеке-не-совпадает-с-этикеткой",
+       "title": "Fişteki tutar etiketle uyuşmuyor",
+       "text": "Шаг 1. Etiketi ve fişi karşılaştırın. Etikette 13,20 som, fişte ise 1,320 kg ve 79,20 som varsa kasa tutarı ağırlık olarak okumuştur (veya tersi).\nШаг 2. ☰ → «Ayarlar» → «Tartılar» → «Barkod: ağırlık / tutar» sekmesinde «Etiketten ayarla» bölümünü açın: bu etiketi okutun, «Çöz» düğmesine basın ve etiketle eşleşen seçeneği seçin. Kasa bu öneki hemen böyle okumaya başlar.\nШаг 3. Veya «Tartı barkoda ne basar» bölümünde önekin «Ağırlık» veya «Tutar» düğmesine basın. Bu, 20–29 arasındaki her önek için çalışır: kasa kuralı sitedeki şirket modundan güçlüdür.\nШаг 4. Tutar 100 kat küçük veya büyük — sitedeki şirket ayarlarında tutar birimi (tiyin veya som) uyuşmuyor; TM-30F'te ayrıca «Tartıdaki fiyat (Price point)».\nШаг 5. Birkaç tiyinlik fark yuvarlamadır. Ürünün kasadaki ve tartıdaki fiyatının aynı olduğunu kontrol edin: fiyat değiştikten sonra ürünleri tartıya yeniden gönderin.\nВажно: Tartıdaki fiyat ancak ürünler tartıya yeniden gönderildikten sonra değişir.",
+       "keywords": [
+        "tutar uyuşmuyor",
+        "yanlış tutar",
+        "tutar yerine ağırlık",
+        "100 kat",
+        "tartı etiketi",
+        "etiketten ayarla",
+        "сумма не совпадает",
+        "неправильная сумма",
+        "вес вместо суммы",
+        "в 100 раз",
+        "этикетка весов",
+        "настроить по этикетке"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-на-этикетке-руб-вместо-сом",
+       "title": "Etikette «СОМ» yerine «РУБ» yazıyor",
+       "text": "Шаг 1. Shtrih-PRINT tartılar: «ŞTRİH-PRİNT tartı ayarları» → «Para birimi» sekmesini açın ve ««ЦЕНА, РУБ/КГ» yazısı → kendi para biriminiz» sihirbazını tamamlayın («Shtrih-PRINT: etikette «РУБ» yerine «СОМ»» makalesi).\nШаг 2. Aynı yerde «Para birimi işareti» bölümünden som işaretini yükleyin ve «Baskı ve etiket» sekmesinde «para birimi işareti» seçeneğini açın.\nШаг 3. TM-30F ve Rongta: etiketteki yazılar üreticinin programında («Русский масштаб», RLS1000) değiştirilir — kasa bunları göndermez.\nВажно: «ЦЕНА, РУБ/КГ» metni Shtrih-PRINT yazılımına gömülüdür — kasa onu yeniden yazmaz, gizler ve yerine kendi 1–5 formatınızda sizin metninizi koyar.",
+       "keywords": [
+        "rub",
+        "etikette ruble",
+        "som",
+        "para birimi",
+        "цена руб кг",
+        "руб",
+        "рубли на этикетке",
+        "сом",
+        "валюта"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вес-не-приходит-с-весов-у-кассы-com-порт",
+       "title": "Kasadaki tartıdan ağırlık gelmiyor (COM portu)",
+       "text": "Шаг 1. ☰ → «Ayarlar» → «Tartılar» → «Kasadaki tartı» sekmesinde «Tartı sorgulamasını etkinleştir» seçeneğinin açık ve doğru «COM portu»nun seçili olduğunu kontrol edin (port numarası Windows Aygıt Yöneticisi → «Bağlantı noktaları (COM ve LPT)» altında görünür).\nШаг 2. «Hız (baud)» tartıyla aynı olmalıdır (çoğunlukla 9600, bazen 4800 veya 2400).\nШаг 3. Tartı ağırlığı yalnızca sorguyla veriyorsa tartı kılavuzundaki «Ağırlık sorgusu (hex)» değerini ve 0'dan büyük bir «Sorgulama aralığı (ms)» girin.\nШаг 4. «Kaydet» düğmesine basın, ürünü koyun ve «Tartıyı test et» düğmesine basın.\nШаг 5. Port başka bir program tarafından kullanılıyorsa onu kapatın (kasa port listesinin altında portun durumunu yazar).\nШаг 6. «Ürünü tart» penceresindeki «Tartı bağlı değil — ağırlığı elle girin.» mesajı kasanın şu an ağırlık almadığı anlamına gelir: ağırlığı elle girin ve satıştan sonra bağlantıyı kontrol edin.\nВажно: «Tartıdan al» düğmesinden sonra «Tartıdan ağırlık alınamadı.» çıkarsa ağırlık henüz gelmemiştir: tartı sabitlenene kadar bekleyin ve tekrar basın.",
+       "keywords": [
+        "ağırlık gelmiyor",
+        "tartı göstermiyor",
+        "com port",
+        "tartı bağlı değil",
+        "tartıdan ağırlık yok",
+        "вес не приходит",
+        "весы не показывают",
+        "com порт",
+        "весы не подключены",
+        "нет веса с весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-буквы-ң-ө-ү-и-длинные-названия-на-весах",
+       "title": "Tartıda ң, ө, ү harfleri ve uzun adlar",
+       "text": "Шаг 1. TM-30F: tartı yalnızca Windows-1251 kodlamasını anlar, bu yüzden kasa ң, ө, ү harflerini н, о, у ile değiştirir ve adı 43 karaktere kısaltır.\nШаг 2. Shtrih-PRINT: tartı ң, ө, ү harflerini basamaz — tartı için adı bu harfler olmadan yazın.\nШаг 3. Rongta: tartı Kiril harflerini basmaz — ad Latin harfleriyle gönderilir.\nШаг 4. Etikette anlaşılır bir ad olması için adı ürün kartında kısaltın ve ürünleri tartıya yeniden gönderin.\nВажно: Kasada ve fişte ad tam ve Kırgız harfleriyle kalır — yalnızca tartıya giden değişir.",
+       "keywords": [
+        "ң ө ү",
+        "kırgız harfleri",
+        "etikette soru işaretleri",
+        "tartıdaki ad",
+        "kiril tartı",
+        "кыргызские буквы",
+        "вопросики на этикетке",
+        "название на весах",
+        "кириллица весы"
+       ],
+       "images": []
       }
      ]
     }

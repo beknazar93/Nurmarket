@@ -486,10 +486,8 @@ public static class CartDisplayHelper
         {
             var q = TryDouble(it, "quantity") ?? 0;
             var up = TryDouble(it, "unit_price") ?? 0;
-            var disc = TryDouble(it, "discount_total")
-                       ?? TryDouble(it, "line_discount")
-                       ?? TryDouble(it, "discount")
-                       ?? 0;
+            // 2026-09-28: та же скидка строки, что и в итоге чека (EffectiveLineDiscount).
+            var disc = EffectiveLineDiscount(it);
             if (q > 0 && up >= 0)
                 return FormatMoney(q * up - disc);
         }
@@ -678,19 +676,50 @@ public static class CartDisplayHelper
     /// <summary>Параметр discount_total для add-item, если в строке была скидка.</summary>
     public static string? OptionalDiscountTotalParam(JsonElement it)
     {
-        var d = TryDouble(it, "discount_total")
-                ?? TryDouble(it, "line_discount")
-                ?? TryDouble(it, "discount")
-                ?? 0;
-
         // Скидка в процентах лежит в строке как discount_percent, а сервер при добавлении
         // строки принимает только сумму. 2026-09-24, живой баг: «Оплата не прошла — касса
         // показала 36,00, сервер посчитал 40,00» — скидка 10% на строку молча терялась при
         // переносе чека на сервер, и оплата останавливалась на сверке суммы.
-        if (d <= 1e-6 && TryDouble(it, "discount_percent") is { } percent && percent > 1e-6)
-            d = Math.Round(LineQuantity(it) * UnitPrice(it) * Math.Min(percent, 100) / 100.0, 2);
-
+        //
+        // 2026-09-28, продажа №1136: раньше здесь был СВОЙ разбор скидки (первое поле, даже
+        // нулевое), а итог чека (CartTotalsCalculator) читал скидку по-своему, и акции товара
+        // (PromotionRules) не видел никто. Теперь тело запроса, экран и окно оплаты берут скидку
+        // строки из одной функции — EffectiveLineDiscount.
+        var d = EffectiveLineDiscount(it);
         return d > 1e-6 ? FormatMoney(d) : null;
+    }
+
+    /// <summary>2026-09-28: скидка строки, которую поставил кассир (кнопка % у строки, раскладка
+    /// бонусов, перенос из отложенного чека): первое положительное из discount_total /
+    /// line_discount / discount, иначе discount_percent от суммы строки — до копейки.
+    /// Раньше та же логика жила в CartTotalsCalculator.ReadDiscount.</summary>
+    public static double ManualLineDiscount(JsonElement it)
+    {
+        foreach (var key in new[] { "discount_total", "line_discount", "discount" })
+        {
+            if (TryDouble(it, key) is { } v && v > 0)
+                return v;
+        }
+
+        if (TryDouble(it, "discount_percent") is { } pct && pct > 0)
+        {
+            var gross = Math.Round(LineQuantity(it) * UnitPrice(it), 2, MidpointRounding.AwayFromZero);
+            return Math.Round(gross * Math.Min(pct, 100) / 100.0, 2, MidpointRounding.AwayFromZero);
+        }
+
+        return 0;
+    }
+
+    /// <summary>2026-09-28, денежный баг продажи №1136 (касса взяла 50,00, сервер провёл 42,50):
+    /// ЕДИНСТВЕННОЕ место, где решается скидка строки чека, — для итога на экране, в окне оплаты,
+    /// в теле запроса на сервер, в печатном чеке. Если у товара есть акции NurCRM
+    /// (PromotionRules), скидку строки назначает сервер по акции, а скидку кассира не принимает, —
+    /// поэтому и касса считает ровно так же. Иначе — скидка кассира (ManualLineDiscount).</summary>
+    public static double EffectiveLineDiscount(JsonElement it)
+    {
+        if (it.ValueKind != JsonValueKind.Object)
+            return 0;
+        return PromotionRules.LineDiscount(it, LineQuantity(it), UnitPrice(it)) ?? ManualLineDiscount(it);
     }
 
     /// <summary>Шаг 0.05 (кг) или 1 (шт).</summary>

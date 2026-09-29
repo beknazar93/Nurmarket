@@ -142,6 +142,8 @@ public static class CompanyInfoService
         NurMarketKassa.Core.Application.WeightBarcodeParser.Mode = prefs.ScaleBarcodeMode;
         NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit = prefs.ScaleBarcodeAmountUnit;
         NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
+        // 2026-09-28: и обратное правило «в штрихкоде вес» (мастер «Настроить по этикетке»).
+        NurMarketKassa.Core.Application.WeightBarcodeParser.WeightPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleWeightPrefixes);
     }
 
     private static SubscriptionStatus? ComputeSubscriptionStatus(CompanyDto? company) =>

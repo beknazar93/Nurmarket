@@ -64,38 +64,192 @@ public static class TelegramBotService
         if (string.IsNullOrWhiteSpace(chatId))
             return "Не указан получатель сообщения.";
 
+        // 2026-09-29 (стресс-тест бота): отчёт длиннее 4096 символов (/dolgi, /ostatki с длинными
+        // названиями) Telegram отклонял целиком — владелец не получал ничего. Теперь — частями по строкам.
+        foreach (var part in SplitForTelegram(text))
+        {
+            string? error;
+            (error, chatId) = await SendPartAsync(token!, chatId, part, ct).ConfigureAwait(false);
+            if (error != null)
+                return error;
+        }
+
+        return null;
+    }
+
+    /// <summary>Одно сообщение. 2026-09-29 (стресс-тест): на 429 «Too Many Requests» Telegram
+    /// говорит, сколько подождать (retry_after), — раньше сообщение просто терялось (ответ владельцу,
+    /// напоминание должнику при рассылке). Теперь ждём и повторяем, до трёх раз. Ответ 400 с
+    /// migrate_to_chat_id — группу превратили в супергруппу: шлём в новый чат и запоминаем его.</summary>
+    private static async Task<(string? Error, string ChatId)> SendPartAsync(string token, string chatId, string text, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var payload = new Dictionary<string, object?>
+                {
+                    ["chat_id"] = chatId,
+                    ["text"] = text,
+                    ["parse_mode"] = "HTML",
+                    ["disable_web_page_preview"] = true,
+                };
+
+                using var response = await Http
+                    .PostAsJsonAsync($"{ApiRoot}/bot{token}/sendMessage", payload, ct)
+                    .ConfigureAwait(false);
+
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                    return (null, chatId);
+
+                var (retryAfter, migrateTo) = TryReadParameters(body);
+                if ((int)response.StatusCode == 429 && attempt <= 3 && retryAfter is > 0 and <= 60)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(retryAfter.Value), ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                // Сбой на стороне Telegram (502/503/504 от его шлюза) — один повтор через 2 с.
+                if ((int)response.StatusCode >= 500 && attempt == 1)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(migrateTo) && migrateTo != chatId && attempt <= 3)
+                {
+                    RememberMigratedChat(chatId, migrateTo!);
+                    chatId = migrateTo!;
+                    continue;
+                }
+
+                // Telegram кладёт человекочитаемую причину в description — она гораздо полезнее
+                // кода состояния («chat not found», «bot was blocked by the user»).
+                var reason = TryReadDescription(body) ?? $"код {(int)response.StatusCode}";
+                PosLogger.Log($"Telegram sendMessage failed: {reason}", "WARNING");
+                return ("Telegram отклонил сообщение: " + reason, chatId);
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return ("Telegram не ответил за 20 секунд — проверьте интернет.", chatId);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return ("Отправка отменена.", chatId);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Telegram send failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
+                return ("Не удалось связаться с Telegram: " + ex.Message, chatId);
+            }
+        }
+    }
+
+    /// <summary>2026-09-29: группа владельца стала супергруппой (Telegram меняет ей chat_id). Если это
+    /// чат владельца из настроек — запоминаем новый, иначе сводки и ответы на команды уходили бы
+    /// в пустоту, а команды из новой группы бот не считал бы командами владельца.</summary>
+    public static void RememberMigratedChat(string oldChatId, string newChatId)
+    {
+        var prefs = UserPreferences.Instance;
+        if (!string.Equals(prefs.TelegramChatId, oldChatId, StringComparison.Ordinal))
+            return;
+
+        prefs.TelegramChatId = newChatId;
+        prefs.SaveToDisk();
+        PosLogger.Log($"Телеграм-бот: группа владельца стала супергруппой, получатель обновлён ({oldChatId} → {newChatId}).", "TELEGRAM");
+    }
+
+    /// <summary>Предел Telegram — 4096 символов ВИДИМОГО текста (теги и адреса ссылок не в счёт).
+    /// Режем по строкам, чтобы не разорвать тег или HTML-сущность; строку длиннее предела — по
+    /// символам без разметки (так бывает только на совсем уж странных данных).</summary>
+    internal static List<string> SplitForTelegram(string text, int limit = 4000)
+    {
+        var parts = new List<string>();
+        if (VisibleLength(text) <= limit)
+        {
+            parts.Add(text);
+            return parts;
+        }
+
+        var current = new StringBuilder();
+        var currentLength = 0;
+        foreach (var rawLine in text.Split('\n'))
+        {
+            var line = rawLine;
+            var lineLength = VisibleLength(line) + 1;
+            if (currentLength + lineLength > limit && current.Length > 0)
+            {
+                parts.Add(current.ToString().TrimEnd());
+                current.Clear();
+                currentLength = 0;
+            }
+
+            while (lineLength > limit)
+            {
+                // Строка сама длиннее предела: режем без разметки, не разрывая суррогатную пару.
+                var plain = System.Text.RegularExpressions.Regex.Replace(line, "<[^>]*>", "");
+                var cut = char.IsHighSurrogate(plain[limit - 1]) ? limit - 1 : limit;
+                parts.Add(Escape(System.Net.WebUtility.HtmlDecode(plain[..cut])));
+                line = plain[cut..];
+                lineLength = VisibleLength(line) + 1;
+            }
+
+            current.Append(line).Append('\n');
+            currentLength += lineLength;
+        }
+
+        if (current.ToString().Trim().Length > 0)
+            parts.Add(current.ToString().TrimEnd());
+        return parts;
+    }
+
+    private static int VisibleLength(string html)
+    {
+        var length = 0;
+        var inTag = false;
+        for (var i = 0; i < html.Length; i++)
+        {
+            var ch = html[i];
+            if (ch == '<')
+            {
+                inTag = true;
+            }
+            else if (ch == '>' && inTag)
+            {
+                inTag = false;
+            }
+            else if (!inTag)
+            {
+                // &amp; &lt; &gt; &quot; — один символ на экране.
+                if (ch == '&')
+                {
+                    var semicolon = html.IndexOf(';', i);
+                    if (semicolon > i && semicolon - i <= 8)
+                        i = semicolon;
+                }
+
+                length++;
+            }
+        }
+
+        return length;
+    }
+
+    private static (int? RetryAfter, string? MigrateTo) TryReadParameters(string body)
+    {
         try
         {
-            var payload = new Dictionary<string, object?>
-            {
-                ["chat_id"] = chatId,
-                ["text"] = text,
-                ["parse_mode"] = "HTML",
-                ["disable_web_page_preview"] = true,
-            };
-
-            using var response = await Http
-                .PostAsJsonAsync($"{ApiRoot}/bot{token}/sendMessage", payload, ct)
-                .ConfigureAwait(false);
-
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-                return null;
-
-            // Telegram кладёт человекочитаемую причину в description — она гораздо полезнее
-            // кода состояния («chat not found», «bot was blocked by the user»).
-            var reason = TryReadDescription(body) ?? $"код {(int)response.StatusCode}";
-            PosLogger.Log($"Telegram sendMessage failed: {reason}", "WARNING");
-            return "Telegram отклонил сообщение: " + reason;
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("parameters", out var p) || p.ValueKind != JsonValueKind.Object)
+                return (null, null);
+            int? retry = p.TryGetProperty("retry_after", out var r) && r.TryGetInt32(out var seconds) ? seconds : null;
+            var migrate = p.TryGetProperty("migrate_to_chat_id", out var m) ? m.ToString() : null;
+            return (retry, migrate);
         }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        catch (Exception)
         {
-            return "Telegram не ответил за 20 секунд — проверьте интернет.";
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Telegram send failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
-            return "Не удалось связаться с Telegram: " + ex.Message;
+            return (null, null);
         }
     }
 

@@ -373,6 +373,10 @@ public static class StagingCartService
                 continue;
             if (!TryReadDecimal(item, "line_total", out var lineTotal))
                 continue;
+            // 2026-09-28: на строку с акцией товара NurCRM сервер скидку кассира не принимает
+            // (PATCH discount_total молча остаётся скидкой по акции) — долю туда не кладём.
+            if (PromotionRules.LineHasRules(item))
+                continue;
 
             TryReadDecimal(item, "line_discount", out var lineDiscount);
             var free = lineTotal - lineDiscount;

@@ -797,7 +797,10 @@ namespace NurMarketKassa.ViewModels
             if (_isDiscountPercent)
             {
                 var baseAmount = Math.Max(0, _subtotal - _lineDiscounts);
-                return Math.Min(baseAmount, baseAmount * val / 100.0);
+                // 2026-09-28, продажа №1136: до копейки — так же, как итог чека
+                // (CartTotalsCalculator) и сервер; иначе окно оплаты и запрос расходились
+                // на доли копейки (33,33 × 7 % = 2,3331).
+                return Math.Min(baseAmount, Math.Round(baseAmount * val / 100.0, 2, MidpointRounding.AwayFromZero));
             }
 
             return Math.Min(Math.Max(0, _subtotal - _lineDiscounts), val);

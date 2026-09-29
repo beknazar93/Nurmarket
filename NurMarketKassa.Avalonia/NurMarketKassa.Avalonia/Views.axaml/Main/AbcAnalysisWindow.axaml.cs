@@ -75,7 +75,12 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         }
     }
 
-    private async void Refresh_Click(object? sender, RoutedEventArgs e) => await ReloadAsync();
+    private async void Refresh_Click(object? sender, RoutedEventArgs e)
+    {
+        // 2026-09-29: «Обновить» — всегда свежие цифры сервера, мимо короткого кэша отчётов.
+        NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
+        await ReloadAsync();
+    }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 

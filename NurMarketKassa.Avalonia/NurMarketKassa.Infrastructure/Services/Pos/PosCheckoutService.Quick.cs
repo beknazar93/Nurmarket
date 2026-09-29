@@ -78,6 +78,24 @@ public sealed partial class PosCheckoutService
         }
 
         var total = CartTotalsCalculator.Calculate(_cart.Root).TotalDue;
+
+        // 2026-09-28, денежный баг продажи №1136: окно оплаты показало 50,00, кассир взял 50, а
+        // продажа ушла на 42,50 (акцию товара сервер применил сам, касса её не видела). Теперь
+        // итог, который получится у сервера из ЭТОГО тела, сверяется с итогом окна оплаты ДО
+        // отправки. Не сошлось больше чем на 0,01 — быстрым путём не отправляем: старый путь
+        // перенесёт чек в серверную корзину и сверит её итог с окном оплаты ещё до проведения
+        // продажи (CheckoutAsync), а при расхождении остановит оплату с понятным кассиру текстом.
+        var bodyTotal = QuickCheckoutBody.ComputeTotal(body);
+        var expectedTotal = request.ExpectedTotal ?? total;
+        if (Math.Abs(bodyTotal - expectedTotal) > TotalTolerance)
+        {
+            PosLogger.Log(
+                $"PAY quick: итог запроса {bodyTotal:0.00} ≠ итог окна оплаты {expectedTotal:0.00} (снимок чека {total:0.00}) — " +
+                $"быстрым путём не отправлено, сверка через серверную корзину. Тело: {body.ToJsonString()}",
+                "WARNING");
+            return null;
+        }
+
         var fingerprint = body.ToJsonString();
         if (_quickKey == null || !string.Equals(_quickKeyFingerprint, fingerprint, StringComparison.Ordinal))
         {
@@ -182,7 +200,35 @@ public sealed partial class PosCheckoutService
             $"total={serverTotal?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—"} (касса {total:0.00}), replayed={replayed}",
             "PAYMENT");
 
-        return await FinishOnlineCheckoutAsync(
+        // 2026-09-28, продажа №1136: продажа уже проведена. Если сервер всё-таки насчитал другую
+        // сумму (например, акцию или цену товара поменяли на сайте за минуты до оплаты и касса ещё
+        // не подтянула каталог), молчать нельзя: кассир взял деньги по окну оплаты.
+        string? mismatchWarning = null;
+        if (serverTotal is { } serverSum && Math.Abs((double)serverSum - expectedTotal) > TotalTolerance)
+        {
+            var server = (double)serverSum;
+            var diff = Math.Abs(server - expectedTotal);
+            var number = TryReadQuickText(response, "number") ?? "—";
+            PosLogger.Log(
+                $"PAY quick: СУММА НЕ СОШЛАСЬ после продажи №{number}: сервер {server:0.00}, окно оплаты {expectedTotal:0.00}, " +
+                $"тело {bodyTotal:0.00}. Тело: {body.ToJsonString()}. Ответ: {response.GetRawText()}",
+                "WARNING");
+            mismatchWarning = server < expectedTotal
+                ? Tr.T(
+                    $"Внимание: сервер провёл чек №{number} на {server:0.00} сом, а в окне оплаты было {expectedTotal:0.00} сом. Верните покупателю {diff:0.00} сом. Скорее всего, на сайте изменили акцию или цену товара.",
+                    $"Көңүл буруңуз: сервер №{number} чекти {server:0.00} сомго өткөрдү, ал эми төлөм терезесинде {expectedTotal:0.00} сом болчу. Сатып алуучуга {diff:0.00} сом кайтарыңыз. Сайтта товардын акциясы же баасы өзгөртүлгөн болушу мүмкүн.",
+                    $"Attention: the server recorded receipt No. {number} for {server:0.00} som, but the payment window showed {expectedTotal:0.00} som. Give the customer back {diff:0.00} som. Most likely the product's promotion or price was changed on the website.",
+                    $"Dikkat: sunucu {number} numaralı fişi {server:0.00} som olarak kaydetti, ödeme penceresinde ise {expectedTotal:0.00} som vardı. Müşteriye {diff:0.00} som iade edin. Büyük olasılıkla sitede ürünün kampanyası veya fiyatı değiştirildi.",
+                    $"Diqqat: server №{number} chekni {server:0.00} so'mga o'tkazdi, to'lov oynasida esa {expectedTotal:0.00} so'm edi. Xaridorga {diff:0.00} so'm qaytaring. Ehtimol, saytda mahsulot aksiyasi yoki narxi o'zgartirilgan.")
+                : Tr.T(
+                    $"Внимание: сервер провёл чек №{number} на {server:0.00} сом, а в окне оплаты было {expectedTotal:0.00} сом. Не хватает {diff:0.00} сом — доберите у покупателя. Скорее всего, на сайте изменили акцию или цену товара.",
+                    $"Көңүл буруңуз: сервер №{number} чекти {server:0.00} сомго өткөрдү, ал эми төлөм терезесинде {expectedTotal:0.00} сом болчу. {diff:0.00} сом жетишпейт — сатып алуучудан алыңыз. Сайтта товардын акциясы же баасы өзгөртүлгөн болушу мүмкүн.",
+                    $"Attention: the server recorded receipt No. {number} for {server:0.00} som, but the payment window showed {expectedTotal:0.00} som. {diff:0.00} som is missing — collect it from the customer. Most likely the product's promotion or price was changed on the website.",
+                    $"Dikkat: sunucu {number} numaralı fişi {server:0.00} som olarak kaydetti, ödeme penceresinde ise {expectedTotal:0.00} som vardı. {diff:0.00} som eksik — müşteriden tahsil edin. Büyük olasılıkla sitede ürünün kampanyası veya fiyatı değiştirildi.",
+                    $"Diqqat: server №{number} chekni {server:0.00} so'mga o'tkazdi, to'lov oynasida esa {expectedTotal:0.00} so'm edi. {diff:0.00} so'm yetishmaydi — xaridordan oling. Ehtimol, saytda mahsulot aksiyasi yoki narxi o'zgartirilgan.");
+        }
+
+        var finished = await FinishOnlineCheckoutAsync(
                 request,
                 cartJson,
                 serverTotal is { } st ? (double)st : total,
@@ -190,7 +236,12 @@ public sealed partial class PosCheckoutService
                 null,
                 cancellationToken)
             .ConfigureAwait(false);
+        finished.TotalMismatchWarning = mismatchWarning;
+        return finished;
     }
+
+    /// <summary>Допуск сверки итога кассы с сервером — копейка (плюс запас на двоичную погрешность).</summary>
+    private const double TotalTolerance = 0.01 + 1e-6;
 
     private static string DescribeQuickError(ApiException ex)
     {

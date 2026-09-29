@@ -1,0 +1,213 @@
+<!-- 2026-09-28 (поздно вечером), живой баг владельца «опять сумма неправильно, дай нормальные
+     настройки»: весы печатают СУММУ с префиксом 21, а касса читала её как ВЕС (35,20 сом → 3,520 кг).
+     Ручная настройка префиксов в окне TM-30F не помогла. Здесь — «Настроить по этикетке»: кассир
+     сканирует штрихкод с напечатанной этикетки, касса показывает два прочтения (вес / сумма), кассир
+     жмёт то, что совпадает с этикеткой, — правило для ЭТОГО префикса сохраняется и действует сразу.
+     Ниже — список правил по префиксам 20–29 с переключателями и пояснение раскладки компании.
+     Одна и та же панель — в Настройки → Весы → «Штрих-код этикеток» и в окне «Весы». -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScaleBarcodeSetupPanel"
+             x:CompileBindings="False"
+             Loaded="Panel_Loaded">
+
+    <UserControl.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+        <!-- Крупный вариант прочтения этикетки -->
+        <Style Selector="Button.ReadOption">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Margin" Value="0,0,10,10"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ReadOption:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="Button.ReadOption.current">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Button.ReadOption.chosen">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.optKind">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TextBlock.optValue">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.optDetail">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.optNote">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- Правило префикса: «Вес» / «Сумма» -->
+        <Style Selector="RadioButton.RulePill">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="pill" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
+                            CornerRadius="8" Padding="18,6" MinHeight="40" MinWidth="84">
+                        <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.RulePill">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="RadioButton.RulePill:pointerover /template/ Border#pill">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="RadioButton.RulePill:checked /template/ Border#pill">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="RadioButton.RulePill:checked">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style Selector="Button.ScaleSecondary">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ScalePrimary">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Border.NoteBlock">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.Segment">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,4,4"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="10">
+
+        <!-- 1. Мастер «Настроить по этикетке» -->
+        <Border x:Name="WizardCard" Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{DynamicResource scaleSetup.wizard.title}" Classes="SettingsCardTitle" FontSize="15"/>
+                <TextBlock Text="{DynamicResource scaleSetup.wizard.desc}" Classes="SettingsCardBody"/>
+
+                <Grid ColumnDefinitions="*,10,Auto">
+                    <TextBox x:Name="LabelCodeBox" Classes="ModernTextBox" Height="44" FontSize="20"
+                             FontFamily="Consolas, Segoe UI" MaxLength="20" Watermark="2110007035207"
+                             KeyDown="LabelCodeBox_KeyDown" TextChanged="LabelCodeBox_TextChanged"/>
+                    <Button Grid.Column="2" x:Name="ParseButton" Classes="ScalePrimary"
+                            Content="{DynamicResource scaleSetup.wizard.parse}" Click="Parse_Click"/>
+                </Grid>
+
+                <WrapPanel x:Name="WizardSegments" IsVisible="False"/>
+                <TextBlock x:Name="WizardProductText" TextWrapping="Wrap" FontSize="13" IsVisible="False"
+                           Foreground="{DynamicResource BrushText}"/>
+
+                <StackPanel x:Name="WizardChoice" Spacing="6" IsVisible="False">
+                    <TextBlock x:Name="WizardQuestion" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                    <UniformGrid x:Name="WizardOptions" Columns="2" Margin="0,0,-10,-10">
+                        <Button x:Name="WeightOptionButton" Classes="ReadOption" Click="WeightOption_Click">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="WeightOptionKind" Classes="optKind"/>
+                                <TextBlock x:Name="WeightOptionValue" Classes="optValue"/>
+                                <TextBlock x:Name="WeightOptionDetail" Classes="optDetail"/>
+                                <TextBlock x:Name="WeightOptionNote" Classes="optNote"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="AmountOptionButton" Classes="ReadOption" Click="AmountOption_Click">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="AmountOptionKind" Classes="optKind"/>
+                                <TextBlock x:Name="AmountOptionValue" Classes="optValue"/>
+                                <TextBlock x:Name="AmountOptionDetail" Classes="optDetail"/>
+                                <TextBlock x:Name="AmountOptionNote" Classes="optNote"/>
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                </StackPanel>
+
+                <Border x:Name="WizardResultBorder" Classes="NoteBlock" IsVisible="False">
+                    <TextBlock x:Name="WizardResultText" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}"/>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- 2. Правила по префиксам -->
+        <Border Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{DynamicResource scaleSetup.rules.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock x:Name="RulesDescText" Classes="SettingsCardBody"/>
+                <StackPanel x:Name="RulesGrid"/>
+                <WrapPanel Margin="0,2,-8,-8">
+                    <!-- Только в кратком виде (раздел «Весы с этикетками»): переход к мастеру. -->
+                    <Button x:Name="OpenWizardButton" Classes="ScalePrimary" Margin="0,0,8,8" IsVisible="False"
+                            Content="{DynamicResource scaleSetup.wizard.open}" Click="OpenWizard_Click"/>
+                    <Button x:Name="ShowAllButton" Classes="ScaleSecondary" Click="ShowAll_Click"/>
+                    <Button x:Name="ResetRulesButton" Classes="ScaleSecondary"
+                            Content="{DynamicResource scaleSetup.rules.reset}" Click="ResetRules_Click"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 3. Как касса читает штрих-код (раскладка компании) -->
+        <Border x:Name="CompanyCard" Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{DynamicResource scaleSetup.barcode.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock Text="{DynamicResource scaleSetup.barcode.desc}" Classes="SettingsCardBody"/>
+                <WrapPanel x:Name="ExampleSegments"/>
+                <TextBlock x:Name="ExampleText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                <TextBlock x:Name="CompanyFormatText" Classes="SettingsCardBody"/>
+                <WrapPanel x:Name="OnScaleRow" Margin="0,2,-8,-8">
+                    <Button x:Name="OnScaleButton" Classes="ScaleSecondary" Click="OnScale_Click"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

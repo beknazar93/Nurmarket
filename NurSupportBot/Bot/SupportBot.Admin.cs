@@ -369,7 +369,12 @@ public sealed partial class SupportBot
 
         var text = html.ToString();
         if (text.Length > 4000)
-            text = text[..4000] + "…";
+        {
+            // 2026-09-29: резать по строке — обрезка посреди <b>…</b> ломала разметку, и Telegram
+            // отклонял статистику целиком.
+            var cut = text.LastIndexOf('\n', 3999);
+            text = text[..(cut > 0 ? cut : 4000)] + "\n…";
+        }
         await ShowAsync(chat, editMsgId, text, AdminBack("a"), ct).ConfigureAwait(false);
     }
 

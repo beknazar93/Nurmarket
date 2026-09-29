@@ -37,6 +37,11 @@ public sealed class PosCheckoutRequest
     public string? ConsultantCommissionPercent { get; init; }
     /// <summary>Имя консультанта — только для строки «Консультант» в печатном чеке.</summary>
     public string? ConsultantName { get; init; }
+    /// <summary>2026-09-28, продажа №1136: итог, который кассир видел в окне оплаты и по которому
+    /// взял деньги. Перед отправкой на сервер с ним сверяется итог запроса (быстрый путь) или
+    /// серверной корзины (старый путь): расхождение больше 0,01 — продажа молча не уходит.
+    /// null — сверки нет (старые вызовы).</summary>
+    public double? ExpectedTotal { get; init; }
 }
 
 /// <summary>Результат оплаты для UI.</summary>
@@ -51,6 +56,10 @@ public sealed class PosCheckoutResult
     public string? CartJsonSnapshot { get; init; }
     public bool ReceiptPrintAttempted { get; init; }
     public bool ReceiptPrinted { get; init; }
+    /// <summary>2026-09-28, продажа №1136: сервер провёл продажу на сумму, отличную от итога окна
+    /// оплаты (например, акцию товара поменяли на сайте в последние минуты). Продажа уже есть —
+    /// кассиру показывается это сообщение с разницей, чтобы вернуть или добрать деньги.</summary>
+    public string? TotalMismatchWarning { get; set; }
 
     public static PosCheckoutResult Succeeded(
         double total,

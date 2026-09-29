@@ -131,22 +131,12 @@ public static class CartTotalsCalculator
         return 0;
     }
 
-    private static double ReadDiscount(JsonElement line)
-    {
-        foreach (var key in new[] { "discount_total", "line_discount", "discount" })
-        {
-            if (TryDouble(line, key) is { } v && v > 0)
-                return v;
-        }
-
-        if (TryDouble(line, "discount_percent") is { } pct && pct > 0)
-        {
-            var gross = RoundMoney(CartDisplayHelper.LineQuantity(line) * CartDisplayHelper.UnitPrice(line));
-            return RoundMoney(gross * Math.Min(pct, 100) / 100.0);
-        }
-
-        return 0;
-    }
+    /// <summary>2026-09-28, продажа №1136: скидка строки — из одной функции с телом запроса на
+    /// сервер (CartDisplayHelper.EffectiveLineDiscount): скидка кассира или акция товара NurCRM.
+    /// Прежний разбор (discount_total / line_discount / discount / discount_percent) перенесён
+    /// туда без изменений — CartDisplayHelper.ManualLineDiscount.</summary>
+    private static double ReadDiscount(JsonElement line) =>
+        RoundMoney(CartDisplayHelper.EffectiveLineDiscount(line));
 
     private static JsonElement TryTotals(JsonElement cart) =>
         cart.TryGetProperty("totals", out var t) && t.ValueKind == JsonValueKind.Object ? t : default;

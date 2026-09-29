@@ -26,14 +26,42 @@ public sealed partial class TelegramBotPollingService
 
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
+    /// <summary>2026-09-29 (стресс-тест бота): последняя сводка должников. /dolg может прислать любой,
+    /// кто знает имя бота (оно в ссылке на чеке), и каждый такой запрос тянул с NurCRM весь список
+    /// должников. Сотня сообщений — сотни запросов тем же пользователем, что и касса: сервер отвечал
+    /// 429 уже на оплату. Теперь покупателям — копия не старше минуты, владельцу — не старше 5 с.</summary>
+    private readonly SemaphoreSlim _debtorsGate = new(1, 1);
+    private List<DebtorInfo>? _debtorsCache;
+    private DateTime _debtorsCachedAtUtc;
+
+    private static readonly TimeSpan DebtorsCacheForClients = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan DebtorsCacheForOwner = TimeSpan.FromSeconds(5);
+
     /// <summary>Сводка должников с сервера или null, если её получить не удалось (тогда — старый путь).</summary>
-    private async Task<List<DebtorInfo>?> TryLoadServerDebtorsAsync(CancellationToken ct)
+    private async Task<List<DebtorInfo>?> TryLoadServerDebtorsAsync(CancellationToken ct, TimeSpan? maxAge = null)
     {
         if (_debtsApi == null)
             return null;
+        var age = maxAge ?? DebtorsCacheForOwner;
+        if (_debtorsCache is { } fresh && DateTime.UtcNow - _debtorsCachedAtUtc <= age)
+            return fresh;
         try
         {
-            return await _debtsApi.GetDebtorsAsync(0, ct).ConfigureAwait(false);
+            // Один запрос на всех: пока сводка грузится, остальные ждут её же, а не шлют свои.
+            await _debtorsGate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                if (_debtorsCache is { } loaded && DateTime.UtcNow - _debtorsCachedAtUtc <= age)
+                    return loaded;
+                var list = await _debtsApi.GetDebtorsAsync(0, ct).ConfigureAwait(false);
+                _debtorsCache = list;
+                _debtorsCachedAtUtc = DateTime.UtcNow;
+                return list;
+            }
+            finally
+            {
+                _debtorsGate.Release();
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -110,7 +138,10 @@ public sealed partial class TelegramBotPollingService
         {
             try
             {
-                await api.SetClientTelegramChatIdAsync(clientId, chatId).ConfigureAwait(false);
+                // 2026-09-29 (стресс-тест): очередью массовых запросов (не больше трёх сразу, с паузой,
+                // и не во время «подождите» от сервера). Сотня «/start» подряд занимала все
+                // соединения кассы к NurCRM, и оплата ждала в очереди за ними.
+                await ApiThrottle.RunBulkAsync(() => api.SetClientTelegramChatIdAsync(clientId, chatId)).ConfigureAwait(false);
                 PosLogger.Log($"Телеграм-бот: chat_id клиента {clientId} сохранён на сервере.", "TELEGRAM");
             }
             catch (Exception ex)
@@ -124,7 +155,7 @@ public sealed partial class TelegramBotPollingService
     /// лежит в карточке на сервере и приходит в сводке должников.</summary>
     private async Task<string?> FindClientByChatOnServerAsync(string chatId, CancellationToken ct)
     {
-        var debtors = await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false);
+        var debtors = await TryLoadServerDebtorsAsync(ct, DebtorsCacheForClients).ConfigureAwait(false);
         return debtors?.FirstOrDefault(d => string.Equals(d.TelegramChatId, chatId, StringComparison.Ordinal))?.ClientId;
     }
 

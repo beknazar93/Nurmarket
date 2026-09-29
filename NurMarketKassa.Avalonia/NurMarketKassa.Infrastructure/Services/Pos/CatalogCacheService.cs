@@ -135,6 +135,9 @@ public static class CatalogCacheService
                     newList.Add(vm);
             }
 
+            // 2026-09-28: акции товаров (запомнены в TryTile) — на диск, для запуска без интернета.
+            PromotionRules.SaveIfDirty();
+
             await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
             foreach (var vm in newList)
             {

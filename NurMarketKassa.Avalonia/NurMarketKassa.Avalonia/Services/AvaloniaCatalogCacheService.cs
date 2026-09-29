@@ -132,6 +132,9 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                     newList.Add(vm);
             }
 
+            // 2026-09-28: акции товаров (запомнены в TryTile) — на диск, для запуска без интернета.
+            PromotionRules.SaveIfDirty();
+
             await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
 
             // Гарантируем StockInfo перед записью в SQLite (на случай отсутствия overlay).

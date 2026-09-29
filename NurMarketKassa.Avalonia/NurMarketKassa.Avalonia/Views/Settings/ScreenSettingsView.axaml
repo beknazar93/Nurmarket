@@ -56,7 +56,7 @@
     <ScrollViewer Classes="SettingsPageScroll">
       <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
            переключении карточки прыгали от края к краю вслед за содержимым. -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
@@ -76,8 +76,10 @@
         <!-- Вид кассы (2026-09-28): шесть раскладок карточками с миниатюрами. Отдельной всегда
              открытой карточкой, а не в свёрнутой группе, — это первое, что хотят поменять.
              Карточки — общий элемент KassaLayoutPicker (он же в Маркетплейсе → «Виды кассы»):
-             миниатюра рисуется цветами текущей темы. Выбор применяется сразу, без перезапуска. -->
-        <Border Classes="SettingsCard" Padding="14">
+             миниатюра рисуется цветами текущей темы. Выбор применяется сразу, без перезапуска.
+             2026-09-29, владелец: «вид кассы убери в настройках и оставь только в маркетплейсе» —
+             карточка скрыта, выбор вида — только Маркетплейс → «Виды кассы». -->
+        <Border Classes="SettingsCard" Padding="14" IsVisible="False">
           <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"

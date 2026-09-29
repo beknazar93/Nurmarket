@@ -197,6 +197,45 @@ public static class QuickCheckoutBody
         return line;
     }
 
+    /// <summary>2026-09-28, продажа №1136: итог продажи, который получится у сервера из ЭТОГО тела
+    /// запроса, — считается по самому телу, а не по снимку чека: Σ(цена × кол-во − скидка строки),
+    /// затем скидка на чек (процент — от суммы после скидок строк, до копейки; сумма — не больше
+    /// остатка). Так сервер посчитал продажи 1116–1118 и 1143–1144. Скидка строки по акции товара
+    /// в теле уже стоит явно (CartDisplayHelper.OptionalDiscountTotalParam), поэтому тело
+    /// «самоописательное». Сверяется с итогом окна оплаты перед отправкой (PosCheckoutService.Quick).</summary>
+    public static double ComputeTotal(JsonObject body)
+    {
+        double subtotal = 0;
+        double lineDiscounts = 0;
+        if (body["items"] is JsonArray items)
+        {
+            foreach (var node in items)
+            {
+                if (node is not JsonObject line)
+                    continue;
+                var qty = ReadMoney(line["qty"]);
+                var price = ReadMoney(line["price"]);
+                subtotal = RoundMoney(subtotal + RoundMoney(qty * price));
+                lineDiscounts = RoundMoney(lineDiscounts + ReadMoney(line["discount"]));
+            }
+        }
+
+        var discountBase = Math.Max(0, RoundMoney(subtotal - lineDiscounts));
+        double orderDiscount = 0;
+        if (body["order_discount_percent"] is { } pct)
+            orderDiscount = RoundMoney(discountBase * Math.Clamp(ReadMoney(pct), 0, 100) / 100.0);
+        else if (body["order_discount_total"] is { } sum)
+            orderDiscount = Math.Min(discountBase, ReadMoney(sum));
+
+        return Math.Max(0, RoundMoney(discountBase - orderDiscount));
+    }
+
+    private static double ReadMoney(JsonNode? node) =>
+        JsonNumericReader.TryToDouble(node, out var v) && double.IsFinite(v) ? v : 0;
+
+    private static double RoundMoney(double value) =>
+        double.IsFinite(value) ? Math.Round(value, 2, MidpointRounding.AwayFromZero) : 0;
+
     /// <summary>Как в StagingCartService.PushItemsFromSnapshotAsync: весовой — до граммов,
     /// штучный — целым (без TrimEnd, см. там живой баг «10.000 кг ушло как 1»).</summary>
     private static string QuantityText(JsonElement it, double qty) =>

@@ -1,263 +1,295 @@
-﻿using System.Net.NetworkInformation;
 using Avalonia;
 using Avalonia.Controls;
-using NurMarketKassa.Services.Hardware;
-using System.Threading;
-using System.Globalization;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
-using NurMarketKassa.AvaloniaHost.Views;
+using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Settings;
 
+/// <summary>Настройки → Весы.
+///
+/// 2026-09-28, редизайн по просьбе владельца («сделай нормальными настройки отправки на весы»):
+/// раньше здесь одной лентой шли COM-весы, «Сетевые весы» (поля ШТРИХ-ПРИНТ и четыре кнопки
+/// подряд), доп. весы, табло и «PLU на весах Штрих-М» с выбором модели и дублем кнопок — владелец
+/// ввёл адрес TM-30F в поля ШТРИХ-ПРИНТ. Теперь четыре раздела: «Весы на кассе» (COM, доп. весы),
+/// «Весы с этикетками» (список весов, у каждых свои марка, адрес и категории; настройка одних весов —
+/// окно LabelScaleEditWindow; ниже — «вес или сумма в штрихкоде» по префиксам), «Штрих-код: вес /
+/// сумма» (ScaleBarcodeSetupPanel: правила, мастер «Настроить по этикетке») и «Табло цены». Поля
+/// COM-весов и табло по-прежнему читает и сохраняет PosSettingsWindow по своим x:Name.</summary>
 public partial class ScaleSettingsView : UserControl
 {
-    private const string BrandShtrikh = "shtrikh";
-    private const string BrandRongta = "rongta";
-
     public event EventHandler? SaveRequested;
+
+    /// <summary>Раздел, открытый в прошлый раз (до закрытия кассы): владелец настраивает весы
+    /// в несколько заходов и возвращается туда же. -1 — ещё не открывали.</summary>
+    private static int _lastSection = -1;
 
     public ScaleSettingsView()
     {
         InitializeComponent();
+        // Правила по префиксам стоят в двух местах (кратко — у этикеточных весов, полностью — в
+        // разделе «Штрих-код»): поменяли в одном — перерисовываем другое.
+        BarcodePanel.RulesChanged += () => LabelRulesPanel.Refresh();
+        LabelRulesPanel.RulesChanged += () => BarcodePanel.Refresh();
+        LabelRulesPanel.WizardRequested += () => ShowSection(2);
     }
 
-    private void ScaleSettingsView_Loaded(object? sender, RoutedEventArgs e)
-    {
-        LoadScaleBrand();
-        PluScaleIpBox.Text = UserPreferences.Instance.ScaleNetworkIp;
+    private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
-        RefreshPluCardVisibility();
-    }
-
-    /// <summary>Карточка отправки PLU на сетевые весы скрыта целиком на тарифе «Старт», пока
-    /// доп. услуга не куплена (см. TariffGate.CanUseScales) — вызывается и при повторном открытии
-    /// окна настроек на случай, если кассир только что купил её в Маркетплейсе, не закрывая это
-    /// окно (тот же приём, что и RefreshPaidFeatureVisibility в WarehouseWindow).</summary>
-    public void RefreshPluCardVisibility() => PluCard.IsVisible = TariffGate.CanUseScales;
-
-    private const string BrandAi = "ai";
-    private const string BrandTm = "tm";
-
-    private void PluBrandRadio_Click(object? sender, RoutedEventArgs e)
-    {
-        // Выбор модели дублируется здесь и в окне «Весы» — обе точки пишут в одну и ту же
-        // настройку ScaleBrand. 2026-09-22: добавив «AI весы» только в окно, я оставил это
-        // место без новой модели, и владелец справедливо спросил, куда она делась.
-        UserPreferences.Instance.ScaleBrand =
-            PluBrandRongtaRadio.IsChecked == true ? BrandRongta
-            : PluBrandAiRadio.IsChecked == true ? BrandAi
-            : PluBrandTmRadio.IsChecked == true ? BrandTm
-            : BrandShtrikh;
-        UserPreferences.Instance.SaveToDisk();
-    }
-
-    /// <summary>Отмечает модель, сохранённую в настройках. Без этого экран всегда открывался
-    /// на «Штрих-М», чем бы владелец ни пользовался.</summary>
-    public void LoadScaleBrand()
-    {
-        var brand = UserPreferences.Instance.ScaleBrand;
-        PluBrandRongtaRadio.IsChecked = brand == BrandRongta;
-        PluBrandAiRadio.IsChecked = brand == BrandAi;
-        PluBrandTmRadio.IsChecked = brand == BrandTm;
-        PluBrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
-    }
-
-    /// <summary>По просьбе владельца (2026-09-19: "где настройка и ввод ip чтобы узнать
-    /// статус подключение весов по лан") — по образцу уже существующей "Проверить весы" для
-    /// COM-весов выше. Это ЧИСТО диагностика (обычный ICMP ping) — сама отправка PLU этот IP
-    /// не использует: у Штрих-М канал серверный, у Rongta — через RLS1000 (см.
-    /// RongtaScaleAutomationService). Порт весов не задокументирован нигде, поэтому TCP-connect
-    /// к конкретному порту не делаем — ping достаточен, чтобы понять "весы в сети или нет".</summary>
-    private async void PluCheckConnection_Click(object? sender, RoutedEventArgs e)
-    {
-        var ip = (PluScaleIpBox.Text ?? "").Trim();
-        if (ip.Length == 0)
-        {
-            ShowPluIpAlert(Tr.T("Введите IP-адрес весов.", "Таразанын IP-дарегин киргизиңиз.",
-                "Enter the scale's IP address.", "Tartının IP adresini girin.", "Tarozining IP manzilini kiriting."), true);
-            return;
-        }
-
-        UserPreferences.Instance.ScaleNetworkIp = ip;
-        UserPreferences.Instance.SaveToDisk();
-
-        PluCheckConnectionButton.IsEnabled = false;
-        ShowPluIpAlert(Tr.T("Проверка…", "Текшерилүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…"), false);
-        try
-        {
-            using var ping = new Ping();
-            var reply = await ping.SendPingAsync(ip, 2000).ConfigureAwait(true);
-            if (reply.Status == IPStatus.Success)
-            {
-                ShowPluIpAlert(Tr.T(
-                    $"Весы доступны в сети ({reply.RoundtripTime} мс).",
-                    $"Тараза тармакта жеткиликтүү ({reply.RoundtripTime} мс).",
-                    $"The scale is reachable on the network ({reply.RoundtripTime} ms).",
-                    $"Tartı ağda erişilebilir ({reply.RoundtripTime} ms).",
-                    $"Tarozi tarmoqda mavjud ({reply.RoundtripTime} ms)."), false);
-            }
-            else
-            {
-                ShowPluIpAlert(Tr.T(
-                    $"Весы не отвечают ({reply.Status}). Проверьте IP и что весы включены и в той же сети.",
-                    $"Тараза жооп бербейт ({reply.Status}). IP-даректи, тараза күйүк экенин жана ошол эле тармакта турганын текшериңиз.",
-                    $"The scale is not responding ({reply.Status}). Check the IP and make sure the scale is on and connected to the same network.",
-                    $"Tartı yanıt vermiyor ({reply.Status}). IP adresini, tartının açık ve aynı ağda olduğunu kontrol edin.",
-                    $"Tarozi javob bermayapti ({reply.Status}). IP manzilni, tarozi yoqilganini va shu tarmoqda ekanini tekshiring."), true);
-            }
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Scale IP ping failed: {ex.Message}", "SCALES");
-            ShowPluIpAlert(Tr.T("Ошибка проверки: ", "Текшерүү катасы: ", "Check failed: ", "Kontrol hatası: ", "Tekshirish xatosi: ") + ex.Message, true);
-        }
-        finally
-        {
-            PluCheckConnectionButton.IsEnabled = true;
-        }
-    }
-
-    private void ShowPluIpAlert(string message, bool isError)
-    {
-        PluIpAlert.IsVisible = true;
-        PluIpAlertText.Text = message;
-        PluIpAlert.Background = ThemeBrush(isError ? "BrushWarningSoft" : "BrushSuccessSoft", Brushes.LightGoldenrodYellow);
-        PluIpAlert.BorderBrush = ThemeBrush(isError ? "BrushWarning" : "BrushSuccess", Brushes.Goldenrod);
-    }
-
-    private IBrush ThemeBrush(string key, IBrush fallback) =>
+    private IBrush Brush(string key, IBrush fallback) =>
         Application.Current?.TryFindResource(key, ActualThemeVariant, out var value) == true && value is IBrush brush
             ? brush
             : fallback;
 
-    private void Save_Click(object? sender, RoutedEventArgs e) =>
-        SaveRequested?.Invoke(this, EventArgs.Empty);
-
-    private void OpenScalesPlu_Click(object? sender, RoutedEventArgs e)
+    private void ScaleSettingsView_Loaded(object? sender, RoutedEventArgs e)
     {
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var window = App.GetRequiredService<ScalesPluWindow>();
-        window.Show(owner);
+        RefreshPluCardVisibility();
+        BuildScaleList();
     }
 
-    /// <summary>Заполняет поля сетевых весов. Вызывается вместе с остальной загрузкой
-    /// настроек экрана.</summary>
+    /// <summary>Раздел «Весы с этикетками» скрыт целиком на тарифе «Старт», пока доп. услуга не
+    /// куплена (см. TariffGate.CanUseScales) — вызывается и при повторном открытии окна настроек на
+    /// случай, если кассир только что купил её в Маркетплейсе (тот же приём, что и
+    /// RefreshPaidFeatureVisibility в WarehouseWindow).</summary>
+    public void RefreshPluCardVisibility()
+    {
+        var allowed = TariffGate.CanUseScales;
+        TabLabelButton.IsVisible = allowed;
+        SectionTabsGrid.Columns = allowed ? 4 : 3;
+        // Первый заход: весы у кассы не включены, а этикеточные доступны — открываем их (там же
+        // «вес или сумма в штрихкоде»); иначе — весы на кассе.
+        if (_lastSection < 0)
+            _lastSection = allowed && !UserPreferences.Instance.ScaleEnabled ? 1 : 0;
+        if (!allowed && _lastSection == 1)
+            _lastSection = 0;
+        ShowSection(_lastSection);
+    }
+
+    private void SectionTab_Click(object? sender, RoutedEventArgs e)
+    {
+        var index = sender == TabLabelButton ? 1
+            : sender == TabBarcodeButton ? 2
+            : sender == TabDisplayButton ? 3
+            : 0;
+        ShowSection(index);
+    }
+
+    /// <summary>Показывает один раздел страницы.</summary>
+    public void ShowSection(int index)
+    {
+        if (index == 1 && !TariffGate.CanUseScales)
+            index = 0;
+        _lastSection = index;
+        TabWeighingButton.IsChecked = index == 0;
+        TabLabelButton.IsChecked = index == 1;
+        TabBarcodeButton.IsChecked = index == 2;
+        TabDisplayButton.IsChecked = index == 3;
+        WeighingSection.IsVisible = index == 0;
+        PluCard.IsVisible = index == 1;
+        BarcodeSection.IsVisible = index == 2;
+        DisplaySection.IsVisible = index == 3;
+        if (index == 1)
+        {
+            BuildScaleList();
+            LabelRulesPanel.Refresh();
+        }
+        if (index == 2)
+            BarcodePanel.Refresh();
+        PageScroll.Offset = new Vector(0, 0);
+    }
+
+    // ------------------------------------------------------------------ список весов
+
+    /// <summary>Строки «весы в магазине»: название, марка, адрес, категории, связь, кнопки.</summary>
+    public void BuildScaleList()
+    {
+        ScaleListHost.Children.Clear();
+        var canDelete = LabelScaleStore.All.Count > 1;
+        foreach (var profile in LabelScaleStore.All)
+            ScaleListHost.Children.Add(BuildScaleRow(profile, canDelete));
+    }
+
+    private Control BuildScaleRow(LabelScaleProfile profile, bool canDelete)
+    {
+        var isActive = profile.Id == LabelScaleStore.Active.Id;
+        var badge = new Border
+        {
+            Width = 42,
+            Height = 42,
+            CornerRadius = new CornerRadius(21),
+            Background = Brush("BrushAccentSoft", Brushes.LightGray),
+            BorderBrush = Brush("BrushAccent", Brushes.Gray),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+            Child = new TextBlock
+            {
+                Text = profile.Brand switch { "rongta" => "R", "tm" => "TM", "ai" => "AI", _ => "Ш" },
+                FontWeight = FontWeight.Bold,
+                Foreground = Brush("BrushText", Brushes.Black),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+
+        var texts = new StackPanel { Spacing = 2 };
+        texts.Children.Add(new TextBlock
+        {
+            Text = profile.Name + "  ·  " + ScaleUi.LabelBrandTitle(profile.Brand),
+            FontSize = 14,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = Brush("BrushText", Brushes.Black),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        texts.Children.Add(Line(ProfileAddress(profile), "BrushText"));
+        texts.Children.Add(Line(profile.Categories.Count == 0
+            ? L("Товары: все весовые (или отмеченные вручную)", "Товарлар: бардык салмактуулар (же кол менен белгиленгендер)", "Goods: all weighed (or ticked by hand)", "Ürünler: tüm tartılılar (veya elle işaretlenenler)", "Tovarlar: barcha vaznlilar (yoki qo‘lda belgilanganlar)")
+            : L("Категории: ", "Категориялар: ", "Categories: ", "Kategoriler: ", "Kategoriyalar: ") + string.Join(", ", profile.Categories), "BrushTextSoft"));
+        if (profile.Brand != ScaleUi.BrandAi)
+        {
+            var (level, ipText) = ScaleUi.CheckScaleIp(profile.Ip);
+            if (level is ScaleIpLevel.Warning or ScaleIpLevel.Error)
+                texts.Children.Add(Line("⚠ " + ipText, "BrushWarning"));
+            else if (isActive)
+                texts.Children.Add(Line(ScaleUi.LastCheckText(profile.Brand), "BrushTextSoft"));
+        }
+
+        var setup = RowButton(L("Настроить…", "Жөндөө…", "Configure…", "Ayarla…", "Sozlash…"), false);
+        setup.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(this) is not Window owner)
+                return;
+            await ScaleUi.OpenLabelScaleSetupAsync(owner, profile).ConfigureAwait(true);
+            BuildScaleList();
+            LabelRulesPanel.Refresh();
+        };
+        var send = RowButton(profile.Brand == ScaleUi.BrandAi
+            ? L("Подготовить файл →", "Файл даярдоо →", "Prepare the file →", "Dosyayı hazırla →", "Faylni tayyorlash →")
+            : L("Отправить товары →", "Товарларды жөнөтүү →", "Send goods →", "Ürünleri gönder →", "Tovarlarni yuborish →"), true);
+        send.Click += (_, _) =>
+        {
+            LabelScaleStore.Activate(profile);
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            var window = App.GetRequiredService<ScalesPluWindow>();
+            if (owner is not null)
+                window.Show(owner);
+            else
+                window.Show();
+            BuildScaleList();
+        };
+        var buttons = new WrapPanel { Margin = new Thickness(54, 8, -8, -8) };
+        buttons.Children.Add(setup);
+        buttons.Children.Add(send);
+        if (canDelete)
+        {
+            var delete = RowButton(L("Удалить", "Өчүрүү", "Delete", "Sil", "O‘chirish"), false);
+            delete.Click += async (_, _) =>
+            {
+                if (TopLevel.GetTopLevel(this) is not Window owner)
+                    return;
+                var ok = await PosDialogHost.ShowAsync(new PosConfirmDialog(
+                    L("Удалить весы?", "Таразаны өчүрөсүзбү?", "Delete the scale?", "Tartı silinsin mi?", "Tarozi o‘chirilsinmi?"),
+                    L($"«{profile.Name}» уберутся из списка кассы. На самих весах ничего не изменится.",
+                      $"«{profile.Name}» кассанын тизмесинен алынат. Таразанын өзүндө эч нерсе өзгөрбөйт.",
+                      $"“{profile.Name}” will be removed from the till's list. Nothing changes on the scale itself.",
+                      $"«{profile.Name}» kasanın listesinden kaldırılır. Tartının kendisinde hiçbir şey değişmez.",
+                      $"«{profile.Name}» kassa ro‘yxatidan olib tashlanadi. Tarozining o‘zida hech narsa o‘zgarmaydi."),
+                    accent: PosConfirmAccent.Danger), owner).ConfigureAwait(true) == true;
+                if (!ok)
+                    return;
+                LabelScaleStore.Delete(profile.Id);
+                BuildScaleList();
+            };
+            buttons.Children.Add(delete);
+        }
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        grid.Children.Add(badge);
+        Grid.SetColumn(texts, 1);
+        grid.Children.Add(texts);
+        Grid.SetRow(buttons, 1);
+        Grid.SetColumnSpan(buttons, 2);
+        grid.Children.Add(buttons);
+
+        return new Border
+        {
+            Background = Brush("BrushSurfaceSubtle", Brushes.WhiteSmoke),
+            BorderBrush = Brush(isActive ? "BrushAccent" : "BrushBorder", Brushes.LightGray),
+            BorderThickness = new Thickness(isActive ? 2 : 1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 10),
+            Child = grid,
+        };
+    }
+
+    private TextBlock Line(string text, string brushKey) => new()
+    {
+        Text = text,
+        FontSize = 12,
+        Foreground = Brush(brushKey, Brushes.Gray),
+        TextWrapping = TextWrapping.Wrap,
+    };
+
+    private static Button RowButton(string text, bool primary) => new()
+    {
+        Content = text,
+        Classes = { primary ? "btn-primary" : "SettingsFlatButton" },
+        Height = 38,
+        Padding = new Thickness(14, 0),
+        MinWidth = 110,
+        HorizontalContentAlignment = HorizontalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(0, 0, 8, 8),
+    };
+
+    /// <summary>«192.168.0.150:4001 · напрямую по сети» для весов из списка (не только выбранных).</summary>
+    private static string ProfileAddress(LabelScaleProfile p)
+    {
+        if (p.Brand == ScaleUi.BrandAi)
+            return L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl");
+        var address = string.IsNullOrWhiteSpace(p.Ip)
+            ? L("адрес не задан", "дарек коюлган эмес", "address not set", "adres girilmemiş", "manzil kiritilmagan")
+            : $"{p.Ip}:{p.Port}";
+        var route = p.Brand switch
+        {
+            "rongta" => p.RongtaSource == "server"
+                ? L("свой сервер кассы", "кассанын өз сервери", "till's own server", "kasanın kendi sunucusu", "kassaning o‘z serveri")
+                : L("через сайт и RLS1000", "сайт жана RLS1000 аркылуу", "via the website and RLS1000", "site ve RLS1000 üzerinden", "sayt va RLS1000 orqali"),
+            "tm" => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
+            _ => p.ShtrikhDirect
+                ? L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali")
+                : L("через сервер NurCRM", "NurCRM сервери аркылуу", "via the NurCRM server", "NurCRM sunucusu üzerinden", "NurCRM serveri orqali"),
+        };
+        return address + " · " + route;
+    }
+
+    private async void AddScale_Click(object? sender, RoutedEventArgs e)
+    {
+        var profile = LabelScaleStore.Add();
+        BuildScaleList();
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            // Новые весы сразу в окно настроек: адрес и марку всё равно вводить.
+            await ScaleUi.OpenLabelScaleSetupAsync(owner, profile).ConfigureAwait(true);
+            BuildScaleList();
+        }
+    }
+
+    /// <summary>Перечитывает весы (после окон, которые их меняют).</summary>
+    public void LoadScaleBrand() => BuildScaleList();
+
+    /// <summary>Заполняет раздел этикеточных весов. Вызывается вместе с остальной загрузкой
+    /// настроек экрана (PosSettingsWindow).</summary>
     public void LoadLanScaleSettings()
     {
-        var prefs = UserPreferences.Instance;
-        LanScaleIpBox.Text = prefs.ScaleNetworkIp ?? "";
-        LanScalePortBox.Text = prefs.ScaleLanPort.ToString(CultureInfo.InvariantCulture);
-        LanScalePasswordBox.Text = prefs.ScaleLanPassword ?? "";
+        BuildScaleList();
+        LabelRulesPanel.Refresh();
+        BarcodePanel.Refresh();
     }
 
-    /// <summary>Сохраняем по уходу с поля, а не по кнопке: владелец правит адрес и сразу
-    /// жмёт «Проверить связь», и настройки уже должны быть записаны.</summary>
-    private void LanScale_LostFocus(object? sender, RoutedEventArgs e) => SaveLanScaleSettings();
-
-    private void SaveLanScaleSettings()
-    {
-        var prefs = UserPreferences.Instance;
-        prefs.ScaleNetworkIp = (LanScaleIpBox.Text ?? "").Trim();
-
-        if (int.TryParse((LanScalePortBox.Text ?? "").Trim(), out var port) && port is > 0 and <= 65535)
-            prefs.ScaleLanPort = port;
-
-        // Пустое поле не затирает сохранённый пароль: пустой пароль весы не примут, а
-        // случайно очищенное поле молча сломало бы выгрузку.
-        var password = (LanScalePasswordBox.Text ?? "").Trim();
-        if (password.Length > 0)
-            prefs.ScaleLanPassword = password;
-
-        prefs.SaveToDisk();
-    }
-
-    /// <summary>Открывает то же окно настроек подключения, что и «Весы» → «Напрямую по
-    /// кабелю». Одно место правки на всю программу: раньше адрес и пароль можно было менять
-    /// в двух разных местах, и они расходились.</summary>
-    private async void OpenLanScaleDialog_Click(object? sender, RoutedEventArgs e)
-    {
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleConnectionDialog();
-
-        if (owner != null)
-            await dialog.ShowDialog(owner).ConfigureAwait(true);
-        else
-            dialog.Show();
-
-        LoadLanScaleSettings();
-    }
-
-    /// <summary>2026-09-28: «Настройки весов (клавиатура, этикетка, штрих-код)…» — окно с
-    /// настройками самих весов ШТРИХ-ПРИНТ (просьба владельца перенести их из тестовой
-    /// программы Штрих-М). Адрес/порт/пароль берутся из полей выше — сохраняем их перед
-    /// открытием, чтобы окно говорило ровно с теми весами, что введены.</summary>
-    private async void OpenShtrikhDeviceSettings_Click(object? sender, RoutedEventArgs e)
-    {
-        SaveLanScaleSettings();
-        var owner = TopLevel.GetTopLevel(this) as Window;
-        var window = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ShtrikhScaleSettingsWindow();
-        if (owner != null)
-            await window.ShowDialog(owner).ConfigureAwait(true);
-        else
-            window.Show();
-    }
-
-    /// <summary>2026-09-28: «Поиск весов в сети» (просьба владельца «анализ ip адресов добавь
-    /// чтобы узнать ip адрес подключенных весов»). Найденный адрес записывается в настройки
-    /// выбранной марки — перечитываем поля экрана.</summary>
-    private async void ScanNetwork_Click(object? sender, RoutedEventArgs e)
-    {
-        if (TopLevel.GetTopLevel(this) is not Window owner)
-            return;
-        SaveLanScaleSettings();
-        if (await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenScanAsync(owner, UserPreferences.Instance.ScaleBrand).ConfigureAwait(true))
-        {
-            LoadLanScaleSettings();
-            PluScaleIpBox.Text = UserPreferences.Instance.ScaleNetworkIp;
-        }
-    }
-
-    /// <summary>2026-09-28: «Настройки весов…» — окно выбранной выше марки (Штрих-М, Rongta,
-    /// TM-30F); для AI-весов — пояснение, что настройки у них в своей программе.</summary>
-    private async void OpenBrandSettings_Click(object? sender, RoutedEventArgs e)
-    {
-        if (TopLevel.GetTopLevel(this) is not Window owner)
-            return;
-        SaveLanScaleSettings();
-        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenBrandSettingsAsync(owner, UserPreferences.Instance.ScaleBrand).ConfigureAwait(true);
-        LoadLanScaleSettings();
-        LoadScaleBrand();
-    }
-
-    /// <summary>«Проверить связь» — опознаёт весы и подаёт гудок. Намеренно использует только
-    /// команды БЕЗ пароля, поэтому отвечает даже тогда, когда весы заблокировали доступ из-за
-    /// неудачных попыток: владелец видит, что связь есть, а дело именно в пароле.</summary>
-    private async void TestLanScale_Click(object? sender, RoutedEventArgs e)
-    {
-        SaveLanScaleSettings();
-        TestLanScaleButton.IsEnabled = false;
-        LanScaleAlert.IsVisible = true;
-        LanScaleAlertText.Text = Tr.T("Проверяю связь с весами…", "Тараза менен байланыш текшерилүүдө…", "Checking the connection to the scale…", "Tartı bağlantısı kontrol ediliyor…", "Tarozi bilan aloqa tekshirilmoqda…");
-
-        try
-        {
-            var prefs = UserPreferences.Instance;
-            using var scale = new ShtrikhPrintLanScaleService(
-                prefs.ScaleNetworkIp ?? "", prefs.ScaleLanPort, prefs.ScaleLanPassword);
-
-            var info = await scale.TestConnectionAsync(beep: true, CancellationToken.None).ConfigureAwait(true);
-            LanScaleAlertText.Text = Tr.T("Весы на связи: ", "Тараза байланышта: ", "Scale connected: ", "Tartı bağlı: ", "Tarozi aloqada: ") + info;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Проверка связи с сетевыми весами: {ex}", "SCALES");
-            LanScaleAlertText.Text = ex.Message;
-        }
-        finally
-        {
-            TestLanScaleButton.IsEnabled = true;
-        }
-    }
+    private void Save_Click(object? sender, RoutedEventArgs e) =>
+        SaveRequested?.Invoke(this, EventArgs.Empty);
 }

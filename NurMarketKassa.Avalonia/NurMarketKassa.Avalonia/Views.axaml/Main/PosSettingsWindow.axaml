@@ -12,70 +12,72 @@
   <Window.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
-    <Style Selector="Button.SidebarNavItem">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <!-- 2026-09-29, владелец: «настройки таб меню сделай» — разделы настроек вкладками сверху
+         вместо списка слева (список съедал 240 px, а страница стояла узкой колонкой с пустым
+         полем слева). Вид — как у вкладок страницы «Весы» (ScaleSettingsView, RadioButton.SectionTab):
+         значок над подписью, выбранная вкладка залита акцентным цветом. Кнопки и их x:Name/Tag
+         прежние — переход по вкладкам (SidebarNav_Click → NavigateTo) не менялся. -->
+    <Style Selector="Button.SettingsTab">
+      <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="Margin" Value="8,3"/>
-      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="Margin" Value="2"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
-      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="FontSize" Value="14"/>
       <Setter Property="Template">
         <ControlTemplate TargetType="Button">
-          <Border x:Name="NavRoot"
-                  Background="{TemplateBinding Background}"
-                  CornerRadius="{TemplateBinding CornerRadius}"
-                  Padding="{TemplateBinding Padding}"
-                  BoxShadow="0 1 4 0 #0F000000">
-            <Grid ColumnDefinitions="4,*">
-              <Border x:Name="AccentBar" Background="Transparent" CornerRadius="2" Margin="0,2"/>
-              <ContentPresenter Grid.Column="1" Margin="10,0,0,0"
-                                VerticalAlignment="Center"
-                                HorizontalContentAlignment="Left"
-                                Content="{TemplateBinding Content}"/>
-            </Grid>
+          <Border x:Name="seg" Background="{TemplateBinding Background}" CornerRadius="8" Padding="6,8" MinHeight="52"
+                  BorderBrush="Transparent" BorderThickness="1">
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
           </Border>
         </ControlTemplate>
       </Setter>
     </Style>
-
-    <Style Selector="Button.SidebarNavItem:pointerover /template/ Border#NavRoot">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+    <Style Selector="Button.SettingsTab:pointerover /template/ Border#seg">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
-
-    <Style Selector="Button.SidebarNavItem.nav-active">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    <Style Selector="Button.SettingsTab:focus-visible /template/ Border#seg">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
     </Style>
-
-    <Style Selector="Button.SidebarNavItem.nav-active /template/ Border#NavRoot">
-      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="BoxShadow" Value="0 4 12 0 #1A000000"/>
-    </Style>
-
-    <Style Selector="Button.SidebarNavItem.nav-active /template/ Border#AccentBar">
+    <Style Selector="Button.SettingsTab.nav-active /template/ Border#seg">
       <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+    </Style>
+    <Style Selector="Button.SettingsTab.nav-active">
+      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <!-- Подпись в одну строку: сколько вкладок встанет в ряд, считает UpdateNavColumns по самой
+         широкой подписи, поэтому слово не рвётся посередине и не обрезается. Шрифт 12 (у «Весов»
+         13): при 13 десять русских вкладок не вставали в один ряд даже на 1920. -->
+    <Style Selector="Button.SettingsTab TextBlock">
+      <Setter Property="TextWrapping" Value="NoWrap"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style Selector="Button.SettingsTab TextBlock.mdl2">
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
 
     <Style Selector="Button.SidebarCloseButton">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="Margin" Value="8,8,8,12"/>
-      <Setter Property="MinHeight" Value="44"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="Margin" Value="8,0,0,0"/>
+      <Setter Property="MinWidth" Value="84"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
-      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
     </Style>
 
     <Style Selector="Button.SidebarCloseButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -95,102 +97,98 @@
            Source="{Binding SettingsVm.BackgroundImage, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}}"
            IsVisible="{Binding SettingsVm.HasBackgroundImage}"/>
 
-    <!-- Left underlay -->
-    <Border HorizontalAlignment="Left" Width="240"
-            Background="{DynamicResource BrushPanelElevated}" BoxShadow="2 0 10 0 #14000000"/>
+    <!-- Подложка под страницу — на всё окно: левой колонки меню больше нет (2026-09-29). -->
+    <Border Background="{Binding SettingsVm.BackgroundOpacity, Converter={x:Static conv:OpacityToWhiteOverlayBrushConverter.Instance}}"/>
 
-    <!-- Right underlay -->
-    <Border Margin="240,0,0,0"
-            Background="{Binding SettingsVm.BackgroundOpacity, Converter={x:Static conv:OpacityToWhiteOverlayBrushConverter.Instance}}"/>
+    <!-- 2026-09-29, владелец: «настройки таб меню сделай» — вкладки разделов сверху, страница
+         под ними на всю ширину (не шире SettingsPageMaxWidth, как и колонка карточек в самих
+         страницах; отступы 24/28 — те же, что у SettingsContentHost, чтобы край вкладок совпал
+         с краем карточек). Не помещаются в один ряд (кыргызский, окно 800×600) — второй ряд
+         поровну, см. UpdateNavColumns. -->
+    <Grid RowDefinitions="Auto,*">
+      <Grid x:Name="NavBar" Grid.Row="0" ColumnDefinitions="*,Auto"
+            MaxWidth="{DynamicResource SettingsPageMaxWidth}" Margin="24,14,28,0">
+        <Border Classes="SettingsCard" Padding="4">
+          <UniformGrid x:Name="NavTabsGrid" Rows="1">
+            <Button x:Name="NavScales" Classes="SettingsTab nav-active" Tag="0" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE9D9;"/>
+                <TextBlock Text="{DynamicResource posSettings.navScales}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavPrint" Classes="SettingsTab" Tag="1" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE749;"/>
+                <TextBlock Text="{DynamicResource common.print}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavScreen" Classes="SettingsTab" Tag="2" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE7F4;"/>
+                <TextBlock Text="{DynamicResource posSettings.navScreen}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavMonitor" Classes="SettingsTab" Tag="3" Click="SidebarNav_Click">
+              <StackPanel>
+                <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent" HorizontalAlignment="Center" Margin="0,0,0,4"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      StrokeThickness="1.6" StrokeLineCap="Round"
+                      Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"/>
+                <TextBlock Text="{DynamicResource posSettings.navMonitor}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavUpdates" Classes="SettingsTab" Tag="4" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE895;"/>
+                <TextBlock Text="{DynamicResource posSettings.navUpdates}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavOperations" Classes="SettingsTab" Tag="5" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE825;"/>
+                <TextBlock Text="{DynamicResource posSettings.navOperations}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavCustomization" Classes="SettingsTab" Tag="6" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE790;"/>
+                <TextBlock Text="{DynamicResource posSettings.navCustomization}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavAccount" Classes="SettingsTab" Tag="7" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE77B;"/>
+                <TextBlock Text="{DynamicResource posSettings.navAccount}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavEmployees" Classes="SettingsTab" Tag="8" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE716;"/>
+                <TextBlock Text="{DynamicResource posSettings.navEmployees}"/>
+              </StackPanel>
+            </Button>
+            <Button x:Name="NavKeys" Classes="SettingsTab" Tag="9" Click="SidebarNav_Click">
+              <StackPanel>
+                <TextBlock Classes="mdl2" Text="&#xE765;"/>
+                <TextBlock Text="{DynamicResource posSettings.navKeys}"/>
+              </StackPanel>
+            </Button>
+          </UniformGrid>
+        </Border>
 
-    <Grid ColumnDefinitions="240,*">
-      <!-- Sidebar -->
-      <DockPanel Grid.Column="0" Margin="0,8,0,0">
-        <Button IsCancel="True" DockPanel.Dock="Bottom" x:Name="SidebarCloseButton"
+        <Button IsCancel="True" Grid.Column="1" x:Name="SidebarCloseButton"
                 Classes="SidebarCloseButton"
                 Click="SidebarClose_Click">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center"/>
-            <TextBlock Text="{DynamicResource common.close}" VerticalAlignment="Center"/>
+          <StackPanel>
+            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+            <TextBlock Text="{DynamicResource common.close}" HorizontalAlignment="Center"/>
           </StackPanel>
         </Button>
-
-        <!-- 2026-09-28: у значков Segoe MDL2 разная ширина — без общей ширины колонки подписи
-             начинались с разного места (владелец: «иконки съезжают»). -->
-        <StackPanel Margin="0,4,0,0">
-          <Button x:Name="NavScales" Classes="SidebarNavItem nav-active" Tag="0" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navScales}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavPrint" Classes="SidebarNavItem" Tag="1" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource common.print}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavScreen" Classes="SidebarNavItem" Tag="2" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navScreen}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavMonitor" Classes="SidebarNavItem" Tag="3" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <Path Width="17" Height="17" Stretch="Uniform" Fill="Transparent"
-                    Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                    StrokeThickness="1.6" StrokeLineCap="Round"
-                    Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"
-                    VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navMonitor}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavUpdates" Classes="SidebarNavItem" Tag="4" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navUpdates}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavOperations" Classes="SidebarNavItem" Tag="5" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navOperations}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <!-- Значки вкладок — глифы Segoe MDL2, как у всех остальных пунктов. Раньше три
-               последние вкладки стояли с цветными эмодзи (🎨 👤 👥): в ровном сером столбце они
-               выглядели случайными наклейками, а в тёмной теме ещё и светились своим цветом. -->
-          <Button x:Name="NavCustomization" Classes="SidebarNavItem" Tag="6" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navCustomization}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavAccount" Classes="SidebarNavItem" Tag="7" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navAccount}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavEmployees" Classes="SidebarNavItem" Tag="8" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navEmployees}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button x:Name="NavKeys" Classes="SidebarNavItem" Tag="9" Click="SidebarNav_Click">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" Width="21" TextAlignment="Center" FontSize="15" VerticalAlignment="Center"/>
-              <TextBlock Text="{DynamicResource posSettings.navKeys}" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-        </StackPanel>
-      </DockPanel>
+      </Grid>
 
       <!-- Content host: Top alignment keeps page cards from stretching to fill -->
       <ContentControl x:Name="ContentHost"
-                      Grid.Column="1"
+                      Grid.Row="1"
                       HorizontalContentAlignment="Stretch"
                       VerticalContentAlignment="Stretch"/>
     </Grid>

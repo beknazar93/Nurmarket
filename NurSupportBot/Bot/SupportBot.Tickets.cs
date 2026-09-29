@@ -128,8 +128,9 @@ public sealed partial class SupportBot
 
         var targets = SupportChat is { } group ? new List<long> { group } : _config.AdminIds.ToList();
         var delivered = false;
-        foreach (var target in targets)
+        for (var t = 0; t < targets.Count; t++)
         {
+            var target = targets[t];
             try
             {
                 var headerMsg = await _tg.SendMessageAsync(target, header.ToString(),
@@ -145,6 +146,14 @@ public sealed partial class SupportBot
                         _db.MapGroupMessage(copy, ticketId);
                 }
                 delivered = true;
+            }
+            catch (TgException ex) when (ex.MigrateToChatId is { } newGroup && target == SupportChat && !delivered)
+            {
+                // 2026-09-29: группа стала супергруппой, служебное сообщение о переезде бот не видел —
+                // запоминаем новый чат; это обращение и все следующие уйдут туда.
+                _db.SetSetting("support_chat", newGroup.ToString(Ru));
+                Log($"Группа поддержки стала супергруппой: {target} → {newGroup}.");
+                targets.Add(newGroup);
             }
             catch (TgException ex)
             {

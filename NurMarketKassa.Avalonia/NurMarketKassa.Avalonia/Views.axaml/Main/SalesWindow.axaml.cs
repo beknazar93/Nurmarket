@@ -163,8 +163,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private async void Refresh_Click(object sender, RoutedEventArgs e) =>
+        private async void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            // 2026-09-29: «Обновить» — всегда свежие цифры сервера, мимо короткого кэша отчётов.
+            NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
             await LoadDataAsync(_historyFrom, _historyTo);
+        }
 
         // ── Загрузка данных ──
 
@@ -241,10 +245,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 IsLoading = true;
                 ErrorMessage = null;
 
-                // ABC считается по локальной истории продаж и от сервера не зависит, поэтому
-                // запускаем его до сетевых запросов: даже если сервер не ответит, таблица
-                // будет заполнена.
-                await RefreshAbcAsync(from, to, token);
+                // ABC строится с сервера (вкладка «Товары» сайта), без связи — по локальной истории.
+                // 2026-09-28: идёт одновременно с остальными запросами, а не перед ними — раньше
+                // плитки ждали ещё и его (до 20 с при плохой связи).
+                var abcTask = RefreshAbcAsync(from, to, token);
 
                 // 2026-09-10: в автономном/офлайн режиме нет сервера, который отдал бы список
                 // продаж — единственная правда о продажах лежит в локальной очереди чеков
@@ -252,25 +256,95 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // режима (и они никогда оттуда не уходят — см. OfflineSaleEntry.IsAutonomous).
                 if (OfflineModeHelper.UseLocalOperations)
                 {
+                    await abcTask;
+                    // Сводка сервера прошлой загрузки к локальным данным не относится (2026-09-28:
+                    // плитки теперь берут из неё выручку).
+                    _serverSummary = null;
                     LoadLocalData(from, to, token);
                     return;
                 }
 
-                var sales = await FetchAllSalesAsync(from, to, token);
-
-                AssignFallbackReceiptNumbers(sales);
-
+                // 2026-09-28, «аналитика не похожа на веб, загрузка очень долгая»: сводка сайта,
+                // товары сайта, журнал удалений и список чеков запрашиваются одновременно; плитки
+                // показываются, как только ответила сводка (доли секунды), — не после всего списка
+                // и не после построчной загрузки каждого чека (за месяц это было ≈ 2 минуты).
+                var summaryTask = ServerSalesSummary.FetchAsync(from, to, token);
+                var productsTask = FetchServerTopItemsAsync(from, to, token);
                 // "is_refund" — несуществующее поле в реальном API (сервер никогда его не отдаёт,
                 // это всегда false), поэтому возвраты нельзя достать фильтром по списку продаж —
                 // единственный реальный след возврата оплаченной позиции в API это журнал удалений
                 // из корзины (см. FetchCartItemDeletionsAsync).
-                var refunds = await FetchCartItemDeletionsAsync(from, to, token);
+                var refundsTask = FetchCartItemDeletionsAsync(from, to, token);
+                // 2026-09-29: первые страницы списка видны сразу, не дожидаясь всего периода.
+                var listTask = FetchAllSalesAsync(from, to, token, firstRows =>
+                {
+                    if (!token.IsCancellationRequested)
+                        UpdateCollections(firstRows, new List<RefundItem>());
+                });
+
+                // Выручка, чеки, оплаты, возвраты и прибыль — цифры сайта (см. ServerSalesSummary);
+                // null — считаем сами по списку.
+                _serverSummary = await summaryTask;
+                token.ThrowIfCancellationRequested();
+                if (_serverSummary?.Revenue != null)
+                    UpdateStats(new List<SaleItem>(), new List<RefundItem>(), listLoaded: false);
+
+                // 2026-09-29, «увеличь скорость загрузки аналитики»: топ товаров — из вкладки «Товары»,
+                // от списка чеков не зависит; показываем его сразу, а не после списка (у большого
+                // магазина месяц — десятки страниц, 30–60 с).
+                var serverTop = await productsTask;
+                token.ThrowIfCancellationRequested();
+                var topFromServer = serverTop != null && _serverSummary?.GrossProfit != null;
+                if (topFromServer)
+                {
+                    TopItems.Clear();
+                    foreach (var item in serverTop)
+                        TopItems.Add(item);
+                }
+
+                var sales = await listTask;
+
+                AssignFallbackReceiptNumbers(sales);
+
+                var refunds = await refundsTask;
 
                 UpdateCollections(sales, refunds);
-                // Возвраты и прибыль — цифры сайта (см. ServerSalesSummary); null — считаем сами.
-                _serverSummary = await ServerSalesSummary.FetchAsync(from, to, token);
                 UpdateStats(sales, refunds);
-                await LoadTopItemsAsync(sales, token);
+                if (_salesListTruncated)
+                    ErrorMessage = Tr.T(
+                        "Период очень большой: в списке — последние 50 000 чеков, скидки за период не посчитаны. Выручка, чеки, оплаты, прибыль, топ и ABC — полные, с сервера.",
+                        "Мезгил өтө чоң: тизмеде — акыркы 50 000 чек, мезгилдеги арзандатуулар эсептелген жок. Түшүм, чектер, төлөмдөр, пайда, топ жана ABC — толук, серверден.",
+                        "The period is very large: the list shows the latest 50,000 receipts and the period's discounts are not calculated. Revenue, receipts, payments, profit, top and ABC are complete, from the server.",
+                        "Dönem çok büyük: listede son 50.000 fiş var, dönemin indirimleri hesaplanmadı. Ciro, fişler, ödemeler, kâr, en çok satanlar ve ABC eksiksiz, sunucudan.",
+                        "Davr juda katta: ro'yxatda — oxirgi 50 000 ta chek, davr chegirmalari hisoblanmadi. Tushum, cheklar, to'lovlar, foyda, top va ABC — to'liq, serverdan.");
+
+                if (topFromServer)
+                {
+                    // Состав чека в строке списка — в фоне, окно уже готово (см. LoadReceiptContentsAsync).
+                    _ = LoadReceiptContentsAsync(sales);
+                }
+                else if (sales.Count <= 2000)
+                {
+                    // Сервер не дал вкладку «Товары» или сводку (например, нет доступа к аналитике) —
+                    // прежний путь: строки каждого чека.
+                    await LoadTopItemsAsync(sales, token);
+                }
+                else
+                {
+                    // 2026-09-29, стресс-тест: чеков тысячи — запрос на КАЖДЫЙ чек (за год — десятки
+                    // тысяч) шёл бы часами и сам вызывал бы 429. Топ и прибыль — «—» до «Обновить»,
+                    // состав в строках — как обычно, у новых чеков (MaxReceiptContents).
+                    PosLogger.Log($"Продажи: топ и прибыль не посчитаны — сводка/товары сервера не ответили, а чеков {sales.Count}.", "WARNING");
+                    TopItems.Clear();
+                    if (_serverSummary?.GrossProfit == null)
+                    {
+                        NetProfitText.Text = "—";
+                        MarginPercentText.Text = "—";
+                    }
+                    _ = LoadReceiptContentsAsync(sales);
+                }
+
+                await abcTask;
             }
             catch (OperationCanceledException)
             {
@@ -457,40 +531,70 @@ namespace NurMarketKassa.AvaloniaHost.Views
         ///
         /// «Финансы» починили так же ещё 2026-09-21 (FinanceWindow.FetchAllSalesAsync) — этот
         /// экран тогда пропустили.</summary>
-        private async Task<List<SaleItem>> FetchAllSalesAsync(DateTime from, DateTime to, CancellationToken token)
+        /// <param name="firstBatch">2026-09-29, «увеличь скорость загрузки аналитики»: вызывается с первыми
+        /// загруженными страницами (новые чеки), если за ними есть ещё — окно показывает их, пока
+        /// догружается остальное (у большого магазина месяц — десятки страниц).</param>
+        private async Task<List<SaleItem>> FetchAllSalesAsync(DateTime from, DateTime to, CancellationToken token,
+            Action<List<SaleItem>> firstBatch = null)
         {
-            const int pageSize = 80;
-            const int maxPages = 60;
+            // 2026-09-28: страницы по 500 строк и по 3 одновременно, предел 100 страниц (50 000 чеков)
+            // вместо 60 по 80 (4 800): у магазина с сотнями чеков в день «Месяц» обрезался, и выручка
+            // была меньше, чем на сайте. Страница за последней повторяет последнюю — её строки уже видены.
+            const int pageSize = 500;
+            const int maxPages = 100;
+            const int parallelPages = 3;
             var result = new List<SaleItem>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _salesListTruncated = false;
+            lock (_canceledSaleIds)
+                _canceledSaleIds.Clear();
 
-            for (var page = 1; page <= maxPages; page++)
+            for (var firstPage = 1; firstPage <= maxPages; firstPage += parallelPages)
             {
                 token.ThrowIfCancellationRequested();
-                // RawCount — сколько строк реально пришло с сервера. Отменённые чеки отсеиваются
-                // внутри FetchSalesPageAsync, и по оставшимся «последняя страница» определялась
-                // неверно: 79 из 80 выглядело как конец списка, и всё, что старше первой страницы,
-                // не загружалось (2026-09-25: за вчера не хватало двух чеков, 89 сом).
-                var (pageItems, rawCount) = await FetchSalesPageAsync(page, pageSize, from, to, token);
-                if (rawCount == 0)
-                    break;
+                var batch = await Task.WhenAll(Enumerable
+                    .Range(firstPage, Math.Min(parallelPages, maxPages - firstPage + 1))
+                    .Select(page => FetchSalesPageAsync(page, pageSize, from, to, token)));
 
-                // Защита от сервера, который проигнорировал бы "page": без неё цикл отработал бы
-                // все 60 итераций, набив список копиями одной и той же страницы.
-                var added = 0;
-                foreach (var item in pageItems)
+                var done = false;
+                foreach (var (pageItems, rawIds) in batch)
                 {
-                    if (string.IsNullOrEmpty(item.Id) || seen.Add(item.Id))
+                    // RawIds — все строки страницы, включая отменённые (они отсеиваются внутри
+                    // FetchSalesPageAsync; 2026-09-25: без этого 79 из 80 выглядело концом списка).
+                    var fresh = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var blank = 0;
+                    foreach (var id in rawIds)
                     {
-                        result.Add(item);
-                        added++;
+                        if (string.IsNullOrEmpty(id))
+                            blank++;
+                        else if (seen.Add(id))
+                            fresh.Add(id);
+                    }
+
+                    foreach (var item in pageItems)
+                    {
+                        if (string.IsNullOrEmpty(item.Id) || fresh.Contains(item.Id))
+                            result.Add(item);
+                    }
+
+                    if (fresh.Count + blank == 0 || rawIds.Count < pageSize)
+                    {
+                        done = true;
+                        break;
                     }
                 }
 
-                var canceledOnPage = rawCount - pageItems.Count;
-                if ((added == 0 && canceledOnPage == 0) || rawCount < pageSize)
+                if (done)
                     break;
+                // Все страницы до предела полные — дальше чеки есть, но не загружены.
+                if (firstPage + parallelPages > maxPages)
+                    _salesListTruncated = true;
+                else if (firstPage == 1)
+                    firstBatch?.Invoke(result.Where(s => s.CreatedAt.Date >= from.Date && s.CreatedAt.Date <= to.Date).ToList());
             }
+
+            if (_salesListTruncated)
+                PosLogger.Log($"Продажи: список чеков {from:dd.MM.yyyy}–{to:dd.MM.yyyy} обрезан на {result.Count} строках (предел {maxPages} страниц).", "SALES");
 
             // Сервер фильтрует по дате сам, но подстраховываемся: если он проигнорировал
             // date_from/date_to, период всё равно будет соблюдён.
@@ -499,17 +603,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .ToList();
         }
 
+        /// <summary>2026-09-29, стресс-тест: список упёрся в предел страниц (50 000 чеков). Выручка, чеки,
+        /// оплаты, прибыль, топ и ABC — со сводки сервера и полные; «Скидки» считаются по списку, поэтому
+        /// при обрезанном списке вместо заниженной суммы — «—» и плашка.</summary>
+        private bool _salesListTruncated;
+
         /// <summary>Отменённые на сервере чеки последней загрузки (см. FetchSalesPageAsync).</summary>
         private readonly HashSet<string> _canceledSaleIds = new(StringComparer.OrdinalIgnoreCase);
 
-        private async Task<(List<SaleItem> Items, int RawCount)> FetchSalesPageAsync(
+        private async Task<(List<SaleItem> Items, List<string> RawIds)> FetchSalesPageAsync(
             int page, int pageSize, DateTime from, DateTime to, CancellationToken token)
         {
-            if (page == 1)
-            {
-                lock (_canceledSaleIds)
-                    _canceledSaleIds.Clear();
-            }
+            // 2026-09-28: список отменённых очищает FetchAllSalesAsync — страницы теперь идут
+            // одновременно, и очистка на первой из них стёрла бы найденное соседними.
 
             // date_to на сервере НЕ включает свой день, поэтому передаём следующий.
             var raw = await App.SalesApi.PosSalesListAsync(
@@ -518,10 +624,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 dateToExclusive: to.Date.AddDays(1));
             token.ThrowIfCancellationRequested();
             var result = new List<SaleItem>(raw.Count);
+            var rawIds = new List<string>(raw.Count);
             foreach (JsonElement el in raw)
             {
                 var item = new SaleItem();
                 if (el.TryGetProperty("id", out var idProp)) item.Id = idProp.ToString() ?? "";
+                rawIds.Add(item.Id);
                 // 2026-09-25: полностью возвращённый чек сервер помечает «canceled», но оставляет в
                 // списке с прежней суммой. В выручку, наличные и число чеков он не входит.
                 if (el.TryGetProperty("status", out var statusProp)
@@ -533,7 +641,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
                 if (el.TryGetProperty("status", out var saleStatus) && saleStatus.ValueKind == JsonValueKind.String)
                     item.Status = saleStatus.GetString() ?? "";
-                if (el.TryGetProperty("created_at", out var dateProp) && DateTime.TryParse(dateProp.GetString(), out var dt)) item.CreatedAt = dt;
+                // 2026-09-28: время — по часам сервера, как у сайта (см. FinanceWindow.TryServerTime).
+                if (el.TryGetProperty("created_at", out var dateProp) && FinanceWindow.TryServerTime(dateProp.GetString(), out var dt)) item.CreatedAt = dt;
+                // 2026-09-28: первый товар чека есть прямо в списке — видно сразу; полный состав
+                // подгружается в фоне (LoadReceiptContentsAsync).
+                if (el.TryGetProperty("first_item_name", out var firstItem) && firstItem.ValueKind == JsonValueKind.String)
+                    item.ItemsSummary = firstItem.GetString() ?? "";
                 item.ReceiptNumber = TryReceiptNumber(el) ?? "";
                 if (el.TryGetProperty("total", out var totalProp)) item.TotalAmount = ParseDecimal(totalProp);
                 if (el.TryGetProperty("discount_total", out var discProp)) item.DiscountTotal = ParseDecimal(discProp);
@@ -544,7 +657,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // AssignFallbackReceiptNumbers подставит читаемый порядковый номер вместо «сырого» GUID.
                 result.Add(item);
             }
-            return (result, raw.Count);
+            return (result, rawIds);
         }
 
         /// <summary>
@@ -619,12 +732,118 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             _loadCts?.Cancel();
             _loadCts = null;
+            _contentsCts?.Cancel();
+            _contentsCts = null;
+        }
+
+        /// <summary>2026-09-28: топ-10 товаров периода — вкладка «Товары» сайта одним запросом
+        /// (выручка строк после скидки, как на сайте). null — сервер её не дал.</summary>
+        private static async Task<List<TopItem>> FetchServerTopItemsAsync(DateTime from, DateTime to, CancellationToken token)
+        {
+            try
+            {
+                var figures = await AnalyticsReportData.ServerFigures.FetchAsync(App.SalesApi, from, to, full: false, token)
+                    .ConfigureAwait(true);
+                return figures?.Products
+                    .GroupBy(p => p.Name)
+                    .Select(g => new TopItem
+                    {
+                        ProductName = g.Key,
+                        Revenue = (decimal)g.Sum(p => p.Revenue),
+                        Quantity = (int)Math.Round(g.Sum(p => p.Quantity), MidpointRounding.AwayFromZero),
+                    })
+                    .OrderByDescending(t => t.Revenue)
+                    .Take(10)
+                    .ToList();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Товары периода с сервера не получены: {ex.Message}", "WARNING");
+                return null;
+            }
+        }
+
+        private CancellationTokenSource _contentsCts;
+
+        /// <summary>Не больше стольких чеков (самых новых) получают полный состав в строке списка.
+        /// 2026-09-29, стресс-тест: было 500 — 500 запросов на каждое переключение периода; на живом
+        /// сервере это за ~40 с упиралось в «слишком частые запросы» (429), и отказы получали уже
+        /// запросы самих отчётов. 100 новых чеков — это первые экраны списка; у остальных — первый
+        /// товар из списка продаж, как и раньше.</summary>
+        private const int MaxReceiptContents = 100;
+
+        /// <summary>Состав чека в строке списка (2026-09-26, «не показывает чеки внутри») — в фоне
+        /// (2026-09-28). Цифры окна от него больше не зависят: раньше плитки прибыли и топ ждали, пока
+        /// скачается КАЖДЫЙ чек периода. Полный состав — у 500 самых новых чеков (запрос на чек,
+        /// с общим ограничением частоты); у остальных — первый товар из списка продаж.</summary>
+        private async Task LoadReceiptContentsAsync(List<SaleItem> sales)
+        {
+            _contentsCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _contentsCts = cts;
+            var token = cts.Token;
+            try
+            {
+                await Task.WhenAll(sales
+                    .Where(s => !string.IsNullOrEmpty(s.Id))
+                    .OrderByDescending(s => s.CreatedAt)
+                    .Take(MaxReceiptContents)
+                    .Select(async sale =>
+                    {
+                        try
+                        {
+                            var json = await SaleDetailCache.GetAsync(sale.Id, token).ConfigureAwait(false);
+                            var summary = new List<string>();
+                            if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var line in items.EnumerateArray())
+                                {
+                                    string name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
+                                    decimal qty = line.TryGetProperty("quantity", out var q) ? ParseDecimal(q) : 0;
+                                    summary.Add(qty == 1m ? name : $"{name} ×{qty.ToString("0.###", CultureInfo.InvariantCulture)}");
+                                }
+                            }
+
+                            if (summary.Count > 0 && !token.IsCancellationRequested)
+                            {
+                                var text = string.Join(", ", summary);
+                                Dispatcher.UIThread.Post(() => sale.ItemsSummary = text);
+                            }
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                        }
+                        catch (ApiException ex) when (ex.StatusCode == 429)
+                        {
+                            // 2026-09-29: сервер просит паузу — остальные составы не запрашиваем (это
+                            // украшение списка), чтобы не отбирать лимит у отчётов и у кассы.
+                            PosLogger.Log($"Состав чеков в «Продажах» остановлен: сервер ответил 429 ({sale.Id}).", "WARNING");
+                            cts.Cancel();
+                        }
+                        catch (Exception ex)
+                        {
+                            PosLogger.Log($"Sales receipt contents skipped ({sale.Id}): {SaleDetailCache.Describe(ex)}", "WARNING");
+                        }
+                    })).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         private void UpdateCollections(List<SaleItem> sales, List<RefundItem> refunds)
         {
-            _sales.Clear();
-            foreach (var s in sales) _sales.Add(s);
+            // 2026-09-29, стресс-тест: одной перерисовкой таблицы, а не на каждую строку (O(N²),
+            // см. ListCollectionView.DeferRefresh и FinanceWindow.UpdateCollections).
+            using (SalesView.DeferRefresh())
+            {
+                _sales.Clear();
+                foreach (var s in sales) _sales.Add(s);
+            }
             _refunds.Clear();
             foreach (var r in refunds) _refunds.Add(r);
         }
@@ -757,7 +976,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Сводка периода с сервера (возвраты, прибыль — как на сайте); null — нет связи.</summary>
         private ServerSalesSummary? _serverSummary;
 
-        private void UpdateStats(List<SaleItem> allSales, List<RefundItem> refunds)
+        /// <param name="listLoaded">false — список чеков ещё грузится, показаны только цифры сводки
+        /// сайта (2026-09-28); скидки, которые считаются по списку, пока «…».</param>
+        private void UpdateStats(List<SaleItem> allSales, List<RefundItem> refunds, bool listLoaded = true)
         {
             // 2026-09-25, сверка с сайтом: выручка — только оплаченные чеки (см. SaleItem.CountsAsRevenue).
             var sales = allSales.Where(s => s.CountsAsRevenue).ToList();
@@ -799,6 +1020,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             decimal mixedSales = sales.Where(s => FinanceWindow.IsMixedPayment(s.PaymentMethod)).Sum(s => s.TotalAmount);
             decimal nonCash = totalSales - cashSales - debtSales - mixedSales;
             int totalCount = sales.Count;
+            // 2026-09-28: есть сводка сайта — выручка, чеки и оплаты ровно её (см. FinanceWindow.UpdateStats).
+            if (_serverSummary is { Revenue: { } serverRevenue } summary)
+            {
+                totalSales = serverRevenue;
+                totalCount = summary.Transactions ?? totalCount;
+                (cashSales, mixedSales, debtSales, nonCash) = summary.Split();
+            }
             // Выручка — как у сайта: сумма входящих в выручку чеков без вычета частичных возвратов
             // (сайт берёт частично возвращённый чек полной суммой, сверено 2026-09-25 за день,
             // неделю и месяц). Полностью возвращённые чеки сервер отменяет — их здесь нет.
@@ -827,7 +1055,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // показывала 0,00, когда скидка была на строку.
                 var serverDiscounts = sales.Sum(s => s.DiscountTotal);
                 var discounts = Math.Max(0d, (double)serverDiscounts - adjustments.PointsRedeemed);
-                DiscountsText.Text = $"{discounts:N2} {Som}";
+                DiscountsText.Text = !listLoaded ? "…" : _salesListTruncated ? "—" : $"{discounts:N2} {Som}";
                 PointsRedeemedText.Text = $"{adjustments.PointsRedeemed:N2} {Som}";
             }
             catch (Exception ex)
@@ -843,6 +1071,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // реальных продаж). Пока построчные данные не загрузились — плейсхолдер загрузки.
             NetProfitText.Text = totalSales > 0 ? "…" : "—";
             MarginPercentText.Text = totalSales > 0 ? "…" : "—";
+            // 2026-09-28: прибыль и маржа сайта известны сразу — не ждём построчной загрузки чеков.
+            if (_serverSummary is { GrossProfit: { } serverProfit, MarginPercent: { } serverMargin })
+            {
+                NetProfitText.Text = $"{serverProfit:N2} {Som}";
+                MarginPercentText.Text = $"{serverMargin:F1}%";
+            }
         }
 
         /// <summary>2026-09-17: раньше здесь были ДВЕ проблемы разом:

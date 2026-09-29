@@ -13,7 +13,9 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// «Настройки весов TM-30F»: строительные блоки карточек (как в ShtrikhScaleSettingsWindow),
 /// сверка примера штрих-кода с кассой, запись IP в настройки нужной марки и открытие окна
 /// настроек по марке.</summary>
-internal static class ScaleUi
+// 2026-09-28: partial — проверка адреса и связи по марке вынесена в ScaleUi.Connection.cs
+// (редизайн Настройки → Весы и окна «Весы»: одна проверка на оба места).
+internal static partial class ScaleUi
 {
     public const string BrandShtrikh = "shtrikh";
     public const string BrandRongta = "rongta";

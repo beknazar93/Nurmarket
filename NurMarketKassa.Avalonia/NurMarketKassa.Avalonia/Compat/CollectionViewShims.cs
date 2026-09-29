@@ -93,6 +93,9 @@ internal sealed class ListCollectionView : ICollectionView, INotifyCollectionCha
 {
     private IEnumerable _source;
     private int _index = -1;
+    // 2026-09-29, стресс-тест аналитики: пока открыт DeferRefresh, изменения источника не
+    // пересылаются — одна перерисовка в конце вместо Reset на каждую строку (см. DeferRefresh).
+    private int _deferDepth;
 
     public ListCollectionView(IEnumerable source)
     {
@@ -165,7 +168,12 @@ internal sealed class ListCollectionView : ICollectionView, INotifyCollectionCha
 
     public IDisposable DeferRefresh() => new DeferRefreshScope(this);
 
-    private void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RaiseReset();
+    private void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_deferDepth > 0)
+            return;
+        RaiseReset();
+    }
 
     private void RaiseReset()
     {
@@ -173,11 +181,30 @@ internal sealed class ListCollectionView : ICollectionView, INotifyCollectionCha
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentItem)));
     }
 
+    /// <summary>2026-09-29, стресс-тест аналитики: каждое изменение источника шло сюда как Reset, а
+    /// Reset заставляет таблицу перечитать ВЕСЬ список. Окна заполняют список по одной строке
+    /// (Clear + Add), поэтому загрузка N чеков стоила N полных перечитываний — O(N²): 20 000 чеков
+    /// «Финансов» подвешивали окно на 90 с, месяц большого магазина (12 000 чеков) — на 34 с.
+    /// Теперь внутри DeferRefresh изменения копятся, а при выходе — один Reset.</summary>
     private sealed class DeferRefreshScope : IDisposable
     {
         private readonly ListCollectionView _view;
-        public DeferRefreshScope(ListCollectionView view) => _view = view;
-        public void Dispose() => _view.Refresh();
+        private bool _disposed;
+
+        public DeferRefreshScope(ListCollectionView view)
+        {
+            _view = view;
+            _view._deferDepth++;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            if (--_view._deferDepth == 0)
+                _view.Refresh();
+        }
     }
 }
 

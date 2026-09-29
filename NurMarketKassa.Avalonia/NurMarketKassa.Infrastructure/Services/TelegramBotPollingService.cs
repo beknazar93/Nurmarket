@@ -26,6 +26,9 @@ public sealed partial class TelegramBotPollingService
     /// реже дёргаем сеть, но заметно меньше 60-секундного таймаута HTTP-клиента.</summary>
     private const int LongPollSeconds = 25;
 
+    /// <summary>2026-09-29: пауза между напоминаниями при рассылке (~25 в секунду).</summary>
+    private const int ReminderPauseMs = 40;
+
     private readonly ISalesApiService _sales;
     private readonly IClientsApiService? _clients;
     /// <summary>2026-09-28: новые адреса NurCRM (должники, chat_id клиента, малый остаток) — см.
@@ -93,8 +96,11 @@ public sealed partial class TelegramBotPollingService
         {
             try
             {
+                // 2026-09-29 (стресс-тест бота): первый круг — без ожидания (timeout 0). С длинным
+                // опросом первая же команда, пришедшая в течение 25 с после включения кассы или
+                // сохранения настроек бота, считалась «старой» и молча пропускалась.
                 var (updates, error) = await TelegramBotService
-                    .GetUpdatesAsync(first ? -1 : _offset, LongPollSeconds, ct)
+                    .GetUpdatesAsync(first ? -1 : _offset, first ? 0 : LongPollSeconds, ct)
                     .ConfigureAwait(false);
 
                 if (error != null)
@@ -159,6 +165,14 @@ public sealed partial class TelegramBotPollingService
             : chatIdElement.GetString();
         if (string.IsNullOrWhiteSpace(chatId))
             return;
+
+        // 2026-09-29: группу владельца превратили в супергруппу — Telegram присылает служебное
+        // сообщение с новым chat_id. Без этого команды из новой группы бот не считал владельцем.
+        if (message.TryGetProperty("migrate_to_chat_id", out var migrateTo))
+        {
+            TelegramBotService.RememberMigratedChat(chatId!, migrateTo.ToString());
+            return;
+        }
 
         var text = message.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
         if (string.IsNullOrWhiteSpace(text))
@@ -245,10 +259,13 @@ public sealed partial class TelegramBotPollingService
             ? first.GetString()
             : null;
 
+        // 2026-09-29: повторное «Старт» по той же ссылке — связка уже есть, сервер не трогаем.
+        var alreadyBound = string.Equals(TelegramSubscriberStore.GetClientId(chatId), clientId.Trim(), StringComparison.OrdinalIgnoreCase);
         TelegramSubscriberStore.Subscribe(chatId, clientId.Trim(), name);
         PosLogger.Log($"Телеграм-бот: подписан клиент {clientId}.", "TELEGRAM");
         // 2026-09-28: и в карточку клиента на сервере — раньше связка жила только в этой кассе.
-        PushSubscriberToServer(chatId, clientId.Trim());
+        if (!alreadyBound)
+            PushSubscriberToServer(chatId, clientId.Trim());
 
         return "Готово! Теперь напоминания о задолженности и об акциях будут приходить сюда.\n"
              + "Команда /dolg покажет ваш текущий долг.";
@@ -340,7 +357,8 @@ public sealed partial class TelegramBotPollingService
     private async Task<string> BuildClientDebtAsync(string clientId, CancellationToken ct)
     {
         // 2026-09-28: долг клиента — из сводки должников сервера (BE-03); нет в сводке — долга нет.
-        if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
+        // 2026-09-29: сводка не старше минуты — см. TryLoadServerDebtorsAsync.
+        if (await TryLoadServerDebtorsAsync(ct, DebtorsCacheForClients).ConfigureAwait(false) is { } serverDebtors)
         {
             var owed = serverDebtors
                 .Where(d => string.Equals(d.ClientId, clientId, StringComparison.OrdinalIgnoreCase))
@@ -387,6 +405,9 @@ public sealed partial class TelegramBotPollingService
                 var reminder = $"Напоминаем о задолженности: <b>{debtor.DebtTotal.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
                 if (await TelegramBotService.SendToAsync(debtorChat!, reminder, ct).ConfigureAwait(false) == null)
                     sentFromServer++;
+                // 2026-09-29: не больше ~25 сообщений в секунду — предел Telegram около 30; без паузы
+                // на сотнях подписчиков шли отказы 429.
+                await Task.Delay(ReminderPauseMs, ct).ConfigureAwait(false);
             }
 
             PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sentFromServer} (сводка сервера).", "TELEGRAM");
@@ -426,6 +447,7 @@ public sealed partial class TelegramBotPollingService
             var text = $"Напоминаем о задолженности: <b>{amount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"))} сом</b>.";
             if (await TelegramBotService.SendToAsync(chatId!, text, ct).ConfigureAwait(false) == null)
                 sent++;
+            await Task.Delay(ReminderPauseMs, ct).ConfigureAwait(false);
         }
 
         PosLogger.Log($"Телеграм-бот: напоминаний о долге отправлено {sent}.", "TELEGRAM");

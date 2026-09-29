@@ -178,6 +178,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // Клавиши кассира в программе владельца не нужны: там нет ни чека, ни каталога.
             NavKeys.IsVisible = !NurMarketKassa.Services.AppMode.IsOwner;
             NavigateTo(0);
+            // 2026-09-29, владелец: «настройки таб меню сделай» — вкладки сверху; ряд пересчитывается
+            // при смене ширины окна (масштаб, 800×600, раздел владельца) и языка (подписи другой длины).
+            NavBar.SizeChanged += (_, e) =>
+            {
+                if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5)
+                    Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+            };
+            Tr.LanguageChanged += OnNavLanguageChanged;
+            Closed += (_, _) => Tr.LanguageChanged -= OnNavLanguageChanged;
 
             FullscreenHelper.Apply(this);
 
@@ -287,6 +296,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _scaleView.Scale3Label.Text = Tr.T("Весы 3", "Тараза 3", "Scale 3", "Tartı 3", "Tarozi 3");
             FillExtraScale(Scale2ComCombo, _scaleView.Scale2EnabledCheck, _scaleView.Scale2BaudBox, prefs.Scale2Enabled, prefs.Scale2ComPort, prefs.Scale2BaudRate);
             FillExtraScale(Scale3ComCombo, _scaleView.Scale3EnabledCheck, _scaleView.Scale3BaudBox, prefs.Scale3Enabled, prefs.Scale3ComPort, prefs.Scale3BaudRate);
+            // 2026-09-29, владелец: блок «Дополнительные весы» убран из настроек — виден, только
+            // если доп. весы уже включены (чтобы у такого магазина осталась возможность их выключить).
+            _scaleView.ExtraScalesCard.IsVisible = prefs.Scale2Enabled || prefs.Scale3Enabled;
 
             // Полный список подключения (спулер здесь не участвует, но WinUSB/LPT/COM/raw-USB —
             // да), а не только COM-порты: у пользователя дисплей цены оказался USB-устройством,
@@ -425,6 +437,39 @@ namespace NurMarketKassa.AvaloniaHost.Views
         }
 
         private void SidebarClose_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+        private void OnNavLanguageChanged() => Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+
+        /// <summary>2026-09-29, владелец: «настройки таб меню сделай». Сколько вкладок в ряд —
+        /// по самой широкой подписи (на кыргызском «Ыңгайлаштыруу», на узбекском «Yangilanishlar»
+        /// заметно длиннее русских): все помещаются — один ряд на всю ширину, как вкладки «Весов»;
+        /// нет — несколько рядов поровну (10 вкладок → 5 + 5, а не 7 + 3), подпись не обрезается
+        /// и не рвётся посередине слова. Скрытые вкладки («Клавиши» у владельца) не считаются.</summary>
+        private void UpdateNavColumns()
+        {
+            var visible = _navButtons.Where(b => b.IsVisible).ToList();
+            double available = NavTabsGrid.Bounds.Width;
+            if (visible.Count == 0 || available <= 0)
+                return;
+
+            double widest = 0;
+            foreach (var button in visible)
+            {
+                button.Measure(Size.Infinity);
+                widest = Math.Max(widest, button.DesiredSize.Width);
+            }
+
+            // Запас на полужирную подпись выбранной вкладки — она чуть шире обычной.
+            widest += 4;
+            int maxColumns = Math.Clamp((int)(available / widest), 1, visible.Count);
+            int rows = (visible.Count + maxColumns - 1) / maxColumns;
+            int columns = (visible.Count + rows - 1) / rows;
+            if (NavTabsGrid.Columns != columns || NavTabsGrid.Rows != rows)
+            {
+                NavTabsGrid.Columns = columns;
+                NavTabsGrid.Rows = rows;
+            }
+        }
 
         /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): «Закрыть» внизу
         /// списка вкладок закрывала бы раздел — переход в другой раздел и так делается меню слева.</summary>

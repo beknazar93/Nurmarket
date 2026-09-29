@@ -1,0 +1,305 @@
+<!-- 2026-09-28, редизайн по просьбе владельца («сделай нормальными настройки отправки на весы»).
+     Весы с печатью этикеток: марка — крупными плитками, под ней ТОЛЬКО поля выбранной марки
+     (у каждой марки свой адрес в настройках, ничего не смешивается), проверка адреса, кнопки и
+     последняя проверка связи. Одна и та же панель стоит в Настройки → Весы и в окне, которое
+     открывает «Изменить…» в окне «Весы» (IsDialogMode — без кнопки «Отправить товары»). -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.LabelScaleSetupPanel"
+             x:CompileBindings="False"
+             Loaded="Panel_Loaded">
+
+    <UserControl.Styles>
+        <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+
+        <!-- Плитка марки весов -->
+        <Style Selector="RadioButton.BrandTile">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="tile" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
+                            CornerRadius="10" Padding="12,10" MinHeight="64">
+                        <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.BrandTile:pointerover /template/ Border#tile">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="RadioButton.BrandTile:checked /template/ Border#tile">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="RadioButton.BrandTile TextBlock.tileCheck">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="RadioButton.BrandTile:checked TextBlock.tileCheck">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="Border.tileBadge">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="20"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.tileBadgeText">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.tileTitle">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.tileSub">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.tileCheck">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+
+        <!-- Выбор способа отправки — «таблетки» -->
+        <Style Selector="RadioButton.RoutePill">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Margin" Value="0,0,8,6"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="pill" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
+                            CornerRadius="8" Padding="14,8" MinHeight="38">
+                        <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.RoutePill:pointerover /template/ Border#pill">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <Style Selector="RadioButton.RoutePill:checked /template/ Border#pill">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="RadioButton.RoutePill:checked">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- Кнопки: главная (акцент) и обычная (контур) -->
+        <Style Selector="Button.ScalePrimary">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.ScaleSecondary">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Border.NoteBlock">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="10">
+
+        <!-- 1. Марка весов -->
+        <Border Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{DynamicResource scaleSetup.label.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock Text="{DynamicResource scaleSetup.label.desc}" Classes="SettingsCardBody"/>
+
+                <UniformGrid Columns="2" Margin="0,4,-8,-8">
+                    <RadioButton x:Name="BrandShtrikhTile" Classes="BrandTile" GroupName="LabelScaleBrand" Click="BrandTile_Click">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="tileBadge"><TextBlock Classes="tileBadgeText" Text="Ш"/></Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Classes="tileTitle" Text="{DynamicResource scaleSetup.brand.shtrikh}"/>
+                                <TextBlock Classes="tileSub" Text="{DynamicResource scaleSetup.brand.shtrikh.sub}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="tileCheck" Text="✓"/>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="BrandRongtaTile" Classes="BrandTile" GroupName="LabelScaleBrand" Click="BrandTile_Click">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="tileBadge"><TextBlock Classes="tileBadgeText" Text="R"/></Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Classes="tileTitle" Text="Rongta"/>
+                                <TextBlock Classes="tileSub" Text="{DynamicResource scaleSetup.brand.rongta.sub}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="tileCheck" Text="✓"/>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="BrandTmTile" Classes="BrandTile" GroupName="LabelScaleBrand" Click="BrandTile_Click">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="tileBadge"><TextBlock Classes="tileBadgeText" Text="TM"/></Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Classes="tileTitle" Text="TM-30F (Dahua)"/>
+                                <TextBlock Classes="tileSub" Text="{DynamicResource scaleSetup.brand.tm.sub}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="tileCheck" Text="✓"/>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="BrandAiTile" Classes="BrandTile" GroupName="LabelScaleBrand" Click="BrandTile_Click">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="tileBadge"><TextBlock Classes="tileBadgeText" Text="AI"/></Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Classes="tileTitle" Text="{DynamicResource loc.settings.scale.aiScales}"/>
+                                <TextBlock Classes="tileSub" Text="{DynamicResource scaleSetup.brand.ai.sub}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="tileCheck" Text="✓"/>
+                        </Grid>
+                    </RadioButton>
+                </UniformGrid>
+            </StackPanel>
+        </Border>
+
+        <!-- 2. Подключение выбранной марки -->
+        <Border Classes="SettingsCard" Padding="14">
+            <StackPanel Spacing="12">
+                <TextBlock x:Name="ConnectionTitle" Classes="SettingsCardTitle" FontSize="14"/>
+
+                <!-- Штрих-ПРИНТ: адрес, порт UDP, пароль, способ отправки -->
+                <StackPanel x:Name="ShtrikhFields" Spacing="10">
+                    <Grid ColumnDefinitions="*,12,100,12,100">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.ip}" Classes="FieldLabel"/>
+                            <TextBox x:Name="ShtrikhIpBox" Classes="ModernTextBox" Height="36" Watermark="192.168.0.50"
+                                     TextChanged="IpBox_TextChanged" LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.port}" Classes="FieldLabel"/>
+                            <TextBox x:Name="ShtrikhPortBox" Classes="ModernTextBox" Height="36" Watermark="1111"
+                                     LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="{DynamicResource account.passwordLabel}" Classes="FieldLabel"/>
+                            <TextBox x:Name="ShtrikhPasswordBox" Classes="ModernTextBox" Height="36" MaxLength="4" Watermark="0030"
+                                     LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{DynamicResource loc.settings.lanScale.passwordHint}" Classes="SettingsCardBody" FontSize="11"/>
+
+                    <TextBlock Text="{DynamicResource scaleSetup.route.label}" Classes="FieldLabel" Margin="0,4,0,0"/>
+                    <WrapPanel>
+                        <RadioButton x:Name="ShtrikhRouteServer" Classes="RoutePill" GroupName="ShtrikhRoute"
+                                     Content="{DynamicResource scaleSetup.route.server}" Click="Route_Click"/>
+                        <RadioButton x:Name="ShtrikhRouteDirect" Classes="RoutePill" GroupName="ShtrikhRoute"
+                                     Content="{DynamicResource scaleSetup.route.direct}" Click="Route_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="ShtrikhRouteHint" Classes="SettingsCardBody"/>
+                </StackPanel>
+
+                <!-- Rongta: адрес и порт для проверки, способ загрузки -->
+                <StackPanel x:Name="RongtaFields" Spacing="10">
+                    <Grid ColumnDefinitions="*,12,100">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.ip}" Classes="FieldLabel"/>
+                            <TextBox x:Name="RongtaIpBox" Classes="ModernTextBox" Height="36" Watermark="192.168.1.87"
+                                     TextChanged="IpBox_TextChanged" LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.port}" Classes="FieldLabel"/>
+                            <TextBox x:Name="RongtaPortBox" Classes="ModernTextBox" Height="36" Watermark="5001"
+                                     LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{DynamicResource scaleSetup.rongta.hint}" Classes="SettingsCardBody" FontSize="11"/>
+
+                    <TextBlock Text="{DynamicResource scaleSetup.route.label}" Classes="FieldLabel" Margin="0,4,0,0"/>
+                    <WrapPanel>
+                        <RadioButton x:Name="RongtaRouteSite" Classes="RoutePill" GroupName="RongtaRoute"
+                                     Content="{DynamicResource scaleSetup.rongta.routeSite}" Click="Route_Click"/>
+                        <RadioButton x:Name="RongtaRouteServer" Classes="RoutePill" GroupName="RongtaRoute"
+                                     Content="{DynamicResource scaleSetup.rongta.routeServer}" Click="Route_Click"/>
+                    </WrapPanel>
+                    <StackPanel x:Name="RongtaServerPortRow" Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="{DynamicResource scaleSetup.rongta.serverPort}" Classes="FieldLabel" VerticalAlignment="Center" Margin="0"/>
+                        <TextBox x:Name="RongtaServerPortBox" Classes="ModernTextBox" Height="36" Width="100" Watermark="5001"
+                                 LostFocus="Field_LostFocus"/>
+                    </StackPanel>
+                    <TextBlock x:Name="RongtaRouteHint" Classes="SettingsCardBody"/>
+                </StackPanel>
+
+                <!-- TM-30F (Dahua): адрес и TCP-порт -->
+                <StackPanel x:Name="TmFields" Spacing="10">
+                    <Grid ColumnDefinitions="*,12,100">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.ip}" Classes="FieldLabel"/>
+                            <TextBox x:Name="TmIpBox" Classes="ModernTextBox" Height="36" Watermark="192.168.0.150"
+                                     TextChanged="IpBox_TextChanged" LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{DynamicResource loc.settings.lanScale.port}" Classes="FieldLabel"/>
+                            <TextBox x:Name="TmPortBox" Classes="ModernTextBox" Height="36" Watermark="4001"
+                                     LostFocus="Field_LostFocus"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{DynamicResource scaleSetup.tm.hint}" Classes="SettingsCardBody" FontSize="11"/>
+                </StackPanel>
+
+                <!-- AI весы: только пояснение -->
+                <StackPanel x:Name="AiFields" Spacing="10">
+                    <TextBlock Text="{DynamicResource scaleSetup.ai.hint}" Classes="SettingsCardBody"/>
+                </StackPanel>
+
+                <!-- Подсказка к адресу: опечатка, чужая сеть и т. п. -->
+                <Border x:Name="IpHintBorder" Classes="NoteBlock" IsVisible="False">
+                    <TextBlock x:Name="IpHintText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                </Border>
+
+                <WrapPanel x:Name="ButtonsRow" Margin="0,2,-8,-8">
+                    <Button x:Name="CheckButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.check}" Click="Check_Click"/>
+                    <Button x:Name="FindButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.find}" Click="Find_Click"/>
+                    <Button x:Name="DeviceSettingsButton" Classes="ScaleSecondary" Content="{DynamicResource scaleSetup.btn.settings}" Click="DeviceSettings_Click"/>
+                    <Button x:Name="SendButton" Classes="ScalePrimary" Content="{DynamicResource scaleSetup.btn.send}" Click="Send_Click"/>
+                </WrapPanel>
+
+                <!-- Состояние связи: последняя проверка -->
+                <Border x:Name="StatusBorder" Classes="NoteBlock"
+                        Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}">
+                    <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
+                </Border>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

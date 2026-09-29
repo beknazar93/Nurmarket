@@ -10,6 +10,9 @@ using Avalonia;
 using Avalonia.Platform.Storage;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Controls.Primitives;
+using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Hardware;
 
@@ -39,12 +42,21 @@ public partial class ScalesPluWindow : Window
     /// шлёт PLU напрямую (DahuaTmScaleService, TCP 4001), а файл для их программы — запасной путь.</summary>
     private const string BrandTm = "tm";
 
+    /// <summary>2026-09-28 (редизайн): марка весов из настроек. Раньше её выбирали радиокнопками и
+    /// здесь, и в Настройки → Весы — теперь только там (или «Изменить…» в шапке этого окна).</summary>
+    private string _brand = BrandShtrikh;
+
     /// <summary>Весы, для которых касса только готовит файл (AI). TM-30F с 28.09 (вечер) — нет:
     /// у них прямая отправка.</summary>
-    private bool IsFileBrand => BrandAiRadio.IsChecked == true;
+    private bool IsFileBrand => _brand == BrandAi;
 
     /// <summary>2026-09-28: выбрана марка TM-30F (Dahua).</summary>
-    private bool IsTm => BrandTmRadio.IsChecked == true;
+    private bool IsTm => _brand == BrandTm;
+
+    private bool IsRongta => _brand == BrandRongta;
+
+    /// <summary>Штрих-ПРИНТ отправляется напрямую по сети (а не через сервер NurCRM).</summary>
+    private static bool ShtrikhDirect => UserPreferences.Instance.ShtrikhDirectLan;
 
     /// <summary>Идёт отправка на TM-30F — кнопка отправки в это время «Остановить».</summary>
     private CancellationTokenSource? _tmCts;
@@ -63,109 +75,173 @@ public partial class ScalesPluWindow : Window
 
     private void Window_Loaded(object? sender, RoutedEventArgs e)
     {
-        var brand = UserPreferences.Instance.ScaleBrand;
-        BrandRongtaRadio.IsChecked = brand == BrandRongta;
-        BrandAiRadio.IsChecked = brand == BrandAi;
-        BrandTmRadio.IsChecked = brand == BrandTm;
-        BrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
-
-        var source = UserPreferences.Instance.RongtaDataSource;
-        RongtaSourceServerRadio.IsChecked = source == RongtaSourceServer;
-        RongtaSourceSiteRadio.IsChecked = source != RongtaSourceServer;
-        RongtaPortBox.Text = UserPreferences.Instance.RongtaServerPort.ToString(CultureInfo.InvariantCulture);
-
-        // Сами адрес/порт/пароль читает и пишет окно настроек подключения
-        // (ScaleConnectionDialog) — здесь остаётся только галочка.
-        DirectLanCheck.IsChecked = UserPreferences.Instance.ShtrikhDirectLan;
+        // 2026-09-28: окно 1180×720 не должно вылезать за экран 1024×768.
+        this.FitToScreen();
 
         _sendButtonDefaultText = SendButton.Content;
         SearchBox.Watermark = Tr.T("Поиск: название, PLU или код", "Издөө: аталышы, PLU же код",
             "Search: name, PLU or code", "Ara: ad, PLU veya kod", "Qidirish: nomi, PLU yoki kod");
 
+        _brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
+        FillProfileCombo();
         ApplyBrandVisibility();
-        ApplyRongtaSourceVisibility();
-        ApplyDirectLanVisibility();
         LoadRows();
+        ApplyResponsiveLayout();
     }
 
     /// <summary>2026-09-28: марку могли поменять окна настроек весов («Загрузка товаров» →
-    /// «Открыть окно «Весы»») — перечитываем её из настроек.</summary>
+    /// «Открыть окно «Весы»», «Изменить…») — перечитываем её из настроек.</summary>
     public void ReloadBrandFromPreferences()
     {
-        var brand = UserPreferences.Instance.ScaleBrand;
-        BrandRongtaRadio.IsChecked = brand == BrandRongta;
-        BrandAiRadio.IsChecked = brand == BrandAi;
-        BrandTmRadio.IsChecked = brand == BrandTm;
-        BrandShtrikhRadio.IsChecked = brand != BrandRongta && brand != BrandAi && brand != BrandTm;
+        _brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
+        FillProfileCombo();
         ApplyBrandVisibility();
     }
 
-    private string SelectedBrand =>
-        BrandRongtaRadio.IsChecked == true ? BrandRongta
-        : BrandAiRadio.IsChecked == true ? BrandAi
-        : BrandTmRadio.IsChecked == true ? BrandTm
-        : BrandShtrikh;
-
-    /// <summary>2026-09-28: «Поиск весов в сети» — просьба владельца узнать IP подключённых весов.</summary>
-    private async void ScanNetwork_Click(object? sender, RoutedEventArgs e) =>
-        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenScanAsync(this, SelectedBrand).ConfigureAwait(true);
-
-    /// <summary>2026-09-28: окно настроек весов выбранной марки (Штрих-М — прежнее окно
-    /// Штрих-ПРИНТ, Rongta и TM-30F — новые).</summary>
-    private async void BrandSettings_Click(object? sender, RoutedEventArgs e)
+    /// <summary>2026-09-28 (просьба владельца: квадратные экраны 1024×1024, 800×600): на узком окне
+    /// прячем второстепенные колонки (единица, категория), на низком — длинную подсказку марки и
+    /// пример штрих-кода, чтобы таблице оставалось место и кнопки не уезжали за край.</summary>
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
-        await NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.OpenBrandSettingsAsync(this, SelectedBrand).ConfigureAwait(true);
+        base.OnSizeChanged(e);
+        ApplyResponsiveLayout();
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        if (ProductsGrid is null)
+            return;
+        var width = Bounds.Width > 0 ? Bounds.Width : Width;
+        var height = Bounds.Height > 0 ? Bounds.Height : Height;
+        foreach (var column in ProductsGrid.Columns)
+        {
+            if (Equals(column.Tag, "Unit"))
+                column.IsVisible = width >= 1060;
+            else if (Equals(column.Tag, "Category"))
+                column.IsVisible = width >= 900;
+        }
+        SubtitleText.IsVisible = height >= 700;
+        BarcodeExampleText.MaxLines = height >= 700 ? 0 : 1;
+        // Совсем низкое окно (800×600): пример штрих-кода прячем — строка правил и кнопки остаются.
+        BarcodeExampleText.MaxHeight = height >= 640 ? double.PositiveInfinity : 0;
+        BarcodeExampleText.TextTrimming = height >= 700 ? Avalonia.Media.TextTrimming.None : Avalonia.Media.TextTrimming.CharacterEllipsis;
+    }
+
+    private string SelectedBrand => _brand;
+
+    /// <summary>«Изменить…» — марка, адрес и способ отправки в том же виде, что Настройки → Весы
+    /// (LabelScaleSetupPanel в отдельном окне).</summary>
+    private async void ChangeSetup_Click(object? sender, RoutedEventArgs e)
+    {
+        RememberProfileSelection();
+        await ScaleUi.OpenLabelScaleSetupAsync(this).ConfigureAwait(true);
         ReloadBrandFromPreferences();
+        // Могли поменяться категории весов — отмечаем их товары заново.
+        ApplyProfileSelection();
+        ApplySearch();
     }
 
-    private void BrandRadio_Click(object? sender, RoutedEventArgs e)
+    /// <summary>«Проверить связь» с весами из шапки — та же проверка, что в настройках.</summary>
+    private async void CheckConnection_Click(object? sender, RoutedEventArgs e)
     {
-        UserPreferences.Instance.ScaleBrand =
-            BrandRongtaRadio.IsChecked == true ? BrandRongta
-            : BrandAiRadio.IsChecked == true ? BrandAi
-            : BrandTmRadio.IsChecked == true ? BrandTm
-            : BrandShtrikh;
-        UserPreferences.Instance.SaveToDisk();
-        ApplyBrandVisibility();
+        CheckConnectionButton.IsEnabled = false;
+        ConnectionStateText.Text = Tr.T("Проверяю связь с весами…", "Тараза менен байланыш текшерилүүдө…", "Checking the connection to the scale…", "Tartı bağlantısı kontrol ediliyor…", "Tarozi bilan aloqa tekshirilmoqda…");
+        try
+        {
+            await ScaleUi.CheckConnectionAsync(_brand).ConfigureAwait(true);
+        }
+        finally
+        {
+            CheckConnectionButton.IsEnabled = true;
+            UpdateHeader();
+        }
     }
 
-    private void RongtaSourceRadio_Click(object? sender, RoutedEventArgs e)
+    /// <summary>«Настроить по этикетке…» — мастер и правила префиксов (ScaleBarcodeSetupPanel) в окне.</summary>
+    private async void LabelWizard_Click(object? sender, RoutedEventArgs e)
     {
-        UserPreferences.Instance.RongtaDataSource = RongtaSourceServerRadio.IsChecked == true ? RongtaSourceServer : RongtaSourceSite;
-        if (int.TryParse((RongtaPortBox.Text ?? "").Trim(), out var port) && port is > 0 and <= 65535)
-            UserPreferences.Instance.RongtaServerPort = port;
-        UserPreferences.Instance.SaveToDisk();
-        ApplyRongtaSourceVisibility();
+        var panel = new NurMarketKassa.AvaloniaHost.Views.Settings.ScaleBarcodeSetupPanel();
+        var done = new Button
+        {
+            Content = Tr.T("Готово", "Даяр", "Done", "Tamam", "Tayyor"),
+            Classes = { "btn-primary" },
+            MinWidth = 140,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Margin = new Thickness(0, 12, 0, 0),
+        };
+        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16) };
+        root.Children.Add(new ScrollViewer { Content = panel });
+        Grid.SetRow(done, 1);
+        root.Children.Add(done);
+        var window = new Window
+        {
+            Title = Tr.T("Штрих-код: вес или сумма", "Штрих-код: салмак же сумма", "Barcode: weight or amount", "Barkod: ağırlık veya tutar", "Shtrix-kod: vazn yoki summa"),
+            Width = 900,
+            Height = 740,
+            MinWidth = 560,
+            MinHeight = 420,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = root,
+        };
+        done.Click += (_, _) => window.Close();
+        window.Opened += (_, _) => window.FitToScreen();
+        await window.ShowDialog(this).ConfigureAwait(true);
+        UpdateBarcodeExample();
     }
 
-    private void ApplyRongtaSourceVisibility()
+    /// <summary>Шапка окна: марка, адрес и способ отправки, последняя проверка связи, подсказка.</summary>
+    private void UpdateHeader()
     {
-        var useOwnServer = RongtaSourceServerRadio.IsChecked == true;
-        RongtaPortLabel.IsVisible = useOwnServer;
-        RongtaPortBox.IsVisible = useOwnServer;
+        BrandBadgeText.Text = _brand switch
+        {
+            BrandRongta => "R",
+            BrandTm => "TM",
+            BrandAi => "AI",
+            _ => "Ш",
+        };
+        BrandNameText.Text = ScaleUi.LabelBrandTitle(_brand);
+        BrandAddressText.Text = ScaleUi.AddressLine(_brand);
+        CheckConnectionButton.IsVisible = !IsFileBrand;
+
+        // Адрес с опечаткой / из чужой сети — видно сразу, до отправки (владелец ввёл 192.169.0.150).
+        var (ipLevel, ipText) = IsFileBrand ? (ScaleIpLevel.None, "") : ScaleUi.CheckScaleIp(ScaleUi.IpOf(_brand));
+        var state = ScaleUi.LastCheckOf(_brand);
+        if (IsFileBrand)
+        {
+            ConnectionStateText.Text = "";
+            ConnectionStateText.IsVisible = false;
+        }
+        else if (ipLevel is ScaleIpLevel.Warning or ScaleIpLevel.Error)
+        {
+            ConnectionStateText.IsVisible = true;
+            ConnectionStateText.Text = "⚠ " + ipText;
+            ConnectionStateText.Foreground = ScaleUi.ThemeBrush(this, "BrushWarning", Avalonia.Media.Brushes.DarkOrange);
+        }
+        else
+        {
+            ConnectionStateText.IsVisible = true;
+            ConnectionStateText.Text = ScaleUi.LastCheckText(_brand);
+            ConnectionStateText.Foreground = ScaleUi.ThemeBrush(this,
+                state is null ? "BrushTextSoft" : state.Ok ? "BrushSuccess" : "BrushWarning", Avalonia.Media.Brushes.Gray);
+        }
     }
 
-    /// <summary>Поля прямого подключения нужны только для Штрих-М и только когда владелец
-    /// сам выбрал работу без сервера.</summary>
-    /// <summary>Кнопка настроек подключения нужна только для Штрих-М и только когда владелец
-    /// выбрал работу без сервера. Сами поля живут в отдельном окне (ScaleConnectionDialog):
-    /// в строке они не помещались и уезжали за край экрана.</summary>
+    /// <summary>Колонка «Код в ШК» и кнопка формата ШК на весах — только при прямой отправке:
+    /// серверный путь (send-products) записывает на весы свои данные, и колонка на них не влияет.
+    /// Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.</summary>
     private void ApplyDirectLanVisibility()
     {
-        LanSettingsButton.IsVisible = BrandRongtaRadio.IsChecked != true
-                                      && !IsFileBrand
-                                      && !IsTm
-                                      && DirectLanCheck.IsChecked == true;
-        // 2026-09-28: у TM-30F (Dahua) своя прямая отправка — галочка Штрих-М там не нужна.
-        DirectLanCheck.IsVisible = !IsTm;
-        // 2026-09-28: код в ШК правится только при прямой выгрузке — серверный путь
-        // (send-products) записывает на весы свои данные, и эта колонка на них не влияет.
-        // Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.
+        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsTm;
         var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
-        // TM-30F (Dahua) тоже шлёт «Код товара» в ШК сам — колонка и кнопка нужны и ему.
         if (barcodeColumn is not null)
-            barcodeColumn.IsVisible = LanSettingsButton.IsVisible || IsTm;
-        BarcodeSettingsButton.IsVisible = LanSettingsButton.IsVisible || IsTm;
+            barcodeColumn.IsVisible = direct;
+        // Клавиши быстрого доступа (B1h) — только ШТРИХ-ПРИНТ напрямую: у TM-30F, Rongta и сервера
+        // NurCRM команды записи клавиш в кассе нет.
+        var hotkeyColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "Hotkey"));
+        if (hotkeyColumn is not null)
+            hotkeyColumn.IsVisible = _brand == BrandShtrikh && ShtrikhDirect;
+        BarcodeSettingsButton.IsVisible = direct;
         UpdateBarcodeExample();
     }
 
@@ -179,7 +255,8 @@ public partial class ScalesPluWindow : Window
     {
         if (BarcodeExampleText is null)
             return;
-        var visible = BrandRongtaRadio.IsChecked != true && !IsFileBrand;
+        UpdateBarcodeRuleText();
+        var visible = !IsRongta && !IsFileBrand;
         BarcodeExampleText.IsVisible = visible;
         if (!visible || _allRows is not IEnumerable<ScalePluRowVm> rows)
             return;
@@ -204,6 +281,17 @@ public partial class ScalesPluWindow : Window
             $"Scale label barcode for “{row?.Name}” (0.392 kg): {sample}. This is what the till expects — company layout “{(isCode ? "by code" : "by PLU")}”; the ShTRIH-PRINT scale needs structure {structure} ({ShtrikhBarcodeFormat.Structures[structure]}) and prefix {(byWeight ? 20 : 25)}.",
             $"“{row?.Name}” için tartı etiketi barkodu (0,392 kg): {sample}. Kasa bunu böyle bekler — şirket düzeni “{(isCode ? "koda göre" : "PLU’ya göre")}”; ŞTRİH-PRİNT tartıda yapı {structure} ({ShtrikhBarcodeFormat.Structures[structure]}) ve önek {(byWeight ? 20 : 25)} gerekir.",
             $"«{row?.Name}» uchun tarozi yorlig‘idagi shtrix-kod (0,392 kg): {sample}. Kassa uni shunday kutadi — kompaniya tartibi «{(isCode ? "kod bo‘yicha" : "PLU bo‘yicha")}»; ShTRIX-PRINT tarozisida {structure} tuzilma ({ShtrikhBarcodeFormat.Structures[structure]}) va {(byWeight ? 20 : 25)} prefiks kerak.");
+    }
+
+    /// <summary>2026-09-28 (живой баг «сумма неправильно»): как касса прочтёт этикетки — по префиксам
+    /// («20 — вес · 21 — сумма»). Для TM-30F — отдельно префикс этих весов.</summary>
+    private void UpdateBarcodeRuleText()
+    {
+        var rules = string.Join(" · ", ScaleBarcodeRules.PrefixesInUse()
+            .Select(p => $"{p} — {ScaleBarcodeRules.RuleWord(p)}"));
+        BarcodeRuleText.Text = Tr.T("Касса читает этикетки: ", "Касса этикеткаларды окуйт: ", "The till reads labels as: ", "Kasa etiketleri okur: ", "Kassa yorliqlarni o‘qiydi: ")
+                               + rules
+                               + Tr.T(". Сумма в чеке не та — «Настроить по этикетке».", ". Чектеги сумма туура эмес болсо — «Этикетка боюнча жөндөө».", ". Wrong amount on the receipt? Use “Set up from a label”.", ". Fişteki tutar yanlışsa — «Etiketten ayarla».", ". Chekdagi summa noto‘g‘ri bo‘lsa — «Yorliq bo‘yicha sozlash».");
     }
 
     private void BarcodeCode_LostFocus(object? sender, RoutedEventArgs e) => UpdateBarcodeExample();
@@ -231,39 +319,57 @@ public partial class ScalesPluWindow : Window
         UpdateBarcodeExample();
     }
 
+    // 2026-09-28 (редизайн): галочка «Напрямую по кабелю» и кнопка «Настройки подключения…» ушли
+    // из этого окна — способ отправки Штрих-ПРИНТ (через сервер / напрямую), адрес, порт и пароль
+    // теперь в Настройки → Весы → «Весы с этикетками» (и «Изменить…» в шапке). Окно подключения
+    // ScaleConnectionDialog не удалено, но отсюда больше не открывается.
 
-    private async void DirectLan_Changed(object? sender, RoutedEventArgs e)
+    /// <summary>2026-09-28: пишет клавиши быстрого доступа ШТРИХ-ПРИНТ для строк, где задана
+    /// «Клавиша» (1–120): B1h, функция 01h «Выбрать товар по номеру ПЛУ», значение — номер ПЛУ,
+    /// под которым товар только что записан. Одна и та же клавиша у двух товаров — вторая пропускается.
+    /// Возвращает строку-итог для статуса («» — клавиш не задано).</summary>
+    private async Task<string> WriteShtrikhHotkeysAsync(ShtrikhPrintLanScaleService scale, List<string> recordIds,
+        List<(int Plu, string Name)> keyMap, Dictionary<string, ScalePluRowVm> rowsById)
     {
-        SaveLanSettings();
-        ApplyDirectLanVisibility();
-
-        // Включили работу без сервера — сразу спрашиваем адрес и пароль: без них выгрузка
-        // всё равно не пойдёт, а искать, где их ввести, владельцу не придётся.
-        if (IsLoaded && DirectLanCheck.IsChecked == true)
-            await OpenLanSettingsAsync().ConfigureAwait(true);
+        var used = new HashSet<int>();
+        int written = 0, failed = 0;
+        for (var i = 0; i < recordIds.Count; i++)
+        {
+            if (!rowsById.TryGetValue(recordIds[i], out var row) || row.StatusError)
+                continue;
+            var text = (row.HotkeyText ?? "").Trim();
+            if (text.Length == 0)
+                continue;
+            if (!int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var key) || key is < 1 or > MaxHotkey)
+            {
+                row.SetStatus(Tr.T($"⚠ клавиша — число 1–{MaxHotkey}", $"⚠ баскыч — 1–{MaxHotkey} сан", $"⚠ key must be 1–{MaxHotkey}", $"⚠ tuş 1–{MaxHotkey} olmalı", $"⚠ tugma — 1–{MaxHotkey} son"), RowState.Warning);
+                failed++;
+                continue;
+            }
+            if (!used.Add(key))
+            {
+                row.SetStatus(Tr.T($"⚠ клавиша {key} уже занята", $"⚠ {key}-баскыч бош эмес", $"⚠ key {key} is already used", $"⚠ {key}. tuş zaten kullanılıyor", $"⚠ {key}-tugma band"), RowState.Warning);
+                failed++;
+                continue;
+            }
+            try
+            {
+                await scale.SetHotkeyAsync(key, ShtrikhPrintProtocol.HotkeyPluNumber, keyMap[i].Plu, CancellationToken.None).ConfigureAwait(true);
+                row.SetStatus(SentText() + $" · PLU {keyMap[i].Plu} · " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key, RowState.Ok);
+                written++;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Клавиша {key} (ПЛУ {keyMap[i].Plu}) не записана: {ex.Message}", "SCALES");
+                row.SetStatus("✗ " + Tr.T("клавиша ", "баскыч ", "key ", "tuş ", "tugma ") + key + ": " + ex.Message, RowState.Error);
+                failed++;
+            }
+        }
+        if (written == 0 && failed == 0)
+            return "";
+        return Tr.T($" Клавиши: записано {written}", $" Баскычтар: {written} жазылды", $" Keys: {written} written", $" Tuşlar: {written} yazıldı", $" Tugmalar: {written} yozildi")
+               + (failed > 0 ? Tr.T($", с ошибкой {failed}.", $", {failed} ката менен.", $", {failed} failed.", $", {failed} hatalı.", $", {failed} xato bilan.") : ".");
     }
-
-    /// <summary>Поля подключения теперь в отдельном окне и сохраняются там же; здесь
-    /// остаётся только сама галочка «Напрямую по кабелю».</summary>
-    private void SaveLanSettings()
-    {
-        var prefs = UserPreferences.Instance;
-        prefs.ShtrikhDirectLan = DirectLanCheck.IsChecked == true;
-        prefs.SaveToDisk();
-    }
-
-    /// <summary>Открывает окно настроек подключения. Вызывается и кнопкой, и автоматически при
-    /// включении галочки: владелец только что попросил работать без сервера — значит адрес и
-    /// пароль нужны прямо сейчас, а не «где-то в настройках».</summary>
-    private async Task OpenLanSettingsAsync()
-    {
-        var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleConnectionDialog();
-        await dialog.ShowDialog(this).ConfigureAwait(true);
-    }
-
-    private async void LanSettings_Click(object? sender, RoutedEventArgs e) =>
-        await OpenLanSettingsAsync().ConfigureAwait(true);
-
 
     /// <summary>Создаёт драйвер по текущим полям. null и сообщение в статусе, если поля пустые
     /// или неверные.</summary>
@@ -283,54 +389,97 @@ public partial class ScalesPluWindow : Window
     }
 
 
+    /// <summary>Шапка, подсказка и видимость частей окна под выбранную марку и способ отправки.
+    /// 2026-09-28: подсказки короче прежних — подробности в настройках марки.</summary>
     private void ApplyBrandVisibility()
     {
-        var isRongta = BrandRongtaRadio.IsChecked == true;
+        var isRongta = IsRongta;
         var isAi = IsFileBrand;
+        // Номера PLU нужны только прямой отправке и серверу Штрих-М (у Rongta — свой файл, у AI — CSV).
         PluStartRow.IsVisible = !isRongta && !isAi;
         ApplyDirectLanVisibility();
-        RongtaSourceRow.IsVisible = isRongta;
+        UpdateHeader();
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
-        TmExportButton.IsVisible = IsTm;
+        // У AI-весов главная кнопка уже сохраняет файл — вторая такая же не нужна.
+        SaveFileButton.IsVisible = !isAi;
+        SaveFileButton.Content = IsTm
+            ? Tr.T("Сохранить файл ▾", "Файлды сактоо ▾", "Save file ▾", "Dosyayı kaydet ▾", "Faylni saqlash ▾")
+            : Tr.T("Сохранить CSV", "CSV сактоо", "Save CSV", "CSV kaydet", "CSV saqlash");
 
-        if (IsTm)
+        SubtitleText.Text = _brand switch
         {
-            // 2026-09-28 (вечер): прямая отправка на Dahua TM-30F.
-            SubtitleText.Text = Tr.T(
-                "TM-30F (Dahua, программа «Русский масштаб»): «Отправить на весы» шлёт отмеченные товары прямо на весы по сети (IP и порт 4001 — «Настройки весов»). Номер PLU — по порядку от «Начальный PLU»; в штрих-код этикетки весы печатают «Код в штрих-коде» (по умолчанию PLU товара — по нему касса найдёт товар). Запасной путь — «Файл для «Русского масштаба»».",
-                "TM-30F (Dahua, «Русский масштаб» программасы): «Таразага жөнөтүү» белгиленген товарларды тармак аркылуу түз таразага жөнөтөт (IP жана 4001 порт — «Тараза жөндөөлөрү»). PLU номери — «Баштапкы PLU»дан тартип менен; этикетканын штрих-кодуна тараза «Штрих-коддогу код» басат (демейки — товардын PLU'су, касса товарды ушул боюнча табат). Запас жол — «Русский масштаб» үчүн файл».",
-                "TM-30F (Dahua, “Russian Scale” software): “Send to scale” sends the ticked goods straight to the scale over the network (IP and port 4001 — “Scale settings”). The PLU number goes in order from “Start PLU”; the scale prints the “Code in barcode” into the label barcode (the item PLU by default — the till finds the item by it). Fallback — “File for Russian Scale”.",
-                "TM-30F (Dahua, «Русский масштаб» programı): «Tartıya gönder» işaretli ürünleri ağ üzerinden doğrudan tartıya gönderir (IP ve port 4001 — «Tartı ayarları»). PLU numarası «Başlangıç PLU»dan sırayla; tartı etiket barkoduna «Barkoddaki kod»u basar (varsayılan ürünün PLU'su — kasa ürünü buna göre bulur). Yedek yol — «Русский масштаб için dosya».",
-                "TM-30F (Dahua, «Русский масштаб» dasturi): «Taroziga yuborish» belgilangan tovarlarni tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga yuboradi (IP va 4001 port — «Tarozi sozlamalari»). PLU raqami — «Boshlang‘ich PLU»dan tartib bilan; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi (odatiy — tovar PLU'si, kassa tovarni shu bo‘yicha topadi). Zaxira yo‘l — «Русский масштаб uchun fayl».");
-            return;
-        }
-
-        if (isAi)
-        {
-            SubtitleText.Text = Tr.T(
-                "AI весы: касса готовит файл со списком (PLU, название, единица, цена), а вы загружаете его программой весов. Прямой заливки по сети пока нет — у этих весов нет общего протокола, каждая модель идёт со своей программой.",
-                "AI тараза: касса тизмеси бар файл даярдайт (PLU, аталышы, бирдиги, баасы), аны сиз тараза программасы менен жүктөйсүз. Тармак аркылуу түз жүктөө азырынча жок — бул таразалардын жалпы протоколу жок, ар бир модель өз программасы менен келет.",
-                "AI scales: the till prepares a file (PLU, name, unit, price) and you load it with the scale's software. There is no direct network upload yet — these scales have no common protocol; each model comes with its own software.",
-                "AI tartı: kasa listeyi (PLU, ad, birim, fiyat) dosya olarak hazırlar, siz de onu tartının kendi programıyla yüklersiniz. Ağ üzerinden doğrudan yükleme henüz yok — bu tartıların ortak protokolü yok, her model kendi programıyla gelir.",
-                "AI tarozi: kassa ro'yxat faylini tayyorlaydi (PLU, nomi, birligi, narxi), siz esa uni tarozi dasturi orqali yuklaysiz. Tarmoq orqali to'g'ridan-to'g'ri yuklash hozircha yo'q — bu tarozilarning umumiy protokoli yo'q, har bir model o'z dasturi bilan keladi.");
-            return;
-        }
-
-        if (isRongta)
-        {
-            SubtitleText.Text = Tr.T(
-                "Rongta: на весы уйдёт весь список весовых товаров (выбор галочками здесь не действует) — через встроенный запуск RLS1000.",
-                "Rongta: таразага бардык салмактуу товарлардын тизмеси жиберилет (бул жердеги белгилер эске алынбайт) — RLS1000 аркылуу, ал өзү иштетилет.",
-                "Rongta: the whole list of weighed products will be sent to the scale (the checkboxes here are ignored) — RLS1000 is launched automatically.",
-                "Rongta: tartıya tartılı ürünlerin tamamı gönderilir (buradaki işaretlemeler dikkate alınmaz) — RLS1000 yerleşik olarak başlatılır.",
-                "Rongta: taroziga barcha vaznli mahsulotlar ro'yxati yuboriladi (bu yerdagi belgilashlar hisobga olinmaydi) — o'rnatilgan RLS1000 orqali.");
-        }
-        else if (Application.Current?.TryFindResource("scalesPlu.subtitle", ActualThemeVariant, out var value) == true
-                 && value is string defaultSubtitle)
-        {
-            SubtitleText.Text = defaultSubtitle;
-        }
+            BrandTm => Tr.T(
+                "Отмеченные товары уйдут прямо на весы по сети. Номера PLU — подряд от «Начальный PLU»; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
+                "Белгиленген товарлар тармак аркылуу түз таразага кетет. PLU номерлери — «Баштапкы PLU»дан катары менен; этикетканын штрих-кодуна тараза «ШКдагы код» басат. Запас жол — «Русский масштаб» үчүн файл («Файлды сактоо»).",
+                "The ticked goods go straight to the scale over the network. PLU numbers run from “Start PLU”; the scale prints the “Code in barcode” into the label barcode. Fallback — a file for “Russian Scale” (“Save file”).",
+                "İşaretli ürünler ağ üzerinden doğrudan tartıya gider. PLU numaraları «Başlangıç PLU»dan sırayla; tartı etiket barkoduna «Barkoddaki kod»u basar. Yedek yol — «Русский масштаб» için dosya («Dosyayı kaydet»).",
+                "Belgilangan tovarlar tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga ketadi. PLU raqamlari — «Boshlang‘ich PLU»dan ketma-ket; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Zaxira yo‘l — «Русский масштаб» uchun fayl («Faylni saqlash»)."),
+            BrandAi => Tr.T(
+                "Касса сохранит файл (PLU, название, единица, цена) — загрузите его программой весов. Прямой заливки нет: у AI-весов нет общего протокола.",
+                "Касса файлды сактайт (PLU, аталышы, бирдиги, баасы) — аны тараза программасы менен жүктөңүз. Түз жүктөө жок: AI таразанын жалпы протоколу жок.",
+                "The till saves a file (PLU, name, unit, price) — load it with the scale's software. There is no direct upload: AI scales have no common protocol.",
+                "Kasa bir dosya kaydeder (PLU, ad, birim, fiyat) — onu tartı programıyla yükleyin. Doğrudan yükleme yok: AI tartıların ortak protokolü yok.",
+                "Kassa fayl saqlaydi (PLU, nomi, birligi, narxi) — uni tarozi dasturi bilan yuklang. To‘g‘ridan-to‘g‘ri yuklash yo‘q: AI tarozilarning umumiy protokoli yo‘q."),
+            BrandRongta => Tr.T(
+                "На весы уйдёт весь список весовых товаров (галочки здесь не действуют) — через программу RLS1000.",
+                "Таразага бардык салмактуу товарлардын тизмеси кетет (бул жердеги белгилер эске алынбайт) — RLS1000 программасы аркылуу.",
+                "The whole list of weighed goods goes to the scale (the ticks here are ignored) — via the RLS1000 software.",
+                "Tartıya tüm tartılı ürün listesi gider (buradaki işaretler dikkate alınmaz) — RLS1000 programı ile.",
+                "Taroziga barcha vaznli tovarlar ro‘yxati ketadi (bu yerdagi belgilar hisobga olinmaydi) — RLS1000 dasturi orqali."),
+            _ => ShtrikhDirect
+                ? Tr.T(
+                    "Касса сама отправит отмеченные товары на весы по сети. Клавиша 1 на весах — первый товар списка, дальше по порядку.",
+                    "Касса белгиленген товарларды таразага тармак аркылуу өзү жөнөтөт. Таразадагы 1-баскыч — тизменин биринчи товары, андан ары тартип менен.",
+                    "The till sends the ticked goods to the scale over the network itself. Key 1 on the scale is the first item of the list, then in order.",
+                    "Kasa işaretli ürünleri tartıya ağ üzerinden kendisi gönderir. Tartıdaki 1. tuş listenin ilk ürünüdür, sonrakiler sırayla.",
+                    "Kassa belgilangan tovarlarni taroziga tarmoq orqali o‘zi yuboradi. Tarozidagi 1-tugma — ro‘yxatning birinchi tovari, keyin tartib bilan.")
+                : Tr.T(
+                    "Отмеченные товары уйдут на весы через сервер NurCRM — он сам передаёт данные весам по локальной сети.",
+                    "Белгиленген товарлар NurCRM сервери аркылуу таразага кетет — ал маалыматты таразага жергиликтүү тармак аркылуу өзү берет.",
+                    "The ticked goods go to the scale via the NurCRM server — it passes the data to the scale over the local network itself.",
+                    "İşaretli ürünler NurCRM sunucusu üzerinden tartıya gider — verileri tartıya yerel ağ üzerinden kendisi iletir.",
+                    "Belgilangan tovarlar NurCRM serveri orqali taroziga ketadi — u ma’lumotni taroziga mahalliy tarmoq orqali o‘zi uzatadi."),
+        };
     }
+
+    /// <summary>«Сохранить файл…»: CSV для любых весов; у TM-30F — выбор CSV или DIGI_TOP2000.</summary>
+    private void SaveFile_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!IsTm)
+        {
+            ExportCsv_Click(sender, e);
+            return;
+        }
+
+        var csv = new MenuItem { Header = Tr.T("CSV (PLU; название; единица; цена)", "CSV (PLU; аталышы; бирдиги; баасы)", "CSV (PLU; name; unit; price)", "CSV (PLU; ad; birim; fiyat)", "CSV (PLU; nomi; birligi; narxi)") };
+        csv.Click += ExportCsv_Click;
+        var digi = new MenuItem { Header = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Русский масштаб» için dosya (DIGI_TOP2000)", "«Русский масштаб» uchun fayl (DIGI_TOP2000)") };
+        digi.Click += TmExport_Click;
+        var flyout = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
+        flyout.Items.Add(digi);
+        flyout.Items.Add(csv);
+        flyout.ShowAt(SaveFileButton);
+    }
+
+    // ------------------------------------------------------------------ ход отправки по строкам
+
+    private void ClearRowStatuses()
+    {
+        foreach (var row in _allRows)
+            row.SetStatus("", RowState.None);
+    }
+
+    private void SetProgress(int done, int total)
+    {
+        SendProgress.IsVisible = total > 0;
+        SendProgress.Maximum = Math.Max(1, total);
+        SendProgress.Value = Math.Clamp(done, 0, Math.Max(1, total));
+    }
+
+    private void HideProgress() => SendProgress.IsVisible = false;
+
+    private static string SentText() => Tr.T("✓ отправлено", "✓ жөнөтүлдү", "✓ sent", "✓ gönderildi", "✓ yuborildi");
+    private static string NotSentText() => Tr.T("не отправлено", "жөнөтүлгөн жок", "not sent", "gönderilmedi", "yuborilmadi");
 
     private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadRows();
 
@@ -338,6 +487,7 @@ public partial class ScalesPluWindow : Window
 
     private void LoadRows()
     {
+        var profile = LabelScaleStore.Active;
         var rows = NurMarketKassa.Services.CatalogCacheService.Products
             .Where(p => p.IsWeighted)
             .OrderBy(p => p.Title, System.StringComparer.CurrentCultureIgnoreCase)
@@ -348,13 +498,23 @@ public partial class ScalesPluWindow : Window
                 PluText = p.Plu?.ToString(CultureInfo.InvariantCulture) ?? "—",
                 PriceLine = p.PriceLine,
                 Unit = p.Unit ?? "",
+                Category = (p.Category ?? "").Trim(),
                 Price = NurMarketKassa.Services.LocalCartService.ParsePrice(p.PriceLine),
                 BarcodeCode = DefaultBarcodeCode(p),
+                HotkeyText = profile.Hotkeys.TryGetValue(p.Id, out var key) ? key.ToString(CultureInfo.InvariantCulture) : "",
                 IsSelected = true,
             })
             .ToList();
 
         _allRows = rows;
+        foreach (var row in rows)
+            row.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ScalePluRowVm.IsSelected))
+                    UpdateSelectionCount();
+            };
+        ApplyProfileSelection();
+        FillCategoryFilter();
         ApplySearch();
         StatusText.Text = "";
         UpdateBarcodeExample();
@@ -367,25 +527,140 @@ public partial class ScalesPluWindow : Window
 
     private void SearchBox_TextChanged(object? sender, TextChangedEventArgs e) => ApplySearch();
 
-    /// <summary>Поиск по названию, PLU и коду в ШК; несколько слов — все должны найтись.</summary>
+    private void CategoryCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e) => ApplySearch();
+
+    /// <summary>Выбранная категория фильтра; null — все.</summary>
+    private string? SelectedCategory => CategoryCombo.SelectedItem is ComboBoxItem { Tag: string c } ? c : null;
+
+    /// <summary>2026-09-28: фильтр по категории — категории весовых товаров каталога.</summary>
+    private void FillCategoryFilter()
+    {
+        var previous = SelectedCategory;
+        var items = new List<ComboBoxItem>
+        {
+            new() { Content = Tr.T("Все категории", "Бардык категориялар", "All categories", "Tüm kategoriler", "Barcha kategoriyalar") },
+        };
+        foreach (var category in _allRows.Select(r => r.Category).Where(c => c.Length > 0)
+                     .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                     .OrderBy(c => c, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var count = _allRows.Count(r => string.Equals(r.Category, category, StringComparison.CurrentCultureIgnoreCase));
+            items.Add(new ComboBoxItem { Content = $"{category} ({count})", Tag = category });
+        }
+        CategoryCombo.ItemsSource = items;
+        CategoryCombo.SelectedItem = items.FirstOrDefault(i => previous is not null && Equals(i.Tag, previous)) ?? items[0];
+    }
+
+    /// <summary>Поиск по названию, PLU и коду в ШК; несколько слов — все должны найтись. Плюс фильтр
+    /// по категории (2026-09-28).</summary>
     private void ApplySearch()
     {
         var words = (SearchBox.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var shown = words.Length == 0
-            ? _allRows
-            : _allRows.Where(r => words.All(w =>
-                    (r.Name ?? "").Contains(w, StringComparison.CurrentCultureIgnoreCase)
-                    || string.Equals(r.PluText, w, StringComparison.Ordinal)
-                    || (r.BarcodeCode ?? "").Contains(w, StringComparison.Ordinal)))
-                .ToList();
+        var category = SelectedCategory;
+        var shown = _allRows
+            .Where(r => category is null || string.Equals(r.Category, category, StringComparison.CurrentCultureIgnoreCase))
+            .Where(r => words.All(w =>
+                (r.Name ?? "").Contains(w, StringComparison.CurrentCultureIgnoreCase)
+                || string.Equals(r.PluText, w, StringComparison.Ordinal)
+                || (r.BarcodeCode ?? "").Contains(w, StringComparison.Ordinal)))
+            .ToList();
 
         ProductsGrid.ItemsSource = shown;
         EmptyText.IsVisible = shown.Count == 0;
-        SearchCountText.Text = words.Length == 0
+        SearchCountText.Tag = words.Length == 0 && category is null
             ? ""
             : Tr.T($"Найдено: {shown.Count} из {_allRows.Count}", $"Табылды: {_allRows.Count} ичинен {shown.Count}",
                    $"Found: {shown.Count} of {_allRows.Count}", $"Bulunan: {shown.Count} / {_allRows.Count}",
                    $"Topildi: {_allRows.Count} dan {shown.Count}");
+        UpdateSelectionCount();
+    }
+
+    /// <summary>«Отмечено: 12 из 40» (и «найдено», если есть поиск/фильтр).</summary>
+    private void UpdateSelectionCount()
+    {
+        var selected = _allRows.Count(r => r.IsSelected);
+        var found = SearchCountText.Tag as string;
+        SearchCountText.Text = (string.IsNullOrEmpty(found) ? "" : found + " · ")
+            + Tr.T($"Отмечено: {selected} из {_allRows.Count}", $"Белгиленди: {_allRows.Count} ичинен {selected}",
+                   $"Ticked: {selected} of {_allRows.Count}", $"İşaretli: {selected} / {_allRows.Count}",
+                   $"Belgilangan: {_allRows.Count} dan {selected}");
+    }
+
+    /// <summary>2026-09-28: товары выбранных весов — их категории; если категорий нет — отмеченные
+    /// вручную при прошлой отправке на эти весы; если и их нет — все весовые.</summary>
+    private void ApplyProfileSelection()
+    {
+        var profile = LabelScaleStore.Active;
+        if (profile.Categories.Count > 0)
+        {
+            var set = new HashSet<string>(profile.Categories, StringComparer.CurrentCultureIgnoreCase);
+            foreach (var row in _allRows)
+                row.IsSelected = set.Contains(row.Category);
+        }
+        else if (profile.ProductIds.Count > 0)
+        {
+            var ids = new HashSet<string>(profile.ProductIds, StringComparer.Ordinal);
+            foreach (var row in _allRows)
+                row.IsSelected = ids.Contains(row.Id);
+        }
+        else
+        {
+            foreach (var row in _allRows)
+                row.IsSelected = true;
+        }
+        foreach (var row in _allRows)
+            row.HotkeyText = profile.Hotkeys.TryGetValue(row.Id, out var key) ? key.ToString(CultureInfo.InvariantCulture) : "";
+    }
+
+    /// <summary>Запоминает для выбранных весов отмеченные товары (если категорий нет) и клавиши.</summary>
+    private void RememberProfileSelection()
+    {
+        var profile = LabelScaleStore.Active;
+        if (profile.Categories.Count == 0)
+            profile.ProductIds = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
+        profile.Hotkeys = _allRows
+            .Where(r => int.TryParse((r.HotkeyText ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k is >= 1 and <= MaxHotkey)
+            .ToDictionary(r => r.Id, r => int.Parse(r.HotkeyText.Trim(), CultureInfo.InvariantCulture));
+        LabelScaleStore.Save();
+    }
+
+    /// <summary>Клавиш быстрого доступа у ШТРИХ-ПРИНТ — 120 (у исполнения с большой клавиатурой).</summary>
+    private const int MaxHotkey = 120;
+
+    // ------------------------------------------------------------------ выбор весов (несколько весов)
+
+    private bool _fillingProfiles;
+
+    private void FillProfileCombo()
+    {
+        _fillingProfiles = true;
+        try
+        {
+            var items = LabelScaleStore.All
+                .Select(p => new ComboBoxItem { Content = $"{p.Name} · {ScaleUi.LabelBrandTitle(p.Brand)}", Tag = p.Id })
+                .ToList();
+            ScaleProfileCombo.ItemsSource = items;
+            ScaleProfileCombo.SelectedItem = items.FirstOrDefault(i => Equals(i.Tag, LabelScaleStore.Active.Id)) ?? items.FirstOrDefault();
+            ScaleProfileCombo.IsVisible = items.Count > 1;
+        }
+        finally
+        {
+            _fillingProfiles = false;
+        }
+    }
+
+    private void ScaleProfileCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingProfiles || ScaleProfileCombo.SelectedItem is not ComboBoxItem { Tag: string id })
+            return;
+        var profile = LabelScaleStore.Find(id);
+        if (profile is null || profile.Id == LabelScaleStore.Active.Id)
+            return;
+        LabelScaleStore.Activate(profile);
+        ReloadBrandFromPreferences();
+        ClearRowStatuses();
+        ApplyProfileSelection();
+        ApplySearch();
     }
 
     /// <summary>2026-09-28: какое число весы напечатают в ШК этикетки по умолчанию — то, по
@@ -428,6 +703,11 @@ public partial class ScalesPluWindow : Window
             return;
         }
 
+        // 2026-09-28: результат по строкам — с чистого листа на каждую отправку.
+        ClearRowStatuses();
+        // Несколько весов: запоминаем для этих весов отмеченные товары и клавиши.
+        RememberProfileSelection();
+
         if (IsTm)
         {
             await SendToTmAsync().ConfigureAwait(true);
@@ -437,11 +717,11 @@ public partial class ScalesPluWindow : Window
         if (IsFileBrand)
         {
             // Для AI-весов «отправить» — это подготовить файл: заливать напрямую пока нечем.
-            await ExportPluCsvAsync(BrandTmRadio.IsChecked == true ? "tm30f-scale-plu" : "ai-scale-plu").ConfigureAwait(true);
+            await ExportPluCsvAsync("ai-scale-plu").ConfigureAwait(true);
             return;
         }
 
-        if (BrandRongtaRadio.IsChecked == true)
+        if (IsRongta)
         {
             await SendToRongtaAsync().ConfigureAwait(true);
             return;
@@ -466,17 +746,24 @@ public partial class ScalesPluWindow : Window
         if (!int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var pluStart) || pluStart <= 0)
             pluStart = 1;
 
-        if (DirectLanCheck.IsChecked == true)
+        // 2026-09-28: способ отправки выбирается в Настройки → Весы («Через сервер NurCRM» /
+        // «Напрямую по сети»), а не галочкой в этом окне.
+        if (ShtrikhDirect)
         {
             await SendToShtrikhOverLanAsync(selectedIds, pluStart).ConfigureAwait(true);
             return;
         }
 
         SendButton.IsEnabled = false;
+        SetProgress(0, 1);
         StatusText.Text = Tr.T("Отправка…", "Жиберилүүдө…", "Sending…", "Gönderiliyor…", "Yuborilmoqda…");
+        var selectedRows = rows.Where(r => r.IsSelected).ToList();
         try
         {
             await App.CatalogApi.SendProductsToScaleAsync(pluStart, selectedIds, CancellationToken.None).ConfigureAwait(true);
+            SetProgress(1, 1);
+            foreach (var row in selectedRows)
+                row.SetStatus(Tr.T("✓ передано серверу", "✓ серверге берилди", "✓ passed to the server", "✓ sunucuya iletildi", "✓ serverga uzatildi"), RowState.Ok);
             StatusText.Text = Tr.T(
                 $"Отправлено на весы: {selectedIds.Count}.",
                 $"Таразага жиберилди: {selectedIds.Count}.",
@@ -487,10 +774,13 @@ public partial class ScalesPluWindow : Window
         catch (System.Exception ex)
         {
             PosLogger.Log($"SendProductsToScaleAsync failed: {ex}", "SCALES");
+            foreach (var row in selectedRows)
+                row.SetStatus(NotSentText(), RowState.Error);
             StatusText.Text = Tr.T("Ошибка отправки: ", "Жиберүү катасы: ", "Send error: ", "Gönderme hatası: ", "Yuborish xatosi: ") + ex.Message;
         }
         finally
         {
+            HideProgress();
             SendButton.IsEnabled = true;
         }
     }
@@ -533,6 +823,8 @@ public partial class ScalesPluWindow : Window
             // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
             // и без этого списка непонятно, какую наклейку куда клеить.
             var keyMap = new List<(int Plu, string Name)>();
+            // 2026-09-28: id товара для каждой записи — чтобы показать результат по строкам.
+            var recordIds = new List<string>();
             var nextPlu = pluStart;
             foreach (var id in selectedIds)
             {
@@ -557,6 +849,7 @@ public partial class ScalesPluWindow : Window
                     nextPlu = Math.Max(nextPlu, plu + 1);
 
                 keyMap.Add((plu, product.Title));
+                recordIds.Add(id);
 
                 // 2026-09-28: «Код товара» записи ПЛУ — это число, которое весы печатают в
                 // весовом штрих-коде (Т в структуре ШК), и по нему касса ищет товар при скане.
@@ -587,9 +880,33 @@ public partial class ScalesPluWindow : Window
             }
 
             var progress = new Progress<ShtrikhUploadProgress>(p =>
-                StatusText.Text = Tr.T($"{p.Stage}: {p.Done} из {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} of {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…"));
+            {
+                SetProgress(p.Done, p.Total);
+                StatusText.Text = Tr.T($"{p.Stage}: {p.Done} из {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} of {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…", $"{p.Stage}: {p.Done} / {p.Total}…");
+            });
 
             var result = await scale.UploadPlusAsync(records, progress, CancellationToken.None).ConfigureAwait(true);
+
+            // 2026-09-28: результат по строкам. Ошибки драйвер пишет с названием товара в «»;
+            // без ошибок и отказов — строка принята.
+            var rowsById = (_allRows ?? new List<ScalePluRowVm>()).ToDictionary(r => r.Id);
+            for (var i = 0; i < recordIds.Count; i++)
+            {
+                if (!rowsById.TryGetValue(recordIds[i], out var row))
+                    continue;
+                var error = result.Errors.FirstOrDefault(er => er.Contains($"«{keyMap[i].Name}»", StringComparison.Ordinal));
+                if (error is not null)
+                    row.SetStatus("✗ " + error, RowState.Error);
+                else if (result.Failed == 0)
+                    row.SetStatus(SentText() + $" · PLU {keyMap[i].Plu}", RowState.Ok);
+                else
+                    row.SetStatus(Tr.T("не подтверждено", "ырасталган жок", "not confirmed", "onaylanmadı", "tasdiqlanmadi"), RowState.Warning);
+            }
+
+            // 2026-09-28 (просьба владельца «товары на клавиши весов»): для строк с номером клавиши
+            // пишем клавишу быстрого доступа командой B1h «Выбрать товар по номеру ПЛУ» (код функции
+            // 01h, байты сверены с драйвером Штрих-М — см. ShtrikhPrintProtocol.HotkeyPluNumber).
+            var hotkeyNote = await WriteShtrikhHotkeysAsync(scale, recordIds, keyMap, rowsById).ConfigureAwait(true);
 
             var firstKeyName = keyMap.FirstOrDefault().Name;
             StatusText.Text = result.Ok
@@ -603,6 +920,8 @@ public partial class ScalesPluWindow : Window
                     $"Uploaded: {result.Sent}, failed: {result.Failed}. ",
                     $"Gönderildi: {result.Sent}, hatalı: {result.Failed}. ",
                     $"Yuklandi: {result.Sent}, xatolik bilan: {result.Failed}. ") + string.Join(" · ", result.Errors.Take(3));
+
+            StatusText.Text += hotkeyNote;
 
             // Печатаем раскладку в журнал: панель на 120 клавиш подписывают вручную, и владельцу
             // нужен список «номер клавиши — товар», чтобы наклеить ярлыки.
@@ -619,10 +938,13 @@ public partial class ScalesPluWindow : Window
         catch (System.Exception ex)
         {
             PosLogger.Log($"Прямая выгрузка на весы не удалась: {ex}", "SCALES");
+            foreach (var row in _allRows.Where(r => r.IsSelected))
+                row.SetStatus(NotSentText(), RowState.Error);
             StatusText.Text = ex.Message;
         }
         finally
         {
+            HideProgress();
             SendButton.IsEnabled = true;
         }
     }
@@ -671,6 +993,8 @@ public partial class ScalesPluWindow : Window
         var records = new List<DahuaTmPlu>();
         var problems = new List<string>();
         var keyMap = new List<(int Plu, string Name)>();
+        var rowsById = _allRows.ToDictionary(r => r.Id);
+        _tmRecordIds.Clear();
         var nextPlu = pluStart;
         foreach (var id in selectedIds)
         {
@@ -701,12 +1025,31 @@ public partial class ScalesPluWindow : Window
             if (problem != DahuaTmPluProblem.None)
             {
                 problems.Add($"«{product.Title}» (PLU {plu}): {TmProblemText(problem)}");
+                // 2026-09-28: что не так — прямо в строке таблицы.
+                if (rowsById.TryGetValue(id, out var badRow))
+                    badRow.SetStatus("⚠ " + TmProblemText(problem), RowState.Warning);
                 continue;
             }
             records.Add(record);
             keyMap.Add((plu, product.Title));
+            _tmRecordIds.Add(id);
         }
         return (records, problems, keyMap);
+    }
+
+    /// <summary>id товара для каждой записи последнего BuildTmRecords (в том же порядке) — для
+    /// результата по строкам.</summary>
+    private readonly List<string> _tmRecordIds = new();
+
+    /// <summary>Отмечает строки TM-30F: первые <paramref name="done"/> записей отправлены.</summary>
+    private void MarkTmRowsSent(int done)
+    {
+        var rowsById = _allRows.ToDictionary(r => r.Id);
+        for (var i = 0; i < _tmRecordIds.Count && i < done; i++)
+        {
+            if (rowsById.TryGetValue(_tmRecordIds[i], out var row) && !row.StatusOk)
+                row.SetStatus(SentText(), RowState.Ok);
+        }
     }
 
     private static string TmProblemText(DahuaTmPluProblem problem) => problem switch
@@ -769,15 +1112,49 @@ public partial class ScalesPluWindow : Window
         }
 
         var mode = string.Equals(prefs.TmScaleSendMode, "batch", StringComparison.OrdinalIgnoreCase) ? DahuaTmSendMode.Batch : DahuaTmSendMode.LineByLine;
+
+        // 2026-09-28 (просьба владельца): формат ШК весов с суммой без веса (FFWWWWWEEEEEC) — префикс
+        // этих весов сам получает правило «сумма», иначе касса прочтёт сумму с этикетки как вес.
+        var autoAmountPrefix = ScaleBarcodeRules.EnsureTmAmountRule();
+        if (autoAmountPrefix is not null)
+            UpdateBarcodeExample();
+
         _tmCts = new CancellationTokenSource();
         SendButton.Content = Tr.T("Остановить", "Токтотуу", "Stop", "Durdur", "To‘xtatish");
         StatusText.Text = Tr.T($"Подключение к весам {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} таразасына туташуу…", $"Connecting to the scale {scale.Host}:{scale.Port}…", $"{scale.Host}:{scale.Port} tartısına bağlanılıyor…", $"{scale.Host}:{scale.Port} taroziga ulanilmoqda…");
+        SetProgress(0, records.Count);
         try
         {
             var progress = new Progress<DahuaTmUploadProgress>(p =>
-                StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…"));
+            {
+                SetProgress(p.Done, p.Total);
+                MarkTmRowsSent(p.Done);
+                StatusText.Text = Tr.T($"Отправка на весы: {p.Done} из {p.Total}…", $"Таразага жөнөтүү: {p.Total} ичинен {p.Done}…", $"Sending to the scale: {p.Done} of {p.Total}…", $"Tartıya gönderiliyor: {p.Done} / {p.Total}…", $"Taroziga yuborilmoqda: {p.Total} dan {p.Done}…");
+            });
             var result = await scale.UploadPlusAsync(records, Math.Clamp(prefs.TmScalePricePoint, 0, 3), mode, progress, _tmCts.Token).ConfigureAwait(true);
             PosLogger.Log($"TM-30F (Dahua): выгрузка PLU {scale.Host}:{scale.Port}: всего {result.Total}, отправлено {result.Sent}, ответов {result.Acknowledged}, без маркера {result.UnframedReplies}, повторов {result.Retries}, ошибка {result.Error} {result.Detail}", "SCALES");
+
+            // Результат по строкам: принятые — ✓, строка, на которой остановились, — ✗, остальные — не отправлены.
+            var accepted = result.Ok ? records.Count : result.Acknowledged + result.UnframedReplies;
+            MarkTmRowsSent(accepted);
+            var rowsById = _allRows.ToDictionary(r => r.Id);
+            for (var i = accepted; i < _tmRecordIds.Count; i++)
+            {
+                if (!rowsById.TryGetValue(_tmRecordIds[i], out var row))
+                    continue;
+                if (result.FailedPlu > 0 && keyMap[i].Plu == result.FailedPlu)
+                    row.SetStatus("✗ " + TmErrorText(result.Error), RowState.Error);
+                else
+                    row.SetStatus(NotSentText(), RowState.Warning);
+            }
+
+            var autoRuleNote = autoAmountPrefix is null
+                ? ""
+                : Tr.T($" Формат весов — с суммой: этикетки с префиксом {autoAmountPrefix} касса теперь читает как СУММУ.",
+                       $" Тараза форматы — сумма менен: {autoAmountPrefix} префикстүү этикеткаларды касса эми СУММА катары окуйт.",
+                       $" The scale format carries the amount: the till now reads labels with prefix {autoAmountPrefix} as AMOUNT.",
+                       $" Tartı biçimi tutarlı: kasa artık {autoAmountPrefix} önekli etiketleri TUTAR olarak okur.",
+                       $" Tarozi formati — summali: kassa endi {autoAmountPrefix} prefiksli yorliqlarni SUMMA sifatida o‘qiydi.");
 
             var firstKeyName = keyMap.FirstOrDefault().Name;
             if (result.Ok)
@@ -789,7 +1166,8 @@ public partial class ScalesPluWindow : Window
                                        $"Taroziga yuborildi: {result.Total}. PLU {keyMap[0].Plu} — «{firstKeyName}», keyin ro'yxat tartibida. Tovarni tarozida tekshiring.")
                                   + (result.UnframedReplies > 0
                                       ? Tr.T($" Внимание: {result.UnframedReplies} ответ(ов) весов не по ожидаемой форме — см. журнал обмена.", $" Көңүл буруңуз: таразанын {result.UnframedReplies} жообу күтүлгөн формада эмес — алмашуу журналын караңыз.", $" Note: {result.UnframedReplies} scale reply(ies) not in the expected form — see the exchange log.", $" Dikkat: tartının {result.UnframedReplies} yanıtı beklenen biçimde değil — iletişim günlüğüne bakın.", $" Diqqat: tarozining {result.UnframedReplies} javobi kutilgan shaklda emas — almashuv jurnaliga qarang.")
-                                      : "");
+                                      : "")
+                                  + autoRuleNote;
                 PosLogger.Log("TM-30F, раскладка PLU: " + string.Join("; ", keyMap.Select(x => $"{x.Plu} — {x.Name}")), "SCALES");
             }
             else
@@ -800,7 +1178,8 @@ public partial class ScalesPluWindow : Window
                                        $"Gönderim tamamlanmadı: {TmErrorText(result.Error)}. Tartının kabul ettiği: {result.Acknowledged + result.UnframedReplies} / {result.Total}",
                                        $"Yuborish tugamadi: {TmErrorText(result.Error)}. Tarozi qabul qildi: {result.Total} dan {result.Acknowledged + result.UnframedReplies}")
                                   + (result.FailedPlu > 0 ? $" (PLU {result.FailedPlu})" : "")
-                                  + Tr.T(". Журнал обмена: ", ". Алмашуу журналы: ", ". Exchange log: ", ". İletişim günlüğü: ", ". Almashuv jurnali: ") + DahuaTmScaleService.ExchangeLogPath;
+                                  + Tr.T(". Журнал обмена: ", ". Алмашуу журналы: ", ". Exchange log: ", ". İletişim günlüğü: ", ". Almashuv jurnali: ") + DahuaTmScaleService.ExchangeLogPath
+                                  + autoRuleNote;
             }
         }
         catch (Exception ex)
@@ -812,6 +1191,7 @@ public partial class ScalesPluWindow : Window
         {
             _tmCts.Dispose();
             _tmCts = null;
+            HideProgress();
             SendButton.Content = _sendButtonDefaultText;
         }
     }
@@ -867,7 +1247,8 @@ public partial class ScalesPluWindow : Window
 
     private async Task SendToRongtaAsync()
     {
-        if (RongtaSourceServerRadio.IsChecked == true)
+        // 2026-09-28: способ загрузки Rongta («через сайт» / «свой сервер») — в Настройки → Весы.
+        if (string.Equals(UserPreferences.Instance.RongtaDataSource, RongtaSourceServer, StringComparison.OrdinalIgnoreCase))
         {
             await SendToRongtaViaOwnServerAsync().ConfigureAwait(true);
             return;
@@ -946,9 +1327,9 @@ public partial class ScalesPluWindow : Window
                 return;
             }
 
-            if (!int.TryParse((RongtaPortBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var port)
-                || port is <= 0 or > 65535)
-                port = UserPreferences.Instance.RongtaServerPort;
+            var port = UserPreferences.Instance.RongtaServerPort;
+            if (port is <= 0 or > 65535)
+                port = 5001;
 
             // 2026-09-21, по просьбе владельца: тот же протокол (RongtaTcpServerService) хочет
             // проверить и на другой модели весов (VEVOR TM-30F), у которой нет RLS1000.exe и
@@ -1176,6 +1557,24 @@ public partial class ScalesPluWindow : Window
         /// записи ПЛУ). Правится в таблице перед прямой выгрузкой.</summary>
         public string BarcodeCode { get; set; } = "";
 
+        /// <summary>2026-09-28: категория товара (фильтр и «категории весов»).</summary>
+        public string Category { get; init; } = "";
+
+        private string _hotkeyText = "";
+
+        /// <summary>2026-09-28: клавиша быстрого доступа на весах (1–120), пусто — без клавиши.</summary>
+        public string HotkeyText
+        {
+            get => _hotkeyText;
+            set
+            {
+                if (_hotkeyText == value)
+                    return;
+                _hotkeyText = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HotkeyText)));
+            }
+        }
+
         private bool _isSelected;
         public bool IsSelected
         {
@@ -1189,6 +1588,30 @@ public partial class ScalesPluWindow : Window
             }
         }
 
+        /// <summary>2026-09-28: результат последней отправки по этой строке (колонка «Результат»).</summary>
+        public string Status { get; private set; } = "";
+        public bool StatusOk { get; private set; }
+        public bool StatusError { get; private set; }
+        public bool StatusWarn { get; private set; }
+
+        public void SetStatus(string text, RowState state)
+        {
+            Status = text;
+            StatusOk = state == RowState.Ok;
+            StatusError = state == RowState.Error;
+            StatusWarn = state == RowState.Warning;
+            foreach (var name in new[] { nameof(Status), nameof(StatusOk), nameof(StatusError), nameof(StatusWarn) })
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    private enum RowState
+    {
+        None,
+        Ok,
+        Error,
+        Warning,
     }
 }

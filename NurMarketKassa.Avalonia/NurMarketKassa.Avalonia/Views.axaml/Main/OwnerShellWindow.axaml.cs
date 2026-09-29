@@ -736,35 +736,39 @@ public partial class OwnerShellWindow : Window, IMainShell
             var ct = _cts.Token;
             var fetchStartedUtc = DateTime.UtcNow;
 
-            var report = await App.SalesApi.MarketSalesReportAsync(from, to, ct).ConfigureAwait(true);
-
+            // 2026-09-28, «аналитика грузится долго»: все запросы «Сводки» (период, прошлый период,
+            // график, последние чеки, возвраты) уходят одновременно, а не один за другим — ожидание
+            // равно самому долгому из них, а не их сумме.
             var (prevFrom, prevTo) = PreviousRange(from, to);
             var compareKey = $"{_period}:{prevFrom:yyyyMMdd}:{prevTo:yyyyMMdd}";
-            if (_compareKey != compareKey)
+            // График: для «сегодня» и «недели» — последние 7 дней, для месяца — дни месяца (они уже
+            // есть в отчёте за период).
+            var (chartFrom, chartTo) = _period != "month" ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+
+            var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
+            var previousTask = _compareKey != compareKey ? App.SalesApi.MarketSalesReportAsync(prevFrom, prevTo, ct) : null;
+            var chartTask = _period != "month" ? App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct) : null;
+            var rowsTask = App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1));
+            // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
+            // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
+            var returnsTask = NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct);
+
+            var report = await reportTask.ConfigureAwait(true);
+
+            if (previousTask != null)
             {
-                var previous = await App.SalesApi.MarketSalesReportAsync(prevFrom, prevTo, ct).ConfigureAwait(true);
+                var previous = await previousTask.ConfigureAwait(true);
                 _compareCards = previous.ValueKind == JsonValueKind.Object && previous.TryGetProperty("cards", out var pc)
                     ? pc.Clone()
                     : null;
                 _compareKey = compareKey;
             }
 
-            // График: для «сегодня» и «недели» — последние 7 дней, для месяца — дни месяца (они уже
-            // есть в отчёте за период).
-            var chartSource = report;
-            var (chartFrom, chartTo) = (from, to);
-            if (_period != "month")
-            {
-                (chartFrom, chartTo) = (DateTime.Today.AddDays(-6), DateTime.Today);
-                chartSource = await App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct).ConfigureAwait(true);
-            }
+            var chartSource = chartTask != null ? await chartTask.ConfigureAwait(true) : report;
 
-            var rows = await App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1))
-                .ConfigureAwait(true);
+            var rows = await rowsTask.ConfigureAwait(true);
 
-            // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
-            // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
-            _lastReturns = await NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct).ConfigureAwait(true);
+            _lastReturns = await returnsTask.ConfigureAwait(true);
             _lastReturnsKey = RangeKey(from, to);
 
             // Отчёт сервера запоминается как есть: к нему добавляются чеки касс, которые сервер
@@ -1656,6 +1660,8 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void Refresh_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-09-29: «Обновить» — всегда свежие цифры сервера, мимо короткого кэша отчётов.
+        NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
         _ = RefreshAsync();
         _ = RefreshAbcAsync();
     }

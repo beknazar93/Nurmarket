@@ -45,6 +45,11 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
 
     private readonly List<KbArticle> _articles = new();
     private readonly Dictionary<string, Button> _navButtons = new();
+
+    /// <summary>2026-09-29, владелец: «сделай сворачиваемыми — только при выборе категории раскрывай
+    /// список». Открыт один раздел (раздел текущей статьи или выбранный); при поиске раскрыты все
+    /// найденные разделы.</summary>
+    private string? _openSection;
     private KbArticle? _current;
 
     public KnowledgeBaseWindow()
@@ -151,7 +156,53 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
         var shown = 0;
         foreach (var bySection in _articles.Where(Matches).GroupBy(a => a.Section))
         {
-            NavPanel.Children.Add(new TextBlock { Text = bySection.Key.ToUpperInvariant(), Classes = { "navSection" } });
+            var sectionName = bySection.Key;
+            var isOpen = words.Length > 0 || sectionName == _openSection;
+            var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+            header.Children.Add(new TextBlock
+            {
+                Text = sectionName,
+                FontSize = 13.5,
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = Brush("BrushText"),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            });
+            var countText = new TextBlock
+            {
+                Text = bySection.Count().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                FontSize = 11.5,
+                Margin = new Thickness(8, 0, 6, 0),
+                Foreground = Brush("BrushTextSoft"),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            };
+            Grid.SetColumn(countText, 1);
+            header.Children.Add(countText);
+            var arrow = new TextBlock
+            {
+                Text = isOpen ? "▾" : "▸",
+                FontSize = 13,
+                Foreground = Brush("BrushTextSoft"),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            };
+            Grid.SetColumn(arrow, 2);
+            header.Children.Add(arrow);
+            var sectionButton = new Button { Content = header, Classes = { "kbSection" } };
+            if (isOpen)
+                sectionButton.Classes.Add("open");
+            sectionButton.Click += (_, _) =>
+            {
+                // Один открытый раздел: нажали на открытый — свернуть, на другой — открыть его.
+                _openSection = _openSection == sectionName ? null : sectionName;
+                BuildNav(SearchBox.Text);
+            };
+            NavPanel.Children.Add(sectionButton);
+            if (!isOpen)
+            {
+                shown += bySection.Count();
+                continue;
+            }
+
             string? lastGroup = null;
             foreach (var article in bySection)
             {
@@ -189,6 +240,12 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
     private void ShowArticle(KbArticle article)
     {
         _current = article;
+        if (_openSection != article.Section)
+        {
+            // Статья открыта из другого раздела (старт, ссылка) — раскрываем её раздел.
+            _openSection = article.Section;
+            BuildNav(SearchBox.Text);
+        }
         foreach (var (id, button) in _navButtons)
             button.Classes.Set("active", id == article.Id);
 

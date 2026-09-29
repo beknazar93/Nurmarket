@@ -1,6 +1,14 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+  <!-- 2026-09-29, владелец: «настройки таб меню сделай» — ширина колонки страниц настроек
+       (была 860 в каждой странице). Меню разделов теперь вкладками сверху, левой колонки 240 px
+       нет — страница занимает ширину окна, но не шире этого: на 1920 строки полей не
+       растягиваются через весь экран. Этой же ширины ряд вкладок в PosSettingsWindow. -->
+  <Styles.Resources>
+    <x:Double x:Key="SettingsPageMaxWidth">1280</x:Double>
+  </Styles.Resources>
+
   <Style Selector="Border.SettingsCard">
     <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>

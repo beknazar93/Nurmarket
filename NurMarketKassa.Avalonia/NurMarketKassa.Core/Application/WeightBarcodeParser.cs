@@ -36,6 +36,11 @@ public static class WeightBarcodeParser
     /// Задаётся в окне «Настройки весов TM-30F» → «Штрих-код»; важнее режима компании.</summary>
     public static IReadOnlySet<string> AmountPrefixes { get; set; } = new HashSet<string>();
 
+    /// <summary>2026-09-28: префиксы, у которых в штрихкоде точно ВЕС, — пара к AmountPrefixes, чтобы
+    /// правило по префиксу переключалось в обе стороны (Настройки → Весы → «Штрих-код этикеток»,
+    /// мастер «Настроить по этикетке»). Тоже важнее режима компании; AmountPrefixes — ещё важнее.</summary>
+    public static IReadOnlySet<string> WeightPrefixes { get; set; } = new HashSet<string>();
+
     public static bool IsEmbeddedWeightBarcode(string barcode) => TryParse(barcode, out _);
 
     public static bool TryParse(string barcode, out WeightBarcodeParseResult result)
@@ -98,6 +103,8 @@ public static class WeightBarcodeParser
     {
         if (AmountPrefixes.Contains(prefix))
             return WeightBarcodeValueKind.Amount;
+        if (WeightPrefixes.Contains(prefix))
+            return WeightBarcodeValueKind.Weight;
         if (string.Equals(Mode, "weight", StringComparison.OrdinalIgnoreCase))
             return WeightBarcodeValueKind.Weight;
         if (string.Equals(Mode, "amount", StringComparison.OrdinalIgnoreCase))

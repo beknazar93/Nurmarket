@@ -253,7 +253,10 @@ public sealed partial class SalesApiService : ISalesApiService
         DateTime? dateToExclusive = null)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 5, 80);
+        // 2026-09-28: сервер отдаёт до 500 строк на страницу (проверено живьём: page_size=500 →
+        // 500 строк, 1000 → тоже 500). Отчёты берут 500 — месяц загружается 2 запросами вместо 11.
+        // Остальные вызовы передают 80 и меньше, для них ничего не меняется.
+        pageSize = Math.Clamp(pageSize, 5, 500);
         var pageStr = page.ToString(CultureInfo.InvariantCulture);
         var sizeStr = pageSize.ToString(CultureInfo.InvariantCulture);
 
@@ -298,7 +301,7 @@ public sealed partial class SalesApiService : ISalesApiService
             {
                 try
                 {
-                    var data = await _client.RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
+                    var data = await GetRetryingThrottleAsync(path, qs, ct).ConfigureAwait(false);
                     var root = UnwrapListRootElement(data);
                     var list = NurMarketApiClient.UnwrapList(root);
                     if (list.Count > 0)
@@ -956,26 +959,39 @@ public sealed partial class SalesApiService : ISalesApiService
         return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
     }
 
-    public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
-    {
-        var qs = new Dictionary<string, string>
-        {
-            ["tab"] = "sales",
-            ["period_start"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["period_end"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-        };
-        return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
-    }
+    // 2026-09-29: через общий короткий кэш и с повтором при 429 (см. SalesApiService.ReportCache.cs).
+    public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
+        CachedReportAsync("sales", from, to, ct);
 
-    public Task<JsonElement> MarketProductsReportAsync(DateTime from, DateTime to, CancellationToken ct = default)
+    // 2026-09-29: через общий короткий кэш и с повтором при 429 (см. SalesApiService.ReportCache.cs).
+    public Task<JsonElement> MarketProductsReportAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
+        CachedReportAsync("products", from, to, ct);
+
+    /// <summary>2026-09-29, стресс-тест аналитики: GET с повтором при 429. Запросы отчётов
+    /// («Финансы», «Продажи», «Аналитика», ABC, выгрузки) идут через NurMarketApiClient, у которого
+    /// повтора при 429 нет: одна страница списка продаж, получившая «слишком частые запросы»,
+    /// роняла всю загрузку, и окно переключалось на локальные данные кассы — поверх уже
+    /// показанных верных цифр сервера; без вкладки «Товары» окно шло качать КАЖДЫЙ чек
+    /// периода отдельно (тысячи запросов — и новые 429). Теперь до трёх повторов после паузы,
+    /// которую назвал сервер («Expected available in N seconds»), не дольше 20 с.</summary>
+    private async Task<JsonElement> GetRetryingThrottleAsync(
+        string path, IReadOnlyDictionary<string, string> query, CancellationToken ct)
     {
-        var qs = new Dictionary<string, string>
+        for (var attempt = 0; ; attempt++)
         {
-            ["tab"] = "products",
-            ["period_start"] = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-            ["period_end"] = to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-        };
-        return _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/", null, qs, ct);
+            try
+            {
+                return await _client.RequestAsync(HttpMethod.Get, path, null, query, ct).ConfigureAwait(false);
+            }
+            catch (ApiException e) when (e.StatusCode == 429 && attempt < 3)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(e.Message ?? "", @"(\d+)\s*(?:sec|сек)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var seconds = match.Success && int.TryParse(match.Groups[1].Value, out var n) ? n : 3;
+                PosLogger.Log($"Отчёт: сервер попросил паузу {seconds} с (429), повтор {attempt + 1}/3: {path}", "API");
+                await Task.Delay(TimeSpan.FromSeconds(Math.Clamp(seconds, 1, 20)), ct).ConfigureAwait(false);
+            }
+        }
     }
 
     public Task<JsonElement> ListPayProfilesAsync(string userId, CancellationToken ct = default) =>

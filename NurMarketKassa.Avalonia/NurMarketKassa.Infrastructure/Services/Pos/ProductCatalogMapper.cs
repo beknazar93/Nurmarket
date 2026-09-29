@@ -43,6 +43,10 @@ namespace NurMarketKassa.Services
             CatalogProductTileVm vm = new CatalogProductTileVm(id, title, priceLine, mustWeigh, imageUrl);
             vm.Barcode = barcode;
 
+            // 2026-09-28, продажа №1136: акции товара (promotion_rules) сервер применяет к строке
+            // чека сам — касса запоминает их, чтобы считать итог так же (см. PromotionRules).
+            PromotionRules.Remember(id, p);
+
             // ---------- PurchasePrice ----------
             if (p.TryGetProperty("purchase_price", out var ppEl) && TryGetDouble(ppEl, out double ppVal))
                 vm.PurchasePrice = ppVal;

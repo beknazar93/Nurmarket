@@ -78,13 +78,21 @@ public sealed partial class SupportBot
                     Log($"Telegram просит паузу {wait} с");
                     await Task.Delay(TimeSpan.FromSeconds(wait), ct).ConfigureAwait(false);
                 }
+                catch (TgException ex)
+                {
+                    // 2026-09-29: отказ Telegram (клиент заблокировал бота и т. п.) — одной строкой, без
+                    // стека: при сотне заблокировавших журнал раздувался в десятки раз.
+                    Log($"Ошибка обработки {update.UpdateId}: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
                     Log($"Ошибка обработки {update.UpdateId}: {ex}");
                 }
-            }
-            if (updates.Count > 0)
+
+                // 2026-09-29 (стресс-тест): offset — после КАЖДОГО обновления, а не после пачки. Перезапуск
+                // посреди пачки (до 100 обновлений) повторял ответы всем, кто уже получил их.
                 _db.SetSetting("offset", offset.ToString(Ru));
+            }
         }
     }
 
@@ -93,6 +101,14 @@ public sealed partial class SupportBot
         if (update.CallbackQuery is { } callback)
         {
             await OnCallbackAsync(callback, ct).ConfigureAwait(false);
+            return;
+        }
+        // 2026-09-29: группу поддержки превратили в супергруппу — у неё новый chat_id. Без этого
+        // обращения уходили в старый чат, Telegram их отклонял, а клиенту бот писал «группа не подключена».
+        if (update.Message is { MigrateToChatId: { } newChat } migrated && migrated.Chat.Id == SupportChat)
+        {
+            _db.SetSetting("support_chat", newChat.ToString(Ru));
+            Log($"Группа поддержки стала супергруппой: {migrated.Chat.Id} → {newChat}.");
             return;
         }
         if (update.Message is not { From: { IsBot: false } } message)

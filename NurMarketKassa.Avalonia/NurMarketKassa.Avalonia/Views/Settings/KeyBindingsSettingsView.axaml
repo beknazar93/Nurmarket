@@ -23,7 +23,7 @@
 
   <Border Classes="SettingsContentHost">
     <ScrollViewer Classes="SettingsPageScroll">
-      <StackPanel Classes="SettingsCardList" MaxWidth="860" HorizontalAlignment="Stretch" Margin="0,16">
+      <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch" Margin="0,16">
 
         <Border Classes="SettingsHeaderCard" HorizontalAlignment="Stretch">
           <StackPanel Orientation="Horizontal" Spacing="12">

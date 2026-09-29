@@ -244,15 +244,11 @@ public sealed class CartService : ICartService, IDisposable
         if (line.ValueKind != JsonValueKind.Object)
             return 0;
 
-        if (line.TryGetProperty("discount_total", out var dt)
-            && JsonNumericReader.TryToDouble(dt, out var total) && total > 0)
-            return total;
-
-        if (line.TryGetProperty("discount_percent", out var dp)
-            && JsonNumericReader.TryToDouble(dp, out var pct) && pct > 0)
-            return gross * pct / 100.0;
-
-        return 0;
+        // 2026-09-28, продажа №1136: строка на экране показывает ту же скидку, что уходит в итог
+        // и на сервер (CartDisplayHelper.EffectiveLineDiscount: скидка кассира или акция товара
+        // NurCRM). Раньше здесь был свой разбор: только discount_total / discount_percent, без
+        // округления до копейки и без акций, — строка и итог чека могли показывать разное.
+        return CartDisplayHelper.EffectiveLineDiscount(line);
     }
 
     private static (decimal? Percent, decimal? FixedAmount) ReadDiscountDefinition(JsonElement line)

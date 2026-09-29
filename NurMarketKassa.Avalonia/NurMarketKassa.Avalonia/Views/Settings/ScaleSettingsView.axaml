@@ -1,5 +1,6 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:settings="clr-namespace:NurMarketKassa.AvaloniaHost.Views.Settings"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView"
              x:CompileBindings="False"
              VerticalAlignment="Stretch"
@@ -21,13 +22,51 @@
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+
+        <!-- 2026-09-28: разделы страницы «Весы» — переключатель-«сегменты» вместо одной длинной
+             ленты карточек (владелец: «длинная каша», адрес TM-30F ввёл в поля Штрих-ПРИНТ). -->
+        <Style Selector="RadioButton.SectionTab">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Template">
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="seg" Background="Transparent" CornerRadius="8" Padding="8,8" MinHeight="44">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.SectionTab:pointerover /template/ Border#seg">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="RadioButton.SectionTab:checked /template/ Border#seg">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="RadioButton.SectionTab:checked">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="RadioButton.SectionTab TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="RadioButton.SectionTab TextBlock.mdl2">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
     </UserControl.Styles>
 
     <Border Classes="SettingsContentHost" Padding="16">
-        <ScrollViewer Classes="SettingsPageScroll">
+        <ScrollViewer x:Name="PageScroll" Classes="SettingsPageScroll">
             <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
                  переключении карточки прыгали от края к краю вслед за содержимым. -->
-            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
+            <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
                 <!-- Заголовок страницы прижат влево — по одной вертикали с содержимым
                      карточек ниже. По центру он плавал: при переходе между вкладками название
@@ -46,9 +85,44 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Единая карточка параметров -->
+                <!-- Разделы страницы -->
+                <Border Classes="SettingsCard" Padding="4">
+                    <UniformGrid x:Name="SectionTabsGrid" Rows="1">
+                        <RadioButton x:Name="TabWeighingButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                            <StackPanel>
+                                <TextBlock Classes="mdl2" Text="&#xE9D9;"/>
+                                <TextBlock Text="{DynamicResource scaleSetup.tab.weighing}"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="TabLabelButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                            <StackPanel>
+                                <TextBlock Classes="mdl2" Text="&#xE8A1;"/>
+                                <TextBlock Text="{DynamicResource scaleSetup.tab.label}"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="TabBarcodeButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                            <StackPanel>
+                                <TextBlock Classes="mdl2" Text="&#xEA90;"/>
+                                <TextBlock Text="{DynamicResource scaleSetup.tab.barcode}"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="TabDisplayButton" Classes="SectionTab" GroupName="ScaleSection" Click="SectionTab_Click">
+                            <StackPanel>
+                                <TextBlock Classes="mdl2" Text="&#xE7F4;"/>
+                                <TextBlock Text="{DynamicResource scaleSetup.tab.display}"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </UniformGrid>
+                </Border>
+
+                <!-- ========== 1. Весы на кассе (взвешивание) ========== -->
+                <StackPanel x:Name="WeighingSection" Spacing="10">
                 <Border Classes="SettingsCard" Padding="14">
                     <StackPanel Spacing="14">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{DynamicResource scaleSetup.weighing.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                            <TextBlock Text="{DynamicResource scaleSetup.weighing.desc}" Classes="SettingsCardBody"/>
+                        </StackPanel>
 
                         <!-- Включить опрос отдельно слева -->
                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left" VerticalAlignment="Center">
@@ -111,7 +185,7 @@
                                     Content="{DynamicResource scaleSettings.testButton}"
                                     Classes="ScaleGoldButton"
                                     IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
-                                    HorizontalAlignment="Center"
+                                    HorizontalAlignment="Left"
                                     VerticalAlignment="Center"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"/>
@@ -125,93 +199,11 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Сетевые весы с печатью этикеток (ШТРИХ-ПРИНТ по кабелю). Отдельно от
-                     блока выше: там COM-весы, которые ВЗВЕШИВАЮТ товар на кассе, а здесь весы
-                     в зале, куда ВЫГРУЖАЕТСЯ список товаров.
-                     2026-09-22: раньше эти три поля жили только внутри окна «Весы» и лишь при
-                     включённой галочке «Напрямую по кабелю» — владелец их не находил, выгрузка
-                     уходила с чужим портом и паролем, и весы блокировались по числу неудачных
-                     попыток. Теперь они на виду в настройках. -->
-                <Border Classes="SettingsCard" Padding="14">
-                    <StackPanel Spacing="14">
-                        <TextBlock Text="{DynamicResource loc.settings.lanScale.title}" Classes="SettingsCardTitle" FontSize="14"/>
-                        <TextBlock Text="{DynamicResource loc.settings.lanScale.desc}"
-                                   FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-
-                        <Grid ColumnDefinitions="*,16,Auto,16,Auto">
-                            <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="{DynamicResource loc.settings.lanScale.ip}" Classes="FieldLabel"/>
-                                <TextBox x:Name="LanScaleIpBox" x:FieldModifier="public"
-                                         Classes="ModernTextBox" Height="36" Watermark="192.168.0.50"
-                                         LostFocus="LanScale_LostFocus"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2" Spacing="4" Width="110">
-                                <TextBlock Text="{DynamicResource loc.settings.lanScale.port}" Classes="FieldLabel"/>
-                                <TextBox x:Name="LanScalePortBox" x:FieldModifier="public"
-                                         Classes="ModernTextBox" Height="36" Watermark="1111"
-                                         LostFocus="LanScale_LostFocus"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="4" Spacing="4" Width="110">
-                                <TextBlock Text="{DynamicResource account.passwordLabel}" Classes="FieldLabel"/>
-                                <TextBox x:Name="LanScalePasswordBox" x:FieldModifier="public"
-                                         Classes="ModernTextBox" Height="36" MaxLength="4" Watermark="0030"
-                                         LostFocus="LanScale_LostFocus"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="{DynamicResource loc.settings.lanScale.passwordHint}"
-                                   FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-
-                        <StackPanel Spacing="8">
-                            <!-- Кнопки раздела стоят в ряд по левому краю, на одной вертикали с
-                                 полями и подписями над ними. Столбиком по центру они были разной
-                                 ширины и «ступеньками» уезжали от остального содержимого. -->
-                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-                                <Button Content="{DynamicResource loc.settings.lanScale.openDialog}"
-                                        Classes="ScaleGoldButton"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Click="OpenLanScaleDialog_Click"/>
-
-                                <Button x:Name="TestLanScaleButton" x:FieldModifier="public"
-                                        Content="{DynamicResource loc.settings.lanScale.test}"
-                                        Classes="ScaleGoldButton"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Click="TestLanScale_Click"/>
-                            </StackPanel>
-
-                            <!-- 2026-09-28: настройки самих весов (как в программе Штрих-М «Тест
-                                 драйвера весов»): клавиатура, система, товары, печать, штрих-код,
-                                 тексты. Отдельной строкой — в ряд с двумя кнопками выше не влезала. -->
-                            <Button Content="{DynamicResource loc.settings.lanScale.deviceSettings}"
-                                    Classes="ScaleGoldButton"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Click="OpenShtrikhDeviceSettings_Click"/>
-
-                            <!-- 2026-09-28: поиск весов в сети — узнать IP подключённых весов
-                                 (просьба владельца «анализ ip адресов»). -->
-                            <Button Content="{DynamicResource loc.settings.scaleScan.open}"
-                                    Classes="ScaleGoldButton"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Click="ScanNetwork_Click"/>
-
-                            <Border x:Name="LanScaleAlert" x:FieldModifier="public" Classes="AlertBlock"
-                                    IsVisible="False" Margin="0" Padding="10" CornerRadius="6">
-                                <TextBlock x:Name="LanScaleAlertText" x:FieldModifier="public"
-                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
                 <!-- Дополнительные весы (2026-09-26): до трёх весов одновременно. Вес берётся с тех,
-                     на которых лежит товар (ComWeightScaleService). Протокол — как у основных. -->
-                <Border Classes="SettingsCard" Padding="14">
+                     на которых лежит товар (ComWeightScaleService). Протокол — как у основных.
+                     2026-09-29, владелец: «убери это» — блок скрыт; показывается, только если
+                     доп. весы уже включены (чтобы их можно было выключить). -->
+                <Border x:Name="ExtraScalesCard" x:FieldModifier="public" Classes="SettingsCard" Padding="14" IsVisible="False">
                     <StackPanel Spacing="12">
                         <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="Дополнительные весы"
                                    FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
@@ -242,9 +234,39 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+                </StackPanel>
 
-                <!-- Дисплей цены покупателя — отдельная COM-коробочка с LED/VFD-табло,
-                     не второй монитор (см. PoleDisplayService, 2026-09-04). -->
+                <!-- ========== 2. Весы с печатью этикеток ==========
+                     Отправка PLU на весы — платная доп. услуга на тарифе «Старт» (2026-09-21, см.
+                     TariffGate.CanUseScales): раздел и его кнопка скрываются целиком, пока она не
+                     куплена (тот же приём, что у аналитики склада, WarehouseWindow.RefreshPaidFeatureVisibility). -->
+                <StackPanel x:Name="PluCard" x:FieldModifier="public" Spacing="10">
+                    <!-- 2026-09-28 (просьба владельца): несколько весов, у каждых свои марка, адрес,
+                         способ отправки и категории. Настройки одних весов — в окне
+                         LabelScaleEditWindow («Настроить…»). -->
+                    <Border Classes="SettingsCard" Padding="14">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="{DynamicResource scaleSetup.list.title}" Classes="SettingsCardTitle" FontSize="14"/>
+                            <TextBlock Text="{DynamicResource scaleSetup.list.desc}" Classes="SettingsCardBody"/>
+                            <StackPanel x:Name="ScaleListHost" Spacing="8"/>
+                            <Button Classes="ScaleGoldButton" Content="{DynamicResource scaleSetup.list.add}" Click="AddScale_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2026-09-28 (живой баг «сумма неправильно»): что весы печатают в штрихкоде —
+                         вес или сумма — прямо здесь, кнопками по префиксам (краткий вид той же панели,
+                         что в разделе «Штрих-код: вес / сумма», где ещё мастер и пояснения). -->
+                    <settings:ScaleBarcodeSetupPanel x:Name="LabelRulesPanel" RulesOnly="True"/>
+                </StackPanel>
+
+                <!-- ========== 3. Штрих-код: вес / сумма ========== -->
+                <StackPanel x:Name="BarcodeSection" Spacing="10">
+                    <settings:ScaleBarcodeSetupPanel x:Name="BarcodePanel"/>
+                </StackPanel>
+
+                <!-- ========== 4. Дисплей цены покупателя ==========
+                     Отдельная COM-коробочка с LED/VFD-табло, не второй монитор (см. PoleDisplayService, 2026-09-04). -->
+                <StackPanel x:Name="DisplaySection" Spacing="10">
                 <Border Classes="SettingsCard" Padding="14">
                     <StackPanel Spacing="14">
 
@@ -311,67 +333,7 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-
-                <!-- Выгрузка весовых товаров на сетевые весы Штрих-М (PLU по LAN) — отдельно от
-                     живого COM-довеса выше: это разовая массовая отправка каталога на весы,
-                     сервер сам говорит с весами по сети (см. scales-and-plu.md). Платная доп.
-                     услуга на тарифе «Старт» (2026-09-21, см. TariffGate.CanUseScales) — карточка
-                     скрывается целиком, пока не куплена (тот же приём, что и у аналитики склада/
-                     редактора ценников, см. WarehouseWindow.RefreshPaidFeatureVisibility). -->
-                <Border x:Name="PluCard" x:FieldModifier="public" Classes="SettingsCard" Padding="14">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="{DynamicResource posSettings.scale.pluSectionTitle}" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource BrushText}"/>
-                        <TextBlock Text="{DynamicResource posSettings.scale.pluSectionDesc}"
-                                   FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
-
-                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
-
-                        <TextBlock Text="{DynamicResource posSettings.scale.pluBrandLabel}" FontSize="12"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                            <RadioButton x:Name="PluBrandShtrikhRadio" GroupName="PluScaleBrand" IsChecked="True"
-                                         Content="{DynamicResource scalesPlu.brandShtrikh}" Click="PluBrandRadio_Click"/>
-                            <RadioButton x:Name="PluBrandRongtaRadio" GroupName="PluScaleBrand"
-                                         Content="{DynamicResource scalesPlu.brandRongta}" Click="PluBrandRadio_Click"/>
-                            <RadioButton x:Name="PluBrandAiRadio" GroupName="PluScaleBrand"
-                                         Content="{DynamicResource loc.settings.scale.aiScales}" Click="PluBrandRadio_Click"/>
-                            <!-- 2026-09-28: весы TM-30F — файл для их программы, как у AI-весов. Вечером 28.09:
-                                 это Dahua (TM-A/TM-F, «Русский масштаб»), касса шлёт им PLU напрямую. -->
-                            <RadioButton x:Name="PluBrandTmRadio" GroupName="PluScaleBrand"
-                                         Content="TM-30F (Dahua)" Click="PluBrandRadio_Click"/>
-                        </StackPanel>
-
-                        <!-- 2026-09-28: окно настроек весов выбранной марки (Штрих-М — окно Штрих-ПРИНТ,
-                             Rongta и TM-30F — свои окна) и поиск весов в сети. -->
-                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
-                            <Button Content="{DynamicResource loc.settings.scaleBrandSettings.open}"
-                                    Classes="ScaleGoldButton" Click="OpenBrandSettings_Click"/>
-                            <Button Content="{DynamicResource loc.settings.scaleScan.open}"
-                                    Classes="ScaleGoldButton" Click="ScanNetwork_Click"/>
-                        </StackPanel>
-
-                        <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
-
-                        <TextBlock Text="{DynamicResource posSettings.scale.pluIpLabel}" FontSize="12"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                        <Grid ColumnDefinitions="*,16,Auto">
-                            <TextBox Grid.Column="0" x:Name="PluScaleIpBox" x:FieldModifier="public"
-                                     Watermark="192.168.1.100" Height="36"/>
-                            <Button Grid.Column="2" x:Name="PluCheckConnectionButton" x:FieldModifier="public"
-                                    Content="{DynamicResource posSettings.scale.pluCheckConnection}"
-                                    Classes="ScaleGoldButton" Click="PluCheckConnection_Click"/>
-                        </Grid>
-                        <Border x:Name="PluIpAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False"
-                                Margin="0" Padding="10" CornerRadius="6">
-                            <TextBlock x:Name="PluIpAlertText" x:FieldModifier="public"
-                                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushText}"/>
-                        </Border>
-
-                        <Button Content="{DynamicResource posSettings.scale.pluSectionButton}"
-                                Classes="ScaleGoldButton" Click="OpenScalesPlu_Click"/>
-                    </StackPanel>
-                </Border>
+                </StackPanel>
 
                 <StackPanel Spacing="8" Margin="0,4,0,0" HorizontalAlignment="Stretch">
                     <TextBlock x:Name="SaveStatusText" x:FieldModifier="public"

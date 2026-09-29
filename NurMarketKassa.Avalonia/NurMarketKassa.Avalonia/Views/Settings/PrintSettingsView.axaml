@@ -58,7 +58,7 @@
     <ScrollViewer Classes="SettingsPageScroll">
       <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
            переключении карточки прыгали от края к краю вслед за содержимым. -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="860" HorizontalAlignment="Stretch">
+      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">

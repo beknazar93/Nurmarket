@@ -24,7 +24,7 @@
       <ScrollViewer Classes="SettingsPageScroll">
         <!-- Та же ширина колонки, что и на остальных вкладках: эта одна растягивалась на всё
              окно, и при переходе с «Экрана» карточки скачком уезжали к краям. -->
-        <StackPanel Classes="SettingsCardList" MaxWidth="860" HorizontalAlignment="Stretch">
+        <StackPanel Classes="SettingsCardList" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
           <Border Classes="SettingsHeaderCard">
             <Grid ColumnDefinitions="48,*">
               <Border Width="42" Height="42" CornerRadius="10" Background="{DynamicResource BrushWarningSoft}">

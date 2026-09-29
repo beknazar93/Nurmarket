@@ -801,6 +801,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
         prefs.ScaleAmountPrefixes = string.Join(",", amountSet.OrderBy(p => p, StringComparer.Ordinal));
         prefs.ScaleWeightPrefixes = string.Join(",", weightSet.OrderBy(p => p, StringComparer.Ordinal));
         WeightBarcodeParser.AmountPrefixes = amountSet;
+        // 2026-09-28: и правило «вес» — парсер теперь учитывает его сам (WeightPrefixes), даже
+        // если режим компании прочёл бы этот префикс как сумму (Настройки → Весы → «Штрих-код»).
+        WeightBarcodeParser.WeightPrefixes = weightSet;
         prefs.SaveToDisk();
         PosLogger.Log($"[SCALE] prefix {prefix} confirmed as {(isAmount ? "amount" : "weight")} by cashier", "CART");
         return isAmount ? asAmount : asWeight;
@@ -979,6 +982,16 @@ public sealed class BasketPanelViewModel : ViewModelBase
         if (Lines.Count == 0)
             return;
 
+        // 2026-09-28, денежный баг продажи №1136: акции товаров NurCRM — по последнему каталогу,
+        // ДО того как посчитан итог окна оплаты (строка могла попасть в чек раньше, чем касса
+        // узнала об акции). Иначе окно показало бы полную цену, а сервер провёл бы со скидкой.
+        if (ReceiptSnapshotCartEditor.RefreshPromotionRules(_cart))
+        {
+            PosLogger.Log("PAY: акции товаров в чеке обновлены по каталогу перед оплатой.", "PAYMENT");
+            SyncLinesFromCart();
+            UpdateCartTotals();
+        }
+
         // 2026-09-21, живой баг владельца: чек из одной «Доп. услуги» типа «Расход» (без единого
         // товара) реально уходит в минус, но экран показывал «Итог: 0.00» как бесплатную продажу —
         // после клика «Оплатить» сервер отвечал «Внутренняя ошибка сервера (500)» на нонсенсной для
@@ -1063,7 +1076,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             var cashReceived = checkoutVm.CashReceivedForApi;
 
             PosLogger.Log(
-                $"PAY API checkout: method={checkoutVm.PaymentMethod}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}, " +
+                // 2026-09-28: итог окна оплаты в журнале — по нему кассир взял деньги (см. продажу №1136).
+                $"PAY API checkout: method={checkoutVm.PaymentMethod}, window_total={checkoutVm.EffectiveTotalDue:0.00}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}, " +
                 $"consultant={checkoutVm.ConsultantIdForApi ?? "-"}",
                 "PAYMENT");
 
@@ -1085,6 +1099,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 ConsultantCommissionEnabled = checkoutVm.ConsultantCommissionEnabledForApi,
                 ConsultantCommissionPercent = checkoutVm.ConsultantCommissionPercentForApi,
                 ConsultantName = checkoutVm.ConsultantNameForReceipt,
+                // 2026-09-28, продажа №1136: сумма, которую кассир видел и взял, — с ней сервис
+                // оплаты сверяет итог запроса/серверной корзины перед отправкой.
+                ExpectedTotal = checkoutVm.EffectiveTotalDue,
             }).ConfigureAwait(false);
 
             if (!result.IsSuccess)
@@ -1093,6 +1110,13 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     ? PaymentErrorMessages.GenericFailure
                     : result.ErrorMessage;
                 PosLogger.Log($"PAY failed result: {error}", "PAYMENT");
+                // 2026-09-28: после отказа (в том числе сверки суммы с сервером) чек мог
+                // обновиться данными серверной корзины — экран показывает то, что реально в чеке.
+                await RunOnUiThreadAsync(() =>
+                {
+                    SyncLinesFromCart();
+                    UpdateCartTotals();
+                }).ConfigureAwait(false);
                 if (LooksLikeShiftNotOpenError(error))
                     ShiftDesyncDetected?.Invoke(this, EventArgs.Empty);
                 if (_checkoutUiFlow != null)
@@ -1137,6 +1161,17 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 paymentStatusActive = false;
             }
 
+            // 2026-09-28, продажа №1136: сервер провёл продажу не на ту сумму, что была в окне
+            // оплаты, — кассир должен увидеть это сразу и вернуть/добрать разницу, а не узнать
+            // из Z-отчёта. Окно модальное (после окна «Платёж принят»): пропустить его нельзя.
+            if (!string.IsNullOrWhiteSpace(result.TotalMismatchWarning))
+            {
+                PosLogger.Log(
+                    $"PAY total mismatch shown to cashier: window={checkoutVm.EffectiveTotalDue:0.00}, server={result.TotalAmount:0.00}",
+                    "WARNING");
+                await _dialogService.ShowErrorAsync(result.TotalMismatchWarning).ConfigureAwait(false);
+            }
+
             await RunOnUiThreadAsync(() =>
             {
                 if (checkoutVm.PaymentMethod == "cash" &&
@@ -1149,7 +1184,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     // списывается верная (пересчитанная) сумма, но экран покупателя показывал
                     // сдачу от СТАРОЙ суммы — например, скидка снизила сумму на 85 сом, а сдача на
                     // экране покупателя показывала на 85 сом меньше, чем реально нужно вернуть.
-                    _lastChangeDueForDisplay = Math.Max(0, cashPaid - checkoutVm.EffectiveTotalDue);
+                    // 2026-09-28: если сервер провёл продажу на другую сумму (TotalMismatchWarning),
+                    // сдача на экране покупателя — от суммы сервера.
+                    _lastChangeDueForDisplay = Math.Max(0, cashPaid - (result.TotalMismatchWarning != null
+                        ? result.TotalAmount
+                        : checkoutVm.EffectiveTotalDue));
                 }
                 else
                 {
@@ -1831,6 +1870,21 @@ public sealed class BasketPanelViewModel : ViewModelBase
             return;
         if (!DemandPermission(PosPermissions.ApplyDiscount))
             return;
+
+        // 2026-09-28, проверено на сервере (продажи 1143, 1144): у товара с акцией NurCRM сервер
+        // сам назначает скидку строки по акции, а скидку кассира на эту строку не принимает —
+        // касса показала бы одну сумму, а продажа прошла бы на другую. Предлагаем скидку на чек.
+        if (ReceiptSnapshotCartEditor.LineHasPromotion(_cart, line.ItemId))
+        {
+            _prompts.ShowWarning(Tr.T(
+                $"На «{line.Title}» действует акция NurCRM — скидку этой строки назначает сервер по акции, свою скидку на неё поставить нельзя. Используйте скидку на весь чек.",
+                $"«{line.Title}» товарына NurCRM акциясы колдонулат — бул саптын арзандатуусун сервер акция боюнча коёт, өз арзандатууңузду коюуга болбойт. Бүт чекке арзандатууну колдонуңуз.",
+                $"A NurCRM promotion applies to “{line.Title}” — the server sets this line's discount from the promotion, so you can't add your own. Use a discount on the whole receipt.",
+                $"«{line.Title}» için NurCRM kampanyası geçerli — bu satırın indirimini sunucu kampanyaya göre belirler, kendi indiriminizi ekleyemezsiniz. Tüm fişe indirim uygulayın.",
+                $"«{line.Title}» uchun NurCRM aksiyasi amal qiladi — bu qator chegirmasini server aksiya bo'yicha belgilaydi, o'z chegirmangizni qo'yib bo'lmaydi. Butun chekka chegirma qo'llang."));
+            return;
+        }
+
         if (!await DemandCashierPasswordAsync(
                 Tr.T("Изменение позиции", "Позицияны өзгөртүү", "Editing line item", "Kalem düzenleme", "Pozitsiyani o'zgartirish"),
                 Tr.T($"Введите пароль кассы, чтобы изменить «{line.Title}» в чеке.",

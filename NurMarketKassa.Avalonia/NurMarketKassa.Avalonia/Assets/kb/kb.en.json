@@ -88,7 +88,7 @@
       {
        "id": "продажи-как-продать-весовой-товар",
        "title": "How to sell a weighed product",
-       "text": "Шаг 1. Tap the weighed product in the catalog (the “Weighed” tab is handy for this) or scan its barcode.\nШаг 2. The “Weigh product” window opens; if a scale is connected, “Currently on the scale” is shown at the top.\nШаг 3. On the “By weight” tab, press “Read from scale” or enter the weight in the “Weight, kg” field (there are quick buttons for 0.1 kg, 0.5 kg, 1 kg, 2 kg, and 5 kg, plus number keys).\nШаг 4. If the customer asks for a set sum rather than a weight, open the “By amount” tab and fill in “Amount, som” — the weight is calculated automatically.\nШаг 5. Press “Add to receipt”.",
+       "text": "Шаг 1. Tap the weighed product in the catalog (the “Weighed” tab is handy for this) or scan its barcode.\nШаг 2. The “Weigh product” window opens; if a scale is connected, “Currently on the scale” is shown at the top.\nШаг 3. On the “By weight” tab, press “Read from scale” or enter the weight in the “Weight, kg” field (there are quick buttons for 0.1 kg, 0.5 kg, 1 kg, 2 kg, and 5 kg, plus number keys).\nШаг 4. If the customer asks for a set sum rather than a weight, open the “By amount” tab and fill in “Amount, som” — the weight is calculated automatically.\nШаг 5. Press “Add to receipt”.\nВажно: Just scan a scale label with a barcode (starting with 20–29) — the line with the weight and total is added to the receipt by itself. Details — the “Scales” section.",
        "keywords": [
         "weighed",
         "weigh",
@@ -1759,7 +1759,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-весы-к-кассе",
        "title": "How to connect a scale to the POS",
-       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”.\nШаг 2. Turn on “Enable scale polling”.\nШаг 3. Choose the “COM port”, set the “Baud rate” (usually 9600), and, if needed, “Weight request (hex)” and “Poll interval (ms)”.\nШаг 4. Put a product on the scale and click “Test scales”.\nШаг 5. Click “Save”.\nВажно: After that, the “Read from scale” button works in the “Weigh product” window. If you have several scales, see “How to connect several scales at once”.",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”, the “Scale at the till” tab.\nШаг 2. Turn on “Enable scale polling”.\nШаг 3. Choose the “COM port”, set the “Baud rate” (usually 9600), and, if needed, “Weight request (hex)” and “Poll interval (ms)”.\nШаг 4. Click “Save”.\nШаг 5. Put a product on the scale and click “Test scales”.\nВажно: After that, the “Read from scale” button works in the “Weigh product” window. If you have several scales, see “How to connect several scales at once”. The full guide for all scales is in the “Scales” section.",
        "keywords": [
         "scales",
         "connect scales",
@@ -1786,7 +1786,7 @@
       {
        "id": "настройки-и-оборудование-как-отправить-весовые-товары-на-вес",
        "title": "How to send weighed products to a label-printing scale",
-       "text": "Шаг 1. Open ☰ → “Settings” → “Scales” and, in the “Network scales (product upload)” block, enter the “Scale IP address”, “Port”, and “Password”, then click “Test connection to scale”.\nШаг 2. In the “PLU on Shtrikh-M scales” block, choose the “Scale model:” (“Shtrikh-M”, “Rongta”, or “AI scales”).\nШаг 3. Click “Send products to the scale →”.\nШаг 4. In the “Scales” window, select the products (“Select all” / “Clear selection”) and, if needed, set the “Starting PLU:”.\nШаг 5. Click “Send to the scale”, or click “Export to CSV” to load the file into the scale manually.\nВажно: On the “Start” plan, sending to network scales is a paid add-on (Marketplace → “Extras”).",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”, the “Label scales” tab.\nШаг 2. Click “Configure…” next to the scale (or “+ Add a scale”), choose the brand — “Shtrih-PRINT (Shtrih-M)”, “Rongta”, “TM-30F (Dahua)” or “AI scales” — enter the address, click “Check connection” and “Save”.\nШаг 3. Click “Send goods →” next to this scale.\nШаг 4. In the “Send goods to the scale” window tick the products (“Select all” / “Clear selection”) and, if needed, set the “Starting PLU:”.\nШаг 5. Click “Send to the scale”, or “Save CSV” to load the file into the scale manually.\nВажно: On the “Start” plan sending to scales is a paid add-on (Marketplace → “Extras”). The full guide for all scales is in the “Scales” section.",
        "keywords": [
         "plu",
         "shtrikh scales",
@@ -1821,7 +1821,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-дисплей-цены-покупат",
        "title": "How to connect the customer price display (pole display)",
-       "text": "Шаг 1. Connect the display to the computer. On POS all-in-ones (for example, CY25), the numeric “0.00” display is already built into the case and connected to one of the COM ports.\nШаг 2. Open ☰ → “Settings” → “Scales”, find the “Customer price display” block, and turn it on.\nШаг 3. In “Display type”, choose “Numeric display “0.00” (8 digits, LED)” — or “Text display, 2 lines (CD5220)” if your display shows letters.\nШаг 4. If you don't know the port, click “Find display”: the POS sends a number like 3.2400 (port 3, baud rate 2400) to each COM port in turn. Look at the display and click the button with the number that remains on it.\nШаг 5. Click “Save”, then “Test display” — 1234.56 appears on the display.\nВажно: Numeric displays usually run at 2400 baud. When there are items in the receipt, the display shows the total and lights up the “Total” indicator.",
+       "text": "Шаг 1. Connect the display to the computer. On POS all-in-ones (for example, CY25), the numeric “0.00” display is already built into the case and connected to one of the COM ports.\nШаг 2. Open ☰ → “Settings” → “Scales”, the “Price display” tab, find the “Customer price display” block, and turn it on.\nШаг 3. In “Display type”, choose “Numeric display “0.00” (8 digits, LED)” — or “Text display, 2 lines (CD5220)” if your display shows letters.\nШаг 4. If you don't know the port, click “Find display”: the POS sends a number like 3.2400 (port 3, baud rate 2400) to each COM port in turn. Look at the display and click the button with the number that remains on it.\nШаг 5. Click “Save”, then “Test display” — 1234.56 appears on the display.\nВажно: Numeric displays usually run at 2400 baud. When there are items in the receipt, the display shows the total and lights up the “Total” indicator.",
        "keywords": [
         "pole display",
         "price display",
@@ -2055,7 +2055,7 @@
       {
        "id": "настройки-и-оборудование-как-подключить-несколько-весов-одно",
        "title": "How to connect several scales at once",
-       "text": "Шаг 1. Connect the main scale as described in “How to connect a scale to the POS”.\nШаг 2. In the same “Scales” window, find the “Additional scales” block.\nШаг 3. Turn on “Scale 2” (and “Scale 3” if needed), and choose a separate COM port and baud rate for each.\nШаг 4. Click “Save”.\nШаг 5. When weighing, the POS takes the weight from whichever scale the product is on. If there are items on several scales, it uses the one where the weight appeared last.\nВажно: Additional scales use the same weight request and poll interval as the main scale; each scale must have its own port.",
+       "text": "Шаг 1. Label-printing scales: on the ☰ → “Settings” → “Scales” → “Label scales” tab click “+ Add a scale” — each scale has its own brand, address and product categories.\nШаг 2. Details — the article “How to add several scales and assign categories to them” in the “Scales” section.\nШаг 3. A scale at the till (COM port) is connected alone — on the “Scale at the till” tab.\nВажно: If additional till scales (“Scale 2”, “Scale 3”) were enabled earlier, the “Additional scales” block is shown so that you can turn them off.",
        "keywords": [
         "scales",
         "several scales",
@@ -2075,6 +2075,648 @@
          "caption": "The “Additional scales” block"
         }
        ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Scales",
+   "note": "",
+   "groups": [
+    {
+     "title": "Connection",
+     "articles": [
+      {
+       "id": "весы-с-чего-начать-какие-бывают-весы-и-где-их-настройки",
+       "title": "Where to start: types of scales and where their settings are",
+       "text": "The POS works with two kinds of scales.\n1) A scale at the till weighs goods right during the sale. It is connected by cable to a COM port (or a USB adapter that Windows shows as a COM port); the weight appears in the “Weigh product” window.\n2) Label-printing scales — Shtrih-PRINT (Shtrikh-M), Rongta, TM-30F (Dahua) and “AI scales”. The POS sends them the list of weighed products (PLU), the scale prints a label with a barcode, and the POS reads that label with the scanner.\nШаг 1. Open ☰ → “Settings” → “Scales”. There are four tabs at the top.\nШаг 2. “Scale at the till” — “Enable scale polling” and the COM port settings.\nШаг 3. “Label scales” — the “Scales in the shop” list (each scale has its own name, brand, address and categories), the “+ Add a scale” button and, below, “What the scale prints in the barcode”.\nШаг 4. “Barcode: weight / amount” — how the POS reads labels: weight or amount for each prefix 20–29 and “Set up from a label”.\nШаг 5. “Price display” — the customer price display (not a scale).\nШаг 6. After changes on the “Scale at the till” and “Price display” tabs, click “Save” at the bottom of the page. Label scales are saved in their own settings window.\nВажно: On the “Start” plan the “Label scales” tab is hidden until the add-on is purchased (Marketplace → “Extras”).",
+       "keywords": [
+        "scales",
+        "scale settings",
+        "scale types",
+        "connect scales",
+        "shtrikh-m",
+        "rongta",
+        "tm-30f",
+        "ai scales",
+        "com port",
+        "весы",
+        "настройки весов",
+        "какие весы",
+        "подключение весов",
+        "штрих-м",
+        "ai весы",
+        "com порт"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "☰ → “Settings” → “Scales”"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-подключить-весы-к-кассе-по-com-порту",
+       "title": "How to connect a scale to the POS via a COM port",
+       "text": "Шаг 1. Connect the scale to the computer with a cable and turn it on.\nШаг 2. Open ☰ → “Settings” → “Scales”, the “Scale at the till” tab, and turn on “Enable scale polling” — “Connection settings” appear.\nШаг 3. In “COM port” choose the scale's port. Below the list the POS shows the port status: “COM port not found” — no port is selected or Windows does not have it; “The port is in use by the scale” — everything is fine.\nШаг 4. “Baud rate” — as in the scale settings (usually 9600).\nШаг 5. “Weight request (hex)” and “Poll interval (ms)”: if the scale sends the weight by itself all the time, leave the request empty and the interval 0. If the scale only answers a request, enter the command from the scale manual (for example, 05 or 57 0D) and an interval, for example 500.\nШаг 6. Click “Save” at the bottom of the page.\nШаг 7. Put a product on the scale and click “Test scales” — the POS shows “Current weight: … kg” or “No data received”.\nВажно: “Test scales” checks the settings that are already saved — click “Save” first. If additional scales were enabled earlier, the “Additional scales” block is shown so that you can turn them off.",
+       "keywords": [
+        "scale",
+        "com port",
+        "connect scale",
+        "scale polling",
+        "baud rate",
+        "hex",
+        "test scales",
+        "scale at the till",
+        "весы",
+        "com порт",
+        "подключить весы",
+        "опрос весов",
+        "скорость",
+        "baud",
+        "проверить весы",
+        "весы на кассе"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "The “Scale at the till” tab"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-выбрать-марку-весов-с-печатью-этикеток",
+       "title": "How to add a label scale and choose its brand",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales”, the “Label scales” tab. In the “Scales in the shop” list each scale has a row: name and brand, address and sending method, categories and the buttons “Configure…”, “Send goods →”, “Delete” (if there is more than one scale).\nШаг 2. Click “Configure…” next to the scale you need or “+ Add a scale” — the “Scale settings — …” window opens with the scale's name.\nШаг 3. “Scale name” — how the scale is labelled in the list (for example, “Meat counter scale”).\nШаг 4. Choose the brand tile: “Shtrih-PRINT (Shtrih-M)”, “Rongta”, “TM-30F (Dahua)” or “AI scales” — only that brand's fields appear below.\nШаг 5. Enter “Scale IP address” and “Port”. Under the address the POS gives an instant hint: “Same network as the “…” connection”, “The computer is not on this network…” or “Looks like a typo… You probably meant 192.168…” (for example, if 192.169… was typed).\nШаг 6. Click “Check connection” — the result is written as “Checked at …”. Don't know the address — “Find on network…”. Settings of the scale itself (barcode, label, keyboard) — “Scale settings…”.\nШаг 7. If needed, tick “Categories on this scale” and click “Save” (“Cancel” restores everything).\nВажно: “AI scales” have no address — the POS only prepares a file, so the button in the list is “Prepare the file →”. The scale at the till (COM port) is set up on the “Scale at the till” tab and does not depend on the brand.",
+       "keywords": [
+        "add scale",
+        "scale brand",
+        "scale model",
+        "shtrikh-m",
+        "rongta",
+        "tm-30f",
+        "dahua",
+        "ai scales",
+        "scale ip",
+        "configure scale",
+        "добавить весы",
+        "марка весов",
+        "модель весов",
+        "штрих-м",
+        "ai весы",
+        "ip весов",
+        "настроить весы"
+       ],
+       "images": [
+        {
+         "file": "kassa-settings-scales.png",
+         "caption": "The “Label scales” tab"
+        }
+       ]
+      },
+      {
+       "id": "весы-как-добавить-несколько-весов-и-назначить-им-категории",
+       "title": "How to add several scales and assign categories to them",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales” → the “Label scales” tab and click “+ Add a scale”. New scales are named “Scale 2”, “Scale 3”…, and their settings window opens right away.\nШаг 2. Each scale has its own brand, IP address, port and sending method — enter them (article “How to add a label scale and choose its brand”).\nШаг 3. In the “Categories on this scale” block tick the categories whose products should be on this scale (for example, “Meat” for the meat counter scale). Nothing ticked — all weighed products go to the scale, or those you ticked by hand last time.\nШаг 4. Click “Save”. The scale row shows “Categories: …”.\nШаг 5. Click “Send goods →” next to the scale — in the “Send goods to the scale” window only the products of its categories are ticked.\nШаг 6. In that window you switch scales with the list at the top: each scale keeps its own ticked products and keys.\nВажно: The list of scales is stored on this computer. “Delete” removes a scale only from the POS list — nothing changes on the scale itself. If weighed products have no categories, tick products by hand.",
+       "keywords": [
+        "several scales",
+        "two scales",
+        "categories on scale",
+        "add scale",
+        "scale 2",
+        "different scales",
+        "несколько весов",
+        "двое весов",
+        "категории на весах",
+        "добавить весы",
+        "весы 2",
+        "разные весы"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-узнать-ip-адрес-весов-поиск-весов-в-сети",
+       "title": "How to find the scale's IP address: network search",
+       "text": "Шаг 1. Turn the scale on and connect it to the same network (router, switch) as the POS computer.\nШаг 2. Open the “Find scales on the network” window: the “Find on network…” button in the scale settings window (☰ → “Settings” → “Scales” → “Label scales” → “Configure…”) or “Find scales on the network…” in the Rongta and TM-30F settings windows.\nШаг 3. In the “Network:” list choose the computer's network. If the scale has a factory address from another subnet (Shtrih-PRINT — 192.168.0.202, Rongta — 192.168.1.87), choose it below the line “— Other subnets (scales with a factory address) —”: one of the subnets, “All typical scale subnets one by one” or “Your own subnet or range…” (for example, 192.168.5.0/24).\nШаг 4. For another subnet you can tick “Temporarily give this computer a second address in this subnet…” — Windows asks once for administrator rights; the address is removed after the search.\nШаг 5. Click “Start search” (usually 10–30 seconds; “Stop” interrupts it).\nШаг 6. In the table look at the “What it is” column: “Shtrih-PRINT scale”, “Looks like TM-30F / Dahua (port 4001)”, “Possibly Rongta (5001 open)” or “unknown device”. The “How found” column shows where the address came from.\nШаг 7. In the row you need, click “Use for…” and choose the brand — the address is saved to that brand's settings.\nВажно: The search writes nothing to the devices. If the row says the scale is in another subnet, the POS cannot work with it — change the scale's address to the suggested one (the “Use for…” item with the new address) or give the computer an address in the scale's network.",
+       "keywords": [
+        "scale ip",
+        "scale address",
+        "find scales",
+        "search scales",
+        "network",
+        "subnet",
+        "arp",
+        "ping",
+        "ip весов",
+        "адрес весов",
+        "поиск весов",
+        "найти весы",
+        "сеть",
+        "подсеть"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Shtrih-PRINT (Shtrikh-M)",
+     "articles": [
+      {
+       "id": "весы-штрих-принт-адрес-порт-и-пароль-весов",
+       "title": "Shtrih-PRINT: scale address, port and password",
+       "text": "Шаг 1. Find the scale's IP address, port and password in the scale's own system menu (or find the scale with “Find on network…”).\nШаг 2. Open ☰ → “Settings” → “Scales” → “Label scales” → “Configure…” next to the scale and choose the “Shtrih-PRINT (Shtrih-M)” brand.\nШаг 3. “How to send goods”: “Via the NurCRM server” — the server passes the goods to the scale itself (the proven way; the address is only needed for the connection check); “Directly over the network” — the POS sends the goods itself, without the server (address, port and password are needed).\nШаг 4. Fill in “Scale IP address”, “Port” (usually 1111) and “Password” (exactly 4 digits, usually 0030).\nШаг 5. Click “Check connection” — the POS writes “scale connected: …” or the reason (for example, that the device answers ping but not on port 1111).\nШаг 6. Click “Save”.\nВажно: With a wrong password the scale blocks access after several attempts — turn the scale off and on and enter the correct password.",
+       "keywords": [
+        "shtrih-print",
+        "shtrikh-m",
+        "scale password",
+        "0030",
+        "port 1111",
+        "scale ip",
+        "directly over the network",
+        "via server",
+        "штрих-принт",
+        "штрих-м",
+        "пароль весов",
+        "порт 1111",
+        "ip весов",
+        "напрямую по сети",
+        "через сервер"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-окно-настроек-весов-как-читать-и-записывать",
+       "title": "Shtrih-PRINT: the scale settings window — reading and writing",
+       "text": "Шаг 1. Enter the scale's address, port and password (article “Shtrih-PRINT: scale address, port and password”).\nШаг 2. Open ☰ → “Settings” → “Scales” → “Label scales” → “Configure…” next to the Shtrih-PRINT scale → “Scale settings…”.\nШаг 3. At the top of the “ShTRIH-PRINT scale settings” window you see the scale address and the “Check connection” button.\nШаг 4. Tabs: “Keyboard”, “Status”, “System”, “Goods”, “Printing & label”, “Barcode”, “Texts”, “Currency”, “Label layout”.\nШаг 5. On a tab, first click “Read from scale”, change what you need and click “Write to scale” — only the changed values are sent.\nШаг 6. Changed your mind — “Revert to read values”. The result of every command is shown in the line at the bottom of the window.\nВажно: You cannot write without “Read from scale” first — this way the POS never overwrites the scale settings with empty values. If the scale rejects the password, the exchange stops at once so the scale does not lock access: check the password in “Settings” → “Scales” (usually 0030).",
+       "keywords": [
+        "shtrih-print",
+        "scale settings",
+        "read from scale",
+        "write to scale",
+        "scale driver test",
+        "штрих-принт",
+        "настройки весов",
+        "прочитать с весов",
+        "записать в весы",
+        "тест драйвера весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-клавиатура-состояние-система",
+       "title": "Shtrih-PRINT: the “Keyboard”, “Status” and “System” tabs",
+       "text": "The “Keyboard” tab.\nШаг 1. “Quick-access keys”: enter the “Key number” (on ShTRIH-PRINT 1–45, with “РЕГ” 46–90), in “What the key does” choose a price, a product (by PLU number or by code) or a function, fill in the value and click “Write key”. “Read key” and “Show all keys” show what is stored; “Reset fields” clears the form.\nШаг 2. “Function keys”: “Read from scale”, untick the key you want to disable, then “Write to scale”.\nШаг 3. “Keyboard lock”: “Lock” temporarily blocks key presses on the scale (for example, while products are being uploaded), “Unlock” restores them.\nThe “Status” tab.\nШаг 4. “Scale status” → “Refresh”: model, firmware version, number of products and keys, prices on the scale (with tiyin or whole som), printer status. “Get weight” shows the current weight.\nШаг 5. “Date and time” → “Sync with this computer” sets the computer's time on the scale (it is printed on the label).\nThe “System” tab.\nШаг 6. “System settings”: “Scale number (1–99)”, “Print mode”, “Auto-print threshold, g (0 off)”, “Key sound”, “Packing mode”, “Time format”, “Date format”, “Item lookup on scale” (by PLU number or by item code). “Read from scale” → change → “Write to scale”.\nВажно: The POS cannot press scale keys from the computer (“Key emulation”) — that needs a special Shtrikh-M password issued for the scale's serial number.",
+       "keywords": [
+        "shtrih-print",
+        "scale keys",
+        "scale hotkeys",
+        "keyboard lock",
+        "scale status",
+        "scale time",
+        "scale number",
+        "auto-print",
+        "штрих-принт",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "блокировка клавиатуры",
+        "состояние весов",
+        "время на весах",
+        "номер весов",
+        "автопечать"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладки-товары-печать-и-этикетка-тексты",
+       "title": "Shtrih-PRINT: the “Goods”, “Printing & label” and “Texts” tabs",
+       "text": "The “Goods” tab affects only how the seller works with the scale keyboard.\nШаг 1. “Working with goods”: “Allow saving PLU price from the scale”, “Allow changing the price of a selected item”, “Allow free price (no item)”, “Keep sales totals per PLU”, “Reset item after printing”, “Reset item by timer”, “The item's “group code” field is”.\nThe “Printing & label” tab.\nШаг 2. “Label”: “Label format” (58×30 … 58×120 or “Format 1–5 (custom)”), “Lines in item name”, “What to print on the label” (date, time, label number, scale number, tare, expiry date, price and total, currency signs).\nШаг 3. “Scale printer”: “Print on continuous tape (not labels)”, “Rotate print 180°”, “Taken-label sensor”, “Print offset (0.125 mm steps)”, “Print contrast”, “Print on P+ (add to total)”, “Print as soon as an item is selected”.\nШаг 4. “Feed” and “Print test label” check the scale printer.\nThe “Texts” tab.\nШаг 5. “Texts on label and display”: “Shop name, line 1” and “line 2” (printed at the bottom of the label), “Label title (no item selected)”, “Total label title”, “Advert line on display” (scrolls when the scale is idle for 5 minutes), “Custom text 1…5 (custom formats)”.\nШаг 6. “Urgent message to the seller” (up to 22 characters) → “Show on scale” — the message disappears after any key is pressed on the scale.\nВажно: On every tab click “Read from scale” first, then “Write to scale”. The scale cannot print the letters ң, ө, ү.",
+       "keywords": [
+        "shtrih-print",
+        "label format",
+        "scale printer",
+        "test label",
+        "shop name on label",
+        "scale advert",
+        "contrast",
+        "штрих-принт",
+        "формат этикетки",
+        "принтер весов",
+        "тестовая этикетка",
+        "название магазина на этикетке",
+        "реклама на весах",
+        "контраст"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-штрих-код",
+       "title": "Shtrih-PRINT: the “Barcode” tab",
+       "text": "The barcode on the label must match what the POS expects, otherwise the POS will not recognise the product.\nШаг 1. Open “ShTRIH-PRINT scale settings” → “Barcode” (or, in the “Send goods to the scale” window with “Directly over the network”, the “Label barcode…” button).\nШаг 2. Click “Read from scale”.\nШаг 3. In the “Which barcode the scale will print” block, the line “Company setting (website → Scales → Settings)” shows what the POS expects: layout “by PLU” 2+5+5+1 or “by code” 2+6+4+1, the mode and the required structure.\nШаг 4. Click “Match the till” — the POS sets “Barcode structure”, “What goes into the prefix (П)” = “weight / piece prefix” and “Weighed item prefix (0–99)” (20; 25 in “by amount” mode).\nШаг 5. Check the example: “Item code in the barcode” and “Sample weight, g” — below the barcode you see “The till reads: …” or “The till will NOT recognise the item: …” with the reason.\nШаг 6. Click “Write to scale”.\nStructure letters: П — prefix, Т — item code, С — total price, В — weight, З — GS1 company number, К — check digit. Suitable for the POS: ППТТТТТВВВВВК (by PLU, weight) and ППТТТТТТВВВВК (by code, weight); with the amount — ППТТТТТСССССК and ППТТТТТТССССК.\nВажно: The prefix must be 20–29. Whether the POS reads weight or amount in the barcode is set per prefix on the “Barcode: weight / amount” tab.",
+       "keywords": [
+        "shtrih-print",
+        "scale barcode",
+        "barcode structure",
+        "prefix",
+        "match the till",
+        "weight barcode",
+        "штрих-принт",
+        "штрихкод весов",
+        "структура штрих-кода",
+        "префикс",
+        "подобрать под кассу",
+        "весовой штрихкод"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-сом-вместо-руб-на-этикетке-вкладка-валюта",
+       "title": "Shtrih-PRINT: “СОМ” instead of “РУБ” on the label (the “Currency” tab)",
+       "text": "The caption «ЦЕНА, РУБ/КГ» is built into the scale firmware — its text cannot be changed. The wizard on the “Currency” tab copies the label format into your own “Format 1–5”, hides that caption and puts your text in its place.\nШаг 1. Open “ShTRIH-PRINT scale settings” → “Currency”, the “Caption «ЦЕНА, РУБ/КГ» → your currency” block.\nШаг 2. “Base on format” — the format the scale prints with now; “Save as” — “Format 1 (custom)” … “Format 5 (custom)”.\nШаг 3. “Text instead of «ЦЕНА, РУБ/КГ»” — for example «ЦЕНА, СОМ/КГ» (there are ready-made buttons); “Which custom text to use (1–5)”.\nШаг 4. If you like, tick “Also replace the «СТОИМОСТЬ» caption”, fill in “Text instead of «СТОИМОСТЬ»” (for example «СУММА, СОМ») and “Its custom text (1–5)” — the number must be different.\nШаг 5. Leave “Print with this format right after writing” ticked, click “Read from scale”, check the label diagram and click “Write to scale” → confirm.\nШаг 6. “Currency sign”: choose “Where” (main currency — after the total, or second currency) and “Which sign” (for example “⃀ (som sign)” or “сом (small)”), adjust it dot by dot or use “Draw text” if needed, and click “Upload to scale”. For the sign to be printed, turn on “currency signs” on the “Printing & label” tab.\nШаг 7. “Second currency rate” is only needed if the total in a second currency is printed: “Read from scale” → “Rate, som per 1 unit” → “Write rate”.\nВажно: For piece goods the scale itself prints «ЦЕНА, РУБ/ШТ» — make a separate format for piece goods. Formats “with pre-printed layout” print no captions. Check the first label on the scale after writing.",
+       "keywords": [
+        "rub",
+        "som",
+        "currency on label",
+        "price rub kg",
+        "som sign",
+        "shtrih-print",
+        "currency rate",
+        "руб",
+        "сом",
+        "валюта на этикетке",
+        "цена руб кг",
+        "знак сома",
+        "штрих-принт",
+        "курс валюты"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-штрих-принт-вкладка-макет-этикетки",
+       "title": "Shtrih-PRINT: the “Label layout” tab",
+       "text": "Шаг 1. Open “ShTRIH-PRINT scale settings” → “Label layout”, the “Custom label formats (Format 1–5)” block.\nШаг 2. In “Format to edit” choose “Format 1 (custom)” … “Format 5 (custom)” and click “Read from scale”.\nШаг 3. The standard scale formats cannot be changed — to start from one of them, choose it in “Copy from format” and click “Start from”.\nШаг 4. Drag elements with the mouse on the diagram (1 mm step) or enter X/Y in the table; the tick in the “Element (tick — print)” column turns printing of an element on, “Font / size” sets its font. “Label length, mm” and “Test line in the barcode” are there too.\nШаг 5. The POS warns you if an element goes beyond the label edge or elements overlap.\nШаг 6. Click “Write to scale” and confirm. To make the scale print with this format — “Print with this format”.\nВажно: The number of lines of the item name is changed on the “Printing & label” tab. “Revert to read values” undoes edits before writing.",
+       "keywords": [
+        "label layout",
+        "scale label editor",
+        "label format",
+        "label font",
+        "shtrih-print",
+        "макет этикетки",
+        "редактор этикетки весов",
+        "формат этикетки",
+        "шрифт на этикетке",
+        "штрих-принт"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Rongta",
+     "articles": [
+      {
+       "id": "весы-rongta-подключение-загрузка-товаров-и-штрихкод",
+       "title": "Rongta: connection, product upload and barcode",
+       "text": "Rongta scales (RLS1000/RLS1100) are loaded through their RLS1000 software — the POS prepares the list and starts the upload in it. The POS sends no commands to the scale itself.\nШаг 1. Open ☰ → “Settings” → “Scales” → “Label scales” → “Configure…” next to the scale (or “+ Add a scale”) and choose the “Rongta” brand.\nШаг 2. “Scale IP address” (factory default 192.168.1.87; on the scale it is changed like this: hold [SETTING] for 2 seconds → “@ IP address”) and “Port” (5001) are used for “Check connection”. Enter the same address in RLS1000: “Creat Connection” → the “IP add. of label scale” column.\nШаг 3. “How to send goods”: “Via the website and RLS1000” — the POS downloads a .txp file from the NurCRM website and starts the upload in RLS1000; “Till’s own server” — the list is built from the POS catalog and the POS waits for RLS1000 to connect on the “Own server port” (once in RLS1000: File → Options → TCP/IP, this computer's address and that port).\nШаг 4. Click “Save”. The “Scale settings…” button opens the “Rongta scale settings” window with the tabs “Connection”, “Uploading goods” (shows whether RLS1000 is installed) and “Barcode”.\nШаг 5. The “Barcode” tab: choose “Barcode type” and “Item department (DD / D)”, check the example or click “Match the till”. Set the suitable type in RLS1000 (“Setting” → “barcode type”) and on the scale.\nШаг 6. Upload: “Send goods →” next to this scale → “Send to the scale”. The whole list of weighed products is sent (the ticks are ignored).\nВажно: For barcode types 00–09 the item department must be 20–29, otherwise the POS will not recognise the label. Rongta scales do not print Cyrillic — names are sent in Latin letters. Check the first label with the POS scanner.",
+       "keywords": [
+        "rongta",
+        "rls1000",
+        "rls1100",
+        "txp",
+        "192.168.1.87",
+        "barcode type",
+        "item department",
+        "тип штрих-кода",
+        "отдел товара"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "TM-30F (Dahua)",
+     "articles": [
+      {
+       "id": "весы-tm-30f-dahua-подключение-и-сеть",
+       "title": "TM-30F (Dahua): connection and network",
+       "text": "TM-30F scales are made by Shanghai Dahua Scale (TM-A / TM-F series); their software is “Russian Scale” (Русский масштаб). The POS sends products to them itself, over the network (TCP, port 4001).\nШаг 1. Open ☰ → “Settings” → “Scales” → “Label scales” → “Configure…” next to the scale and choose the “TM-30F (Dahua)” brand.\nШаг 2. Enter “Scale IP address” (the same as in “Russian Scale”: “Communication settings → Ethernet settings”) and “Port” 4001.\nШаг 3. Click “Check connection”: the POS only reads PLU record No. 1 and changes nothing on the scale. The answer “the scale is connected (… ms) and answered the PLU No. 1 read” means you can send products. Don't know the address — “Find on network…”. Then “Save”.\nШаг 4. “Scale settings…” opens the “TM-30F scale settings” window: tabs “Connection” (address, “Check connection”, “Exchange log”), “Network”, “Barcode”, “Uploading goods”.\nШаг 5. The “Network” tab: “How to find the scale IP” and “Computer and scale network” — the computer's addresses and the “scale is in this network” mark. The first three numbers of the computer's and the scale's addresses must match (mask 255.255.255.0).\nВажно: If the POS says port 4001 is closed, close “Russian Scale” on the computer: it may keep the scale busy.",
+       "keywords": [
+        "tm-30f",
+        "tm30f",
+        "dahua",
+        "russian scale",
+        "port 4001",
+        "scale ip",
+        "exchange log",
+        "русский масштаб",
+        "порт 4001",
+        "ip весов",
+        "журнал обмена"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-tm-30f-dahua-штрихкод-цена-и-загрузка-товаров",
+       "title": "TM-30F (Dahua): barcode, price and product upload",
+       "text": "Шаг 1. “TM-30F scale settings” → the “Barcode” tab. Format letters: F — prefix, W — item code, N — weight, E — amount, C — check digit. The POS reads 13 digits: FFWWWWWNNNNNC (weight) or FFWWWWWEEEEEC (amount).\nШаг 2. In “Format (Barcode)” choose the format set on the scale, in “Barcode prefix (F)” — a prefix 20–29. The “Recommended for the till” button sets the format and prefix for the company mode.\nШаг 3. Check the example (“Sample item code (PLU)”, “Sample weight, g”, “Price per kg, som”): “✓ The till reads: …” or “⚠ The till will NOT recognise the item: …”.\nШаг 4. Click “Save”. The prefix goes to the scale together with the products. This tab does not change how the POS reads labels — those are the rules on the “Barcode: weight / amount” tab.\nШаг 5. If the scale format carries the amount without the weight (FFWWWWWEEEEEC), the POS itself sets the “Amount” rule for this scale's prefix: when you choose the TM-30F brand and when you send products (the send result then says that labels with this prefix are now read as AMOUNT).\nШаг 6. The format itself is changed on the scale in “Russian Scale”: “Basic settings → System parameters” → “Common param” → “Barcode” → “Download”.\nШаг 7. The “Uploading goods” tab: “Price on the scale (Price point)” — as “Price point” on the scale (for example “Integer [123] — whole som”), otherwise prices on the scale will be 10/100/1000 times larger or smaller; “Shelf life, days (0 — none)”; “One record at a time with the scale's reply (like its software) — recommended” or “All records in one packet…”. Click “Save”.\nШаг 8. In the “Send goods to the scale” window tick the products and click “Send to the scale” (while sending the button becomes “Stop”). Fallback — “Save file ▾” → “File for “Russian Scale” (DIGI_TOP2000)”; in their software “Merchandise settings” → “Import” → “Text Files” → DIGI_TOP2000 → “Download”.\nВажно: The POS never sends PLU clearing, labels, hotkeys or system parameters to the TM-30F. The name on the scale is up to 43 characters; the letters ң, ө, ү are replaced with н, о, у.",
+       "keywords": [
+        "tm-30f",
+        "dahua",
+        "ffwwwwweeeeec",
+        "ffwwwwwnnnnnc",
+        "price point",
+        "digi_top2000",
+        "barcode prefix",
+        "russian scale",
+        "префикс штрихкода",
+        "русский масштаб"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Sending products to scales",
+     "articles": [
+      {
+       "id": "весы-как-отправить-товары-на-весы-окно-весы",
+       "title": "How to send products to the scale: the “Send goods to the scale” window",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales” → “Label scales” and click “Send goods →” next to the scale. The “Send goods to the scale” window opens.\nШаг 2. At the top is the list of scales (it switches the scale), below it the brand, address, sending method and the last connection check. “Check connection” checks now, “Change…” opens this scale's settings window.\nШаг 3. The table lists all products with “Weighed product” on: “Product”, “PLU”, “Category”, “Unit”, “Price”, “Result”. The products of this scale's categories are ticked (or those ticked last time). The “Search: name, PLU or code” field and the category list narrow the table; “Select all” / “Clear selection” apply to visible rows; next to them you see “Ticked: N of M”.\nШаг 4. “Starting PLU:” and “Number to match scale keys” — consecutive PLU numbers from the starting one: key 1 on the scale is the first product of the list.\nШаг 5. With direct sending (Shtrih-PRINT “Directly over the network” and TM-30F) the “Barcode code” column and the “Label barcode…” button are shown; for Shtrih-PRINT directly there is also the “Key” column.\nШаг 6. At the bottom there is the line “The till reads labels as: 20 — weight · 21 — amount…” and the “Set up from a label…” button — if the receipt total does not match the label.\nШаг 7. Click “Send to the scale”. The “Result” column shows “✓ sent” for each row (via the server — “✓ passed to the server”) or the reason; the summary is in the line at the bottom. “Save CSV” (for TM-30F — “Save file ▾”) saves the list to a file.\nВажно: When sending directly to Shtrih-PRINT the POS answers “The scale is busy” if programming mode is open on the scale — switch the scale back to normal mode. On the “Start” plan sending to scales is a paid add-on (Marketplace → “Extras”).",
+       "keywords": [
+        "send to scale",
+        "upload to scales",
+        "products to scales",
+        "plu",
+        "starting plu",
+        "send goods to the scale",
+        "category",
+        "отправить на весы",
+        "выгрузка на весы",
+        "товары на весы",
+        "начальный plu",
+        "отправка товаров на весы",
+        "категория"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-назначить-товары-на-клавиши-весов-штрих-принт",
+       "title": "How to assign products to Shtrih-PRINT scale keys",
+       "text": "The POS writes the quick-access keys of the Shtrih-PRINT key panel (1–120) itself — only when sending “Directly over the network”.\nШаг 1. In this scale's settings choose “How to send goods” → “Directly over the network” and enter the address, port and password.\nШаг 2. Click “Send goods →” next to this scale — the table gets a “Key” column.\nШаг 3. Enter the key number (1–120) for the products you need. Without a number the product goes to the scale without a key.\nШаг 4. Tick the products and click “Send to the scale”. The POS writes the product into a PLU and sets the key to select that PLU.\nШаг 5. The “Result” column shows, for example, “✓ sent · PLU 5 · key 3” or an error: “⚠ key must be 1–120”, “⚠ key 3 is already used”. The summary at the bottom says “Keys: N written”.\nШаг 6. Key numbers are remembered for this scale and filled in automatically next time.\nВажно: TM-30F, Rongta and sending via the NurCRM server have no “Key” column. One key cannot be given to two products. Keys can also be written by hand — the “Keyboard” tab of the “ShTRIH-PRINT scale settings” window.",
+       "keywords": [
+        "scale keys",
+        "scale hotkeys",
+        "key",
+        "shtrih-print",
+        "product on key",
+        "plu key",
+        "клавиши весов",
+        "горячие клавиши весов",
+        "клавиша",
+        "штрих-принт",
+        "товар на клавишу",
+        "plu клавиша"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-plu-и-код-в-шк-как-касса-находит-товар-по-этикетке",
+       "title": "PLU and “Barcode code”: how the POS finds a product by the label",
+       "text": "PLU is the product number on the scale. “Barcode code” is the number the scale prints in the label barcode. The POS finds the product by this code when scanning.\nШаг 1. In the product card turn on “Weighed product” and fill in “PLU code (for scales)” — only such products appear in the “Send goods to the scale” window.\nШаг 2. With the company layout “by PLU” the POS searches by PLU among weighed products; with the layout “by code” — by “SKU” (“product code” on the website) if it is a number of up to 6 digits, then by PLU.\nШаг 3. The “Barcode code” column (for TM-30F and for Shtrih-PRINT with “Directly over the network”) is filled in automatically: the product's PLU or its code. Change it only if you know why.\nШаг 4. After sending, weigh a product, print a label and scan it with the POS — the product must appear in the receipt.\nВажно: With “Number to match scale keys” ticked, the cell number on the scale may differ from the product's PLU — that is normal: the POS finds the product by the “Barcode code”, not by the cell number.",
+       "keywords": [
+        "plu",
+        "barcode code",
+        "product code",
+        "weighed product",
+        "plu code",
+        "sku",
+        "код в шк",
+        "код товара",
+        "весовой товар",
+        "plu код",
+        "артикул"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-ai-весы-и-выгрузка-списка-в-csv",
+       "title": "AI scales and saving the list to CSV",
+       "text": "“AI scales” have no common protocol: every model comes with its own software. The POS prepares a file, and you load it with the scale's software.\nШаг 1. Add a scale with the “AI scales” brand (no address needed) and click “Prepare the file →” next to it.\nШаг 2. In the “Send goods to the scale” window tick the products (if none is ticked, all weighed products are exported) and click “Save file for the scale”. Choose where to save the file.\nШаг 3. Load the file into the scale with its software.\nШаг 4. For other brands the same list is saved with the “Save CSV” button (for TM-30F — “Save file ▾” → “CSV (PLU; name; unit; price)”): columns PLU, Name, Unit, Price; separator “;”, UTF-8 encoding, rows sorted by PLU.\nВажно: If the POS says “…of them without a PLU” — set “PLU code (for scales)” in those products' cards, otherwise their number in the file is empty.",
+       "keywords": [
+        "ai scales",
+        "csv",
+        "save csv",
+        "file for scale",
+        "plu list",
+        "ai весы",
+        "сохранить csv",
+        "файл для весов",
+        "plu список"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Scale barcodes and selling",
+     "articles": [
+      {
+       "id": "весы-как-касса-читает-штрихкод-с-этикетки-весов",
+       "title": "How the POS reads the barcode from a scale label",
+       "text": "A scale label is an EAN-13 barcode of 13 digits; the first two digits are the prefix 20–29.\nШаг 1. The layout and mode are set by the owner on the NurCRM website (Scales → Settings); the POS receives them at login and synchronization.\nШаг 2. Layout “by PLU”: 2 prefix digits + 5 PLU digits + 5 value digits + check digit. Layout “by code”: 2 + 6 code digits + 4 value digits + check digit.\nШаг 3. The value is the weight in grams (0.220 kg = 00220) or the amount in tiyin (13.20 som = 01320; if the website amount unit is “som” — in som).\nШаг 4. Weight or amount is decided by the till rule for the prefix (the “Barcode: weight / amount” tab). Where there is no rule — by the company mode: “by weight”, “by amount” or “auto” (20 — weight, 25 — amount). For 21–24 and 26–29 without a rule the POS asks at the first scan.\nExample: «Алма» 0.220 kg × 60 som = 13.20 som, barcode 2101003013207 = 21 | 01003 | 01320 | 7: prefix 21, PLU 1003, value 01320 (this is 13.20 som, not 1.320 kg), check digit 7.\nВажно: When the barcode contains the amount, the POS calculates the weight itself: amount ÷ price per kg (13.20 ÷ 60 = 0.220 kg), and the line total in the receipt matches the label.",
+       "keywords": [
+        "scale barcode",
+        "scale label",
+        "prefix 20",
+        "prefix 21",
+        "prefix 25",
+        "ean-13",
+        "by weight",
+        "by amount",
+        "штрихкод весов",
+        "этикетка весов",
+        "префикс 20",
+        "префикс 21",
+        "префикс 25",
+        "по весу",
+        "по сумме"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-касса-спрашивает-сумма-или-вес-при-первом-скане-этикетк",
+       "title": "The POS asks “amount or weight” at the first scan of a label",
+       "text": "Since version 1.17.27, at the first scan of a label with prefix 21–24 or 26–29 that has no rule, the POS shows the “Confirmation” window: “Scale label with prefix 21 (Алма). What is printed on the label?” — with both options in money:\n“YES — TOTAL 13.20 som (weight 0.220 kg)”\n“NO — WEIGHT 1.320 kg (total 79.20 som)”\nШаг 1. Compare with the label: if it shows the total 13.20, click “Yes”; if it shows the weight 1.320 kg, click “No”.\nШаг 2. The product is added to the receipt, and the answer becomes a till rule for this prefix — the POS does not ask again.\nШаг 3. The POS does not ask about prefixes 20 and 25 — it reads them by the company mode (or by your rule).\nHow to change the answer if you made a mistake:\nШаг 4. Open ☰ → “Settings” → “Scales” → the “Barcode: weight / amount” tab (the same buttons are at the bottom of the “Label scales” tab).\nШаг 5. In the “What the scale prints in the barcode” block click “Weight” or “Amount” next to the prefix — it works at once.\nШаг 6. Not sure — “Set up from a label…”: scan the label and click the option that matches it.\nШаг 7. To make the POS ask again, click “Reset rules (the till will ask again)” — the rules of all prefixes are removed.\nВажно: Closing the question window counts as “No”. The rules are stored only on this computer — another till will ask by itself.",
+       "keywords": [
+        "amount or weight",
+        "prefix 21",
+        "scale label",
+        "question on scan",
+        "wrong total",
+        "reset rules",
+        "сумма или вес",
+        "префикс 21",
+        "этикетка весов",
+        "вопрос при скане",
+        "неправильная сумма",
+        "сбросить правила"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вкладка-штрих-код-вес-сумма-правила-по-префиксам",
+       "title": "The “Barcode: weight / amount” tab: rules by prefix",
+       "text": "Шаг 1. Open ☰ → “Settings” → “Scales” → the “Barcode: weight / amount” tab.\nШаг 2. The “Set up from a label” block: scan the barcode of a printed label (or type 13 digits) and click “Read”. The POS splits it into parts (prefix, item code, weight or amount, check digit) and finds the product.\nШаг 3. The POS shows two readings — “WEIGHT” (the digits are grams) and “AMOUNT” (the digits are tiyin) — together with the receipt line total. Click the one that matches the label: the POS answers “Done: the till reads labels with prefix … as …”.\nШаг 4. The “What the scale prints in the barcode” block: each prefix has the buttons “Weight” and “Amount”. The note next to it says “till rule”, “company mode” or “the till asks on the first scan”.\nШаг 5. “All prefixes 20–29” shows all prefixes, “Only prefixes in use” returns the short list. “Reset rules (the till will ask again)” removes all till rules.\nШаг 6. The “How the till reads the scale label barcode” block: an example barcode, the company layout and mode from the website, the amount unit; the “Barcode format on the scale itself: …” button opens the brand settings on the “Barcode” tab.\nВажно: A till rule is stronger than the company mode from the website and works at once, without a restart. The same “Weight” / “Amount” buttons are at the bottom of the “Label scales” tab, and “Set up from a label…” is also in the “Send goods to the scale” window. The rules are stored only on this computer.",
+       "keywords": [
+        "weight or amount",
+        "prefix rules",
+        "set up from a label",
+        "prefix 21",
+        "reset rules",
+        "barcode weight amount",
+        "вес или сумма",
+        "правила префиксов",
+        "настроить по этикетке",
+        "префикс 21",
+        "сбросить правила",
+        "штрих-код вес сумма"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-как-продать-товар-с-этикеткой-весов",
+       "title": "How to sell a product with a scale label",
+       "text": "Шаг 1. Scan the barcode on the scale label (the cursor must not be in an input field — press Esc).\nШаг 2. The POS finds the weighed product by the code from the barcode and immediately adds a line to the receipt with the weight and total from the label — the “Weigh product” window does not open.\nШаг 3. If this prefix (21–24 or 26–29) is scanned for the first time, answer the “amount or weight” question.\nШаг 4. Compare the receipt line with the label and take payment as usual.\nШаг 5. Weigh products without a label on the scale at the till: tap the product in the catalog (the “Weighed” tab), in the “Weigh product” window use “Read from scale” or enter “Weight, kg” manually (or the “By amount” tab), then “Add to receipt”.\nВажно: The message “Product with code … was not found in the catalog.” means the product's PLU or code does not match or “Weighed product” is not turned on — see “Product not found by a scale label”.",
+       "keywords": [
+        "sell weighed",
+        "scale label",
+        "scan label",
+        "weigh product",
+        "read from scale",
+        "продать весовой",
+        "этикетка весов",
+        "скан этикетки",
+        "взвесить товар",
+        "подставить с весов"
+       ],
+       "images": []
+      }
+     ]
+    },
+    {
+     "title": "Common problems",
+     "articles": [
+      {
+       "id": "весы-весы-не-находятся-в-сети-или-нет-связи",
+       "title": "The scale is not found on the network or there is no connection",
+       "text": "Шаг 1. Check that the scale is on and the network cable is connected (the lights on the socket are on).\nШаг 2. The computer and the scale must be in the same subnet: the first three numbers of the address match (for example, 192.168.1.20 and 192.168.1.151). Click “Find on network…” in the scale settings window — if the scale is in another subnet, the POS says so under the row and suggests a new address.\nШаг 3. Check the port: Shtrih-PRINT — 1111, TM-30F — 4001, Rongta — 5001 (for checking).\nШаг 4. Close the manufacturer's software (“Russian Scale”, RLS1000) if it keeps the scale busy.\nШаг 5. Windows Firewall or an antivirus may block the connection — allow the POS to access the network.\nШаг 6. Shtrih-PRINT rejected the password — turn the scale off and on and enter the correct password (usually 0030).\nВажно: Scales often do not answer ping but are visible in the ARP table — so rely on the network search, not only on “Check connection”.",
+       "keywords": [
+        "scale not found",
+        "no connection to scale",
+        "scale not responding",
+        "scale ip",
+        "subnet",
+        "firewall",
+        "port",
+        "весы не найдены",
+        "нет связи с весами",
+        "весы не отвечают",
+        "ip весов",
+        "подсеть",
+        "брандмауэр",
+        "порт"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-товар-не-найден-по-этикетке-весов",
+       "title": "Product not found by a scale label",
+       "text": "The POS says “Product with code 01003 was not found in the catalog.”\nШаг 1. Open the product card: “Weighed product” must be on and “PLU code (for scales)” filled in (with the “by code” layout — “SKU”).\nШаг 2. Compare the code from the message with the product's PLU: 01003 = PLU 1003.\nШаг 3. If the code differs, check the “Barcode code” column in the “Send goods to the scale” window and send the products to the scale again.\nШаг 4. Check the barcode format: the “Barcode” tab in your brand's settings window must show “The till reads: …”. If it says “The till will NOT recognise the item”, click “Match the till” or “Recommended for the till”.\nШаг 5. If the POS did not recognise the label as a weight label and offers to add a product to the warehouse, the barcode does not start with 20–29 or does not have 13 digits: change the prefix on the scale.\nВажно: A product just added on the website appears in the POS after the catalog synchronizes (up to a couple of minutes).",
+       "keywords": [
+        "product not found",
+        "scale label",
+        "code not found",
+        "plu",
+        "weight barcode not read",
+        "товар не найден",
+        "этикетка весов",
+        "код не найден",
+        "весовой штрихкод не читается"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-сумма-в-чеке-не-совпадает-с-этикеткой",
+       "title": "The receipt total does not match the label",
+       "text": "Шаг 1. Compare the label and the receipt. If the label says 13.20 som and the receipt shows 1.320 kg and 79.20 som, the POS read the amount as a weight (or vice versa).\nШаг 2. Open ☰ → “Settings” → “Scales” → “Barcode: weight / amount”, the “Set up from a label” block: scan this label, click “Read” and choose the option that matches the label. The POS starts reading this prefix that way at once.\nШаг 3. Or in the “What the scale prints in the barcode” block click “Weight” or “Amount” next to the prefix. This works for any prefix 20–29: a till rule is stronger than the company mode from the website.\nШаг 4. The amount is 100 times smaller or larger — the amount unit (tiyin or som) in the company settings on the website does not match, and for TM-30F also “Price on the scale (Price point)”.\nШаг 5. A difference of a few tiyin is rounding. Check that the product price in the POS and on the scale is the same: after changing a price, send the products to the scale again.\nВажно: The price on the scale changes only after the products are sent to the scale again.",
+       "keywords": [
+        "total does not match",
+        "wrong total",
+        "weight instead of amount",
+        "100 times",
+        "scale label",
+        "set up from a label",
+        "сумма не совпадает",
+        "неправильная сумма",
+        "вес вместо суммы",
+        "в 100 раз",
+        "этикетка весов",
+        "настроить по этикетке"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-на-этикетке-руб-вместо-сом",
+       "title": "The label shows “РУБ” instead of “СОМ”",
+       "text": "Шаг 1. Shtrih-PRINT scales: open “ShTRIH-PRINT scale settings” → “Currency” and go through the “Caption «ЦЕНА, РУБ/КГ» → your currency” wizard (article “Shtrih-PRINT: “СОМ” instead of “РУБ” on the label”).\nШаг 2. In the same place, in “Currency sign”, upload the som sign and turn on “currency signs” on the “Printing & label” tab.\nШаг 3. TM-30F and Rongta: captions on the label are changed in the manufacturer's software (“Russian Scale”, RLS1000) — the POS does not send them.\nВажно: The text «ЦЕНА, РУБ/КГ» is built into the Shtrih-PRINT firmware — the POS does not rewrite it but hides it and puts your text in its place in your own format 1–5.",
+       "keywords": [
+        "rub",
+        "roubles on label",
+        "som",
+        "currency",
+        "price rub kg",
+        "руб",
+        "рубли на этикетке",
+        "сом",
+        "валюта",
+        "цена руб кг"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-вес-не-приходит-с-весов-у-кассы-com-порт",
+       "title": "The weight does not come from the scale at the till (COM port)",
+       "text": "Шаг 1. In ☰ → “Settings” → “Scales” → “Scale at the till” check that “Enable scale polling” is on and the correct “COM port” is selected (the port number is shown in Windows Device Manager → “Ports (COM & LPT)”).\nШаг 2. “Baud rate” must match the scale (often 9600, sometimes 4800 or 2400).\nШаг 3. If the scale gives the weight only on request, enter the “Weight request (hex)” from the scale manual and a “Poll interval (ms)” greater than 0.\nШаг 4. Click “Save”, put a product on the scale and click “Test scales”.\nШаг 5. If the port is used by another program, close it (the POS shows the port status under the port list).\nШаг 6. “The scale is not connected — enter the weight manually.” in the “Weigh product” window means the POS is not receiving the weight now: enter the weight manually and check the connection after the sale.\nВажно: The message “No weight reading from the scale.” after “Read from scale” means the weight has not arrived yet: wait until the scale settles and click again.",
+       "keywords": [
+        "weight not coming",
+        "scale shows nothing",
+        "com port",
+        "scale not connected",
+        "no weight from scale",
+        "вес не приходит",
+        "весы не показывают",
+        "com порт",
+        "весы не подключены",
+        "нет веса с весов"
+       ],
+       "images": []
+      },
+      {
+       "id": "весы-буквы-ң-ө-ү-и-длинные-названия-на-весах",
+       "title": "The letters ң, ө, ү and long names on the scale",
+       "text": "Шаг 1. TM-30F: the scale understands only the Windows-1251 encoding, so the POS replaces ң, ө, ү with н, о, у and cuts the name to 43 characters.\nШаг 2. Shtrih-PRINT: the scale cannot print ң, ө, ү — write the name for the scale without them.\nШаг 3. Rongta: the scale does not print Cyrillic — the name is sent in Latin letters.\nШаг 4. To get a readable name on the label, shorten it in the product card and send the products to the scale again.\nВажно: In the POS and on the receipt the name stays full and with Kyrgyz letters — only what goes to the scale changes.",
+       "keywords": [
+        "ң ө ү",
+        "kyrgyz letters",
+        "question marks on label",
+        "name on scale",
+        "cyrillic scale",
+        "кыргызские буквы",
+        "вопросики на этикетке",
+        "название на весах",
+        "кириллица весы"
+       ],
+       "images": []
       }
      ]
     }

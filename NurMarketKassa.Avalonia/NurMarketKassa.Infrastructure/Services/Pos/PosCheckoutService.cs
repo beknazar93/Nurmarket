@@ -380,6 +380,39 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             var cartJsonSnapshot = _cart.GetRawText();
             var total = CartTotalsCalculator.Calculate(_cart.Root).TotalDue;
 
+            // 2026-09-28, денежный баг продажи №1136 (окно оплаты 50,00 — продажа 42,50): итог
+            // серверной корзины сверяется с итогом окна оплаты ДО проведения продажи в ОБЕ
+            // стороны. Раньше ловилась только нехватка наличных, а если сервер насчитал МЕНЬШЕ
+            // (акция товара, о которой касса не знала), продажа молча проходила на меньшую сумму,
+            // а кассир уже взял деньги по окну оплаты. Сверяем с полем total самой корзины сервера —
+            // это ровно та сумма, на которую он проведёт продажу.
+            if (!OfflineModeHelper.UseLocalOperations && !_cart.IsLocalOffline
+                && request.ExpectedTotal is { } expectedTotal)
+            {
+                var serverCartTotal = TryReadDecimal(_cart.Root, "total", out var serverTotalValue)
+                    ? (double)serverTotalValue
+                    : total;
+                if (Math.Abs(serverCartTotal - expectedTotal) > 0.01 + 1e-6)
+                {
+                    var diff = Math.Abs(serverCartTotal - expectedTotal);
+                    PosLogger.Log(
+                        $"PAY mismatch: окно оплаты {expectedTotal:0.00}, серверная корзина {serverCartTotal:0.00} " +
+                        $"(касса по корзине {total:0.00}) — продажа не проведена. Корзина: {cartJsonSnapshot}",
+                        "PAYMENT");
+                    return PosCheckoutResult.Failed(Tr.T(
+                        $"Сумма чека на сервере {serverCartTotal:0.00} сом, а в окне оплаты было {expectedTotal:0.00} сом (разница {diff:0.00}). "
+                        + "Продажа НЕ проведена. Чек обновлён по данным сервера (например, акция товара) — проверьте сумму и нажмите «Оплатить» ещё раз.",
+                        $"Сервердеги чектин суммасы {serverCartTotal:0.00} сом, ал эми төлөм терезесинде {expectedTotal:0.00} сом болчу (айырмасы {diff:0.00}). "
+                        + "Сатуу ӨТКӨРҮЛГӨН ЖОК. Чек сервердин маалыматы боюнча жаңыртылды (мисалы, товардын акциясы) — сумманы текшерип, «Төлөө» баскычын кайра басыңыз.",
+                        $"The receipt total on the server is {serverCartTotal:0.00} som, but the payment window showed {expectedTotal:0.00} som (difference {diff:0.00}). "
+                        + "The sale was NOT recorded. The receipt has been updated from the server (for example, a product promotion) — check the total and click “Pay” again.",
+                        $"Sunucudaki fiş tutarı {serverCartTotal:0.00} som, ödeme penceresinde ise {expectedTotal:0.00} som vardı (fark {diff:0.00}). "
+                        + "Satış KAYDEDİLMEDİ. Fiş sunucu verilerine göre güncellendi (örneğin ürün kampanyası) — tutarı kontrol edip «Öde» düğmesine tekrar tıklayın.",
+                        $"Serverdagi chek summasi {serverCartTotal:0.00} so'm, to'lov oynasida esa {expectedTotal:0.00} so'm edi (farq {diff:0.00}). "
+                        + "Sotuv O'TKAZILMADI. Chek server ma'lumotlari bo'yicha yangilandi (masalan, mahsulot aksiyasi) — summani tekshirib, «To'lash» tugmasini yana bosing."));
+                }
+            }
+
             // Сверяем наличные с итогом ПОСЛЕ переноса чека на сервер.
             //
             // Кассир вводит деньги по сумме, которую показала касса ДО переноса. Если серверная

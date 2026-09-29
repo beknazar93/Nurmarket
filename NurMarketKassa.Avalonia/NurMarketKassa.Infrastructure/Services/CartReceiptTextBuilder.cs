@@ -323,6 +323,11 @@ public static class CartReceiptTextBuilder
 
     private static double TryLineDiscount(JsonElement it)
     {
+        // 2026-09-28, продажа №1136: скидка строки на чеке — та же, что в итоге и в запросе на
+        // сервер (скидка кассира в процентах или акция товара NurCRM раньше сюда не попадали).
+        if (it.ValueKind == JsonValueKind.Object)
+            return CartDisplayHelper.EffectiveLineDiscount(it);
+
         foreach (var key in new[] { "discount_total", "line_discount", "discount" })
         {
             if (it.ValueKind == JsonValueKind.Object && it.TryGetProperty(key, out var v))
