@@ -59,6 +59,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     private readonly DispatcherTimer _timer;
     private readonly CancellationTokenSource _cts = new();
     private string _period = "today";
+    // 2026-09-30, «в сводке сделай спец. дату тоже»: свои даты (_period = "custom").
+    private DateTime _customFrom = DateTime.Today;
+    private DateTime _customTo = DateTime.Today;
     private bool _refreshing;
     private bool _loggingOut;
     private DateTime? _lastSuccess;
@@ -239,6 +242,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
         MonthButton.Content = Tr.T("Месяц", "Ай", "Month", "Ay", "Oy");
+        CustomButton.Content = _period == "custom"
+            ? (_customFrom == _customTo ? $"{_customFrom:dd.MM}" : $"{_customFrom:dd.MM}–{_customTo:dd.MM}")
+            : Tr.T("Спец. дата", "Башка дата", "Custom dates", "Özel tarih", "Boshqa sana");
 
         RevenueLabel.Text = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum");
         ChecksLabel.Text = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
@@ -247,7 +253,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         ChartTitle.Text = _period == "month"
             ? Tr.T("Выручка по дням месяца", "Айдын күндөрү боюнча түшүм", "Revenue by day this month", "Ayın günlerine göre ciro", "Oy kunlari bo'yicha tushum")
-            : Tr.T("Выручка за 7 дней", "7 күндүк түшүм", "Revenue, last 7 days", "Son 7 günün cirosu", "7 kunlik tushum");
+            : _period == "custom"
+                ? Tr.T("Выручка по дням периода", "Мезгилдин күндөрү боюнча түшүм", "Revenue by day for the period", "Dönemin günlerine göre ciro", "Davr kunlari bo'yicha tushum")
+                : Tr.T("Выручка за 7 дней", "7 күндүк түшүм", "Revenue, last 7 days", "Son 7 günün cirosu", "7 kunlik tushum");
         ChartEmptyText.Text = Tr.T("Продаж за эти дни нет", "Бул күндөрү сатуу жок", "No sales on these days", "Bu günlerde satış yok", "Bu kunlarda sotuv yo'q");
         PaymentsTitle.Text = Tr.T("Способы оплаты", "Төлөм ыкмалары", "Payment methods", "Ödeme yöntemleri", "To'lov usullari");
         PaymentsEmptyText.Text = Tr.T("Оплат пока нет", "Азырынча төлөм жок", "No payments yet", "Henüz ödeme yok", "Hozircha to'lov yo'q");
@@ -732,6 +740,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             // Неделя — с понедельника, месяц — с 1-го числа, как в «Продажах» кассы и на сайте.
             "week" => (today.AddDays(-(((int)today.DayOfWeek + 6) % 7)), today),
             "month" => (new DateTime(today.Year, today.Month, 1), today),
+            "custom" => (_customFrom.Date, _customTo.Date),
             _ => (today, today),
         };
     }
@@ -750,15 +759,22 @@ public partial class OwnerShellWindow : Window, IMainShell
                 var lastDay = DateTime.DaysInMonth(prevFrom.Year, prevFrom.Month) - 1;
                 return (prevFrom, prevFrom.AddDays(Math.Min(days, lastDay)));
             }
+            case "custom":
+                // Свои даты — с таким же по длине периодом прямо перед ними.
+                return (from.AddDays(-(days + 1)), from.AddDays(-1));
             default:
                 return (from.AddDays(-1), to.AddDays(-1));
         }
     }
 
+    /// <summary>График по дням самого периода (месяц, свои даты), иначе — последние 7 дней.</summary>
+    private bool ChartIsPeriod => _period is "month" or "custom";
+
     private string CompareHint() => _period switch
     {
         "week" => Tr.T("к прошлой неделе", "өткөн жумага карата", "vs last week", "geçen haftaya göre", "o'tgan haftaga nisbatan"),
         "month" => Tr.T("к прошлому месяцу", "өткөн айга карата", "vs last month", "geçen aya göre", "o'tgan oyga nisbatan"),
+        "custom" => Tr.T("к предыдущему периоду", "мурунку мезгилге карата", "vs previous period", "önceki döneme göre", "oldingi davrga nisbatan"),
         _ => Tr.T("к вчера", "кечээге карата", "vs yesterday", "düne göre", "kechaga nisbatan"),
     };
 
@@ -807,11 +823,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             var compareKey = $"{_period}:{prevFrom:yyyyMMdd}:{prevTo:yyyyMMdd}";
             // График: для «сегодня» и «недели» — последние 7 дней, для месяца — дни месяца (они уже
             // есть в отчёте за период).
-            var (chartFrom, chartTo) = _period != "month" ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+            var (chartFrom, chartTo) = !ChartIsPeriod ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
 
             var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
             var previousTask = _compareKey != compareKey ? App.SalesApi.MarketSalesReportAsync(prevFrom, prevTo, ct) : null;
-            var chartTask = _period != "month" ? App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct) : null;
+            var chartTask = !ChartIsPeriod ? App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct) : null;
             var rowsTask = App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1));
             // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
             // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
@@ -885,7 +901,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private string RangeKey(DateTime from, DateTime to) => $"{_period}:{from:yyyyMMdd}:{to:yyyyMMdd}";
 
     private (DateTime From, DateTime To) ChartRange(DateTime from, DateTime to) =>
-        _period != "month" ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+        !ChartIsPeriod ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
 
     private void OnLanPeerData() => Dispatcher.UIThread.Post(() =>
     {
@@ -930,7 +946,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             return false;
 
         var report = MergeReport(hasBase ? _lastReport : null, inPeriod);
-        var chartBase = hasBase ? (_period == "month" ? _lastReport : _lastChart) : null;
+        var chartBase = hasBase ? (ChartIsPeriod ? _lastReport : _lastChart) : null;
         var chart = MergeDynamics(chartBase, inChart);
         var rows = new List<JsonElement>();
         if (hasBase && _lastRows != null)
@@ -1704,12 +1720,21 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     // ------------------------------------------------------------------ кнопки
 
-    private void Period_Click(object? sender, RoutedEventArgs e)
+    private async void Period_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string period } || period == _period)
+        if (sender is not Button { Tag: string period } || (period == _period && period != "custom"))
             return;
+        if (period == "custom")
+        {
+            // Спец. дата — то же окно выбора дат, что в «Финансах»; повторное нажатие — выбрать заново.
+            var dlg = new FinanceDateRangeDialog();
+            if (await dlg.ShowDialog<bool>(this) != true)
+                return;
+            _customFrom = dlg.FromDate.Date <= dlg.ToDate.Date ? dlg.FromDate.Date : dlg.ToDate.Date;
+            _customTo = dlg.FromDate.Date <= dlg.ToDate.Date ? dlg.ToDate.Date : dlg.FromDate.Date;
+        }
         _period = period;
-        foreach (var b in new[] { TodayButton, WeekButton, MonthButton })
+        foreach (var b in new[] { TodayButton, WeekButton, MonthButton, CustomButton })
             b.Classes.Set("active", ReferenceEquals(b, sender));
         ApplyTexts();
         _ = RefreshAsync();

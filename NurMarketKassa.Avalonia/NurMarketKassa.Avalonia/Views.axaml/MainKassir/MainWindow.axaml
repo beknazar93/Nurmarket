@@ -310,7 +310,10 @@
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
+                            Focusable="False"
                             Command="{Binding Toolbar.ToggleKeyboardCommand}">
+                        <!-- 2026-09-30: Focusable=False — нажатие не уводит фокус из поля ввода, иначе
+                             набор на экранной клавиатуре уходил в буфер сканера и пропадал. -->
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
                             <TextBlock Text="{DynamicResource header.labelKeyboard}" FontSize="9"

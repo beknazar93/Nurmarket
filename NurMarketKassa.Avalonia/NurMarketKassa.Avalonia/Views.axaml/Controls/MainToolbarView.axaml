@@ -61,6 +61,7 @@
                         Width="38" Height="38"
                         Padding="0"
                         ToolTip.Tip="{DynamicResource csh.toolbar.keyboard}"
+                        Focusable="False"
                         Command="{Binding ToggleKeyboardCommand}">
                     <TextBlock Classes="mdl2" Text="&#xE92F;" FontSize="15"/>
                 </Button>

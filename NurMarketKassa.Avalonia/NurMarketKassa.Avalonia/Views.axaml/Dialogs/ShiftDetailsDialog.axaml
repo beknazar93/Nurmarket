@@ -39,10 +39,13 @@
           Background="{DynamicResource BrushDialogPanel}"
           BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
-          Padding="24">
-    <StackPanel Spacing="18">
+          Padding="20">
+    <!-- 2026-09-30, живой баг владельца (фото): длинный список «Товары за смену» выталкивал
+         кнопки «Печать» и «Закрыть» за нижний край экрана. Теперь шапка и кнопки закреплены,
+         а середина (итоги + товары) прокручивается, если не помещается на экран. -->
+    <Grid RowDefinitions="Auto,*,Auto">
 
-      <Grid ColumnDefinitions="*,Auto">
+      <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
         <StackPanel>
           <TextBlock Text="{DynamicResource shiftDetails.title}"
                      FontSize="20" FontWeight="Bold"
@@ -61,27 +64,39 @@
         </Button>
       </Grid>
 
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="14" Margin="0,0,12,0">
+
       <Grid ColumnDefinitions="*,16,*">
         <Border Grid.Column="0"
                 Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="14">
-          <StackPanel Spacing="8">
-            <TextBlock Text="{DynamicResource common.shift}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
-            <TextBlock Text="{DynamicResource shiftDetails.shiftNumberLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-            <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Text="—"/>
-            <TextBlock Text="{DynamicResource shiftDetails.openedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
-            <TextBlock x:Name="OpenedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
-            <TextBlock Text="{DynamicResource shiftDetails.closedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
-            <TextBlock x:Name="ClosedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
-            <TextBlock Text="{DynamicResource common.cashier}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
-            <TextBlock x:Name="CashierText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
-          </StackPanel>
+          <!-- 2026-09-30: поля в две колонки — карточка вдвое ниже, окну нужно меньше места по высоте. -->
+          <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Grid.ColumnSpan="3" Text="{DynamicResource common.shift}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
+            <StackPanel Grid.Row="1" Grid.Column="0" Spacing="2">
+              <TextBlock Text="{DynamicResource shiftDetails.shiftNumberLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Text="—" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="2">
+              <TextBlock Text="{DynamicResource common.cashier}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="CashierText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="0" Spacing="2" Margin="0,10,0,0">
+              <TextBlock Text="{DynamicResource shiftDetails.openedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="OpenedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="2" Spacing="2" Margin="0,10,0,0">
+              <TextBlock Text="{DynamicResource shiftDetails.closedLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <TextBlock x:Name="ClosedAtText" FontSize="14" Foreground="{DynamicResource BrushText}" Text="—"/>
+            </StackPanel>
+          </Grid>
         </Border>
 
         <Border Grid.Column="2"
                 Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                 CornerRadius="12" Padding="14">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="6">
             <TextBlock Text="{DynamicResource shiftDetails.totalsSection}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
             <TextBlock Text="{DynamicResource common.status}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
             <Border x:Name="StatusBadge" Height="28" CornerRadius="14" Padding="10,0"
@@ -92,7 +107,7 @@
                            Foreground="{DynamicResource BrushUiStatusOk}" Text="—"/>
               </StackPanel>
             </Border>
-            <TextBlock Text="{DynamicResource shiftDetails.revenueLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,8,0,0"/>
+            <TextBlock Text="{DynamicResource shiftDetails.revenueLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
             <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
           </StackPanel>
         </Border>
@@ -149,7 +164,7 @@
       <!-- Второй ряд итогов (2026-09-22, по просьбе владельца): возвраты, списания, расход,
            оплата долгов и скидки. В итогах смены на сервере этих полей нет вовсе, поэтому
            касса ведёт их сама — см. ShiftEventsStore и ShiftSaleAdjustments. -->
-      <Grid x:Name="ExtraTotalsRow" ColumnDefinitions="*,8,*,8,*,8,*,8,*" Margin="0,8,0,0">
+      <Grid x:Name="ExtraTotalsRow" ColumnDefinitions="*,8,*,8,*,8,*,8,*">
         <Border Grid.Column="0" Background="{DynamicResource BrushSurfaceSubtle}" BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1" CornerRadius="12" Padding="10" Cursor="Hand" Tag="returns" PointerReleased="Tile_PointerReleased">
           <StackPanel>
@@ -230,8 +245,7 @@
           <TextBlock x:Name="ShiftProductsTitle" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
           <TextBlock x:Name="ShiftProductsNote" FontSize="11" TextWrapping="Wrap" IsVisible="False"
                      Foreground="{DynamicResource BrushTextSoft}"/>
-          <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl x:Name="ShiftProductsList">
+          <ItemsControl x:Name="ShiftProductsList">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
@@ -244,12 +258,14 @@
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </ScrollViewer>
+          </ItemsControl>
         </StackPanel>
       </Border>
 
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+      </StackPanel>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,14,0,0">
         <Button x:Name="PrintButton" Content="{DynamicResource shiftDetails.print}"
                 Classes="btn-secondary"
                 Height="46" MinWidth="120"
@@ -260,6 +276,6 @@
                 IsCancel="True"
                 Click="Close_Click"/>
       </StackPanel>
-    </StackPanel>
+    </Grid>
   </Border>
 </Window>

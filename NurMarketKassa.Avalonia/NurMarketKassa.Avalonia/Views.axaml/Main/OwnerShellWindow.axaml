@@ -445,6 +445,8 @@
                             <Button x:Name="TodayButton" Classes="seg active" Tag="today" Click="Period_Click"/>
                             <Button x:Name="WeekButton" Classes="seg" Tag="week" Click="Period_Click"/>
                             <Button x:Name="MonthButton" Classes="seg" Tag="month" Click="Period_Click"/>
+                            <!-- 2026-09-30: свои даты, как «Спец. дата» в «Финансах». -->
+                            <Button x:Name="CustomButton" Classes="seg" Tag="custom" Click="Period_Click"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

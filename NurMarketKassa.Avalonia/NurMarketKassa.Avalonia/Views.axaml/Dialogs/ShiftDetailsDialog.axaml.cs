@@ -47,6 +47,10 @@ public partial class ShiftDetailsDialog : Window
         InitializeComponent();
         Opened += (_, _) => OnOpened();
         Closed += (_, _) => _cts.Cancel();
+        // 2026-09-30: «Товары за смену» догружаются после открытия, и окно растёт вниз от места,
+        // куда его поставили при открытии, — нижний край с кнопками уходил за экран. После каждого
+        // изменения размера окно снова ужимается до экрана кассы и сдвигается, если вылезло.
+        SizeChanged += (_, _) => this.FitToKassaScreen();
     }
 
     public ShiftDetailsDialog(object? model) : this()

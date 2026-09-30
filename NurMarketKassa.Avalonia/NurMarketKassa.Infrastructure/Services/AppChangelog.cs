@@ -13,37 +13,37 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Установка: при первом запуске касса спрашивает, что поставить на этот компьютер — кассу и программу владельца «NurMarket Владелец» или только кассу",
-        "Настройки → Обновления → «Программа владельца»: поставить её на этот компьютер или убрать — в любой момент",
-        "Обновления у работающих касс ничего не меняют: ярлык программы владельца остаётся как был",
+        "Экранная клавиатура: набор больше не пропадает — кнопка не забирает курсор из поля, а если поле не выбрано, курсор ставится в поиск товара; свёрнутая клавиатура поднимается наверх",
+        "«Просмотр смены»: кнопки «Печать» и «Закрыть» всегда видны — длинный список товаров прокручивается, окно стало компактнее",
+        "Программа владельца, «Сводка»: новый период «Спец. дата» — любые даты, сравнение с таким же периодом до них",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Орнотуу: биринчи ишке кирерде касса бул компьютерге эмнени коюуну сурайт — кассаны жана «NurMarket Владелец» ээсинин программасын же кассаны гана",
-        "Жөндөөлөр → Жаңыртуулар → «Ээсинин программасы»: аны бул компьютерге коюу же алып салуу — каалаган убакта",
-        "Иштеп жаткан кассаларда жаңыртуу эч нерсени өзгөртпөйт: ээсинин программасынын энбелгиси мурункудай калат",
+        "Экрандагы баскычтоп: терилген текст жоголбойт — баскыч курсорду талаадан албайт, талаа тандалбаса курсор товар издөөгө коюлат; жыйылган баскычтоп үстүнө чыгат",
+        "«Сменаны көрүү»: «Басып чыгаруу» жана «Жабуу» баскычтары дайыма көрүнөт — товарлардын узун тизмеси сыдырылат, терезе жыйнактуу болду",
+        "Ээсинин программасы, «Жыйынтык»: жаңы мезгил «Башка дата» — каалаган күндөр, алардан мурунку ушундай мезгил менен салыштыруу",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Installation: on first launch the till asks what to install on this computer — the till and the “NurMarket Владелец” owner app, or the till only",
-        "Settings → Updates → “Owner app”: add it to this computer or remove it at any time",
-        "Updates on working tills change nothing: the owner app shortcut stays as it was",
+        "On-screen keyboard: typing is no longer lost — the button keeps the cursor in the field, and if no field is selected the cursor goes to product search; a minimized keyboard is brought to the front",
+        "“View shift”: the “Print” and “Close” buttons are always visible — a long product list scrolls, the window is more compact",
+        "Owner app, “Overview”: new “Custom dates” period — any dates, compared with the same-length period before them",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Kurulum: ilk açılışta kasa bu bilgisayara neyin kurulacağını sorar — kasa ve «NurMarket Владелец» sahip programı ya da yalnızca kasa",
-        "Ayarlar → Güncellemeler → «Sahip programı»: istediğiniz zaman bu bilgisayara ekleyin veya kaldırın",
-        "Çalışan kasalarda güncelleme hiçbir şeyi değiştirmez: sahip programı kısayolu olduğu gibi kalır",
+        "Ekran klavyesi: yazılanlar artık kaybolmuyor — düğme imleci alandan almıyor, alan seçili değilse imleç ürün aramasına gidiyor; küçültülmüş klavye öne getiriliyor",
+        "«Vardiyayı görüntüle»: «Yazdır» ve «Kapat» düğmeleri her zaman görünür — uzun ürün listesi kaydırılır, pencere daha derli toplu",
+        "Sahip programı, «Özet»: yeni «Özel tarih» dönemi — istenen tarihler, öncesindeki aynı uzunlukta dönemle karşılaştırma",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "O‘rnatish: birinchi ishga tushirishda kassa bu kompyuterga nima o‘rnatishni so‘raydi — kassa va «NurMarket Владелец» egasi dasturi yoki faqat kassa",
-        "Sozlamalar → Yangilanishlar → «Egasining dasturi»: uni istalgan vaqtda bu kompyuterga qo‘ying yoki olib tashlang",
-        "Ishlayotgan kassalarda yangilanish hech narsani o‘zgartirmaydi: egasi dasturining yorlig‘i avvalgidek qoladi",
+        "Ekran klaviaturasi: yozilganlar endi yo‘qolmaydi — tugma kursorni maydondan olmaydi, maydon tanlanmagan bo‘lsa kursor tovar qidiruviga qo‘yiladi; yig‘ilgan klaviatura oldinga chiqariladi",
+        "«Smenani ko‘rish»: «Chop etish» va «Yopish» tugmalari doim ko‘rinadi — uzun tovarlar ro‘yxati aylantiriladi, oyna ixchamroq",
+        "Egasining dasturi, «Umumiy ko‘rinish»: yangi «Boshqa sana» davri — istalgan sanalar, ulardan oldingi xuddi shunday davr bilan solishtirish",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

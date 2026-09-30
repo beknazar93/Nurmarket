@@ -642,8 +642,16 @@ public partial class MainWindow : Window
     /// клавиатуру Windows!") — свою FrmKeyboard пробовали как раз-таки замену системной osk.exe
     /// (см. историю правок этого метода), но пользователю она не подошла, нужна именно
     /// привычная клавиатура Windows. Возвращена системная osk.exe без собственной FrmKeyboard.</summary>
-    internal void ToggleKeyboard() =>
+    internal void ToggleKeyboard()
+    {
         App.GetRequiredService<IOperatingSystemKeyboardService>().ShowSystemKeyboard();
+
+        // 2026-09-30, «экранная клавиатура не работает»: без поля ввода в фокусе набранное на
+        // клавиатуре Windows уходило в буфер сканера штрихкодов (OnKeyDown → _barcodeInputService)
+        // и пропадало. Если кассир не выбрал поле — ставим курсор в поиск товара.
+        if (FocusManager?.GetFocusedElement() is not TextBox)
+            ActiveCatalogSurface?.FocusProductSearch();
+    }
 
     /// <summary>Этап 7 бэклога "Доработки" ("Упрощение"): при неудачной проверке экрана
     /// покупателя — короткое сообщение с двумя кнопками ("Открыть настройки"/"Понятно") вместо
