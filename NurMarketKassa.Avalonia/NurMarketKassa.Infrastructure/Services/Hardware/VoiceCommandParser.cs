@@ -403,6 +403,42 @@ public static class VoiceCommandParser
     /// тексте. При успехе возвращает текст ПОСЛЕ него — то, что нужно разбирать как команду.</summary>
     public static bool TryStripWakeWord(string text, out string command)
     {
+        // 2026-09-30, «фантомные добавления в корзину»: ключевое слово искалось ПОДСТРОКОЙ в любом месте
+        // фразы — «то что касается маркс рэмбо», «вай фай касас ай», «изучая как касса за вы сами» из
+        // разговора у кассы разбирались как «добавь товар» (журнал владельца 30.09). Теперь «касса» —
+        // только отдельное слово (с кыргызским падежным окончанием) первым или вторым в фразе.
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < words.Length && i <= 1; i++)
+        {
+            if (IsWakeToken(words[i]))
+            {
+                command = string.Join(' ', words.Skip(i + 1)).Trim();
+                return true;
+            }
+        }
+        command = "";
+        return false;
+    }
+
+    /// <summary>Окончания, с которыми «касса/каса» остаётся ключевым словом: кыргызские падежи
+    /// («кассага», «кассада», «кассанын», «кассаны»).</summary>
+    private static readonly HashSet<string> WakeSuffixes = new(StringComparer.Ordinal)
+        { "", "га", "ка", "да", "та", "дан", "тан", "нын", "дын", "ны", "ды" };
+
+    private static bool IsWakeToken(string word)
+    {
+        var token = new string(word.Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        foreach (var variant in WakeWordVariants.OrderByDescending(v => v.Length))
+        {
+            if (token.StartsWith(variant, StringComparison.Ordinal) && WakeSuffixes.Contains(token[variant.Length..]))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Прежний поиск подстрокой — оставлен для сравнения в журнале, не используется.</summary>
+    private static bool TryStripWakeWordLegacy(string text, out string command)
+    {
         var lower = text.ToLowerInvariant();
         var bestIndex = -1;
         var bestLength = 0;

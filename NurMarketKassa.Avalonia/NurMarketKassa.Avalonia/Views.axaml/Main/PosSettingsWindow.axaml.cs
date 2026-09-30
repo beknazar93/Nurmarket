@@ -187,6 +187,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
             Tr.LanguageChanged += OnNavLanguageChanged;
             Closed += (_, _) => Tr.LanguageChanged -= OnNavLanguageChanged;
+            // 2026-09-30, владелец: «оптимизация экрана настроек к каждому экрану» — на узкой странице
+            // строки в несколько колонок встают столбиком (Views/Settings/SettingsReflow.cs).
+            ContentHost.SizeChanged += (_, e) =>
+            {
+                if (Math.Abs(e.NewSize.Width - e.PreviousSize.Width) > 0.5)
+                    ReflowPage();
+            };
 
             FullscreenHelper.Apply(this);
 
@@ -499,6 +506,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// "доступно обновление" в шапке кассы (см. MainWindow.NavigateSettingsUpdates).</summary>
         public void SelectUpdatesTab() => NavigateTo(4);
 
+        /// <summary>Страница настроек под ширину окна: узко — колонки столбиком (SettingsReflow).</summary>
+        private void ReflowPage() =>
+            NurMarketKassa.AvaloniaHost.Views.Settings.SettingsReflow.Apply(ContentHost.Content as Control, ContentHost.Bounds.Width);
+
         private void NavigateTo(int index)
         {
             ContentHost.Content = index switch
@@ -515,6 +526,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 9 => _keysView,
                 _ => _scaleView
             };
+
+            Dispatcher.UIThread.Post(ReflowPage, DispatcherPriority.Loaded);
 
             for (int i = 0; i < _navButtons.Length; i++)
             {
