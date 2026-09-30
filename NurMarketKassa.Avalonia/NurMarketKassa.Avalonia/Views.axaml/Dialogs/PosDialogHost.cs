@@ -13,6 +13,18 @@ public static class PosDialogHost
 {
     public static Window ResolveOwner(Window? owner)
     {
+        // 2026-09-30, живой сбой в программе владельца («Пополнение и сроки» → «Подтянуть историю»):
+        // раздел открыт внутри окна владельца, а его собственное окно невидимо — сообщение «Готово»
+        // и затем сообщение об ошибке падали с «Cannot show window with non-visible owner».
+        // Невидимого владельца заменяем видимым: его родителем или главным окном программы.
+        if (owner is { IsVisible: false })
+        {
+            if (owner.Owner is Window { IsVisible: true } parent)
+                return parent;
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { IsVisible: true } visibleMain })
+                return visibleMain;
+        }
+
         if (owner != null)
             return owner;
 

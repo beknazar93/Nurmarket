@@ -1355,6 +1355,10 @@
     <x:String x:Key="loc.settings.telegram.debtReminders">Qarz haqida eslatmalarni yuborish</x:String>
     <x:String x:Key="loc.settings.telegram.debtRemindersHint">Eslatma Telegram'da faqat botga shaxsiy havola orqali o'zi obuna bo'lgan xaridorlarga boradi (mijoz kartasidagi «Havolani nusxalash» tugmasi). Telegram odamga telefon raqami orqali yozishga ruxsat bermaydi — qolgan qarzdorlar uchun bot sizga WhatsApp havolalari bilan ro'yxat yuboradi.</x:String>
     <x:String x:Key="loc.settings.telegram.ownerPhone">Do'kon egasining telefoni (mijozlarga yuboriladigan xabarlarda aloqa uchun)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTitle">Suhbat uchun SI yordamchi (bepul, Google Gemini)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiHint">Bot kalitsiz ham oddiy iboralarni tushunadi: «bugun qancha ishladik», «kim qarzdor», «kola narxi». U erkin suhbatlashib, maslahat berishi uchun bepul Google kalitini oling (Google akkaunti kerak, karta kerak emas) va shu yerga qo'ying. Aniq raqamlarni avvalgidek kassa hisoblaydi; SI faqat do'konning qisqa xulosasini oladi. Bepul darajada Google so'rovlardan o'z xizmatlarini yaxshilash uchun foydalanishi mumkin. Bo'sh maydon — SI o'chirilgan.</x:String>
+    <x:String x:Key="loc.settings.telegram.aiGetKey">Bepul kalit olish</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTest">SIni tekshirish</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Xaridorga chek summasi kiritilgan QR-kodni ko'rsatish</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Xaridor ekranida bankning oddiy QR-kodi o'rniga chek summasi allaqachon kiritilgan kod ko'rsatiladi — summani qo'lda terish shart emas. Rekvizitlar yuqorida yuklangan QR-koddan olinadi.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Yoqishdan oldin sinov chekini ikki-uch bankning ilovasi bilan skanerlab ko'ring: format MBank QR-kodi bilan solishtirilgan, boshqa banklarda tekshirilmagan. To'lovni kassir avvalgidek qo'lda tasdiqlaydi — kassa to'lov haqida o'zi bilmaydi.</x:String>

@@ -13,37 +13,42 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Экранная клавиатура: набор больше не пропадает — кнопка не забирает курсор из поля, а если поле не выбрано, курсор ставится в поиск товара; свёрнутая клавиатура поднимается наверх",
-        "«Просмотр смены»: кнопки «Печать» и «Закрыть» всегда видны — длинный список товаров прокручивается, окно стало компактнее",
-        "Программа владельца, «Сводка»: новый период «Спец. дата» — любые даты, сравнение с таким же периодом до них",
+        "Телеграм-бот: бот, подключённый в программе владельца, теперь отвечает на команды — касса подхватывает его настройки сама",
+        "Боту можно писать обычными словами: «сколько заработали сегодня», «кто должен», «цена кола» — без интернета и бесплатно",
+        "ИИ в боте (бесплатный ключ Google Gemini): свободно общается с владельцем, а покупателям отвечает как продавец-консультант — только товары, цены и наличие",
+        "«Сводка» владельца: карточка «Заканчивается на складе»; окно «Пополнение и сроки» больше не выдаёт ошибку",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Экрандагы баскычтоп: терилген текст жоголбойт — баскыч курсорду талаадан албайт, талаа тандалбаса курсор товар издөөгө коюлат; жыйылган баскычтоп үстүнө чыгат",
-        "«Сменаны көрүү»: «Басып чыгаруу» жана «Жабуу» баскычтары дайыма көрүнөт — товарлардын узун тизмеси сыдырылат, терезе жыйнактуу болду",
-        "Ээсинин программасы, «Жыйынтык»: жаңы мезгил «Башка дата» — каалаган күндөр, алардан мурунку ушундай мезгил менен салыштыруу",
+        "Телеграм-бот: ээсинин программасында туташтырылган бот эми буйруктарга жооп берет — касса анын жөндөөлөрүн өзү алат",
+        "Ботко кадимки сөздөр менен жазса болот: «бүгүн канча түшүм», «ким карыз», «кола баасы» — интернетсиз жана акысыз",
+        "Боттогу ЖИ (Google Gemini акысыз ачкычы): ээси менен эркин баарлашат, ал эми сатып алуучуларга сатуучу-кеңешчи катары жооп берет — товарлар, баалар жана бар-жогу гана",
+        "Ээсинин «Жыйынтыгы»: «Кампада түгөнүп баратат» карточкасы; «Толуктоо жана мөөнөттөр» терезеси мындан ары ката бербейт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "On-screen keyboard: typing is no longer lost — the button keeps the cursor in the field, and if no field is selected the cursor goes to product search; a minimized keyboard is brought to the front",
-        "“View shift”: the “Print” and “Close” buttons are always visible — a long product list scrolls, the window is more compact",
-        "Owner app, “Overview”: new “Custom dates” period — any dates, compared with the same-length period before them",
+        "Telegram bot: a bot connected in the owner app now answers commands — the till picks up its settings automatically",
+        "You can write to the bot in plain words: “how much did we make today”, “who owes”, “price of cola” — offline and free",
+        "AI in the bot (free Google Gemini key): chats freely with the owner and answers customers as a shop assistant — only products, prices and availability",
+        "Owner “Overview”: a “Running low in stock” card; the “Restock & expiry” window no longer shows an error",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Ekran klavyesi: yazılanlar artık kaybolmuyor — düğme imleci alandan almıyor, alan seçili değilse imleç ürün aramasına gidiyor; küçültülmüş klavye öne getiriliyor",
-        "«Vardiyayı görüntüle»: «Yazdır» ve «Kapat» düğmeleri her zaman görünür — uzun ürün listesi kaydırılır, pencere daha derli toplu",
-        "Sahip programı, «Özet»: yeni «Özel tarih» dönemi — istenen tarihler, öncesindeki aynı uzunlukta dönemle karşılaştırma",
+        "Telegram botu: sahip programında bağlanan bot artık komutlara yanıt veriyor — kasa ayarlarını kendisi alıyor",
+        "Bota sade cümlelerle yazılabilir: «bugün ne kadar kazandık», «kim borçlu», «kola fiyatı» — internetsiz ve ücretsiz",
+        "Bottaki YZ (ücretsiz Google Gemini anahtarı): sahiple serbestçe sohbet eder, müşterilere satış danışmanı olarak yanıt verir — yalnızca ürünler, fiyatlar ve stok",
+        "Sahip «Özet»: «Stokta azalanlar» kartı; «Stok yenileme ve SKT» penceresi artık hata vermiyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Ekran klaviaturasi: yozilganlar endi yo‘qolmaydi — tugma kursorni maydondan olmaydi, maydon tanlanmagan bo‘lsa kursor tovar qidiruviga qo‘yiladi; yig‘ilgan klaviatura oldinga chiqariladi",
-        "«Smenani ko‘rish»: «Chop etish» va «Yopish» tugmalari doim ko‘rinadi — uzun tovarlar ro‘yxati aylantiriladi, oyna ixchamroq",
-        "Egasining dasturi, «Umumiy ko‘rinish»: yangi «Boshqa sana» davri — istalgan sanalar, ulardan oldingi xuddi shunday davr bilan solishtirish",
+        "Telegram bot: egasi dasturida ulangan bot endi buyruqlarga javob beradi — kassa uning sozlamalarini o‘zi oladi",
+        "Botga oddiy so‘zlar bilan yozish mumkin: «bugun qancha ishladik», «kim qarzdor», «kola narxi» — internetsiz va bepul",
+        "Botdagi SI (bepul Google Gemini kaliti): egasi bilan erkin suhbatlashadi, xaridorlarga esa sotuvchi-maslahatchi sifatida javob beradi — faqat mahsulotlar, narxlar va mavjudlik",
+        "Egasining «Umumiy ko‘rinish»i: «Omborda tugayapti» kartasi; «To'ldirish va muddatlar» oynasi endi xato bermaydi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

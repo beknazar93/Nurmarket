@@ -1355,6 +1355,10 @@
     <x:String x:Key="loc.settings.telegram.debtReminders">Send debt reminders</x:String>
     <x:String x:Key="loc.settings.telegram.debtRemindersHint">Telegram reminders go only to clients who subscribed to the bot themselves via a personal link (the “Copy link” button in the client card). Telegram doesn't allow messaging people by phone number, so for the other debtors the bot will send you a list with WhatsApp links.</x:String>
     <x:String x:Key="loc.settings.telegram.ownerPhone">Owner's phone (for replies to messages sent to clients)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTitle">AI assistant for chatting (free, Google Gemini)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiHint">Even without a key the bot understands plain phrases: “how much did we make today”, “who owes”, “price of cola”. To let it chat freely and give advice, get a free Google key (a Google account is needed, no card) and paste it here. Exact figures are still calculated by the till; the AI only receives a short shop summary. On the free tier Google may use requests to improve its services. Empty field — AI is off.</x:String>
+    <x:String x:Key="loc.settings.telegram.aiGetKey">Get a free key</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTest">Test AI</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Show the customer a QR code with the receipt amount</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Instead of the bank's regular QR code, the customer display shows a code with the receipt amount already filled in — no need to type it manually. Payment details are taken from the QR code uploaded above.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Before turning this on, scan a test receipt with the apps of two or three banks: the format has been checked against MBank's QR code but not tested with other banks. The cashier still confirms the payment manually — the till doesn't detect the payment on its own.</x:String>

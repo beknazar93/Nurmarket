@@ -1355,6 +1355,10 @@
     <x:String x:Key="loc.settings.telegram.debtReminders">Borç hatırlatmalarını gönder</x:String>
     <x:String x:Key="loc.settings.telegram.debtRemindersHint">Hatırlatma Telegram'da yalnızca bota kişisel bağlantıyla kendisi abone olan müşterilere gider (müşteri kartındaki «Bağlantıyı kopyala» düğmesi). Telegram, telefon numarasıyla kişiye yazmaya izin vermez — diğer borçlular için bot size WhatsApp bağlantılı bir liste gönderir.</x:String>
     <x:String x:Key="loc.settings.telegram.ownerPhone">İşletme sahibinin telefonu (müşterilere gönderilen mesajlarda iletişim için)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTitle">Sohbet için YZ asistanı (ücretsiz, Google Gemini)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiHint">Bot anahtar olmadan da sade cümleleri anlar: «bugün ne kadar kazandık», «kim borçlu», «kola fiyatı». Serbestçe sohbet edip öneri vermesi için ücretsiz Google anahtarı alın (Google hesabı gerekir, kart gerekmez) ve buraya yapıştırın. Kesin rakamları yine kasa hesaplar; YZ yalnızca kısa bir mağaza özeti alır. Ücretsiz katmanda Google istekleri hizmetlerini geliştirmek için kullanabilir. Boş alan — YZ kapalı.</x:String>
+    <x:String x:Key="loc.settings.telegram.aiGetKey">Ücretsiz anahtar al</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTest">YZ'yi test et</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Müşteriye fiş tutarını içeren QR kodu göster</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Müşteri ekranında bankanın normal QR kodu yerine fiş tutarının zaten girildiği bir kod gösterilir — tutarı elle girmeye gerek yoktur. Hesap bilgileri yukarıda yüklenen QR kodundan alınır.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Açmadan önce deneme fişini iki üç bankanın uygulamasıyla okutun: format MBank QR koduyla doğrulandı, diğer bankalarda test edilmedi. Ödemeyi kasiyer yine elle onaylar — kasa ödemeyi kendisi algılamaz.</x:String>

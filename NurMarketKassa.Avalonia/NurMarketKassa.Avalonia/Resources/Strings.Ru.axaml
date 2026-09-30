@@ -1355,6 +1355,10 @@
     <x:String x:Key="loc.settings.telegram.debtReminders">Разослать напоминания о долге</x:String>
     <x:String x:Key="loc.settings.telegram.debtRemindersHint">Напоминание уходит в Telegram только тем покупателям, кто сам подписался на бота по персональной ссылке (кнопка «Ссылка для Telegram» в карточке клиента). Написать человеку по номеру телефона Telegram не разрешает — для остальных должников бот пришлёт вам список со ссылками WhatsApp.</x:String>
     <x:String x:Key="loc.settings.telegram.ownerPhone">Телефон владельца (для обратной связи в рассылках клиентам)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTitle">ИИ-помощник для общения (бесплатно, Google Gemini)</x:String>
+    <x:String x:Key="loc.settings.telegram.aiHint">Бот и без ключа понимает обычные фразы: «сколько заработали сегодня», «кто должен», «цена кола». Чтобы он ещё и свободно общался и давал советы, получите бесплатный ключ Google (нужен Google-аккаунт, карта не нужна) и вставьте сюда. Точные цифры по-прежнему считает касса; нейросеть получает только короткую сводку магазина. На бесплатном уровне Google может использовать запросы для улучшения своих сервисов. Пустое поле — ИИ выключен.</x:String>
+    <x:String x:Key="loc.settings.telegram.aiGetKey">Получить бесплатный ключ</x:String>
+    <x:String x:Key="loc.settings.telegram.aiTest">Проверить ИИ</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Показывать покупателю QR с суммой чека</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Вместо обычного QR банка на экране покупателя показывается код, в который уже вписана сумма чека — набирать её вручную не нужно. Реквизиты берутся из загруженного выше QR.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Перед включением отсканируйте пробный чек приложениями двух-трёх банков: формат сверен с QR MBank, на других банках не проверялся. Оплату кассир по-прежнему подтверждает вручную — касса не узнаёт о платеже сама.</x:String>

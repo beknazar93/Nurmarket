@@ -1602,6 +1602,15 @@ public partial class MainWindow : Window
         // Телеграм-бот владельца отвечает на команды, только пока касса включена: своего
         // сервера у программы нет, новые сообщения она спрашивает сама (getUpdates).
         StartTelegramBot();
+        // 2026-09-30: бота могут подключить в программе владельца уже при открытой кассе, а команды
+        // может держать программа владельца и потом закрыться — раз в минуту пробуем снова
+        // (повторный вызов на работающем опросе ничего не делает).
+        if (_telegramRetryTimer is null)
+        {
+            _telegramRetryTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+            _telegramRetryTimer.Tick += (_, _) => StartTelegramBot();
+            _telegramRetryTimer.Start();
+        }
 
         if (!_whatsNewShown)
         {
@@ -1816,6 +1825,7 @@ public partial class MainWindow : Window
     }
 
     private TelegramBotPollingService? _telegramBot;
+    private DispatcherTimer? _telegramRetryTimer;
 
     /// <summary>Поднимает опрос команд бота. Вызывается при открытии окна и повторно после
     /// сохранения настроек бота — повторный вызов на уже запущенном опросе безвреден.</summary>
@@ -1823,6 +1833,9 @@ public partial class MainWindow : Window
     {
         try
         {
+            // 2026-09-30, «бот не работает»: бота подключили в программе владельца, а у неё свой файл
+            // настроек — касса его не видела и команды никто не слушал. Берём оттуда, если у кассы пусто.
+            UserPreferences.AdoptTelegramBotFromOtherApp();
             if (!TelegramBotService.IsConfigured || !UserPreferences.Instance.TelegramCommandsEnabled)
             {
                 _telegramBot?.Stop();
@@ -1852,6 +1865,7 @@ public partial class MainWindow : Window
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         _voiceControl.CommandRecognized -= OnVoiceCommandRecognized;
         _voiceControl.Stop();
+        _telegramRetryTimer?.Stop();
         _telegramBot?.Stop();
         _customerDisplay.CloseForSession();
         _viewModel.Dispose();

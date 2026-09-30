@@ -77,6 +77,26 @@ public static class TelegramBotService
         return null;
     }
 
+    /// <summary>2026-09-30: «печатает…» в чате, пока ИИ-помощник готовит ответ (несколько секунд) —
+    /// чтобы владелец видел, что бот его услышал. Ошибка здесь ни на что не влияет.</summary>
+    public static async Task SendTypingAsync(string chatId, CancellationToken ct = default)
+    {
+        var token = UserPreferences.Instance.TelegramBotToken;
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chatId))
+            return;
+        try
+        {
+            using var response = await Http
+                .PostAsJsonAsync($"{ApiRoot}/bot{token}/sendChatAction",
+                    new Dictionary<string, object?> { ["chat_id"] = chatId, ["action"] = "typing" }, ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Не критично: это только индикатор.
+        }
+    }
+
     /// <summary>Одно сообщение. 2026-09-29 (стресс-тест): на 429 «Too Many Requests» Telegram
     /// говорит, сколько подождать (retry_after), — раньше сообщение просто терялось (ответ владельцу,
     /// напоминание должнику при рассылке). Теперь ждём и повторяем, до трёх раз. Ответ 400 с

@@ -601,7 +601,8 @@
                             </DockPanel>
                         </Border>
 
-                        <Border Grid.Column="2" Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
+                        <StackPanel Grid.Column="2" Spacing="16" VerticalAlignment="Top">
+                        <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,4,0,12"/>
                                 <Panel>
@@ -610,6 +611,29 @@
                                 </Panel>
                             </DockPanel>
                         </Border>
+
+                        <!-- 2026-09-30, владелец (скриншот): «там есть пустота — выведи туда что-нибудь». Под
+                             «Лучшими товарами» было пусто рядом с высоким списком продаж — теперь здесь то, что
+                             заканчивается на складе (каталог программы, без услуг), со ссылкой на «Пополнение». -->
+                        <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,4,0,12">
+                                    <TextBlock x:Name="LowStockTitle" Classes="cardTitle"/>
+                                    <Button Grid.Column="1" x:Name="LowStockLink" Classes="link" Click="LowStockLink_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock x:Name="LowStockLinkText" VerticalAlignment="Center"/>
+                                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                                  VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <Panel>
+                                    <StackPanel x:Name="LowStockList" Spacing="10"/>
+                                    <TextBlock x:Name="LowStockEmptyText" Classes="empty" IsVisible="False"/>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
+                        </StackPanel>
                     </Grid>
 
                     <!-- ABC-анализ по всем срезам (2026-09-27, владелец: «ABC анализ должен быть в сводке

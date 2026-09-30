@@ -28,12 +28,19 @@ public partial class TelegramBotSetupWindow : Window
         InitializeComponent();
     }
 
+    private bool _fillingChecks;
+
     private void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         var prefs = UserPreferences.Instance;
         TokenBox.Text = prefs.TelegramBotToken ?? "";
+        // 2026-09-30: галочки ставятся из настроек БЕЗ сохранения. Раньше первая же галочка вызывала
+        // Toggles_Changed, и тот записывал вторую (ещё пустую) — простое открытие мастера выключало
+        // «Отвечать на команды», и бот переставал отвечать.
+        _fillingChecks = true;
         SummaryCheck.IsChecked = prefs.TelegramShiftSummaryEnabled;
         CommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
+        _fillingChecks = false;
 
         // Бот уже подключён — открываем окно сразу в «рабочем» состоянии, чтобы владелец мог
         // проверить связь или переключить настройки, не проходя шаги заново.
@@ -179,7 +186,7 @@ public partial class TelegramBotSetupWindow : Window
     private void Toggles_Changed(object? sender, RoutedEventArgs e)
     {
         // Loaded ещё не отработал — не перезаписываем настройки значениями по умолчанию.
-        if (!IsLoaded)
+        if (!IsLoaded || _fillingChecks)
             return;
 
         var prefs = UserPreferences.Instance;

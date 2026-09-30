@@ -444,6 +444,11 @@ public sealed class UserPreferences
     /// комментарий в TelegramBotService и разговор с владельцем 2026-09-22.</summary>
     public string? OwnerPhone { get; set; }
 
+    /// <summary>2026-09-30, «добавь ИИ, чтобы бот отвечал и общался»: бесплатный ключ Google Gemini
+    /// (aistudio.google.com). Есть ключ — на вопросы, которые не узнал помощник бота, отвечает
+    /// нейросеть по сводке магазина. Как и токен бота, на диск пишется только через DPAPI.</summary>
+    public string? TelegramAiKey { get; set; }
+
     /// <summary>Обмен продажами между кассами и программой владельца, когда нет интернета:
     /// по локальной сети (нужен одинаковый код магазина) или внутри одного компьютера.
     /// Включено по умолчанию — внутри одного ПК работает без настроек.</summary>
@@ -654,6 +659,87 @@ public sealed class UserPreferences
         }
 
         return null;
+    }
+
+    /// <summary>2026-09-30, владелец: «проверь бота, он не работает». Бот подключали в программе
+    /// владельца, а она хранит настройки в своей папке (NurMarketOwner) — касса, в которой бот и
+    /// работает (опрос команд, сводка при закрытии смены), о нём не знала и не запускала его.
+    /// Если в этой программе бот не подключён, а во второй программе на этом же компьютере
+    /// подключён, — берём оттуда токен, получателя и переключатели и сохраняем у себя. Свои уже
+    /// заданные настройки бота никогда не перезаписываются. true — настройки взяты.</summary>
+    public static bool AdoptTelegramBotFromOtherApp()
+    {
+        var p = Instance;
+        AdoptAiKeyFromOtherApp(p);
+        if (!string.IsNullOrWhiteSpace(p.TelegramBotToken))
+            return false;
+
+        try
+        {
+            var other = NurMarketKassa.Services.AppMode.IsOwner ? "NurMarketKassa" : "NurMarketOwner";
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), other, "user-settings.json");
+            if (!File.Exists(path))
+                return false;
+
+            var fromFile = JsonSerializer.Deserialize<UserPreferencesDto>(File.ReadAllText(path), JsonOpt);
+            if (fromFile is null || string.IsNullOrWhiteSpace(fromFile.TelegramBotTokenProtected))
+                return false;
+            var token = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramBotTokenProtected);
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            p.TelegramBotToken = token;
+            if (!string.IsNullOrWhiteSpace(fromFile.TelegramChatId))
+                p.TelegramChatId = fromFile.TelegramChatId;
+            if (!string.IsNullOrWhiteSpace(fromFile.TelegramChatTitle))
+                p.TelegramChatTitle = fromFile.TelegramChatTitle;
+            if (!string.IsNullOrWhiteSpace(fromFile.TelegramBotUsername))
+                p.TelegramBotUsername = fromFile.TelegramBotUsername;
+            if (fromFile.TelegramShiftSummaryEnabled is not null)
+                p.TelegramShiftSummaryEnabled = fromFile.TelegramShiftSummaryEnabled.Value;
+            if (fromFile.TelegramCommandsEnabled is not null)
+                p.TelegramCommandsEnabled = fromFile.TelegramCommandsEnabled.Value;
+            if (fromFile.TelegramBotUnlocked == true)
+                p.TelegramBotUnlocked = true;
+            if (string.IsNullOrWhiteSpace(p.OwnerPhone) && !string.IsNullOrWhiteSpace(fromFile.OwnerPhone))
+                p.OwnerPhone = fromFile.OwnerPhone;
+            p.SaveToDisk();
+            NurMarketKassa.Services.PosLogger.Log($"Телеграм-бот: настройки взяты из {other} (получатель {(string.IsNullOrWhiteSpace(p.TelegramChatId) ? "не задан" : "задан")}).", "TELEGRAM");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Телеграм-бот: не удалось прочитать настройки второй программы ({ex.Message}).", "TELEGRAM");
+            return false;
+        }
+    }
+
+    /// <summary>Ключ ИИ-помощника, введённый во второй программе (обычно — в программе владельца).
+    /// Свой уже заданный ключ не трогаем.</summary>
+    private static void AdoptAiKeyFromOtherApp(UserPreferences p)
+    {
+        if (!string.IsNullOrWhiteSpace(p.TelegramAiKey))
+            return;
+        try
+        {
+            var other = NurMarketKassa.Services.AppMode.IsOwner ? "NurMarketKassa" : "NurMarketOwner";
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), other, "user-settings.json");
+            if (!File.Exists(path))
+                return;
+            var fromFile = JsonSerializer.Deserialize<UserPreferencesDto>(File.ReadAllText(path), JsonOpt);
+            if (string.IsNullOrWhiteSpace(fromFile?.TelegramAiKeyProtected))
+                return;
+            var key = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramAiKeyProtected);
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+            p.TelegramAiKey = key;
+            p.SaveToDisk();
+            NurMarketKassa.Services.PosLogger.Log($"ИИ-помощник бота: ключ взят из {other}.", "TELEGRAM");
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"ИИ-помощник бота: ключ второй программы не прочитан ({ex.Message}).", "TELEGRAM");
+        }
     }
 
     public static void LoadFromDiskAndMergeDefaults(AppSettings appDefaults)
@@ -935,6 +1021,8 @@ public sealed class UserPreferences
                 p.TelegramBotUsername = fromFile.TelegramBotUsername;
             if (!string.IsNullOrWhiteSpace(fromFile.OwnerPhone))
                 p.OwnerPhone = fromFile.OwnerPhone;
+            if (!string.IsNullOrWhiteSpace(fromFile.TelegramAiKeyProtected))
+                p.TelegramAiKey = WindowsDpapiHelper.UnprotectFromBase64(fromFile.TelegramAiKeyProtected);
             if (fromFile.LanSyncEnabled is not null)
                 p.LanSyncEnabled = fromFile.LanSyncEnabled.Value;
             if (fromFile.LanShopCode is not null)
@@ -1208,6 +1296,7 @@ public sealed class UserPreferences
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
+                TelegramAiKeyProtected = string.IsNullOrWhiteSpace(TelegramAiKey) ? null : WindowsDpapiHelper.ProtectToBase64(TelegramAiKey),
                 LanSyncEnabled = LanSyncEnabled,
                 LanShopCode = LanShopCode,
                 LanDeviceId = LanDeviceId,
@@ -1454,6 +1543,7 @@ public sealed class UserPreferences
         public string? TelegramBotUsername { get; set; }
         public bool? TelegramShiftSummaryEnabled { get; set; }
         public string? OwnerPhone { get; set; }
+        public string? TelegramAiKeyProtected { get; set; }
         public bool? LanSyncEnabled { get; set; }
         public string? LanShopCode { get; set; }
         public string? LanDeviceId { get; set; }

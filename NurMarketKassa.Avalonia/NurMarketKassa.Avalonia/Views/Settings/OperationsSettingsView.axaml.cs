@@ -211,6 +211,7 @@ public partial class OperationsSettingsView : UserControl
         TelegramSummaryCheck.IsChecked = prefs.TelegramShiftSummaryEnabled;
         TelegramCommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
         OwnerPhoneBox.Text = prefs.OwnerPhone ?? "";
+        TelegramAiKeyBox.Text = prefs.TelegramAiKey ?? "";
         UpdateTelegramStatus();
 
         void AddBankRow(string bank, bool isCustom)
@@ -407,6 +408,56 @@ public partial class OperationsSettingsView : UserControl
         finally
         {
             TelegramDebtRemindersButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-09-30: ключ ИИ-помощника бота (Google Gemini, бесплатный). Пустое поле — ИИ выключен.</summary>
+    private void TelegramAiKey_LostFocus(object? sender, RoutedEventArgs e) => SaveTelegramAiKey();
+
+    private void SaveTelegramAiKey()
+    {
+        var prefs = UserPreferences.Instance;
+        var key = (TelegramAiKeyBox.Text ?? "").Trim();
+        if ((prefs.TelegramAiKey ?? "") == key)
+            return;
+        prefs.TelegramAiKey = string.IsNullOrEmpty(key) ? null : key;
+        prefs.SaveToDisk();
+    }
+
+    private void TelegramAiGetKey_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://aistudio.google.com/app/apikey") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            TelegramAiStatusText.Text = "https://aistudio.google.com/app/apikey — " + ex.Message;
+        }
+    }
+
+    private async void TelegramAiTest_Click(object? sender, RoutedEventArgs e)
+    {
+        SaveTelegramAiKey();
+        var key = UserPreferences.Instance.TelegramAiKey;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            TelegramAiStatusText.Text = Tr.T("Вставьте ключ Google.", "Google ачкычын коюңуз.", "Paste the Google key.", "Google anahtarını yapıştırın.", "Google kalitini qo'ying.");
+            return;
+        }
+
+        TelegramAiTestButton.IsEnabled = false;
+        TelegramAiStatusText.Text = Tr.T("Проверяю…", "Текшерилүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…");
+        try
+        {
+            var (ok, message) = await TelegramAiChat.TestKeyAsync(key!, CancellationToken.None).ConfigureAwait(true);
+            TelegramAiStatusText.Text = ok
+                ? Tr.T("ИИ отвечает: ", "ЖИ жооп берет: ", "AI replies: ", "YZ yanıt veriyor: ", "SI javob bermoqda: ") + message
+                : Tr.T("Не получилось: ", "Болбоду: ", "Failed: ", "Olmadı: ", "Bo'lmadi: ") + message;
+        }
+        finally
+        {
+            TelegramAiTestButton.IsEnabled = true;
         }
     }
 

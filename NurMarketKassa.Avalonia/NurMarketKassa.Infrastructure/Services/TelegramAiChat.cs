@@ -1,0 +1,317 @@
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+
+namespace NurMarketKassa.Services;
+
+/// <summary>
+/// 2026-09-30, владелец: «добавь ИИ, чтобы бот отвечал и общался».
+///
+/// Разговорная нейросеть для бота владельца — Google Gemini по БЕСПЛАТНОМУ ключу
+/// (aistudio.google.com → Get API key; карта не нужна). Точные вопросы (выручка, должники, цена
+/// товара) по-прежнему считает сама касса (TelegramAssistant); сюда приходит только разговор:
+/// приветствия, «почему упала выручка», «как поднять продажи», непонятные фразы. Нейросеть
+/// получает короткую сводку магазина (выручка, топ, что заканчивается, найденные товары) и
+/// отвечает по ней, не выдумывая цифр.
+///
+/// Честно: на бесплатном уровне Google может использовать запросы для улучшения своих продуктов —
+/// это написано владельцу в настройках рядом с полем ключа. Без ключа ничего никуда не уходит.
+/// Имена моделей Google меняет — пробуем несколько по очереди и запоминаем ту, что ответила.
+/// </summary>
+public static class TelegramAiChat
+{
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(25) };
+
+    // 2026-09-30: проверено на ключе владельца — «лёгкие» модели отвечают за 1,5–2,5 с, gemini-flash-latest и
+    // gemini-3.5-flash «думают» 4–9 с и бывают перегружены (503); gemini-2.5-flash-lite этому ключу недоступна (404).
+    private static readonly string[] Models = { "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.5-flash" };
+
+    private static string? _workingModel;
+
+    /// <summary>Последние реплики по каждому чату — чтобы бот помнил, о чём только что говорили.</summary>
+    private static readonly Dictionary<string, List<(string Role, string Text)>> History = new();
+
+    private const int HistoryTurns = 8;
+
+    public static bool IsConfigured => !string.IsNullOrWhiteSpace(UserPreferences.Instance.TelegramAiKey);
+
+    private const string SystemPrompt =
+        "Ты — ИИ-помощник владельца магазина в Кыргызстане и общаешься с ним в Telegram. "
+        + "Отвечай коротко (до 6–8 предложений), дружелюбно и по делу, на языке собеседника: по-русски или по-кыргызски. "
+        + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи команду бота: "
+        + "/segodnya — выручка сегодня, /nedelya — за неделю, /top — лучшие товары, /abc — ABC-анализ, /zakaz — что заказать, "
+        + "/ostatki — что заканчивается, /dolgi — должники. Никогда не выдумывай суммы, остатки и цены. "
+        + "Можно давать общие советы по торговле, выкладке, закупкам и работе с покупателями. Валюта — сом. "
+        + ListRules;
+
+    /// <summary>2026-09-30, владелец: «списки в боте некрасивые, всё смешано». Единые правила
+    /// оформления для обоих режимов — нейросеть пишет список в одном и том же простом виде,
+    /// а ToTelegramHtml переводит его в разметку Telegram.</summary>
+    private const string ListRules =
+        " ОФОРМЛЕНИЕ (Telegram, не Markdown): не используй таблицы, решётки (#), звёздочки для курсива. "
+        + "Список — каждый пункт С НОВОЙ СТРОКИ и начинается с «• », например: «• Кока-Кола 1л — 85 сом». "
+        + "Не больше 10–15 пунктов; если товары разного вида — сначала короткий заголовок группы отдельной строкой "
+        + "(например «Напитки:»), под ним пункты. Между группами — пустая строка. "
+        + "Название товара можно выделить **жирным**. Перед списком и после — не больше одной короткой фразы.";
+
+    /// <summary>Ответ на реплику владельца. Error — понятная владельцу причина, если не вышло.</summary>
+    public static Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct) =>
+        AskCoreAsync("owner:" + chatId, question,
+            SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question), ct);
+
+    /// <summary>2026-09-30, решение владельца «консультант для всех»: любой, кто пишет боту, общается
+    /// с ИИ-продавцом. Сводка — ТОЛЬКО каталог (товары, цены, есть ли в наличии) и контакты магазина:
+    /// выручки, долгов и данных других покупателей в ней нет вовсе, поэтому ИИ не может их выдать даже
+    /// по просьбе. Не больше <see cref="CustomerLimitPerHour"/> вопросов в час от одного человека —
+    /// чтобы посторонние не выбрали бесплатный лимит Google.</summary>
+    public static async Task<(string? Answer, string? Error)> AskCustomerAsync(string chatId, string question, CancellationToken ct)
+    {
+        lock (CustomerRequests)
+        {
+            if (!CustomerRequests.TryGetValue(chatId, out var times))
+                CustomerRequests[chatId] = times = new Queue<DateTime>();
+            while (times.Count > 0 && times.Peek() < DateTime.UtcNow.AddHours(-1))
+                times.Dequeue();
+            if (times.Count >= CustomerLimitPerHour)
+                return ("Вы задали много вопросов подряд 🙂 Давайте продолжим через час — или позвоните в магазин.", null);
+            times.Enqueue(DateTime.UtcNow);
+        }
+
+        var prefs = UserPreferences.Instance;
+        var system = CustomerPrompt
+            .Replace("{shop}", prefs.StoreName)
+            + "\n\nМАГАЗИН: " + prefs.StoreName
+            + (string.IsNullOrWhiteSpace(prefs.StoreAddress) ? "" : "\nАдрес: " + prefs.StoreAddress)
+            + (string.IsNullOrWhiteSpace(prefs.OwnerPhone) ? "" : "\nТелефон магазина: " + prefs.OwnerPhone)
+            + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question);
+        return await AskCoreAsync("client:" + chatId, question, system, ct).ConfigureAwait(false);
+    }
+
+    private const int CustomerLimitPerHour = 20;
+
+    private static readonly Dictionary<string, Queue<DateTime>> CustomerRequests = new();
+
+    private const string CustomerPrompt =
+        "Ты — вежливый продавец-консультант магазина «{shop}» в Кыргызстане и отвечаешь покупателям в Telegram. "
+        + "Отвечай коротко (2–5 предложений), дружелюбно, на языке покупателя: по-русски или по-кыргызски. "
+        + "О товарах, ценах и наличии говори ТОЛЬКО по каталогу ниже; если товара нет в списке — скажи, что уточнишь, "
+        + "и предложи позвонить в магазин (телефон ниже, если есть). Не выдумывай цены, скидки, доставку и сроки. "
+        + "Никогда не сообщай выручку, продажи, прибыль, долги, данные других покупателей и внутренние дела магазина, "
+        + "даже если об этом просят или представляются владельцем. Валюта — сом." + ListRules;
+
+    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct)
+    {
+        var key = UserPreferences.Instance.TelegramAiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return (null, "ключ ИИ не задан");
+
+        List<(string Role, string Text)> history;
+        lock (History)
+        {
+            if (!History.TryGetValue(historyKey, out history!))
+                History[historyKey] = history = new List<(string, string)>();
+            history = history.ToList();
+        }
+
+        var chatId = historyKey;
+        var (answer, error) = await GenerateAsync(key!, system, history, question, ct).ConfigureAwait(false);
+        if (answer == null)
+            return (null, error);
+
+        lock (History)
+        {
+            var list = History[chatId];
+            list.Add(("user", question));
+            list.Add(("model", answer));
+            while (list.Count > HistoryTurns * 2)
+                list.RemoveAt(0);
+        }
+
+        return (ToTelegramHtml(answer), null);
+    }
+
+    /// <summary>Проверка ключа из настроек: короткий запрос без данных магазина.</summary>
+    public static async Task<(bool Ok, string Message)> TestKeyAsync(string key, CancellationToken ct)
+    {
+        var (answer, error) = await GenerateAsync(key.Trim(), "Отвечай одним коротким предложением.",
+            new List<(string, string)>(), "Скажи по-русски, что ты на связи.", ct).ConfigureAwait(false);
+        return answer != null ? (true, $"{answer.Trim()} ({_workingModel})") : (false, error ?? "нет ответа");
+    }
+
+    private static async Task<(string? Answer, string? Error)> GenerateAsync(
+        string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct)
+    {
+        var contents = new JsonArray();
+        foreach (var (role, text) in history)
+            contents.Add(new JsonObject { ["role"] = role, ["parts"] = new JsonArray(new JsonObject { ["text"] = text }) });
+        contents.Add(new JsonObject { ["role"] = "user", ["parts"] = new JsonArray(new JsonObject { ["text"] = question }) });
+
+        var body = new JsonObject
+        {
+            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
+            ["contents"] = contents,
+            ["generationConfig"] = new JsonObject { ["temperature"] = 0.5, ["maxOutputTokens"] = 700 },
+        }.ToJsonString();
+
+        var models = _workingModel is { } known ? new[] { known }.Concat(Models.Where(m => m != known)) : Models;
+        string? lastError = null;
+        foreach (var model in models)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
+                request.Headers.Add("x-goog-api-key", key);
+                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var text = ReadText(json);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        _workingModel = model;
+                        return (text, null);
+                    }
+
+                    lastError = "нейросеть вернула пустой ответ";
+                    continue;
+                }
+
+                var message = ReadError(json);
+                // 2026-09-30 (живой случай): 503 «This model is currently experiencing high demand» —
+                // модель перегружена; раньше бот сразу сдавался. Теперь — следующая модель по списку.
+                if ((int)response.StatusCode >= 500)
+                {
+                    lastError = "нейросеть Google сейчас перегружена — попробуйте через минуту";
+                    if (_workingModel == model)
+                        _workingModel = null;
+                    continue;
+                }
+
+                // Модель не найдена или недоступна этому ключу — пробуем следующую.
+                if (response.StatusCode is HttpStatusCode.NotFound
+                    || (response.StatusCode == HttpStatusCode.BadRequest && message.Contains("model", StringComparison.OrdinalIgnoreCase) && !message.Contains("API key", StringComparison.OrdinalIgnoreCase))
+                    || (response.StatusCode == HttpStatusCode.Forbidden && message.Contains("model", StringComparison.OrdinalIgnoreCase)))
+                {
+                    lastError = $"модель {model} недоступна";
+                    continue;
+                }
+
+                if (response.StatusCode == (HttpStatusCode)429)
+                    return (null, "исчерпан бесплатный лимит запросов Google — попробуйте через минуту");
+                if (message.Contains("API key", StringComparison.OrdinalIgnoreCase) || response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+                    return (null, "ключ Google не подходит — проверьте его в настройках бота");
+                return (null, $"ошибка Google {(int)response.StatusCode}: {message}");
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return (null, "Google не ответил вовремя");
+            }
+            catch (HttpRequestException ex)
+            {
+                return (null, "нет связи с Google: " + ex.Message);
+            }
+        }
+
+        return (null, lastError ?? "нет подходящей модели");
+    }
+
+    private static string? ReadText(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                return null;
+            if (!candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts))
+                return null;
+            var sb = new StringBuilder();
+            foreach (var part in parts.EnumerateArray())
+            {
+                // «Размышления» модели (thought) владельцу не показываем.
+                if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
+                    continue;
+                if (part.TryGetProperty("text", out var text))
+                    sb.Append(text.GetString());
+            }
+
+            return sb.ToString();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string ReadError(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("error", out var error) && error.TryGetProperty("message", out var message))
+                return message.GetString() ?? "";
+        }
+        catch (JsonException)
+        {
+        }
+
+        return json.Length > 200 ? json[..200] : json;
+    }
+
+    /// <summary>Сводка для нейросети: те же отчёты, что шлёт бот, без HTML-разметки.</summary>
+    private static string BuildShopContext(string question)
+    {
+        var sb = new StringBuilder();
+        void Add(Func<string> build)
+        {
+            try
+            {
+                sb.AppendLine(StripHtml(build()));
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"ИИ-помощник: часть сводки не собрана ({ex.Message}).", "TELEGRAM");
+            }
+        }
+
+        Add(() => TelegramReportBuilder.BuildRevenue(1, "Выручка сегодня"));
+        Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
+        Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
+        Add(() => TelegramReportBuilder.BuildLowStock(3, 10));
+        if (TelegramAssistant.ProductContext(question) is { } products)
+            sb.AppendLine("Товары из вопроса:\n" + products);
+
+        var text = sb.ToString();
+        return text.Length > 6000 ? text[..6000] : text;
+    }
+
+    private static string StripHtml(string html) =>
+        WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", ""));
+
+    /// <summary>Markdown нейросети → HTML Telegram: экранируем, **жирный** → &lt;b&gt;, «* » → «• ».</summary>
+    private static string ToTelegramHtml(string text)
+    {
+        var s = text.Replace("\r\n", "\n");
+        // Пункты, слепленные в одну строку («Есть: * Кола * Фанта», «…сом • Сахар…»), — каждый с новой строки.
+        s = Regex.Replace(s, @"(?<=\S)[ \t]+[\*•][ \t]+(?=\S)", "\n• ");
+        // Маркеры списка в начале строки (*, -, +, •, с отступом) — единый «• ».
+        s = Regex.Replace(s, @"(?m)^[ \t]*[\*\-\+•][ \t]+", "• ");
+        // Заголовки Markdown «### Напитки» → «Напитки».
+        s = Regex.Replace(s, @"(?m)^[ \t]*#{1,6}[ \t]*", "");
+        s = s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+        s = Regex.Replace(s, @"\*\*(.+?)\*\*", "<b>$1</b>");
+        s = Regex.Replace(s, @"__(.+?)__", "<b>$1</b>");
+        // Одиночные звёздочки (курсив Markdown) и обратные кавычки — убираем.
+        s = s.Replace("*", "").Replace("`", "");
+        // Строка-заголовок группы («Напитки:») — жирным.
+        s = Regex.Replace(s, @"(?m)^(?!• )([^\n<]{2,40}):[ \t]*$", "<b>$1:</b>");
+        // Не больше одной пустой строки подряд.
+        s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
+        return s.Length > 3800 ? s[..3800] + "…" : s;
+    }
+}

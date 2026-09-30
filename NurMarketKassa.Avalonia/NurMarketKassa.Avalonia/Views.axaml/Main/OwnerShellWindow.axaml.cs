@@ -70,6 +70,47 @@ public partial class OwnerShellWindow : Window, IMainShell
     private string? _compareKey;
     private JsonElement? _compareCards;
 
+    // 2026-09-30, «проверь бота, он не работает»: команды бота слушала только касса, а бота
+    // подключают здесь, в программе владельца (у неё свой файл настроек) — на /segodnya никто не
+    // отвечал. Теперь команды слушает и программа владельца, если касса на этом компьютере их не
+    // слушает (замок в TelegramBotPollingService), и раз в минуту подхватывает новые настройки бота.
+    private readonly DispatcherTimer _telegramTimer;
+    private TelegramBotPollingService? _telegramBot;
+
+    private void StartTelegramBot()
+    {
+        try
+        {
+            UserPreferences.AdoptTelegramBotFromOtherApp();
+            // Касса на этом компьютере запущена — команды слушает она: отчёты бота считаются по
+            // её продажам и каталогу. Программа владельца отвечает, только когда кассы нет.
+            if (!TelegramBotService.IsConfigured || !UserPreferences.Instance.TelegramCommandsEnabled || IsKassaRunning())
+            {
+                _telegramBot?.Stop();
+                return;
+            }
+
+            _telegramBot ??= new TelegramBotPollingService(
+                App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>(),
+                App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>(),
+                App.GetRequiredService<NurMarketKassa.Services.Api.ClientDebtsApiService>());
+            _telegramBot.Start();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Телеграм-бот: запустить не удалось ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>Касса держит замок «одна копия» (Program.cs) — по нему и узнаём, что она запущена.</summary>
+    private static bool IsKassaRunning()
+    {
+        if (!Mutex.TryOpenExisting(@"Global\NurMarketKassa-SingleInstance", out var mutex))
+            return false;
+        mutex.Dispose();
+        return true;
+    }
+
     public OwnerShellWindow()
     {
         InitializeComponent();
@@ -89,6 +130,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _ = RefreshAbcAsync();
             await RefreshAsync().ConfigureAwait(true);
             _timer.Start();
+            StartTelegramBot();
+            _telegramTimer.Start();
             // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
             // 2026-09-30: опрос «Закупок» и значок — только когда список заказов включён.
             if (ShowcaseApiService.OrdersListEnabled)
@@ -97,9 +140,13 @@ public partial class OwnerShellWindow : Window, IMainShell
                 _siteOrdersTimer.Start();
             }
         };
+        _telegramTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _telegramTimer.Tick += (_, _) => StartTelegramBot();
         Closed += (_, _) =>
         {
             _timer.Stop();
+            _telegramTimer.Stop();
+            _telegramBot?.Stop();
             _siteOrdersTimer.Stop();
             ShowcaseApiService.NewOrdersCountChanged -= OnSiteOrdersCountChanged;
             _abcDebounce.Stop();
@@ -265,6 +312,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         RecentEmptyText.Text = Tr.T("За этот период продаж нет", "Бул мезгилде сатуу жок", "No sales in this period", "Bu dönemde satış yok", "Bu davrda sotuv yo'q");
         TopTitle.Text = Tr.T("Лучшие товары", "Мыкты товарлар", "Top products", "En çok satanlar", "Eng yaxshi mahsulotlar");
         TopEmptyText.Text = Tr.T("Пока нечего показать", "Азырынча көрсөтө турган эч нерсе жок", "Nothing to show yet", "Henüz gösterilecek bir şey yok", "Hozircha ko'rsatadigan narsa yo'q");
+        LowStockTitle.Text = Tr.T("Заканчивается на складе", "Кампада түгөнүп баратат", "Running low in stock", "Stokta azalanlar", "Omborda tugayapti");
+        LowStockLinkText.Text = Tr.T("Пополнение", "Толуктоо", "Restock", "Stok yenileme", "To'ldirish");
+        LowStockEmptyText.Text = Tr.T("Всего хватает — остатки в норме", "Баары жетиштүү — калдыктар нормада", "Everything is in stock", "Her şey stokta", "Hammasi yetarli — qoldiqlar me'yorida");
+        LowStockLink.IsVisible = !TariffGate.IsStartTariff;
         AbcTitle.Text = Tr.T("ABC-анализ по всем срезам", "Бардык кесилиштер боюнча ABC-анализ", "ABC analysis — all views", "Tüm kırılımlarda ABC analizi", "Barcha kesimlar bo'yicha ABC tahlili");
         AbcHint.Text = Tr.T(
             "За выбранный период: выручка, прибыль, количество, категории и бренды; склад по стоимости остатка — на сейчас. Нажмите на столбец, чтобы посмотреть разбор товара.",
@@ -1440,6 +1491,74 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             TopList.Children.Add(row);
         }
+
+        ApplyLowStock();
+    }
+
+    /// <summary>2026-09-30: «Заканчивается на складе» — 6 товаров с самым малым остатком из каталога
+    /// программы (без услуг: у них остатка нет). Пересчитывается вместе со сводкой; каталог уже в
+    /// памяти, запросов к серверу нет.</summary>
+    private void ApplyLowStock()
+    {
+        LowStockList.Children.Clear();
+        List<NurMarketKassa.Models.Pos.CatalogProductTileVm> low;
+        try
+        {
+            low = CatalogCacheService.Products
+                .Where(p => !p.IsService && !string.IsNullOrWhiteSpace(p.Title) && p.Quantity <= 5)
+                .OrderBy(p => p.Quantity)
+                .ThenBy(p => p.Title)
+                .Take(6)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сводка: список «Заканчивается» не построен ({ex.Message}).", "WARNING");
+            low = [];
+        }
+
+        LowStockEmptyText.IsVisible = low.Count == 0;
+        foreach (var p in low)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+            var dot = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
+            UseBrush(dot, Shape.FillProperty, p.Quantity <= 0 ? "BrushDanger" : "BrushWarning");
+            row.Children.Add(dot);
+
+            var name = new TextBlock
+            {
+                Text = p.Title,
+                FontSize = 13.5,
+                FontWeight = FontWeight.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(12, 0, 12, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            UseBrush(name, TextBlock.ForegroundProperty, "BrushText");
+            Grid.SetColumn(name, 1);
+            row.Children.Add(name);
+
+            var qty = new TextBlock
+            {
+                Text = p.Quantity <= 0
+                    ? Tr.T("нет в наличии", "жок", "out of stock", "stokta yok", "mavjud emas")
+                    : Tr.T($"осталось {Qty(p.Quantity)}", $"{Qty(p.Quantity)} калды", $"{Qty(p.Quantity)} left", $"{Qty(p.Quantity)} kaldı", $"{Qty(p.Quantity)} qoldi")
+                      + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + p.Unit),
+                FontSize = 12.5,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            UseBrush(qty, TextBlock.ForegroundProperty, p.Quantity <= 0 ? "BrushDanger" : "BrushTextSoft");
+            Grid.SetColumn(qty, 2);
+            row.Children.Add(qty);
+
+            LowStockList.Children.Add(row);
+        }
+    }
+
+    private void LowStockLink_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!TariffGate.IsStartTariff)
+            OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>());
     }
 
     // 2026-09-28, сверка с сайтом: в «Последних продажах» был виден только первый товар чека

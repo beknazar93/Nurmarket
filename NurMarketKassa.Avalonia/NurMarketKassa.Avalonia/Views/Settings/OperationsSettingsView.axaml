@@ -103,6 +103,19 @@
                        FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
             <TextBox x:Name="OwnerPhoneBox" x:FieldModifier="public" Watermark="+996 700 000000"
                      LostFocus="OwnerPhone_LostFocus"/>
+
+            <!-- 2026-09-30, «добавь ИИ, чтобы бот отвечал и общался»: бесплатный ключ Google Gemini.
+                 Есть ключ — на разговорные вопросы отвечает нейросеть (TelegramAiChat). -->
+            <TextBlock Text="{DynamicResource loc.settings.telegram.aiTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="{DynamicResource loc.settings.telegram.aiHint}"/>
+            <TextBox x:Name="TelegramAiKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="AIza..."
+                     LostFocus="TelegramAiKey_LostFocus"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="TelegramAiGetKey_Click"/>
+              <Button x:Name="TelegramAiTestButton" Content="{DynamicResource loc.settings.telegram.aiTest}" Click="TelegramAiTest_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="TelegramAiStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>
 

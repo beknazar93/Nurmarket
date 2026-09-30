@@ -67,8 +67,59 @@ public sealed partial class TelegramBotPollingService
         }
 
         _cts = new CancellationTokenSource();
+
+        // 2026-09-30: бот теперь может слушать и касса, и программа владельца на одном компьютере.
+        // Два опроса одного токена Telegram не терпит (409 Conflict) — команды слушает та
+        // программа, что заняла замок первой; вторая попробует снова при следующем вызове Start.
+        if (!TryTakePollLock(_cts.Token))
+        {
+            _cts.Dispose();
+            _cts = null;
+            if (!_lockBusyLogged)
+                PosLogger.Log("Телеграм-бот: команды уже слушает вторая программа на этом компьютере.", "TELEGRAM");
+            _lockBusyLogged = true;
+            return;
+        }
+
+        _lockBusyLogged = false;
         _loop = Task.Run(() => RunAsync(_cts.Token));
         PosLogger.Log("Телеграм-бот: опрос команд запущен.", "TELEGRAM");
+    }
+
+    private bool _lockBusyLogged;
+
+    /// <summary>Замок на сеанс пользователя: держит его отдельный поток до отмены опроса. Mutex,
+    /// а не семафор: если программа упадёт, Windows сама освободит замок (у следующего владельца
+    /// AbandonedMutexException = замок получен).</summary>
+    private static bool TryTakePollLock(CancellationToken ct)
+    {
+        using var decided = new ManualResetEventSlim();
+        var taken = false;
+        var thread = new Thread(() =>
+        {
+            using var mutex = new Mutex(false, @"Local\NurMarketTelegramBotPoll");
+            try
+            {
+                taken = mutex.WaitOne(0);
+            }
+            catch (AbandonedMutexException)
+            {
+                taken = true;
+            }
+
+            decided.Set();
+            if (!taken)
+                return;
+            ct.WaitHandle.WaitOne();
+            mutex.ReleaseMutex();
+        })
+        {
+            IsBackground = true,
+            Name = "TelegramBotPollLock",
+        };
+        thread.Start();
+        decided.Wait();
+        return taken;
     }
 
     public void Stop()
@@ -192,10 +243,71 @@ public sealed partial class TelegramBotPollingService
 
         command = command.TrimStart('/').ToLowerInvariant();
 
+        // 2026-09-30: помощник — обычный текст без «/» понимается по смыслу («сколько заработали
+        // сегодня», «кто должен», «цена кола»), см. TelegramAssistant. Бесплатно и без интернета.
+        if (!text.TrimStart().StartsWith('/'))
+        {
+            var (mapped, direct, isChat) = TelegramAssistant.Understand(text, isOwner);
+
+            // Разговор (приветствие, «почему…», непонятный вопрос) — отвечает нейросеть, если
+            // владелец вписал бесплатный ключ Google Gemini; иначе — готовая подсказка помощника.
+            if (isChat && isOwner && TelegramAiChat.IsConfigured)
+            {
+                _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+                var (answer, error) = await TelegramAiChat.AskAsync(chatId!, text, ct).ConfigureAwait(false);
+                if (answer != null)
+                {
+                    await SendReplyAsync(chatId!, answer, ct).ConfigureAwait(false);
+                    return;
+                }
+
+                PosLogger.Log($"ИИ-помощник: {error}", "TELEGRAM");
+                if (direct != null)
+                    direct = $"<i>ИИ сейчас недоступен: {Escape(error)}</i>\n\n" + direct;
+            }
+
+            if (direct != null)
+            {
+                await SendReplyAsync(chatId!, direct, ct).ConfigureAwait(false);
+                return;
+            }
+
+            // 2026-09-30, решение владельца «консультант для всех»: покупатель (не владелец) пишет
+            // обычный текст не про свой долг — отвечает ИИ-продавец только по каталогу (товары, цены,
+            // наличие). Выручка, долги и чужие данные в его сводку не попадают вовсе.
+            if (mapped == null && !isOwner && TelegramAiChat.IsConfigured)
+            {
+                _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+                var (answer, error) = await TelegramAiChat.AskCustomerAsync(chatId!, text, ct).ConfigureAwait(false);
+                if (answer == null)
+                    PosLogger.Log($"ИИ-консультант: {error}", "TELEGRAM");
+                // ИИ недоступен — отвечаем сами по каталогу, а не пустым «извините».
+                await SendReplyAsync(chatId!, answer ?? TelegramAssistant.CustomerFallback(text,
+                        UserPreferences.Instance.StoreName, UserPreferences.Instance.OwnerPhone), ct)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            if (mapped == null)
+                return;
+            command = mapped;
+            argument = "";
+        }
+
+        // 2026-09-30, владелец: «очень долго отвечает». Отчёты (советы, ABC) считаются по всей истории
+        // продаж — владелец сразу видит «печатает…», а долгий расчёт пишется в журнал.
+        if (isOwner)
+            _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
         var reply = command switch
         {
             "start" when !string.IsNullOrWhiteSpace(argument) => SubscribeClient(chatId!, argument, message),
             "start" when isOwner => TelegramReportBuilder.BuildHelp(),
+            // 2026-09-30: с ИИ-консультантом — приглашение спросить о товарах.
+            "start" when TelegramAiChat.IsConfigured =>
+                $"Здравствуйте! Я помощник магазина «{Escape(UserPreferences.Instance.StoreName)}». "
+                + "Спросите меня о товарах, ценах и наличии — отвечу сразу.",
             "start" => "Здравствуйте! Чтобы получать напоминания о задолженности, откройте ссылку, которую вам дали на кассе.",
             "help" or "помощь" when isOwner => TelegramReportBuilder.BuildHelp(),
             "segodnya" or "сегодня" when isOwner => TelegramReportBuilder.BuildRevenue(1, "Сегодня"),
@@ -216,9 +328,12 @@ public sealed partial class TelegramBotPollingService
             _ => null,
         };
 
+        if (watch.ElapsedMilliseconds > 3000)
+            PosLogger.Log($"Телеграм-бот: /{command} считался {watch.ElapsedMilliseconds / 1000.0:0.#} с.", "TELEGRAM");
+
         if (reply != null)
         {
-            await TelegramBotService.SendToAsync(chatId!, reply, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId!, reply, ct).ConfigureAwait(false);
             return;
         }
 
@@ -226,14 +341,13 @@ public sealed partial class TelegramBotPollingService
         {
             var stock = await TryBuildLowStockFromServerAsync(ct).ConfigureAwait(false)
                 ?? TelegramReportBuilder.BuildLowStock();
-            await TelegramBotService.SendToAsync(chatId!, stock, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId!, stock, ct).ConfigureAwait(false);
             return;
         }
 
         if (isOwner && command is "dolgi" or "долги")
         {
-            await TelegramBotService
-                .SendToAsync(chatId!, await BuildDebtorsReportAsync(ct).ConfigureAwait(false), ct)
+            await SendReplyAsync(chatId!, await BuildDebtorsReportAsync(ct).ConfigureAwait(false), ct)
                 .ConfigureAwait(false);
             return;
         }
@@ -247,8 +361,24 @@ public sealed partial class TelegramBotPollingService
             var answer = string.IsNullOrWhiteSpace(clientId)
                 ? "Вы ещё не привязаны к карточке клиента. Откройте ссылку, которую вам дали на кассе."
                 : await BuildClientDebtAsync(clientId!, ct).ConfigureAwait(false);
-            await TelegramBotService.SendToAsync(chatId!, answer, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId!, answer, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>2026-09-30: ответ с проверкой. Раньше ошибка Telegram (например, «не удалось разобрать
+    /// разметку») терялась молча — владелец просто не получал ответа. Теперь причина пишется в
+    /// журнал, а ответ повторяется простым текстом без оформления.</summary>
+    private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct)
+    {
+        var error = await TelegramBotService.SendToAsync(chatId, text, ct).ConfigureAwait(false);
+        if (error == null)
+            return;
+
+        PosLogger.Log($"Телеграм-бот: ответ не отправлен ({error}) — повторяю простым текстом.", "TELEGRAM");
+        var plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", ""));
+        var retry = await TelegramBotService.SendToAsync(chatId, Escape(plain), ct).ConfigureAwait(false);
+        if (retry != null)
+            PosLogger.Log($"Телеграм-бот: и простым текстом не отправлено ({retry}).", "TELEGRAM");
     }
 
     /// <summary>«/start &lt;id клиента&gt;» — покупатель перешёл по персональной ссылке с чека и
