@@ -20,8 +20,15 @@
     <Border Background="{DynamicResource CustomerDisplayBackgroundBrush}"
             Opacity="{Binding Settings.BackgroundOverlayOpacity}"
             IsVisible="{Binding HasBackgroundImage}"/>
-    <ContentControl x:Name="LayoutHost"
-                    HorizontalContentAlignment="Stretch"
-                    VerticalContentAlignment="Stretch"/>
+    <!-- 2026-09-30: полосы орнамента сверху и снизу (тема «Кыргыз»; у остальных высота 0). -->
+    <DockPanel>
+      <Border DockPanel.Dock="Top" Height="{Binding OrnamentBandHeight}"
+              Background="{DynamicResource CustomerDisplayOrnamentBrush}"/>
+      <Border DockPanel.Dock="Bottom" Height="{Binding OrnamentBandHeight}"
+              Background="{DynamicResource CustomerDisplayOrnamentBrush}"/>
+      <ContentControl x:Name="LayoutHost"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch"/>
+    </DockPanel>
   </Panel>
 </UserControl>

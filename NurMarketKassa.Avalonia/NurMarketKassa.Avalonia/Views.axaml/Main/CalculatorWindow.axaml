@@ -9,7 +9,7 @@
         MinHeight="620"
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">

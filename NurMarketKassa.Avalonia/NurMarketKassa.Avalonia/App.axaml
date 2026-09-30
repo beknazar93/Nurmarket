@@ -36,6 +36,16 @@
       <x:Double x:Key="CatalogTileStockSize">13</x:Double>
       <x:Double x:Key="AppControlHeight">36</x:Double>
       <Thickness x:Key="AppBorderThickness">1</Thickness>
+      <!-- 2026-09-30: полоса орнамента под шапкой — видна только у темы «Кыргыз»
+           (AccentThemeService.ApplyOrnament задаёт высоту и узор). -->
+      <x:Double x:Key="OrnamentBandHeight">0</x:Double>
+      <SolidColorBrush x:Key="BrushOrnamentBand" Color="Transparent"/>
+      <!-- Основная кнопка диалогов и настроек (btn-primary, PosDialogStyles) — синяя во всех
+           темах, кроме «Кыргыз» (там акцент темы). -->
+      <SolidColorBrush x:Key="BrushPrimaryAction" Color="#2563EB"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionHover" Color="#3B82F6"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionPressed" Color="#1D4ED8"/>
+      <SolidColorBrush x:Key="BrushPrimaryActionForeground" Color="#FFFFFF"/>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
           <ResourceDictionary.MergedDictionaries>
@@ -84,7 +94,8 @@
 
     <Style Selector="Window">
       <Setter Property="Icon" Value="avares://NurMarketKassa.Avalonia/Assets/app-icon.ico"/>
-      <Setter Property="Background" Value="{DynamicResource BrushWindow}"/>
+      <!-- 2026-09-30: фон окон — BrushWindowBackdrop (узор у темы «Кыргыз», у остальных = BrushWindow). -->
+      <Setter Property="Background" Value="{DynamicResource BrushWindowBackdrop}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
       <Setter Property="FontSize" Value="{DynamicResource AppFontSize}"/>

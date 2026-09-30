@@ -7,7 +7,7 @@
                          x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.CardsLayoutView"
                          x:DataType="vm:MainWindowViewModel"
                          x:CompileBindings="True"
-                         Background="{DynamicResource BrushWindow}">
+                         Background="{DynamicResource BrushWindowBackdrop}">
 
     <!-- Раскладка «Карточки» (2026-09-28). Образец — кыргызские и казахстанские облачные кассы
          (POS ESEP и похожие): спокойный светлый экран, категории кнопками-чипами сверху, товары

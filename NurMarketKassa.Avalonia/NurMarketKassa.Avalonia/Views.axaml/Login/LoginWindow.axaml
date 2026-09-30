@@ -11,7 +11,7 @@
         WindowStartupLocation="CenterScreen"
         CanResize="False"
         FontFamily="Segoe UI"
-        Background="{DynamicResource BrushWindow}">
+        Background="{DynamicResource BrushWindowBackdrop}">
 
     <Window.Styles>
         <!-- Поля ввода -->

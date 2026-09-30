@@ -7,7 +7,7 @@
         MinWidth="700" MinHeight="600"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         Foreground="{DynamicResource BrushText}">
 
   <Window.Styles>

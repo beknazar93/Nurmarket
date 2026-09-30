@@ -458,25 +458,26 @@
 
                     <!-- KPI-карточки -->
                     <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,16">
-                        <Border Classes="KpiCard">
+                        <!-- 2026-09-30: плитка нажимается — подробно, как в Z-отчёте (Kpi_PointerPressed). -->
+                        <Border Classes="KpiCard" Tag="sales" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource common.revenue}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="TotalSalesText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard">
+                        <Border Classes="KpiCard" Tag="returns" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource sales.returns}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="TotalRefundsText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushDanger}" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard">
+                        <Border Classes="KpiCard" Tag="cash" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource common.cash}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="CashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard">
+                        <Border Classes="KpiCard" Tag="card" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource sales.nonCashShort}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="NonCashText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
@@ -484,13 +485,13 @@
                                 <TextBlock x:Name="NonCashBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard">
+                        <Border Classes="KpiCard" Tag="avg" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource sales.avgReceipt}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="AvgReceiptText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushAccent}" />
                             </StackPanel>
                         </Border>
-                        <Border Classes="KpiCard">
+                        <Border Classes="KpiCard" Tag="count" Cursor="Hand" PointerPressed="Kpi_PointerPressed" ToolTip.Tip="{DynamicResource finance.kpiDetailsTip}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource sales.receiptsCount}" Foreground="{DynamicResource BrushTextSoft}" FontSize="12" Margin="0,0,0,4" />
                                 <TextBlock x:Name="ReceiptCountText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}" />
@@ -728,10 +729,13 @@
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="{DynamicResource common.date}" Width="80" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM}" />
                                             <DataGridTextColumn Header="{DynamicResource common.time}" Width="70" Binding="{ReflectionBinding TimeDisplay}" />
+                                            <!-- 2026-09-30: настоящие возвраты сервера — чек, вид (полный/частичный), точная сумма. -->
+                                            <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="80" Binding="{ReflectionBinding ReceiptNumber}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.type}" Width="150" Binding="{ReflectionBinding Kind}" />
                                             <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}" />
                                             <DataGridTextColumn Header="{DynamicResource common.quantity}" Width="90" Binding="{ReflectionBinding QuantityDisplay}" />
-                                            <DataGridTextColumn Header="{DynamicResource finance.estimatedAmount}" Width="140" Binding="{ReflectionBinding TotalAmount, StringFormat='≈{0:N2} сом'}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.who}" Width="1*" Binding="{ReflectionBinding DeletedBy}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="140" Binding="{ReflectionBinding AmountDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.reason}" Width="1*" Binding="{ReflectionBinding DeletedBy}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>

@@ -1480,4 +1480,5 @@
   <x:String x:Key="scalesPlu.refreshFromServer">Serverdan yangilash</x:String>
   <x:String x:Key="scalesPlu.refreshFromServerTip">Tovarlar, narxlar va PLUlarni NurCRM serveridan qayta yuklab, ro'yxatni yangilash. Internet bo'lmasa, saqlangan katalog qoladi.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategoriya</x:String>
+  <x:String x:Key="finance.kpiDetailsTip">Bosing — batafsil: davr cheklari va mahsulotlari</x:String>
 </ResourceDictionary>

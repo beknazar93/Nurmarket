@@ -1264,7 +1264,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var summaryTask = ServerSalesSummary.FetchAsync(from, to, token);
                 var wantProducts = !_isOwnerSection || _isAnalyticsSection;
                 var productsTask = wantProducts ? FetchServerProductFactsAsync(from, to, from.Date, token) : null;
-                var refundsTask = FetchCartItemDeletionsAsync(from, to, token);
+                var refundsTask = FetchRefundsAsync(from, to, token);
                 // Переключение на уже загруженный период не ходит за списком в сеть.
                 var listTask = forceRefresh || _lastAllSales.Count == 0
                                || _lastFetchFrom != fetchFrom || _lastFetchTo != fetchTo
@@ -1329,9 +1329,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 AssignFallbackReceiptNumbers(sales);
 
-                // Реальный API продаж не содержит поля "это возврат" — статус чека это только
-                // new/paid/debt/canceled. Возврат по оплаченному чеку регистрируется отдельно,
-                // через журнал удалений позиций из корзины (см. FetchCartItemDeletionsAsync).
+                // Возвраты — с сервера (GET api/main/pos/returns/, полные и частичные); журнал
+                // удалений строк корзины — только если сервер список не дал (см. FetchRefundsAsync).
                 var refunds = await refundsTask;
 
                 UpdateCollections(sales, refunds);
@@ -1978,6 +1977,43 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
 
             return dateOnly;
+        }
+
+        /// <summary>2026-09-30, владелец: «баг частичного возврата — частичный возврат в аналитике
+        /// не отображается». Вкладка «Возвраты» показывала журнал удалений строк из корзины ДО
+        /// оплаты — это не возвраты; настоящие возвраты оплаченных чеков (и частичные, у которых
+        /// чек остаётся «частичный возврат» с уменьшенной суммой) там не появлялись вовсе. С 28.09
+        /// сервер отдаёт список возвратов (GET api/main/pos/returns/, те же цифры, что «Документы →
+        /// Возврат продажи» сайта) — берём его: номер чека, полный/частичный, точная сумма, состав.
+        /// Журнал удалений — только запасной путь, когда сервер список не дал.</summary>
+        private async Task<List<RefundItem>> FetchRefundsAsync(DateTime from, DateTime to, CancellationToken token)
+        {
+            var list = await NurMarketKassa.Services.Api.NurCrmReportsApi.ListReturnsAsync(from.Date, to.Date, ct: token).ConfigureAwait(true);
+            token.ThrowIfCancellationRequested();
+            if (list is null)
+                return await FetchCartItemDeletionsAsync(from, to, token).ConfigureAwait(true);
+            if (list.Count > 0)
+                PosLogger.Log($"Возвраты с сервера: {list.Count}, первый: {list[0].CreatedAt:O}", "SALES");
+
+            return list
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new RefundItem
+                {
+                    Id = r.Id,
+                    SaleId = r.SaleId ?? "",
+                    CreatedAt = r.CreatedAt?.LocalDateTime ?? default,
+                    ReceiptNumber = r.SaleNumber is { } n ? $"№{n}" : "",
+                    TotalAmount = r.Amount,
+                    IsExact = true,
+                    Kind = r.IsFull
+                        ? Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish")
+                        : Tr.T("Частичный возврат", "Жарым-жартылай кайтаруу", "Partial return", "Kısmi iade", "Qisman qaytarish"),
+                    ProductName = r.ItemsText ?? "—",
+                    QuantityDisplay = r.ItemsQty > 0 ? r.ItemsQty.ToString("0.###", CultureInfo.InvariantCulture) : "",
+                    Reason = r.Reason ?? "",
+                    DeletedBy = string.IsNullOrWhiteSpace(r.Reason) ? "—" : r.Reason!,
+                })
+                .ToList();
         }
 
         /// <summary>Журнал удалений позиций из корзины (product/quantity/who/when) — единственный
@@ -2728,10 +2764,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 _history.Add(new HistoryItem
                 {
-                    Id = r.Id,
+                    // 2026-09-30: возврат с сервера открывает свой чек (двойной щелчок в истории).
+                    Id = string.IsNullOrEmpty(r.SaleId) ? r.Id : r.SaleId,
                     CreatedAt = r.CreatedAt,
-                    Type = Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
-                    ReceiptNumber = r.ProductName,
+                    Type = string.IsNullOrEmpty(r.Kind) ? Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish") : r.Kind,
+                    ReceiptNumber = string.IsNullOrEmpty(r.ReceiptNumber) ? r.ProductName : $"{r.ReceiptNumber} · {r.ProductName}",
                     TotalAmount = -Math.Abs(r.TotalAmount),
                     PaymentMethod = string.IsNullOrWhiteSpace(r.DeletedBy) ? "—" : r.DeletedBy
                 });
@@ -2803,10 +2840,54 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
         }
 
-        private void RefundsGrid_MouseDoubleClick(object sender, TappedEventArgs e)
+        /// <summary>2026-09-30, владелец: «сделай так, чтобы на плитки нажималось, как в Z-отчётах,
+        /// подробно». Плитка открывает то же окно, что плитки «Деталей смены», но за выбранный
+        /// период: чеки с товарами (выручка, наличные, безнал, средний чек, чеки) или возвраты.</summary>
+        private void Kpi_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            // Строки этого списка — записи журнала удалений позиций (см. FetchCartItemDeletionsAsync),
-            // а не сама продажа: у них нет id чека, который можно было бы открыть через PosSaleGetAsync.
+            if (sender is not Border { Tag: string tile })
+                return;
+            if (_listPending)
+            {
+                ErrorMessage = Tr.T("Список чеков ещё загружается — нажмите через несколько секунд.",
+                    "Чектердин тизмеси дагы эле жүктөлүүдө — бир нече секунддан кийин басыңыз.",
+                    "The receipt list is still loading — tap again in a few seconds.",
+                    "Fiş listesi hâlâ yükleniyor — birkaç saniye sonra tekrar dokunun.",
+                    "Cheklar ro'yxati hali yuklanmoqda — bir necha soniyadan keyin bosing.");
+                return;
+            }
+
+            var kind = tile switch
+            {
+                "returns" => ShiftDrillDownDialog.KindReturns,
+                "cash" => ShiftDrillDownDialog.KindCash,
+                "card" => ShiftDrillDownDialog.KindCard,
+                _ => ShiftDrillDownDialog.KindSales,
+            };
+            var sales = _sales
+                .Where(s => s.CountsAsRevenue)
+                .Select(s => new ShiftReportData.ShiftSale(
+                    s.Id, s.CreatedAt, s.Status ?? "", (s.PaymentMethod ?? "").Trim().ToLowerInvariant(),
+                    (double)s.TotalAmount, 0, 0, null, Array.Empty<ShiftReportData.SaleLine>(), s.ReceiptNumber))
+                .ToList();
+            var returns = _refunds
+                .Select(r => (r.CreatedAt,
+                    $"{r.CreatedAt:dd.MM.yyyy} {r.TimeDisplay} · {(string.IsNullOrEmpty(r.ReceiptNumber) ? "—" : r.ReceiptNumber)} · {r.Kind}",
+                    (double)r.TotalAmount,
+                    string.IsNullOrWhiteSpace(r.Reason) ? r.ProductName : $"{r.ProductName}\n{r.Reason}"))
+                .ToList();
+            var subtitle = _displayFrom.Date == _displayTo.Date
+                ? _displayFrom.ToString("dd.MM.yyyy")
+                : $"{_displayFrom:dd.MM.yyyy} — {_displayTo:dd.MM.yyyy}";
+            PosDialogHost.Show(new ShiftDrillDownDialog(kind, subtitle, sales, returns), this);
+        }
+
+        private async void RefundsGrid_MouseDoubleClick(object sender, TappedEventArgs e)
+        {
+            // 2026-09-30: возврат с сервера открывает свой чек. У записей журнала удалений корзины
+            // (запасной путь) id чека нет — они не открываются.
+            if (RefundsGrid.SelectedItem is RefundItem { SaleId.Length: > 0 } item)
+                await ShowReceiptDetailsByIdAsync(item.SaleId, item.ReceiptNumber);
         }
 
         private async void HistoryGrid_MouseDoubleClick(object sender, TappedEventArgs e)
@@ -2944,6 +3025,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public string TimeDisplay => CreatedAt.TimeOfDay == TimeSpan.Zero ? "—" : CreatedAt.ToString("HH:mm");
             public string ReceiptNumber { get; set; } = "";
             public decimal TotalAmount { get; set; }
+            /// <summary>2026-09-30: возврат с сервера — сумма точная, есть чек и вид (полный/частичный).
+            /// Запись журнала удалений корзины — сумма оценочная («≈»).</summary>
+            public bool IsExact { get; set; }
+            public string SaleId { get; set; } = "";
+            public string Kind { get; set; } = "";
+            public string AmountDisplay => (IsExact ? "" : "≈") + TotalAmount.ToString("N2", CultureInfo.CurrentCulture) + " сом";
             public string Reason { get; set; } = "";
             public string ProductName { get; set; } = "";
             public string QuantityDisplay { get; set; } = "";

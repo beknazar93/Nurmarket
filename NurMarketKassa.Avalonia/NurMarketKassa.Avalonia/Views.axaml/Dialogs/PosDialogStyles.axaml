@@ -20,10 +20,12 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Open shift: stable blue primary action in both light and dark themes. -->
+  <!-- Open shift: stable blue primary action in both light and dark themes.
+       2026-09-30: цвет — ресурсы BrushPrimaryAction* (App.axaml: тот же синий); тема «Кыргыз»
+       красит их своим акцентом с орнаментом (AccentThemeService.ApplyOrnament). -->
   <Style Selector="Button.btn-primary">
-    <Setter Property="Background" Value="#2563EB" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="Background" Value="{DynamicResource BrushPrimaryAction}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPrimaryActionForeground}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
     <Setter Property="FontWeight" Value="Bold" />
@@ -33,12 +35,12 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
   <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="#3B82F6" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="Background" Value="{DynamicResource BrushPrimaryActionHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPrimaryActionForeground}" />
   </Style>
   <Style Selector="Button.btn-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="#1D4ED8" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
+    <Setter Property="Background" Value="{DynamicResource BrushPrimaryActionPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushPrimaryActionForeground}" />
   </Style>
 
   <!-- Close shift: palette is selected by the active Avalonia theme. -->

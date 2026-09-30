@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
@@ -64,7 +66,8 @@ public static class AccentThemeService
         double FontSize, string? FontFamily = null,
         double TileWidth = 190, double TileHeight = 204, double TilePhotoHeight = 64,
         double TileNameSize = 14, double TilePriceSize = 24, double TileStockSize = 13,
-        double ControlHeight = 36, double BorderThickness = 1);
+        double ControlHeight = 36, double BorderThickness = 1,
+        string? Ornament = null);
 
     /// <summary>Шрифт с кириллицей и кыргызскими буквами (ң, ө, ү): системный Segoe UI рисует
     /// их не во всех начертаниях, поэтому первым в списке идёт вшитый Noto Sans.</summary>
@@ -332,6 +335,35 @@ public static class AccentThemeService
             TileWidth: 222, TileHeight: 252, TilePhotoHeight: 116,
             TileNameSize: 15, TilePriceSize: 26, TileStockSize: 13,
             ControlHeight: 44, BorderThickness: 1),
+
+        // 2026-09-30, просьба владельца: «кыргызская национальная тема с орнаментами». Цвета
+        // флага — красный и золото солнца — на войлочном фоне шырдака; фон окон — узор
+        // «кочкор мүйүз» (бараньи рога), под шапкой — полоса орнамента (см. ApplyOrnament).
+        // Картинки узора — Assets/Themes/kyrgyz-*.png, цвет фона в них совпадает с Window.
+        ["kyrgyz"] = new(
+            BaseLight with
+            {
+                Window = "#F6EDDF", WindowAlt = "#FFFCF7", Panel = "#FFFCF7", PanelElevated = "#FFFCF7",
+                PanelSoft = "#F1E3CF", Input = "#FFFFFF", InputAlt = "#FBF3E7",
+                Border = "#E4CFB2", BorderStrong = "#C49A6C",
+                Text = "#3B1F12", TextMuted = "#5E3622", TextSoft = "#8C6547",
+                Accent = "#C8102E", AccentStrong = "#9E0B22", AccentSoft = "#FBE1DC", AccentForeground = "#FFFFFF",
+                TileBg = "#FFFCF7", TileBorder = "#EAD6BB", Price = "#A10E26", Meta = "#B08E6E", Stock = "#5E3622",
+                TabBg = "#F1E3CF", TabBgHover = "#E8D3B6", TabBgSelected = "#C8102E", TabBorderSelected = "#9E0B22",
+                Focus = "#C8102E", Money = "#3B1F12", SurfaceSubtle = "#FDF6EC",
+            },
+            BaseDark with
+            {
+                Window = "#22100F", WindowAlt = "#2B1514", Panel = "#2B1514", PanelElevated = "#341A18",
+                PanelSoft = "#3E211E", Input = "#2B1514", InputAlt = "#341A18",
+                Border = "#553029", BorderStrong = "#7A4A3A",
+                Text = "#FBEFDC", TextMuted = "#EBD3B4", TextSoft = "#C29E7C",
+                Accent = "#F2B705", AccentStrong = "#FFCB2E", AccentSoft = "#3E2A10", AccentForeground = "#2A1004",
+                TileBg = "#341A18", TileBorder = "#553029", Price = "#FFD34D", Meta = "#C29E7C", Stock = "#EBD3B4",
+                TabBg = "#341A18", TabBgHover = "#3E211E", TabBgSelected = "#F2B705", TabBorderSelected = "#FFCB2E",
+                Focus = "#F2B705", Money = "#FBEFDC", SurfaceSubtle = "#2B1514",
+            },
+            ButtonRadius: 10, CardRadius: 14, FontSize: 14, Ornament: "kyrgyz"),
     };
 
     /// <summary>Список для галереи в Маркетплейсе — порядок здесь и есть порядок карточек.</summary>
@@ -417,6 +449,15 @@ public static class AccentThemeService
             DescEn = "The only theme with a color-filled header: a purple bar at the top, a large product photo on the card, soft rounding. The till looks like a shop window rather than an office program.",
             DescTr = "Başlığı renkle dolu tek tema: üstte mor şerit, kartta büyük ürün fotoğrafı, yumuşak köşeler. Kasa bir ofis programı gibi değil, vitrin gibi görünür.",
             DescUz = "Sarlavhasi rang bilan to'ldirilgan yagona mavzu: tepada binafsha chiziq, kartochkada katta mahsulot surati, yumshoq burchaklar. Kassa idora dasturi emas, vitrina kabi ko'rinadi.",
+        },
+        new("kyrgyz", "Кыргыз", "Кыргыз", "",
+            "Национальная тема: красный и золото флага на войлочном фоне шырдака, узор «кочкор мүйүз» в окнах и полоса орнамента под шапкой. В тёмном режиме — золото на бордовом.",
+            "Улуттук тема: желектин кызыл жана алтын түсү шырдак сымал фондо, терезелерде «кочкор мүйүз» оюусу, баш жагында оюу тилкеси. Караңгы режимде — кызыл күрөң фондо алтын.")
+        {
+            LabelEn = "Kyrgyz", LabelTr = "Kırgız", LabelUz = "Qirg'iz",
+            DescEn = "The national theme: the red and gold of the flag on a shyrdak felt background, the \"kochkor muyuz\" (ram's horn) ornament in windows and an ornament band under the header. Gold on burgundy in dark mode.",
+            DescTr = "Ulusal tema: keçe şırdak zemin üzerinde bayrağın kırmızısı ve altını, pencerelerde \"koçkor müyüz\" (koç boynuzu) motifi ve başlığın altında süsleme şeridi. Koyu modda bordo üzerine altın.",
+            DescUz = "Milliy mavzu: shirdoq kigizi fonida bayroqning qizil va oltin ranglari, oynalarda \"qo'chqor shoxi\" naqshi va sarlavha ostida naqsh chizig'i. Qorong'i rejimda — to'q qizil ustida oltin.",
         },
     ];
 
@@ -557,6 +598,128 @@ public static class AccentThemeService
 
         if (custom is not null)
             ApplyStatusColors(app, custom, p);
+
+        ApplyOrnament(app, skin, dark, p, custom);
+    }
+
+    private static readonly Dictionary<string, Bitmap?> OrnamentCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Орнамент темы (2026-09-30, тема «Кыргыз»): узорный фон окон и полоса под шапкой.
+    /// BrushWindowBackdrop — фон окон (App.axaml, стиль Window, и корни окон); у тем без
+    /// орнамента это тот же сплошной цвет Window. Сам BrushWindow остаётся сплошным: в раскладках
+    /// кассы он служит и цветом текста на акценте. OrnamentBandHeight = 0 прячет полосу.</summary>
+    private static void ApplyOrnament(Application app, Skin skin, bool dark, Palette p, CustomThemeColors? custom)
+    {
+        IBrush backdrop = Brush(p.Window);
+        IBrush band = Brushes.Transparent;
+        // Свои кисти корзины и каталога (2026-09-30, владелец: «везде одинаковый орнамент»):
+        // у всех тем это те же цвета, что WindowAlt и Panel, у «Кыргыз» — свои мотивы.
+        app.Resources["BrushCartSurface"] = Brush(p.WindowAlt);
+        app.Resources["BrushCatalogSurface"] = Brush(p.Panel);
+        double bandHeight = 0;
+
+        if (skin.Ornament is { } name)
+        {
+            var variant = dark ? "dark" : "light";
+            // Узор запечён в плитку вместе с цветом фона: своя тема со своим фоном его не получает.
+            // На слабых кассах (LowPerformanceMode) — сплошной фон.
+            var patterns = !UserPreferences.Instance.LowPerformanceMode;
+            if (custom?.Background is null && patterns && Tiled($"{name}-bg-{variant}.png") is { } bg)
+                backdrop = bg;
+
+            // 2026-09-30, владелец: «орнаменты во всех пустых местах, в корзине, в кнопках, в
+            // модалках, в настройках». Узор получают и поверхности: панели (корзина, каталог,
+            // карточки настроек, модальные окна), мягкие кнопки и вкладки, плитки товара и
+            // акцентные кнопки. Цвет основы плитки = цвет палитры, узор на тон темнее/светлее,
+            // чтобы текст читался. У своей темы на базе «Кыргыз» цвета другие — узор не кладём.
+            if (custom is null && patterns)
+            {
+                void Set(string file, params string[] keys)
+                {
+                    if (Tiled($"{name}-{file}-{variant}.png") is { } brush)
+                        foreach (var key in keys)
+                            app.Resources[key] = brush;
+                }
+                Set("panel", "BrushPanel", "BrushDialogPanel", "BrushWindowAlt");
+                Set("elevated", "BrushPanelElevated", "BrushCatalogTileBg");
+                Set("cart", "BrushCartSurface");
+                Set("catalog", "BrushCatalogSurface");
+                Set("soft", "BrushPanelSoft");
+                Set("accent", "BrushAccent", "BrushPrimary", "BrushCatalogTabBgSelected");
+            }
+
+            // Полоса нарисована в двойном размере — для чёткости на экранах с масштабом 150–200%.
+            if (LoadOrnament($"{name}-band-{variant}.png") is { } strip)
+            {
+                band = new ImageBrush(strip)
+                {
+                    TileMode = TileMode.Tile, Stretch = Stretch.Fill,
+                    DestinationRect = new RelativeRect(0, 0, strip.Size.Width / 2, strip.Size.Height / 2, RelativeUnit.Absolute),
+                };
+                bandHeight = strip.Size.Height / 2;
+            }
+        }
+
+        // Основная кнопка диалогов (btn-primary): у тем без орнамента — прежний синий.
+        var ornament = skin.Ornament is not null && custom is null;
+        app.Resources["BrushPrimaryAction"] = ornament
+            ? (app.Resources.TryGetValue("BrushAccent", out var accent) && accent is IBrush a ? a : Brush(p.Accent))
+            : Brush("#2563EB");
+        app.Resources["BrushPrimaryActionHover"] = Brush(ornament ? p.AccentStrong : "#3B82F6");
+        app.Resources["BrushPrimaryActionPressed"] = Brush(ornament ? p.AccentStrong : "#1D4ED8");
+        app.Resources["BrushPrimaryActionForeground"] = Brush(ornament ? p.AccentForeground : "#FFFFFF");
+
+        app.Resources["BrushWindowBackdrop"] = backdrop;
+        app.Resources["BrushOrnamentBand"] = band;
+        app.Resources["OrnamentBandHeight"] = bandHeight;
+    }
+
+    /// <summary>Узор темы для экрана покупателя (2026-09-30, владелец: «экран покупателя тоже
+    /// в национальный вид»). part: bg, panel, elevated, soft, accent — плитки; band — полоса.
+    /// null — у темы нет орнамента (или своя тема, или режим слабого компьютера).</summary>
+    public static IBrush? GetOrnamentBrush(string? themeId, bool dark, string part)
+    {
+        if (UserPreferences.Instance.LowPerformanceMode || CustomThemeStore.Find(themeId) is not null
+            || Resolve(themeId).Ornament is not { } name)
+            return null;
+        var file = $"{name}-{part}-{(dark ? "dark" : "light")}.png";
+        if (part != "band")
+            return Tiled(file);
+        return LoadOrnament(file) is { } strip
+            ? new ImageBrush(strip)
+            {
+                TileMode = TileMode.Tile, Stretch = Stretch.Fill,
+                DestinationRect = new RelativeRect(0, 0, strip.Size.Width / 2, strip.Size.Height / 2, RelativeUnit.Absolute),
+            }
+            : null;
+    }
+
+    /// <summary>Плитка узора как кисть «замощением»; null — картинки нет.</summary>
+    private static ImageBrush? Tiled(string file) =>
+        LoadOrnament(file) is { } tile
+            ? new ImageBrush(tile)
+            {
+                TileMode = TileMode.Tile, Stretch = Stretch.Fill,
+                DestinationRect = new RelativeRect(0, 0, tile.Size.Width, tile.Size.Height, RelativeUnit.Absolute),
+            }
+            : null;
+
+    private static Bitmap? LoadOrnament(string file)
+    {
+        if (OrnamentCache.TryGetValue(file, out var cached))
+            return cached;
+        Bitmap? bitmap = null;
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri($"avares://NurMarketKassa.Avalonia/Assets/Themes/{file}"));
+            bitmap = new Bitmap(stream);
+        }
+        catch
+        {
+            // нет картинки — тема остаётся без узора, но с цветами
+        }
+        OrnamentCache[file] = bitmap;
+        return bitmap;
     }
 
     /// <summary>Успех / предупреждение / ошибка своей темы: основной цвет, мягкий фон (тот же цвет,

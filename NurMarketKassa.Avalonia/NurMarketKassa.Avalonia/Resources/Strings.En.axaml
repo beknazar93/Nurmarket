@@ -1480,4 +1480,5 @@
   <x:String x:Key="scalesPlu.refreshFromServer">Refresh from server</x:String>
   <x:String x:Key="scalesPlu.refreshFromServerTip">Download products, prices and PLUs from the NurCRM server again and rebuild the list. Without internet the saved catalog stays.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Category</x:String>
+  <x:String x:Key="finance.kpiDetailsTip">Tap for details: receipts and products for the period</x:String>
 </ResourceDictionary>

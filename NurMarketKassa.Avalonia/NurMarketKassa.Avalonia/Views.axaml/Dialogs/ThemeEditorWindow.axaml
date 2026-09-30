@@ -223,7 +223,7 @@
                 <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,0,10,0">
                     <TextBlock x:Name="PreviewLabel" Classes="te-section"/>
                     <!-- Кусок кассы кистями текущей темы: меняется вместе со всей программой. -->
-                    <Border Grid.Row="1" Background="{DynamicResource BrushWindow}" BorderBrush="{DynamicResource BrushBorder}"
+                    <Border Grid.Row="1" Background="{DynamicResource BrushWindowBackdrop}" BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1" CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
                         <Grid RowDefinitions="Auto,*">
                             <Border Background="{DynamicResource BrushWindowAlt}" BorderBrush="{DynamicResource BrushBorder}"

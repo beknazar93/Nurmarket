@@ -233,7 +233,8 @@
         </Style>
     </UserControl.Styles>
 
-    <Border Background="{DynamicResource BrushWindowAlt}"
+    <!-- 2026-09-30: своя кисть корзины (= BrushWindowAlt; у темы «Кыргыз» — узор тумар). -->
+    <Border Background="{DynamicResource BrushCartSurface}"
             Padding="16,14"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">

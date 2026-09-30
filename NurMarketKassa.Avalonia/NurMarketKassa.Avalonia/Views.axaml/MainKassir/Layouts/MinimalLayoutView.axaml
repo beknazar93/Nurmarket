@@ -7,7 +7,7 @@
                          x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.MinimalLayoutView"
                          x:DataType="vm:MainWindowViewModel"
                          x:CompileBindings="True"
-                         Background="{DynamicResource BrushWindow}">
+                         Background="{DynamicResource BrushWindowBackdrop}">
 
     <!-- Раскладка «Минимал» (2026-09-28). Образец — американские планшетные кассы (Square Point of
          Sale): много воздуха, крупные квадратные плитки товаров своего цвета с буквами названия,

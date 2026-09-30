@@ -41,6 +41,29 @@ public partial class ShiftDrillDownDialog : Window
 
     public ShiftDrillDownDialog() => InitializeComponent();
 
+    /// <summary>2026-09-30, владелец: «сделай, чтобы на плитки нажималось, как в Z-отчётах, подробно».
+    /// Режим «за период» для плиток «Финансов»: чеки и возвраты уже загружены окном «Финансы» —
+    /// здесь только раскладка по плитке и товары чеков.</summary>
+    private readonly IReadOnlyList<ShiftReportData.ShiftSale>? _periodSales;
+    private readonly IReadOnlyList<(DateTime At, string Header, double Amount, string Details)>? _periodEvents;
+    private bool IsPeriod => _periodSales != null;
+
+    /// <summary>Товары дочитываются для чеков плитки, пока их не больше этого числа: за месяц большого
+    /// магазина это тысячи запросов. Больше — показываем чеки без состава (суммы верные).</summary>
+    private const int MaxPeriodReceiptsWithLines = 150;
+
+    public ShiftDrillDownDialog(string kind, string subtitle,
+        IReadOnlyList<ShiftReportData.ShiftSale> sales,
+        IReadOnlyList<(DateTime At, string Header, double Amount, string Details)>? events = null) : this()
+    {
+        _kind = kind;
+        _periodSales = sales;
+        _periodEvents = events;
+        TitleText.Text = TitleFor(kind);
+        SubtitleText.Text = subtitle;
+        Opened += async (_, _) => await LoadAsync();
+    }
+
     public ShiftDrillDownDialog(ShiftModel shift, string kind, Task<List<ShiftReportData.ShiftSale>>? saleRows = null) : this()
     {
         _shift = shift;
@@ -85,7 +108,7 @@ public partial class ShiftDrillDownDialog : Window
 
     private async Task LoadAsync()
     {
-        if (_shift is null)
+        if (_shift is null && !IsPeriod)
             return;
 
         SummaryText.Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
@@ -93,11 +116,13 @@ public partial class ShiftDrillDownDialog : Window
         try
         {
             var rows = _kind is KindReturns or KindWriteOffs or KindExpense or KindDebtPaid
-                ? LoadEvents()
+                ? IsPeriod ? LoadPeriodEvents() : LoadEvents()
                 : await LoadSalesAsync();
             RowsList.ItemsSource = rows.Rows;
             SummaryText.Text = rows.Rows.Count == 0
-                ? Tr.T("За эту смену записей нет.", "Бул сменада жазуулар жок.", "No records for this shift.", "Bu vardiyada kayıt yok.", "Bu smenada yozuvlar yo'q.")
+                ? IsPeriod
+                    ? Tr.T("За этот период записей нет.", "Бул мезгилде жазуулар жок.", "No records for this period.", "Bu dönemde kayıt yok.", "Bu davrda yozuvlar yo'q.")
+                    : Tr.T("За эту смену записей нет.", "Бул сменада жазуулар жок.", "No records for this shift.", "Bu vardiyada kayıt yok.", "Bu smenada yozuvlar yo'q.")
                 : rows.Summary;
             FooterText.Text = rows.Rows.Count == 0 ? "" : Tr.T("Итого: ", "Жыйынтык: ", "Total: ", "Toplam: ", "Jami: ") + Money(rows.Total);
         }
@@ -114,28 +139,36 @@ public partial class ShiftDrillDownDialog : Window
 
     private async Task<(List<Row> Rows, string Summary, double Total)> LoadSalesAsync()
     {
-        var sales = await (_saleRows ?? ShiftReportData.LoadSaleRowsAsync(_shift!.Id, _shift.OpenedAt, _shift.ClosedAt));
+        var sales = IsPeriod
+            ? _periodSales!.ToList()
+            : await (_saleRows ?? ShiftReportData.LoadSaleRowsAsync(_shift!.Id, _shift.OpenedAt, _shift.ClosedAt));
         sales = sales.Where(s => !string.Equals(s.Status, "canceled", StringComparison.OrdinalIgnoreCase)).ToList();
 
         IEnumerable<ShiftReportData.ShiftSale> picked = _kind switch
         {
             KindCash => sales.Where(s => s.PaymentMethod is "cash" or "mixed" && s.Status != "debt"),
+            // За период способы оплаты — любые банки (mbank, bakai, online…): «безнал» = не наличные и не долг.
+            KindCard when IsPeriod => sales.Where(s => s.PaymentMethod is not ("cash" or "debt" or "")),
             KindCard => sales.Where(s => s.PaymentMethod is "transfer" or "card" or "noncash" or "cashless" or "bank" or "mixed"),
             KindDebt => sales.Where(s => s.Status == "debt" || s.PaymentMethod == "debt" || s.Debt > 0.005),
             KindDiscounts => sales.Where(s => s.Discount > 0.005),
             _ => sales,
         };
         // Товары — только для чеков этой плитки, а не для всех чеков смены.
-        var list = await ShiftReportData.AttachLinesAsync(picked.ToList());
+        var pickedList = picked.ToList();
+        var withLines = !IsPeriod || pickedList.Count <= MaxPeriodReceiptsWithLines;
+        var list = withLines ? await ShiftReportData.AttachLinesAsync(pickedList) : pickedList;
 
         var rows = list.Select(s =>
         {
-            var receiptNo = s.Id[..Math.Min(8, s.Id.Length)].ToUpperInvariant();
-            var header = Tr.T($"{s.CreatedAt.ToLocalTime():HH:mm} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
-                $"{s.CreatedAt.ToLocalTime():HH:mm} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
-                $"{s.CreatedAt.ToLocalTime():HH:mm} · receipt {receiptNo} · {MethodText(s.PaymentMethod)}",
-                $"{s.CreatedAt.ToLocalTime():HH:mm} · fiş {receiptNo} · {MethodText(s.PaymentMethod)}",
-                $"{s.CreatedAt.ToLocalTime():HH:mm} · chek {receiptNo} · {MethodText(s.PaymentMethod)}");
+            var receiptNo = s.Number ?? s.Id[..Math.Min(8, s.Id.Length)].ToUpperInvariant();
+            // За период — ещё и дата; время чеков «Финансов» уже местное.
+            var when = IsPeriod ? s.CreatedAt.ToString("dd.MM HH:mm") : s.CreatedAt.ToLocalTime().ToString("HH:mm");
+            var header = Tr.T($"{when} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{when} · чек {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{when} · receipt {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{when} · fiş {receiptNo} · {MethodText(s.PaymentMethod)}",
+                $"{when} · chek {receiptNo} · {MethodText(s.PaymentMethod)}");
             if (s.Status == "debt")
                 header += Tr.T(" · долг", " · карыз", " · debt", " · borç", " · qarz");
             if (s.Discount > 0.005)
@@ -143,7 +176,8 @@ public partial class ShiftDrillDownDialog : Window
             if (!string.IsNullOrWhiteSpace(s.Cashier))
                 header += " · " + s.Cashier;
 
-            var details = s.Lines.Count == 0
+            var details = !withLines ? ""
+                : s.Lines.Count == 0
                 ? Tr.T("товары чека не загрузились", "чектин товарлары жүктөлгөн жок", "receipt items did not load", "fiş ürünleri yüklenemedi", "chek mahsulotlari yuklanmadi")
                 : string.Join("\n", s.Lines.Select(l =>
                     $"{l.Name} — {l.Quantity.ToString("0.###", Ru)} × {l.Price.ToString("N2", Ru)} = {(l.Quantity * l.Price).ToString("N2", Ru)}"));
@@ -178,7 +212,16 @@ public partial class ShiftDrillDownDialog : Window
             })
             .ToList();
         if (byProduct.Count > 0)
-            rows.Insert(0, new Row(Tr.T("Товары за смену в этом разделе", "Бул бөлүмдөгү сменанын товарлары", "Products in this section for the shift", "Bu bölümdeki vardiya ürünleri", "Ushbu bo'limdagi smena mahsulotlari"), "", string.Join("\n", byProduct)));
+            rows.Insert(0, new Row(IsPeriod
+                    ? Tr.T("Товары за период в этом разделе", "Бул бөлүмдөгү мезгилдин товарлары", "Products in this section for the period", "Bu bölümdeki dönemin ürünleri", "Ushbu bo'limdagi davr mahsulotlari")
+                    : Tr.T("Товары за смену в этом разделе", "Бул бөлүмдөгү сменанын товарлары", "Products in this section for the shift", "Bu bölümdeki vardiya ürünleri", "Ushbu bo'limdagi smena mahsulotlari"),
+                "", string.Join("\n", byProduct)));
+        else if (!withLines)
+            rows.Insert(0, new Row(Tr.T($"Чеков больше {MaxPeriodReceiptsWithLines} — состав не показан, выберите период короче (например, «Сегодня»).",
+                    $"Чектер {MaxPeriodReceiptsWithLines} дөн көп — курамы көрсөтүлгөн жок, кыскараак мезгилди тандаңыз (мисалы, «Бүгүн»).",
+                    $"More than {MaxPeriodReceiptsWithLines} receipts — items are not shown; choose a shorter period (for example, “Today”).",
+                    $"{MaxPeriodReceiptsWithLines} fişten fazla — içerik gösterilmedi, daha kısa bir dönem seçin (örneğin «Bugün»).",
+                    $"Cheklar {MaxPeriodReceiptsWithLines} tadan ko'p — tarkibi ko'rsatilmadi, qisqaroq davrni tanlang (masalan, «Bugun»)."), "", ""));
 
         return (rows, summary, total);
     }
@@ -200,6 +243,20 @@ public partial class ShiftDrillDownDialog : Window
                 Money(e.Amount),
                 e.Note ?? ""))
             .ToList();
+        var total = events.Sum(e => e.Amount);
+        var totalText = Money(total);
+        return (rows, Tr.T($"Записей: {events.Count} · на сумму {totalText}",
+            $"Жазуулар: {events.Count} · суммасы {totalText}",
+            $"Records: {events.Count} · total {totalText}",
+            $"Kayıt: {events.Count} · toplam {totalText}",
+            $"Yozuvlar: {events.Count} · jami {totalText}"), total);
+    }
+
+    /// <summary>Возвраты за период — уже загруженные окном «Финансы» (сервер, pos/returns).</summary>
+    private (List<Row> Rows, string Summary, double Total) LoadPeriodEvents()
+    {
+        var events = _periodEvents ?? [];
+        var rows = events.OrderByDescending(e => e.At).Select(e => new Row(e.Header, Money(e.Amount), e.Details)).ToList();
         var total = events.Sum(e => e.Amount);
         var totalText = Money(total);
         return (rows, Tr.T($"Записей: {events.Count} · на сумму {totalText}",

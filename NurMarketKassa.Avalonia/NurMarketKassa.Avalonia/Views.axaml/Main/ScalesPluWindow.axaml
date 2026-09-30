@@ -106,7 +106,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="16" Background="{DynamicResource BrushWindow}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid Margin="16" Background="{DynamicResource BrushWindowBackdrop}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
         <!-- Заголовок -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
@@ -144,13 +144,15 @@
         <!-- Поиск, категория, выбор, нумерация PLU — одна «текучая» строка: на узком окне
              (800×600, 1024×1024) элементы переносятся, а не уезжают за край и не съедают таблицу. -->
         <WrapPanel Grid.Row="2" Margin="0,0,0,4" VerticalAlignment="Center">
-            <!-- Поиск по весовым товарам (2026-09-28, просьба владельца). -->
-            <TextBox x:Name="SearchBox" Width="210" Height="36" Margin="0,0,8,6" TextChanged="SearchBox_TextChanged"/>
+            <!-- Поиск по весовым товарам (2026-09-28, просьба владельца). 2026-09-30: 210 → 250 — подсказка на ky обрезалась. -->
+            <TextBox x:Name="SearchBox" Width="250" Height="36" Margin="0,0,8,6" TextChanged="SearchBox_TextChanged"/>
             <!-- 2026-09-28: фильтр по категории. -->
-            <ComboBox x:Name="CategoryCombo" Width="180" Height="36" Margin="0,0,8,6" VerticalAlignment="Center"
+            <!-- 2026-09-30: 180 → 230 — «Бардык категориялар» (ky) обрезалось. -->
+            <ComboBox x:Name="CategoryCombo" Width="230" Height="36" Margin="0,0,8,6" VerticalAlignment="Center"
                       SelectionChanged="CategoryCombo_SelectionChanged"/>
-            <!-- 2026-09-30: «Показать» — только весовые на сайте (по умолчанию), все в кг, без PLU, с кнопкой -->
-            <ComboBox x:Name="ShowCombo" Width="200" Height="36" Margin="0,0,8,6" VerticalAlignment="Center"
+            <!-- 2026-09-30: ширина 200 → 250 — «Сайттагы салмактуулар»/«Weighed on the website» обрезались.
+                 «Показать» — только весовые на сайте (по умолчанию), все в кг, без PLU, с кнопкой -->
+            <ComboBox x:Name="ShowCombo" Width="250" Height="36" Margin="0,0,8,6" VerticalAlignment="Center"
                       SelectionChanged="ShowCombo_SelectionChanged"/>
             <Button Content="{DynamicResource scalesPlu.selectAll}" Classes="SecondaryActionButton"
                     Margin="0,0,8,6" Click="SelectAll_Click"/>
@@ -213,7 +215,8 @@
                         <!-- 2026-09-28: «Код в штрих-коде» — число, которое весы напечатают в ШК
                              этикетки (поле «Код товара» записи ПЛУ). Правится перед отправкой;
                              только для прямой отправки — серверный путь пишет код сам. -->
-                        <DataGridTemplateColumn Tag="BarcodeCode" Header="{DynamicResource loc.owner.scales.colBarcodeCode}" Width="110" IsVisible="False">
+                        <!-- 2026-09-30: ширина 110 → 130 — «Barcode code»/«ShKdagi kod» обрезались; цена 100 → 120 («160.00 сом»); ед. 60 → 84 («Бирд.», «Unit»). -->
+                        <DataGridTemplateColumn Tag="BarcodeCode" Header="{DynamicResource loc.owner.scales.colBarcodeCode}" Width="130" IsVisible="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBox Text="{ReflectionBinding BarcodeCode, Mode=TwoWay}" MaxLength="7"
@@ -232,8 +235,8 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Tag="Category" Header="{DynamicResource scalesPlu.colCategory}" Width="*" MinWidth="90" Binding="{ReflectionBinding Category}"/>
-                        <DataGridTextColumn Tag="Unit" Header="{DynamicResource warehouse.receivingUnit}" Width="60" Binding="{ReflectionBinding Unit}"/>
-                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="100" Binding="{ReflectionBinding PriceLine}"/>
+                        <DataGridTextColumn Tag="Unit" Header="{DynamicResource warehouse.receivingUnit}" Width="84" Binding="{ReflectionBinding Unit}"/>
+                        <DataGridTextColumn Header="{DynamicResource scalesPlu.colPrice}" Width="120" Binding="{ReflectionBinding PriceLine}"/>
                         <!-- 2026-09-28: результат отправки по строке (отправлено / ошибка / пропущено). -->
                         <DataGridTemplateColumn Header="{DynamicResource scalesPlu.colStatus}" Width="*" MinWidth="120">
                             <DataGridTemplateColumn.CellTemplate>

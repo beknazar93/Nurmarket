@@ -81,7 +81,12 @@ public static class NurCrmReportsApi
         bool IsFull,
         string? CashierId,
         string? ShiftId,
-        DateTimeOffset? CreatedAt);
+        DateTimeOffset? CreatedAt,
+        // 2026-09-30: состав и причина — для вкладки «Возвраты» в «Финансах» (владелец: «частичный
+        // возврат в аналитике не отображается»). У старых возвратов сервер отдаёт позиции без имени.
+        string? ItemsText = null,
+        decimal ItemsQty = 0m,
+        string? Reason = null);
 
     /// <summary>GET api/main/pos/returns/?date_from&amp;date_to&amp;shift&amp;sale.
     ///
@@ -136,6 +141,18 @@ public static class NurCrmReportsApi
                     if (id is null || !seen.Add(id))
                         continue;
                     added++;
+                    var names = new List<string>();
+                    var qty = 0m;
+                    if (row.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var it in items.EnumerateArray())
+                        {
+                            var q = Dec(it, "qty") ?? 0m;
+                            qty += q;
+                            if (Str(it, "name") is { Length: > 0 } itemName)
+                                names.Add(q > 0 && q != 1m ? $"{itemName} × {q:0.###}" : itemName);
+                        }
+                    }
                     result.Add(new PosReturn(
                         id,
                         Str(row, "sale"),
@@ -147,7 +164,10 @@ public static class NurCrmReportsApi
                         Str(row, "created_at") is { } at
                             && DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var created)
                             ? created
-                            : null));
+                            : null,
+                        names.Count > 0 ? string.Join(", ", names) : null,
+                        qty,
+                        Str(row, "reason")));
                 }
 
                 var hasNext = data.ValueKind == JsonValueKind.Object

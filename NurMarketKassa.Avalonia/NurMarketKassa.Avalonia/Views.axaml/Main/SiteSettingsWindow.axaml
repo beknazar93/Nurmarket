@@ -7,7 +7,7 @@
         Width="1100"
         MinWidth="860"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
     <!-- 2026-09-29, программа владельца: «настройки сайта тоже». Только поля витрины, которые

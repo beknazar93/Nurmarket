@@ -9,7 +9,7 @@
         MinHeight="660"
         WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI, Inter, Noto Sans"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
@@ -336,10 +336,13 @@
         </Style>
     </Window.Styles>
 
-    <Grid x:Name="RootGrid" ColumnDefinitions="252,*">
+    <!-- 2026-09-30: верхний ряд — полоса орнамента темы «Кыргыз» (у остальных тем высота 0). -->
+    <Grid x:Name="RootGrid" ColumnDefinitions="252,*" RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Height="{DynamicResource OrnamentBandHeight}"
+                Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
 
         <!-- ============================== Меню ============================== -->
-        <Border Grid.Column="0" Background="{DynamicResource BrushPanel}"
+        <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource BrushPanel}"
                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- Логотип -->
@@ -412,7 +415,7 @@
         </Border>
 
         <!-- ============================== Сводка ============================== -->
-        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,*">
 
             <!-- Шапка: за неё окно перетаскивается, двойной щелчок разворачивает -->
             <Grid Grid.Row="0" x:Name="HeaderGrid" Margin="28,12,10,4" ColumnDefinitions="*,Auto,Auto"
@@ -462,7 +465,7 @@
             <!-- Место раздела: окно раздела без рамки лежит ровно поверх этой области и двигается
                  вместе с окном программы (см. OwnerShellWindow.SyncSectionBounds). -->
             <Border Grid.Row="1" x:Name="SectionHost" IsVisible="False" Margin="0,0,0,0"
-                    Background="{DynamicResource BrushWindow}">
+                    Background="{DynamicResource BrushWindowBackdrop}">
                 <TextBlock x:Name="SectionLoadingText" Classes="empty"/>
             </Border>
 

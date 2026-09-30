@@ -13,7 +13,7 @@
         WindowStartupLocation="CenterOwner"
         WindowState="Maximized"
         SystemDecorations="None"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         FontFamily="Segoe UI">
 
   <Window.Styles>

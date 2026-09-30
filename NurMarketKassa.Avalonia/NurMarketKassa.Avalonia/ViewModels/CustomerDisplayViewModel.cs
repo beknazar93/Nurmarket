@@ -392,6 +392,11 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     /// (CustomerDisplay*Brush), откуда их берут виды экрана и шаблоны строк чека.</summary>
     internal IReadOnlyDictionary<string, IBrush> PaletteResources => _palette.Resources;
 
+    private double _ornamentBandHeight;
+
+    /// <summary>Высота полос орнамента сверху и снизу экрана (тема «Кыргыз», 2026-09-30); 0 — нет.</summary>
+    public double OrnamentBandHeight => _ornamentBandHeight;
+
     /// <summary>Тёмный ли экран сейчас (вид «Профи» всегда тёмный).</summary>
     public bool IsDarkDisplay => _palette.Dark;
 
@@ -613,6 +618,30 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
             ["CustomerDisplayHeaderSoftTextBrush"] = Mix("#FFFFFF", header, 0.35),
         };
         var resources = hex.ToDictionary(pair => pair.Key, pair => (IBrush)new SolidColorBrush(Color.Parse(pair.Value)));
+
+        // 2026-09-30, владелец: «экран покупателя тоже должен меняться в национальный вид». У темы
+        // с орнаментом («Кыргыз») при цветах «как тема кассы» фон, панели, акцент и шапка — узором,
+        // сверху и снизу — полоса орнамента (CustomerDisplayView). Основа плиток = цвета палитры.
+        IBrush? band = null;
+        if (Settings.UseThemeColors != false)
+        {
+            var theme = UserPreferences.Instance.AccentTheme;
+            void Pattern(string part, params string[] keys)
+            {
+                if (AccentThemeService.GetOrnamentBrush(theme, dark, part) is { } brush)
+                    foreach (var key in keys)
+                        resources[key] = brush;
+            }
+            Pattern("bg", "CustomerDisplayBackgroundBrush");
+            Pattern("panel", "CustomerDisplaySurfaceBrush");
+            Pattern("soft", "CustomerDisplaySurfaceAltBrush");
+            Pattern("accent", "CustomerDisplayAccentBrush");
+            if (!dark)
+                Pattern("accent", "CustomerDisplayHeaderBrush");
+            band = AccentThemeService.GetOrnamentBrush(theme, dark, "band");
+        }
+        resources["CustomerDisplayOrnamentBrush"] = band ?? Brushes.Transparent;
+        _ornamentBandHeight = band is null ? 0 : 28;
 
         return new DisplayPalette
         {

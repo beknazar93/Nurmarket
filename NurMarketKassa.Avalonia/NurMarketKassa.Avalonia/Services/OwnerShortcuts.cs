@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
@@ -10,7 +12,14 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// владельцем ярлык не возвращался с каждой версией; при удалении кассы убирается.
 ///
 /// Вызывается из хуков Velopack (Program.Main) — там на всё 15–30 секунд, поэтому только
-/// файловые операции, без окон.</summary>
+/// файловые операции, без окон.
+///
+/// 2026-09-30, владелец: «в новых установках не устанавливается админка — срочно». Ярлык делался
+/// через COM «WScript.Shell»: на компьютерах, где Windows Script Host отключён или его блокирует
+/// антивирус, создание молча падало (исключение глоталось), и программы владельца у клиента не
+/// было вовсе — другого способа её открыть нет. Теперь: (1) ярлык пишется напрямую системным
+/// IShellLinkW, без WScript; (2) касса при каждом обычном запуске досоздаёт ярлык, если отметки
+/// «создан» ещё нет (хук установки не сработал); (3) итог пишется в Logs\owner-shortcut.log.</summary>
 internal static class OwnerShortcuts
 {
     private const string ShortcutName = "NurMarket Владелец";
@@ -29,18 +38,46 @@ internal static class OwnerShortcuts
 
             var exe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exe))
+            {
+                Log("нет пути к exe — ярлык не создан");
                 return;
+            }
 
+            var created = 0;
             foreach (var folder in ShortcutFolders())
-                CreateShortcut(Path.Combine(folder, ShortcutName + ".lnk"), exe);
+            {
+                var path = Path.Combine(folder, ShortcutName + ".lnk");
+                try
+                {
+                    if (CreateShortcut(path, exe))
+                        created++;
+                }
+                catch (Exception ex)
+                {
+                    Log($"ярлык «{path}» не создан: {ex.GetType().Name}: {ex.Message}");
+                }
+            }
 
-            if (marker != null)
+            // Отметку ставим, только если получился хотя бы один ярлык: иначе следующий запуск
+            // кассы попробует ещё раз (см. EnsureOnStartup).
+            if (created > 0 && marker != null)
                 File.WriteAllText(marker, DateTimeOffset.Now.ToString("O"));
+            Log($"ярлыков создано: {created} (exe: {exe})");
         }
-        catch
+        catch (Exception ex)
         {
             // Ярлык — удобство: установка и обновление кассы из-за него падать не должны.
+            Log($"ошибка: {ex.GetType().Name}: {ex.Message}");
         }
+    }
+
+    /// <summary>Обычный запуск кассы: если хук установки не смог сделать ярлык (отметки нет),
+    /// делаем его сейчас. Удалённый владельцем ярлык (отметка есть) не возвращаем.</summary>
+    public static void EnsureOnStartup()
+    {
+        if (NurMarketKassa.Services.AppMode.IsOwner)
+            return;
+        EnsureCreated(evenIfCreatedBefore: false);
     }
 
     public static void Remove()
@@ -84,34 +121,25 @@ internal static class OwnerShortcuts
         Environment.GetFolderPath(Environment.SpecialFolder.Programs),
     ];
 
-    private static void CreateShortcut(string path, string exe)
+    private static bool CreateShortcut(string path, string exe)
     {
         if (string.IsNullOrEmpty(Path.GetDirectoryName(path)) || !Directory.Exists(Path.GetDirectoryName(path)))
-            return;
+            return false;
 
-        var shellType = Type.GetTypeFromProgID("WScript.Shell");
-        if (shellType == null)
-            return;
-
-        dynamic? shell = null;
-        dynamic? link = null;
+        var link = (IShellLinkW)new ShellLink();
         try
         {
-            shell = Activator.CreateInstance(shellType);
-            link = shell!.CreateShortcut(path);
-            link.TargetPath = exe;
-            link.Arguments = "--owner";
-            link.WorkingDirectory = Path.GetDirectoryName(exe);
-            link.IconLocation = exe + ",0";
-            link.Description = "NurMarket Владелец — склад, продажи, финансы и зарплата";
-            link.Save();
+            link.SetPath(exe);
+            link.SetArguments("--owner");
+            link.SetWorkingDirectory(Path.GetDirectoryName(exe) ?? "");
+            link.SetIconLocation(exe, 0);
+            link.SetDescription("NurMarket Владелец — склад, продажи, финансы и зарплата");
+            ((IPersistFile)link).Save(path, true);
+            return File.Exists(path);
         }
         finally
         {
-            if (link != null)
-                Marshal.FinalReleaseComObject(link);
-            if (shell != null)
-                Marshal.FinalReleaseComObject(shell);
+            Marshal.FinalReleaseComObject(link);
         }
     }
 
@@ -120,27 +148,66 @@ internal static class OwnerShortcuts
         if (string.IsNullOrEmpty(exe))
             return false;
 
-        var shellType = Type.GetTypeFromProgID("WScript.Shell");
-        if (shellType == null)
-            return false;
-
-        dynamic? shell = null;
-        dynamic? link = null;
+        var link = (IShellLinkW)new ShellLink();
         try
         {
-            shell = Activator.CreateInstance(shellType);
-            link = shell!.CreateShortcut(path);
-            string target = link.TargetPath;
-            string args = link.Arguments;
-            return string.Equals(target, exe, StringComparison.OrdinalIgnoreCase)
-                   && args.Contains("--owner", StringComparison.OrdinalIgnoreCase);
+            ((IPersistFile)link).Load(path, 0);
+            var target = new StringBuilder(1024);
+            link.GetPath(target, target.Capacity, IntPtr.Zero, 0);
+            var args = new StringBuilder(1024);
+            link.GetArguments(args, args.Capacity);
+            return string.Equals(target.ToString(), exe, StringComparison.OrdinalIgnoreCase)
+                   && args.ToString().Contains("--owner", StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
-            if (link != null)
-                Marshal.FinalReleaseComObject(link);
-            if (shell != null)
-                Marshal.FinalReleaseComObject(shell);
+            Marshal.FinalReleaseComObject(link);
         }
+    }
+
+    /// <summary>Журнал ярлыка: в хуке установки PosLogger ещё не настроен, пишем файлом рядом с
+    /// журналом кассы (%LOCALAPPDATA%\NurMarketKassa\Logs).</summary>
+    private static void Log(string message)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NurMarketKassa", "Logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "owner-shortcut.log"),
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
+        }
+        catch
+        {
+        }
+    }
+
+    // ── Системный ярлык Windows (IShellLinkW + IPersistFile), без WScript ─────────────────
+
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    private class ShellLink
+    {
+    }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("000214F9-0000-0000-C000-000000000046")]
+    private interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, int fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cch);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cch);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cch, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, int dwReserved);
+        void Resolve(IntPtr hwnd, int fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
     }
 }

@@ -39,7 +39,9 @@
         </Style>
     </UserControl.Styles>
 
-    <Border Background="{DynamicResource BrushWindow}"
+    <!-- 2026-09-30: полосы орнамента сверху и снизу окна входа (тема «Кыргыз»; у остальных высота 0). -->
+    <Panel>
+    <Border Background="{DynamicResource BrushWindowBackdrop}"
             Padding="32">
         <Border Background="{DynamicResource BrushPanel}"
                 BorderBrush="{DynamicResource BrushBorder}"
@@ -253,4 +255,9 @@
         </Grid>
         </Border>
     </Border>
+    <Border VerticalAlignment="Top" Height="{DynamicResource OrnamentBandHeight}"
+            Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
+    <Border VerticalAlignment="Bottom" Height="{DynamicResource OrnamentBandHeight}"
+            Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
+    </Panel>
 </UserControl>

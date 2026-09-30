@@ -154,7 +154,11 @@
              чёрный, и шапка чернела независимо от выбранной темы — на скриншоте 2026-09-22
              это #000000 над тёмно-синим экраном. К теме кассы системная кисть отношения не
              имеет и на переключение цвета темы не реагирует вовсе. -->
-        <Border Grid.Row="0"
+        <!-- 2026-09-30: полоса орнамента под шапкой (тема «Кыргыз»; у остальных высота 0). -->
+        <DockPanel Grid.Row="0">
+        <Border DockPanel.Dock="Bottom" Height="{DynamicResource OrnamentBandHeight}"
+                Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
+        <Border
                 Background="{DynamicResource BrushWindowAlt}"
                 BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="0,0,0,1"
@@ -357,6 +361,7 @@
                 </StackPanel>
             </Grid>
         </Border>
+        </DockPanel>
 
         <!-- ======================== Основной контент ======================== -->
         <Grid x:Name="MainContentGrid" Grid.Row="1"

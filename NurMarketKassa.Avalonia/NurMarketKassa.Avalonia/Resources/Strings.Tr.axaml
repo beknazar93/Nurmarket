@@ -1480,4 +1480,5 @@
   <x:String x:Key="scalesPlu.refreshFromServer">Sunucudan yenile</x:String>
   <x:String x:Key="scalesPlu.refreshFromServerTip">Ürünleri, fiyatları ve PLU'ları NurCRM sunucusundan yeniden indirip listeyi yenile. İnternet yoksa kayıtlı katalog kalır.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategori</x:String>
+  <x:String x:Key="finance.kpiDetailsTip">Ayrıntılar için dokunun: dönemin fişleri ve ürünleri</x:String>
 </ResourceDictionary>

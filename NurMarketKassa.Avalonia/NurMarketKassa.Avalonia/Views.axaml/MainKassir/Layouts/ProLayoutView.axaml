@@ -7,7 +7,7 @@
                          x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts.ProLayoutView"
                          x:DataType="vm:MainWindowViewModel"
                          x:CompileBindings="True"
-                         Background="{DynamicResource BrushWindow}">
+                         Background="{DynamicResource BrushWindowBackdrop}">
 
     <!-- Раскладка «Профи» (2026-09-28). Образец — европейские и американские кассы для розницы
          (Lightspeed Retail, Shopify POS): тёмная боковая панель с разделами, крупная строка поиска

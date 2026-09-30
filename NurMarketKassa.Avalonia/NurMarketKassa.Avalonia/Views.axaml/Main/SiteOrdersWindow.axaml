@@ -7,7 +7,7 @@
         Width="1260"
         MinWidth="980"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
     <!-- 2026-09-29, программа владельца: «заказы с сайта должны падать в админку». Витрина NurCRM

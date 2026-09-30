@@ -7,7 +7,7 @@
         Height="820"
         Width="1180"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource BrushWindow}"
+        Background="{DynamicResource BrushWindowBackdrop}"
         Loaded="Window_Loaded">
 
     <Window.Styles>

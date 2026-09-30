@@ -53,6 +53,10 @@ internal static class Program
 
         StartShowRequestListener();
 
+        // 2026-09-30, «в новых установках не устанавливается админка»: если хук установки не смог
+        // сделать ярлык программы владельца, касса досоздаёт его при запуске (см. OwnerShortcuts).
+        NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureOnStartup();
+
         try
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

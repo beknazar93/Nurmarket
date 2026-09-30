@@ -29,7 +29,9 @@ public static class ShiftReportData
         double Discount,
         double Debt,
         string? Cashier,
-        IReadOnlyList<SaleLine> Lines);
+        IReadOnlyList<SaleLine> Lines,
+        // 2026-09-30: номер чека для подробностей плиток «Финансов» (за период); null — как раньше.
+        string? Number = null);
 
     private const int PageSize = 80;
     private const int MaxPages = 30;

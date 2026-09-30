@@ -291,7 +291,8 @@
                     CornerRadius="12"
                     Padding="16">
                 <Grid>
-                    <Border Background="{DynamicResource BrushPanel}"
+                    <!-- 2026-09-30: своя кисть каталога (= BrushPanel; у темы «Кыргыз» — узор суу). -->
+                    <Border Background="{DynamicResource BrushCatalogSurface}"
                             BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1"
                             CornerRadius="12"

@@ -2,6 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <SolidColorBrush x:Key="BrushTextInverted" Color="White" />
   <SolidColorBrush x:Key="BrushWindow" Color="#1E1E1E" />
+  <SolidColorBrush x:Key="BrushWindowBackdrop" Color="#1E1E1E" />
+  <SolidColorBrush x:Key="BrushCartSurface" Color="#252526" />
+  <SolidColorBrush x:Key="BrushCatalogSurface" Color="#252526" />
   <SolidColorBrush x:Key="BrushWindowAlt" Color="#252526" />
   <SolidColorBrush x:Key="BrushPanel" Color="#252526" />
   <SolidColorBrush x:Key="BrushDialogPanel" Color="#252526" />
