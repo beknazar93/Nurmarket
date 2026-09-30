@@ -13,42 +13,42 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Телеграм-бот: бот, подключённый в программе владельца, теперь отвечает на команды — касса подхватывает его настройки сама",
-        "Боту можно писать обычными словами: «сколько заработали сегодня», «кто должен», «цена кола» — без интернета и бесплатно",
-        "ИИ в боте (бесплатный ключ Google Gemini): свободно общается с владельцем, а покупателям отвечает как продавец-консультант — только товары, цены и наличие",
-        "«Сводка» владельца: карточка «Заканчивается на складе»; окно «Пополнение и сроки» больше не выдаёт ошибку",
+        "Телеграм-бот считает обращения покупателей: спросите бота «сколько обращений было» — сегодня, за 7 дней и последние вопросы",
+        "Заказ через бота: покупатель пишет, что хочет купить, называет имя и телефон — бот оформляет заказ, а владельцу приходит уведомление",
+        "Ответы ИИ в боте: списки товаров аккуратно — каждый товар с новой строки, по группам",
+        "Программа владельца: раздел «Телеграм-бот» — обращения, покупатели и заказы через бота; бот отвечает и на сообщения, пришедшие во время перезапуска",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Телеграм-бот: ээсинин программасында туташтырылган бот эми буйруктарга жооп берет — касса анын жөндөөлөрүн өзү алат",
-        "Ботко кадимки сөздөр менен жазса болот: «бүгүн канча түшүм», «ким карыз», «кола баасы» — интернетсиз жана акысыз",
-        "Боттогу ЖИ (Google Gemini акысыз ачкычы): ээси менен эркин баарлашат, ал эми сатып алуучуларга сатуучу-кеңешчи катары жооп берет — товарлар, баалар жана бар-жогу гана",
-        "Ээсинин «Жыйынтыгы»: «Кампада түгөнүп баратат» карточкасы; «Толуктоо жана мөөнөттөр» терезеси мындан ары ката бербейт",
+        "Телеграм-бот сатып алуучулардын кайрылууларын эсептейт: ботко «канча кайрылуу болду» деп жазыңыз — бүгүн, 7 күн жана акыркы суроолор",
+        "Бот аркылуу заказ: сатып алуучу эмне сатып алгысы келгенин, атын жана телефонун жазат — бот заказ түзөт, ээсине билдирүү келет",
+        "Боттогу ЖИ жооптору: товарлардын тизмеси тыкан — ар бир товар жаңы саптан, топтор боюнча",
+        "Ээсинин программасы: «Телеграм-бот» бөлүмү — кайрылуулар, сатып алуучулар жана бот аркылуу заказдар; бот кайра иштетүү учурунда келген билдирүүлөргө да жооп берет",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Telegram bot: a bot connected in the owner app now answers commands — the till picks up its settings automatically",
-        "You can write to the bot in plain words: “how much did we make today”, “who owes”, “price of cola” — offline and free",
-        "AI in the bot (free Google Gemini key): chats freely with the owner and answers customers as a shop assistant — only products, prices and availability",
-        "Owner “Overview”: a “Running low in stock” card; the “Restock & expiry” window no longer shows an error",
+        "The Telegram bot counts customer inquiries: ask it “how many inquiries” — today, last 7 days and the latest questions",
+        "Ordering via the bot: a customer says what to buy, gives name and phone — the bot places the order and notifies the owner",
+        "AI replies in the bot: product lists are tidy — one product per line, grouped",
+        "Owner app: “Telegram bot” section — inquiries, customers and orders via the bot; the bot also answers messages sent during a restart",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Telegram botu: sahip programında bağlanan bot artık komutlara yanıt veriyor — kasa ayarlarını kendisi alıyor",
-        "Bota sade cümlelerle yazılabilir: «bugün ne kadar kazandık», «kim borçlu», «kola fiyatı» — internetsiz ve ücretsiz",
-        "Bottaki YZ (ücretsiz Google Gemini anahtarı): sahiple serbestçe sohbet eder, müşterilere satış danışmanı olarak yanıt verir — yalnızca ürünler, fiyatlar ve stok",
-        "Sahip «Özet»: «Stokta azalanlar» kartı; «Stok yenileme ve SKT» penceresi artık hata vermiyor",
+        "Telegram botu müşteri başvurularını sayar: bota «kaç başvuru oldu» diye sorun — bugün, 7 gün ve son sorular",
+        "Bot üzerinden sipariş: müşteri ne almak istediğini, adını ve telefonunu yazar — bot siparişi oluşturur, sahibine bildirim gider",
+        "Bottaki YZ yanıtları: ürün listeleri düzenli — her ürün yeni satırda, gruplar halinde",
+        "Sahip programı: «Telegram botu» bölümü — başvurular, müşteriler ve bot siparişleri; bot yeniden başlatma sırasında gelen mesajlara da yanıt verir",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Telegram bot: egasi dasturida ulangan bot endi buyruqlarga javob beradi — kassa uning sozlamalarini o‘zi oladi",
-        "Botga oddiy so‘zlar bilan yozish mumkin: «bugun qancha ishladik», «kim qarzdor», «kola narxi» — internetsiz va bepul",
-        "Botdagi SI (bepul Google Gemini kaliti): egasi bilan erkin suhbatlashadi, xaridorlarga esa sotuvchi-maslahatchi sifatida javob beradi — faqat mahsulotlar, narxlar va mavjudlik",
-        "Egasining «Umumiy ko‘rinish»i: «Omborda tugayapti» kartasi; «To'ldirish va muddatlar» oynasi endi xato bermaydi",
+        "Telegram bot xaridorlar murojaatlarini sanaydi: botdan «qancha murojaat bo'ldi» deb so'rang — bugun, 7 kun va oxirgi savollar",
+        "Bot orqali buyurtma: xaridor nima olmoqchiligini, ismi va telefonini yozadi — bot buyurtmani rasmiylashtiradi, egasiga xabar keladi",
+        "Botdagi SI javoblari: mahsulotlar ro'yxati tartibli — har bir mahsulot yangi qatorda, guruhlab",
+        "Egasi dasturi: «Telegram bot» bo'limi — murojaatlar, xaridorlar va bot orqali buyurtmalar; bot qayta ishga tushirish paytida kelgan xabarlarga ham javob beradi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

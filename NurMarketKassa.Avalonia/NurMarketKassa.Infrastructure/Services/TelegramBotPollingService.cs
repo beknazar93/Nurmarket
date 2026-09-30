@@ -137,6 +137,15 @@ public sealed partial class TelegramBotPollingService
         _loop = null;
     }
 
+    /// <summary>Сообщение старше этого срока, пришедшее, пока бот был выключен, остаётся без ответа.</summary>
+    private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(15);
+
+    private static bool IsStale(JsonElement update) =>
+        update.TryGetProperty("message", out var m)
+        && m.TryGetProperty("date", out var d)
+        && d.TryGetInt64(out var unix)
+        && DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(unix) > StaleAfter;
+
     private async Task RunAsync(CancellationToken ct)
     {
         // Первый круг делаем с offset = -1: Telegram отдаёт только ПОСЛЕДНЕЕ сообщение, и бот
@@ -150,8 +159,11 @@ public sealed partial class TelegramBotPollingService
                 // 2026-09-29 (стресс-тест бота): первый круг — без ожидания (timeout 0). С длинным
                 // опросом первая же команда, пришедшая в течение 25 с после включения кассы или
                 // сохранения настроек бота, считалась «старой» и молча пропускалась.
+                // 2026-10-01, владелец: «опять сдох» — сообщения, пришедшие, пока касса перезапускалась
+                // (обновление, 1–3 минуты), раньше выбрасывались все. Теперь первый круг берёт все
+                // накопившиеся (offset 0), а старше StaleAfter пропускаются — на вчерашнее бот не отвечает.
                 var (updates, error) = await TelegramBotService
-                    .GetUpdatesAsync(first ? -1 : _offset, first ? 0 : LongPollSeconds, ct)
+                    .GetUpdatesAsync(first ? 0 : _offset, first ? 0 : LongPollSeconds, ct)
                     .ConfigureAwait(false);
 
                 if (error != null)
@@ -175,8 +187,8 @@ public sealed partial class TelegramBotPollingService
                     if (update.TryGetProperty("update_id", out var id) && id.TryGetInt64(out var updateId))
                         _offset = Math.Max(_offset, updateId + 1);
 
-                    if (first)
-                        continue;   // самое последнее старое сообщение не обрабатываем
+                    if (IsStale(update))
+                        continue;   // пришло давно, пока бот был выключен, — не отвечаем
 
                     await HandleUpdateAsync(update, ct).ConfigureAwait(false);
                 }
@@ -231,6 +243,14 @@ public sealed partial class TelegramBotPollingService
 
         var isOwner = string.Equals(chatId, UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal);
         var command = text!.Trim();
+
+        // 2026-10-01, владелец: «фиксируй количество обращений клиентов к боту» — каждое сообщение
+        // покупателя записывается (TelegramInquiryStore); владелец спрашивает «сколько обращений».
+        var senderName = message.TryGetProperty("from", out var sender) && sender.TryGetProperty("first_name", out var senderFirst)
+            ? senderFirst.GetString()
+            : null;
+        if (!isOwner)
+            TelegramInquiryStore.Record(chatId!, senderName, text!);
 
         // «/команда@ИмяБота» — так Telegram присылает команды в групповых чатах.
         var at = command.IndexOf('@');

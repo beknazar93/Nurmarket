@@ -159,6 +159,44 @@ public sealed class ShowcaseApiService
             : null;
     }
 
+    // ── Заказ из телеграм-бота ─────────────────────────────────────────────────────
+
+    private static string? _cachedSlug;
+
+    /// <summary>2026-10-01, решение владельца «обращения → заказы с сайта»: покупатель подтвердил заказ
+    /// в боте — создаём заказ витрины тем же публичным адресом, что и сайт
+    /// (POST /api/main/public/companies/{slug}/orders/, самовывоз). Цену и сумму считает сервер по
+    /// своему каталогу — бот цену не передаёт. Ответ: номер заказа и сумма сервера.</summary>
+    public async Task<(string Id, string Number, decimal Total)> CreateBotOrderAsync(
+        string customerName, string phone, IReadOnlyList<(string ProductId, double Qty)> items, string? comment,
+        CancellationToken ct = default)
+    {
+        _cachedSlug ??= (await GetSettingsAsync(ct).ConfigureAwait(false)).Slug;
+        if (string.IsNullOrWhiteSpace(_cachedSlug))
+            throw new InvalidOperationException("у компании не задан адрес витрины (slug)");
+
+        var body = new Dictionary<string, object?>
+        {
+            ["customer"] = new Dictionary<string, object?> { ["name"] = customerName, ["phone"] = phone },
+            ["items"] = items.Select(i => new Dictionary<string, object?>
+            {
+                ["product"] = i.ProductId,
+                ["qty"] = i.Qty.ToString("0.###", CultureInfo.InvariantCulture),
+            }).ToList(),
+            ["delivery"] = new Dictionary<string, object?> { ["type"] = "pickup" },
+            ["comment"] = string.IsNullOrWhiteSpace(comment) ? "Заказ через телеграм-бота" : "Телеграм-бот: " + comment,
+        };
+
+        var data = await _api.RequestAsync(HttpMethod.Post,
+            $"api/main/public/companies/{Uri.EscapeDataString(_cachedSlug.Trim())}/orders/", body, null, ct).ConfigureAwait(false);
+
+        string Read(string name) => data.ValueKind == JsonValueKind.Object && data.TryGetProperty(name, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString())
+            : "";
+        decimal.TryParse(Read("total"), NumberStyles.Any, CultureInfo.InvariantCulture, out var total);
+        return (Read("id"), Read("number"), total);
+    }
+
     // ── Заказы ──────────────────────────────────────────────────────────────────────
 
     /// <summary>Все заказы компании (страницы до конца, не больше 20), новые сверху.</summary>

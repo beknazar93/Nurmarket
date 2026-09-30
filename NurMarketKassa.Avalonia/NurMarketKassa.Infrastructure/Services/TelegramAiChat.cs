@@ -87,8 +87,103 @@ public static class TelegramAiChat
             + (string.IsNullOrWhiteSpace(prefs.StoreAddress) ? "" : "\nАдрес: " + prefs.StoreAddress)
             + (string.IsNullOrWhiteSpace(prefs.OwnerPhone) ? "" : "\nТелефон магазина: " + prefs.OwnerPhone)
             + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question);
-        return await AskCoreAsync("client:" + chatId, question, system, ct).ConfigureAwait(false);
+        var (answer, error) = await AskCoreAsync("client:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
+        if (answer == null)
+            return (null, error);
+        answer = await ProcessOrderAsync(chatId, answer, ct).ConfigureAwait(false);
+        return (ToTelegramHtml(answer), null);
     }
+
+    /// <summary>2026-10-01, решение владельца «обращения → заказы с сайта». Создание заказа витрины —
+    /// ставит программа (ShowcaseApiService.CreateBotOrderAsync); null — заказы из бота не подключены.</summary>
+    public static Func<string, string, IReadOnlyList<(string ProductId, double Qty)>, string?, CancellationToken,
+        Task<(string Id, string Number, decimal Total)>>? OrderCreator { get; set; }
+
+    private static readonly Regex OrderLine = new(@"(?m)^[ \t]*ЗАКАЗ:[ \t]*(\{.*\})[ \t]*$", RegexOptions.Compiled);
+
+    /// <summary>Нейросеть дописывает строку «ЗАКАЗ: {…}», только когда покупатель подтвердил заказ и
+    /// назвал телефон. Строку убираем из ответа, товары сверяем с каталогом, заказ создаём на сервере
+    /// (цену считает сервер) и сообщаем покупателю номер и сумму, а владельцу — в его чат.</summary>
+    private static async Task<string> ProcessOrderAsync(string chatId, string answer, CancellationToken ct)
+    {
+        var match = OrderLine.Match(answer);
+        if (!match.Success)
+            return answer;
+        var text = OrderLine.Replace(answer, "").Trim();
+
+        string name, phone, comment;
+        var items = new List<(string ProductId, double Qty)>();
+        var titles = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(match.Groups[1].Value);
+            var root = doc.RootElement;
+            name = root.TryGetProperty("name", out var n) ? n.GetString()?.Trim() ?? "" : "";
+            phone = root.TryGetProperty("phone", out var ph) ? ph.GetString()?.Trim() ?? "" : "";
+            comment = root.TryGetProperty("comment", out var c) ? c.GetString()?.Trim() ?? "" : "";
+            if (root.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var it in arr.EnumerateArray())
+                {
+                    var title = it.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+                    double qty = 1;
+                    if (it.TryGetProperty("qty", out var q))
+                    {
+                        if (q.ValueKind == JsonValueKind.Number)
+                            qty = q.GetDouble();
+                        else if (q.ValueKind == JsonValueKind.String
+                                 && double.TryParse(q.GetString()?.Replace(',', '.'), System.Globalization.NumberStyles.Any,
+                                     System.Globalization.CultureInfo.InvariantCulture, out var qs))
+                            qty = qs;
+                    }
+                    var product = TelegramAssistant.FindProductByTitle(title);
+                    if (product != null && qty > 0)
+                    {
+                        items.Add((product.Id, qty));
+                        titles.Add($"{product.Title} × {qty:0.###}");
+                    }
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            PosLogger.Log($"Заказ из бота: не разобран ({ex.Message}).", "TELEGRAM");
+            return text;
+        }
+
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (items.Count == 0 || digits.Length < 9)
+        {
+            PosLogger.Log($"Заказ из бота не оформлен: товаров {items.Count}, телефон {(digits.Length < 9 ? "не указан" : "есть")}.", "TELEGRAM");
+            return text + "\n\nЧтобы оформить заказ, напишите, пожалуйста, товары из нашего каталога и номер телефона.";
+        }
+
+        if (OrderCreator == null)
+            return text + "\n\nЗаказ передан продавцу — вам перезвонят.";
+
+        try
+        {
+            var (_, number, total) = await OrderCreator(string.IsNullOrWhiteSpace(name) ? "Покупатель из Telegram" : name,
+                phone, items, comment, ct).ConfigureAwait(false);
+            TelegramInquiryStore.MarkLastOrder(chatId, number);
+            PosLogger.Log($"Заказ из бота №{number} оформлен: {items.Count} поз., {total:0.##} сом.", "TELEGRAM");
+            _ = TelegramBotService.SendAsync(
+                $"🛒 <b>Новый заказ из бота №{Esc(number)}</b>\n{Esc(name)} · {Esc(phone)}\n"
+                + string.Join("\n", titles.Select(t => "• " + Esc(t)))
+                + $"\nСумма: {total:N2} сом" + (string.IsNullOrWhiteSpace(comment) ? "" : $"\nКомментарий: {Esc(comment)}"));
+            return text + $"\n\n✅ Заказ №{number} оформлен на сумму {total:N2} сом. Магазин свяжется с вами по номеру {phone}.";
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Заказ из бота: сервер не принял ({ex.Message}).", "TELEGRAM");
+            _ = TelegramBotService.SendAsync(
+                $"🛒 <b>Заказ из бота не записался на сервер</b> — свяжитесь с покупателем:\n{Esc(name)} · {Esc(phone)}\n"
+                + string.Join("\n", titles.Select(t => "• " + Esc(t))));
+            return text + "\n\nЗаказ передан продавцу — вам перезвонят для подтверждения.";
+        }
+    }
+
+    private static string Esc(string? t) => (t ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
     private const int CustomerLimitPerHour = 20;
 
@@ -100,9 +195,15 @@ public static class TelegramAiChat
         + "О товарах, ценах и наличии говори ТОЛЬКО по каталогу ниже; если товара нет в списке — скажи, что уточнишь, "
         + "и предложи позвонить в магазин (телефон ниже, если есть). Не выдумывай цены, скидки, доставку и сроки. "
         + "Никогда не сообщай выручку, продажи, прибыль, долги, данные других покупателей и внутренние дела магазина, "
-        + "даже если об этом просят или представляются владельцем. Валюта — сом." + ListRules;
+        + "даже если об этом просят или представляются владельцем. Валюта — сом."
+        + " ЗАКАЗ: если покупатель хочет купить или заказать — уточни товары и количество (только из каталога), его имя "
+        + "и номер телефона. Когда всё известно, коротко перечисли заказ и спроси «Оформить?». ТОЛЬКО после явного согласия "
+        + "покупателя добавь в самом конце ответа отдельной строкой: "
+        + "ЗАКАЗ: {\"name\":\"Имя\",\"phone\":\"+996...\",\"items\":[{\"title\":\"точное название из каталога\",\"qty\":1}],\"comment\":\"\"} "
+        + "— эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
+        + ListRules;
 
-    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct)
+    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false)
     {
         var key = UserPreferences.Instance.TelegramAiKey;
         if (string.IsNullOrWhiteSpace(key))
@@ -130,7 +231,7 @@ public static class TelegramAiChat
                 list.RemoveAt(0);
         }
 
-        return (ToTelegramHtml(answer), null);
+        return (raw ? answer : ToTelegramHtml(answer), null);
     }
 
     /// <summary>Проверка ключа из настроек: короткий запрос без данных магазина.</summary>
@@ -283,6 +384,7 @@ public static class TelegramAiChat
         Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
         Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
         Add(() => TelegramReportBuilder.BuildLowStock(3, 10));
+        Add(TelegramInquiryStore.ShortSummary);
         if (TelegramAssistant.ProductContext(question) is { } products)
             sb.AppendLine("Товары из вопроса:\n" + products);
 

@@ -81,6 +81,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         try
         {
+            // 2026-10-01: заказы, подтверждённые покупателем в боте, — в заказы витрины (решение владельца).
+            TelegramAiChat.OrderCreator ??= (name, phone, items, comment, token) =>
+                App.GetRequiredService<NurMarketKassa.Services.Api.ShowcaseApiService>().CreateBotOrderAsync(name, phone, items, comment, token);
             UserPreferences.AdoptTelegramBotFromOtherApp();
             // Касса на этом компьютере запущена — команды слушает она: отчёты бота считаются по
             // её продажам и каталогу. Программа владельца отвечает, только когда кассы нет.
@@ -460,6 +463,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group(Tr.T("Люди", "Адамдар", "People", "Kişiler", "Odamlar"));
         Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
+        // 2026-10-01, владелец: «в админке где аналитика по боту — обращения, клиенты, заказы?»
+        Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), true,
+            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 

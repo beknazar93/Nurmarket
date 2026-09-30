@@ -1835,6 +1835,9 @@ public partial class MainWindow : Window
         {
             // 2026-09-30, «бот не работает»: бота подключили в программе владельца, а у неё свой файл
             // настроек — касса его не видела и команды никто не слушал. Берём оттуда, если у кассы пусто.
+            // 2026-10-01: заказы, подтверждённые покупателем в боте, — в заказы витрины (решение владельца).
+            TelegramAiChat.OrderCreator ??= (name, phone, items, comment, token) =>
+                App.GetRequiredService<NurMarketKassa.Services.Api.ShowcaseApiService>().CreateBotOrderAsync(name, phone, items, comment, token);
             UserPreferences.AdoptTelegramBotFromOtherApp();
             if (!TelegramBotService.IsConfigured || !UserPreferences.Instance.TelegramCommandsEnabled)
             {

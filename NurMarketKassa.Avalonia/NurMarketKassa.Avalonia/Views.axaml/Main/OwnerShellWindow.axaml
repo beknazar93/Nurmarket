@@ -31,6 +31,8 @@
         <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
         <StreamGeometry x:Key="ClientsIcon">M9,11 A4,4 0 1 1 8.99,11 M3,20 A6,6 0 0 1 15,20 M17,11 A3,3 0 1 1 16.99,11 M17,14 A5,5 0 0 1 21,19</StreamGeometry>
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
+        <!-- 2026-10-01: раздел «Телеграм-бот» — самолётик Telegram. -->
+        <StreamGeometry x:Key="TelegramBotIcon">M21,4 L3,11 L9,13.5 L11,20 L14,15.5 L19,19 Z M9,13.5 L21,4</StreamGeometry>
         <StreamGeometry x:Key="MarketplaceIcon">M6,8 H18 L19,21 H5 Z M9,8 V6 A3,3 0 0 1 15,6 V8</StreamGeometry>
         <StreamGeometry x:Key="SettingsIcon">M12,8 A4,4 0 1 1 11.99,8 M19,12 A7,7 0 0 0 18.8,10.4 L21,8 L18,5 L15.6,6.2 A7,7 0 0 0 14,5.5 L13,2 H9 L8,5.5 A7,7 0 0 0 6.4,6.2 L4,5 L1,8 L3.2,10.4 A7,7 0 0 0 3,12 A7,7 0 0 0 3.2,13.6 L1,16 L4,19 L6.4,17.8 A7,7 0 0 0 8,18.5 L9,22 H13 L14,18.5 A7,7 0 0 0 15.6,17.8 L18,19 L21,16 L18.8,13.6 A7,7 0 0 0 19,12</StreamGeometry>
         <StreamGeometry x:Key="KnowledgeBaseIcon">M4,5 A2,2 0 0 1 6,3 H20 V19 H6 A2,2 0 0 0 4,21 Z M4,5 V19 M8,8 H16 M8,12 H14</StreamGeometry>

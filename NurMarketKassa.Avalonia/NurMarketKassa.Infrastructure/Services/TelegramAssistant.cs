@@ -50,6 +50,10 @@ public static class TelegramAssistant
 
     private static (string? Command, string? Reply) UnderstandIntent(string[] words)
     {
+        // 2026-10-01: «сколько обращений было», «канча клиент кайрылды» — счёт обращений покупателей к боту.
+        if (Has(words, InquiryWords))
+            return (null, TelegramInquiryStore.BuildReport());
+
         // Вопрос о конкретном товаре: «цена кола», «сколько осталось сахара», «кола бар бы».
         if (Has(words, ProductQueryWords) && FindProducts(words) is { Count: > 0 } found)
             return (null, BuildProductReply(found));
@@ -169,6 +173,24 @@ public static class TelegramAssistant
                + (string.IsNullOrWhiteSpace(phone) ? "." : $" или позвоните в магазин: {Escape(phone)}.");
     }
 
+    /// <summary>2026-10-01: товар для заказа из бота по названию, которое назвала нейросеть: сначала
+    /// точное совпадение с каталогом, иначе — первый найденный по словам названия.</summary>
+    public static CatalogProductTileVm? FindProductByTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+        try
+        {
+            var exact = CatalogCacheService.Products.FirstOrDefault(p =>
+                string.Equals(p.Title?.Trim(), title.Trim(), StringComparison.OrdinalIgnoreCase));
+            return exact ?? FindProducts(Normalize(title)).FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static readonly string[] CatalogListWords = { "какие", "каки", "ассортимент", "что есть", "что у вас", "список", "товары", "кандай", "эмнелер" };
 
     /// <summary>Товары из вопроса — строками для сводки, которую получает ИИ (цена и остаток), чтобы
@@ -199,6 +221,7 @@ public static class TelegramAssistant
     private static readonly string[] TodayWords = { "сегодн", "бүгүн", "бугун", "дела", "итог", "отчет", "сводк", "кандай иш" };
     private static readonly string[] WeekWords = { "недел", "жума", "7" };
     private static readonly string[] MonthWords = { "месяц", "30" };
+    private static readonly string[] InquiryWords = { "обращ", "кайрыл", "писали", "написали", "кто писал", "сколько писал", "жазышты", "жазды" };
     private static readonly string[] ReasoningWords = { "почему", "зачем", "как лучше", "как увелич", "как подня", "что делать", "посовету", "эмне үчүн", "эмнеге", "кантип" };
     private static readonly string[] HelpWords = { "помощ", "помоги", "умеешь", "команд", "справк", "жардам", "help" };
     private static readonly string[] ThanksWords = { "спасиб", "рахмат", "ракмат", "благодар", "чоң рахмат" };
