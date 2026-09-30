@@ -11,6 +11,44 @@ public partial class UpdatesSettingsView : UserControl
     {
         InitializeComponent();
         RenderTesterState();
+        RenderOwnerAppState();
+    }
+
+    /// <summary>2026-09-30: «Программа владельца» на этом компьютере — ярлык «NurMarket Владелец».
+    /// Карточка только в кассе (не в самой программе владельца и не в отдельном её пакете).</summary>
+    private void RenderOwnerAppState()
+    {
+        OwnerAppCard.IsVisible = !AppMode.IsOwner && !Services.OwnerShortcuts.IsSeparateOwnerInstall;
+        if (!OwnerAppCard.IsVisible)
+            return;
+
+        OwnerAppTitle.Text = Tr.T("Программа владельца", "Ээсинин программасы", "Owner app", "Sahip programı", "Egasining dasturi");
+        OwnerAppDesc.Text = Tr.T("«NurMarket Владелец» — склад, продажи, финансы, аналитика и зарплата. Ставится вместе с кассой; на кассовом компьютере её можно не ставить.",
+            "«NurMarket Владелец» — кампа, сатуулар, каржы, аналитика жана эмгек акы. Касса менен бирге орнотулат; кассалык компьютерге коюлбаса да болот.",
+            "“NurMarket Владелец” — warehouse, sales, finance, analytics and salary. Installed with the till; it can be left off the till computer.",
+            "«NurMarket Владелец» — depo, satışlar, finans, analiz ve maaş. Kasa ile birlikte kurulur; kasa bilgisayarına kurulmayabilir.",
+            "«NurMarket Владелец» — ombor, sotuvlar, moliya, tahlil va ish haqi. Kassa bilan birga o'rnatiladi; kassa kompyuteriga qo'yilmasa ham bo'ladi.");
+        var installed = Services.OwnerShortcuts.IsInstalled();
+        OwnerAppStatus.Text = installed
+            ? Tr.T("✓ Установлена на этом компьютере (ярлык «NurMarket Владелец»).", "✓ Бул компьютерге орнотулган («NurMarket Владелец» энбелгиси).", "✓ Installed on this computer (“NurMarket Владелец” shortcut).", "✓ Bu bilgisayarda kurulu («NurMarket Владелец» kısayolu).", "✓ Bu kompyuterga o'rnatilgan («NurMarket Владелец» yorlig'i).")
+            : Tr.T("Не установлена — на этом компьютере только касса.", "Орнотулган эмес — бул компьютерде касса гана.", "Not installed — only the till on this computer.", "Kurulu değil — bu bilgisayarda yalnızca kasa var.", "O'rnatilmagan — bu kompyuterda faqat kassa.");
+        OwnerAppAddButton.Content = installed
+            ? Tr.T("Восстановить ярлык", "Энбелгини калыбына келтирүү", "Restore shortcut", "Kısayolu geri yükle", "Yorliqni tiklash")
+            : Tr.T("Установить программу владельца", "Ээсинин программасын орнотуу", "Install owner app", "Sahip programını kur", "Egasining dasturini o'rnatish");
+        OwnerAppRemoveButton.Content = Tr.T("Убрать с этого компьютера", "Бул компьютерден алып салуу", "Remove from this computer", "Bu bilgisayardan kaldır", "Bu kompyuterdan olib tashlash");
+        OwnerAppRemoveButton.IsVisible = installed;
+    }
+
+    private void OwnerAppAdd_Click(object? sender, RoutedEventArgs e)
+    {
+        Services.OwnerShortcuts.ApplyChoice(withOwner: true);
+        RenderOwnerAppState();
+    }
+
+    private void OwnerAppRemove_Click(object? sender, RoutedEventArgs e)
+    {
+        Services.OwnerShortcuts.ApplyChoice(withOwner: false);
+        RenderOwnerAppState();
     }
 
     /// <summary>Канал обновлений — см. UpdateChannel.</summary>

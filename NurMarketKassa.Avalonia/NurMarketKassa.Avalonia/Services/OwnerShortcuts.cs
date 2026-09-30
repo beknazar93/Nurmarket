@@ -25,6 +25,80 @@ internal static class OwnerShortcuts
     private const string ShortcutName = "NurMarket Владелец";
     private const string CreatedMarker = "owner-shortcut.created";
 
+    /// <summary>2026-09-30, владелец: «при установке сделай так, чтобы можно было установить обе
+    /// программы или только кассу». Установщик Velopack своих вопросов не задаёт, поэтому хук
+    /// установки только ставит эту отметку, а касса при первом запуске спрашивает (Program.Main →
+    /// <see cref="EnsureOnStartup"/>). При обновлениях отметки нет — у клиентов ничего не меняется.</summary>
+    private const string ChoicePendingMarker = "install-choice.pending";
+
+    /// <summary>Хук установки (новая установка, не обновление): спросить при первом запуске.</summary>
+    public static void MarkInstallChoicePending()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows() || IsSeparateOwnerPackage() || RootDir() is not { } root)
+                return;
+            File.WriteAllText(Path.Combine(root, ChoicePendingMarker), DateTimeOffset.Now.ToString("O"));
+            Log("новая установка: выбор «обе программы / только касса» — при первом запуске");
+        }
+        catch (Exception ex)
+        {
+            Log($"отметка выбора не записана: {ex.Message}");
+        }
+    }
+
+    /// <summary>Есть ли на компьютере ярлык программы владельца (рабочий стол или «Пуск»).</summary>
+    public static bool IsInstalled()
+    {
+        try
+        {
+            foreach (var folder in ShortcutFolders())
+                if (File.Exists(Path.Combine(folder, ShortcutName + ".lnk")))
+                    return true;
+        }
+        catch
+        {
+        }
+        return false;
+    }
+
+    /// <summary>Отдельная программа владельца (свой пакет с owner.mode) — у неё выбор не нужен.</summary>
+    public static bool IsSeparateOwnerInstall => IsSeparateOwnerPackage();
+
+    /// <summary>Выбор человека: true — касса и программа владельца, false — только касса. Выбор
+    /// запоминается отметкой «создан»: касса больше не досоздаёт ярлык сама.</summary>
+    public static void ApplyChoice(bool withOwner)
+    {
+        try
+        {
+            if (RootDir() is { } root)
+            {
+                var pending = Path.Combine(root, ChoicePendingMarker);
+                if (File.Exists(pending))
+                    File.Delete(pending);
+            }
+
+            if (withOwner)
+            {
+                EnsureCreated(evenIfCreatedBefore: true);
+            }
+            else
+            {
+                RemoveShortcutsOnly();
+                if (MarkerPath() is { } marker)
+                    File.WriteAllText(marker, "kassa-only " + DateTimeOffset.Now.ToString("O"));
+            }
+            Log(withOwner ? "выбор: касса и программа владельца" : "выбор: только касса");
+        }
+        catch (Exception ex)
+        {
+            Log($"выбор не применён: {ex.Message}");
+        }
+    }
+
+    private static string? RootDir() => Directory.GetParent(
+        AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))?.FullName;
+
     public static void EnsureCreated(bool evenIfCreatedBefore)
     {
         try
@@ -71,13 +145,61 @@ internal static class OwnerShortcuts
         }
     }
 
-    /// <summary>Обычный запуск кассы: если хук установки не смог сделать ярлык (отметки нет),
-    /// делаем его сейчас. Удалённый владельцем ярлык (отметка есть) не возвращаем.</summary>
+    /// <summary>Обычный запуск кассы. Первый запуск после установки — спрашиваем «обе программы или
+    /// только касса» (окно Windows, Avalonia ещё не запущена). Иначе — если хук установки не смог
+    /// сделать ярлык (отметки нет), делаем его сейчас; удалённый владельцем ярлык не возвращаем.</summary>
     public static void EnsureOnStartup()
     {
-        if (NurMarketKassa.Services.AppMode.IsOwner)
+        if (NurMarketKassa.Services.AppMode.IsOwner || !OperatingSystem.IsWindows() || IsSeparateOwnerPackage())
             return;
+
+        if (RootDir() is { } root && File.Exists(Path.Combine(root, ChoicePendingMarker)))
+        {
+            ApplyChoice(AskInstallChoice());
+            return;
+        }
+
         EnsureCreated(evenIfCreatedBefore: false);
+    }
+
+    /// <summary>Вопрос при первом запуске. Язык интерфейса ещё не выбран — текст на русском и
+    /// кыргызском; кнопки «Да/Нет» Windows подписывает на языке системы.</summary>
+    private static bool AskInstallChoice()
+    {
+        const string text =
+            "Установить вместе с кассой программу владельца «NurMarket Владелец»?\n" +
+            "(склад, продажи, финансы, аналитика, зарплата)\n\n" +
+            "Да — касса и программа владельца\n" +
+            "Нет — только касса\n\n" +
+            "Передумать можно потом: Настройки → Обновления → «Программа владельца».\n\n" +
+            "Касса менен бирге ээсинин программасын «NurMarket Владелец» орнотобузбу?\n" +
+            "Ооба — касса жана ээсинин программасы; Жок — касса гана.";
+        const uint MB_YESNO = 0x4, MB_ICONQUESTION = 0x20, MB_SETFOREGROUND = 0x10000, MB_TOPMOST = 0x40000;
+        const int IDYES = 6;
+        return MessageBoxW(IntPtr.Zero, text, "NurMarket Kassa — установка",
+            MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND | MB_TOPMOST) == IDYES;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")]
+    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+    /// <summary>Убрать только ярлыки программы владельца (выбор «только касса» / кнопка в настройках).</summary>
+    public static void RemoveShortcutsOnly()
+    {
+        var exe = Environment.ProcessPath;
+        foreach (var folder in ShortcutFolders())
+        {
+            var path = Path.Combine(folder, ShortcutName + ".lnk");
+            try
+            {
+                if (File.Exists(path) && PointsTo(path, exe))
+                    File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                Log($"ярлык «{path}» не удалён: {ex.Message}");
+            }
+        }
     }
 
     public static void Remove()

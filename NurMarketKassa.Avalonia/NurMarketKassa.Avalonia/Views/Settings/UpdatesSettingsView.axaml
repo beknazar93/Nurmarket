@@ -120,6 +120,21 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-09-30: программа владельца на этом компьютере — поставить или убрать ярлык
+             (при установке выбирают «обе программы» или «только касса», здесь можно передумать). -->
+        <Border x:Name="OwnerAppCard" Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="OwnerAppTitle" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="OwnerAppDesc" Classes="SettingsCardBody" FontSize="12"
+                       Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <TextBlock x:Name="OwnerAppStatus" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <WrapPanel>
+              <Button x:Name="OwnerAppAddButton" Classes="UpdateGoldButton" Margin="0,0,8,0" Click="OwnerAppAdd_Click"/>
+              <Button x:Name="OwnerAppRemoveButton" Classes="SecondaryButton" Click="OwnerAppRemove_Click"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
         <!-- Тестовые версии (2026-09-24): код тестировщика включает канал с pre-release. -->
         <Border Classes="SettingsCard" Padding="14">
           <StackPanel Spacing="10">

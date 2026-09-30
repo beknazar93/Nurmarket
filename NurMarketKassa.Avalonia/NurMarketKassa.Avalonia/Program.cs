@@ -26,7 +26,8 @@ internal static class Program
         // Программа владельца ставится вместе с кассой (тот же exe с ключом --owner): её ярлык
         // появляется при установке и при обновлении, уходит при удалении (см. OwnerShortcuts).
         VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureCreated(evenIfCreatedBefore: true))
+            // 2026-09-30: при установке — выбор «обе программы / только касса» при первом запуске.
+            .OnAfterInstallFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.MarkInstallChoicePending())
             .OnAfterUpdateFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureCreated(evenIfCreatedBefore: false))
             .OnBeforeUninstallFastCallback(_ => NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.Remove())
             .Run();
