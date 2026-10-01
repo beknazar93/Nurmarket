@@ -122,17 +122,10 @@ public partial class TelegramBotSetupWindow : Window
             : Tr.T("Перенести бота на сервер", "Ботту серверге көчүрүү", "Move the bot to the server", "Botu sunucuya taşı", "Botni serverga ko'chirish");
         if (!on)
         {
-            // 2026-10-02: 01.10 бот на сервере принимал сообщения, но не отвечал (ТЗ часть 7, раздел 1).
-            // Пока сервер не отдаёт время последнего ответа (last_reply_at — значит, обработку починили
-            // и за ней следят), перенос клиентам недоступен: иначе бот у клиента замолчит.
-            ServerMoveButton.IsEnabled = s.HealthReported;
-            ServerStatus.Text = s.HealthReported
-                ? Tr.T("Бот работает на этом компьютере.", "Бот бул компьютерде иштейт.", "The bot runs on this computer.", "Bot bu bilgisayarda çalışıyor.", "Bot shu kompyuterda ishlaydi.")
-                : Tr.T("Бот работает на этом компьютере. Бот на сервере NurCRM ещё проверяется — перенос станет доступен после обновления сервера.",
-                    "Бот бул компьютерде иштейт. NurCRM сервериндеги бот азыр текшерилүүдө — көчүрүү сервер жаңыргандан кийин жеткиликтүү болот.",
-                    "The bot runs on this computer. The bot on the NurCRM server is still being tested — moving will be available after the server update.",
-                    "Bot bu bilgisayarda çalışıyor. NurCRM sunucusundaki bot henüz test ediliyor — taşıma sunucu güncellendikten sonra açılacak.",
-                    "Bot shu kompyuterda ishlaydi. NurCRM serveridagi bot hali sinovda — ko'chirish server yangilangandan keyin ochiladi.");
+            // 2026-10-02, владелец: «на сервер выгрузи всё равно бота и ИИ — на сервере бот работал, просто
+            // долго». Перенос доступен всегда; скорость ответа сервера — ТЗ часть 7, раздел 1.
+            ServerMoveButton.IsEnabled = true;
+            ServerStatus.Text = Tr.T("Бот работает на этом компьютере.", "Бот бул компьютерде иштейт.", "The bot runs on this computer.", "Bot bu bilgisayarda çalışıyor.", "Bot shu kompyuterda ishlaydi.");
             return;
         }
 

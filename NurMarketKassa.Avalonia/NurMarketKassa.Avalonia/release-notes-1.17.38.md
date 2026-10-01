@@ -1,6 +1,6 @@
 ## v1.17.38
 
-Исправления печати чеков и этикеток, денежного ящика, весов и прав сотрудников, раздел «Прибыль и деньги» в программе владельца и подсказка допродажи «С этим часто берут».
+Телеграм-бот и ИИ на сервере NurCRM, исправления печати чеков и этикеток, денежного ящика, весов и прав сотрудников, раздел «Прибыль и деньги» в программе владельца и подсказка допродажи «С этим часто берут».
 
 Файлы для установки:
 
@@ -14,6 +14,7 @@
 
 ### Новое
 
+- **Телеграм-бот и ИИ на сервере NurCRM.** Бот отвечает круглые сутки, даже когда касса и компьютер выключены: команды, отчёты, ИИ, консультант для покупателей, заказы и сводка по закрытию смены. После обновления программа один раз спросит, перенести ли бота на сервер (без вашего согласия токен и ключ ИИ никуда не уходят). Перенести позже или вернуть обратно — **Настройки → Операции → «Подключить бота»**.
 - **Подсказка «С этим часто берут».** Над итогом чека касса предлагает один товар, который покупатели чаще всего берут вместе с товарами из чека. Касса считает это по своим чекам за 90 дней и предлагает только то, что есть на складе. «Добавить» кладёт товар в чек (с выбором размера, пачки или веса, как из каталога), «Пропустить» — больше не предлагать в этом чеке. Включается в **Настройки → Экран → «Подсказки допродажи»**.
 - **Раздел «Прибыль и деньги» в программе владельца** (Финансы): прибыль (выручка, себестоимость, расходы), движение денег (пришло / ушло по способам оплаты) и сверка кассы за сегодня, 7 дней, месяц или 3 месяца.
 - **Чековый принтер:** в Настройки → Печать можно задать «Символов в строке» и ширину графики (в точках) отдельно для ленты 58 и 80 мм. Пробная печать сразу показывает результат.
@@ -47,7 +48,7 @@
 
 - Настоящие принтеры чеков и этикеток, денежный ящик и весы — на этом компьютере их нет. Если что-то печатается не так — пришлите фото чека или наклейки и снимок настроек.
 - Права сотрудников — проверены по правилам сайта, но не под логином каждого вида сотрудника.
-- Бот на сервере NurCRM пока проверяется на тестовом аккаунте: перенос бота на сервер в программе станет доступен после обновления сервера.
+- Бот на сервере NurCRM отвечает медленнее, чем с компьютера; ускорение — на стороне сервера NurCRM. Если бот долго молчит — «Вернуть на этот компьютер» в том же окне.
 
 ---
 
@@ -55,6 +56,7 @@
 
 ### Жаңы
 
+- **Телеграм-бот жана ЖИ NurCRM серверинде.** Касса жана компьютер өчүк болсо да бот күнү-түнү жооп берет. Жаңыргандан кийин программа бир жолу сурайт; кийин — **Жөндөөлөр → Операциялар → «Ботту туташтыруу»**.
 - **«Муну менен көп алышат» кеңеши.** Чектин жыйынтыгынын үстүндө касса чектеги товарлар менен көбүнчө бирге алынган бир товарды сунуштайт (кассанын 90 күндүк чектери боюнча, кампада бары гана). «Кошуу» — товарды чекке кошот, «Өткөрүү» — бул чекте мындан ары сунушталбайт. **Жөндөөлөр → Экран → «Кошумча сатуу кеңештери»** бөлүмүндө күйгүзүлөт (демейки боюнча өчүк).
 - **Ээсинин программасында «Пайда жана акча» бөлүмү:** пайда, акчанын кыймылы жана кассаны салыштыруу — бүгүн, 7 күн, ай же 3 ай.
 - **Чек принтери:** 58 жана 80 мм үчүн «Саптагы белгилер» жана графиканын туурасы өзүнчө жөндөлөт.
@@ -77,6 +79,7 @@
 
 ### New
 
+- **Telegram bot and AI on the NurCRM server.** The bot answers around the clock, even when the till and computer are off. After the update the app asks once; later — **Settings → Operations → “Connect bot”**.
 - **“Often bought with this” suggestion.** Above the receipt total, the till suggests one product that customers most often buy together with the items in the receipt (from this till's receipts for 90 days, in-stock items only). “Add” puts it in the receipt, “Skip” stops suggesting it in this receipt. Turn on in **Settings → Screen → “Upsell suggestions”** (off by default).
 - **“Profit and money” section in the owner app:** profit, cash flow and till reconciliation for today, 7 days, a month or 3 months.
 - **Receipt printer:** “Characters per line” and graphics width are set separately for 58 and 80 mm paper.
@@ -99,6 +102,7 @@ Verified on a test account: cash, card/transfer, credit sale with down payment, 
 
 ### Yeni
 
+- **Telegram botu ve yapay zekâ NurCRM sunucusunda.** Kasa ve bilgisayar kapalıyken bile bot günün her saati yanıt verir. Güncellemeden sonra program bir kez sorar; sonra — **Ayarlar → İşlemler → «Botu bağla»**.
 - **«Bununla sık alınanlar» önerisi.** Fiş toplamının üstünde kasa, fişteki ürünlerle en sık birlikte alınan bir ürünü önerir (bu kasanın 90 günlük fişlerine göre, yalnızca stokta olanlar). «Ekle» ürünü fişe ekler, «Geç» bu fişte artık önermez. **Ayarlar → Ekran → «Ek satış önerileri»** bölümünden açılır (varsayılan olarak kapalı).
 - **Sahip programında «Kâr ve para» bölümü:** bugün, 7 gün, bir ay veya 3 ay için kâr, nakit akışı ve kasa mutabakatı.
 - **Fiş yazıcısı:** 58 ve 80 mm için «Satırdaki karakter sayısı» ve grafik genişliği ayrı ayarlanır.
@@ -121,6 +125,7 @@ Test hesabında doğrulandı: nakit, nakitsiz, ön ödemeli veresiye satış, va
 
 ### Yangi
 
+- **Telegram bot va SI NurCRM serverida.** Kassa va kompyuter o'chiq bo'lsa ham bot kecha-kunduz javob beradi. Yangilanishdan keyin dastur bir marta so'raydi; keyin — **Sozlamalar → Operatsiyalar → «Botni ulash»**.
 - **«Bu bilan ko'p olishadi» maslahati.** Chek jamining ustida kassa chekdagi mahsulotlar bilan eng ko'p birga olinadigan bitta mahsulotni taklif qiladi (shu kassaning 90 kunlik cheklari bo'yicha, faqat omborda borlari). «Qo'shish» uni chekka qo'shadi, «O'tkazib yuborish» — bu chekda boshqa taklif qilinmaydi. **Sozlamalar → Ekran → «Qo'shimcha sotuv maslahatlari»** bo'limida yoqiladi (sukut bo'yicha o'chiq).
 - **Egasi dasturida «Foyda va pul» bo'limi:** bugun, 7 kun, oy yoki 3 oy uchun foyda, pul harakati va kassani solishtirish.
 - **Chek printeri:** 58 va 80 mm uchun «Qatordagi belgilar» va grafika kengligi alohida sozlanadi.

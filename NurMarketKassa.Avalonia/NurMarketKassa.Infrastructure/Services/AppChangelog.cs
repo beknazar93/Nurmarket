@@ -21,6 +21,7 @@ public static class AppChangelog
         "Продажа в долг с предоплатой: наличные сразу попадают в кассу и отчёт смены",
         "Программа владельца: раздел «Прибыль и деньги» — прибыль, движение денег и сверка за период",
         "Новое: подсказка «С этим часто берут» над итогом чека (включается в Настройки → Экран)",
+        "Телеграм-бот и ИИ могут работать на сервере NurCRM — бот отвечает круглые сутки, даже когда компьютер выключен (программа один раз спросит; кнопка — Настройки → Операции → «Подключить бота»)",
     ];
 
     public static readonly string[] LatestKy =
@@ -33,6 +34,7 @@ public static class AppChangelog
         "Алдын ала төлөм менен карызга сатуу: накталай дароо кассага жана смена отчётуна түшөт",
         "Ээсинин программасы: «Пайда жана акча» бөлүмү — мезгил ичиндеги пайда, акчанын кыймылы жана салыштыруу",
         "Жаңы: чектин жыйынтыгынын үстүндө «Муну менен көп алышат» кеңеши (Жөндөөлөр → Экран бөлүмүндө күйгүзүлөт)",
+        "Телеграм-бот жана ЖИ NurCRM серверинде иштей алат — компьютер өчүк болсо да бот күнү-түнү жооп берет (программа бир жолу сурайт; баскыч — Жөндөөлөр → Операциялар → «Ботту туташтыруу»)",
     ];
 
     public static readonly string[] LatestEn =
@@ -45,6 +47,7 @@ public static class AppChangelog
         "Sale on credit with a down payment: the cash goes straight into the till and the shift report",
         "Owner app: “Profit and money” section — profit, cash flow and reconciliation for a period",
         "New: “Often bought with this” suggestion above the receipt total (turn on in Settings → Screen)",
+        "The Telegram bot and AI can run on the NurCRM server — the bot answers around the clock, even with the computer off (the app asks once; button — Settings → Operations → “Connect bot”)",
     ];
 
     public static readonly string[] LatestTr =
@@ -57,6 +60,7 @@ public static class AppChangelog
         "Ön ödemeli veresiye satış: nakit hemen kasaya ve vardiya raporuna geçer",
         "Sahip programı: «Kâr ve para» bölümü — dönem için kâr, nakit akışı ve mutabakat",
         "Yeni: fiş toplamının üstünde «Bununla sık alınanlar» önerisi (Ayarlar → Ekran'dan açılır)",
+        "Telegram botu ve yapay zekâ NurCRM sunucusunda çalışabilir — bilgisayar kapalıyken bile bot günün her saati yanıt verir (program bir kez sorar; düğme — Ayarlar → İşlemler → «Botu bağla»)",
     ];
 
     public static readonly string[] LatestUz =
@@ -69,6 +73,7 @@ public static class AppChangelog
         "Oldindan to'lov bilan nasiyaga sotish: naqd pul darhol kassaga va smena hisobotiga tushadi",
         "Egasi dasturi: «Foyda va pul» bo'limi — davr uchun foyda, pul harakati va solishtirish",
         "Yangi: chek jamining ustida «Bu bilan ko'p olishadi» maslahati (Sozlamalar → Ekran bo'limida yoqiladi)",
+        "Telegram bot va SI NurCRM serverida ishlashi mumkin — kompyuter o'chiq bo'lsa ham bot kecha-kunduz javob beradi (dastur bir marta so'raydi; tugma — Sozlamalar → Operatsiyalar → «Botni ulash»)",
     ];
 
     public static string[] LatestForCurrentLanguage() =>
