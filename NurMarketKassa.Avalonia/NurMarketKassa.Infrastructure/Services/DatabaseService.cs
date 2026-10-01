@@ -320,6 +320,25 @@ public sealed class DatabaseService
                 CREATE INDEX IF NOT EXISTS idx_irregular_receipts_created ON IrregularReceipts(created_at);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_product ON SoldLineItems(product_id);
                 CREATE INDEX IF NOT EXISTS idx_sold_line_items_sold_at ON SoldLineItems(sold_at);
+
+                -- 2026-10-01, «Умная допродажа»: показы подсказки «С этим часто берут» и ответы
+                -- кассира (accepted / skipped). cart_key — чек, в котором показали; sale_id
+                -- проставляется после оплаты, по нему видно, что добавленный товар реально продан.
+                CREATE TABLE IF NOT EXISTS UpsellEvents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    product_name TEXT,
+                    price REAL,
+                    trigger_product_id TEXT,
+                    score REAL,
+                    cart_key TEXT,
+                    sale_id TEXT,
+                    company_id TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_upsell_events_created ON UpsellEvents(created_at);
+                CREATE INDEX IF NOT EXISTS idx_upsell_events_cart ON UpsellEvents(cart_key);
                 """;
             command.ExecuteNonQuery();
 
@@ -2225,6 +2244,137 @@ public sealed class DatabaseService
         {
             PosLogger.Log($"SoldLineItems with price read failed: {ex.Message}", "WARNING");
             return new List<(string, string, double, double, DateTime)>();
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>2026-10-01, «Умная допродажа»: состав чеков (номер продажи + товар) с даты — по
+    /// нему считаются пары «что берут вместе». Строки без номера продажи (старая история) не годятся:
+    /// их нельзя собрать в чеки.</summary>
+    public List<(string SaleId, string ProductId)> LoadSaleBaskets(DateTime sinceUtc)
+    {
+        var list = new List<(string, string)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT sale_id, product_id FROM SoldLineItems WHERE sold_at >= $since AND sale_id IS NOT NULL AND sale_id <> '' AND quantity > 0"
+                + OwnRowsClause() + ";";
+            command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                list.Add((reader.GetString(0), reader.GetString(1)));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"SoldLineItems baskets read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return list;
+    }
+
+    /// <summary>Событие подсказки допродажи: shown / accepted / skipped.</summary>
+    public void AppendUpsellEvent(string evt, string productId, string? productName, double price, string? triggerProductId, double score, string? cartKey)
+    {
+        _dbLock.EnterWriteLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO UpsellEvents (event, product_id, product_name, price, trigger_product_id, score, cart_key, company_id, created_at)
+                VALUES ($event, $productId, $name, $price, $trigger, $score, $cart, $companyId, $at);
+                """;
+            command.Parameters.AddWithValue("$event", evt);
+            command.Parameters.AddWithValue("$productId", productId);
+            command.Parameters.AddWithValue("$name", (object?)productName ?? DBNull.Value);
+            command.Parameters.AddWithValue("$price", price);
+            command.Parameters.AddWithValue("$trigger", (object?)triggerProductId ?? DBNull.Value);
+            command.Parameters.AddWithValue("$score", score);
+            command.Parameters.AddWithValue("$cart", (object?)cartKey ?? DBNull.Value);
+            command.Parameters.AddWithValue("$companyId", (object?)CurrentCompanyId() ?? DBNull.Value);
+            command.Parameters.AddWithValue("$at", DateTime.UtcNow.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"UpsellEvents write failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>После оплаты: всем событиям чека проставить номер продажи.</summary>
+    public void LinkUpsellEventsToSale(string cartKey, string saleId)
+    {
+        _dbLock.EnterWriteLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE UpsellEvents SET sale_id = $sale WHERE cart_key = $cart AND (sale_id IS NULL OR sale_id = '');";
+            command.Parameters.AddWithValue("$sale", saleId);
+            command.Parameters.AddWithValue("$cart", cartKey);
+            command.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"UpsellEvents link failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>Итоги допродажи за период: показано, добавлено, пропущено и выручка добавленных
+    /// товаров, которые остались в оплаченном чеке (по строкам продажи, не по цене подсказки).</summary>
+    public (int Shown, int Accepted, int Skipped, double Revenue) GetUpsellStats(DateTime sinceUtc, DateTime untilUtc)
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            var own = OwnRowsClause();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT SUM(CASE WHEN event = 'shown' THEN 1 ELSE 0 END), SUM(CASE WHEN event = 'accepted' THEN 1 ELSE 0 END), "
+                + "SUM(CASE WHEN event = 'skipped' THEN 1 ELSE 0 END) FROM UpsellEvents WHERE created_at >= $from AND created_at < $to" + own + ";";
+            command.Parameters.AddWithValue("$from", sinceUtc.ToString("O"));
+            command.Parameters.AddWithValue("$to", untilUtc.ToString("O"));
+            int shown = 0, accepted = 0, skipped = 0;
+            using (var reader = command.ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    shown = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
+                    accepted = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+                    skipped = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                }
+            }
+
+            using var revenue = connection.CreateCommand();
+            revenue.CommandText = "SELECT COALESCE(SUM(s.quantity * s.unit_price), 0) FROM (SELECT DISTINCT sale_id, product_id FROM UpsellEvents "
+                + "WHERE event = 'accepted' AND sale_id IS NOT NULL AND sale_id <> '' AND created_at >= $from AND created_at < $to" + own + ") e "
+                + "JOIN SoldLineItems s ON s.sale_id = e.sale_id AND s.product_id = e.product_id;";
+            revenue.Parameters.AddWithValue("$from", sinceUtc.ToString("O"));
+            revenue.Parameters.AddWithValue("$to", untilUtc.ToString("O"));
+            var sum = Convert.ToDouble(revenue.ExecuteScalar() ?? 0d, CultureInfo.InvariantCulture);
+            return (shown, accepted, skipped, sum);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"UpsellEvents stats failed: {ex.Message}", "WARNING");
+            return (0, 0, 0, 0);
         }
         finally
         {

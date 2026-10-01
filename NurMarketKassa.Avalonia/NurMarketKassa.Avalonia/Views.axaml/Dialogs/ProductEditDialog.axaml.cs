@@ -187,6 +187,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        ApplyVariantsTexts();
         DataContext = this;
         SetupPurchaseHistory();
         BuildHotkeyOptions();
@@ -1107,6 +1108,30 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         string.IsNullOrWhiteSpace(s) ? null : ParseNumber(s);
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close(Saved);
+
+    /// <summary>2026-10-01: тексты блока «Размеры и цвета» (5 языков). Вызывается при открытии окна.</summary>
+    private void ApplyVariantsTexts()
+    {
+        VariantsTitle.Text = Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colors", "Bedenler ve renkler", "O'lchamlar va ranglar");
+        VariantsHint.Text = _existing is null
+            ? Tr.T("Сначала сохраните товар — потом добавьте размеры и цвета.", "Адегенде товарды сактаңыз — андан кийин өлчөмдөрдү жана түстөрдү кошуңуз.",
+                "Save the product first, then add sizes and colors.", "Önce ürünü kaydedin, sonra beden ve renk ekleyin.", "Avval mahsulotni saqlang, so'ng o'lcham va ranglarni qo'shing.")
+            : Tr.T("Для магазина одежды: свой остаток и цена у каждого размера/цвета (скидка на размер — цена ниже).",
+                "Кийим дүкөнү үчүн: ар бир өлчөм/түстүн өз калдыгы жана баасы (өлчөмгө арзандатуу — баасы төмөн).",
+                "For clothing stores: each size/color has its own stock and price (a lower price = a discount).",
+                "Giyim mağazası için: her beden/rengin kendi stoku ve fiyatı (düşük fiyat = indirim).",
+                "Kiyim do'koni uchun: har bir o'lcham/rangning o'z qoldig'i va narxi (pastroq narx = chegirma).");
+        VariantsButton.Content = Tr.T("Размеры и цвета…", "Өлчөмдөр жана түстөр…", "Sizes and colors…", "Bedenler ve renkler…", "O'lchamlar va ranglar…");
+        VariantsButton.IsEnabled = _existing is not null && !string.IsNullOrWhiteSpace(_existing.Id);
+    }
+
+    private async void VariantsButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_existing is null || string.IsNullOrWhiteSpace(_existing.Id) || _catalogApi is null)
+            return;
+        var editor = new VariantEditorWindow(_catalogApi, _existing.Id, _existing.Title, LocalCartService.ParsePrice(_existing.PriceLine));
+        await editor.ShowDialog(this).ConfigureAwait(true);
+    }
 
     protected override void OnPointerPressed(Avalonia.Input.PointerPressedEventArgs e)
     {

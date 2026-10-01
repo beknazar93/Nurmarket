@@ -63,7 +63,58 @@ public partial class CalculatorWindow : Window, IOwnerSection
         RecalcBreakEven();
         RecalcPromo();
         Tr.LanguageChanged += OnLanguageChanged;
-        Closed += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
+        // 2026-10-01, владелец: «в калькуляции проверка товаров не обновляется и выдаёт старые
+        // данные». Раздел программы владельца не закрывается, а прячется — товары читались один раз
+        // при открытии окна, и цены/остатки после правки в «Складе» или с кассы не менялись до
+        // перезапуска. Теперь перечитываем: после синхронизации каталога, при каждом показе раздела
+        // и по кнопке «Обновить» (она же сначала тянет каталог с сервера).
+        CatalogCacheService.CatalogChanged += OnCatalogChanged;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty && IsVisible && _ready)
+                ReloadProducts();
+        };
+        Closed += (_, _) =>
+        {
+            Tr.LanguageChanged -= OnLanguageChanged;
+            CatalogCacheService.CatalogChanged -= OnCatalogChanged;
+        };
+    }
+
+    private void OnCatalogChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(ReloadProducts);
+
+    /// <summary>2026-10-01: свежие товары из локальной базы (её обновляет синхронизация каталога).</summary>
+    private void ReloadProducts()
+    {
+        LoadProducts();
+        RecalcAudit();
+        UpdateAuditStamp();
+    }
+
+    private void UpdateAuditStamp() =>
+        AuditRefreshButton.Content = Tr.T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash")
+            + " · " + DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private async void AuditRefresh_Click(object? sender, RoutedEventArgs e)
+    {
+        AuditRefreshButton.IsEnabled = false;
+        AuditRefreshButton.Content = Tr.T("Обновление…", "Жаңыртылууда…", "Refreshing…", "Yenileniyor…", "Yangilanmoqda…");
+        try
+        {
+            var result = await App.GetRequiredService<NurMarketKassa.Core.Contracts.ICatalogCacheService>()
+                .SyncCatalogFullAsync().ConfigureAwait(true);
+            if (!result.Success)
+                PosLogger.Log($"Калькуляция: каталог не обновлён с сервера: {result.ErrorMessage}", "WARNING");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Калькуляция: обновление каталога упало: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            ReloadProducts();
+            AuditRefreshButton.IsEnabled = true;
+        }
     }
 
     private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -177,6 +228,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
         StockMarginLabel.Text = Tr.T("Средняя маржа склада", "Кампанын орточо маржасы", "Average stock margin", "Ortalama stok marjı", "Omborning o'rtacha marjasi");
         ThresholdLabel.Text = Tr.T("Порог маржи, %", "Маржанын чеги, %", "Margin threshold, %", "Marj eşiği, %", "Marja chegarasi, %");
         AuditSearchBox.Watermark = Tr.T("Поиск товара…", "Товар издөө…", "Search product…", "Ürün ara…", "Mahsulot qidirish…");
+        UpdateAuditStamp();
         var auditHeaders = new[]
         {
             Tr.T("Товар", "Товар", "Item", "Ürün", "Mahsulot"),

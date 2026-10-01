@@ -66,6 +66,8 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ClientDebtsApiService>();
         // 2026-09-29: заказы и настройки витрины (сайта) для программы владельца.
         services.AddSingleton<ShowcaseApiService>();
+        // 2026-10-01, ТЗ часть 5: бот и ИИ на сервере NurCRM.
+        services.AddSingleton<ServerTelegramBotApi>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
         services.AddSingleton<IInventoryApiService, InventoryApiService>();
         services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();

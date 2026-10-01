@@ -68,6 +68,8 @@
   <x:String x:Key="csh.catalog.addProductButton">+ Ürün ekle</x:String>
   <x:String x:Key="csh.catalog.currency">som</x:String>
   <x:String x:Key="csh.catalog.favoriteTooltip">Favoriler</x:String>
+  <x:String x:Key="csh.catalog.details">Ayrıntılar</x:String>
+  <x:String x:Key="csh.catalog.detailsTooltip">Satıcının ürün açıklaması</x:String>
   <x:String x:Key="csh.catalog.tabAll">Tüm ürünler</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Tartılı</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Adetli</x:String>
@@ -726,6 +728,11 @@
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows görev çubuğunu tamamen gizler. Yalnızca tam ekran modu ile birlikte çalışır.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Boş fişte hızlı ürünler</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Favori ürünler (katalogda ★) «Sepet boş» yazısının altında. Gerekmiyorsa kapatın.</x:String>
+  <x:String x:Key="csh.upsell.title">Bununla sık alınanlar</x:String>
+  <x:String x:Key="csh.upsell.add">Ekle</x:String>
+  <x:String x:Key="csh.upsell.skip">Geç</x:String>
+  <x:String x:Key="posSettings.screen.upsell">Ek satış önerileri</x:String>
+  <x:String x:Key="posSettings.screen.upsellDesc">Fiş toplamının üstünde — fişteki ürünlerle sık birlikte alınan bir ürün (90 günlük fişlere göre, yalnızca stokta olanlar). «Ekle» ürünü fişe ekler, «Geç» bu fişte artık önermez.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows ile başlat</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Zayıf cihaz modu</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Ekran kartı yerine yazılımsal render — eski hepsi bir arada bilgisayarlar ve zayıf dizüstü bilgisayarlar için. Kasanın yeniden başlatılmasını gerektirir.</x:String>
@@ -780,6 +787,8 @@
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Hiçbir şey bulunamadı — "Bul"a basın</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Hata durumunda yeniden deneme</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Kâğıt genişliği</x:String>
+  <x:String x:Key="posSettings.print.charsPerLine">Satır başına karakter</x:String>
+  <x:String x:Key="posSettings.print.widthHint">Noktalı veya kesik çizgiler ya da tutarlar fişin kenarından taşıyorsa azaltın: 58 mm — 32'den 30'a, 80 mm — 48'den 42'ye (grafik: 576 → 512 nokta). Her kâğıt genişliği kendi değerini saklar. Deneme baskısı düğmesiyle kontrol edin.</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Grafik (nokta)</x:String>
   <x:String x:Key="posSettings.print.printMode">Yazdırma modu</x:String>
   <x:String x:Key="posSettings.print.modeText">Metin</x:String>

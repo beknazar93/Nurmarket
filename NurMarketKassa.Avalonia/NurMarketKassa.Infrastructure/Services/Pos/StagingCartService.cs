@@ -151,10 +151,26 @@ public static class StagingCartService
                 : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
             var unitPrice = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it));
             var salePackageId = CartDisplayHelper.SalePackageId(it);
+            var serverVariantId = CartDisplayHelper.ServerVariantId(it);
 
             try
             {
-                if (!string.IsNullOrWhiteSpace(salePackageId))
+                if (!string.IsNullOrWhiteSpace(serverVariantId))
+                {
+                    // 2026-10-01, магазин одежды: вариант (размер/цвет) — сервер сам ставит цену и
+                    // списывает остаток варианта (проверено на тестовом аккаунте: строка получает
+                    // variant, variant_size, variant_color и цену варианта).
+                    var variantBody = new Dictionary<string, string>
+                    {
+                        ["product_id"] = productId,
+                        ["quantity"] = qtyStr,
+                        ["variant_id"] = serverVariantId,
+                    };
+                    if (!string.IsNullOrWhiteSpace(disc))
+                        variantBody["discount_total"] = disc;
+                    await api.PosAddItemRawAsync(cartId, variantBody, cancellationToken).ConfigureAwait(false);
+                }
+                else if (!string.IsNullOrWhiteSpace(salePackageId))
                 {
                     // Поштучная продажа из упаковки: сайт передаёт ID пачки вместо unit_price —
                     // сервер сам подставляет цену пачки и не спотыкается о проверку "цена не
@@ -199,7 +215,8 @@ public static class StagingCartService
             return null;
         return productId.Trim() + "|"
                + CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it)) + "|"
-               + (CartDisplayHelper.SalePackageId(it) ?? "");
+               + (CartDisplayHelper.SalePackageId(it) ?? "") + "|"
+               + (CartDisplayHelper.ServerVariantId(it) ?? "");
     }
 
     /// <summary>2026-09-29, жалоба магазина «доп. штрихкод резко переходит на основное»: после

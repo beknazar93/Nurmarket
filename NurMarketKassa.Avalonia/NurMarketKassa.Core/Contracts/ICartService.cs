@@ -55,6 +55,9 @@ public interface ICartService
     /// подставляет цену пачки, минуя проверку "цена не ниже закупочной", которая иначе
     /// применяется при ручном оверрайде unit_price (см. историю в ReceiptSnapshotCartEditor).</summary>
     void AddItem(CatalogProductTileVm product, double quantity, double unitPriceOverride, string? salePackageId);
+    /// <summary>2026-10-01, магазин одежды: вариант товара (размер/цвет) — своя строка с ценой варианта,
+    /// на сервер уходит variant_id (см. ReceiptSnapshotCartEditor.AddVariant).</summary>
+    void AddVariantItem(CatalogProductTileVm product, double quantity, double unitPrice, string variantId, string label, string? size, string? color);
     /// <summary>«Доп. услуга» (2026-09-07): строка чека без товара — название, цена за единицу
     /// (отрицательная = «Расход», вычитается из чека) и количество. См. ReceiptSnapshotCartEditor.AddCustomItem.</summary>
     void AddCustomItem(string name, double unitPrice, double quantity);

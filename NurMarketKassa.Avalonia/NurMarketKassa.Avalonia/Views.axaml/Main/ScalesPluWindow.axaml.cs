@@ -711,11 +711,31 @@ public partial class ScalesPluWindow : Window
     private void RememberProfileSelection()
     {
         var profile = LabelScaleStore.Active;
+        // 2026-10-01, владелец: «назначенные товары на горячие кнопки весов самопроизвольно слетают».
+        // Клавиши и отмеченные товары собирались заново только из строк окна (_allRows) — а в окне
+        // не все товары: фильтр «Показать», каталог в памяти, загруженный не до конца (сразу после
+        // запуска, во время синхронизации). У товара, которого в этот момент нет в списке, клавиша
+        // молча стиралась при любом сохранении. Теперь записи скрытых товаров сохраняются; номер
+        // клавиши, занятый товаром из списка, отбирается у скрытого (одна клавиша — один товар).
+        var shown = new HashSet<string>(_allRows.Select(r => r.Id), StringComparer.Ordinal);
         if (profile.Categories.Count == 0)
-            profile.ProductIds = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
-        profile.Hotkeys = _allRows
+            profile.ProductIds = profile.ProductIds.Where(id => !shown.Contains(id))
+                .Concat(_allRows.Where(r => r.IsSelected).Select(r => r.Id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        var shownKeys = _allRows
             .Where(r => int.TryParse((r.HotkeyText ?? "").Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k is >= 1 and <= MaxHotkey)
             .ToDictionary(r => r.Id, r => int.Parse(r.HotkeyText.Trim(), CultureInfo.InvariantCulture));
+        var takenByShown = shownKeys.Values.ToHashSet();
+        var hotkeys = profile.Hotkeys
+            .Where(kv => !shown.Contains(kv.Key) && !takenByShown.Contains(kv.Value))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+        foreach (var (id, key) in shownKeys)
+            hotkeys[id] = key;
+        var lost = profile.Hotkeys.Where(kv => !hotkeys.ContainsKey(kv.Key)).ToList();
+        if (lost.Count > 0)
+            PosLogger.Log($"Весы «{profile.Name}»: клавиши сняты: " + string.Join("; ", lost.Select(kv => $"{kv.Value} — {kv.Key}")), "SCALES");
+        profile.Hotkeys = hotkeys;
         LabelScaleStore.Save();
     }
 

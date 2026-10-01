@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.UpsellBannerView"
+             x:DataType="vm:BasketPanelViewModel"
+             x:CompileBindings="True"
+             IsVisible="{Binding HasUpsell}">
+
+    <!-- 2026-10-01, «Умная допродажа»: одна подсказка над итогом чека во всех видах кассы.
+         Кнопки без фокуса — как остальные кнопки чека: Enter сканера не должен их нажимать. -->
+    <Border Background="{DynamicResource BrushPanelSoft}"
+            BorderBrush="{DynamicResource BrushAccent}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="10,8"
+            Margin="0,6,0,0">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+            <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource csh.upsell.title}"
+                           FontSize="11"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Text="{Binding UpsellProductText}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{Binding UpsellReasonText}"
+                           FontSize="11"
+                           Foreground="{DynamicResource BrushTextMuted}"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <Button Grid.Column="1" Margin="6,0,0,0"
+                    Focusable="False"
+                    MinHeight="36"
+                    Padding="12,4"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource BrushAccent}"
+                    Foreground="{DynamicResource BrushAccentForeground}"
+                    Command="{Binding AcceptUpsellCommand}"
+                    Content="{DynamicResource csh.upsell.add}"/>
+            <Button Grid.Column="2" Margin="6,0,0,0"
+                    Focusable="False"
+                    MinHeight="36"
+                    Padding="10,4"
+                    VerticalAlignment="Center"
+                    Command="{Binding SkipUpsellCommand}"
+                    Content="{DynamicResource csh.upsell.skip}"/>
+        </Grid>
+    </Border>
+</UserControl>

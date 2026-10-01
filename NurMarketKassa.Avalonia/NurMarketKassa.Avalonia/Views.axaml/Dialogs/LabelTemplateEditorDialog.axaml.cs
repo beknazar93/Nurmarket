@@ -112,6 +112,62 @@ public partial class LabelTemplateEditorDialog : Window
         BuildCanvas();
         SelectElement(_selectedKind);
         RefreshPreview();
+        InitPrinterCalibration();
+    }
+
+    // ------------------------------------------------------------------ калибровка принтера
+    // 2026-10-01, владелец: «настройка штрихкодовой: пропускает наклейки и печатает не на том месте».
+    // Значения — в UserPreferences (этот компьютер), действуют на этикетки и ценники; сохраняются
+    // кнопкой «Сохранить» и перед пробной печатью.
+
+    private static readonly (string Key, Func<string> Text)[] RawLanguages =
+    {
+        ("escpos", () => Tr.T("ESC/POS (как раньше)", "ESC/POS (мурункудай)", "ESC/POS (as before)", "ESC/POS (eskisi gibi)", "ESC/POS (avvalgidek)")),
+        ("escpos_gap", () => Tr.T("ESC/POS + подача до зазора", "ESC/POS + боштукка чейин берүү", "ESC/POS + feed to gap", "ESC/POS + boşluğa kadar besleme", "ESC/POS + oraliqqacha surish")),
+        ("tspl", () => Tr.T("TSPL (принтер этикеток)", "TSPL (этикетка принтери)", "TSPL (label printer)", "TSPL (etiket yazıcısı)", "TSPL (yorliq printeri)")),
+    };
+
+    private void InitPrinterCalibration()
+    {
+        var prefs = UserPreferences.Instance;
+        LabelGapText.Text = Tr.T("Зазор между наклейками, мм", "Чаптамалардын ортосундагы боштук, мм", "Gap between labels, mm", "Etiketler arası boşluk, mm", "Yorliqlar orasidagi oraliq, mm");
+        LabelOffsetXText.Text = Tr.T("Сдвиг вправо, мм", "Оңго жылдыруу, мм", "Shift right, mm", "Sağa kaydır, mm", "O'ngga surish, mm");
+        LabelOffsetYText.Text = Tr.T("Сдвиг вниз, мм", "Төмөн жылдыруу, мм", "Shift down, mm", "Aşağı kaydır, mm", "Pastga surish, mm");
+        LabelRawLangText.Text = Tr.T("Печать без драйвера (USB/COM)", "Драйверсиз басып чыгаруу (USB/COM)", "Printing without a driver (USB/COM)", "Sürücüsüz yazdırma (USB/COM)", "Drayversiz chop etish (USB/COM)");
+        LabelPageFromTemplateCheck.Content = Tr.T("Размер страницы — по этикетке", "Барактын өлчөмү — этикетка боюнча", "Page size = label size", "Sayfa boyutu = etiket boyutu", "Sahifa o'lchami — yorliq bo'yicha");
+        LabelCalibHint.Text = Tr.T(
+            "Если принтер пропускает наклейки или печатает со сдвигом: 1) ширина и высота — как у наклейки на рулоне; 2) зазор — обычно 2–3 мм; 3) откалибруйте принтер (зажмите FEED до мигания); 4) сдвиг двигает картинку, минус — влево/вверх. Принтер без драйвера (Xprinter, TSC, Gprinter) — выберите TSPL.",
+            "Принтер чаптамаларды өткөрүп жиберсе же жылып басса: 1) туурасы жана бийиктиги — рулондогу чаптамадай; 2) боштук — адатта 2–3 мм; 3) принтерди калибрлеңиз (FEED баскычын жымылдаганга чейин басып туруңуз); 4) жылдыруу сүрөттү жылдырат, минус — солго/өйдө. Драйверсиз принтер (Xprinter, TSC, Gprinter) — TSPL тандаңыз.",
+            "If the printer skips labels or prints off-position: 1) width and height must match the label on the roll; 2) gap is usually 2–3 mm; 3) calibrate the printer (hold FEED until it blinks); 4) shift moves the image, minus = left/up. Printer without a driver (Xprinter, TSC, Gprinter) — choose TSPL.",
+            "Yazıcı etiket atlıyor veya kaymış basıyorsa: 1) genişlik ve yükseklik rulodaki etiketle aynı olmalı; 2) boşluk genellikle 2–3 mm; 3) yazıcıyı kalibre edin (FEED'e yanıp sönene kadar basılı tutun); 4) kaydırma resmi taşır, eksi = sola/yukarı. Sürücüsüz yazıcı (Xprinter, TSC, Gprinter) — TSPL seçin.",
+            "Printer yorliqlarni o'tkazib yuborsa yoki surilib chop etsa: 1) eni va bo'yi — rulondagi yorliq bilan bir xil; 2) oraliq — odatda 2–3 mm; 3) printerni kalibrlang (FEED tugmasini miltillaguncha bosib turing); 4) surish rasmni siljitadi, minus — chapga/yuqoriga. Drayversiz printer (Xprinter, TSC, Gprinter) — TSPL ni tanlang.");
+
+        LabelGapBox.Value = (decimal)prefs.LabelGapMm;
+        LabelOffsetXBox.Value = (decimal)prefs.LabelOffsetXMm;
+        LabelOffsetYBox.Value = (decimal)prefs.LabelOffsetYMm;
+        LabelPageFromTemplateCheck.IsChecked = prefs.LabelPageFromTemplate;
+        LabelRawLangCombo.ItemsSource = RawLanguages.Select(l => l.Text()).ToArray();
+        var index = Array.FindIndex(RawLanguages, l => l.Key == prefs.LabelRawLanguage);
+        LabelRawLangCombo.SelectedIndex = index >= 0 ? index : 0;
+    }
+
+    private void SavePrinterCalibration()
+    {
+        var prefs = UserPreferences.Instance;
+        prefs.LabelGapMm = Math.Clamp((double)(LabelGapBox.Value ?? 2m), 0, 20);
+        prefs.LabelOffsetXMm = Math.Clamp((double)(LabelOffsetXBox.Value ?? 0m), -20, 20);
+        prefs.LabelOffsetYMm = Math.Clamp((double)(LabelOffsetYBox.Value ?? 0m), -20, 20);
+        prefs.LabelPageFromTemplate = LabelPageFromTemplateCheck.IsChecked != false;
+        var i = LabelRawLangCombo.SelectedIndex;
+        prefs.LabelRawLanguage = i >= 0 && i < RawLanguages.Length ? RawLanguages[i].Key : "escpos";
+        try
+        {
+            prefs.SaveToDisk();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Label calibration not saved: {ex.Message}", "WARNING");
+        }
     }
 
     private string FindMatchingPresetLabel()
@@ -602,6 +658,7 @@ public partial class LabelTemplateEditorDialog : Window
             return;
         }
 
+        SavePrinterCalibration();
         TestPrintButton.IsEnabled = false;
         StatusText.Text = Tr.T("Печать…", "Басып чыгарылууда…", "Printing…", "Yazdırılıyor…", "Chop etilmoqda…");
         try
@@ -671,6 +728,7 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void SaveButton_Click(object? sender, RoutedEventArgs e)
     {
+        SavePrinterCalibration();
         _saveAction(_template);
         Saved = true;
         Close();

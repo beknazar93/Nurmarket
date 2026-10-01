@@ -470,6 +470,20 @@
                         </StackPanel>
                     </Expander>
 
+                    <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
+                         остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
+                    <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="4" VerticalAlignment="Center">
+                                <TextBlock x:Name="VariantsTitle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                <TextBlock x:Name="VariantsHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="VariantsButton" Classes="SecondaryButton" Margin="12,0,0,0"
+                                    VerticalAlignment="Center" Click="VariantsButton_Click"/>
+                        </Grid>
+                    </Border>
+
                     <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
                          Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
                          первом раскрытии: это запрос к серверу, а карточку открывают часто. -->

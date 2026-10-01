@@ -68,6 +68,8 @@
   <x:String x:Key="csh.catalog.addProductButton">+ Add product</x:String>
   <x:String x:Key="csh.catalog.currency">som</x:String>
   <x:String x:Key="csh.catalog.favoriteTooltip">Favorites</x:String>
+  <x:String x:Key="csh.catalog.details">Details</x:String>
+  <x:String x:Key="csh.catalog.detailsTooltip">Product description from the seller</x:String>
   <x:String x:Key="csh.catalog.tabAll">All products</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Weighed</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Piece items</x:String>
@@ -726,6 +728,11 @@
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Hides the Windows taskbar completely. Works only together with fullscreen mode.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Quick products in an empty receipt</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Favourite products (★ in the catalog) under “Cart is empty”. Turn off if you don’t need them.</x:String>
+  <x:String x:Key="csh.upsell.title">Often bought with this</x:String>
+  <x:String x:Key="csh.upsell.add">Add</x:String>
+  <x:String x:Key="csh.upsell.skip">Skip</x:String>
+  <x:String x:Key="posSettings.screen.upsell">Upsell suggestions</x:String>
+  <x:String x:Key="posSettings.screen.upsellDesc">Above the receipt total — a product often bought together with the items in the receipt (from 90 days of receipts, in stock only). “Add” puts it in the receipt, “Skip” stops suggesting it in this receipt.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Launch with Windows</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Low-power device mode</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Software rendering instead of the graphics card — for older all-in-one PCs and low-end laptops. Requires restarting the till.</x:String>
@@ -780,6 +787,8 @@
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Nothing found — click "Find"</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Print retries on failure</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Paper width</x:String>
+  <x:String x:Key="posSettings.print.charsPerLine">Characters per line</x:String>
+  <x:String x:Key="posSettings.print.widthHint">If dotted or dashed lines or amounts run past the edge of the receipt, reduce it: 58 mm — from 32 to 30, 80 mm — from 48 to 42 (graphics: 576 → 512 dots). Each paper width keeps its own value. Check with the test print button.</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Graphics (dots)</x:String>
   <x:String x:Key="posSettings.print.printMode">Print mode</x:String>
   <x:String x:Key="posSettings.print.modeText">Text</x:String>

@@ -6,6 +6,8 @@
 # ---- СЕКРЕТЫ. Никогда не коммитить ----
 token.txt
 license-token.txt
+# 2026-10-01: токен бота поддержки (SupportLogService) — кладётся рядом с программой, не в git.
+support-bot.json
 docs/paid-serial-keys.md
 *.pfx
 *.snk

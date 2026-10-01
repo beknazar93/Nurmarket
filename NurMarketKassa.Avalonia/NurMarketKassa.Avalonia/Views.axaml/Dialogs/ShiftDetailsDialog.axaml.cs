@@ -611,16 +611,24 @@ public partial class ShiftDetailsDialog : Window
         // withdrawals (income_total туда же включает, например, наличную оплату долгов — она
         // печатается своей строкой «Прочие приходы»).
         var otherIncome = 0m;
+        // 2026-10-01, ТЗ-BE-2026-04 AN-02 (сделано на сервере): наличные, внесённые при продаже в долг,
+        // и оплата долгов наличными — отдельными строками; обе входят в ожидаемую наличность сервера.
+        var debtPrepaidCash = server?.DebtPrepaymentsCash ?? 0m;
+        var debtPaidCash = server?.DebtPaymentsCash ?? 0m;
         if (server is not null)
         {
             deposits = server.Deposits;
             withdrawals = server.Withdrawals;
-            otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits);
+            otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits - debtPaidCash);
         }
-        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m)
+        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPrepaidCash > 0m || debtPaidCash > 0m)
         {
             if (deposits > 0m)
                 sb.AppendLine($"Внесения: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            if (debtPrepaidCash > 0m)
+                sb.AppendLine($"Внесено при продаже в долг (нал.): +{debtPrepaidCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+            if (debtPaidCash > 0m)
+                sb.AppendLine($"Оплата долгов наличными: +{debtPaidCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             if (otherIncome > 0m)
                 // Погашения долгов сервер сам пишет в смену (debt_repayment) — они здесь, одной строкой
                 // сервера; локальный счётчик «Оплата долгов» к ней не прибавляется.

@@ -46,8 +46,20 @@ public sealed class PermissionService : IPermissionService
         // для владельца означал, что тарифные ограничения не действовали на самого частого
         // пользователя кассы — владельца небольшого магазина. Теперь роль вообще не даёт
         // никаких прав "бесплатно" — только реальные can_view_* флаги и явный список permissions.
-        return ExtractPermissionNames(_authApi.UserPayload).Contains(permission);
+        if (ExtractPermissionNames(_authApi.UserPayload).Contains(permission))
+            return true;
+
+        // 2026-10-01: разделы, которые сайт открывает владельцу всегда (PosPermissions.OwnerSections).
+        // Тарифные флаги (поставщики, весы, этикетки…) сюда не входят — их по-прежнему решает сервер.
+        return PosPermissions.OwnerSections.Contains(permission, StringComparer.OrdinalIgnoreCase)
+               && IsOwnerRole(_authApi.UserPayload);
     }
+
+    private static bool IsOwnerRole(JsonElement payload) =>
+        payload.ValueKind == JsonValueKind.Object
+        && payload.TryGetProperty("role", out var role)
+        && role.ValueKind == JsonValueKind.String
+        && string.Equals(role.GetString(), "owner", StringComparison.OrdinalIgnoreCase);
 
     public void Demand(string permission)
     {

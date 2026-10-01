@@ -263,10 +263,8 @@ public static class PriceTagService
             try
             {
                 using var tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm);
-                var raster = BarcodeLabelService.BitmapToEscPosRaster(tag);
-                var copies = Math.Clamp(request.Copies, 1, 99);
-                for (var i = 0; i < copies; i++)
-                    PrinterPortService.SendRawBytes(request.PrinterName, raster);
+                // 2026-10-01: язык принтера, зазор и сдвиг — из калибровки этикеток (BarcodeLabelService).
+                BarcodeLabelService.SendRawLabel(request.PrinterName, tag, request.WidthMm, request.HeightMm, request.Copies);
                 return LabelPrintResult.Success;
             }
             catch (Exception ex)
@@ -308,6 +306,7 @@ public static class PriceTagService
         doc.Disposed += (_, _) => tag?.Dispose();
         doc.PrinterSettings.PrinterName = request.PrinterName;
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+        BarcodeLabelService.ApplyLabelPageSize(doc, request.WidthMm, request.HeightMm);
         doc.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
@@ -319,7 +318,7 @@ public static class PriceTagService
                 tagDpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
                 tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm, tagDpi);
             }
-            BarcodeLabelService.DrawOnPrinterPage(g, tag, 0, 0, tagDpi);
+            BarcodeLabelService.DrawOnPrinterPage(g, tag, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, tagDpi);
             copiesRemaining--;
             e.HasMorePages = copiesRemaining > 0;
         };

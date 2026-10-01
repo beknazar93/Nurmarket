@@ -71,6 +71,28 @@ public partial class MainWindow
         return Task.CompletedTask;
     }
 
+    private readonly Dictionary<string, (DateTime At, List<ProductVariantDto> Variants)> _variantCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-01: варианты товара (размер/цвет) с сервера, кеш на 2 минуты. null — сервер
+    /// недоступен: товар добавляется как обычно (без варианта), причина — в журнал.</summary>
+    private async Task<List<ProductVariantDto>?> LoadProductVariantsAsync(string productId)
+    {
+        if (_variantCache.TryGetValue(productId, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(2))
+            return cached.Variants;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+            var list = await App.CatalogApi.GetProductVariantsAsync(productId, cts.Token).ConfigureAwait(true);
+            _variantCache[productId] = (DateTime.UtcNow, list);
+            return list;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Варианты товара {productId} не получены ({ex.Message}) — добавляю без размера/цвета.", "CART");
+            return null;
+        }
+    }
+
     internal async Task AddProductFromCatalogAsync(CatalogProductTileVm vm, string? lineNameOverride = null)
     {
         if (!_session.IsShiftOpen)
@@ -83,6 +105,35 @@ public partial class MainWindow
         var cart = ResolveCartService();
         double qtyToAdd;
         var mustWeigh = ProductUnitNormalizer.RequiresWeighing(vm);
+
+        // 2026-10-01, владелец: «магазин одежды — при выборе нужно выбрать размер, цвет, возможно
+        // изменение цены, если на какой-то размер или цвет есть скидка». В сфере «Одежда» у товара с
+        // вариантами NurCRM (размер/цвет) сначала выбирается вариант; цену и остаток списывает сервер.
+        if (MarketSpheres.IsClothing && !mustWeigh && lineNameOverride == null)
+        {
+            var variants = await LoadProductVariantsAsync(vm.Id).ConfigureAwait(true);
+            if (variants is { Count: > 0 } && variants.Any(v => v.IsActive))
+            {
+                var picker = new VariantPickerWindow(vm, variants);
+                await picker.ShowDialog(this).ConfigureAwait(true);
+                if (picker.Result is not { Id: { } variantId } chosen)
+                    return;
+                if (chosen.Quantity < picker.Quantity
+                    && !PosDialogs.ConfirmYesNo(this, Tr.T(
+                        $"Остаток этого размера/цвета — {chosen.Quantity:0.###} шт. Всё равно добавить {picker.Quantity:0} шт.?",
+                        $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир {picker.Quantity:0} даана кошулсунбу?",
+                        $"Only {chosen.Quantity:0.###} pcs of this size/color left. Add {picker.Quantity:0} pcs anyway?",
+                        $"Bu beden/renkten {chosen.Quantity:0.###} adet kaldı. Yine de {picker.Quantity:0} adet eklensin mi?",
+                        $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir {picker.Quantity:0} dona qo'shilsinmi?")))
+                    return;
+
+                var parts = new[] { chosen.Size, chosen.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
+                var label = $"{vm.Title} ({string.Join(", ", parts)})";
+                var unitPrice = chosen.Price ?? LocalCartService.ParsePrice(vm.PriceLine);
+                _viewModel.Basket.AddVariantFromCatalog(vm, picker.Quantity, unitPrice, variantId, label, chosen.Size, chosen.Color);
+                return;
+            }
+        }
 
         if (vm.HasPieceOption && !mustWeigh)
         {

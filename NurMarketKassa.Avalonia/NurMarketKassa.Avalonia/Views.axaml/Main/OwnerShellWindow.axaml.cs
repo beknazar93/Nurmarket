@@ -135,6 +135,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _timer.Start();
             StartTelegramBot();
             _telegramTimer.Start();
+            // 2026-10-01: один раз предложить перенести бота на сервер NurCRM (работает круглые сутки).
+            ServerBotOffer.Schedule(this);
             // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
             // 2026-09-30: опрос «Закупок» и значок — только когда список заказов включён.
             if (ShowcaseApiService.OrdersListEnabled)
@@ -432,40 +434,46 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         Group(Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
         Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
-            () => { if (Authorize(PosPermissions.ViewProcurement)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
+        // 2026-10-01: права разделов — как на сайте NurCRM (PosPermissions.ViewProducts/ViewAnalytics/…):
+        // Склад — «Склад», Калькуляция/Финансы/Аналитика/ABC/бот — «Аналитика», Клиенты — «Клиенты»,
+        // Заказы с сайта — «Заказы». Раньше Склад — по «Закупкам», остальное открывалось всем.
         Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
-            () => OpenSection("calculator", () => new CalculatorWindow()));
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), !isStart,
-            () => OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()));
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
 
         Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuvlar va pul"));
         Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
         Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart,
-            () => OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()));
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()); });
         // Вся аналитика, кроме ABC (2026-09-27): выручка и оплаты, товары, сезонность, склад. Это
         // окно «Финансов» в режиме аналитики (FinanceWindow.AsAnalyticsSection); из самих
         // «Финансов», «Продаж» и «Склада» эти вкладки убраны. Права и тариф — как у «ABC-анализа».
         Add("analytics", "AnalyticsIcon", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika"), !isStart,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection()); });
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection()); });
         Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
+        // 2026-10-01, ТЗ-BE-2026-04 (AN-11, AN-12 сделаны сервером): прибыль (P&L), движение денег и сверка отчётов.
+        Add("profitcash", "FinanceIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), !isStart,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("profitcash", () => new ProfitCashReconcileWindow()); });
 
         // 2026-09-29, владелец: «заказы с сайта тоже должны падать в админку. Настройки сайта тоже».
         // Видны на любом тарифе: если витрина не подключена (на «Старте» это платная услуга NurCRM),
         // разделы сами говорят «Витрина не подключена» и как её подключить.
         Group(Tr.T("Сайт", "Сайт", "Website", "Web sitesi", "Veb-sayt"));
         Add("siteorders", "SiteOrdersIcon", Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar"), true,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("siteorders", () => new SiteOrdersWindow()); });
+            () => { if (Authorize(PosPermissions.ViewOrders)) OpenSection("siteorders", () => new SiteOrdersWindow()); });
         Add("sitesettings", "SiteSettingsIcon", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari"), true,
             OpenSiteSettings);
 
         Group(Tr.T("Люди", "Адамдар", "People", "Kişiler", "Odamlar"));
         Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
         // 2026-10-01, владелец: «в админке где аналитика по боту — обращения, клиенты, заказы?»
         Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), true,
-            () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 
@@ -780,12 +788,34 @@ public partial class OwnerShellWindow : Window, IMainShell
         if (App.GetRequiredService<IPermissionService>().HasPermission(permission))
             return true;
         PosLogger.Log($"Owner app: permission denied: {permission}", "WARNING");
+        // 2026-10-01: подсказка, какую галочку включить на сайте (названия — как на сайте NurCRM).
+        var siteRight = SiteRightName(permission);
+        var hint = siteRight is null ? "" : Environment.NewLine + Environment.NewLine + Tr.T(
+            $"Доступ даёт владелец на сайте NurCRM: Сотрудники → сотрудник → доступ «{siteRight}». После изменения перезапустите программу.",
+            $"Уруксатты ээси NurCRM сайтында берет: Кызматкерлер → кызматкер → «{siteRight}» уруксаты. Өзгөрткөндөн кийин программаны кайра ачыңыз.",
+            $"The owner grants it on the NurCRM website: Employees → employee → “{siteRight}” access. Restart the program after the change.",
+            $"Erişimi işletme sahibi NurCRM sitesinde verir: Çalışanlar → çalışan → «{siteRight}» erişimi. Değişiklikten sonra programı yeniden başlatın.",
+            $"Ruxsatni ega NurCRM saytida beradi: Xodimlar → xodim → «{siteRight}» ruxsati. O'zgartirgandan keyin dasturni qayta ishga tushiring.");
         PosMessageBox.Show(this,
             Tr.T("Недостаточно прав для этого раздела.", "Бул бөлүм үчүн укук жетишсиз.", "You don't have permission to open this section.",
-                "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas."),
+                "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas.") + hint,
             Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         return false;
     }
+
+    /// <summary>Название галочки доступа на сайте NurCRM (Сотрудники → доступы).</summary>
+    private static string? SiteRightName(string permission) => permission switch
+    {
+        PosPermissions.ViewProducts => "Склад",
+        PosPermissions.ViewAnalytics => "Аналитика",
+        PosPermissions.ViewClients => "Клиенты",
+        PosPermissions.ViewOrders => "Заказы",
+        PosPermissions.ViewSettings => "Настройки",
+        PosPermissions.ViewProcurement => "Закупки",
+        PosPermissions.ViewSupplier => "Поставщики",
+        PosPermissions.EmployeeReturn => "Возврат продаж сотрудником",
+        _ => null,
+    };
 
     // ------------------------------------------------------------------ сводка
 
@@ -1876,7 +1906,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void AbcOpen_Click(object? sender, RoutedEventArgs e)
     {
-        if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewSales))
+        if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewAnalytics))
             OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>());
     }
 
@@ -1912,7 +1942,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             return;
         try
         {
-            if (!App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewSales))
+            // 2026-10-01: заказы с сайта — право «Заказы» сайта NurCRM.
+            if (!App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewOrders))
                 return;
         }
         catch (Exception)
@@ -1979,7 +2010,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         if (TariffGate.IsStartTariff)
             return false;
-        if (Authorize(PosPermissions.ViewSales))
+        if (Authorize(PosPermissions.ViewAnalytics))
         {
             OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection());
             (_sections.FirstOrDefault(s => s.Key == "analytics")?.Window as FinanceWindow)?.ShowStockTab();
@@ -2009,7 +2040,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>Продажи изменились, пока сводка была скрыта разделом, — пересчитать при возврате.</summary>
     private bool _abcStale;
 
-    /// <summary>Как у раздела «ABC-анализ»: не на «Старте» и с правом смотреть продажи.</summary>
+    /// <summary>Как у раздела «ABC-анализ»: не на «Старте» и с правом «Аналитика» (2026-10-01, как на сайте).</summary>
     private static bool AbcAllowed
     {
         get
@@ -2018,7 +2049,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 return false;
             try
             {
-                return App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewSales);
+                return App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.ViewAnalytics);
             }
             catch (Exception)
             {

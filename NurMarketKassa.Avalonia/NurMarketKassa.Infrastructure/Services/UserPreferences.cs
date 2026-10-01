@@ -194,8 +194,28 @@ public sealed class UserPreferences
     /// <summary>Путь устройства/имя принтера для печати ценников (spooler-имя, \\.\USBxxx,
     /// LPT/COM или WinUSB-адрес VID:PID) — см. PrinterDiscoveryService.Discover().</summary>
     public string? LabelPrinterDevicePath { get; set; }
+
+    // 2026-10-01, владелец: «настройка штрихкодовой: пропускает наклейки и печатает не на том
+    // месте». Калибровка принтера этикеток (на этом ПК, для этикеток и ценников):
+    // LabelPageFromTemplate — размер страницы драйверу из шаблона (иначе драйвер тянул ленту по
+    // своему размеру бумаги и проскакивал наклейку); зазор между наклейками; сдвиг картинки;
+    // язык прямой печати (без драйвера): escpos — как раньше, escpos_gap — после этикетки подача
+    // до следующей (GS FF), tspl — команды этикеточных принтеров (SIZE/GAP/BITMAP/PRINT).
+    public bool LabelPageFromTemplate { get; set; } = true;
+    public double LabelGapMm { get; set; } = 2;
+    public double LabelOffsetXMm { get; set; }
+    public double LabelOffsetYMm { get; set; }
+    public string LabelRawLanguage { get; set; } = "escpos";
     /// <summary>Ширина ленты: 58 (узкая) или 80 (широкая) мм.</summary>
     public int ReceiptPaperWidthMm { get; set; } = ReceiptPaperProfile.Paper58mm;
+
+    // 2026-10-01: своя ширина печати для 58 и 80 мм (символов в строке — по ней же длина линий
+    // «-----», и точек графики), 0 — стандарт. Сразу передаётся в ReceiptPaperProfile.
+    private int _receiptCharWidth58, _receiptCharWidth80, _receiptDots58, _receiptDots80;
+    public int ReceiptCharWidth58 { get => _receiptCharWidth58; set { _receiptCharWidth58 = value; ReceiptPaperProfile.CharWidth58Override = value; } }
+    public int ReceiptCharWidth80 { get => _receiptCharWidth80; set { _receiptCharWidth80 = value; ReceiptPaperProfile.CharWidth80Override = value; } }
+    public int ReceiptDots58 { get => _receiptDots58; set { _receiptDots58 = value; ReceiptPaperProfile.Dots58Override = value; } }
+    public int ReceiptDots80 { get => _receiptDots80; set { _receiptDots80 = value; ReceiptPaperProfile.Dots80Override = value; } }
 
     // ===== ТЕКСТОВЫЙ РЕЖИМ =====
     public string ReceiptEncoding { get; set; } = "wpc1251";
@@ -511,6 +531,22 @@ public sealed class UserPreferences
         ShowQuickProductsChanged?.Invoke();
     }
 
+    /// <summary>2026-10-01, «Умная допродажа»: подсказка «С этим часто берут» над итогом чека.
+    /// По умолчанию выключена — новая функция не должна появиться у кассира сама после обновления;
+    /// включается в «Настройки → Экран» и применяется сразу.</summary>
+    public bool UpsellEnabled { get; set; }
+
+    public static event Action? UpsellEnabledChanged;
+
+    public static void SetUpsellEnabled(bool enabled)
+    {
+        if (Instance.UpsellEnabled == enabled)
+            return;
+        Instance.UpsellEnabled = enabled;
+        Instance.SaveToDisk();
+        UpsellEnabledChanged?.Invoke();
+    }
+
     /// <summary>Процент от финальной суммы чека, начисляемый клиенту бонусами при включённой
     /// программе лояльности.</summary>
     public double LoyaltyEarnPercent { get; set; } = 5;
@@ -811,6 +847,16 @@ public sealed class UserPreferences
                 p.ReceiptDevicePath = HardwarePortHelper.NormalizeLptPort(fromFile.ReceiptDevicePath, p.ReceiptDevicePath);
             if (!string.IsNullOrWhiteSpace(fromFile.LabelPrinterDevicePath))
                 p.LabelPrinterDevicePath = fromFile.LabelPrinterDevicePath;
+            if (fromFile.LabelPageFromTemplate is not null)
+                p.LabelPageFromTemplate = fromFile.LabelPageFromTemplate.Value;
+            if (fromFile.LabelGapMm is >= 0 and <= 20)
+                p.LabelGapMm = fromFile.LabelGapMm.Value;
+            if (fromFile.LabelOffsetXMm is >= -20 and <= 20)
+                p.LabelOffsetXMm = fromFile.LabelOffsetXMm.Value;
+            if (fromFile.LabelOffsetYMm is >= -20 and <= 20)
+                p.LabelOffsetYMm = fromFile.LabelOffsetYMm.Value;
+            if (fromFile.LabelRawLanguage is "escpos" or "escpos_gap" or "tspl")
+                p.LabelRawLanguage = fromFile.LabelRawLanguage;
             if (fromFile.ReceiptEnabled is not null)
                 p.ReceiptEnabled = fromFile.ReceiptEnabled.Value;
             // 2026-09-29: нет в файле (кассир не трогал «Напечатать чек») — остаётся null, как раньше.
@@ -824,6 +870,10 @@ public sealed class UserPreferences
                 p.ReceiptPaperWidthMm = ReceiptPaperProfile.NormalizePaperWidthMm(fromFile.ReceiptPaperWidthMm);
             else if (fromFile.GraphicPaperWidthPixels is >= 500)
                 p.ReceiptPaperWidthMm = ReceiptPaperProfile.Paper80mm;
+            p.ReceiptCharWidth58 = fromFile.ReceiptCharWidth58 ?? 0;
+            p.ReceiptCharWidth80 = fromFile.ReceiptCharWidth80 ?? 0;
+            p.ReceiptDots58 = fromFile.ReceiptDots58 ?? 0;
+            p.ReceiptDots80 = fromFile.ReceiptDots80 ?? 0;
 
             // Текстовый режим
             if (!string.IsNullOrWhiteSpace(fromFile.ReceiptEncoding))
@@ -1058,6 +1108,8 @@ public sealed class UserPreferences
                 p.LoyaltyEnabled = fromFile.LoyaltyEnabled.Value;
             if (fromFile.ShowQuickProducts is not null)
                 p.ShowQuickProducts = fromFile.ShowQuickProducts.Value;
+            if (fromFile.UpsellEnabled is not null)
+                p.UpsellEnabled = fromFile.UpsellEnabled.Value;
             // 2026-09-28: марка весов раньше не писалась в файл — после перезапуска окно «Весы»
             // снова открывалось на «Штрих-М», какую бы модель ни выбрали.
             if (!string.IsNullOrWhiteSpace(fromFile.ScaleBrand))
@@ -1211,6 +1263,11 @@ public sealed class UserPreferences
                 ScalePollMs = ScalePollMs,
                 ReceiptDevicePath = ReceiptDevicePath,
                 LabelPrinterDevicePath = LabelPrinterDevicePath,
+                LabelPageFromTemplate = LabelPageFromTemplate,
+                LabelGapMm = LabelGapMm,
+                LabelOffsetXMm = LabelOffsetXMm,
+                LabelOffsetYMm = LabelOffsetYMm,
+                LabelRawLanguage = LabelRawLanguage,
                 ReceiptEncoding = ReceiptEncoding,
                 ReceiptEscPosTable = ReceiptEscPosTable,
                 ReceiptEscR = ReceiptEscR,
@@ -1310,6 +1367,7 @@ public sealed class UserPreferences
                 EmployeeAccessCodes = EmployeeAccessCodes,
                 LoyaltyEnabled = LoyaltyEnabled,
                 ShowQuickProducts = ShowQuickProducts,
+                UpsellEnabled = UpsellEnabled,
                 ScaleBrand = ScaleBrand,
                 ScaleNetworkIp = ScaleNetworkIp,
                 RongtaDataSource = RongtaDataSource,
@@ -1349,6 +1407,10 @@ public sealed class UserPreferences
                 GraphicReceiptEnabled = GraphicReceiptEnabled,
                 QrCodePath = QrCodePath,
                 GraphicPaperWidthPixels = GraphicPaperWidthPixels,
+                ReceiptCharWidth58 = ReceiptCharWidth58 > 0 ? ReceiptCharWidth58 : null,
+                ReceiptCharWidth80 = ReceiptCharWidth80 > 0 ? ReceiptCharWidth80 : null,
+                ReceiptDots58 = ReceiptDots58 > 0 ? ReceiptDots58 : null,
+                ReceiptDots80 = ReceiptDots80 > 0 ? ReceiptDots80 : null,
                 GraphicFontFamily = GraphicFontFamily,
                 SelectedPrintMode = SelectedPrintMode,
                 StoreName = StoreName,
@@ -1457,6 +1519,11 @@ public sealed class UserPreferences
         public int? ScalePollMs { get; set; }
         public string? ReceiptDevicePath { get; set; }
         public string? LabelPrinterDevicePath { get; set; }
+        public bool? LabelPageFromTemplate { get; set; }
+        public double? LabelGapMm { get; set; }
+        public double? LabelOffsetXMm { get; set; }
+        public double? LabelOffsetYMm { get; set; }
+        public string? LabelRawLanguage { get; set; }
         public string? ReceiptEncoding { get; set; }
         public int? ReceiptEscPosTable { get; set; }
         public int? ReceiptEscR { get; set; }
@@ -1557,6 +1624,7 @@ public sealed class UserPreferences
         public List<EmployeeAccessCode>? EmployeeAccessCodes { get; set; }
         public bool? LoyaltyEnabled { get; set; }
         public bool? ShowQuickProducts { get; set; }
+        public bool? UpsellEnabled { get; set; }
         public string? ScaleBrand { get; set; }
         // 2026-09-28: сетевые весы (см. комментарий в LoadFromDiskAndMergeDefaults).
         public string? ScaleNetworkIp { get; set; }
@@ -1597,6 +1665,10 @@ public sealed class UserPreferences
         public bool? GraphicReceiptEnabled { get; set; }
         public string? QrCodePath { get; set; }
         public int? GraphicPaperWidthPixels { get; set; }
+        public int? ReceiptCharWidth58 { get; set; }
+        public int? ReceiptCharWidth80 { get; set; }
+        public int? ReceiptDots58 { get; set; }
+        public int? ReceiptDots80 { get; set; }
         public string? GraphicFontFamily { get; set; }
         public PrintMode? SelectedPrintMode { get; set; }
         public string? StoreName { get; set; }

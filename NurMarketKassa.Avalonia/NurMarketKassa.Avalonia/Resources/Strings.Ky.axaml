@@ -68,6 +68,8 @@
   <x:String x:Key="csh.catalog.addProductButton">+ Товар кошуу</x:String>
   <x:String x:Key="csh.catalog.currency">сом</x:String>
   <x:String x:Key="csh.catalog.favoriteTooltip">Тандалмалар</x:String>
+  <x:String x:Key="csh.catalog.details">Толугураак</x:String>
+  <x:String x:Key="csh.catalog.detailsTooltip">Сатуучунун товар жөнүндө сүрөттөмөсү</x:String>
   <x:String x:Key="csh.catalog.tabAll">Бардык товарлар</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Салмактуу</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Даана</x:String>
@@ -726,6 +728,11 @@
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows тапшырмалар панелин толугу менен жашырат. Толук экран режими менен бирге гана иштейт.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Бош чектеги ыкчам товарлар</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Тандалган товарлар (каталогдогу ★) «Себет бош» деген жазуунун астында. Керек болбосо өчүрүңүз.</x:String>
+  <x:String x:Key="csh.upsell.title">Муну менен көп алышат</x:String>
+  <x:String x:Key="csh.upsell.add">Кошуу</x:String>
+  <x:String x:Key="csh.upsell.skip">Өткөрүү</x:String>
+  <x:String x:Key="posSettings.screen.upsell">Кошумча сатуу кеңештери</x:String>
+  <x:String x:Key="posSettings.screen.upsellDesc">Чектин жыйынтыгынын үстүндө — чектеги товарлар менен көп бирге сатылып алынган товар (90 күндүк чектер боюнча, кампада бары гана). «Кошуу» аны чекке кошот, «Өткөрүү» — бул чекте мындан ары сунушталбайт.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows менен бирге иштетүү</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Алсыз түзмөк режими</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Видеокартанын ордуна программалык рендер — эски моноблоктор жана алсыз ноутбуктар үчүн. Кассаны кайра иштетүүнү талап кылат.</x:String>
@@ -780,6 +787,8 @@
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Эч нерсе табылган жок — «Издөө» баскычын басыңыз</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Ката кетсе кайра басып чыгаруу саны</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Тасманын туурасы</x:String>
+  <x:String x:Key="posSettings.print.charsPerLine">Саптагы белгилер</x:String>
+  <x:String x:Key="posSettings.print.widthHint">Чекиттер менен сызыкчалардан турган сызыктар же суммалар чектин четинен чыгып кетсе — азайтыңыз: 58 мм — 32ден 30га, 80 мм — 48ден 42ге (графика: 576 → 512 чекит). Ар бир тасма туурасы үчүн өз мааниси. Сынак басып чыгаруу баскычы менен текшериңиз.</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Графика (чекиттер)</x:String>
   <x:String x:Key="posSettings.print.printMode">Басып чыгаруу режими</x:String>
   <x:String x:Key="posSettings.print.modeText">Текст</x:String>

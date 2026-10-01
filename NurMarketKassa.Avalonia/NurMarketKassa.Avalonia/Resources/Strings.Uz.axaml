@@ -68,6 +68,8 @@
   <x:String x:Key="csh.catalog.addProductButton">+ Mahsulot qo'shish</x:String>
   <x:String x:Key="csh.catalog.currency">so'm</x:String>
   <x:String x:Key="csh.catalog.favoriteTooltip">Sevimlilar</x:String>
+  <x:String x:Key="csh.catalog.details">Batafsil</x:String>
+  <x:String x:Key="csh.catalog.detailsTooltip">Sotuvchining mahsulot tavsifi</x:String>
   <x:String x:Key="csh.catalog.tabAll">Barcha mahsulotlar</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Vaznli</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Donali</x:String>
@@ -726,6 +728,11 @@
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Windows vazifalar panelini butunlay yashiradi. Faqat to'liq ekran rejimi bilan birga ishlaydi.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Bo‘sh chekda tezkor mahsulotlar</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Sevimli mahsulotlar (katalogda ★) «Savat bo'sh» yozuvi ostida. Kerak bo‘lmasa, o‘chiring.</x:String>
+  <x:String x:Key="csh.upsell.title">Bu bilan ko'p olishadi</x:String>
+  <x:String x:Key="csh.upsell.add">Qo'shish</x:String>
+  <x:String x:Key="csh.upsell.skip">O'tkazib yuborish</x:String>
+  <x:String x:Key="posSettings.screen.upsell">Qo'shimcha sotuv maslahatlari</x:String>
+  <x:String x:Key="posSettings.screen.upsellDesc">Chek jamining ustida — chekdagi mahsulotlar bilan tez-tez birga olinadigan mahsulot (90 kunlik cheklar bo'yicha, faqat omborda borlari). «Qo'shish» uni chekka qo'shadi, «O'tkazib yuborish» — bu chekda boshqa taklif qilinmaydi.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Windows bilan birga ishga tushirish</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Zaif qurilma rejimi</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Videokarta o'rniga dasturiy render — eski monobloklar va kuchsiz noutbuklar uchun. Kassani qayta ishga tushirish talab qilinadi.</x:String>
@@ -780,6 +787,8 @@
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Hech narsa topilmadi — "Topish" tugmasini bosing</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Xato bo'lganda qayta urinishlar</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Lenta kengligi</x:String>
+  <x:String x:Key="posSettings.print.charsPerLine">Qatordagi belgilar</x:String>
+  <x:String x:Key="posSettings.print.widthHint">Nuqta va chiziqchalardan iborat chiziqlar yoki summalar chek chetidan chiqib ketsa, kamaytiring: 58 mm — 32 dan 30 ga, 80 mm — 48 dan 42 ga (grafika: 576 → 512 nuqta). Har bir lenta kengligi uchun o'z qiymati. Sinov chop etish tugmasi bilan tekshiring.</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Grafika (nuqtalar)</x:String>
   <x:String x:Key="posSettings.print.printMode">Chop etish rejimi</x:String>
   <x:String x:Key="posSettings.print.modeText">Matn</x:String>

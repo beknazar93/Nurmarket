@@ -238,6 +238,10 @@ public partial class App : Application
             // Пока CrashReportService.UploadEndpoint не задан (появится в будущем обновлении) —
             // не делает ничего, отчёты просто продолжают копиться локально.
             _ = CrashReportService.TryUploadPendingReportsAsync();
+            // 2026-10-01: отчёты о сбоях — в бот поддержки (если он подключён, см. SupportLogService).
+            _ = SupportLogService.TrySendPendingCrashReportsAsync();
+            // 2026-10-01: создать клиент бота на сервере заранее — опрос Telegram спрашивает у него режим.
+            _ = AppHost!.Services.GetRequiredService<NurMarketKassa.Services.Api.ServerTelegramBotApi>();
 
             await CompleteAuthenticationStartupAsync(desktop, splash, session).ConfigureAwait(true);
         }

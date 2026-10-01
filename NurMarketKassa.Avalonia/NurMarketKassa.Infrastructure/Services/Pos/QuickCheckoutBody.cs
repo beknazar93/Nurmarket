@@ -140,6 +140,15 @@ public static class QuickCheckoutBody
                 payment["cash_amount"] = received ?? "0.00";
                 payment["card_amount"] = Money(nonCashReceived) ?? "0.00";
             }
+            else if (string.Equals(method, "debt", StringComparison.OrdinalIgnoreCase)
+                     && decimal.TryParse(received, NumberStyles.Any, CultureInfo.InvariantCulture, out var prepaid) && prepaid > 0m)
+            {
+                // 2026-10-01, ТЗ-BE-2026-04 AN-01 (сервер сделал): внесённое сразу при продаже в долг —
+                // с разбивкой. Касса принимает предоплату долга наличными, поэтому всё — в cash_amount:
+                // сервер кладёт её в «Наличные» продажи и в ожидаемую наличность смены (AN-02).
+                payment["cash_amount"] = received;
+                payment["card_amount"] = "0.00";
+            }
 
             body["payment"] = payment;
 
@@ -202,6 +211,13 @@ public static class QuickCheckoutBody
         if (!string.IsNullOrWhiteSpace(CartDisplayHelper.SalePackageId(it)))
         {
             unsupportedReason = $"«{name}»: поштучно из пачки";
+            return null;
+        }
+
+        // 2026-10-01: вариант (размер/цвет) — через add-item с variant_id (StagingCartService).
+        if (!string.IsNullOrWhiteSpace(CartDisplayHelper.ServerVariantId(it)))
+        {
+            unsupportedReason = $"«{name}»: размер/цвет";
             return null;
         }
 

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -96,7 +97,44 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         InitializeComponent();
     }
 
-    private void Window_Loaded(object? sender, RoutedEventArgs e) => LoadRows();
+    private void Window_Loaded(object? sender, RoutedEventArgs e)
+    {
+        SendSupportButton.Content = Tr.T("Отправить в поддержку", "Колдоого жөнөтүү", "Send to support", "Desteğe gönder", "Yordamga yuborish");
+        LoadRows();
+    }
+
+    /// <summary>2026-10-01: журнал и отчёты о сбоях — в Telegram-бот поддержки с названием компании
+    /// и логином (SupportLogService). Пока бот не подключён — подсказка отправить файлы вручную.</summary>
+    private async void SendSupport_Click(object? sender, RoutedEventArgs e)
+    {
+        var title = Tr.T("Отправить в поддержку", "Колдоого жөнөтүү", "Send to support", "Desteğe gönder", "Yordamga yuborish");
+        if (!SupportLogService.IsConfigured)
+        {
+            PosMessageBox.Show(this, Tr.T(
+                "Бот поддержки ещё не подключён. Нажмите «Открыть папку» и отправьте файлы журнала в поддержку NurMarket вручную.",
+                "Колдоо боту азырынча туташкан эмес. «Папканы ачуу» баскычын басып, журнал файлдарын NurMarket колдоосуна кол менен жөнөтүңүз.",
+                "The support bot isn't connected yet. Click “Open folder” and send the log files to NurMarket support manually.",
+                "Destek botu henüz bağlı değil. «Klasörü aç»a tıklayın ve günlük dosyalarını NurMarket desteğine elle gönderin.",
+                "Yordam boti hali ulanmagan. «Papkani ochish» tugmasini bosing va jurnal fayllarini NurMarket yordamiga qo'lda yuboring."),
+                title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+
+        SendSupportButton.IsEnabled = false;
+        try
+        {
+            var error = await SupportLogService.SendLogsAsync(null).ConfigureAwait(true);
+            PosMessageBox.Show(this, error is null
+                    ? Tr.T("Журнал отправлен в поддержку.", "Журнал колдоого жөнөтүлдү.", "The log was sent to support.", "Günlük desteğe gönderildi.", "Jurnal yordamga yuborildi.")
+                    : Tr.T("Журнал не отправлен: ", "Журнал жөнөтүлгөн жок: ", "The log was not sent: ", "Günlük gönderilmedi: ", "Jurnal yuborilmadi: ") + error,
+                title, System.Windows.MessageBoxButton.OK,
+                error is null ? System.Windows.MessageBoxImage.Information : System.Windows.MessageBoxImage.Warning);
+        }
+        finally
+        {
+            SendSupportButton.IsEnabled = true;
+        }
+    }
 
     private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadRows();
 

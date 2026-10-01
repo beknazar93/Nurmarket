@@ -155,7 +155,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     /// явное указание пользователя: "убери в старте всё кроме настройки и склада") — единственные
     /// два пункта меню, которые остаются доступны на любом тарифе.
     /// </summary>
-    public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProcurement) ?? true)
+    public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProducts) ?? true)
                                     && NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
     public bool CanViewSettings => _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
 
@@ -288,10 +288,10 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewReturn = (_permissions?.HasPermission(PosPermissions.EmployeeReturn) ?? true) && !isStart;
         CanViewDeferredReceipts = !isStart;
         CanViewRestock = !isStart && owner;
-        CanViewFinance = !isStart && owner;
+        CanViewFinance = (_permissions?.HasPermission(PosPermissions.ViewAnalytics) ?? true) && !isStart && owner;
         CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && !isStart && owner;
         CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart && owner;
-        CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
+        CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewClients) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
         CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
         CanViewCrm = !isStart && owner;
         CanViewErrorLogs = !isStart;

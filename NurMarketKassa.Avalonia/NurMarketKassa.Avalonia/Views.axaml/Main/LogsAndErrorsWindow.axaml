@@ -92,6 +92,9 @@
                         Margin="0,0,10,0" Click="Refresh_Click"/>
                 <Button x:Name="OpenFolderButton" Content="{DynamicResource logs.openFolder}" Classes="SecondaryActionButton"
                         Margin="0,0,10,0" Click="OpenFolder_Click"/>
+                <!-- 2026-10-01: журнал с компанией и логином — в Telegram-бот поддержки (SupportLogService). -->
+                <Button x:Name="SendSupportButton" Classes="SecondaryActionButton"
+                        Margin="0,0,10,0" Click="SendSupport_Click"/>
                 <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
             </StackPanel>
         </Grid>

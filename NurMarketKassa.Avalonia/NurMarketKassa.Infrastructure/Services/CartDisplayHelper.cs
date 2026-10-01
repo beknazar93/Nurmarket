@@ -465,6 +465,14 @@ public static class CartDisplayHelper
     /// unit_price, как это делает сайт: сервер сам подставляет цену пачки и не спотыкается
     /// о проверку "цена не ниже закупочной", которая иначе применяется при ручном оверрайде
     /// unit_price на базовом товаре.</summary>
+    /// <summary>2026-10-01, магазин одежды: вариант товара NurCRM (размер/цвет) в строке чека —
+    /// уходит на сервер как "variant_id" (StagingCartService), сервер берёт цену и остаток варианта.</summary>
+    public static string? ServerVariantId(JsonElement it) =>
+        it.TryGetProperty("server_variant_id", out var el) && el.ValueKind == JsonValueKind.String
+        && !string.IsNullOrWhiteSpace(el.GetString())
+            ? el.GetString()
+            : null;
+
     public static string? SalePackageId(JsonElement it) =>
         it.TryGetProperty("sale_package_id", out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()

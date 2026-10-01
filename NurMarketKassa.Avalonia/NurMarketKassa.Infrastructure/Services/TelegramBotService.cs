@@ -97,6 +97,54 @@ public static class TelegramBotService
         }
     }
 
+    /// <summary>2026-10-01, владелец: «у нас есть обработка голосовых команд — ответ голосом тоже реализуй
+    /// в боте». Скачивает голосовое сообщение (OGG/Opus) по file_id: getFile → файл. null — не вышло
+    /// или файл больше 5 МБ (≈ 5 минут речи — для вопроса боту этого с запасом).</summary>
+    public static async Task<byte[]?> DownloadFileAsync(string fileId, CancellationToken ct = default)
+    {
+        var token = UserPreferences.Instance.TelegramBotToken;
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(fileId))
+            return null;
+        try
+        {
+            using var info = await Http.GetAsync($"{ApiRoot}/bot{token}/getFile?file_id={Uri.EscapeDataString(fileId)}", ct).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(await info.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("result", out var result)
+                || !result.TryGetProperty("file_path", out var path))
+                return null;
+            if (result.TryGetProperty("file_size", out var size) && size.TryGetInt64(out var bytes) && bytes > 5_000_000)
+                return null;
+            return await Http.GetByteArrayAsync($"{ApiRoot}/file/bot{token}/{path.GetString()}", ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Телеграм-бот: голосовое не скачано ({ex.GetType().Name}).", "TELEGRAM");
+            return null;
+        }
+    }
+
+    /// <summary>Голосовой ответ (OGG/Opus) — sendVoice. Ошибка — текст причины, null — отправлено.</summary>
+    public static async Task<string?> SendVoiceAsync(string chatId, byte[] ogg, CancellationToken ct = default)
+    {
+        var token = UserPreferences.Instance.TelegramBotToken;
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chatId))
+            return "Не задан токен бота.";
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(chatId), "chat_id");
+            var file = new ByteArrayContent(ogg);
+            file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("audio/ogg");
+            form.Add(file, "voice", "answer.ogg");
+            using var response = await Http.PostAsync($"{ApiRoot}/bot{token}/sendVoice", form, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode ? null : $"HTTP {(int)response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            return ex.GetType().Name;
+        }
+    }
+
     /// <summary>Одно сообщение. 2026-09-29 (стресс-тест): на 429 «Too Many Requests» Telegram
     /// говорит, сколько подождать (retry_after), — раньше сообщение просто терялось (ответ владельцу,
     /// напоминание должнику при рассылке). Теперь ждём и повторяем, до трёх раз. Ответ 400 с

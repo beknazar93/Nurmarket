@@ -484,6 +484,41 @@
                                             </Border>
                                         </Button>
 
+                                        <!-- 2026-10-01, владелец: «в режиме магазина одежды и другое в каталоге должна быть
+                                             кнопка "Подробнее" с описанием товара, введённым продавцом» — сферы «Одежда» и «Услуги». -->
+                                        <!-- 2026-10-01, владелец: «кнопка "Подробнее" не видно, когда фото есть в товаре».
+                                             Фон кнопки main-ghost прозрачный (стиль шаблона), и фото просвечивало сквозь
+                                             надпись. Теперь подложка — отдельная непрозрачная рамка цвета плитки. -->
+                                        <Button Classes="main-ghost"
+                                                Focusable="False"
+                                                Padding="0"
+                                                Margin="6,6,0,0"
+                                                MinHeight="0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Top"
+                                                ZIndex="1"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
+                                                Click="ProductDetails_Click">
+                                            <!-- 2026-10-01: «Подробнее» — в одежде и услугах на каждой плитке; в любом виде магазина
+                                                 (ветаптека и т.п.) — у товаров, где продавец заполнил описание. -->
+                                            <Button.IsVisible>
+                                                <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                                    <Binding Path="$parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ShowProductDetails"/>
+                                                    <Binding Path="Description" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
+                                                </MultiBinding>
+                                            </Button.IsVisible>
+                                            <Border Background="{DynamicResource BrushCatalogTileBg}"
+                                                    BorderBrush="{DynamicResource BrushBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="9,3">
+                                                <TextBlock Text="{DynamicResource csh.catalog.details}" FontSize="10.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource BrushText}"/>
+                                            </Border>
+                                        </Button>
+
                                         <Button Width="28" Height="28"
                                                 Padding="0"
                                                 Margin="0,6,6,0"
@@ -605,6 +640,23 @@
                                                                        VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                                         </StackPanel>
                                                     </Grid>
+                                                </Button>
+                                                <Button Grid.Column="5" Classes="main-ghost" Focusable="False"
+                                                        Width="52" Height="34" Padding="0" Margin="0,8,0,0"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Background="Transparent" BorderThickness="0"
+                                                        ToolTip.Tip="{DynamicResource csh.catalog.detailsTooltip}"
+                                                        Click="ProductDetails_Click">
+                                                    <!-- 2026-10-01: «Подробнее» — в одежде и услугах на каждой плитке; в любом виде магазина
+                                                         (ветаптека и т.п.) — у товаров, где продавец заполнил описание. -->
+                                                    <Button.IsVisible>
+                                                        <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                                            <Binding Path="$parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ShowProductDetails"/>
+                                                            <Binding Path="Description" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
+                                                        </MultiBinding>
+                                                    </Button.IsVisible>
+                                                    <TextBlock Text="i" FontSize="17" FontWeight="Bold" FontStyle="Italic"
+                                                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Center"/>
                                                 </Button>
                                                 <Button Grid.Column="5" Width="52" Height="52" Padding="0"
                                                         HorizontalAlignment="Center" VerticalAlignment="Center"

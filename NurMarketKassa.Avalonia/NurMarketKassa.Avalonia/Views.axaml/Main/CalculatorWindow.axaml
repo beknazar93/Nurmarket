@@ -323,13 +323,15 @@
                     <Border Grid.Column="4" Classes="card"><StackPanel><TextBlock x:Name="StockProfitLabel" Classes="rLabel"/><TextBlock x:Name="StockProfitValue" Classes="rValue" Text="—"/></StackPanel></Border>
                     <Border Grid.Column="6" Classes="card"><StackPanel><TextBlock x:Name="StockMarginLabel" Classes="rLabel"/><TextBlock x:Name="StockMarginValue" Classes="rValue" Text="—"/></StackPanel></Border>
                 </Grid>
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
                     <WrapPanel x:Name="AuditFilters" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0">
                         <TextBlock x:Name="ThresholdLabel" Classes="hint" VerticalAlignment="Center"/>
                         <TextBox x:Name="ThresholdBox" Text="15" Width="70" TextChanged="Audit_Changed"/>
                     </StackPanel>
                     <TextBox Grid.Column="2" x:Name="AuditSearchBox" Width="260" TextChanged="Audit_Changed"/>
+                    <!-- 2026-10-01, «проверка товаров не обновляется, выдаёт старые данные»: явное обновление с сервера. -->
+                    <Button Grid.Column="3" x:Name="AuditRefreshButton" Classes="ghost" Margin="10,0,0,0" Click="AuditRefresh_Click"/>
                 </Grid>
                 <Border Grid.Row="2" Classes="card" Padding="10">
                     <DataGrid x:Name="AuditGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="38">

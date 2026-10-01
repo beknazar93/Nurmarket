@@ -46,8 +46,18 @@ public static class ReceiptPrintService
         if (string.IsNullOrWhiteSpace(port))
             throw new InvalidOperationException("Не указан порт принтера, к которому подключён денежный ящик.");
 
+        // 2026-10-01, владелец: «денежный ящик один раз заработал, потом перестал». Отдельное
+        // задание из одной команды ESC p принтер выполнял, только если был в исходном состоянии;
+        // после чека (режим страницы/графики, незакрытая строка) часть принтеров такую команду
+        // молча пропускает. Перед импульсом — ESC @ (сброс принтера в исходное состояние).
+        // Каждая попытка пишется в журнал с портом и контактом — по журналу клиента видно,
+        // дошла ли команда до принтера.
+        var pin = pinOverride ?? prefs.CashDrawerPin;
         using var ms = new MemoryStream();
-        EscPosCommands.WriteOpenCashDrawer(ms, pinOverride ?? prefs.CashDrawerPin);
+        ms.WriteByte(0x1B); // ESC @
+        ms.WriteByte(0x40);
+        EscPosCommands.WriteOpenCashDrawer(ms, pin);
+        PosLogger.Log($"Денежный ящик: импульс на порт {port}, контакт {(pin == 1 ? 5 : 2)}.", "PRINTER");
         PrinterPortService.SendRawBytes(port, ms.ToArray(), prefs.ReceiptRetryCount);
     }
 

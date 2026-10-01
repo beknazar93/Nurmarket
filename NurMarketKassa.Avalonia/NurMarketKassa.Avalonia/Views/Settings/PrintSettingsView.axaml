@@ -159,7 +159,7 @@
 
               <StackPanel Grid.Column="2" Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.print.graphicsDots}" Classes="FieldLabel"/>
-                <TextBox x:Name="GraphicWidthBox" x:FieldModifier="public" Text="384" Classes="ModernTextBox" Height="36" IsReadOnly="True"/>
+                <TextBox x:Name="GraphicWidthBox" x:FieldModifier="public" Text="384" Classes="ModernTextBox" Height="36"/>
               </StackPanel>
 
               <StackPanel Grid.Column="4" Spacing="4">
@@ -173,6 +173,18 @@
                                Classes="PrintModePill"/>
                 </Grid>
               </StackPanel>
+            </Grid>
+
+            <!-- 2026-10-01, владелец: «менять длину точки, чтобы они не выходили за рамки (80 и 58 мм)».
+                 Символов в строке — по ним строятся линии из чёрточек и столбец сумм; точки графики — выше.
+                 Своё значение для каждой ширины ленты. -->
+            <Grid ColumnDefinitions="*,12,2.2*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.print.charsPerLine}" Classes="FieldLabel"/>
+                <TextBox x:Name="ReceiptCharWidthBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36"/>
+              </StackPanel>
+              <TextBlock Grid.Column="2" Text="{DynamicResource posSettings.print.widthHint}" Classes="FieldLabel"
+                         TextWrapping="Wrap" VerticalAlignment="Center"/>
             </Grid>
           </StackPanel>
         </Border>

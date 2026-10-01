@@ -51,8 +51,28 @@ public partial class ScalesPluWindow
     private int PluStart =>
         int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start) && start > 0 ? start : 1;
 
-    private static HashSet<string> LiveProductIds() =>
-        NurMarketKassa.Services.CatalogCacheService.Products.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+    /// <summary>Товары, которые есть в каталоге. 2026-10-01, «кнопки весов слетают»: брались только
+    /// из каталога в памяти — пока он загружен не полностью, закреплённый номер «пропавшего»
+    /// товара считался свободным и уходил другому товару (у Rongta кнопка = PLU — кнопки
+    /// переезжали). Теперь — каталог в памяти + вся локальная база товаров.</summary>
+    private static HashSet<string> LiveProductIds()
+    {
+        var ids = NurMarketKassa.Services.CatalogCacheService.Products.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        try
+        {
+            foreach (var tile in NurMarketKassa.Services.LocalProductRepository.Instance.LoadAllTiles())
+                ids.Add(tile.Id);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Весы: локальный каталог не прочитан: {ex.Message}", "WARNING");
+        }
+        return ids;
+    }
+
+    /// <summary>Пустой каталог (ещё не загружен) — не знаем, кто «пропал»: считаем живыми всех,
+    /// чтобы не отдать чужой закреплённый номер.</summary>
+    private static Func<string, bool>? LiveFilter(HashSet<string> live) => live.Count == 0 ? null : live.Contains;
 
     private bool _pluRefreshQueued;
 
@@ -97,7 +117,7 @@ public partial class ScalesPluWindow
             _allRows.Where(r => r.IsSelected && !(catalogMode && r.CatalogPlu is > 0)).Select(r => r.Id),
             PluStart,
             MaxPlu,
-            live.Contains,
+            LiveFilter(live),
             reserved);
 
         foreach (var row in _allRows)
@@ -437,12 +457,12 @@ public partial class ScalesPluWindow
             rows.Where(r => !(catalogMode && r.CatalogPlu is > 0)).Select(r => r.Id),
             PluStart,
             MaxPlu,
-            live.Contains,
+            LiveFilter(live),
             reserved);
         if (fresh.Count > 0)
         {
             var taken = fresh.Values.ToHashSet();
-            foreach (var stale in profile.PluNumbers.Where(kv => !live.Contains(kv.Key) && taken.Contains(kv.Value)).Select(kv => kv.Key).ToList())
+            foreach (var stale in profile.PluNumbers.Where(kv => live.Count > 0 && !live.Contains(kv.Key) && taken.Contains(kv.Value)).Select(kv => kv.Key).ToList())
                 profile.PluNumbers.Remove(stale);
             foreach (var (id, plu) in fresh)
                 profile.PluNumbers[id] = plu;

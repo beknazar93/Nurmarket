@@ -1,5 +1,6 @@
-<layouts:KassaLayoutBase xmlns="https://github.com/avaloniaui"
+﻿<layouts:KassaLayoutBase xmlns="https://github.com/avaloniaui"
                          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
                          xmlns:layouts="using:NurMarketKassa.AvaloniaHost.Views.MainKassir.Layouts"
                          xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
                          xmlns:vm="using:NurMarketKassa.ViewModels.Main"
@@ -302,8 +303,12 @@
                     </ScrollViewer>
                 </Panel>
 
-                <TextBlock Grid.Row="4" Text="{Binding Basket.CartMessage}" IsVisible="{Binding Basket.HasCartMessage}"
+                <!-- 2026-10-01: подсказка допродажи «С этим часто берут» (UpsellBannerView) под сообщением чека. -->
+                <StackPanel Grid.Row="4">
+                    <TextBlock Text="{Binding Basket.CartMessage}" IsVisible="{Binding Basket.HasCartMessage}"
                            FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource BrushUiStatusOk}"/>
+                    <ctl:UpsellBannerView DataContext="{Binding Basket}"/>
+                </StackPanel>
 
                 <!-- Итоги -->
                 <StackPanel Grid.Row="5" Spacing="6" Margin="0,12,0,12">

@@ -105,6 +105,30 @@ public interface ICatalogApiService
     /// что сайт отдаёт на вкладке «Rongta» (/crm/scales) — уже с транслитерацией кириллицы
     /// (Rongta не печатает кириллицу). Возвращает null при ошибке/пустом ответе.</summary>
     Task<byte[]?> DownloadScaleExportAsync(bool translit = true, CancellationToken ct = default);
+
+    /// <summary>2026-10-01, магазин одежды: варианты товара (размер, цвет, своя цена, остаток,
+    /// штрихкод) — GET /api/main/products/{id}/variants/.</summary>
+    Task<List<ProductVariantDto>> GetProductVariantsAsync(string productId, CancellationToken ct = default);
+
+    /// <summary>Создать вариант (POST) или изменить (PATCH, если Id задан). Ответ — вариант сервера.</summary>
+    Task<ProductVariantDto> SaveProductVariantAsync(string productId, ProductVariantDto variant, CancellationToken ct = default);
+
+    /// <summary>DELETE /api/main/products/{id}/variants/{vid}/.</summary>
+    Task DeleteProductVariantAsync(string productId, string variantId, CancellationToken ct = default);
+}
+
+/// <summary>2026-10-01, магазин одежды: вариант товара NurCRM. Price = null — цена товара.
+/// Проверено на тестовом аккаунте: add-item с variant_id даёт строку с этим вариантом и ЕГО ценой
+/// (variant, variant_size, variant_color в строке продажи).</summary>
+public sealed class ProductVariantDto
+{
+    public string? Id { get; set; }
+    public string Size { get; set; } = "";
+    public string Color { get; set; } = "";
+    public string? Barcode { get; set; }
+    public double Quantity { get; set; }
+    public double? Price { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 /// <summary>Поля формы добавления/редактирования товара — соответствуют полям, которые

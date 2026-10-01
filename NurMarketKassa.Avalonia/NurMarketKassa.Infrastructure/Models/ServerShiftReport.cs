@@ -82,6 +82,11 @@ public sealed class ServerShiftReport
     public decimal Withdrawals { get; init; }
 
     public decimal IncomeTotal { get; init; }
+    /// <summary>2026-10-01, ТЗ-BE-2026-04 AN-02 (сервер сделал): внесено наличными при продаже в долг,
+    /// внесено безналом при продаже в долг, оплата долгов наличными в смене. null — старый сервер.</summary>
+    public decimal? DebtPrepaymentsCash { get; init; }
+    public decimal? DebtPrepaymentsNonCash { get; init; }
+    public decimal? DebtPaymentsCash { get; init; }
     public decimal ExpenseTotal { get; init; }
     public decimal? ExpectedCash { get; init; }
 
@@ -128,6 +133,9 @@ public sealed class ServerShiftReport
             Deposits = Num(e, "deposits") ?? 0m,
             Withdrawals = Num(e, "withdrawals") ?? 0m,
             IncomeTotal = Num(e, "income_total") ?? 0m,
+            DebtPrepaymentsCash = Num(e, "debt_prepayments_cash"),
+            DebtPrepaymentsNonCash = Num(e, "debt_prepayments_noncash"),
+            DebtPaymentsCash = Num(e, "debt_payments_cash"),
             ExpenseTotal = Num(e, "expense_total") ?? 0m,
             ExpectedCash = Num(e, "expected_cash"),
             CountedCash = Num(e, "counted_cash"),

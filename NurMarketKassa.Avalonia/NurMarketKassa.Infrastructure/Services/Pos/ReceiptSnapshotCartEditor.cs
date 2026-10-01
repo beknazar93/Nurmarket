@@ -355,6 +355,59 @@ public static class ReceiptSnapshotCartEditor
     /// пробили. Только для кассы: на сервер не уходит, сервер вариантов не хранит.</summary>
     public const string VariantNameField = "variant_name";
 
+    /// <summary>2026-10-01, владелец: «магазин одежды — при выборе нужно выбрать размер, цвет, возможно
+    /// изменение цены, если на какой-то размер или цвет есть скидка». Вариант NurCRM — своя строка
+    /// чека: сливается только с тем же вариантом (никогда — с основным товаром или другим размером,
+    /// даже при акции или одинаковой цене), несёт server_variant_id, размер и цвет. На сервер уходит
+    /// variant_id — сервер сам ставит цену варианта (StagingCartService).</summary>
+    public static void AddVariant(
+        ICartService cart, CatalogProductTileVm product, double qty, double unitPrice,
+        string variantId, string label, string? size, string? color)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        if (!double.IsFinite(qty) || qty <= 0)
+            throw new ArgumentOutOfRangeException(nameof(qty), "Количество должно быть больше нуля.");
+
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        root["items"] = items;
+        RepairMissingProductIds(items);
+
+        JsonObject? existing = null;
+        foreach (var node in items)
+        {
+            if (node is JsonObject obj
+                && obj["server_variant_id"] is JsonValue v && v.TryGetValue<string>(out var vid)
+                && string.Equals(vid, variantId, StringComparison.OrdinalIgnoreCase))
+            {
+                existing = obj;
+                break;
+            }
+        }
+
+        if (existing != null)
+        {
+            existing["quantity"] = JsonNumericReader.ToDouble(existing["quantity"]) + qty;
+            RecalcLine(existing);
+        }
+        else
+        {
+            var line = BuildLine(product.Id, label, product.Barcode, unitPrice, qty, mustWeigh: false);
+            line[VariantNameField] = label;
+            line["server_variant_id"] = variantId;
+            if (!string.IsNullOrWhiteSpace(size))
+                line["variant_size"] = size;
+            if (!string.IsNullOrWhiteSpace(color))
+                line["variant_color"] = color;
+            RecalcLine(line);
+            items.Add(line);
+        }
+
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+    }
+
     private static string? LineVariantName(JsonObject line) =>
         line[VariantNameField] is JsonValue value && value.TryGetValue<string>(out var name) && !string.IsNullOrWhiteSpace(name)
             ? name.Trim()

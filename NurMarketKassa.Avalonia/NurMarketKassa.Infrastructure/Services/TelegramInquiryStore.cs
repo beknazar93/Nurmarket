@@ -132,6 +132,56 @@ public static class TelegramInquiryStore
                + $"заказов через бота за 7 дней: {week.Count(e => e.OrderNumber != null)}.";
     }
 
+    // ── Данные покупателя для заказов ─────────────────────────────────────────────
+
+    /// <summary>2026-10-01, владелец: «запомнить ФИО и номер телефона, не спрашивать при каждом заказе,
+    /// просто попросить подтвердить». Имя и телефон из последнего оформленного заказа — по chat_id
+    /// покупателя (%APPDATA%\NurMarketKassa\telegram-customers.json, общий для кассы и программы владельца).</summary>
+    public sealed record CustomerProfile(string Name, string Phone, DateTime UpdatedAt);
+
+    private static string ProfilesPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "telegram-customers.json");
+
+    public static CustomerProfile? GetProfile(string chatId)
+    {
+        lock (Gate)
+        {
+            try
+            {
+                if (!File.Exists(ProfilesPath))
+                    return null;
+                var all = JsonSerializer.Deserialize<Dictionary<string, CustomerProfile>>(File.ReadAllText(ProfilesPath));
+                return all != null && all.TryGetValue(chatId, out var p) ? p : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    public static void SaveProfile(string chatId, string name, string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return;
+        try
+        {
+            lock (Gate)
+            {
+                var all = File.Exists(ProfilesPath)
+                    ? JsonSerializer.Deserialize<Dictionary<string, CustomerProfile>>(File.ReadAllText(ProfilesPath)) ?? new()
+                    : new Dictionary<string, CustomerProfile>();
+                all[chatId] = new CustomerProfile(name.Trim(), phone.Trim(), DateTime.Now);
+                Directory.CreateDirectory(Path.GetDirectoryName(ProfilesPath)!);
+                File.WriteAllText(ProfilesPath, JsonSerializer.Serialize(all));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Данные покупателя бота не сохранены ({ex.Message}).", "TELEGRAM");
+        }
+    }
+
     private static string Escape(string? text) => (text ?? "")
         .Replace("&", "&amp;")
         .Replace("<", "&lt;")

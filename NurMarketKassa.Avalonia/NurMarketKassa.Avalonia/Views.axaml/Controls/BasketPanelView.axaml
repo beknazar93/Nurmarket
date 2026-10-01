@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
              xmlns:pos="using:NurMarketKassa.Models.Pos"
+             xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketPanelView"
              x:DataType="vm:BasketPanelViewModel"
              x:CompileBindings="True"
@@ -781,12 +782,15 @@
                 </Grid>
 
                 <!-- Сообщения корзины -->
-                <TextBlock Grid.Row="4"
-                           Text="{Binding CartMessage}"
-                           FontSize="12"
-                           Foreground="{DynamicResource BrushUiStatusOk}"
-                           TextWrapping="Wrap"
-                           IsVisible="{Binding HasCartMessage}"/>
+                <StackPanel Grid.Row="4">
+                    <TextBlock Text="{Binding CartMessage}"
+                               FontSize="12"
+                               Foreground="{DynamicResource BrushUiStatusOk}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasCartMessage}"/>
+                    <!-- 2026-10-01: подсказка допродажи «С этим часто берут». -->
+                    <ctl:UpsellBannerView/>
+                </StackPanel>
 
                 <!-- Итоговая сумма -->
                 <!-- Редизайн 2026-09-28: подпись «Итого» слева, сумма с валютой вплотную справа —

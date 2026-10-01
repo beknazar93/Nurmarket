@@ -26,6 +26,8 @@ public sealed class LocalProductRecord
     public bool IsBundle { get; set; }
     /// <summary>Вид товара сайта: product / service / bundle (null — старая запись).</summary>
     public string? Kind { get; set; }
+    /// <summary>2026-10-01: описание товара от продавца (поле "description" в NurCRM) или null.</summary>
+    public string? Description { get; set; }
     /// <summary>Компактный JSON состава комплекта (List&lt;BundleComponent&gt;) или null.</summary>
     public string? BundleItemsJson { get; set; }
     /// <summary>Дополнительные штрихкоды — по одному в строке или через запятую (как их вводит

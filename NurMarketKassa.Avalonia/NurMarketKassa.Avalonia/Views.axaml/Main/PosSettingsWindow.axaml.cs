@@ -78,6 +78,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private Button BtnTestCashDrawer => _printView.BtnTestCashDrawer;
         private ComboBox ReceiptPaperWidthCombo => _printView.ReceiptPaperWidthCombo;
         private TextBox GraphicWidthBox => _printView.GraphicWidthBox;
+        private TextBox ReceiptCharWidthBox => _printView.ReceiptCharWidthBox;
+        // 2026-10-01: своя ширина печати для 58 и 80 мм (0 — стандарт); правки в полях держим
+        // здесь, пока кассир переключает ширину ленты, и сохраняем вместе с остальными настройками.
+        private int _charWidth58, _charWidth80, _dots58, _dots80;
+        private int _shownPaperMm;
         private RadioButton TextModeRadio => _printView.TextModeRadio;
         private RadioButton GraphicModeRadio => _printView.GraphicModeRadio;
         private ComboBox ReceiptEncCombo => _printView.ReceiptEncCombo;
@@ -248,6 +253,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             CashDrawerEnabledCheck.IsChecked = prefs.CashDrawerEnabled;
             SelectComboByTag(CashDrawerPinCombo, prefs.CashDrawerPin.ToString(CultureInfo.InvariantCulture));
 
+            _charWidth58 = prefs.ReceiptCharWidth58;
+            _charWidth80 = prefs.ReceiptCharWidth80;
+            _dots58 = prefs.ReceiptDots58;
+            _dots80 = prefs.ReceiptDots80;
+            _shownPaperMm = 0;
             SelectComboByTag(ReceiptPaperWidthCombo, prefs.ReceiptPaperWidthMm.ToString(CultureInfo.InvariantCulture));
             ApplyPaperWidthToUi(prefs.ReceiptPaperWidthMm);
 
@@ -570,8 +580,45 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void ApplyPaperWidthToUi(int paperWidthMm)
         {
             var normalized = ReceiptPaperProfile.NormalizePaperWidthMm(paperWidthMm);
+            StashPrintWidthFromUi();
+            _shownPaperMm = normalized;
+            var is80 = normalized >= ReceiptPaperProfile.Paper80mm;
+            var chars = is80 ? _charWidth80 : _charWidth58;
+            var dots = is80 ? _dots80 : _dots58;
             if (GraphicWidthBox != null)
-                GraphicWidthBox.Text = ReceiptPaperProfile.GetRasterWidthPixels(normalized).ToString(CultureInfo.InvariantCulture);
+                GraphicWidthBox.Text = (dots > 0 ? dots : ReceiptPaperProfile.GetDefaultRasterWidthPixels(normalized)).ToString(CultureInfo.InvariantCulture);
+            if (ReceiptCharWidthBox != null)
+                ReceiptCharWidthBox.Text = (chars > 0 ? chars : ReceiptPaperProfile.GetDefaultCharWidth(normalized)).ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>2026-10-01: запомнить поля «Символов в строке» и «Графика (точки)» для ширины ленты,
+        /// которая сейчас показана. Стандартное или недопустимое значение — 0 (стандарт).</summary>
+        private void StashPrintWidthFromUi()
+        {
+            if (_shownPaperMm == 0 || GraphicWidthBox == null || ReceiptCharWidthBox == null)
+                return;
+            var is80 = _shownPaperMm >= ReceiptPaperProfile.Paper80mm;
+            int chars = 0, dots = 0;
+            if (int.TryParse(ReceiptCharWidthBox.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var c)
+                && c is >= ReceiptPaperProfile.MinCharWidth and <= ReceiptPaperProfile.MaxCharWidth
+                && c != ReceiptPaperProfile.GetDefaultCharWidth(_shownPaperMm))
+                chars = c;
+            if (int.TryParse(GraphicWidthBox.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var d)
+                && d is >= ReceiptPaperProfile.MinDots and <= ReceiptPaperProfile.MaxDots
+                && d != ReceiptPaperProfile.GetDefaultRasterWidthPixels(_shownPaperMm))
+                dots = d;
+            if (is80) { _charWidth80 = chars; _dots80 = dots; }
+            else { _charWidth58 = chars; _dots58 = dots; }
+        }
+
+        /// <summary>2026-10-01: перенести свою ширину печати в настройки (сразу действует на печать).</summary>
+        private void ApplyPrintWidthToPrefs(UserPreferences prefs)
+        {
+            StashPrintWidthFromUi();
+            prefs.ReceiptCharWidth58 = _charWidth58;
+            prefs.ReceiptCharWidth80 = _charWidth80;
+            prefs.ReceiptDots58 = _dots58;
+            prefs.ReceiptDots80 = _dots80;
         }
 
         private static int ReadPaperWidthMmFromUi(ComboBox combo)
@@ -740,7 +787,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 else
                 {
                     var testText = ReceiptPdfPreviewService.BuildTextTestReceipt(contentSettings, storeName);
+                    // 2026-10-01: пробная печать — с шириной из полей, ещё до сохранения.
                     var charWidth = ReceiptPaperProfile.GetCharWidth(ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo));
+                    if (int.TryParse(ReceiptCharWidthBox.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uiChars)
+                        && uiChars is >= ReceiptPaperProfile.MinCharWidth and <= ReceiptPaperProfile.MaxCharWidth)
+                        charWidth = uiChars;
                     var payload = EscPosTextReceiptPrinter.BuildEscPosPayload(cfg, testText, charWidth);
                     ReceiptPrintService.SendRawBytes(devicePath, payload, retry);
                     StatusText.Text = Tr.T(
@@ -1201,6 +1252,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ? drawerPin
                     : 0;
             prefs.ReceiptPaperWidthMm = ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo);
+            ApplyPrintWidthToPrefs(prefs);
             prefs.GraphicPaperWidthPixels = ReceiptPaperProfile.GetRasterWidthPixels(prefs.ReceiptPaperWidthMm);
             prefs.ReceiptEncoding = (ReceiptEncCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "wpc1251";
 
@@ -1464,6 +1516,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var prefs = UserPreferences.Instance;
             var paperMm = ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo);
             var paperWidth = ReceiptPaperProfile.GetRasterWidthPixels(paperMm);
+            // 2026-10-01: пробная печать — с шириной из поля «Графика (точки)», ещё до сохранения.
+            if (int.TryParse(GraphicWidthBox.Text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uiDots)
+                && uiDots is >= ReceiptPaperProfile.MinDots and <= ReceiptPaperProfile.MaxDots)
+                paperWidth = uiDots / 8 * 8;
 
             return new GraphicReceiptSettings
             {

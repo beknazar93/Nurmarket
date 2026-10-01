@@ -121,6 +121,7 @@
 
                 <!-- Верхняя панель: размер этикетки + пресеты -->
                 <Border Grid.Row="0" Classes="editor-card" Margin="0,0,0,16">
+                  <StackPanel Spacing="10">
                     <StackPanel Orientation="Horizontal" Spacing="20">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{DynamicResource labelEditor.widthLabel}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
@@ -135,6 +136,32 @@
                             <ComboBox x:Name="SizePresetCombo" Width="200"/>
                         </StackPanel>
                     </StackPanel>
+                    <!-- 2026-10-01, «пропускает наклейки и печатает не на том месте»: калибровка принтера
+                         этикеток (на этом компьютере, для этикеток и ценников). Тексты — в коде (5 языков). -->
+                    <!-- Средняя колонка ширины Auto: ряд калибровки переносится в пределах ширины
+                         ряда размеров, а не раздвигает окно (правая колонка уходила за край). -->
+                    <WrapPanel MaxWidth="560" HorizontalAlignment="Left">
+                        <StackPanel Spacing="4" Margin="0,0,16,8">
+                            <TextBlock x:Name="LabelGapText" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <NumericUpDown x:Name="LabelGapBox" Minimum="0" Maximum="20" Increment="0.5" FormatString="0.#" Width="130"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4" Margin="0,0,16,8">
+                            <TextBlock x:Name="LabelOffsetXText" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <NumericUpDown x:Name="LabelOffsetXBox" Minimum="-20" Maximum="20" Increment="0.5" FormatString="0.#" Width="130"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4" Margin="0,0,16,8">
+                            <TextBlock x:Name="LabelOffsetYText" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <NumericUpDown x:Name="LabelOffsetYBox" Minimum="-20" Maximum="20" Increment="0.5" FormatString="0.#" Width="130"/>
+                        </StackPanel>
+                        <StackPanel Spacing="4" Margin="0,0,16,8">
+                            <TextBlock x:Name="LabelRawLangText" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
+                            <ComboBox x:Name="LabelRawLangCombo" Width="240"/>
+                        </StackPanel>
+                        <CheckBox x:Name="LabelPageFromTemplateCheck" VerticalAlignment="Bottom" Margin="0,0,0,12"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="LabelCalibHint" FontSize="11" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left"
+                               Foreground="{DynamicResource BrushTextMuted}"/>
+                  </StackPanel>
                 </Border>
 
                 <!-- Холст: контрастная серая подложка, чтобы белый лист этикетки был виден как

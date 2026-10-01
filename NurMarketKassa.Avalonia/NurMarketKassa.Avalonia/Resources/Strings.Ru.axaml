@@ -68,6 +68,8 @@
   <x:String x:Key="csh.catalog.addProductButton">+ Добавить товар</x:String>
   <x:String x:Key="csh.catalog.currency">сом</x:String>
   <x:String x:Key="csh.catalog.favoriteTooltip">Избранное</x:String>
+  <x:String x:Key="csh.catalog.details">Подробнее</x:String>
+  <x:String x:Key="csh.catalog.detailsTooltip">Описание товара от продавца</x:String>
   <x:String x:Key="csh.catalog.tabAll">Все товары</x:String>
   <x:String x:Key="csh.catalog.tabWeighted">Весовые</x:String>
   <x:String x:Key="csh.catalog.tabPiece">Штучные</x:String>
@@ -726,6 +728,11 @@
   <x:String x:Key="posSettings.screen.trueFullscreenDesc">Скрывает панель задач Windows полностью. Работает только вместе с полноэкранным режимом.</x:String>
   <x:String x:Key="posSettings.screen.quickProducts">Быстрые товары в пустом чеке</x:String>
   <x:String x:Key="posSettings.screen.quickProductsDesc">Избранные товары (★ в каталоге) под надписью «Корзина пуста». Выключите, если они не нужны.</x:String>
+  <x:String x:Key="csh.upsell.title">С этим часто берут</x:String>
+  <x:String x:Key="csh.upsell.add">Добавить</x:String>
+  <x:String x:Key="csh.upsell.skip">Пропустить</x:String>
+  <x:String x:Key="posSettings.screen.upsell">Подсказки допродажи</x:String>
+  <x:String x:Key="posSettings.screen.upsellDesc">Над итогом чека — товар, который часто покупают вместе с товарами чека (по истории чеков за 90 дней, только в наличии). «Добавить» кладёт его в чек, «Пропустить» — больше не предлагать в этом чеке.</x:String>
   <x:String x:Key="posSettings.screen.autostart">Запускать вместе с Windows</x:String>
   <x:String x:Key="posSettings.screen.lowPerfMode">Режим слабого устройства</x:String>
   <x:String x:Key="posSettings.screen.lowPerfModeDesc">Программный рендер вместо видеокарты — для старых моноблоков и слабых ноутбуков. Требует перезапуска кассы.</x:String>
@@ -780,6 +787,8 @@
   <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Ничего не найдено — нажмите «Найти»</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Повторы печати при сбое</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Ширина ленты</x:String>
+  <x:String x:Key="posSettings.print.charsPerLine">Символов в строке</x:String>
+  <x:String x:Key="posSettings.print.widthHint">Если линии из точек и чёрточек или суммы уходят за край чека — уменьшите: 58 мм — с 32 до 30, 80 мм — с 48 до 42 (графика: 576 → 512 точек). Для каждой ширины ленты своё значение. Проверьте кнопкой пробной печати.</x:String>
   <x:String x:Key="posSettings.print.graphicsDots">Графика (точки)</x:String>
   <x:String x:Key="posSettings.print.printMode">Режим печати</x:String>
   <x:String x:Key="posSettings.print.modeText">Текст</x:String>

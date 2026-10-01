@@ -160,4 +160,20 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                 Dispatcher.UIThread, authApi, apiBaseUrl, product.ImageUrl!, product, CancellationToken.None);
         }
     }
+
+    /// <summary>2026-10-01: «Подробнее» на плитке — карточка товара с описанием продавца
+    /// (ProductDetailsWindow). Клик по кнопке не добавляет товар в чек: добавить можно из карточки.</summary>
+    private async void ProductDetails_Click(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as Control)?.DataContext is not CatalogProductTileVm product)
+            return;
+        var vm = DataContext as CatalogPanelViewModel;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var window = new ProductDetailsWindow(product, () => vm?.SelectProductCommand.Execute(product));
+        if (owner != null)
+            await window.ShowDialog(owner).ConfigureAwait(true);
+        else
+            window.Show();
+    }
 }

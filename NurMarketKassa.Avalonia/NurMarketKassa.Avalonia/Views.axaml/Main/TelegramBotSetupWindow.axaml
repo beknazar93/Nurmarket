@@ -109,6 +109,23 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-10-01, ТЗ часть 5: бот на сервере NurCRM — отвечает круглые сутки, даже когда
+             касса и программа владельца выключены. Тексты — в коде (5 языков). -->
+        <Border Classes="StepCard">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="StepTitle" x:Name="ServerTitle"/>
+            <TextBlock Classes="StepBody" x:Name="ServerHint"/>
+            <TextBlock Classes="StepBody" x:Name="ServerStatus" FontWeight="SemiBold"/>
+            <WrapPanel>
+              <Button Classes="Primary" x:Name="ServerMoveButton" Margin="0,0,10,8" Click="ServerMove_Click"/>
+              <Button x:Name="ServerTestButton" Margin="0,0,10,8" Click="ServerTest_Click" IsEnabled="False"/>
+              <Button x:Name="ServerTestAiButton" Margin="0,0,10,8" Click="ServerTestAi_Click" IsEnabled="False"/>
+              <Button x:Name="ServerBackButton" Margin="0,0,10,8" Click="ServerBack_Click" IsEnabled="False"/>
+            </WrapPanel>
+            <TextBlock Classes="StepBody" x:Name="ServerActionStatus"/>
+          </StackPanel>
+        </Border>
+
       </StackPanel>
     </ScrollViewer>
 

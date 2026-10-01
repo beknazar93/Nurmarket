@@ -625,6 +625,7 @@ public static class BarcodeLabelService
         doc.Disposed += (_, _) => label?.Dispose();
         doc.PrinterSettings.PrinterName = request.PrinterName;
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+        ApplyLabelPageSize(doc, request.Template.WidthMm, request.Template.HeightMm);
         doc.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
@@ -636,7 +637,7 @@ public static class BarcodeLabelService
                     request.ProductName, request.Barcode, request.PriceText, request.Template,
                     request.Sku, request.Unit, request.StoreName, labelDpi);
             }
-            DrawOnPrinterPage(g, label, 0, 0, labelDpi);
+            DrawOnPrinterPage(g, label, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, labelDpi);
             copiesRemaining--;
             e.HasMorePages = copiesRemaining > 0;
         };
@@ -656,14 +657,11 @@ public static class BarcodeLabelService
             using var label = GenerateLabelBitmap(
                 request.ProductName, request.Barcode, request.PriceText, request.Template,
                 request.Sku, request.Unit, request.StoreName);
-            var raster = BitmapToEscPosRaster(label);
             var devicePath = UsbRawPrinterPort.IsRawPortLabel(request.PrinterName)
                 ? UsbRawPrinterPort.ToDevicePath(request.PrinterName)
                 : request.PrinterName;
             var copies = Math.Clamp(request.Copies, 1, 99);
-
-            for (var i = 0; i < copies; i++)
-                PrinterPortService.SendRawBytes(devicePath, raster);
+            SendRawLabel(devicePath, label, request.Template.WidthMm, request.Template.HeightMm, copies);
 
             return LabelPrintResult.Success;
         }
@@ -672,6 +670,83 @@ public static class BarcodeLabelService
             PosLogger.Log($"Raw device label print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
+    }
+
+    /// <summary>2026-10-01, «пропускает наклейки и печатает не на том месте»: печать через
+    /// драйвер шла на бумагу размера из драйвера (часто 100×150 или 58×40), а не этикетки —
+    /// принтер протягивал лишнее и проскакивал наклейку, а картинка съезжала. Теперь драйверу
+    /// задаётся размер страницы ровно по этикетке (выключается в настройках этикетки).</summary>
+    internal static void ApplyLabelPageSize(PrintDocument doc, double widthMm, double heightMm)
+    {
+        if (!UserPreferences.Instance.LabelPageFromTemplate || widthMm <= 0 || heightMm <= 0)
+            return;
+        try
+        {
+            // PaperSize — в сотых долях дюйма.
+            var w = (int)Math.Round(widthMm / 25.4 * 100);
+            var h = (int)Math.Round(heightMm / 25.4 * 100);
+            doc.DefaultPageSettings.PaperSize = new PaperSize(
+                string.Format(System.Globalization.CultureInfo.InvariantCulture, "NurMarket {0:0.#}x{1:0.#} mm", widthMm, heightMm), w, h);
+            doc.DefaultPageSettings.Landscape = false;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Label page size not applied: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-01: прямая печать этикетки (без драйвера) на выбранном языке принтера
+    /// (UserPreferences.LabelRawLanguage): escpos — как раньше; escpos_gap — после картинки
+    /// GS FF (подача до начала следующей этикетки по зазору/метке); tspl — SIZE/GAP/BITMAP/PRINT,
+    /// принтер сам находит зазор и печатает с начала наклейки.</summary>
+    internal static void SendRawLabel(string devicePath, Bitmap label, double widthMm, double heightMm, int copies)
+    {
+        var prefs = UserPreferences.Instance;
+        copies = Math.Clamp(copies, 1, 99);
+        if (prefs.LabelRawLanguage == "tspl")
+        {
+            PrinterPortService.SendRawBytes(devicePath, BuildTsplJob(label, widthMm, heightMm, prefs.LabelGapMm,
+                prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, copies));
+            return;
+        }
+
+        var raster = BitmapToEscPosRaster(label);
+        if (prefs.LabelRawLanguage == "escpos_gap")
+        {
+            var withFeed = new byte[raster.Length + 2];
+            Buffer.BlockCopy(raster, 0, withFeed, 0, raster.Length);
+            withFeed[^2] = 0x1D; // GS FF — подать до начала следующей этикетки
+            withFeed[^1] = 0x0C;
+            raster = withFeed;
+        }
+
+        for (var i = 0; i < copies; i++)
+            PrinterPortService.SendRawBytes(devicePath, raster);
+    }
+
+    /// <summary>Задание TSPL (TSC, Xprinter, Gprinter, Rongta в режиме этикеток): размер, зазор,
+    /// картинка BITMAP (в TSPL бит 0 — печать, поэтому байты инвертируются), копии.</summary>
+    internal static byte[] BuildTsplJob(Bitmap label, double widthMm, double heightMm, double gapMm,
+        double offsetXMm, double offsetYMm, int copies)
+    {
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        var raster = BitmapToEscPosRaster(label);
+        // Заголовок GS v 0 — 8 байт: 1D 76 30 00 xL xH yL yH.
+        var bytesPerRow = raster[4] | (raster[5] << 8);
+        var height = raster[6] | (raster[7] << 8);
+        var x = Math.Max(0, (int)Math.Round(offsetXMm / 25.4 * Dpi));
+        var y = Math.Max(0, (int)Math.Round(offsetYMm / 25.4 * Dpi));
+        using var ms = new MemoryStream();
+        void W(string s) { var b = System.Text.Encoding.ASCII.GetBytes(s); ms.Write(b, 0, b.Length); }
+        W(string.Format(ci, "SIZE {0:0.##} mm,{1:0.##} mm\r\n", widthMm, heightMm));
+        W(string.Format(ci, "GAP {0:0.##} mm,0 mm\r\n", Math.Max(0, gapMm)));
+        W("CLS\r\n");
+        W(string.Format(ci, "BITMAP {0},{1},{2},{3},0,", x, y, bytesPerRow, height));
+        for (var i = 8; i < raster.Length; i++)
+            ms.WriteByte((byte)~raster[i]);
+        W("\r\n");
+        W(string.Format(ci, "PRINT 1,{0}\r\n", Math.Clamp(copies, 1, 99)));
+        return ms.ToArray();
     }
 
     /// <summary>Encodes a monochrome ESC/POS "GS v 0" raster bit-image command (m=0, no scaling).</summary>

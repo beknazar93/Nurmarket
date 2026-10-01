@@ -146,6 +146,60 @@ public sealed partial class TelegramBotPollingService
         && d.TryGetInt64(out var unix)
         && DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(unix) > StaleAfter;
 
+    private static readonly TimeSpan ServerModeRecheck = TimeSpan.FromMinutes(5);
+
+    /// <summary>2026-10-01, владелец: расчёт на 15 000 клиентов — учитывать масштабируемость. Раньше каждая программа спрашивала NurCRM о режиме бота раз в 5 минут:
+    /// 15 000 клиентов × 2 программы = 100 запросов в секунду впустую. Теперь режим узнаём у самого
+    /// Telegram (getUpdates отказывает, пока у бота вебхук, — это нагрузка не на NurCRM), а NurCRM
+    /// спрашиваем при старте и раз в час.</summary>
+    private static readonly TimeSpan SettingsRecheck = TimeSpan.FromMinutes(60);
+    private DateTime _serverModeCheckedAt = DateTime.MinValue;
+    private DateTime _serverModeUntil = DateTime.MinValue;
+    private bool _serverModeLogged;
+
+    /// <summary>2026-10-01: бот работает на сервере NurCRM (режим «server» в настройках бота сервера
+    /// или вебхук у Telegram) — не чаще раза в 5 минут спрашиваем сервер.</summary>
+    private async Task<bool> IsServerModeAsync(CancellationToken ct)
+    {
+        if (DateTime.UtcNow < _serverModeUntil)
+            return true;
+        if (DateTime.UtcNow - _serverModeCheckedAt < SettingsRecheck)
+            return false;
+        _serverModeCheckedAt = DateTime.UtcNow;
+
+        var api = ServerTelegramBotApi.Current;
+        if (api is null)
+            return false;
+        try
+        {
+            var settings = await api.GetSettingsAsync(ct).ConfigureAwait(false);
+            var server = settings?.IsServerMode == true;
+            if (server)
+            {
+                _serverModeUntil = DateTime.UtcNow + ServerModeRecheck;
+                if (!_serverModeLogged)
+                    PosLogger.Log($"Телеграм-бот работает на сервере NurCRM (@{settings!.BotUsername}) — опрос в программе выключен.", "TELEGRAM");
+                _serverModeLogged = true;
+            }
+            else if (_serverModeLogged)
+            {
+                PosLogger.Log("Телеграм-бот снова на этом компьютере — опрос включён.", "TELEGRAM");
+                _serverModeLogged = false;
+            }
+            return server;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Сервер не ответил — работаем, как раньше: лучше ответить из программы, чем молчать.
+            PosLogger.Log($"Телеграм-бот: режим бота на сервере не узнан ({ex.GetType().Name}).", "TELEGRAM");
+            return false;
+        }
+    }
+
     private async Task RunAsync(CancellationToken ct)
     {
         // Первый круг делаем с offset = -1: Telegram отдаёт только ПОСЛЕДНЕЕ сообщение, и бот
@@ -156,6 +210,16 @@ public sealed partial class TelegramBotPollingService
         {
             try
             {
+                // 2026-10-01, ТЗ часть 5: бот перенесён на сервер NurCRM (вебхук, работает и при
+                // выключенной программе) — здесь Telegram не опрашиваем, только раз в 5 минут
+                // проверяем, не вернули ли бота на этот компьютер.
+                if (await IsServerModeAsync(ct).ConfigureAwait(false))
+                {
+                    await Task.Delay(ServerModeRecheck, ct).ConfigureAwait(false);
+                    first = true;
+                    continue;
+                }
+
                 // 2026-09-29 (стресс-тест бота): первый круг — без ожидания (timeout 0). С длинным
                 // опросом первая же команда, пришедшая в течение 25 с после включения кассы или
                 // сохранения настроек бота, считалась «старой» и молча пропускалась.
@@ -165,6 +229,17 @@ public sealed partial class TelegramBotPollingService
                 var (updates, error) = await TelegramBotService
                     .GetUpdatesAsync(first ? 0 : _offset, first ? 0 : LongPollSeconds, ct)
                     .ConfigureAwait(false);
+
+                if (error != null && error.Contains("webhook", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Telegram не отдаёт getUpdates, пока у бота вебхук — значит, бот на сервере.
+                    _serverModeUntil = DateTime.UtcNow + ServerModeRecheck;
+                    NurMarketKassa.Services.Api.ServerTelegramBotApi.NoteModeFromTelegram(true);
+                    if (!_serverModeLogged)
+                        PosLogger.Log("Телеграм-бот: у бота включён вебхук (бот работает на сервере NurCRM) — опрос в программе выключен.", "TELEGRAM");
+                    _serverModeLogged = true;
+                    continue;
+                }
 
                 if (error != null)
                 {
@@ -181,6 +256,13 @@ public sealed partial class TelegramBotPollingService
                 }
 
                 _lastPollError = null;
+                if (_serverModeLogged)
+                {
+                    // 2026-10-01: Telegram снова отдаёт сообщения — вебхук снят, бот вернули на компьютер.
+                    PosLogger.Log("Телеграм-бот снова на этом компьютере — опрос включён.", "TELEGRAM");
+                    _serverModeLogged = false;
+                    NurMarketKassa.Services.Api.ServerTelegramBotApi.NoteModeFromTelegram(false);
+                }
 
                 foreach (var update in updates)
                 {
@@ -238,6 +320,29 @@ public sealed partial class TelegramBotPollingService
         }
 
         var text = message.TryGetProperty("text", out var textElement) ? textElement.GetString() : null;
+
+        // 2026-10-01, владелец: «ответ голосом тоже реализуй в боте». Голосовое → текст (Gemini),
+        // дальше — как обычное сообщение; ответ уходит текстом (с расшифровкой) и голосом.
+        var isVoice = false;
+        ReplyVoiceTranscript.Value = null;
+        if (string.IsNullOrWhiteSpace(text)
+            && message.TryGetProperty("voice", out var voice)
+            && voice.TryGetProperty("file_id", out var voiceFileId)
+            && TelegramVoice.IsAvailable)
+        {
+            _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+            var audio = await TelegramBotService.DownloadFileAsync(voiceFileId.GetString() ?? "", ct).ConfigureAwait(false);
+            text = audio == null ? null : await TelegramVoice.TranscribeAsync(audio, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                await SendReplyAsync(chatId!, "Не расслышал 🙂 Повторите, пожалуйста, или напишите текстом.", ct).ConfigureAwait(false);
+                return;
+            }
+
+            isVoice = true;
+            ReplyVoiceTranscript.Value = text;
+        }
+
         if (string.IsNullOrWhiteSpace(text))
             return;
 
@@ -250,7 +355,7 @@ public sealed partial class TelegramBotPollingService
             ? senderFirst.GetString()
             : null;
         if (!isOwner)
-            TelegramInquiryStore.Record(chatId!, senderName, text!);
+            TelegramInquiryStore.Record(chatId!, senderName, (isVoice ? "🎤 " : "") + text!);
 
         // «/команда@ИмяБота» — так Telegram присылает команды в групповых чатах.
         var at = command.IndexOf('@');
@@ -388,8 +493,24 @@ public sealed partial class TelegramBotPollingService
     /// <summary>2026-09-30: ответ с проверкой. Раньше ошибка Telegram (например, «не удалось разобрать
     /// разметку») терялась молча — владелец просто не получал ответа. Теперь причина пишется в
     /// журнал, а ответ повторяется простым текстом без оформления.</summary>
+    /// <summary>Расшифровка голосового вопроса, на который сейчас отвечаем (null — вопрос был текстом).
+    /// Первый ответ показывает её курсивом и уходит ещё и голосом.</summary>
+    private static readonly AsyncLocal<string?> ReplyVoiceTranscript = new();
+
     private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct)
     {
+        var transcript = ReplyVoiceTranscript.Value;
+        ReplyVoiceTranscript.Value = null;
+        if (transcript != null)
+        {
+            var error0 = await TelegramBotService.SendToAsync(chatId, $"<i>🎤 {Escape(transcript)}</i>\n\n" + text, ct).ConfigureAwait(false);
+            if (error0 == null)
+            {
+                _ = SendVoiceReplyAsync(chatId, text, ct);
+                return;
+            }
+        }
+
         var error = await TelegramBotService.SendToAsync(chatId, text, ct).ConfigureAwait(false);
         if (error == null)
             return;
@@ -399,6 +520,24 @@ public sealed partial class TelegramBotPollingService
         var retry = await TelegramBotService.SendToAsync(chatId, Escape(plain), ct).ConfigureAwait(false);
         if (retry != null)
             PosLogger.Log($"Телеграм-бот: и простым текстом не отправлено ({retry}).", "TELEGRAM");
+    }
+
+    /// <summary>Голосовой ответ вдогонку к текстовому: не задерживает текст, ошибка — только в журнал.</summary>
+    private static async Task SendVoiceReplyAsync(string chatId, string text, CancellationToken ct)
+    {
+        try
+        {
+            var ogg = await TelegramVoice.SynthesizeAsync(text, ct).ConfigureAwait(false);
+            if (ogg == null)
+                return;
+            var error = await TelegramBotService.SendVoiceAsync(chatId, ogg, ct).ConfigureAwait(false);
+            if (error != null)
+                PosLogger.Log($"Голос в боте: голосовой ответ не отправлен ({error}).", "TELEGRAM");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Голос в боте: сбой озвучки ({ex.Message}).", "TELEGRAM");
+        }
     }
 
     /// <summary>«/start &lt;id клиента&gt;» — покупатель перешёл по персональной ссылке с чека и

@@ -189,6 +189,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
         EnsureCartInitialized();
         EnsurePrimarySession();
         Lines.CollectionChanged += (_, _) => NotifyLineState();
+        // 2026-10-01, «Умная допродажа»: чек изменился — подбираем подсказку «С этим часто берут».
+        Lines.CollectionChanged += (_, _) => ScheduleUpsell();
+        AcceptUpsellCommand = new AsyncRelayCommand(AcceptUpsellAsync, () => _upsell != null && !IsBusy);
+        SkipUpsellCommand = new RelayCommand(SkipUpsell, () => _upsell != null);
+        UserPreferences.UpsellEnabledChanged += () => _dispatcher.InvokeAsync(ScheduleUpsell);
         UpdateCartTotals();
         RebuildReceiptTabs();
     }
@@ -594,6 +599,28 @@ public sealed class BasketPanelViewModel : ViewModelBase
         catch (Exception ex)
         {
             PosLogger.Log($"CART add (piece) failed: {ex}", "CART");
+            _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
+        }
+    }
+
+    /// <summary>2026-10-01, магазин одежды: вариант товара (размер/цвет) по цене варианта.</summary>
+    public void AddVariantFromCatalog(
+        CatalogProductTileVm product, double quantity, double unitPrice, string variantId, string label, string? size, string? color)
+    {
+        if (product is null || quantity <= 0 || string.IsNullOrWhiteSpace(variantId))
+            return;
+
+        try
+        {
+            EnsureCartInitialized();
+            _cart.AddVariantItem(product, quantity, unitPrice, variantId, label, size, color);
+            SyncLinesFromCart();
+            UpdateCartTotals();
+            CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CART add (variant) failed: {ex}", "CART");
             _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
         }
     }
@@ -1352,6 +1379,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     private void RecordSoldLineItemsForHistory(string? saleId)
     {
+        // 2026-10-01: подсказки допродажи этого чека получают номер продажи (выручка допродажи).
+        try { UpsellService.LinkSale(_upsellCartKey, saleId); }
+        catch (Exception ex) { PosLogger.Log($"Допродажа: продажа не привязана ({ex.Message}).", "WARNING"); }
+
         try
         {
             var soldAt = DateTime.UtcNow;
@@ -2465,6 +2496,130 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     private Task RunOnUiThreadAsync(Action action) =>
         _dispatcher.InvokeAsync(action);
+
+    // ── Умная допродажа (2026-10-01) ─────────────────────────────────────────────────────────
+    // Одна подсказка над итогом чека: товар, который часто покупают вместе с товарами чека
+    // (UpsellService, считает по истории чеков на этой кассе). «Добавить» идёт тем же путём, что
+    // нажатие на товар в каталоге (размер/цвет, пачка/штука, весы, остаток). «Пропустить» — этот
+    // товар в этом чеке больше не предлагается. Показы и ответы пишутся в UpsellEvents.
+
+    private UpsellSuggestion? _upsell;
+    private int _upsellVersion;
+    private string _upsellCartKey = Guid.NewGuid().ToString("N");
+    private readonly HashSet<string> _upsellSkipped = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _upsellShown = new(StringComparer.OrdinalIgnoreCase);
+
+    public ICommand AcceptUpsellCommand { get; private set; } = null!;
+    public ICommand SkipUpsellCommand { get; private set; } = null!;
+
+    public bool HasUpsell => _upsell != null;
+
+    public string UpsellProductText => _upsell is null
+        ? ""
+        : $"{_upsell.Product.Title} — {_upsell.Price.ToString("0.##", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+
+    public string UpsellReasonText => _upsell is null
+        ? ""
+        : Tr.T($"Берут вместе с «{_upsell.TriggerTitle}» ({_upsell.Together} чек.)",
+            $"«{_upsell.TriggerTitle}» менен бирге алышат ({_upsell.Together} чек)",
+            $"Bought together with “{_upsell.TriggerTitle}” ({_upsell.Together} receipts)",
+            $"«{_upsell.TriggerTitle}» ile birlikte alınıyor ({_upsell.Together} fiş)",
+            $"«{_upsell.TriggerTitle}» bilan birga olinadi ({_upsell.Together} chek)");
+
+    private void SetUpsell(UpsellSuggestion? suggestion)
+    {
+        if (suggestion != null && _upsellShown.Add(suggestion.Product.Id))
+        {
+            var key = _upsellCartKey;
+            _ = Task.Run(() => UpsellService.Record("shown", suggestion, key));
+        }
+
+        _upsell = suggestion;
+        OnPropertyChanged(nameof(HasUpsell));
+        OnPropertyChanged(nameof(UpsellProductText));
+        OnPropertyChanged(nameof(UpsellReasonText));
+        (AcceptUpsellCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (SkipUpsellCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private async void ScheduleUpsell()
+    {
+        var version = Interlocked.Increment(ref _upsellVersion);
+        try
+        {
+            // Строки чека перестраиваются пачкой событий (очистка + добавление заново), и на миг
+            // чек выглядит пустым. Решаем только после паузы, иначе подсказка «начинала новый чек»
+            // посреди текущего и снова предлагала пропущенный товар (найдено проверкой 01.10).
+            await Task.Delay(300).ConfigureAwait(false);
+            if (version != Volatile.Read(ref _upsellVersion))
+                return;
+
+            List<(string ProductId, string Title)>? cart = null;
+            HashSet<string>? skipped = null;
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (version != Volatile.Read(ref _upsellVersion))
+                    return;
+                if (Lines.Count == 0)
+                {
+                    // Чек оплачен или очищен — следующий чек начинается с чистого листа.
+                    _upsellCartKey = Guid.NewGuid().ToString("N");
+                    _upsellSkipped.Clear();
+                    _upsellShown.Clear();
+                    SetUpsell(null);
+                    return;
+                }
+
+                if (!UpsellService.Enabled)
+                {
+                    SetUpsell(null);
+                    return;
+                }
+
+                cart = Lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId))
+                    .Select(l => (l.ProductId, l.Title)).ToList();
+                skipped = new HashSet<string>(_upsellSkipped, StringComparer.OrdinalIgnoreCase);
+            }).ConfigureAwait(false);
+            if (cart is null || skipped is null)
+                return;
+
+            var suggestion = await Task.Run(() => UpsellService.Suggest(cart, skipped)).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (version == Volatile.Read(ref _upsellVersion))
+                    SetUpsell(suggestion);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Допродажа: подсказка не подобрана ({ex.Message}).", "WARNING");
+        }
+    }
+
+    private async Task AcceptUpsellAsync()
+    {
+        var suggestion = _upsell;
+        if (suggestion is null)
+            return;
+        var key = _upsellCartKey;
+        _ = Task.Run(() => UpsellService.Record("accepted", suggestion, key));
+        _upsellSkipped.Add(suggestion.Product.Id);   // удалят из чека — снова не предлагать
+        SetUpsell(null);
+        ManualQuantity = "1";
+        await AddFoundCatalogProductAsync(suggestion.Product).ConfigureAwait(true);
+    }
+
+    private void SkipUpsell()
+    {
+        var suggestion = _upsell;
+        if (suggestion is null)
+            return;
+        var key = _upsellCartKey;
+        _ = Task.Run(() => UpsellService.Record("skipped", suggestion, key));
+        _upsellSkipped.Add(suggestion.Product.Id);
+        // Следующую подсказку покажем, когда кассир добавит ещё товар, — не навязываемся.
+        SetUpsell(null);
+    }
 
     private void NotifyLineState()
     {

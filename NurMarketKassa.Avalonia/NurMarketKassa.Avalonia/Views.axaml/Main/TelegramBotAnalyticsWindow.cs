@@ -31,7 +31,10 @@ public sealed class TelegramBotAnalyticsWindow : Window
         Height = 820;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
 
-        var root = new StackPanel { Margin = new Thickness(24, 16, 24, 24), Spacing = 16 };
+        // 2026-10-01, владелец (скриншот): «сделай фиксированную высоту и добавь скролл» — шапка и плитки
+        // на месте, а колонки «Покупатели» и «Последние обращения» занимают остаток высоты окна и
+        // прокручиваются каждая сама, не утаскивая за собой всю страницу.
+        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
         var title = new TextBlock
         {
             Text = Tr.T("Обращения покупателей к боту", "Сатып алуучулардын ботко кайрылуулары", "Customer inquiries to the bot",
@@ -41,6 +44,10 @@ public sealed class TelegramBotAnalyticsWindow : Window
         };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
+        _status.Margin = new Thickness(0, 6, 0, 16);
+        _tiles.Margin = new Thickness(0, 0, 0, 16);
+        Grid.SetRow(_status, 1);
+        Grid.SetRow(_tiles, 2);
         root.Children.Add(title);
         root.Children.Add(_status);
         root.Children.Add(_tiles);
@@ -48,30 +55,79 @@ public sealed class TelegramBotAnalyticsWindow : Window
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,16,3*") };
         columns.Children.Add(Card(Tr.T("Покупатели (30 дней)", "Сатып алуучулар (30 күн)", "Customers (30 days)", "Müşteriler (30 gün)", "Xaridorlar (30 kun)"), _customers, 0));
         columns.Children.Add(Card(Tr.T("Последние обращения", "Акыркы кайрылуулар", "Latest inquiries", "Son başvurular", "Oxirgi murojaatlar"), _feed, 2));
+        Grid.SetRow(columns, 3);
         root.Children.Add(columns);
 
-        Content = new ScrollViewer { Content = root, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        Content = root;
 
         Opened += (_, _) =>
         {
-            Render();
+            _ = RenderAsync();
             _timer.Start();
         };
         Closed += (_, _) => _timer.Stop();
-        _timer.Tick += (_, _) => Render();
+        _timer.Tick += (_, _) => _ = RenderAsync();
+    }
+
+    /// <summary>2026-10-01, ТЗ часть 5: бот на сервере NurCRM — обращения пишет сервер
+    /// (GET /api/main/telegram-bot/inquiries/), а журнал этого компьютера больше не пополняется.
+    /// Показываем обращения сервера вместе с записанными здесь до переноса.</summary>
+    private List<TelegramInquiryStore.Entry>? _server;
+    private bool _serverMode;
+    private bool _loading;
+
+    private async Task RenderAsync()
+    {
+        if (_loading)
+            return;
+        _loading = true;
+        try
+        {
+            var api = App.AppHost?.Services.GetService(typeof(NurMarketKassa.Services.Api.ServerTelegramBotApi)) as NurMarketKassa.Services.Api.ServerTelegramBotApi;
+            if (api is not null)
+            {
+                var settings = await api.GetSettingsAsync().ConfigureAwait(true);
+                _serverMode = settings?.IsServerMode == true;
+                if (_serverMode)
+                {
+                    var rows = await api.GetInquiriesAsync(DateTime.Today.AddDays(-30), DateTime.Today).ConfigureAwait(true);
+                    _server = rows.Select(r => new TelegramInquiryStore.Entry(
+                        (r.At ?? DateTimeOffset.Now).LocalDateTime, r.ChatId,
+                        string.IsNullOrWhiteSpace(r.Name) ? r.Username : r.Name,
+                        r.IsVoice ? "🎤 " + r.Text : r.Text, r.OrderNumber)).ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Телеграм-бот: обращения с сервера не получены ({ex.GetType().Name}).", "TELEGRAM");
+        }
+        finally
+        {
+            _loading = false;
+        }
+        Render();
     }
 
     private Border Card(string header, Control body, int column)
     {
         var head = new TextBlock { Text = header, FontSize = 15, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 10) };
         Use(head, TextBlock.ForegroundProperty, "BrushText");
+        DockPanel.SetDock(head, Dock.Top);
+        var scroll = new ScrollViewer
+        {
+            Content = body,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Padding = new Thickness(0, 0, 10, 0),
+        };
         var card = new Border
         {
             CornerRadius = new CornerRadius(12),
             BorderThickness = new Thickness(1),
             Padding = new Thickness(16, 14),
-            VerticalAlignment = VerticalAlignment.Top,
-            Child = new StackPanel { Children = { head, body } },
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Child = new DockPanel { LastChildFill = true, Children = { head, scroll } },
         };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, "BrushBorder");
@@ -82,6 +138,12 @@ public sealed class TelegramBotAnalyticsWindow : Window
     private void Render()
     {
         var all = TelegramInquiryStore.Load();
+        if (_serverMode && _server is not null)
+        {
+            // До переноса на сервер обращения писались здесь — показываем и их, без повторов.
+            var serverFrom = _server.Count > 0 ? _server.Min(e => e.At) : DateTime.MaxValue;
+            all = all.Where(e => e.At < serverFrom).Concat(_server).ToList();
+        }
         var today = all.Where(e => e.At.Date == DateTime.Today).ToList();
         var week = all.Where(e => e.At.Date > DateTime.Today.AddDays(-7)).ToList();
         var month = all.Where(e => e.At.Date > DateTime.Today.AddDays(-30)).ToList();
@@ -93,11 +155,15 @@ public sealed class TelegramBotAnalyticsWindow : Window
             + " · " + (TelegramAiChat.IsConfigured
                 ? Tr.T("ИИ-консультант включён", "ЖИ-кеңешчи күйүк", "AI assistant on", "YZ asistanı açık", "SI maslahatchi yoqilgan")
                 : Tr.T("ИИ выключен (нет ключа)", "ЖИ өчүк (ачкыч жок)", "AI off (no key)", "YZ kapalı (anahtar yok)", "SI o'chirilgan (kalit yo'q)"))
-            + " · " + Tr.T("бот отвечает, пока на компьютере магазина включена касса или программа владельца",
-                "бот дүкөндүн компьютеринде касса же ээсинин программасы күйүп турганда жооп берет",
-                "the bot replies while the till or owner app is running on the shop computer",
-                "bot, mağaza bilgisayarında kasa veya sahip programı açıkken yanıt verir",
-                "bot do'kon kompyuterida kassa yoki egasi dasturi yoqilganda javob beradi");
+            + " · " + (_serverMode
+                ? Tr.T("бот работает на сервере NurCRM круглые сутки", "бот NurCRM серверинде күнү-түнү иштейт",
+                    "the bot runs on the NurCRM server around the clock", "bot NurCRM sunucusunda günün her saati çalışır",
+                    "bot NurCRM serverida kecha-kunduz ishlaydi")
+                : Tr.T("бот отвечает, пока на компьютере магазина включена касса или программа владельца",
+                    "бот дүкөндүн компьютеринде касса же ээсинин программасы күйүп турганда жооп берет",
+                    "the bot replies while the till or owner app is running on the shop computer",
+                    "bot, mağaza bilgisayarında kasa veya sahip programı açıkken yanıt verir",
+                    "bot do'kon kompyuterida kassa yoki egasi dasturi yoqilganda javob beradi"));
 
         _tiles.Children.Clear();
         _tiles.Children.Add(Tile(Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun"), today));

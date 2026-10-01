@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
              xmlns:pos="using:NurMarketKassa.Models.Pos"
              x:Class="NurMarketKassa.AvaloniaHost.Views.MainKassir.OneCLayoutView"
@@ -336,6 +337,8 @@
                         <TextBlock Grid.Column="1" Text="{Binding Basket.TotalDisplay}" FontSize="26" FontWeight="Bold"
                                    Foreground="{DynamicResource BrushCatalogPrice}"/>
                     </Grid>
+                    <!-- 2026-10-01: подсказка допродажи «С этим часто берут» над кнопкой оплаты. -->
+                    <ctl:UpsellBannerView Grid.Row="4" DataContext="{Binding Basket}" VerticalAlignment="Bottom" Margin="0,0,0,10"/>
                     <Button Grid.Row="5" Content="{Binding Basket.PayButtonText}" FontSize="18" FontWeight="Bold"
                             Background="{DynamicResource BrushAccent}" Foreground="{DynamicResource BrushAccentForeground}"
                             CornerRadius="10" Padding="0,16" HorizontalContentAlignment="Center"

@@ -134,6 +134,18 @@
                           IsCheckedChanged="QuickProductsCheck_Changed"/>
               </Grid>
 
+              <!-- 2026-10-01, «Умная допродажа»: подсказка «С этим часто берут» над итогом чека.
+                   По умолчанию выключена, применяется сразу. -->
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="{DynamicResource posSettings.screen.upsell}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock Text="{DynamicResource posSettings.screen.upsellDesc}"
+                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <CheckBox Grid.Column="1" x:Name="UpsellCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
+                          IsCheckedChanged="UpsellCheck_Changed"/>
+              </Grid>
+
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{DynamicResource posSettings.screen.autostart}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <CheckBox Grid.Column="1" x:Name="AutostartCheck" x:FieldModifier="public" Classes="ToggleSwitch"/>

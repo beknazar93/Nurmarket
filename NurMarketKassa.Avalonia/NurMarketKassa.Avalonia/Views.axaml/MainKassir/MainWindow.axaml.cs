@@ -1360,7 +1360,8 @@ public partial class MainWindow : Window
 
     internal void NavigateWarehouse()
     {
-        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewProcurement))
+        // 2026-10-01: «Склад» — флаг «Склад» сайта (can_view_products), а не «Закупки».
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewProducts))
             ShowModuleWindow<WarehouseWindow>();
     }
 
@@ -1446,7 +1447,8 @@ public partial class MainWindow : Window
 
     internal void NavigateFinance()
     {
-        if (OwnerSectionAvailable())
+        // 2026-10-01: «Финансы» — флаг «Аналитика» сайта (раньше без проверки).
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewAnalytics))
             ShowModuleWindow<FinanceWindow>();
     }
 
@@ -1466,7 +1468,7 @@ public partial class MainWindow : Window
 
     internal void NavigateAbc()
     {
-        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewSales))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewAnalytics))
             ShowModuleWindow<AbcAnalysisWindow>();
     }
 
@@ -1480,7 +1482,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewSales))
+        if (OwnerSectionAvailable() && Authorize(PosPermissions.ViewClients))
             ShowModuleWindow<ClientsWindow>();
     }
 
@@ -1611,6 +1613,8 @@ public partial class MainWindow : Window
             _telegramRetryTimer.Tick += (_, _) => StartTelegramBot();
             _telegramRetryTimer.Start();
         }
+        // 2026-10-01: один раз предложить перенести бота на сервер NurCRM (работает круглые сутки).
+        ServerBotOffer.Schedule(this);
 
         if (!_whatsNewShown)
         {
@@ -2377,6 +2381,14 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 PosLogger.Log($"Сводка смены: отчёт сервера не получен: {ex.Message}", "TELEGRAM");
+            }
+
+            // 2026-10-01, ТЗ часть 5: бот на сервере NurCRM сам шлёт сводку по закрытию смены —
+            // касса не дублирует (иначе владелец получал бы две).
+            if (NurMarketKassa.Services.Api.ServerTelegramBotApi.LastKnownServerMode == true)
+            {
+                PosLogger.Log("Сводка смены: её отправляет бот на сервере NurCRM.", "TELEGRAM");
+                return;
             }
 
             var text = TelegramBotService.BuildShiftSummary(summaryShift, summaryDeposits, summaryWithdrawals, prefs.StoreName);

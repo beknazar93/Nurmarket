@@ -41,6 +41,7 @@ public partial class ScreenSettingsView : UserControl
         TileSizeValueText.Text = $"{UserPreferences.Instance.CatalogTileScalePercent:F0}%";
         _suppressUiScaleChange = false;
         QuickProductsCheck.IsChecked = UserPreferences.Instance.ShowQuickProducts;
+        UpsellCheck.IsChecked = UserPreferences.Instance.UpsellEnabled;
 
         // Выбор вида кассы (карточки с миниатюрами) — общий элемент KassaLayoutPicker
         // (2026-09-28, он же в Маркетплейсе → «Виды кассы»); язык и тему он отслеживает сам.
@@ -54,6 +55,10 @@ public partial class ScreenSettingsView : UserControl
 
     private void QuickProductsCheck_Changed(object? sender, RoutedEventArgs e) =>
         UserPreferences.SetShowQuickProducts(QuickProductsCheck.IsChecked == true);
+
+    /// <summary>2026-10-01: подсказки допродажи — сразу, без «Сохранить».</summary>
+    private void UpsellCheck_Changed(object? sender, RoutedEventArgs e) =>
+        UserPreferences.SetUpsellEnabled(UpsellCheck.IsChecked == true);
 
     private void Save_Click(object? sender, RoutedEventArgs e) =>
         SaveRequested?.Invoke(this, EventArgs.Empty);

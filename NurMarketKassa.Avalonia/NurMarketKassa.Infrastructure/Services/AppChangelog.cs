@@ -13,42 +13,62 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Телеграм-бот считает обращения покупателей: спросите бота «сколько обращений было» — сегодня, за 7 дней и последние вопросы",
-        "Заказ через бота: покупатель пишет, что хочет купить, называет имя и телефон — бот оформляет заказ, а владельцу приходит уведомление",
-        "Ответы ИИ в боте: списки товаров аккуратно — каждый товар с новой строки, по группам",
-        "Программа владельца: раздел «Телеграм-бот» — обращения, покупатели и заказы через бота; бот отвечает и на сообщения, пришедшие во время перезапуска",
+        "Чековый принтер: «Символов в строке» и ширина графики для 58 и 80 мм — текст и картинки больше не уходят за край чека",
+        "Принтер этикеток: размер наклейки берётся из шаблона, зазор и сдвиг настраиваются — наклейки не пропускаются и печатаются на месте",
+        "Денежный ящик открывается при каждой оплате наличными; весы: товары на горячих клавишах больше не слетают",
+        "Права сотрудников как на сайте NurCRM: «Склад», «Аналитика», «Клиенты» и «Заказы» видны только тем, кому их выдали",
+        "Калькуляция: кнопка «Обновить» — всегда свежие цены и остатки; «Подробнее» с описанием товара видно и на плитках с фото",
+        "Продажа в долг с предоплатой: наличные сразу попадают в кассу и отчёт смены",
+        "Программа владельца: раздел «Прибыль и деньги» — прибыль, движение денег и сверка за период",
+        "Новое: подсказка «С этим часто берут» над итогом чека (включается в Настройки → Экран)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Телеграм-бот сатып алуучулардын кайрылууларын эсептейт: ботко «канча кайрылуу болду» деп жазыңыз — бүгүн, 7 күн жана акыркы суроолор",
-        "Бот аркылуу заказ: сатып алуучу эмне сатып алгысы келгенин, атын жана телефонун жазат — бот заказ түзөт, ээсине билдирүү келет",
-        "Боттогу ЖИ жооптору: товарлардын тизмеси тыкан — ар бир товар жаңы саптан, топтор боюнча",
-        "Ээсинин программасы: «Телеграм-бот» бөлүмү — кайрылуулар, сатып алуучулар жана бот аркылуу заказдар; бот кайра иштетүү учурунда келген билдирүүлөргө да жооп берет",
+        "Чек принтери: 58 жана 80 мм үчүн «Саптагы белгилер» жана графиканын туурасы — текст менен сүрөттөр чектин четинен чыкпайт",
+        "Этикетка принтери: чаптаманын өлчөмү шаблондон алынат, аралык жана жылыш жөндөлөт — чаптамалар өткөрүлбөйт жана ордуна басылат",
+        "Акча кутусу накталай төлөгөн сайын ачылат; таразалар: ыкчам баскычтардагы товарлар мындан ары түшүп калбайт",
+        "Кызматкерлердин укуктары NurCRM сайтындагыдай: «Кампа», «Аналитика», «Кардарлар» жана «Заказдар» берилгендерге гана көрүнөт",
+        "Калькуляция: «Жаңыртуу» баскычы — баалар жана калдыктар дайыма жаңы; товардын сүрөттөмөсү бар «Толугураак» сүрөттүү плиткаларда да көрүнөт",
+        "Алдын ала төлөм менен карызга сатуу: накталай дароо кассага жана смена отчётуна түшөт",
+        "Ээсинин программасы: «Пайда жана акча» бөлүмү — мезгил ичиндеги пайда, акчанын кыймылы жана салыштыруу",
+        "Жаңы: чектин жыйынтыгынын үстүндө «Муну менен көп алышат» кеңеши (Жөндөөлөр → Экран бөлүмүндө күйгүзүлөт)",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "The Telegram bot counts customer inquiries: ask it “how many inquiries” — today, last 7 days and the latest questions",
-        "Ordering via the bot: a customer says what to buy, gives name and phone — the bot places the order and notifies the owner",
-        "AI replies in the bot: product lists are tidy — one product per line, grouped",
-        "Owner app: “Telegram bot” section — inquiries, customers and orders via the bot; the bot also answers messages sent during a restart",
+        "Receipt printer: “Characters per line” and graphics width for 58 and 80 mm — text and images no longer run off the receipt",
+        "Label printer: label size comes from the template, gap and offset are adjustable — labels are no longer skipped and print in place",
+        "The cash drawer opens on every cash payment; scales: products assigned to hotkeys no longer drop off",
+        "Employee permissions match the NurCRM website: “Warehouse”, “Analytics”, “Clients” and “Orders” are visible only to those granted them",
+        "Costing: “Refresh” button — always fresh prices and stock; “Details” with the product description is visible on tiles with photos too",
+        "Sale on credit with a down payment: the cash goes straight into the till and the shift report",
+        "Owner app: “Profit and money” section — profit, cash flow and reconciliation for a period",
+        "New: “Often bought with this” suggestion above the receipt total (turn on in Settings → Screen)",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Telegram botu müşteri başvurularını sayar: bota «kaç başvuru oldu» diye sorun — bugün, 7 gün ve son sorular",
-        "Bot üzerinden sipariş: müşteri ne almak istediğini, adını ve telefonunu yazar — bot siparişi oluşturur, sahibine bildirim gider",
-        "Bottaki YZ yanıtları: ürün listeleri düzenli — her ürün yeni satırda, gruplar halinde",
-        "Sahip programı: «Telegram botu» bölümü — başvurular, müşteriler ve bot siparişleri; bot yeniden başlatma sırasında gelen mesajlara da yanıt verir",
+        "Fiş yazıcısı: 58 ve 80 mm için «Satırdaki karakter sayısı» ve grafik genişliği — metin ve resimler artık fişin kenarından taşmıyor",
+        "Etiket yazıcısı: etiket boyutu şablondan alınır, boşluk ve kaydırma ayarlanır — etiketler atlanmaz ve yerine basılır",
+        "Para çekmecesi her nakit ödemede açılır; teraziler: kısayol tuşlarına atanan ürünler artık düşmüyor",
+        "Çalışan yetkileri NurCRM sitesindeki gibi: «Depo», «Analitik», «Müşteriler» ve «Siparişler» yalnızca yetki verilenlere görünür",
+        "Maliyet: «Yenile» düğmesi — fiyatlar ve stoklar hep güncel; ürün açıklamalı «Ayrıntılar» fotoğraflı kartlarda da görünür",
+        "Ön ödemeli veresiye satış: nakit hemen kasaya ve vardiya raporuna geçer",
+        "Sahip programı: «Kâr ve para» bölümü — dönem için kâr, nakit akışı ve mutabakat",
+        "Yeni: fiş toplamının üstünde «Bununla sık alınanlar» önerisi (Ayarlar → Ekran'dan açılır)",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Telegram bot xaridorlar murojaatlarini sanaydi: botdan «qancha murojaat bo'ldi» deb so'rang — bugun, 7 kun va oxirgi savollar",
-        "Bot orqali buyurtma: xaridor nima olmoqchiligini, ismi va telefonini yozadi — bot buyurtmani rasmiylashtiradi, egasiga xabar keladi",
-        "Botdagi SI javoblari: mahsulotlar ro'yxati tartibli — har bir mahsulot yangi qatorda, guruhlab",
-        "Egasi dasturi: «Telegram bot» bo'limi — murojaatlar, xaridorlar va bot orqali buyurtmalar; bot qayta ishga tushirish paytida kelgan xabarlarga ham javob beradi",
+        "Chek printeri: 58 va 80 mm uchun «Qatordagi belgilar» va grafika kengligi — matn va rasmlar chek chetidan chiqmaydi",
+        "Yorliq printeri: yorliq o'lchami shablondan olinadi, oraliq va siljish sozlanadi — yorliqlar o'tkazib yuborilmaydi va joyida chop etiladi",
+        "Pul qutisi har bir naqd to'lovda ochiladi; tarozilar: tezkor tugmalarga biriktirilgan mahsulotlar endi tushib qolmaydi",
+        "Xodimlar huquqlari NurCRM saytidagidek: «Ombor», «Tahlil», «Mijozlar» va «Buyurtmalar» faqat ruxsat berilganlarga ko'rinadi",
+        "Kalkulyatsiya: «Yangilash» tugmasi — narxlar va qoldiqlar doim yangi; mahsulot tavsifli «Batafsil» rasmli kartalarda ham ko'rinadi",
+        "Oldindan to'lov bilan nasiyaga sotish: naqd pul darhol kassaga va smena hisobotiga tushadi",
+        "Egasi dasturi: «Foyda va pul» bo'limi — davr uchun foyda, pul harakati va solishtirish",
+        "Yangi: chek jamining ustida «Bu bilan ko'p olishadi» maslahati (Sozlamalar → Ekran bo'limida yoqiladi)",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

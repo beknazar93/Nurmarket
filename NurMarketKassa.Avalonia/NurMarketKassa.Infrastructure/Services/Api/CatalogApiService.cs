@@ -261,6 +261,66 @@ public sealed class CatalogApiService : ICatalogApiService
         return outList;
     }
 
+    // ── Варианты товара (2026-10-01, магазин одежды) ─────────────────────────────
+
+    public async Task<List<ProductVariantDto>> GetProductVariantsAsync(string productId, CancellationToken ct = default)
+    {
+        var result = new List<ProductVariantDto>();
+        if (string.IsNullOrWhiteSpace(productId))
+            return result;
+        var data = await _client.RequestAsync(HttpMethod.Get,
+            $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/variants/", null, null, ct).ConfigureAwait(false);
+        var rows = data.ValueKind == JsonValueKind.Array
+            ? data
+            : data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) ? r : default;
+        if (rows.ValueKind != JsonValueKind.Array)
+            return result;
+        foreach (var row in rows.EnumerateArray())
+            result.Add(ParseVariant(row));
+        return result;
+    }
+
+    public async Task<ProductVariantDto> SaveProductVariantAsync(string productId, ProductVariantDto variant, CancellationToken ct = default)
+    {
+        var pid = Uri.EscapeDataString(productId.Trim());
+        var body = new Dictionary<string, object?>
+        {
+            ["size"] = variant.Size.Trim(),
+            ["color"] = variant.Color.Trim(),
+            ["barcode"] = string.IsNullOrWhiteSpace(variant.Barcode) ? null : variant.Barcode.Trim(),
+            ["quantity"] = variant.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
+            ["price"] = variant.Price is { } p ? p.ToString("0.00", CultureInfo.InvariantCulture) : null,
+            ["is_active"] = variant.IsActive,
+        };
+        var data = string.IsNullOrWhiteSpace(variant.Id)
+            ? await _client.RequestAsync(HttpMethod.Post, $"api/main/products/{pid}/variants/", body, null, ct).ConfigureAwait(false)
+            : await _client.RequestAsync(HttpMethod.Patch, $"api/main/products/{pid}/variants/{Uri.EscapeDataString(variant.Id!)}/", body, null, ct).ConfigureAwait(false);
+        return ParseVariant(data);
+    }
+
+    public async Task DeleteProductVariantAsync(string productId, string variantId, CancellationToken ct = default) =>
+        await _client.RequestAsync(HttpMethod.Delete,
+            $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/variants/{Uri.EscapeDataString(variantId.Trim())}/",
+            null, null, ct).ConfigureAwait(false);
+
+    private static ProductVariantDto ParseVariant(JsonElement row)
+    {
+        string? S(string name) => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(name, out var v)
+            ? v.ValueKind switch { JsonValueKind.String => v.GetString(), JsonValueKind.Number => v.GetRawText(), _ => null }
+            : null;
+        double? D(string name) => double.TryParse(S(name), NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : null;
+        return new ProductVariantDto
+        {
+            Id = S("id"),
+            Size = S("size") ?? "",
+            Color = S("color") ?? "",
+            Barcode = S("barcode"),
+            Quantity = D("quantity") ?? 0,
+            Price = D("price"),
+            IsActive = !(row.ValueKind == JsonValueKind.Object && row.TryGetProperty("is_active", out var a) && a.ValueKind == JsonValueKind.False),
+        };
+    }
+
     public async Task<JsonElement?> ProductsDetailAsync(string productId, CancellationToken ct = default)
     {
         var pid = Uri.EscapeDataString(productId.Trim());

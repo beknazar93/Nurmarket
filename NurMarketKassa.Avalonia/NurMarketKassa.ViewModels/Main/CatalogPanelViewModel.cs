@@ -79,6 +79,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         // Фоновый sync и правки в Складе теперь доходят до плиток (2026-09-07, см. RepublishFromLocalAsync).
         CatalogCacheService.CatalogChanged += OnCatalogChangedExternally;
 
+        // 2026-10-01, владелец: «в режиме магазина одежды и другое в каталоге должна быть кнопка
+        // "Подробнее" с описанием товара от продавца». Видна в сферах «Одежда» и «Услуги».
+        MarketSpheres.Changed += () => _dispatcher.Post(() => OnPropertyChanged(nameof(ShowProductDetails)));
+
         // Смена языка (2026-09-07): плашки «Штучный/Весовой» и подписи считаются конвертером/кодом,
         // перерисовываем текущую страницу и статус, иначе они остаются на прежнем языке.
         Tr.LanguageChanged += () => _dispatcher.InvokeAsync(() =>
@@ -222,6 +226,10 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsTableView));
         }
     }
+
+    /// <summary>Кнопка «Подробнее» (описание товара от продавца) — в сферах «Одежда» и «Услуги»;
+    /// в продуктовом магазине её нет: там описания почти не заполняют, а кассе важна скорость.</summary>
+    public bool ShowProductDetails => MarketSpheres.IsClothing || MarketSpheres.IsServices;
 
     public bool IsCardView => ViewMode == CatalogViewMode.Cards;
     public bool IsTableView => ViewMode == CatalogViewMode.Table;

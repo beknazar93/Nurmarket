@@ -164,6 +164,13 @@ public sealed class CartService : ICartService, IDisposable
             ReceiptSnapshotCartEditor.AddProduct(this, product, quantity, unitPriceOverride, salePackageId);
     }
 
+    public void AddVariantItem(CatalogProductTileVm product, double quantity, double unitPrice, string variantId, string label, string? size, string? color)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+        lock (_sync)
+            ReceiptSnapshotCartEditor.AddVariant(this, product, quantity, unitPrice, variantId, label, size, color);
+    }
+
     public void AddCustomItem(string name, double unitPrice, double quantity)
     {
         lock (_sync)

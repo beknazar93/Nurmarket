@@ -86,7 +86,8 @@ public static class TelegramAiChat
             + "\n\nМАГАЗИН: " + prefs.StoreName
             + (string.IsNullOrWhiteSpace(prefs.StoreAddress) ? "" : "\nАдрес: " + prefs.StoreAddress)
             + (string.IsNullOrWhiteSpace(prefs.OwnerPhone) ? "" : "\nТелефон магазина: " + prefs.OwnerPhone)
-            + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question);
+            + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question)
+            + CustomerProfileBlock(chatId);
         var (answer, error) = await AskCoreAsync("client:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
         if (answer == null)
             return (null, error);
@@ -158,6 +159,10 @@ public static class TelegramAiChat
             return text + "\n\nЧтобы оформить заказ, напишите, пожалуйста, товары из нашего каталога и номер телефона.";
         }
 
+        // Реквизиты запоминаем сразу — в следующий раз бот только попросит их подтвердить.
+        if (!string.IsNullOrWhiteSpace(name))
+            TelegramInquiryStore.SaveProfile(chatId, name, phone);
+
         if (OrderCreator == null)
             return text + "\n\nЗаказ передан продавцу — вам перезвонят.";
 
@@ -184,6 +189,19 @@ public static class TelegramAiChat
     }
 
     private static string Esc(string? t) => (t ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    /// <summary>2026-10-01, владелец: «запомнить ФИО и телефон, не спрашивать при каждом заказе —
+    /// просто попросить подтвердить: "Эти реквизиты верны? Если нет — напишите заново"».</summary>
+    private static string CustomerProfileBlock(string chatId)
+    {
+        var profile = TelegramInquiryStore.GetProfile(chatId);
+        if (profile == null)
+            return "";
+        return "\n\nДАННЫЕ ПОКУПАТЕЛЯ (сохранены с прошлого заказа): Имя: " + profile.Name + ", телефон: " + profile.Phone + ". "
+               + "При заказе НЕ спрашивай имя и телефон заново: перечисли заказ, покажи эти данные и спроси ровно так: "
+               + "«Эти реквизиты верны? Если нет — напишите заново». Если покупатель подтвердил — используй их в строке ЗАКАЗ; "
+               + "если прислал новые имя или телефон — используй новые.";
+    }
 
     private const int CustomerLimitPerHour = 20;
 

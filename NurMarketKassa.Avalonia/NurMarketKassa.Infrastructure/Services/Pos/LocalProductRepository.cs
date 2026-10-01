@@ -314,6 +314,20 @@ public sealed class LocalProductRepository
             // Колонка уже существует.
         }
 
+        try
+        {
+            // 2026-10-01: описание товара от продавца — кнопка «Подробнее» на плитке видна в любом
+            // виде магазина (ветаптека, аптека…), если описание есть; раньше оно в базу кассы не
+            // попадало и карточка каждый раз ходила за ним на сервер.
+            using var alterDescription = connection.CreateCommand();
+            alterDescription.CommandText = "ALTER TABLE Products ADD COLUMN description TEXT;";
+            alterDescription.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже существует.
+        }
+
         MigrateLegacyDataIfNeeded(connection);
     }
 
@@ -384,7 +398,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind
+                       alternate_barcode_variants, product_code, kind, description
                 FROM Products WHERE {column} = $value COLLATE NOCASE LIMIT 1;
                 """;
             var parameter = command.CreateParameter();
@@ -446,7 +460,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind
+                       alternate_barcode_variants, product_code, kind, description
                 FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
                 """;
             var parameter = command.CreateParameter();
@@ -1081,7 +1095,8 @@ public sealed class LocalProductRepository
             r.AlternateBarcodesRaw ?? "",
             r.AlternateBarcodeVariantsJson ?? "",
             r.ProductCode ?? "",
-            r.Kind ?? "");
+            r.Kind ?? "",
+            r.Description ?? "");
 
     public int CountProducts()
     {
@@ -1373,7 +1388,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description
             FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
@@ -1403,7 +1418,8 @@ public sealed class LocalProductRepository
                 AlternateBarcodesRaw = reader.IsDBNull(18) ? null : reader.GetString(18),
                 AlternateBarcodeVariantsJson = reader.IsDBNull(19) ? null : reader.GetString(19),
                 ProductCode = reader.IsDBNull(20) ? null : reader.GetString(20),
-                Kind = reader.IsDBNull(21) ? null : reader.GetString(21)
+                Kind = reader.IsDBNull(21) ? null : reader.GetString(21),
+                Description = reader.IsDBNull(22) ? null : reader.GetString(22)
             });
         }
 
@@ -1425,12 +1441,12 @@ public sealed class LocalProductRepository
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
                 bundle_items_json, alternate_barcodes, alternate_barcode_variants,
-                intake_date, product_code, kind
+                intake_date, product_code, kind, description
             ) VALUES (
                 @id, @name, @price, @barcode, @stock, @unit, @is_favorite, @must_weigh,
                 @image_url, @category, @brand, @purchase_price, @piece_option_json, @plu, @hotkey_group, @is_bundle, @article,
                 @bundle_items_json, @alternate_barcodes, @alternate_barcode_variants,
-                @intake_date, @product_code, @kind
+                @intake_date, @product_code, @kind, @description
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1454,6 +1470,7 @@ public sealed class LocalProductRepository
                 alternate_barcode_variants = excluded.alternate_barcode_variants,
                 product_code = excluded.product_code,
                 kind = excluded.kind,
+                description = excluded.description,
                 intake_date = CASE
                     WHEN Products.intake_date IS NULL AND excluded.stock > 0 THEN @today
                     ELSE Products.intake_date
@@ -1481,6 +1498,7 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@alternate_barcode_variants", DBNull.Value);
         command.Parameters.AddWithValue("@product_code", DBNull.Value);
         command.Parameters.AddWithValue("@kind", DBNull.Value);
+        command.Parameters.AddWithValue("@description", DBNull.Value);
         command.Parameters.AddWithValue("@intake_date", DBNull.Value);
         command.Parameters.AddWithValue("@today", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
@@ -1510,6 +1528,7 @@ public sealed class LocalProductRepository
         command.Parameters["@alternate_barcode_variants"].Value = (object?)record.AlternateBarcodeVariantsJson ?? DBNull.Value;
         command.Parameters["@product_code"].Value = (object?)record.ProductCode ?? DBNull.Value;
         command.Parameters["@kind"].Value = (object?)record.Kind ?? DBNull.Value;
+        command.Parameters["@description"].Value = string.IsNullOrWhiteSpace(record.Description) ? DBNull.Value : record.Description;
         // Только для ветки INSERT (совсем новый товар) — для уже существующих строк
         // реальное решение принимает CASE в ON CONFLICT DO UPDATE (см. CreateUpsertCommand).
         command.Parameters["@intake_date"].Value = record.Stock > 0
@@ -1546,6 +1565,7 @@ public sealed class LocalProductRepository
             AlternateBarcodeVariantsJson = reader.FieldCount > 19 && !reader.IsDBNull(19) ? reader.GetString(19) : null,
             ProductCode = reader.FieldCount > 20 && !reader.IsDBNull(20) ? reader.GetString(20) : null,
             Kind = reader.FieldCount > 21 && !reader.IsDBNull(21) ? reader.GetString(21) : null,
+            Description = reader.FieldCount > 22 && !reader.IsDBNull(22) ? reader.GetString(22) : null,
         };
 
     private static Product ToProduct(LocalProductRecord record) =>
@@ -1584,6 +1604,7 @@ public sealed class LocalProductRepository
             Kind = record.Kind,
             Article = record.Article,
             ProductCode = record.ProductCode,
+            Description = record.Description,
             BundleItems = DeserializeBundleItems(record.BundleItemsJson),
             AlternateBarcodesRaw = record.AlternateBarcodesRaw,
             AlternateBarcodeVariants = DeserializeAlternateBarcodeVariants(record.AlternateBarcodeVariantsJson)
@@ -1658,6 +1679,7 @@ public sealed class LocalProductRepository
             Kind = vm.Kind,
             Article = vm.Article,
             ProductCode = vm.ProductCode,
+            Description = vm.Description,
             BundleItemsJson = vm.BundleItems is null or { Count: 0 } ? null : JsonSerializer.Serialize(vm.BundleItems),
             AlternateBarcodesRaw = vm.AlternateBarcodesRaw,
             AlternateBarcodeVariantsJson = vm.AlternateBarcodeVariants is null or { Count: 0 } ? null : JsonSerializer.Serialize(vm.AlternateBarcodeVariants)
