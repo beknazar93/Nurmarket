@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 
@@ -36,7 +36,10 @@ public sealed record RentalDto(
     double DepositRefunded,
     double DepositWithheld)
 {
-    public bool IsActive => string.Equals(Status, "active", StringComparison.OrdinalIgnoreCase);
+    /// <summary>На руках — всё, что не возвращено (2026-10-02, проверка: сервер может отдать статус
+    /// «overdue» — раньше у такого проката не было кнопки «Принять возврат»).</summary>
+    public bool IsActive => !string.Equals(Status, "returned", StringComparison.OrdinalIgnoreCase);
+    public bool IsOverdue => IsActive && (Overdue || string.Equals(Status, "overdue", StringComparison.OrdinalIgnoreCase));
     public bool IsDocumentDeposit => string.Equals(DepositType, "document", StringComparison.OrdinalIgnoreCase);
 }
 

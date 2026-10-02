@@ -205,7 +205,9 @@ public static class TelegramAssistant
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
-                active = Task.Run(() => RentalsLoader("active", cts.Token)).GetAwaiter().GetResult();
+                var a = Task.Run(() => RentalsLoader("active", cts.Token)).GetAwaiter().GetResult();
+                var o = Task.Run(() => RentalsLoader("overdue", cts.Token)).GetAwaiter().GetResult();
+                active = a.Concat(o).Where(r => r.IsActive).GroupBy(r => r.Id).Select(g => g.First()).ToList();
                 _rentalCache = (DateTime.UtcNow, active);
             }
             catch
@@ -216,10 +218,10 @@ public static class TelegramAssistant
 
         string Item(RentalDto r) =>
             $"• №{r.Number} {Escape(r.ClientName)} — {Escape(string.Join(", ", r.Items.Select(i => i.Label)))}, до {r.DateTo:dd.MM}"
-            + (r.Overdue && r.DateTo is { } to ? $" (просрочен на {Math.Max(1, (DateTime.Today - to.Date).Days)} дн.)" : "")
+            + (r.IsOverdue && r.DateTo is { } to ? $" (просрочен на {Math.Max(1, (DateTime.Today - to.Date).Days)} дн.)" : "")
             + (r.IsDocumentDeposit ? " · залог: документ" : r.DepositAmount > 0 ? $" · залог {r.DepositAmount.ToString("N0", Ru)} сом" : "");
 
-        var overdue = active.Where(r => r.Overdue).ToList();
+        var overdue = active.Where(r => r.IsOverdue).ToList();
         var sb = new StringBuilder();
         sb.AppendLine("🧥 <b>Прокат</b>");
         sb.AppendLine($"На руках: {active.Count}, просрочено: {overdue.Count}");
@@ -233,7 +235,7 @@ public static class TelegramAssistant
             foreach (var r in overdue.OrderBy(r => r.DateTo).Take(10))
                 sb.AppendLine(Item(r));
         }
-        var onTime = active.Where(r => !r.Overdue).OrderBy(r => r.DateTo).Take(10).ToList();
+        var onTime = active.Where(r => !r.IsOverdue).OrderBy(r => r.DateTo).Take(10).ToList();
         if (onTime.Count > 0)
         {
             sb.AppendLine();

@@ -956,6 +956,13 @@
   <x:String x:Key="product.barcodeScanWatermarkShort">Skanerlang…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Toifa, brend va qo'shimcha shtrix-kodlar</x:String>
   <x:String x:Key="product.sectionMore">Qo'shimcha (ulgurji narx, chegirma, tezkor tugma, xususiyatlar)</x:String>
+  <x:String x:Key="product.tabMain">Asosiy</x:String>
+  <x:String x:Key="product.tabPackage">Qadoq</x:String>
+  <x:String x:Key="product.tabVariants">O'lcham va ranglar</x:String>
+  <x:String x:Key="product.tabMore">Tavsif</x:String>
+  <x:String x:Key="product.descriptionWatermark">Tarkibi, ta'sir etuvchi modda, parvarish, o'lchamlar… Uni kassir, bot va vitrina ko'radi.</x:String>
+  <x:String x:Key="product.tabCategory">Kategoriya va kodlar</x:String>
+  <x:String x:Key="product.tabHistory">Tarix</x:String>
   <x:String x:Key="product.sectionPurchaseHistory">Xaridlar tarixi</x:String>
   <x:String x:Key="product.altBarcodesLabel">Qo'shimcha shtrix-kodlar</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Shtrix-kod, nomi va qadoqdagi soni — saytdagidek. Yangi mahsulot YARATILMAYDI: bu shtrix-kod chekka skanerlanganda nomi shu mahsulot nomi bilan birlashtiriladi (masalan, "Asu suv" + "Qulupnayli").</x:String>

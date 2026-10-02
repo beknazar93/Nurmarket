@@ -187,6 +187,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        // 2026-10-02, вкладки карточки: история закупок грузится при раскрытии — раскрываем при выборе вкладки.
+        ProductTabs.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(ProductTabs.SelectedItem, HistoryTab))
+                PurchaseHistoryExpander.IsExpanded = true;
+        };
         ApplyVariantsTexts();
         DataContext = this;
         SetupPurchaseHistory();

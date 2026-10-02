@@ -41,6 +41,8 @@ public sealed class NewRentalWindow : Window
     private DispatcherTimer? _clientTimer;
 
     public double RentTotal { get; private set; }
+    private Border _moneyTile = null!;
+    private Border _docTile = null!;
 
     public NewRentalWindow()
     {
@@ -62,67 +64,67 @@ public sealed class NewRentalWindow : Window
         _depDocText.MaxLength = 250;
         _note = UiKit.Input(this, T("Комментарий (необязательно)", "Түшүндүрмө (милдеттүү эмес)", "Comment (optional)", "Not (isteğe bağlı)", "Izoh (ixtiyoriy)"));
 
-        var root = new StackPanel { Margin = new Thickness(28, 22, 28, 22), Spacing = 10 };
+        // 2026-10-02, владелец: «сделай редизайн всего, что добавили нового». Шаги — пронумерованными
+        // карточками, залог — двумя большими плитками, кнопки — внизу окна вне прокрутки.
+        var root = new StackPanel { Margin = new Thickness(26, 20, 26, 12), Spacing = 14 };
         var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(title);
 
-        // Клиент
-        root.Children.Add(UiKit.Label(this, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz")));
-        root.Children.Add(_clientSearch);
-        root.Children.Add(_clientResults);
-        Use(_clientChosen, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(_clientChosen);
+        // 1. Клиент
+        Use(_clientChosen, TextBlock.ForegroundProperty, "BrushSuccess");
+        root.Children.Add(Section(1, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz"), _clientSearch, _clientResults, _clientChosen));
         _clientSearch.TextChanged += (_, _) => ScheduleClientSearch();
 
-        // Вещи
-        root.Children.Add(UiKit.Label(this, T("Вещи", "Буюмдар", "Items", "Ürünler", "Buyumlar")));
-        root.Children.Add(_itemSearch);
-        root.Children.Add(_itemResults);
-        root.Children.Add(_items);
+        // 2. Вещи
+        root.Children.Add(Section(2, T("Вещи", "Буюмдар", "Items", "Ürünler", "Buyumlar"), _itemSearch, _itemResults, _items));
         _itemSearch.TextChanged += (_, _) => RenderItemResults();
 
-        // Срок
-        root.Children.Add(UiKit.Label(this, T("Срок", "Мөөнөт", "Period", "Süre", "Muddat")));
+        // 3. Срок и цена
         var dates = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         dates.Children.Add(Small(T("с", "—дан", "from", "başlangıç", "dan")));
         dates.Children.Add(_from);
         dates.Children.Add(Small(T("по", "—га чейин", "to", "bitiş", "gacha")));
         dates.Children.Add(_to);
-        root.Children.Add(dates);
         _from.SelectedDateChanged += (_, _) => UpdateTotal();
         _to.SelectedDateChanged += (_, _) => UpdateTotal();
-
-        // Цена
-        root.Children.Add(UiKit.Label(this, T("Цена проката за сутки (сом) — оплата в чеке", "Прокаттын суткалык баасы (сом) — төлөм чекте", "Rental price per day (som) — paid in the receipt",
-            "Günlük kiralama bedeli (som) — fişte ödenir", "Prokatning sutkalik narxi (so'm) — to'lov chekda")));
         var price = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
         price.Children.Add(_pricePerDay);
         Use(_total, TextBlock.ForegroundProperty, "BrushCatalogPrice");
+        _total.FontSize = 17;
         price.Children.Add(_total);
-        root.Children.Add(price);
         _pricePerDay.TextChanged += (_, _) => UpdateTotal();
+        root.Children.Add(Section(3, T("Срок и цена", "Мөөнөт жана баа", "Period and price", "Süre ve fiyat", "Muddat va narx"),
+            dates,
+            UiKit.Label(this, T("Цена за сутки (сом) — сумма добавится в чек", "Суткалык баа (сом) — сумма чекке кошулат", "Price per day (som) — the total goes into the receipt",
+                "Günlük fiyat (som) — toplam fişe eklenir", "Sutkalik narx (so'm) — summa chekka qo'shiladi")),
+            price));
 
-        // Залог
-        root.Children.Add(UiKit.Label(this, T("Залог", "Күрөө", "Deposit", "Depozito", "Garov")));
+        // 4. Залог — две плитки
         _depMoney.Content = T("Деньги (наличными)", "Акча (накталай)", "Money (cash)", "Para (nakit)", "Pul (naqd)");
         _depDoc.Content = T("Паспорт / документ", "Паспорт / документ", "Passport / document", "Pasaport / belge", "Pasport / hujjat");
-        var depType = new StackPanel { Orientation = Orientation.Horizontal };
-        depType.Children.Add(_depMoney);
-        depType.Children.Add(_depDoc);
-        root.Children.Add(depType);
-        root.Children.Add(_depAmount);
-        root.Children.Add(_depDocText);
+        var tiles = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*") };
+        _moneyTile = DepositTile(RentalsWindow.Icons.Cash,
+            T("Деньги", "Акча", "Money", "Para", "Pul"),
+            T("наличными, сразу в кассу", "накталай, дароо кассага", "cash, straight into the till", "nakit, doğrudan kasaya", "naqd, darhol kassaga"),
+            () => { _depMoney.IsChecked = true; UpdateDeposit(); });
+        _docTile = DepositTile(RentalsWindow.Icons.IdCard,
+            T("Паспорт / документ", "Паспорт / документ", "Passport / document", "Pasaport / belge", "Pasport / hujjat"),
+            T("клиент оставляет документ", "кардар документ калтырат", "the client leaves a document", "müşteri belge bırakır", "mijoz hujjat qoldiradi"),
+            () => { _depDoc.IsChecked = true; UpdateDeposit(); });
+        tiles.Children.Add(_moneyTile);
+        Grid.SetColumn(_docTile, 2);
+        tiles.Children.Add(_docTile);
+        root.Children.Add(Section(4, T("Залог", "Күрөө", "Deposit", "Depozito", "Garov"), tiles, _depAmount, _depDocText));
         _depMoney.IsCheckedChanged += (_, _) => UpdateDeposit();
         UpdateDeposit();
 
-        root.Children.Add(UiKit.Label(this, T("Комментарий", "Түшүндүрмө", "Comment", "Not", "Izoh")));
-        root.Children.Add(_note);
+        root.Children.Add(Section(5, T("Комментарий", "Түшүндүрмө", "Comment", "Not", "Izoh"), _note));
 
         Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(null);
         _create = UiKit.Primary(this, T("Оформить прокат", "Прокатты түзүү", "Create rental", "Kiralamayı oluştur", "Prokatni rasmiylashtirish"));
@@ -130,9 +132,25 @@ public sealed class NewRentalWindow : Window
         _create.Click += async (_, _) => await CreateAsync().ConfigureAwait(true);
         buttons.Children.Add(cancel);
         buttons.Children.Add(_create);
-        root.Children.Add(buttons);
 
-        Content = new ScrollViewer { Content = root };
+        var footer = new Border { Padding = new Thickness(26, 12, 26, 16), BorderThickness = new Thickness(0, 1, 0, 0), Child = buttons };
+        Use(footer, Border.BorderBrushProperty, "BrushBorder");
+        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        var scroll = new ScrollViewer { Content = root };
+        layout.Children.Add(scroll);
+        // 2026-10-02, проверка: колесо мыши над полем даты меняло дату (при прокрутке формы «по» уехало
+        // с 03.10 на 18.10, сумма проката выросла в 16 раз). Над датами колесо прокручивает форму.
+        foreach (var picker in new[] { _from, _to })
+        {
+            picker.AddHandler(PointerWheelChangedEvent, (_, e) =>
+            {
+                e.Handled = true;
+                scroll.Offset = new Vector(scroll.Offset.X, Math.Max(0, scroll.Offset.Y - e.Delta.Y * 60));
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        }
+        Grid.SetRow(footer, 1);
+        layout.Children.Add(footer);
+        Content = layout;
         UpdateTotal();
         RenderItems();
         Opened += (_, _) => _clientSearch.Focus();
@@ -155,6 +173,63 @@ public sealed class NewRentalWindow : Window
         var money = _depMoney.IsChecked == true;
         _depAmount.IsVisible = money;
         _depDocText.IsVisible = !money;
+        if (_moneyTile is null || _docTile is null)
+            return;
+        StyleTile(_moneyTile, money);
+        StyleTile(_docTile, !money);
+    }
+
+    private void StyleTile(Border tile, bool selected)
+    {
+        tile.BorderThickness = new Thickness(selected ? 2 : 1);
+        Use(tile, Border.BorderBrushProperty, selected ? "BrushAccentStrong" : "BrushBorder");
+        Use(tile, Border.BackgroundProperty, selected ? "BrushAccentSoft" : "BrushPanel");
+    }
+
+    /// <summary>Пронумерованная карточка шага.</summary>
+    private Border Section(int number, string title, params Control[] content)
+    {
+        var card = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 14), BorderThickness = new Thickness(1) };
+        Use(card, Border.BackgroundProperty, "BrushPanel");
+        Use(card, Border.BorderBrushProperty, "BrushBorder");
+        var stack = new StackPanel { Spacing = 10 };
+        var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var badge = new Border { Width = 26, Height = 26, CornerRadius = new CornerRadius(13) };
+        Use(badge, Border.BackgroundProperty, "BrushAccent");
+        var num = new TextBlock { Text = number.ToString(CultureInfo.InvariantCulture), FontSize = 13, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        Use(num, TextBlock.ForegroundProperty, "BrushAccentForeground");
+        badge.Child = num;
+        head.Children.Add(badge);
+        var t = new TextBlock { Text = title, FontSize = 15.5, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+        Use(t, TextBlock.ForegroundProperty, "BrushText");
+        head.Children.Add(t);
+        stack.Children.Add(head);
+        foreach (var c in content)
+            stack.Children.Add(c);
+        card.Child = stack;
+        return card;
+    }
+
+    /// <summary>Плитка вида залога: пиктограмма, название, пояснение.</summary>
+    private Border DepositTile(string icon, string title, string hint, Action onClick)
+    {
+        var tile = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12), Cursor = new Cursor(StandardCursorType.Hand) };
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        var path = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse(icon), Width = 26, Height = 26, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center };
+        Use(path, Avalonia.Controls.Shapes.Shape.FillProperty, "BrushAccentStrong");
+        g.Children.Add(path);
+        var texts = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var t1 = new TextBlock { Text = title, FontSize = 15, FontWeight = FontWeight.Bold };
+        Use(t1, TextBlock.ForegroundProperty, "BrushText");
+        var t2 = new TextBlock { Text = hint, FontSize = 12, TextWrapping = TextWrapping.Wrap };
+        Use(t2, TextBlock.ForegroundProperty, "BrushTextSoft");
+        texts.Children.Add(t1);
+        texts.Children.Add(t2);
+        Grid.SetColumn(texts, 1);
+        g.Children.Add(texts);
+        tile.Child = g;
+        tile.PointerPressed += (_, _) => onClick();
+        return tile;
     }
 
     private void ScheduleClientSearch()
@@ -357,7 +432,10 @@ public sealed class ReturnRentalWindow : Window
     private readonly RadioButton _damaged = new() { GroupName = "cond", FontSize = 15 };
     private readonly TextBox _penalty;
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _summary = new();
     private readonly Button _confirm;
+    private Border _okTile = null!;
+    private Border _damagedTile = null!;
 
     public ReturnRentalWindow(RentalDto rental)
     {
@@ -370,22 +448,39 @@ public sealed class ReturnRentalWindow : Window
         Use(this, BackgroundProperty, "BrushDialogPanel");
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(null); };
 
-        var root = new StackPanel { Margin = new Thickness(26, 22), Spacing = 10 };
+        // 2026-10-02, редизайн: карточка проката, состояние — двумя плитками, итог «вернуть клиенту» сразу.
+        var root = new StackPanel { Margin = new Thickness(26, 22), Spacing = 14 };
         var title = new TextBlock { Text = Title, FontSize = 21, FontWeight = FontWeight.Bold };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         root.Children.Add(title);
-        root.Children.Add(Info($"{rental.ClientName} · " + string.Join("; ", rental.Items.Select(i => i.Label))));
-        root.Children.Add(Info(Tr.T($"Срок: {RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}", $"Мөөнөт: {RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}",
-            $"Period: {RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}", $"Süre: {RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}",
-            $"Muddat: {RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}") + (rental.Overdue ? Tr.T(" (просрочен)", " (мөөнөтү өттү)", " (overdue)", " (gecikmiş)", " (muddati o'tgan)") : "")));
-        root.Children.Add(Info(Tr.T("Залог: ", "Күрөө: ", "Deposit: ", "Depozito: ", "Garov: ") + (rental.IsDocumentDeposit ? rental.DepositDocument : RentalsWindow.Money(rental.DepositAmount))));
+
+        var info = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12) };
+        Use(info, Border.BackgroundProperty, "BrushPanelSoft");
+        var infoStack = new StackPanel { Spacing = 4 };
+        var who = new TextBlock { Text = rental.ClientName, FontSize = 16, FontWeight = FontWeight.Bold };
+        Use(who, TextBlock.ForegroundProperty, "BrushText");
+        infoStack.Children.Add(who);
+        infoStack.Children.Add(Info(string.Join("; ", rental.Items.Select(i => i.Label))));
+        var period = Info($"{RentalsWindow.D(rental.DateFrom)} — {RentalsWindow.D(rental.DateTo)}"
+                          + (rental.IsOverdue ? Tr.T(" · просрочен", " · мөөнөтү өттү", " · overdue", " · gecikmiş", " · muddati o'tgan") : ""));
+        if (rental.IsOverdue)
+            Use(period, TextBlock.ForegroundProperty, "BrushDanger");
+        infoStack.Children.Add(period);
+        infoStack.Children.Add(Info(Tr.T("Залог: ", "Күрөө: ", "Deposit: ", "Depozito: ", "Garov: ") + (rental.IsDocumentDeposit ? rental.DepositDocument : RentalsWindow.Money(rental.DepositAmount))));
+        info.Child = infoStack;
+        root.Children.Add(info);
 
         root.Children.Add(UiKit.Label(this, Tr.T("Состояние вещи", "Буюмдун абалы", "Item condition", "Ürün durumu", "Buyum holati")));
         _ok.Content = Tr.T("В порядке", "Жакшы", "OK", "Sorunsuz", "Yaxshi");
         _damaged.Content = Tr.T("Повреждено", "Бузулган", "Damaged", "Hasarlı", "Shikastlangan");
-        var cond = new StackPanel { Orientation = Orientation.Horizontal };
-        cond.Children.Add(_ok);
-        cond.Children.Add(_damaged);
+        var cond = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*") };
+        _okTile = CondTile("M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z", Tr.T("В порядке", "Жакшы", "OK", "Sorunsuz", "Yaxshi"), "BrushSuccess",
+            () => { _ok.IsChecked = true; Refresh(); });
+        _damagedTile = CondTile("M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z", Tr.T("Повреждено", "Бузулган", "Damaged", "Hasarlı", "Shikastlangan"), "BrushWarning",
+            () => { _damaged.IsChecked = true; Refresh(); });
+        cond.Children.Add(_okTile);
+        Grid.SetColumn(_damagedTile, 2);
+        cond.Children.Add(_damagedTile);
         root.Children.Add(cond);
 
         root.Children.Add(UiKit.Label(this, rental.IsDocumentDeposit
@@ -394,12 +489,21 @@ public sealed class ReturnRentalWindow : Window
         _penalty = UiKit.Input(this, "0");
         _penalty.Width = 180;
         _penalty.HorizontalAlignment = HorizontalAlignment.Left;
+        _penalty.TextChanged += (_, _) => Refresh();
         root.Children.Add(_penalty);
+
+        _summary.FontSize = 16;
+        _summary.FontWeight = FontWeight.Bold;
+        _summary.TextWrapping = TextWrapping.Wrap;
+        Use(_summary, TextBlock.ForegroundProperty, "BrushText");
+        var sumCard = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 10), Child = _summary };
+        Use(sumCard, Border.BackgroundProperty, "BrushAccentSoft");
+        root.Children.Add(sumCard);
 
         Use(_error, TextBlock.ForegroundProperty, "BrushDanger");
         root.Children.Add(_error);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 0, 0) };
         var cancel = UiKit.Ghost(this, Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.Click += (_, _) => Close(null);
         _confirm = UiKit.Primary(this, Tr.T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"));
@@ -408,12 +512,60 @@ public sealed class ReturnRentalWindow : Window
         buttons.Children.Add(_confirm);
         root.Children.Add(buttons);
         Content = root;
+        Refresh();
+    }
+
+    private double Penalty =>
+        double.TryParse((_penalty.Text ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : 0;
+
+    /// <summary>Плитки состояния и итог: что вернуть клиенту.</summary>
+    private void Refresh()
+    {
+        if (_okTile is null || _damagedTile is null)
+            return;
+        Tile(_okTile, _ok.IsChecked == true);
+        Tile(_damagedTile, _damaged.IsChecked == true);
+        if (_rental.IsDocumentDeposit)
+            _summary.Text = Tr.T($"Вернуть клиенту документ: {_rental.DepositDocument}", $"Кардарга документти кайтаруу: {_rental.DepositDocument}", $"Give back the document: {_rental.DepositDocument}",
+                $"Belgeyi iade edin: {_rental.DepositDocument}", $"Hujjatni qaytaring: {_rental.DepositDocument}")
+                + (Penalty > 0 ? Tr.T($" · штраф {RentalsWindow.Money(Penalty)}", $" · айып {RentalsWindow.Money(Penalty)}", $" · penalty {RentalsWindow.Money(Penalty)}", $" · ceza {RentalsWindow.Money(Penalty)}", $" · jarima {RentalsWindow.Money(Penalty)}") : "");
+        else
+        {
+            var back = Math.Max(0, _rental.DepositAmount - Penalty);
+            _summary.Text = Tr.T($"Вернуть клиенту залог: {RentalsWindow.Money(back)}", $"Кардарга күрөөнү кайтаруу: {RentalsWindow.Money(back)}", $"Give back the deposit: {RentalsWindow.Money(back)}",
+                $"Depozitoyu iade edin: {RentalsWindow.Money(back)}", $"Garovni qaytaring: {RentalsWindow.Money(back)}")
+                + (Penalty > 0 ? Tr.T($" (удержано {RentalsWindow.Money(Math.Min(Penalty, _rental.DepositAmount))})", $" (кармалды {RentalsWindow.Money(Math.Min(Penalty, _rental.DepositAmount))})",
+                    $" (withheld {RentalsWindow.Money(Math.Min(Penalty, _rental.DepositAmount))})", $" (tutulan {RentalsWindow.Money(Math.Min(Penalty, _rental.DepositAmount))})",
+                    $" (ushlab qolindi {RentalsWindow.Money(Math.Min(Penalty, _rental.DepositAmount))})") : "");
+        }
+    }
+
+    private void Tile(Border tile, bool selected)
+    {
+        tile.BorderThickness = new Thickness(selected ? 2 : 1);
+        Use(tile, Border.BorderBrushProperty, selected ? "BrushAccentStrong" : "BrushBorder");
+        Use(tile, Border.BackgroundProperty, selected ? "BrushAccentSoft" : "BrushPanel");
+    }
+
+    private Border CondTile(string icon, string text, string iconBrush, Action onClick)
+    {
+        var tile = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12), Cursor = new Cursor(StandardCursorType.Hand) };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var path = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse(icon), Width = 22, Height = 22, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
+        Use(path, Avalonia.Controls.Shapes.Shape.FillProperty, iconBrush);
+        row.Children.Add(path);
+        var t = new TextBlock { Text = text, FontSize = 15, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+        Use(t, TextBlock.ForegroundProperty, "BrushText");
+        row.Children.Add(t);
+        tile.Child = row;
+        tile.PointerPressed += (_, _) => onClick();
+        return tile;
     }
 
     private async Task ConfirmAsync()
     {
         _error.Text = "";
-        var penalty = double.TryParse((_penalty.Text ?? "").Replace(" ", "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var p) && p > 0 ? p : 0;
+        var penalty = Penalty;
         _confirm.IsEnabled = false;
         try
         {

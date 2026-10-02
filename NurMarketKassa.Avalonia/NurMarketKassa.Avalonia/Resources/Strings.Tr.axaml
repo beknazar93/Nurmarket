@@ -956,6 +956,13 @@
   <x:String x:Key="product.barcodeScanWatermarkShort">Tarayın…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Kategori, marka ve ek barkodlar</x:String>
   <x:String x:Key="product.sectionMore">Diğer (toptan fiyat, indirim, kısayol, özellikler)</x:String>
+  <x:String x:Key="product.tabMain">Temel</x:String>
+  <x:String x:Key="product.tabPackage">Paket</x:String>
+  <x:String x:Key="product.tabVariants">Bedenler ve renkler</x:String>
+  <x:String x:Key="product.tabMore">Açıklama</x:String>
+  <x:String x:Key="product.descriptionWatermark">İçerik, etken madde, bakım, bedenler… Kasiyer, bot ve vitrin görür.</x:String>
+  <x:String x:Key="product.tabCategory">Kategori ve kodlar</x:String>
+  <x:String x:Key="product.tabHistory">Geçmiş</x:String>
   <x:String x:Key="product.sectionPurchaseHistory">Alım geçmişi</x:String>
   <x:String x:Key="product.altBarcodesLabel">Ek barkodlar</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Barkod, ad ve paket başına miktar — web sitesindeki gibi. Yeni bir ürün oluşturulmaz: bu barkod kasada okutulduğunda adı aynı ürünün adıyla birleşir (örn. "Asu su" + "Çilekli").</x:String>

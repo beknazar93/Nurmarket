@@ -956,6 +956,13 @@
   <x:String x:Key="product.barcodeScanWatermarkShort">Сканируйте…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Категория, бренд и доп. штрихкоды</x:String>
   <x:String x:Key="product.sectionMore">Дополнительно (опт.цена, скидка, горячая клавиша, характеристики)</x:String>
+  <x:String x:Key="product.tabMain">Основное</x:String>
+  <x:String x:Key="product.tabPackage">Упаковка</x:String>
+  <x:String x:Key="product.tabVariants">Размеры и цвета</x:String>
+  <x:String x:Key="product.tabMore">Описание</x:String>
+  <x:String x:Key="product.descriptionWatermark">Состав, действующее вещество, уход, размеры… Его видят кассир, бот и витрина.</x:String>
+  <x:String x:Key="product.tabCategory">Категория и коды</x:String>
+  <x:String x:Key="product.tabHistory">История</x:String>
   <x:String x:Key="product.sectionPurchaseHistory">История закупок</x:String>
   <x:String x:Key="product.altBarcodesLabel">Дополнительные штрихкоды</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Штрихкод, название и кол-во в упаковке — как на сайте. Новый товар НЕ создаётся: при сканировании такого штрихкода в чек название комбинируется с названием этого же товара (например, «Асу вода» + «Клубничный»).</x:String>

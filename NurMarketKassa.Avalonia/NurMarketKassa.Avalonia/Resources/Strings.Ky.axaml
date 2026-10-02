@@ -956,6 +956,13 @@
   <x:String x:Key="product.barcodeScanWatermarkShort">Скандаңыз…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Категория, бренд жана кошумча штрихкоддор</x:String>
   <x:String x:Key="product.sectionMore">Кошумча (оптом баасы, арзандатуу, ыкчам баскыч, мүнөздөмөлөр)</x:String>
+  <x:String x:Key="product.tabMain">Негизги</x:String>
+  <x:String x:Key="product.tabPackage">Таңгак</x:String>
+  <x:String x:Key="product.tabVariants">Өлчөмдөр жана түстөр</x:String>
+  <x:String x:Key="product.tabMore">Сүрөттөмө</x:String>
+  <x:String x:Key="product.descriptionWatermark">Курамы, таасир этүүчү зат, кароо, өлчөмдөр… Аны кассир, бот жана витрина көрөт.</x:String>
+  <x:String x:Key="product.tabCategory">Категория жана коддор</x:String>
+  <x:String x:Key="product.tabHistory">Тарых</x:String>
   <x:String x:Key="product.sectionPurchaseHistory">Сатып алуулар тарыхы</x:String>
   <x:String x:Key="product.altBarcodesLabel">Кошумча штрихкоддор</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Штрихкод, аталышы жана таңгактагы саны — сайттагыдай эле. Жаңы товар түзүлбөйт: мындай штрихкод чекке сканерленганда, анын аталышы ушул эле товардын аталышына кошулат (мисалы, «Асу суу» + «Клубникалуу»).</x:String>

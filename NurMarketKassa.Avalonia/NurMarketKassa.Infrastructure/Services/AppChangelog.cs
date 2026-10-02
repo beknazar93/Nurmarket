@@ -13,57 +13,47 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Прокат и аренда (одежда, услуги): выдача вещи с залогом деньгами или паспортом, возврат со штрафом, просрочки — меню кассы → «Прокат»",
-        "Размеры и цвета: новое окно выбора — остаток под каждым размером, цвет с кружком, акционная цена со скидкой",
-        "Скидка на размер видна в чеке и в корзине: «было 1900 (−16%)»",
-        "Окно оплаты: иконки способов оплаты и ровные кнопки",
-        "Аптека и ветаптека: если товар закончился — замена с тем же действующим веществом",
-        "Телеграм-бот: знает размеры и цвета одежды, предлагает замену, отвечает про прокат («кто не вернул», «залоги»)",
-        "Программа владельца: раздел «Прокат», размеры в «Размерах и цветах» по порядку",
+        "Карточка товара — вкладками: «Основное», «Категория и коды», «Упаковка», «Размеры и цвета», «Описание», «История»; вид товара — одним переключателем",
+        "Прокат в новом виде: счётчики сверху, карточки с цветной полосой статуса, оформление по шагам, залог — двумя плитками",
+        "Возврат проката: состояние двумя плитками и сразу видно, сколько вернуть клиенту",
+        "Исправлено: у просроченного проката есть кнопка «Принять возврат»; колесо мыши над датой больше не меняет срок; в истории видно, сколько удержано",
+        "Подсказка «С этим часто берут» — новый вид; выбранный размер и цвет не теряют выделение под мышкой",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Прокат жана ижара (кийим, кызматтар): буюмду акча же паспорт күрөөсү менен берүү, айып менен кайтаруу, мөөнөтү өткөндөр — касса менюсу → «Прокат»",
-        "Өлчөмдөр жана түстөр: жаңы тандоо терезеси — ар бир өлчөмдүн астында калдык, түс тегерек менен, акциялык баа арзандатуу менен",
-        "Өлчөмгө арзандатуу чекте жана себетте көрүнөт: «1900 болгон (−16%)»",
-        "Төлөм терезеси: төлөм ыкмаларынын сүрөтчөлөрү жана тегиз баскычтар",
-        "Дарыкана жана ветдарыкана: товар түгөнсө — ошол эле таасир этүүчү заты бар алмаштыруу",
-        "Телеграм-бот: кийимдин өлчөмдөрүн жана түстөрүн билет, алмаштыруу сунуштайт, прокат боюнча жооп берет",
-        "Ээсинин программасы: «Прокат» бөлүмү, «Өлчөмдөр жана түстөрдө» өлчөмдөр тартиби менен",
+        "Товардын карточкасы — өтмөктөр менен: «Негизги», «Категория жана коддор», «Таңгак», «Өлчөмдөр жана түстөр», «Сүрөттөмө», «Тарых»",
+        "Прокат жаңы көрүнүштө: жогоруда эсептегичтер, абал тилкеси бар карточкалар, кадам менен тариздөө, күрөө — эки плитка",
+        "Прокатты кайтаруу: абалы эки плитка менен жана кардарга канча кайтаруу керектиги дароо көрүнөт",
+        "Оңдолду: мөөнөтү өткөн прокатта «Кайтарууну кабыл алуу» баскычы бар; чычкан дөңгөлөгү датаны өзгөртпөйт; тарыхта канча кармалганы көрүнөт",
+        "«Муну менен көп алышат» кеңеши — жаңы көрүнүш; тандалган өлчөм жана түс чычкандын астында белгисин жоготпойт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Rentals (clothing, services): rent out items with a cash or passport deposit, take back with a penalty, overdue list — till menu → “Rentals”",
-        "Sizes and colors: new picker — stock under each size, color swatches, promo price with discount",
-        "Size discount is shown in the receipt and the cart: “was 1900 (−16%)”",
-        "Payment window: payment method icons and even buttons",
-        "Pharmacy and vet pharmacy: if a product is out of stock — a replacement with the same active ingredient",
-        "Telegram bot: knows clothing sizes and colors, suggests replacements, answers about rentals (“who hasn't returned”, “deposits”)",
-        "Owner app: “Rentals” section, sizes in “Sizes and colors” in order",
+        "Product card with tabs: “Main”, “Category & codes”, “Package”, “Sizes & colors”, “Description”, “History”; product type as one switch",
+        "Rentals redesigned: counters on top, cards with a colored status strip, step-by-step form, deposit as two tiles",
+        "Rental return: condition as two tiles and the amount to give back shown right away",
+        "Fixed: overdue rentals have a “Take back” button; the mouse wheel over a date no longer changes it; history shows the amount withheld",
+        "“Often bought with this” suggestion redesigned; the selected size and color keep their highlight under the mouse",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Kiralama (giyim, hizmetler): ürünü nakit veya pasaport depozitosuyla kiralama, cezalı iade, gecikenler — kasa menüsü → «Kiralama»",
-        "Beden ve renkler: yeni seçim penceresi — her bedenin altında stok, renk dairesi, indirimli kampanya fiyatı",
-        "Beden indirimi fişte ve sepette görünür: «önce 1900 (−16%)»",
-        "Ödeme penceresi: ödeme yöntemi simgeleri ve düzgün düğmeler",
-        "Eczane ve veteriner eczanesi: ürün bittiyse — aynı etken maddeli muadil",
-        "Telegram botu: giyim beden ve renklerini bilir, muadil önerir, kiralama hakkında yanıt verir",
-        "Sahip programı: «Kiralama» bölümü, «Bedenler ve renkler»de bedenler sıralı",
+        "Ürün kartı sekmeli: «Temel», «Kategori ve kodlar», «Paket», «Bedenler ve renkler», «Açıklama», «Geçmiş»",
+        "Kiralama yeni görünümde: üstte sayaçlar, renkli durum şeritli kartlar, adım adım form, depozito iki kutucuk",
+        "Kiralama iadesi: durum iki kutucukla ve müşteriye ne kadar iade edileceği hemen görünür",
+        "Düzeltildi: gecikmiş kiralamada «İadeyi al» düğmesi var; fare tekerleği tarihi değiştirmiyor; geçmişte kesilen tutar görünür",
+        "«Bununla sık alınanlar» önerisi yeni görünümde; seçili beden ve renk fare altında vurgusunu kaybetmiyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Prokat va ijara (kiyim, xizmatlar): buyumni naqd pul yoki pasport garovi bilan berish, jarima bilan qaytarish, muddati o'tganlar — kassa menyusi → «Prokat»",
-        "O'lcham va ranglar: yangi tanlash oynasi — har bir o'lcham ostida qoldiq, rang doirachasi, chegirmali aksiya narxi",
-        "O'lchamga chegirma chekda va savatda ko'rinadi: «1900 edi (−16%)»",
-        "To'lov oynasi: to'lov usullari belgilari va tekis tugmalar",
-        "Dorixona va veterinariya dorixonasi: mahsulot tugasa — bir xil ta'sir etuvchi moddali almashtirish",
-        "Telegram bot: kiyim o'lcham va ranglarini biladi, almashtirish taklif qiladi, prokat haqida javob beradi",
-        "Egasi dasturi: «Prokat» bo'limi, «O'lcham va ranglar»da o'lchamlar tartib bilan",
+        "Mahsulot kartasi bo'limlar bilan: «Asosiy», «Kategoriya va kodlar», «Qadoq», «O'lcham va ranglar», «Tavsif», «Tarix»",
+        "Prokat yangi ko'rinishda: tepada hisoblagichlar, rangli holat chizig'i bilan kartalar, bosqichma-bosqich forma, garov — ikki plitka",
+        "Prokatni qaytarish: holati ikki plitka bilan va mijozga qancha qaytarish kerakligi darhol ko'rinadi",
+        "Tuzatildi: muddati o'tgan prokatda «Qaytarishni qabul qilish» tugmasi bor; sichqoncha g'ildiragi sanani o'zgartirmaydi; tarixda ushlab qolingan summa ko'rinadi",
+        "«Bu bilan ko'p olishadi» maslahati yangi ko'rinishda; tanlangan o'lcham va rang sichqoncha ostida belgisini yo'qotmaydi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

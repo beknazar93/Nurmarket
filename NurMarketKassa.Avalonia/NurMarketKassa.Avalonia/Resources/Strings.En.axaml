@@ -956,6 +956,13 @@
   <x:String x:Key="product.barcodeScanWatermarkShort">Scan…</x:String>
   <x:String x:Key="product.sectionCategoryBrand">Category, brand and additional barcodes</x:String>
   <x:String x:Key="product.sectionMore">More (wholesale price, discount, hotkey, specifications)</x:String>
+  <x:String x:Key="product.tabMain">Main</x:String>
+  <x:String x:Key="product.tabPackage">Package</x:String>
+  <x:String x:Key="product.tabVariants">Sizes &amp; colors</x:String>
+  <x:String x:Key="product.tabMore">Description</x:String>
+  <x:String x:Key="product.descriptionWatermark">Composition, active ingredient, care, sizes… Seen by the cashier, the bot and the storefront.</x:String>
+  <x:String x:Key="product.tabCategory">Category &amp; codes</x:String>
+  <x:String x:Key="product.tabHistory">History</x:String>
   <x:String x:Key="product.sectionPurchaseHistory">Purchase history</x:String>
   <x:String x:Key="product.altBarcodesLabel">Additional barcodes</x:String>
   <x:String x:Key="product.altBarcodesWatermark">Barcode, name and quantity per pack — same as on the website. No new product is created: when this barcode is scanned, its name is combined with the name of this product on the receipt (e.g., "Asu water" + "Strawberry").</x:String>

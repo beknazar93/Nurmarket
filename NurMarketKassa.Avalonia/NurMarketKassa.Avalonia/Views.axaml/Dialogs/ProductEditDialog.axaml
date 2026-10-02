@@ -109,10 +109,43 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
+        <!-- 2026-10-02: вкладки карточки товара — подпись и полоса выбранной вкладки в цветах темы. -->
+        <Style Selector="TabControl#ProductTabs TabItem">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="TabControl#ProductTabs TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TabControl#ProductTabs TabItem:selected /template/ Border#PART_SelectedPipe">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="TabControl#ProductTabs TabItem:pointerover /template/ Border#PART_LayoutRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector="Button.KindButton">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.KindButton.Selected">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="Button.KindButton.Selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
     </Window.Styles>
 
     <Border Background="{DynamicResource BrushPanel}" CornerRadius="{DynamicResource SettingsCardRadius}" Margin="8" BoxShadow="0 8 24 0 #33000000">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="24,16,20,8">
                 <TextBlock Grid.Column="0" Text="{Binding HeaderText}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
@@ -129,408 +162,422 @@
                 </Button>
             </Grid>
 
-            <ScrollViewer Grid.Row="1" Margin="24,12,16,12">
-                <StackPanel Spacing="22" Margin="0,0,10,0">
-                    <Grid ColumnDefinitions="*,10,*,10,*" IsVisible="{Binding !IsQuickAddMode}">
-                        <Button Grid.Column="0" Classes="KindButton" Classes.Selected="{Binding IsProductKind}"
-                                Content="{DynamicResource product.kindProduct}" Click="KindProduct_Click"/>
-                        <Button Grid.Column="2" Classes="KindButton" Classes.Selected="{Binding IsServiceKind}"
-                                Content="{DynamicResource product.kindService}" Click="KindService_Click"/>
-                        <Button Grid.Column="4" Classes="KindButton" Classes.Selected="{Binding IsBundleKind}"
-                                Content="{DynamicResource product.kindBundle}" Click="KindBundle_Click"/>
-                    </Grid>
+            <!-- 2026-10-02, владелец: «сделай редизайн как таб-меню внутри модалки». Вид товара — сегментный
+                 переключатель под заголовком, поля — по вкладкам вместо одной длинной прокрутки. -->
+            <Border Grid.Row="1" Margin="24,4,24,6" Padding="4" CornerRadius="12" Background="{DynamicResource BrushPanelSoft}"
+                    IsVisible="{Binding !IsQuickAddMode}">
+                <Grid ColumnDefinitions="*,*,*">
+                    <Button Grid.Column="0" Classes="KindButton" Classes.Selected="{Binding IsProductKind}"
+                            Content="{DynamicResource product.kindProduct}" Click="KindProduct_Click"/>
+                    <Button Grid.Column="1" Classes="KindButton" Classes.Selected="{Binding IsServiceKind}"
+                            Content="{DynamicResource product.kindService}" Click="KindService_Click"/>
+                    <Button Grid.Column="2" Classes="KindButton" Classes.Selected="{Binding IsBundleKind}"
+                            Content="{DynamicResource product.kindBundle}" Click="KindBundle_Click"/>
+                </Grid>
+            </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
-                        <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
-                    </StackPanel>
+            <TabControl x:Name="ProductTabs" Grid.Row="2" Margin="20,4,16,4" Padding="4,0,0,0">
+                <TabItem Header="{DynamicResource product.tabMain}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
+                                <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
+                            </StackPanel>
 
-                    <Grid ColumnDefinitions="*,18,*">
-                        <StackPanel Grid.Column="0" Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
-                            <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="8">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colBarcode}"/>
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBox x:Name="BarcodeBox" Grid.Column="0" Text="{Binding Barcode}"
-                                         LostFocus="BarcodeBox_LostFocus"
-                                         Watermark="{DynamicResource product.barcodeScanWatermarkShort}"
-                                         ToolTip.Tip="{DynamicResource product.barcodeScanWatermark}"/>
-                                <Button Grid.Column="1" Classes="SecondaryButton" Margin="6,0,0,0"
-                                        Content="{DynamicResource product.generateBarcode}"
-                                        Command="{Binding GenerateBarcodeCommand}"
-                                        IsVisible="{Binding !IsQuickAddMode}"/>
+                            <Grid ColumnDefinitions="*,18,*">
+                                <StackPanel Grid.Column="0" Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
+                                    <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colBarcode}"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox x:Name="BarcodeBox" Grid.Column="0" Text="{Binding Barcode}"
+                                                 LostFocus="BarcodeBox_LostFocus"
+                                                 Watermark="{DynamicResource product.barcodeScanWatermarkShort}"
+                                                 ToolTip.Tip="{DynamicResource product.barcodeScanWatermark}"/>
+                                        <Button Grid.Column="1" Classes="SecondaryButton" Margin="6,0,0,0"
+                                                Content="{DynamicResource product.generateBarcode}"
+                                                Command="{Binding GenerateBarcodeCommand}"
+                                                IsVisible="{Binding !IsQuickAddMode}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,14,Auto,14,*">
+                                <StackPanel Grid.Column="0" Spacing="6" IsVisible="{Binding !IsQuickAddMode}">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
+                                    <TextBox Text="{Binding Unit}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Bottom" IsVisible="{Binding !IsQuickAddMode}">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.isWeightLabel}"/>
+                                    <ToggleSwitch IsChecked="{Binding IsWeight}" OnContent="" OffContent="" Margin="0,0,0,8"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Spacing="6">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
+                                    <TextBox Text="{Binding Quantity}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Spacing="8" IsVisible="{Binding IsWeight}">
+                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.pluLabel}"/>
+                                <TextBox Text="{Binding Plu}" Watermark="{DynamicResource product.pluWatermark}"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
+                            <Grid ColumnDefinitions="*,18,*,18,*">
+                                <StackPanel Grid.Column="0" Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
+                                    <TextBox Text="{Binding PurchasePrice}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.markupLabel}"/>
+                                    <TextBox Text="{Binding MarkupPercent}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
+                                    <TextBox Text="{Binding Price}"/>
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
-                    </Grid>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabCategory}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <StackPanel Spacing="22" HorizontalAlignment="Stretch">
+                                <StackPanel Spacing="8" HorizontalAlignment="Stretch">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
+                                    <TextBlock Text="{DynamicResource product.altBarcodesWatermark}" FontSize="11"
+                                               TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
-                    <!-- 2026-09-15, аудит удобства: раньше эти поля шли одним нескончаемым
-                         полотном из 20+ полей подряд — категория/бренд/доп.штрихкоды сворачиваем
-                         в отдельную карточку (по умолчанию раскрыта, это часто нужные поля), чтобы
-                         форму было легче окинуть взглядом на маленьком экране кассы. -->
-                    <Expander Header="{DynamicResource product.sectionCategoryBrand}" IsExpanded="True"
-                              FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
-                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                              IsVisible="{Binding !IsQuickAddMode}">
-                        <StackPanel Spacing="22" Margin="0,14,0,0" HorizontalAlignment="Stretch">
-                            <StackPanel Spacing="8" HorizontalAlignment="Stretch">
-                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
-                                <TextBlock Text="{DynamicResource product.altBarcodesWatermark}" FontSize="11"
-                                           TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <Grid ColumnDefinitions="*,12,*,12,Auto" Margin="0,6,0,0">
+                                        <TextBox Grid.Column="0" Text="{Binding VariantBarcode}"
+                                                 Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
+                                        <TextBox Grid.Column="2" Text="{Binding VariantNameSuffix}"
+                                                 Watermark="{DynamicResource product.variantNameWatermark}"/>
+                                        <StackPanel Grid.Column="4" Spacing="4" Width="90">
+                                            <TextBlock Classes="FieldLabel" FontSize="11" Text="{DynamicResource product.variantQuantityLabel}"/>
+                                            <TextBox Text="{Binding VariantQuantity}"/>
+                                        </StackPanel>
+                                    </Grid>
 
-                                <Grid ColumnDefinitions="*,12,*,12,Auto" Margin="0,6,0,0">
-                                    <TextBox Grid.Column="0" Text="{Binding VariantBarcode}"
-                                             Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
-                                    <TextBox Grid.Column="2" Text="{Binding VariantNameSuffix}"
-                                             Watermark="{DynamicResource product.variantNameWatermark}"/>
-                                    <StackPanel Grid.Column="4" Spacing="4" Width="90">
-                                        <TextBlock Classes="FieldLabel" FontSize="11" Text="{DynamicResource product.variantQuantityLabel}"/>
-                                        <TextBox Text="{Binding VariantQuantity}"/>
+                                    <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" IsVisible="{Binding HasVariantPreview}"
+                                               Text="{Binding VariantPreviewText}" FontSize="11"
+                                               Foreground="{DynamicResource BrushTextSoft}"/>
+
+                                    <Button Classes="SecondaryButton" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                            Content="{DynamicResource product.variantAddButton}"
+                                            Click="AddVariant_Click"/>
+
+                                    <StackPanel Spacing="6" Margin="0,6,0,0" IsVisible="{Binding HasVariants}">
+                                        <TextBlock Text="{DynamicResource product.variantsListHeader}" FontSize="11"
+                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                        <ItemsControl ItemsSource="{Binding Variants}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
+                                                            Padding="10,8" Margin="0,0,0,6">
+                                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="{Binding FullName}" FontWeight="Bold"/>
+                                                                <TextBlock Text="{Binding Barcode}" FontSize="11"
+                                                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
+                                                                       Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
+                                                                    Tag="{Binding}" Click="RemoveVariant_Click"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Категория и бренд (2026-09-07): раскрывающиеся списки из справочников NurCRM
+                                     (GET api/main/categories и api/main/brands) + строка "создать новую" — как
+                                     на сайте (там select + "Создать категорию/бренд"), вместо свободного текста,
+                                     который плодил дубли ("Напитки"/"напитки"). Без ComboBox/Popup — по той же
+                                     причине, что и "Горячая клавиша" ниже (в окне без системного хрома всплывающее
+                                     меню не открывается), тот же приём: кнопка + разворачиваемая панель. -->
+                                <Grid ColumnDefinitions="*,18,*">
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.categoryLabel}"/>
+                                        <Button x:Name="CategoryToggleButton" Classes="SecondaryButton" MinHeight="44"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Click="CategoryToggleButton_Click">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock x:Name="CategoryCurrentText" Grid.Column="0" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            </Grid>
+                                        </Button>
+                                        <Border x:Name="CategoryOptionsPanel" IsVisible="False"
+                                                Background="{DynamicResource BrushPanel}"
+                                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                                CornerRadius="8" Padding="8"
+                                                BoxShadow="0 6 16 0 #26000000">
+                                            <StackPanel Spacing="8">
+                                                <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl x:Name="CategoryOptionsList">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                                <Grid ColumnDefinitions="*,8,Auto">
+                                                    <TextBox x:Name="NewCategoryBox" Grid.Column="0" MinHeight="36" Padding="10,6"
+                                                             Watermark="{DynamicResource product.newCategoryWatermark}"/>
+                                                    <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
+                                                            Content="{DynamicResource product.createReferenceButton}"
+                                                            Click="CreateCategory_Click"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.brandLabel}"/>
+                                        <Button x:Name="BrandToggleButton" Classes="SecondaryButton" MinHeight="44"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Click="BrandToggleButton_Click">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock x:Name="BrandCurrentText" Grid.Column="0" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            </Grid>
+                                        </Button>
+                                        <Border x:Name="BrandOptionsPanel" IsVisible="False"
+                                                Background="{DynamicResource BrushPanel}"
+                                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                                CornerRadius="8" Padding="8"
+                                                BoxShadow="0 6 16 0 #26000000">
+                                            <StackPanel Spacing="8">
+                                                <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl x:Name="BrandOptionsList">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                                <Grid ColumnDefinitions="*,8,Auto">
+                                                    <TextBox x:Name="NewBrandBox" Grid.Column="0" MinHeight="36" Padding="10,6"
+                                                             Watermark="{DynamicResource product.newBrandWatermark}"/>
+                                                    <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
+                                                            Content="{DynamicResource product.createReferenceButton}"
+                                                            Click="CreateBrand_Click"/>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabPackage}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
+                                <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
+                                <Grid ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
+                                        <TextBox Text="{Binding PackageQuantity}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
+                                        <TextBox Text="{Binding PackagePiecePrice}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
 
-                                <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" IsVisible="{Binding HasVariantPreview}"
-                                           Text="{Binding VariantPreviewText}" FontSize="11"
-                                           Foreground="{DynamicResource BrushTextSoft}"/>
-
-                                <Button Classes="SecondaryButton" HorizontalAlignment="Left" Margin="0,4,0,0"
-                                        Content="{DynamicResource product.variantAddButton}"
-                                        Click="AddVariant_Click"/>
-
-                                <StackPanel Spacing="6" Margin="0,6,0,0" IsVisible="{Binding HasVariants}">
-                                    <TextBlock Text="{DynamicResource product.variantsListHeader}" FontSize="11"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <ItemsControl ItemsSource="{Binding Variants}">
+                            <StackPanel Spacing="10" IsVisible="{Binding IsBundleKind}">
+                                <TextBlock Text="{DynamicResource product.bundleItemsHeader}" FontWeight="Bold" FontSize="13"/>
+                                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="14"
+                                        IsVisible="{Binding !HasBundleItems}">
+                                    <Button Classes="SecondaryButton" HorizontalAlignment="Center"
+                                            Content="{DynamicResource product.selectBundleItems}"
+                                            Click="SelectBundleItems_Click"/>
+                                </Border>
+                                <StackPanel Spacing="8" IsVisible="{Binding HasBundleItems}">
+                                    <ItemsControl ItemsSource="{Binding BundleItems}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
                                                         Padding="10,8" Margin="0,0,0,6">
                                                     <Grid ColumnDefinitions="*,Auto,Auto">
-                                                        <StackPanel Grid.Column="0">
-                                                            <TextBlock Text="{Binding FullName}" FontWeight="Bold"/>
-                                                            <TextBlock Text="{Binding Barcode}" FontSize="11"
-                                                                       Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
                                                                    Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
                                                         <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
-                                                                Tag="{Binding}" Click="RemoveVariant_Click"/>
+                                                                Tag="{Binding ProductId}" Click="RemoveBundleItem_Click"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Classes="SecondaryButton" HorizontalAlignment="Left"
+                                            Content="{DynamicResource product.selectBundleItems}"
+                                            Click="SelectBundleItems_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
+                                 остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
+                            <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
+                                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock x:Name="VariantsTitle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                        <TextBlock x:Name="VariantsHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" x:Name="VariantsButton" Classes="SecondaryButton" Margin="12,0,0,0"
+                                            VerticalAlignment="Center" Click="VariantsButton_Click"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabMore}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <StackPanel Spacing="22" HorizontalAlignment="Stretch">
+
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.descriptionLabel}"/>
+                                        <TextBox Text="{Binding Description}" Watermark="{DynamicResource product.descriptionWatermark}" AcceptsReturn="True" Height="150" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                <Grid ColumnDefinitions="*,18,*">
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.wholesalePriceLabel}"/>
+                                        <TextBox Text="{Binding WholesalePrice}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.discountLabel}"/>
+                                        <TextBox Text="{Binding DiscountPercent}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.hotkeyLabel}"/>
+                                    <!-- Обычный ComboBox не открывался в этом окне — у него
+                                         ExtendClientAreaToDecorationsHint="True" (своя рамка без системного
+                                         хрома), а всплывающее меню ComboBox в таких окнах у Avalonia иногда
+                                         не рендерится/не ловит клики. Разворачиваемая панель без Popup —
+                                         тот же приём, что уже применялся в PayDebtDialog для похожей проблемы. -->
+                                    <Button x:Name="HotkeyToggleButton" Classes="SecondaryButton"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                            Click="HotkeyToggleButton_Click">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock x:Name="HotkeyCurrentText" Grid.Column="0"/>
+                                            <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </Grid>
+                                    </Button>
+                                    <Border x:Name="HotkeyOptionsPanel" IsVisible="False"
+                                            Background="{DynamicResource BrushPanel}"
+                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                            CornerRadius="8" Padding="8"
+                                            BoxShadow="0 6 16 0 #26000000">
+                                        <ItemsControl x:Name="HotkeyOptionsList">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+
+                                <StackPanel Spacing="22">
+                                    <TextBlock Text="{DynamicResource product.characteristicsHeader}" FontWeight="Bold" FontSize="13"/>
+                                    <Grid ColumnDefinitions="*,16,*,16,*,16,*">
+                                        <StackPanel Grid.Column="0" Spacing="8">
+                                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.heightLabel}"/>
+                                            <TextBox Text="{Binding HeightCm}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="8">
+                                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.widthLabel}"/>
+                                            <TextBox Text="{Binding WidthCm}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4" Spacing="8">
+                                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.depthLabel}"/>
+                                            <TextBox Text="{Binding DepthCm}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6" Spacing="8">
+                                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.weightKgLabel}"/>
+                                            <TextBox Text="{Binding WeightKg}"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.countryLabel}"/>
+                                        <TextBox Text="{Binding Country}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabHistory}" x:Name="HistoryTab" IsVisible="{Binding #PurchaseHistoryExpander.IsVisible}">
+                    <ScrollViewer Padding="0,14,10,6">
+                        <StackPanel Spacing="20">
+                            <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
+                                 Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
+                                 первом раскрытии: это запрос к серверу, а карточку открывают часто. -->
+                            <Expander x:Name="PurchaseHistoryExpander"
+                                      Header="{DynamicResource product.sectionPurchaseHistory}" IsExpanded="False"
+                                      FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                      IsVisible="False">
+                                <StackPanel Spacing="6" Margin="0,12,0,0">
+                                    <TextBlock x:Name="PurchaseHistoryStatus" FontWeight="Normal" FontSize="12.5"
+                                               TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    <ItemsControl x:Name="PurchaseHistoryList" x:CompileBindings="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="12,8" Margin="0,2" CornerRadius="8"
+                                                        Background="{DynamicResource BrushPanelSoft}">
+                                                    <Grid ColumnDefinitions="120,*,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{ReflectionBinding WhenText}"
+                                                                   FontWeight="Normal" FontSize="12" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <StackPanel Grid.Column="1" Spacing="2" Margin="8,0">
+                                                            <TextBlock Text="{ReflectionBinding MainText}" FontWeight="SemiBold"
+                                                                       FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                                            <TextBlock Text="{ReflectionBinding DetailText}" FontWeight="Normal"
+                                                                       FontSize="11.5" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{ReflectionBinding TotalText}"
+                                                                   FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource BrushText}"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </StackPanel>
-                            </StackPanel>
-
-                            <!-- Категория и бренд (2026-09-07): раскрывающиеся списки из справочников NurCRM
-                                 (GET api/main/categories и api/main/brands) + строка "создать новую" — как
-                                 на сайте (там select + "Создать категорию/бренд"), вместо свободного текста,
-                                 который плодил дубли ("Напитки"/"напитки"). Без ComboBox/Popup — по той же
-                                 причине, что и "Горячая клавиша" ниже (в окне без системного хрома всплывающее
-                                 меню не открывается), тот же приём: кнопка + разворачиваемая панель. -->
-                            <Grid ColumnDefinitions="*,18,*">
-                                <StackPanel Grid.Column="0" Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.categoryLabel}"/>
-                                    <Button x:Name="CategoryToggleButton" Classes="SecondaryButton" MinHeight="44"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                            Click="CategoryToggleButton_Click">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock x:Name="CategoryCurrentText" Grid.Column="0" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
-                                        </Grid>
-                                    </Button>
-                                    <Border x:Name="CategoryOptionsPanel" IsVisible="False"
-                                            Background="{DynamicResource BrushPanel}"
-                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                            CornerRadius="8" Padding="8"
-                                            BoxShadow="0 6 16 0 #26000000">
-                                        <StackPanel Spacing="8">
-                                            <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
-                                                <ItemsControl x:Name="CategoryOptionsList">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <WrapPanel/>
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                </ItemsControl>
-                                            </ScrollViewer>
-                                            <Grid ColumnDefinitions="*,8,Auto">
-                                                <TextBox x:Name="NewCategoryBox" Grid.Column="0" MinHeight="36" Padding="10,6"
-                                                         Watermark="{DynamicResource product.newCategoryWatermark}"/>
-                                                <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
-                                                        Content="{DynamicResource product.createReferenceButton}"
-                                                        Click="CreateCategory_Click"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.brandLabel}"/>
-                                    <Button x:Name="BrandToggleButton" Classes="SecondaryButton" MinHeight="44"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                            Click="BrandToggleButton_Click">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock x:Name="BrandCurrentText" Grid.Column="0" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
-                                        </Grid>
-                                    </Button>
-                                    <Border x:Name="BrandOptionsPanel" IsVisible="False"
-                                            Background="{DynamicResource BrushPanel}"
-                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                            CornerRadius="8" Padding="8"
-                                            BoxShadow="0 6 16 0 #26000000">
-                                        <StackPanel Spacing="8">
-                                            <ScrollViewer MaxHeight="190" VerticalScrollBarVisibility="Auto">
-                                                <ItemsControl x:Name="BrandOptionsList">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <WrapPanel/>
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                </ItemsControl>
-                                            </ScrollViewer>
-                                            <Grid ColumnDefinitions="*,8,Auto">
-                                                <TextBox x:Name="NewBrandBox" Grid.Column="0" MinHeight="36" Padding="10,6"
-                                                         Watermark="{DynamicResource product.newBrandWatermark}"/>
-                                                <Button Grid.Column="2" Classes="PrimaryButton" Padding="12,6" VerticalAlignment="Center"
-                                                        Content="{DynamicResource product.createReferenceButton}"
-                                                        Click="CreateBrand_Click"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
+                            </Expander>
                         </StackPanel>
-                    </Expander>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
 
-                    <Grid ColumnDefinitions="*,14,Auto,14,*">
-                        <StackPanel Grid.Column="0" Spacing="6" IsVisible="{Binding !IsQuickAddMode}">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
-                            <TextBox Text="{Binding Unit}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Bottom" IsVisible="{Binding !IsQuickAddMode}">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.isWeightLabel}"/>
-                            <ToggleSwitch IsChecked="{Binding IsWeight}" OnContent="" OffContent="" Margin="0,0,0,8"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="4" Spacing="6">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
-                            <TextBox Text="{Binding Quantity}"/>
-                        </StackPanel>
-                    </Grid>
+            <TextBlock Grid.Row="3" Margin="24,4,24,0" Text="{Binding ErrorMessage}"
+                       Foreground="{DynamicResource BrushDanger}" FontSize="13"
+                       IsVisible="{Binding !!ErrorMessage}" TextWrapping="Wrap"/>
 
-                    <StackPanel Spacing="8" IsVisible="{Binding IsWeight}">
-                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.pluLabel}"/>
-                        <TextBox Text="{Binding Plu}" Watermark="{DynamicResource product.pluWatermark}"/>
-                    </StackPanel>
-
-                    <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
-                        <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
-                        <Grid ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
-                            <StackPanel Grid.Column="0" Spacing="8">
-                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
-                                <TextBox Text="{Binding PackageQuantity}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Spacing="8">
-                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
-                                <TextBox Text="{Binding PackagePiecePrice}"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-
-                    <StackPanel Spacing="10" IsVisible="{Binding IsBundleKind}">
-                        <TextBlock Text="{DynamicResource product.bundleItemsHeader}" FontWeight="Bold" FontSize="13"/>
-                        <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="14"
-                                IsVisible="{Binding !HasBundleItems}">
-                            <Button Classes="SecondaryButton" HorizontalAlignment="Center"
-                                    Content="{DynamicResource product.selectBundleItems}"
-                                    Click="SelectBundleItems_Click"/>
-                        </Border>
-                        <StackPanel Spacing="8" IsVisible="{Binding HasBundleItems}">
-                            <ItemsControl ItemsSource="{Binding BundleItems}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
-                                                Padding="10,8" Margin="0,0,0,6">
-                                            <Grid ColumnDefinitions="*,Auto,Auto">
-                                                <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
-                                                           Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
-                                                        Tag="{Binding ProductId}" Click="RemoveBundleItem_Click"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Classes="SecondaryButton" HorizontalAlignment="Left"
-                                    Content="{DynamicResource product.selectBundleItems}"
-                                    Click="SelectBundleItems_Click"/>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <TextBlock Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
-                    <Grid ColumnDefinitions="*,18,*,18,*">
-                        <StackPanel Grid.Column="0" Spacing="8">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
-                            <TextBox Text="{Binding PurchasePrice}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" Spacing="8">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.markupLabel}"/>
-                            <TextBox Text="{Binding MarkupPercent}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="4" Spacing="8">
-                            <TextBlock Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
-                            <TextBox Text="{Binding Price}"/>
-                        </StackPanel>
-                    </Grid>
-                    <!-- 2026-09-15, аудит удобства: опт.цена/скидка, горячая клавиша и
-                         характеристики (габариты/страна/описание) — самые редко нужные поля
-                         формы (по частоте использования на кассе), собраны в одну сворачиваемую
-                         карточку и по умолчанию СВЁРНУТЫ — раньше это были ~10 полей подряд,
-                         которые приходилось листать даже для простого товара без габаритов. -->
-                    <Expander Header="{DynamicResource product.sectionMore}" IsExpanded="False"
-                              FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
-                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                              IsVisible="{Binding !IsQuickAddMode}">
-                        <StackPanel Spacing="22" Margin="0,14,0,0" HorizontalAlignment="Stretch">
-                            <Grid ColumnDefinitions="*,18,*">
-                                <StackPanel Grid.Column="0" Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.wholesalePriceLabel}"/>
-                                    <TextBox Text="{Binding WholesalePrice}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.discountLabel}"/>
-                                    <TextBox Text="{Binding DiscountPercent}"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <StackPanel Spacing="8">
-                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.hotkeyLabel}"/>
-                                <!-- Обычный ComboBox не открывался в этом окне — у него
-                                     ExtendClientAreaToDecorationsHint="True" (своя рамка без системного
-                                     хрома), а всплывающее меню ComboBox в таких окнах у Avalonia иногда
-                                     не рендерится/не ловит клики. Разворачиваемая панель без Popup —
-                                     тот же приём, что уже применялся в PayDebtDialog для похожей проблемы. -->
-                                <Button x:Name="HotkeyToggleButton" Classes="SecondaryButton"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                        Click="HotkeyToggleButton_Click">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock x:Name="HotkeyCurrentText" Grid.Column="0"/>
-                                        <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
-                                    </Grid>
-                                </Button>
-                                <Border x:Name="HotkeyOptionsPanel" IsVisible="False"
-                                        Background="{DynamicResource BrushPanel}"
-                                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                        CornerRadius="8" Padding="8"
-                                        BoxShadow="0 6 16 0 #26000000">
-                                    <ItemsControl x:Name="HotkeyOptionsList">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                    </ItemsControl>
-                                </Border>
-                            </StackPanel>
-
-                            <StackPanel Spacing="22">
-                                <TextBlock Text="{DynamicResource product.characteristicsHeader}" FontWeight="Bold" FontSize="13"/>
-                                <Grid ColumnDefinitions="*,16,*,16,*,16,*">
-                                    <StackPanel Grid.Column="0" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.heightLabel}"/>
-                                        <TextBox Text="{Binding HeightCm}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.widthLabel}"/>
-                                        <TextBox Text="{Binding WidthCm}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.depthLabel}"/>
-                                        <TextBox Text="{Binding DepthCm}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="6" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.weightKgLabel}"/>
-                                        <TextBox Text="{Binding WeightKg}"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.countryLabel}"/>
-                                    <TextBox Text="{Binding Country}"/>
-                                </StackPanel>
-
-                                <StackPanel Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.descriptionLabel}"/>
-                                    <TextBox Text="{Binding Description}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </Expander>
-
-                    <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
-                         остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
-                    <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
-                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="4" VerticalAlignment="Center">
-                                <TextBlock x:Name="VariantsTitle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                                <TextBlock x:Name="VariantsHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" x:Name="VariantsButton" Classes="SecondaryButton" Margin="12,0,0,0"
-                                    VerticalAlignment="Center" Click="VariantsButton_Click"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
-                         Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
-                         первом раскрытии: это запрос к серверу, а карточку открывают часто. -->
-                    <Expander x:Name="PurchaseHistoryExpander"
-                              Header="{DynamicResource product.sectionPurchaseHistory}" IsExpanded="False"
-                              FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
-                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                              IsVisible="False">
-                        <StackPanel Spacing="6" Margin="0,12,0,0">
-                            <TextBlock x:Name="PurchaseHistoryStatus" FontWeight="Normal" FontSize="12.5"
-                                       TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <ItemsControl x:Name="PurchaseHistoryList" x:CompileBindings="False">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Padding="12,8" Margin="0,2" CornerRadius="8"
-                                                Background="{DynamicResource BrushPanelSoft}">
-                                            <Grid ColumnDefinitions="120,*,Auto">
-                                                <TextBlock Grid.Column="0" Text="{ReflectionBinding WhenText}"
-                                                           FontWeight="Normal" FontSize="12" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrushTextSoft}"/>
-                                                <StackPanel Grid.Column="1" Spacing="2" Margin="8,0">
-                                                    <TextBlock Text="{ReflectionBinding MainText}" FontWeight="SemiBold"
-                                                               FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                                                    <TextBlock Text="{ReflectionBinding DetailText}" FontWeight="Normal"
-                                                               FontSize="11.5" TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="2" Text="{ReflectionBinding TotalText}"
-                                                           FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrushText}"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Expander>
-
-                    <TextBlock Text="{Binding ErrorMessage}"
-                               Foreground="{DynamicResource BrushDanger}"
-                               FontSize="13"
-                               IsVisible="{Binding !!ErrorMessage}"
-                               TextWrapping="Wrap"/>
-                </StackPanel>
-            </ScrollViewer>
-
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="24,8,20,18">
+            <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" Margin="24,8,20,18">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                 <Button Grid.Column="1" Classes="SecondaryButton" Content="{DynamicResource common.cancel}" Click="CloseButton_Click" Margin="0,0,10,0"/>
                 <Button Grid.Column="2" x:Name="SaveButton" Classes="PrimaryButton" Content="{Binding SaveButtonText}"

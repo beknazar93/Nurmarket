@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.UpsellBannerView"
@@ -8,14 +8,21 @@
 
     <!-- 2026-10-01, «Умная допродажа»: одна подсказка над итогом чека во всех видах кассы.
          Кнопки без фокуса — как остальные кнопки чека: Enter сканера не должен их нажимать. -->
-    <Border Background="{DynamicResource BrushPanelSoft}"
+    <!-- 2026-10-02, редизайн: значок-подсказка в кружке, мягкий фон цвета темы, скруглённые кнопки. -->
+    <Border Background="{DynamicResource BrushAccentSoft}"
             BorderBrush="{DynamicResource BrushAccent}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="12"
             Padding="10,8"
             Margin="0,6,0,0">
-        <Grid ColumnDefinitions="*,Auto,Auto">
-            <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Margin="0,0,10,0"
+                    Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
+                <Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource BrushAccentForeground}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M12,2A7,7 0 0,1 19,9C19,11.38 17.81,13.47 16,14.74V17A1,1 0 0,1 15,18H9A1,1 0 0,1 8,17V14.74C6.19,13.47 5,11.38 5,9A7,7 0 0,1 12,2M9,21V20H15V21A1,1 0 0,1 14,22H10A1,1 0 0,1 9,21Z"/>
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource csh.upsell.title}"
                            FontSize="11"
                            Foreground="{DynamicResource BrushTextSoft}"/>
@@ -29,7 +36,7 @@
                            Foreground="{DynamicResource BrushTextMuted}"
                            TextTrimming="CharacterEllipsis"/>
             </StackPanel>
-            <Button Grid.Column="1" Margin="6,0,0,0"
+            <Button Grid.Column="2" Margin="6,0,0,0" CornerRadius="10" FontWeight="Bold"
                     Focusable="False"
                     MinHeight="36"
                     Padding="12,4"
@@ -38,7 +45,7 @@
                     Foreground="{DynamicResource BrushAccentForeground}"
                     Command="{Binding AcceptUpsellCommand}"
                     Content="{DynamicResource csh.upsell.add}"/>
-            <Button Grid.Column="2" Margin="6,0,0,0"
+            <Button Grid.Column="3" Margin="6,0,0,0" CornerRadius="10"
                     Focusable="False"
                     MinHeight="36"
                     Padding="10,4"
