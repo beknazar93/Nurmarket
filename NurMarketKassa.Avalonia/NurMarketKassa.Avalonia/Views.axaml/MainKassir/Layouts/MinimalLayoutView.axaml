@@ -333,6 +333,7 @@
                                 <MenuItem Header="{DynamicResource csh.cart.payDebt}" Command="{Binding Basket.OpenPayDebtCommand}"/>
                                 <MenuItem Header="{DynamicResource csh.cart.printLastReceipt}" Click="PrintLastReceipt_Click"/>
                                 <MenuItem Header="{DynamicResource csh.cart.writeOff}" Click="WriteOff_Click"/>
+                                <MenuItem Header="{DynamicResource csh.menu.rental}" Click="Rental_Click" IsVisible="{Binding Basket.ShowRental}"/>
                                 <Separator/>
                                 <MenuItem Header="{DynamicResource csh.cart.deleteReceipt}" Command="{Binding Basket.DeleteReceiptCommand}"/>
                                 <MenuItem Header="{DynamicResource onecLayout.clearButton}" Command="{Binding Basket.ClearCartCommand}"/>

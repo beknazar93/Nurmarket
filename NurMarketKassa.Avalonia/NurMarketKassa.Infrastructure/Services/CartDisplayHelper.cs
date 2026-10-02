@@ -424,6 +424,15 @@ public static class CartDisplayHelper
         return null;
     }
 
+    /// <summary>2026-10-02, владелец: «скидка у размера есть, а в корзине и в чеке не указана».
+    /// Обычная цена товара, записанная при добавлении варианта по акционной цене; null — акции нет.</summary>
+    public static double? VariantBasePrice(JsonElement it)
+    {
+        if (TryDouble(it, "variant_base_price") is not { } basePrice)
+            return null;
+        return basePrice > UnitPrice(it) + 0.005 ? basePrice : null;
+    }
+
     public static string QuantityPriceLine(JsonElement it)
     {
         var qty = TryDouble(it, "quantity") ?? 1;

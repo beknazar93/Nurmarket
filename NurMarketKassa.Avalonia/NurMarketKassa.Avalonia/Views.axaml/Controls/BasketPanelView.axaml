@@ -741,7 +741,7 @@
                 </Grid>
 
                 <Grid Grid.Row="3"
-                      ColumnDefinitions="*,8,*,8,*"
+                      ColumnDefinitions="*,8,*,8,*,Auto"
                       Margin="0,0,0,6"
                       IsVisible="{Binding IsMoreActionsVisible}">
                     <Button Grid.Column="0"
@@ -779,6 +779,15 @@
                                    TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center"/>
                     </Button>
+                    <!-- 2026-10-02: прокат (одежда и услуги). -->
+                    <Button Grid.Column="5"
+                            Classes="cart-action"
+                            Padding="12,2"
+                            Margin="8,0,0,0"
+                            MinWidth="96"
+                            IsVisible="{Binding ShowRental}"
+                            Content="{DynamicResource csh.menu.rental}"
+                            Click="Rental_Click"/>
                 </Grid>
 
                 <!-- Сообщения корзины -->

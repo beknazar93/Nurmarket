@@ -19,6 +19,7 @@
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенттер</x:String>
   <x:String x:Key="csh.menu.payDebt">Карыз төлөө</x:String>
+  <x:String x:Key="csh.menu.rental">Прокат</x:String>
   <x:String x:Key="csh.menu.settings">Жөндөөлөр</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -380,9 +381,9 @@
   <x:String x:Key="noStock.title">Товар жок</x:String>
   <x:String x:Key="noStock.header">Товар кампада түгөндү</x:String>
   <x:String x:Key="noStock.confirmAndAdd">Ырастап кошуу</x:String>
-  <x:String x:Key="noStock.showAlternatives">Окшош товарларды көрсөтүү</x:String>
-  <x:String x:Key="noStock.alternativesTitle">Окшош товарлар</x:String>
-  <x:String x:Key="noStock.alternativesSubtitle">Ошол эле категориядан, кампада бар:</x:String>
+  <x:String x:Key="noStock.showAlternatives">Алмаштырууну көрсөтүү (аналогдор)</x:String>
+  <x:String x:Key="noStock.alternativesTitle">Алмаштыруу (аналогдор)</x:String>
+  <x:String x:Key="noStock.alternativesSubtitle">Бар товарлар. Адегенде — ошол эле таасир этүүчү заты бар, андан кийин аты окшош, андан кийин ошол эле категориядан.</x:String>
   <x:String x:Key="noStock.alternativesEmpty">Бул категорияда калдыгы бар башка товар жок.</x:String>
   <x:String x:Key="addStock.title">Кампаны толуктоо</x:String>
   <x:String x:Key="addStock.header">Санын көрсөтүңүз</x:String>

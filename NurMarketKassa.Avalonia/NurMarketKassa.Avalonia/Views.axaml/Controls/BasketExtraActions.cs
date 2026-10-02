@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
@@ -13,6 +13,16 @@ namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 /// у каждой раскладки кассы, и код не должен расходиться между ними.</summary>
 public static class BasketExtraActions
 {
+    /// <summary>2026-10-02: открыть окно «Прокат» — действие задаёт главное окно кассы (смена, строка в чеке).</summary>
+    public static Action? OpenRentals { get; set; }
+
+    public static void Rental(BasketPanelViewModel? basket)
+    {
+        if (basket != null)
+            basket.IsMoreActionsVisible = false;
+        OpenRentals?.Invoke();
+    }
+
     /// <summary>«Списание» (2026-09-27). Право — то же, что у вкладки «Списание» склада
     /// (закупки/склад): иначе любой кассир мог бы списывать товар без контроля.</summary>
     public static async Task WriteOffAsync(Control anchor, BasketPanelViewModel? basket)

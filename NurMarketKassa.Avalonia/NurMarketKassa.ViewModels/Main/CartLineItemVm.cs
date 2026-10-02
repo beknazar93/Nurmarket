@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Input;
 using NurMarketKassa.Services;
 
@@ -157,9 +157,16 @@ public sealed class CartLineItemVm : ViewModelBase
 
     public string UnitPriceDisplay => $"{UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
 
-    /// <summary>Подпись вида «0.500 кг × 115.71 сом» или «1 шт × 150.00 сом».</summary>
+    /// <summary>2026-10-02: обычная цена, если вариант продаётся по акции (см. CartItem.PromoBasePrice).</summary>
+    public double? PromoBasePrice { get; init; }
+
+    /// <summary>Подпись вида «0.500 кг × 115.71 сом» или «1 шт × 150.00 сом»; у варианта по акции —
+    /// «1 шт × 2200.00 сом · было 2500.00 (−12%)».</summary>
     public string PriceQuantityLine =>
-        $"{QuantityDisplay} {Unit} × {UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+        $"{QuantityDisplay} {Unit} × {UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+        + (PromoBasePrice is { } basePrice && basePrice > UnitPrice + 0.005
+            ? " · " + Tr.T("было", "болгон", "was", "önce", "edi") + $" {basePrice.ToString("0.00", CultureInfo.InvariantCulture)} (−{Math.Round((1 - UnitPrice / basePrice) * 100):0}%)"
+            : "");
 
     public string LineTotalDisplay => $"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
     public string LineTotalAmount => LineTotal.ToString("0.00", CultureInfo.InvariantCulture);

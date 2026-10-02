@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -84,6 +84,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             // 2026-10-01: заказы, подтверждённые покупателем в боте, — в заказы витрины (решение владельца).
             TelegramAiChat.OrderCreator ??= (name, phone, items, comment, token) =>
                 App.GetRequiredService<NurMarketKassa.Services.Api.ShowcaseApiService>().CreateBotOrderAsync(name, phone, items, comment, token);
+            // 2026-10-02: бот видит размеры и цвета одежды (варианты товара с сервера).
+            TelegramAssistant.VariantsLoader ??= (productId, token) => App.CatalogApi.GetProductVariantsAsync(productId, token);
+            // 2026-10-02: бот отвечает и про прокат («кто не вернул», «залоги»).
+            TelegramAssistant.RentalsLoader ??= (status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token);
             UserPreferences.AdoptTelegramBotFromOtherApp();
             // Касса на этом компьютере запущена — команды слушает она: отчёты бота считаются по
             // её продажам и каталогу. Программа владельца отвечает, только когда кассы нет.
@@ -474,6 +478,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-01, владелец: «в админке где аналитика по боту — обращения, клиенты, заказы?»
         Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), true,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
+        // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
+        // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
+        Add("rentals", "ClientsIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
+            MarketSpheres.IsClothing || MarketSpheres.IsServices,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -112,6 +112,10 @@ public static class CartReceiptTextBuilder
 
                     foreach (var itemLine in ReceiptLineLayout.FormatItemBlock($"{qtyStr} x {unitStr}", totalStr, W))
                         Line(itemLine);
+
+                    // 2026-10-02: вариант по акции — обычная цена и сумма скидки (цену считает сервер).
+                    if (CartDisplayHelper.VariantBasePrice(it) is { } promoBase)
+                        AppendStackedAmountLine(sb, $"АКЦИЯ, было {FormatMoney(promoBase)}:", "-" + FormatMoney((promoBase - unitPrice) * qty));
 
                     Blank();
 

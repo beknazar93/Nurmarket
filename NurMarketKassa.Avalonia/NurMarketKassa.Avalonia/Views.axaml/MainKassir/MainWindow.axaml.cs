@@ -182,6 +182,21 @@ public partial class MainWindow : Window
         // которая ставится вместе с кассой (ярлык создаёт OwnerShortcuts при установке и обновлении).
         NurMarketKassa.Services.AppMode.OwnerSectionsInKassa =
             App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous;
+        // 2026-10-02: прокат (одежда и услуги). Залог приходуется в кассу смены — перед прокатом
+        // открываем смену; стоимость проката — строкой «Прокат №…» в текущем чеке.
+        _viewModel.SideMenu.NavigateRentalAction ??= () =>
+        {
+            var window = new NurMarketKassa.AvaloniaHost.Views.RentalsWindow(
+                async () =>
+                {
+                    if (!_session.IsShiftOpen)
+                        await OpenShiftAsync().ConfigureAwait(true);
+                    return _session.IsShiftOpen;
+                },
+                (name, price) => _viewModel.Basket.AddCustomItem(name, price, 1, false));
+            _ = window.ShowDialog(this);
+        };
+        NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketExtraActions.OpenRentals ??= _viewModel.SideMenu.NavigateRentalAction;
         _viewModel.SideMenu.RefreshEntitlements();
 
         progress?.Report(Tr.T("Загрузка кассы...", "Касса жүктөлүүдө...", "Loading the till…", "Kasa yükleniyor...", "Kassa yuklanmoqda..."));
@@ -1842,6 +1857,10 @@ public partial class MainWindow : Window
             // 2026-10-01: заказы, подтверждённые покупателем в боте, — в заказы витрины (решение владельца).
             TelegramAiChat.OrderCreator ??= (name, phone, items, comment, token) =>
                 App.GetRequiredService<NurMarketKassa.Services.Api.ShowcaseApiService>().CreateBotOrderAsync(name, phone, items, comment, token);
+            // 2026-10-02: бот видит размеры и цвета одежды (варианты товара с сервера).
+            TelegramAssistant.VariantsLoader ??= (productId, token) => App.CatalogApi.GetProductVariantsAsync(productId, token);
+            // 2026-10-02: бот отвечает и про прокат («кто не вернул», «залоги»).
+            TelegramAssistant.RentalsLoader ??= (status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token);
             UserPreferences.AdoptTelegramBotFromOtherApp();
             if (!TelegramBotService.IsConfigured || !UserPreferences.Instance.TelegramCommandsEnabled)
             {

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -120,7 +120,17 @@ public sealed class VariantEditorWindow : Window
         try
         {
             var list = await _api.GetProductVariantsAsync(_productId).ConfigureAwait(true);
-            foreach (var v in list)
+            // 2026-10-02: размеры по порядку (S, M, L, XL; 42, 44…), как в окне выбора в кассе, а не по алфавиту.
+            string[] order = { "XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL" };
+            double Rank(string? size)
+            {
+                var s = (size ?? "").Trim();
+                var i = Array.FindIndex(order, x => string.Equals(x, s, StringComparison.OrdinalIgnoreCase));
+                if (i >= 0)
+                    return i;
+                return double.TryParse(s.Replace(',', '.'), NumberStyles.Any, Inv, out var n) ? 100 + n : 10_000;
+            }
+            foreach (var v in list.OrderBy(v => Rank(v.Size)).ThenBy(v => v.Size, StringComparer.OrdinalIgnoreCase).ThenBy(v => v.Color, StringComparer.CurrentCultureIgnoreCase))
                 AddRow(v);
             _status.Text = list.Count == 0
                 ? Tr.T("Вариантов пока нет — добавьте размеры и цвета.", "Варианттар азырынча жок — өлчөмдөрдү жана түстөрдү кошуңуз.", "No variants yet — add sizes and colors.", "Henüz varyant yok — beden ve renk ekleyin.", "Hozircha variantlar yo'q — o'lcham va ranglarni qo'shing.")

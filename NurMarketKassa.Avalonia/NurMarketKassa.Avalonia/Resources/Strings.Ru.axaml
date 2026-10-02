@@ -19,6 +19,7 @@
   <x:String x:Key="csh.menu.abc">ABC-анализ</x:String>
   <x:String x:Key="csh.menu.clients">Клиенты</x:String>
   <x:String x:Key="csh.menu.payDebt">Оплата долга</x:String>
+  <x:String x:Key="csh.menu.rental">Прокат</x:String>
   <x:String x:Key="csh.menu.settings">Настройки</x:String>
   <x:String x:Key="csh.menu.marketplace">Маркетплейс</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -380,9 +381,9 @@
   <x:String x:Key="noStock.title">Товара нет в наличии</x:String>
   <x:String x:Key="noStock.header">Товар закончился на складе</x:String>
   <x:String x:Key="noStock.confirmAndAdd">Подтвердить и добавить</x:String>
-  <x:String x:Key="noStock.showAlternatives">Показать похожие товары</x:String>
-  <x:String x:Key="noStock.alternativesTitle">Похожие товары</x:String>
-  <x:String x:Key="noStock.alternativesSubtitle">Из той же категории, есть в наличии на складе:</x:String>
+  <x:String x:Key="noStock.showAlternatives">Показать замену (аналоги)</x:String>
+  <x:String x:Key="noStock.alternativesTitle">Замена (аналоги)</x:String>
+  <x:String x:Key="noStock.alternativesSubtitle">Есть в наличии. Сначала — с тем же действующим веществом, затем похожие по названию, затем из той же категории.</x:String>
   <x:String x:Key="noStock.alternativesEmpty">В этой категории больше нет товаров в наличии.</x:String>
   <x:String x:Key="addStock.title">Пополнение склада</x:String>
   <x:String x:Key="addStock.header">Укажите количество</x:String>

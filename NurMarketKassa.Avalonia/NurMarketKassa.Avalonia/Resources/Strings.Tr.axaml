@@ -19,6 +19,7 @@
   <x:String x:Key="csh.menu.abc">ABC analizi</x:String>
   <x:String x:Key="csh.menu.clients">Müşteriler</x:String>
   <x:String x:Key="csh.menu.payDebt">Borç ödeme</x:String>
+  <x:String x:Key="csh.menu.rental">Kiralama</x:String>
   <x:String x:Key="csh.menu.settings">Ayarlar</x:String>
   <x:String x:Key="csh.menu.marketplace">Pazaryeri</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -380,9 +381,9 @@
   <x:String x:Key="noStock.title">Ürün stokta yok</x:String>
   <x:String x:Key="noStock.header">Ürün depoda tükendi</x:String>
   <x:String x:Key="noStock.confirmAndAdd">Onayla ve ekle</x:String>
-  <x:String x:Key="noStock.showAlternatives">Benzer ürünleri göster</x:String>
-  <x:String x:Key="noStock.alternativesTitle">Benzer ürünler</x:String>
-  <x:String x:Key="noStock.alternativesSubtitle">Aynı kategoriden, stokta olanlar:</x:String>
+  <x:String x:Key="noStock.showAlternatives">Muadilini göster</x:String>
+  <x:String x:Key="noStock.alternativesTitle">Muadil (benzer ürünler)</x:String>
+  <x:String x:Key="noStock.alternativesSubtitle">Stokta olanlar. Önce aynı etken madde, sonra benzer ad, sonra aynı kategori.</x:String>
   <x:String x:Key="noStock.alternativesEmpty">Bu kategoride stokta başka ürün yok.</x:String>
   <x:String x:Key="addStock.title">Stok yenileme</x:String>
   <x:String x:Key="addStock.header">Miktar girin</x:String>

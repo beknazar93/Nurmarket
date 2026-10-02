@@ -13,67 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Чековый принтер: «Символов в строке» и ширина графики для 58 и 80 мм — текст и картинки больше не уходят за край чека",
-        "Принтер этикеток: размер наклейки берётся из шаблона, зазор и сдвиг настраиваются — наклейки не пропускаются и печатаются на месте",
-        "Денежный ящик открывается при каждой оплате наличными; весы: товары на горячих клавишах больше не слетают",
-        "Права сотрудников как на сайте NurCRM: «Склад», «Аналитика», «Клиенты» и «Заказы» видны только тем, кому их выдали",
-        "Калькуляция: кнопка «Обновить» — всегда свежие цены и остатки; «Подробнее» с описанием товара видно и на плитках с фото",
-        "Продажа в долг с предоплатой: наличные сразу попадают в кассу и отчёт смены",
-        "Программа владельца: раздел «Прибыль и деньги» — прибыль, движение денег и сверка за период",
-        "Новое: подсказка «С этим часто берут» над итогом чека (включается в Настройки → Экран)",
-        "Телеграм-бот и ИИ могут работать на сервере NurCRM — бот отвечает круглые сутки, даже когда компьютер выключен (программа один раз спросит; кнопка — Настройки → Операции → «Подключить бота»)",
+        "Прокат и аренда (одежда, услуги): выдача вещи с залогом деньгами или паспортом, возврат со штрафом, просрочки — меню кассы → «Прокат»",
+        "Размеры и цвета: новое окно выбора — остаток под каждым размером, цвет с кружком, акционная цена со скидкой",
+        "Скидка на размер видна в чеке и в корзине: «было 1900 (−16%)»",
+        "Окно оплаты: иконки способов оплаты и ровные кнопки",
+        "Аптека и ветаптека: если товар закончился — замена с тем же действующим веществом",
+        "Телеграм-бот: знает размеры и цвета одежды, предлагает замену, отвечает про прокат («кто не вернул», «залоги»)",
+        "Программа владельца: раздел «Прокат», размеры в «Размерах и цветах» по порядку",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Чек принтери: 58 жана 80 мм үчүн «Саптагы белгилер» жана графиканын туурасы — текст менен сүрөттөр чектин четинен чыкпайт",
-        "Этикетка принтери: чаптаманын өлчөмү шаблондон алынат, аралык жана жылыш жөндөлөт — чаптамалар өткөрүлбөйт жана ордуна басылат",
-        "Акча кутусу накталай төлөгөн сайын ачылат; таразалар: ыкчам баскычтардагы товарлар мындан ары түшүп калбайт",
-        "Кызматкерлердин укуктары NurCRM сайтындагыдай: «Кампа», «Аналитика», «Кардарлар» жана «Заказдар» берилгендерге гана көрүнөт",
-        "Калькуляция: «Жаңыртуу» баскычы — баалар жана калдыктар дайыма жаңы; товардын сүрөттөмөсү бар «Толугураак» сүрөттүү плиткаларда да көрүнөт",
-        "Алдын ала төлөм менен карызга сатуу: накталай дароо кассага жана смена отчётуна түшөт",
-        "Ээсинин программасы: «Пайда жана акча» бөлүмү — мезгил ичиндеги пайда, акчанын кыймылы жана салыштыруу",
-        "Жаңы: чектин жыйынтыгынын үстүндө «Муну менен көп алышат» кеңеши (Жөндөөлөр → Экран бөлүмүндө күйгүзүлөт)",
-        "Телеграм-бот жана ЖИ NurCRM серверинде иштей алат — компьютер өчүк болсо да бот күнү-түнү жооп берет (программа бир жолу сурайт; баскыч — Жөндөөлөр → Операциялар → «Ботту туташтыруу»)",
+        "Прокат жана ижара (кийим, кызматтар): буюмду акча же паспорт күрөөсү менен берүү, айып менен кайтаруу, мөөнөтү өткөндөр — касса менюсу → «Прокат»",
+        "Өлчөмдөр жана түстөр: жаңы тандоо терезеси — ар бир өлчөмдүн астында калдык, түс тегерек менен, акциялык баа арзандатуу менен",
+        "Өлчөмгө арзандатуу чекте жана себетте көрүнөт: «1900 болгон (−16%)»",
+        "Төлөм терезеси: төлөм ыкмаларынын сүрөтчөлөрү жана тегиз баскычтар",
+        "Дарыкана жана ветдарыкана: товар түгөнсө — ошол эле таасир этүүчү заты бар алмаштыруу",
+        "Телеграм-бот: кийимдин өлчөмдөрүн жана түстөрүн билет, алмаштыруу сунуштайт, прокат боюнча жооп берет",
+        "Ээсинин программасы: «Прокат» бөлүмү, «Өлчөмдөр жана түстөрдө» өлчөмдөр тартиби менен",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Receipt printer: “Characters per line” and graphics width for 58 and 80 mm — text and images no longer run off the receipt",
-        "Label printer: label size comes from the template, gap and offset are adjustable — labels are no longer skipped and print in place",
-        "The cash drawer opens on every cash payment; scales: products assigned to hotkeys no longer drop off",
-        "Employee permissions match the NurCRM website: “Warehouse”, “Analytics”, “Clients” and “Orders” are visible only to those granted them",
-        "Costing: “Refresh” button — always fresh prices and stock; “Details” with the product description is visible on tiles with photos too",
-        "Sale on credit with a down payment: the cash goes straight into the till and the shift report",
-        "Owner app: “Profit and money” section — profit, cash flow and reconciliation for a period",
-        "New: “Often bought with this” suggestion above the receipt total (turn on in Settings → Screen)",
-        "The Telegram bot and AI can run on the NurCRM server — the bot answers around the clock, even with the computer off (the app asks once; button — Settings → Operations → “Connect bot”)",
+        "Rentals (clothing, services): rent out items with a cash or passport deposit, take back with a penalty, overdue list — till menu → “Rentals”",
+        "Sizes and colors: new picker — stock under each size, color swatches, promo price with discount",
+        "Size discount is shown in the receipt and the cart: “was 1900 (−16%)”",
+        "Payment window: payment method icons and even buttons",
+        "Pharmacy and vet pharmacy: if a product is out of stock — a replacement with the same active ingredient",
+        "Telegram bot: knows clothing sizes and colors, suggests replacements, answers about rentals (“who hasn't returned”, “deposits”)",
+        "Owner app: “Rentals” section, sizes in “Sizes and colors” in order",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Fiş yazıcısı: 58 ve 80 mm için «Satırdaki karakter sayısı» ve grafik genişliği — metin ve resimler artık fişin kenarından taşmıyor",
-        "Etiket yazıcısı: etiket boyutu şablondan alınır, boşluk ve kaydırma ayarlanır — etiketler atlanmaz ve yerine basılır",
-        "Para çekmecesi her nakit ödemede açılır; teraziler: kısayol tuşlarına atanan ürünler artık düşmüyor",
-        "Çalışan yetkileri NurCRM sitesindeki gibi: «Depo», «Analitik», «Müşteriler» ve «Siparişler» yalnızca yetki verilenlere görünür",
-        "Maliyet: «Yenile» düğmesi — fiyatlar ve stoklar hep güncel; ürün açıklamalı «Ayrıntılar» fotoğraflı kartlarda da görünür",
-        "Ön ödemeli veresiye satış: nakit hemen kasaya ve vardiya raporuna geçer",
-        "Sahip programı: «Kâr ve para» bölümü — dönem için kâr, nakit akışı ve mutabakat",
-        "Yeni: fiş toplamının üstünde «Bununla sık alınanlar» önerisi (Ayarlar → Ekran'dan açılır)",
-        "Telegram botu ve yapay zekâ NurCRM sunucusunda çalışabilir — bilgisayar kapalıyken bile bot günün her saati yanıt verir (program bir kez sorar; düğme — Ayarlar → İşlemler → «Botu bağla»)",
+        "Kiralama (giyim, hizmetler): ürünü nakit veya pasaport depozitosuyla kiralama, cezalı iade, gecikenler — kasa menüsü → «Kiralama»",
+        "Beden ve renkler: yeni seçim penceresi — her bedenin altında stok, renk dairesi, indirimli kampanya fiyatı",
+        "Beden indirimi fişte ve sepette görünür: «önce 1900 (−16%)»",
+        "Ödeme penceresi: ödeme yöntemi simgeleri ve düzgün düğmeler",
+        "Eczane ve veteriner eczanesi: ürün bittiyse — aynı etken maddeli muadil",
+        "Telegram botu: giyim beden ve renklerini bilir, muadil önerir, kiralama hakkında yanıt verir",
+        "Sahip programı: «Kiralama» bölümü, «Bedenler ve renkler»de bedenler sıralı",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Chek printeri: 58 va 80 mm uchun «Qatordagi belgilar» va grafika kengligi — matn va rasmlar chek chetidan chiqmaydi",
-        "Yorliq printeri: yorliq o'lchami shablondan olinadi, oraliq va siljish sozlanadi — yorliqlar o'tkazib yuborilmaydi va joyida chop etiladi",
-        "Pul qutisi har bir naqd to'lovda ochiladi; tarozilar: tezkor tugmalarga biriktirilgan mahsulotlar endi tushib qolmaydi",
-        "Xodimlar huquqlari NurCRM saytidagidek: «Ombor», «Tahlil», «Mijozlar» va «Buyurtmalar» faqat ruxsat berilganlarga ko'rinadi",
-        "Kalkulyatsiya: «Yangilash» tugmasi — narxlar va qoldiqlar doim yangi; mahsulot tavsifli «Batafsil» rasmli kartalarda ham ko'rinadi",
-        "Oldindan to'lov bilan nasiyaga sotish: naqd pul darhol kassaga va smena hisobotiga tushadi",
-        "Egasi dasturi: «Foyda va pul» bo'limi — davr uchun foyda, pul harakati va solishtirish",
-        "Yangi: chek jamining ustida «Bu bilan ko'p olishadi» maslahati (Sozlamalar → Ekran bo'limida yoqiladi)",
-        "Telegram bot va SI NurCRM serverida ishlashi mumkin — kompyuter o'chiq bo'lsa ham bot kecha-kunduz javob beradi (dastur bir marta so'raydi; tugma — Sozlamalar → Operatsiyalar → «Botni ulash»)",
+        "Prokat va ijara (kiyim, xizmatlar): buyumni naqd pul yoki pasport garovi bilan berish, jarima bilan qaytarish, muddati o'tganlar — kassa menyusi → «Prokat»",
+        "O'lcham va ranglar: yangi tanlash oynasi — har bir o'lcham ostida qoldiq, rang doirachasi, chegirmali aksiya narxi",
+        "O'lchamga chegirma chekda va savatda ko'rinadi: «1900 edi (−16%)»",
+        "To'lov oynasi: to'lov usullari belgilari va tekis tugmalar",
+        "Dorixona va veterinariya dorixonasi: mahsulot tugasa — bir xil ta'sir etuvchi moddali almashtirish",
+        "Telegram bot: kiyim o'lcham va ranglarini biladi, almashtirish taklif qiladi, prokat haqida javob beradi",
+        "Egasi dasturi: «Prokat» bo'limi, «O'lcham va ranglar»da o'lchamlar tartib bilan",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

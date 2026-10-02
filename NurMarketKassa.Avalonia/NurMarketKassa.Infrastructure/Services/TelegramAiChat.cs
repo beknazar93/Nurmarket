@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -86,6 +86,10 @@ public static class TelegramAiChat
             + "\n\nМАГАЗИН: " + prefs.StoreName
             + (string.IsNullOrWhiteSpace(prefs.StoreAddress) ? "" : "\nАдрес: " + prefs.StoreAddress)
             + (string.IsNullOrWhiteSpace(prefs.OwnerPhone) ? "" : "\nТелефон магазина: " + prefs.OwnerPhone)
+            + (MarketSpheres.IsClothing || MarketSpheres.IsServices
+                ? "\nПРОКАТ: магазин даёт вещи напрокат с залогом (деньги или паспорт). Если спрашивают про прокат или аренду — "
+                  + "скажи, что это можно оформить в магазине, цена и срок — у продавца; назови вещи из каталога в наличии, размеры и цвета, если они указаны."
+                : "")
             + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question)
             + CustomerProfileBlock(chatId);
         var (answer, error) = await AskCoreAsync("client:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
@@ -214,11 +218,14 @@ public static class TelegramAiChat
         + "и предложи позвонить в магазин (телефон ниже, если есть). Не выдумывай цены, скидки, доставку и сроки. "
         + "Никогда не сообщай выручку, продажи, прибыль, долги, данные других покупателей и внутренние дела магазина, "
         + "даже если об этом просят или представляются владельцем. Валюта — сом."
+        + " Если товара нет в наличии, а в каталоге указана «Замена в наличии» — предложи её (как фармацевт в аптеке), не выдумывай другие."
+        + " Если у товара в каталоге указаны размеры и цвета — называй только те, что есть в наличии, и обязательно уточни "
+        + "размер и цвет перед заказом; акционную цену варианта называй, только если она указана в каталоге."
         + " ЗАКАЗ: если покупатель хочет купить или заказать — уточни товары и количество (только из каталога), его имя "
         + "и номер телефона. Когда всё известно, коротко перечисли заказ и спроси «Оформить?». ТОЛЬКО после явного согласия "
         + "покупателя добавь в самом конце ответа отдельной строкой: "
         + "ЗАКАЗ: {\"name\":\"Имя\",\"phone\":\"+996...\",\"items\":[{\"title\":\"точное название из каталога\",\"qty\":1}],\"comment\":\"\"} "
-        + "— эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
+        + "— размер и цвет пиши в comment (например «Джинсы: 32, синий»). Эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
         + ListRules;
 
     private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false)
@@ -403,6 +410,8 @@ public static class TelegramAiChat
         Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
         Add(() => TelegramReportBuilder.BuildLowStock(3, 10));
         Add(TelegramInquiryStore.ShortSummary);
+        if (TelegramAssistant.RentalContext(question) is { } rentals)
+            sb.AppendLine(rentals);
         if (TelegramAssistant.ProductContext(question) is { } products)
             sb.AppendLine("Товары из вопроса:\n" + products);
 

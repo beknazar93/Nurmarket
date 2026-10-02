@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -76,6 +76,9 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
 
     protected void WriteOff_Click(object? sender, RoutedEventArgs e) =>
         _ = BasketExtraActions.WriteOffAsync(this, Vm?.Basket);
+
+    protected void Rental_Click(object? sender, RoutedEventArgs e) =>
+        BasketExtraActions.Rental(Vm?.Basket);
 
     /// <summary>Количество в строке чека применяется и при уходе из поля, не только по Enter —
     /// кассир часто сразу жмёт «Оплатить» (то же, что BasketPanelView в «Классике», 2026-09-28).</summary>

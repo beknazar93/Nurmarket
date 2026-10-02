@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.Configuration;
@@ -68,6 +68,8 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ShowcaseApiService>();
         // 2026-10-01, ТЗ часть 5: бот и ИИ на сервере NurCRM.
         services.AddSingleton<ServerTelegramBotApi>();
+        // 2026-10-02: прокат (аренда) для одежды и услуг — документ ведёт сервер NurCRM.
+        services.AddSingleton<RentalsApi>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
         services.AddSingleton<IInventoryApiService, InventoryApiService>();
         services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();

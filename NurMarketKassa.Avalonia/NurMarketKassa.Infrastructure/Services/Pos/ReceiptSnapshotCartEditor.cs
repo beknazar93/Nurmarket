@@ -1,4 +1,4 @@
-using NurMarketKassa.Interfaces;
+﻿using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models.Pos;
 using System.Diagnostics;
 using System.Globalization;
@@ -400,6 +400,10 @@ public static class ReceiptSnapshotCartEditor
                 line["variant_size"] = size;
             if (!string.IsNullOrWhiteSpace(color))
                 line["variant_color"] = color;
+            // 2026-10-02: акционная цена варианта ниже обычной — запоминаем обычную для корзины и чека.
+            var basePrice = LocalCartService.ParsePrice(product.PriceLine);
+            if (basePrice > unitPrice + 0.005)
+                line["variant_base_price"] = basePrice;
             RecalcLine(line);
             items.Add(line);
         }

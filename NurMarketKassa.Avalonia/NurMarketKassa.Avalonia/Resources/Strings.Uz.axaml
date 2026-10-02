@@ -19,6 +19,7 @@
   <x:String x:Key="csh.menu.abc">ABC tahlili</x:String>
   <x:String x:Key="csh.menu.clients">Mijozlar</x:String>
   <x:String x:Key="csh.menu.payDebt">Qarzni to'lash</x:String>
+  <x:String x:Key="csh.menu.rental">Prokat</x:String>
   <x:String x:Key="csh.menu.settings">Sozlamalar</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketpleys</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -380,9 +381,9 @@
   <x:String x:Key="noStock.title">Mahsulot mavjud emas</x:String>
   <x:String x:Key="noStock.header">Mahsulot omborda tugagan</x:String>
   <x:String x:Key="noStock.confirmAndAdd">Tasdiqlash va qo'shish</x:String>
-  <x:String x:Key="noStock.showAlternatives">O'xshash mahsulotlarni ko'rsatish</x:String>
-  <x:String x:Key="noStock.alternativesTitle">O'xshash mahsulotlar</x:String>
-  <x:String x:Key="noStock.alternativesSubtitle">Xuddi shu toifadan, omborda mavjud:</x:String>
+  <x:String x:Key="noStock.showAlternatives">Almashtirishni ko'rsatish (analoglar)</x:String>
+  <x:String x:Key="noStock.alternativesTitle">Almashtirish (analoglar)</x:String>
+  <x:String x:Key="noStock.alternativesSubtitle">Mavjud mahsulotlar. Avval — bir xil ta'sir etuvchi modda, keyin o'xshash nom, keyin o'sha kategoriya.</x:String>
   <x:String x:Key="noStock.alternativesEmpty">Bu toifada mavjud boshqa mahsulotlar yo'q.</x:String>
   <x:String x:Key="addStock.title">Omborni to'ldirish</x:String>
   <x:String x:Key="addStock.header">Miqdorni ko'rsating</x:String>

@@ -222,7 +222,8 @@ public sealed class CartService : ICartService, IDisposable
             MustWeigh: CartDisplayHelper.LineMustWeigh(line),
             DiscountPercent: discountPercent,
             FixedDiscountAmount: fixedDiscountAmount,
-            SalePackageId: CartDisplayHelper.SalePackageId(line));
+            SalePackageId: CartDisplayHelper.SalePackageId(line),
+            PromoBasePrice: CartDisplayHelper.VariantBasePrice(line));
     }
 
     /// <summary>Пустой локальный чек — то, с чего начинается новый чек и чем заканчивается

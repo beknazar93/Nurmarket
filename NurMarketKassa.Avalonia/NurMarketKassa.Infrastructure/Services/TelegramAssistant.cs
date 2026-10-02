@@ -1,7 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Collections.Concurrent;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
@@ -54,6 +56,10 @@ public static class TelegramAssistant
         if (Has(words, InquiryWords))
             return (null, TelegramInquiryStore.BuildReport());
 
+        // 2026-10-02, владелец: «в боте тоже аренду и прокат добавь». «Кто не вернул прокат», «залоги».
+        if (Has(words, RentalWords) && RentalReport() is { } rentals)
+            return (null, rentals);
+
         // Вопрос о конкретном товаре: «цена кола», «сколько осталось сахара», «кола бар бы».
         if (Has(words, ProductQueryWords) && FindProducts(words) is { Count: > 0 } found)
             return (null, BuildProductReply(found));
@@ -102,6 +108,148 @@ public static class TelegramAssistant
     /// <summary>2026-09-30: каталог для ИИ-консультанта покупателей — только то, что и так видно на
     /// полке и витрине: название, цена, «есть / нет в наличии» (точный остаток не раскрываем).
     /// Сначала товары из вопроса, затем общий список того, что есть в наличии.</summary>
+    /// <summary>2026-10-02, владелец: «бот тоже должен видеть размеры и цвета одежды». Варианты товара
+    /// (размер/цвет, остаток, акционная цена) с сервера — ставит программа (CatalogApi.GetProductVariantsAsync);
+    /// null — варианты не подключены.</summary>
+    public static Func<string, CancellationToken, Task<List<ProductVariantDto>>>? VariantsLoader { get; set; }
+
+    private static readonly ConcurrentDictionary<string, (DateTime At, List<ProductVariantDto> List)> VariantCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Сколько товаров из вопроса дополняем вариантами. Масштаб (15 000 клиентов): запрос к
+    /// серверу только по найденным в вопросе товарам, не больше пяти, с кэшем на 2 минуты.</summary>
+    private const int MaxVariantLookups = 5;
+
+    /// <summary>Строка «размеры и цвета» для товара: «S: белый, чёрный; M: белый (нет: чёрный)…»,
+    /// акции — «L чёрный — 750 сом по акции». withCounts — с остатками (для владельца).
+    /// Пусто, если вариантов нет или сервер не ответил.</summary>
+    private static string VariantsText(CatalogProductTileVm p, bool withCounts)
+    {
+        if (VariantsLoader is null || string.IsNullOrWhiteSpace(p.Id))
+            return "";
+        List<ProductVariantDto> list;
+        if (VariantCache.TryGetValue(p.Id, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(2))
+            list = cached.List;
+        else
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                list = Task.Run(() => VariantsLoader(p.Id, cts.Token)).GetAwaiter().GetResult() ?? new List<ProductVariantDto>();
+                VariantCache[p.Id] = (DateTime.UtcNow, list);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        var active = list.Where(v => v.IsActive).ToList();
+        if (active.Count == 0)
+            return "";
+        var basePrice = LocalCartService.ParsePrice(p.PriceLine);
+        var bySize = active.GroupBy(v => string.IsNullOrWhiteSpace(v.Size) ? "—" : v.Size.Trim()).ToList();
+        var parts = new List<string>();
+        foreach (var g in bySize)
+        {
+            var have = g.Where(v => v.Quantity > 0)
+                .Select(v => (string.IsNullOrWhiteSpace(v.Color) ? "" : v.Color.Trim().ToLowerInvariant()) + (withCounts ? $" {v.Quantity:0.###} шт" : ""))
+                .Where(x => x.Trim().Length > 0).ToList();
+            var none = g.Where(v => v.Quantity <= 0 && !string.IsNullOrWhiteSpace(v.Color)).Select(v => v.Color.Trim().ToLowerInvariant()).ToList();
+            var text = g.Key + ": " + (have.Count > 0 ? string.Join(", ", have) : (g.Any(v => v.Quantity > 0) ? "есть" : "нет в наличии"));
+            if (none.Count > 0 && have.Count > 0)
+                text += " (нет: " + string.Join(", ", none) + ")";
+            parts.Add(text);
+        }
+
+        var promos = active.Where(v => v.Price is { } price && basePrice > 0 && price < basePrice - 0.005 && v.Quantity > 0)
+            .Select(v => $"{v.Size} {v.Color}".Trim().ToLowerInvariant() + $" — {v.Price!.Value.ToString("N2", Ru)} сом по акции").ToList();
+        return " Размеры и цвета — " + string.Join("; ", parts) + "." + (promos.Count > 0 ? " Акция: " + string.Join("; ", promos) + "." : "");
+    }
+
+    /// <summary>2026-10-02: товара нет в наличии — аналог в наличии (как в аптеке), для ответа бота.</summary>
+    private static string AnalogText(CatalogProductTileVm p)
+    {
+        if (p.Quantity > 0)
+            return "";
+        try
+        {
+            var alts = ProductAlternatives.Find(p, CatalogCacheService.Products, 2);
+            if (alts.Count == 0)
+                return "";
+            return " Замена в наличии: " + string.Join("; ", alts.Select(a =>
+                $"{a.Product.Title} — {LocalCartService.ParsePrice(a.Product.PriceLine).ToString("N2", Ru)} сом ({a.Reason})")) + ".";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    /// <summary>2026-10-02: прокаты с сервера (RentalsApi.ListAsync) — ставит программа; null — не подключено.</summary>
+    public static Func<string?, CancellationToken, Task<IReadOnlyList<RentalDto>>>? RentalsLoader { get; set; }
+
+    private static (DateTime At, IReadOnlyList<RentalDto> List)? _rentalCache;
+
+    /// <summary>Отчёт владельцу о прокате: на руках, просроченные (клиент, вещь с размером и цветом,
+    /// сколько дней), денежные залоги. Кэш на минуту — бот не дёргает сервер на каждое сообщение.
+    /// null — прокат не подключён или сервер не ответил.</summary>
+    public static string? RentalReport()
+    {
+        if (RentalsLoader is null)
+            return null;
+        IReadOnlyList<RentalDto> active;
+        if (_rentalCache is { } c && DateTime.UtcNow - c.At < TimeSpan.FromMinutes(1))
+            active = c.List;
+        else
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+                active = Task.Run(() => RentalsLoader("active", cts.Token)).GetAwaiter().GetResult();
+                _rentalCache = (DateTime.UtcNow, active);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        string Item(RentalDto r) =>
+            $"• №{r.Number} {Escape(r.ClientName)} — {Escape(string.Join(", ", r.Items.Select(i => i.Label)))}, до {r.DateTo:dd.MM}"
+            + (r.Overdue && r.DateTo is { } to ? $" (просрочен на {Math.Max(1, (DateTime.Today - to.Date).Days)} дн.)" : "")
+            + (r.IsDocumentDeposit ? " · залог: документ" : r.DepositAmount > 0 ? $" · залог {r.DepositAmount.ToString("N0", Ru)} сом" : "");
+
+        var overdue = active.Where(r => r.Overdue).ToList();
+        var sb = new StringBuilder();
+        sb.AppendLine("🧥 <b>Прокат</b>");
+        sb.AppendLine($"На руках: {active.Count}, просрочено: {overdue.Count}");
+        var money = active.Where(r => !r.IsDocumentDeposit).Sum(r => r.DepositAmount);
+        if (money > 0)
+            sb.AppendLine($"Денежных залогов в кассе: {money.ToString("N2", Ru)} сом");
+        if (overdue.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("<b>Просрочены</b>");
+            foreach (var r in overdue.OrderBy(r => r.DateTo).Take(10))
+                sb.AppendLine(Item(r));
+        }
+        var onTime = active.Where(r => !r.Overdue).OrderBy(r => r.DateTo).Take(10).ToList();
+        if (onTime.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("<b>На руках</b>");
+            foreach (var r in onTime)
+                sb.AppendLine(Item(r));
+        }
+        if (active.Count == 0)
+            sb.AppendLine("Сейчас ничего не выдано.");
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>Для ИИ владельца: прокат, если вопрос о нём.</summary>
+    public static string? RentalContext(string question) =>
+        Has(Normalize(question), RentalWords) ? RentalReport() : null;
+
     public static string CustomerCatalogContext(string question)
     {
         List<CatalogProductTileVm> all;
@@ -122,8 +270,9 @@ public static class TelegramAssistant
         if (found.Count > 0)
         {
             sb.AppendLine("Найдено по вопросу:");
+            var lookups = 0;
             foreach (var p in found)
-                sb.AppendLine(Line(p));
+                sb.AppendLine(Line(p) + (lookups++ < MaxVariantLookups ? VariantsText(p, withCounts: false) : "") + AnalogText(p));
             sb.AppendLine();
         }
 
@@ -149,7 +298,7 @@ public static class TelegramAssistant
 
         var found = FindProducts(words);
         if (found.Count > 0)
-            return string.Join("\n", found.Select(Line));
+            return string.Join("\n", found.Select((p, i) => Line(p) + (i < MaxVariantLookups ? Escape(VariantsText(p, withCounts: false)) : "") + Escape(AnalogText(p))));
 
         if (Has(words, CatalogListWords))
         {
@@ -204,7 +353,8 @@ public static class TelegramAssistant
         foreach (var p in found)
         {
             var stock = p.Quantity.ToString("0.###", Ru) + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + p.Unit);
-            sb.AppendLine($"- {p.Title}: цена {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} сом, остаток {stock}");
+            sb.AppendLine($"- {p.Title}: цена {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} сом, остаток {stock}"
+                + (sb.Length < 4000 ? VariantsText(p, withCounts: true) : "") + AnalogText(p));
         }
         return sb.ToString();
     }
@@ -221,6 +371,8 @@ public static class TelegramAssistant
     private static readonly string[] TodayWords = { "сегодн", "бүгүн", "бугун", "дела", "итог", "отчет", "сводк", "кандай иш" };
     private static readonly string[] WeekWords = { "недел", "жума", "7" };
     private static readonly string[] MonthWords = { "месяц", "30" };
+    // 2026-10-02: прокат и аренда.
+    private static readonly string[] RentalWords = { "прокат", "аренд", "ижара", "залог", "күрөө", "куроо" };
     private static readonly string[] InquiryWords = { "обращ", "кайрыл", "писали", "написали", "кто писал", "сколько писал", "жазышты", "жазды" };
     private static readonly string[] ReasoningWords = { "почему", "зачем", "как лучше", "как увелич", "как подня", "что делать", "посовету", "эмне үчүн", "эмнеге", "кантип" };
     private static readonly string[] HelpWords = { "помощ", "помоги", "умеешь", "команд", "справк", "жардам", "help" };

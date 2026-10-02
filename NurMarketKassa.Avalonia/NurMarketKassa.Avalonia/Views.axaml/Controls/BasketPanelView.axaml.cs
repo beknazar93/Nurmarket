@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -23,6 +23,9 @@ public partial class BasketPanelView : UserControl
     /// (2026-09-28): то же меню есть у других раскладок кассы.</summary>
     private async void WriteOff_Click(object? sender, RoutedEventArgs e) =>
         await BasketExtraActions.WriteOffAsync(this, DataContext as BasketPanelViewModel).ConfigureAwait(true);
+
+    private void Rental_Click(object? sender, RoutedEventArgs e) =>
+        BasketExtraActions.Rental(DataContext as BasketPanelViewModel);
 
     /// <summary>«Печать последнего чека» в меню «Ещё» (2026-09-27), см. <see cref="BasketExtraActions"/>.</summary>
     private async void PrintLastReceipt_Click(object? sender, RoutedEventArgs e) =>

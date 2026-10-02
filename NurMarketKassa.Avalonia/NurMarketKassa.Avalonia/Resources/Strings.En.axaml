@@ -19,6 +19,7 @@
   <x:String x:Key="csh.menu.abc">ABC analysis</x:String>
   <x:String x:Key="csh.menu.clients">Clients</x:String>
   <x:String x:Key="csh.menu.payDebt">Pay debt</x:String>
+  <x:String x:Key="csh.menu.rental">Rentals</x:String>
   <x:String x:Key="csh.menu.settings">Settings</x:String>
   <x:String x:Key="csh.menu.marketplace">Marketplace</x:String>
   <x:String x:Key="csh.menu.crm">NurCRM</x:String>
@@ -380,9 +381,9 @@
   <x:String x:Key="noStock.title">Product out of stock</x:String>
   <x:String x:Key="noStock.header">The product has run out of stock</x:String>
   <x:String x:Key="noStock.confirmAndAdd">Confirm and add</x:String>
-  <x:String x:Key="noStock.showAlternatives">Show similar products</x:String>
-  <x:String x:Key="noStock.alternativesTitle">Similar products</x:String>
-  <x:String x:Key="noStock.alternativesSubtitle">From the same category, in stock:</x:String>
+  <x:String x:Key="noStock.showAlternatives">Show replacement (analogues)</x:String>
+  <x:String x:Key="noStock.alternativesTitle">Replacement (analogues)</x:String>
+  <x:String x:Key="noStock.alternativesSubtitle">In stock. First — same active ingredient, then similar name, then the same category.</x:String>
   <x:String x:Key="noStock.alternativesEmpty">No more products in stock in this category.</x:String>
   <x:String x:Key="addStock.title">Restock warehouse</x:String>
   <x:String x:Key="addStock.header">Enter quantity</x:String>

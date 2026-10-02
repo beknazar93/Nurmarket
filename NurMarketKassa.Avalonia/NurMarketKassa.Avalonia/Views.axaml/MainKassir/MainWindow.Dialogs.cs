@@ -965,19 +965,15 @@ public partial class MainWindow
     /// (AI-фичи 2026-09-03, п.12 — предлагается вместо отсканированного, если его нет в наличии).
     /// Без категории или без совпадений возвращает пустой список — тогда кнопка "Показать
     /// похожие" в NoStockDialog просто не показывается.</summary>
-    private static List<CatalogProductTileVm> FindAlternativesInCategory(string productId)
+    private static List<(CatalogProductTileVm Product, string Reason)> FindAlternativesInCategory(string productId)
     {
         var current = CatalogCacheService.Products.FirstOrDefault(p => p.Id == productId);
-        if (current is null || string.IsNullOrWhiteSpace(current.Category))
-            return new List<CatalogProductTileVm>();
+        if (current is null)
+            return new List<(CatalogProductTileVm, string)>();
 
-        return CatalogCacheService.Products
-            .Where(p => p.Id != productId
-                        && p.Quantity > 1e-6
-                        && string.Equals(p.Category, current.Category, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(p => p.Quantity)
-            .Take(10)
-            .ToList();
+        // 2026-10-02, владелец: «альтернатива, если товар закончился, как в аптеках» — сначала то же
+        // действующее вещество, затем похожее название, затем та же категория (ProductAlternatives).
+        return ProductAlternatives.Find(current, CatalogCacheService.Products);
     }
 
     /// <summary>Пополнение склада, запрошенное из строки чека (кнопка «+» или ручной ввод

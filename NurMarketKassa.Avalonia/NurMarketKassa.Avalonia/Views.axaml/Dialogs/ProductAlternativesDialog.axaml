@@ -1,8 +1,8 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductAlternativesDialog"
         Title="{DynamicResource noStock.alternativesTitle}"
-        Width="440" MaxHeight="560" SizeToContent="Height"
+        Width="480" MaxHeight="600" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
@@ -17,6 +17,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="14,10"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -61,10 +62,10 @@
                                 <Grid ColumnDefinitions="*,Auto">
                                     <StackPanel Grid.Column="0" Spacing="2">
                                         <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding StockText}" FontSize="12"
+                                        <TextBlock Text="{Binding Info}" FontSize="12" TextWrapping="Wrap"
                                                    Foreground="{DynamicResource BrushTextSoft}"/>
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding PriceLine}" FontWeight="SemiBold"
+                                    <TextBlock Grid.Column="1" Text="{Binding PriceLine}" FontWeight="SemiBold" Margin="12,0,0,0"
                                                Foreground="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center"/>
                                 </Grid>
                             </Button>

@@ -2290,6 +2290,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     DiscountAmount = (double)item.LineDiscount,
                     DiscountPercent = item.DiscountPercent is { } percent ? (double)percent : null,
                     FixedDiscountAmount = item.FixedDiscountAmount is { } fixedAmount ? (double)fixedAmount : null,
+                    PromoBasePrice = item.PromoBasePrice,
                     RemoveCommand = RemoveLineCommand,
                     IncreaseCommand = IncreaseQuantityCommand,
                     DecreaseCommand = DecreaseQuantityCommand,
@@ -2513,6 +2514,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
     public ICommand SkipUpsellCommand { get; private set; } = null!;
 
     public bool HasUpsell => _upsell != null;
+
+    /// <summary>2026-10-02, владелец: «прокат — в кассе тоже внутри добавь». Кнопка «Прокат» в меню
+    /// «Ещё» у чека — в сферах «Одежда» и «Услуги».</summary>
+    public bool ShowRental => MarketSpheres.IsClothing || MarketSpheres.IsServices;
 
     public string UpsellProductText => _upsell is null
         ? ""

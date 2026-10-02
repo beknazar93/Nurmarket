@@ -454,6 +454,27 @@
                                        VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
+                    <!-- 2026-10-02: прокат (аренда) — одежда и услуги. -->
+                    <Button Classes="sidebar-menu-item"
+                            IsVisible="{Binding ShowRental}"
+                            Command="{Binding NavigateRentalCommand}">
+                        <Grid ColumnDefinitions="24,12,*" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="M12 3 L12 5 M12 5 C14 5 15 6.5 13.5 8 L4 14.5 C3 15.2 3.5 17 5 17 L19 17 C20.5 17 21 15.2 20 14.5 L13.5 10 M7 20 L17 20"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.rental}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
 
                     </StackPanel>
 

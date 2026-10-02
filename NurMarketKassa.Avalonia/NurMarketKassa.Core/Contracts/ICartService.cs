@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using NurMarketKassa.Models.Pos;
 
 namespace NurMarketKassa.Interfaces;
@@ -19,7 +19,10 @@ public sealed record CartItem(
     /// <summary>ID упаковки при поштучной продаже из пачки. Нужен, чтобы отличить строку,
     /// количество которой считается в ШТУКАХ, от обычной, где оно в единицах каталога —
     /// иначе остаток в пачках сравнивается со штуками (см. GetMaximumCartQuantity).</summary>
-    string? SalePackageId = null);
+    string? SalePackageId = null,
+    /// <summary>2026-10-02: обычная цена товара, если вариант (размер/цвет) продаётся по акционной
+    /// цене ниже неё, — для подписи «было … (−N%)» в корзине и строки акции в чеке.</summary>
+    double? PromoBasePrice = null);
 
 /// <summary>
 /// Этот файл описывает контракт работы с корзиной покупателя:

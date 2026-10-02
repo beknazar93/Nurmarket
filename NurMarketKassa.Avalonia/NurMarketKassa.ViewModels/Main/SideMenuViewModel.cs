@@ -276,8 +276,33 @@ public sealed class SideMenuViewModel : ViewModelBase
         private set => SetProperty(ref _canViewClients, value);
     }
 
+    /// <summary>2026-10-02, владелец: «реализуй аренду для услуг и для магазина одежды — прокат».
+    /// Пункт «Прокат» — в сферах «Одежда» и «Услуги»; действие задаёт главное окно кассы.</summary>
+    public Action? NavigateRentalAction
+    {
+        get => _navigateRentalAction;
+        set
+        {
+            _navigateRentalAction = value;
+            OnPropertyChanged(nameof(ShowRental));
+        }
+    }
+
+    private Action? _navigateRentalAction;
+    private ICommand? _navigateRentalCommand;
+
+    public ICommand NavigateRentalCommand => _navigateRentalCommand ??= new RelayCommand(() =>
+    {
+        _navigateRentalAction?.Invoke();
+        CloseMenuCommand.Execute(null);
+    });
+
+    public bool ShowRental => _navigateRentalAction != null
+                              && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices);
+
     public void RefreshEntitlements()
     {
+        OnPropertyChanged(nameof(ShowRental));
         var isStart = NurMarketKassa.Services.TariffGate.IsStartTariff;
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
