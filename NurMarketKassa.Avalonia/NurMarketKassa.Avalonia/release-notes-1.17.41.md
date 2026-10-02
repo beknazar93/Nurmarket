@@ -17,12 +17,13 @@
 - **Прокат прямо из оплаты.** В окне оплаты — кнопка «Оформить как прокат (аренда)» (сферы «Одежда» и «Услуги»). Вещи из чека и цена за сутки переносятся в форму проката сами, остаётся выбрать клиента, срок и залог. В чеке появляется строка «Прокат №N: вещи, до какого числа, залог», оплатить её можно любым способом: наличными, безналом, смешанно, в долг.
 - **Возврат по номеру с чека.** Клиент принёс вещь и чек: «Прокат» → поле «№ проката с чека» → Enter. Касса откроет приём возврата этого проката.
 - **Напоминания о сроке проката:**
+  - в программе владельца — звуковой сигнал «динь-дон», когда прокат впервые стал «вернуть завтра», «вернуть сегодня» или «просрочен»;
   - в программе владельца у пункта «Прокат» — число прокатов, которые надо вернуть сегодня или завтра или которые уже просрочены (просрочка — красным);
   - в меню — карточка «Прокат: сроки возврата» с клиентами и кнопкой «Открыть прокат»;
   - владельцу в Телеграм — сообщение «Вернуть завтра», «Вернуть сегодня», «Просрочены» (по одному разу, просрочка — раз в день, с 8:00 до 21:00);
   - в списке проката — оранжевая отметка «вернуть сегодня» / «вернуть завтра»;
   - бот на вопрос «прокат» или «кто не вернул» теперь отвечает и про сроки на сегодня и завтра.
-- **Клиенты в прокате.** Список клиентов открывается сразу при нажатии на поле. Если клиента нет — «+ Новый клиент»: имя, телефон, «Сохранить клиента».
+- **Клиенты в прокате.** Список клиентов — выпадающий: имя слева, телефон справа, при большом числе клиентов — прокрутка. Открывается сразу при нажатии на поле, выбранного клиента можно сменить. Если клиента нет — «+ Новый клиент»: имя, телефон, «Сохранить клиента».
 - **История клиента.** В «Истории покупок» клиента — его прокаты: номер, вещи, даты, состояние, залог, штраф.
 
 ### Исправлено
@@ -30,7 +31,7 @@
 | Что | Было | Стало |
 |---|---|---|
 | Пустой чек | Оставался вкладкой, пустые чеки копились | Закрывается сам при переходе на другой чек; «Новый чек» при пустом текущем не создаёт ещё один |
-| Список клиентов в «Новом прокате» | Открывался только после двух букв | Открывается сразу, поиск — с первой буквы |
+| Список клиентов в «Новом прокате» | Открывался только после двух букв, плашки в несколько рядов | Выпадающий список с прокруткой, открывается сразу, поиск — с первой буквы |
 | Прокат в истории клиента | Блок уходил за край окна | Прокат — над списком чеков |
 | Штраф по прокату в истории | Способ оплаты «offset» | «Зачёт из залога» |
 | Кнопка проката в оплате | Была видна и для чека из одних доп. услуг | Только когда в чеке есть товар |
@@ -51,8 +52,8 @@
 
 - **Прокат төлөмдөн түз:** төлөм терезесиндеги «Прокат (ижара) катары тариздөө» баскычы; буюмдар жана баа өзү өтөт, чекте «Прокат №N» сабы, каалаган жол менен төлөө.
 - **Чектеги номер боюнча кайтаруу:** «Прокат» → «Чектеги прокат №» → Enter.
-- **Мөөнөт жөнүндө эскертүү:** ээсинин программасында «Прокаттын» жанында сан жана карточка, ээсине Телеграмга билдирүү, тизмеде «бүгүн / эртең кайтаруу» белгиси.
-- **Кардарлар:** тизме дароо ачылат, жаңы кардар кошсо болот; кардардын тарыхында анын прокаттары.
+- **Мөөнөт жөнүндө эскертүү:** ээсинин программасында үн сигналы, «Прокаттын» жанында сан жана карточка, ээсине Телеграмга билдирүү, тизмеде «бүгүн / эртең кайтаруу» белгиси.
+- **Кардарлар:** ачылма тизме, жылдыруу менен, дароо ачылат, жаңы кардар кошсо болот; кардардын тарыхында анын прокаттары.
 - **Оңдолду:** бош чек өзү жабылат; тарыхтагы айып «Күрөөдөн эсептөө» деп жазылат.
 
 ---
@@ -61,8 +62,8 @@
 
 - **Rental right from payment:** “Make it a rental” button in the payment window; items and price carry over, the receipt shows “Rental #N”, pay any way.
 - **Take back by the receipt number:** “Rentals” → “Rental # from receipt” → Enter.
-- **Due reminders:** a count next to “Rentals” and a card in the owner app, a Telegram message to the owner, “due today / tomorrow” marks in the list.
-- **Clients:** the list opens at once, a new client can be added; the client's history shows their rentals.
+- **Due reminders:** a sound, a count next to “Rentals” and a card in the owner app, a Telegram message to the owner, “due today / tomorrow” marks in the list.
+- **Clients:** a scrolling drop-down list that opens at once, a new client can be added; the client's history shows their rentals.
 - **Fixed:** an empty receipt closes itself; penalties in history read “From deposit”.
 
 ---
@@ -71,8 +72,8 @@
 
 - **Ödemeden doğrudan kiralama:** ödeme penceresinde «Kiralama olarak düzenle» düğmesi; ürünler ve fiyat aktarılır, fişte «Kiralama №N», her yöntemle ödeme.
 - **Fiş numarasıyla iade:** «Kiralama» → «Fişteki kiralama №» → Enter.
-- **Süre hatırlatmaları:** işletme sahibi programında «Kiralama» yanında sayı ve kart, sahibine Telegram mesajı, listede «bugün / yarın iade» işareti.
-- **Müşteriler:** liste hemen açılır, yeni müşteri eklenebilir; müşteri geçmişinde kiralamaları.
+- **Süre hatırlatmaları:** işletme sahibi programında sesli uyarı, «Kiralama» yanında sayı ve kart, sahibine Telegram mesajı, listede «bugün / yarın iade» işareti.
+- **Müşteriler:** kaydırmalı açılır liste, hemen açılır, yeni müşteri eklenebilir; müşteri geçmişinde kiralamaları.
 - **Düzeltildi:** boş fiş kendiliğinden kapanır; geçmişteki ceza «Depozitodan mahsup» olarak görünür.
 
 ---
@@ -81,6 +82,6 @@
 
 - **To'lovdan to'g'ridan-to'g'ri prokat:** to'lov oynasida «Prokat (ijara) sifatida rasmiylashtirish» tugmasi; buyumlar va narx o'tadi, chekda «Prokat №N», istalgan usulda to'lov.
 - **Chekdagi raqam bo'yicha qaytarish:** «Prokat» → «Chekdagi prokat №» → Enter.
-- **Muddat eslatmalari:** egasi dasturida «Prokat» yonida son va karta, egasiga Telegramda xabar, ro'yxatda «bugun / ertaga qaytarish» belgisi.
-- **Mijozlar:** ro'yxat darhol ochiladi, yangi mijoz qo'shish mumkin; mijoz tarixida uning prokatlari.
+- **Muddat eslatmalari:** egasi dasturida ovozli signal, «Prokat» yonida son va karta, egasiga Telegramda xabar, ro'yxatda «bugun / ertaga qaytarish» belgisi.
+- **Mijozlar:** aylantiriladigan ochiluvchi ro'yxat, darhol ochiladi, yangi mijoz qo'shish mumkin; mijoz tarixida uning prokatlari.
 - **Tuzatildi:** bo'sh chek o'zi yopiladi; tarixdagi jarima «Garovdan hisob» deb ko'rinadi.

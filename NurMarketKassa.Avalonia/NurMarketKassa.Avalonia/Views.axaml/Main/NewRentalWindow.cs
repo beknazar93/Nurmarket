@@ -20,7 +20,14 @@ public sealed class NewRentalWindow : Window
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly TextBox _clientSearch;
-    private readonly WrapPanel _clientResults = new() { Orientation = Orientation.Horizontal };
+    // 2026-10-02, владелец: «список клиентов нормальным сделай — как выпадающий список, с фиксированной
+    // высотой и прокруткой, если их много». Раньше — плашки в несколько рядов.
+    private readonly StackPanel _clientResults = new() { Spacing = 0 };
+    private readonly Border _clientDropdown = new()
+    {
+        CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), IsVisible = false, ClipToBounds = true,
+        Margin = new Thickness(0, -6, 0, 0),
+    };
     private readonly TextBlock _clientChosen = new() { FontSize = 15, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBox _itemSearch;
     private readonly WrapPanel _itemResults = new() { Orientation = Orientation.Horizontal };
@@ -116,10 +123,19 @@ public sealed class NewRentalWindow : Window
         _newClientPanel.Children.Add(_newClientName);
         _newClientPanel.Children.Add(_newClientPhone);
         _newClientPanel.Children.Add(saveClient);
-        root.Children.Add(Section(1, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz"), _clientSearch, _clientResults, _clientChosen, addClient, _newClientPanel));
+        Use(_clientDropdown, Border.BackgroundProperty, "BrushPanel");
+        Use(_clientDropdown, Border.BorderBrushProperty, "BrushBorder");
+        _clientDropdown.Child = new ScrollViewer
+        {
+            Content = _clientResults, MaxHeight = 264,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        };
+        root.Children.Add(Section(1, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz"), _clientSearch, _clientDropdown, _clientChosen, addClient, _newClientPanel));
         _clientSearch.TextChanged += (_, _) => ScheduleClientSearch();
-        // Список клиентов — сразу при нажатии на поле (раньше — только с двух букв).
-        _clientSearch.GotFocus += (_, _) => { if (_client is null) ScheduleClientSearch(); };
+        // Список клиентов — сразу при нажатии на поле (раньше — только с двух букв); выбранного клиента
+        // можно сменить, снова нажав на поле.
+        _clientSearch.GotFocus += (_, _) => ScheduleClientSearch();
 
         // 2. Вещи
         root.Children.Add(Section(2, T("Вещи", "Буюмдар", "Items", "Ürünler", "Buyumlar"), _itemSearch, _itemResults, _items));
@@ -293,34 +309,65 @@ public sealed class NewRentalWindow : Window
     {
         var text = _clientSearch.Text?.Trim() ?? "";
         _clientResults.Children.Clear();
+        _clientDropdown.IsVisible = true;
         try
         {
             var rows = await App.GetRequiredService<IClientsApiService>().GetClientsAsync(text.Length == 0 ? null : text).ConfigureAwait(true);
-            foreach (var r in rows.Take(8))
+            _clientResults.Children.Clear();
+            foreach (var r in rows.Take(100))
             {
                 var id = r.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
                 if (string.IsNullOrWhiteSpace(id))
                     continue;
                 var name = Field(r, "full_name") ?? Field(r, "name") ?? "—";
                 var phone = Field(r, "phone") ?? "";
-                var b = UiKit.Chip(this, string.IsNullOrWhiteSpace(phone) ? name : $"{name} · {phone}", _client?.Id == id);
-                b.Margin = new Thickness(0, 0, 8, 8);
+                var b = ClientRow(name, phone, _client?.Id == id, _clientResults.Children.Count > 0);
                 b.Click += (_, _) =>
                 {
                     _client = (id!, name);
                     _clientChosen.Text = "✓ " + name + (string.IsNullOrWhiteSpace(phone) ? "" : " · " + phone);
                     _clientResults.Children.Clear();
+                    _clientDropdown.IsVisible = false;
                 };
                 _clientResults.Children.Add(b);
             }
             if (_clientResults.Children.Count == 0)
-                _clientResults.Children.Add(Small(T("Клиент не найден — добавьте его в «Клиенты».", "Кардар табылган жок — аны «Кардарлар» бөлүмүнө кошуңуз.", "Client not found — add them in “Clients”.",
+                _clientResults.Children.Add(PaddedSmall(T("Клиент не найден — добавьте его в «Клиенты».", "Кардар табылган жок — аны «Кардарлар» бөлүмүнө кошуңуз.", "Client not found — add them in “Clients”.",
                     "Müşteri bulunamadı — «Müşteriler»e ekleyin.", "Mijoz topilmadi — uni «Mijozlar»ga qo'shing.")));
         }
         catch (Exception ex)
         {
-            _clientResults.Children.Add(Small(T("Поиск клиентов не удался: ", "Кардарларды издөө болбой калды: ", "Client search failed: ", "Müşteri araması başarısız: ", "Mijozlarni qidirib bo'lmadi: ") + ex.Message));
+            _clientResults.Children.Add(PaddedSmall(T("Поиск клиентов не удался: ", "Кардарларды издөө болбой калды: ", "Client search failed: ", "Müşteri araması başarısız: ", "Mijozlarni qidirib bo'lmadi: ") + ex.Message));
         }
+    }
+
+    /// <summary>Строка выпадающего списка: имя слева, телефон справа, разделитель сверху.</summary>
+    private Button ClientRow(string name, string phone, bool selected, bool separator)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var n = new TextBlock { Text = name, FontSize = 14.5, FontWeight = selected ? FontWeight.Bold : FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        Use(n, TextBlock.ForegroundProperty, "BrushText");
+        var ph = new TextBlock { Text = phone, FontSize = 13.5, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        Use(ph, TextBlock.ForegroundProperty, "BrushTextSoft");
+        Grid.SetColumn(ph, 1);
+        grid.Children.Add(n);
+        grid.Children.Add(ph);
+        var b = new Button
+        {
+            Content = grid, MinHeight = 44, Padding = new Thickness(14, 8), CornerRadius = new CornerRadius(0), Focusable = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Center, BorderThickness = new Thickness(0, separator ? 1 : 0, 0, 0),
+        };
+        Use(b, Button.BackgroundProperty, selected ? "BrushAccentSoft" : "BrushPanel");
+        Use(b, Button.BorderBrushProperty, "BrushBorder");
+        return b;
+    }
+
+    private Control PaddedSmall(string text)
+    {
+        var t = Small(text);
+        t.Margin = new Thickness(14, 10);
+        return t;
     }
 
     private async Task CreateClientAsync()
@@ -341,6 +388,7 @@ public sealed class NewRentalWindow : Window
             _client = (id, name);
             _clientChosen.Text = "✓ " + name + " · " + phone;
             _clientResults.Children.Clear();
+            _clientDropdown.IsVisible = false;
             _newClientPanel.IsVisible = false;
             _error.Text = "";
             PosLogger.Log("Прокат: новый клиент создан из окна проката.", "RENTAL");

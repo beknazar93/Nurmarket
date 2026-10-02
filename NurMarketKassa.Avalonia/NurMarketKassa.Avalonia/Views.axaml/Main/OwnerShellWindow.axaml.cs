@@ -2022,6 +2022,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     // Карточку можно закрыть — снова появится, когда изменится состав (новый срок или просрочка).
     private Border? _rentalsBadge;
     private string _rentalAlertDismissed = "";
+    // 2026-10-02, владелец: «оповещение прям со звуком должно быть в админке». Звук — когда появилось
+    // новое событие (прокат впервые стал «завтра», «сегодня» или «просрочен»), а не каждый час.
+    private readonly HashSet<string> _rentalAlertSounded = new();
 
     private void OnRentalDueChanged(RentalDueNotifier.Summary summary) => Dispatcher.UIThread.Post(UpdateRentalAlert);
 
@@ -2066,6 +2069,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         RentalAlertOpenText.Text = Tr.T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish");
         ToolTip.SetTip(RentalAlertClose, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
         RentalAlertCard.IsVisible = true;
+
+        var keys = RentalAlertSignature(s).Split('|');
+        var fresh = keys.Count(k => _rentalAlertSounded.Add(k));
+        if (fresh > 0)
+        {
+            AlertSound.PlayChime();
+            PosLogger.Log($"Owner app: оповещение о сроке проката со звуком ({fresh}).", "RENTAL");
+        }
     }
 
     private void RentalAlertClose_Click(object? sender, RoutedEventArgs e)

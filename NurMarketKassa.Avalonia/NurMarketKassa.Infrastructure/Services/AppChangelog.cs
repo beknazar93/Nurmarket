@@ -15,8 +15,8 @@ public static class AppChangelog
     [
         "Прокат прямо из оплаты: кнопка «Оформить как прокат (аренда)» в окне оплаты — вещи и цена переносятся сами, оплата любым способом, в чеке строка «Прокат №N»",
         "Возврат по номеру с чека: «Прокат» → поле «№ проката с чека» → Enter — прокат закрывается",
-        "Напоминания о сроке проката: в программе владельца — число у «Прокат» и карточка «вернуть сегодня / завтра / просрочено», владельцу в Телеграм — сообщение; в списке проката — оранжевая отметка",
-        "В окне проката: список клиентов открывается сразу, можно добавить нового клиента; в истории покупок клиента — его прокаты",
+        "Напоминания о сроке проката: в программе владельца — звуковой сигнал, число у «Прокат» и карточка «вернуть сегодня / завтра / просрочено», владельцу в Телеграм — сообщение; в списке проката — оранжевая отметка",
+        "В окне проката: список клиентов — выпадающий, с прокруткой, открывается сразу; можно добавить нового клиента; в истории покупок клиента — его прокаты",
         "Пустой чек закрывается сам при переходе на другой чек; новый пустой чек не создаётся, если текущий и так пустой",
     ];
 
@@ -24,8 +24,8 @@ public static class AppChangelog
     [
         "Прокат төлөмдөн түз: төлөм терезесинде «Прокат (ижара) катары тариздөө» баскычы — буюмдар жана баа өзү өтөт, каалаган жол менен төлөө, чекте «Прокат №N» сабы",
         "Чектеги номер боюнча кайтаруу: «Прокат» → «Чектеги прокат №» талаасы → Enter — прокат жабылат",
-        "Прокаттын мөөнөтү жөнүндө эскертүү: ээсинин программасында «Прокаттын» жанында сан жана «бүгүн / эртең кайтаруу / мөөнөтү өттү» карточкасы, ээсине Телеграмга билдирүү; прокат тизмесинде кызгылт сары белги",
-        "Прокат терезесинде: кардарлар тизмеси дароо ачылат, жаңы кардар кошсо болот; кардардын сатып алуулар тарыхында анын прокаттары",
+        "Прокаттын мөөнөтү жөнүндө эскертүү: ээсинин программасында үн сигналы, «Прокаттын» жанында сан жана «бүгүн / эртең кайтаруу / мөөнөтү өттү» карточкасы, ээсине Телеграмга билдирүү; прокат тизмесинде кызгылт сары белги",
+        "Прокат терезесинде: кардарлар тизмеси — ачылма, жылдыруу менен, дароо ачылат; жаңы кардар кошсо болот; кардардын сатып алуулар тарыхында анын прокаттары",
         "Бош чек башка чекке өткөндө өзү жабылат; учурдагы чек бош болсо, жаңы бош чек түзүлбөйт",
     ];
 
@@ -33,8 +33,8 @@ public static class AppChangelog
     [
         "Rental right from payment: “Make it a rental” button in the payment window — items and price carry over, any payment method, the receipt shows “Rental #N”",
         "Take back by the receipt number: “Rentals” → “Rental # from receipt” field → Enter — the rental is closed",
-        "Rental due reminders: in the owner app — a count next to “Rentals” and a “due today / tomorrow / overdue” card, a Telegram message to the owner; an orange mark in the rental list",
-        "In the rental window: the client list opens at once, a new client can be added; the client's purchase history shows their rentals",
+        "Rental due reminders: in the owner app — a sound, a count next to “Rentals” and a “due today / tomorrow / overdue” card, a Telegram message to the owner; an orange mark in the rental list",
+        "In the rental window: the client list is a scrolling drop-down that opens at once; a new client can be added; the client's purchase history shows their rentals",
         "An empty receipt closes itself when you switch to another one; no new empty receipt if the current one is already empty",
     ];
 
@@ -42,8 +42,8 @@ public static class AppChangelog
     [
         "Ödemeden doğrudan kiralama: ödeme penceresinde «Kiralama olarak düzenle» düğmesi — ürünler ve fiyat kendiliğinden aktarılır, her ödeme yöntemi, fişte «Kiralama №N» satırı",
         "Fiş numarasıyla iade: «Kiralama» → «Fişteki kiralama №» alanı → Enter — kiralama kapanır",
-        "Kiralama süresi hatırlatmaları: işletme sahibi programında «Kiralama» yanında sayı ve «bugün / yarın iade / gecikmiş» kartı, sahibine Telegram mesajı; kiralama listesinde turuncu işaret",
-        "Kiralama penceresinde: müşteri listesi hemen açılır, yeni müşteri eklenebilir; müşterinin satın alma geçmişinde kiralamaları",
+        "Kiralama süresi hatırlatmaları: işletme sahibi programında sesli uyarı, «Kiralama» yanında sayı ve «bugün / yarın iade / gecikmiş» kartı, sahibine Telegram mesajı; kiralama listesinde turuncu işaret",
+        "Kiralama penceresinde: müşteri listesi kaydırmalı açılır liste, hemen açılır; yeni müşteri eklenebilir; müşterinin satın alma geçmişinde kiralamaları",
         "Boş fiş başka fişe geçince kendiliğinden kapanır; mevcut fiş zaten boşsa yeni boş fiş açılmaz",
     ];
 
@@ -51,8 +51,8 @@ public static class AppChangelog
     [
         "To'lovdan to'g'ridan-to'g'ri prokat: to'lov oynasida «Prokat (ijara) sifatida rasmiylashtirish» tugmasi — buyumlar va narx o'zi o'tadi, istalgan to'lov usuli, chekda «Prokat №N» qatori",
         "Chekdagi raqam bo'yicha qaytarish: «Prokat» → «Chekdagi prokat №» maydoni → Enter — prokat yopiladi",
-        "Prokat muddati eslatmalari: egasi dasturida «Prokat» yonida son va «bugun / ertaga qaytarish / muddati o'tgan» kartasi, egasiga Telegramda xabar; prokat ro'yxatida to'q sariq belgi",
-        "Prokat oynasida: mijozlar ro'yxati darhol ochiladi, yangi mijoz qo'shish mumkin; mijozning xaridlar tarixida uning prokatlari",
+        "Prokat muddati eslatmalari: egasi dasturida ovozli signal, «Prokat» yonida son va «bugun / ertaga qaytarish / muddati o'tgan» kartasi, egasiga Telegramda xabar; prokat ro'yxatida to'q sariq belgi",
+        "Prokat oynasida: mijozlar ro'yxati — aylantiriladigan ochiluvchi ro'yxat, darhol ochiladi; yangi mijoz qo'shish mumkin; mijozning xaridlar tarixida uning prokatlari",
         "Bo'sh chek boshqa chekka o'tganda o'zi yopiladi; joriy chek bo'sh bo'lsa, yangi bo'sh chek ochilmaydi",
     ];
 
