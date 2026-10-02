@@ -51,6 +51,9 @@
         <StreamGeometry x:Key="ReturnIcon">M9,7 L4,12 L9,17 M5,12 H14 A6,6 0 0 1 20,18</StreamGeometry>
         <StreamGeometry x:Key="CalculatorIcon">M6,3 H18 V21 H6 Z M8.5,6 H15.5 V9.5 H8.5 Z M9,13 V13.01 M12,13 V13.01 M15,13 V13.01 M9,16 V16.01 M12,16 V16.01 M15,16 V16.01 M9,19 V19.01 M12,19 V19.01 M15,19 V19.01</StreamGeometry>
         <StreamGeometry x:Key="ChevronRightIcon">M9,5 L16,12 L9,19</StreamGeometry>
+        <StreamGeometry x:Key="CloseIcon">M6,6 L18,18 M18,6 L6,18</StreamGeometry>
+        <!-- 2026-10-02: прокат (вешалка) — пункт меню и уведомление о сроках. -->
+        <StreamGeometry x:Key="RentalIcon">M12,6 A2,2 0 1 1 14,8 C14,9 12,9.5 12,11 L3,18 H21 L12,11</StreamGeometry>
         <!-- 2026-09-29, раздел «Сайт»: заказы — лоток входящих, настройки — глобус. -->
         <StreamGeometry x:Key="SiteOrdersIcon">M3,13 L6,4 H18 L21,13 V20 H3 Z M3,13 H8 L9.5,16 H14.5 L16,13 H21</StreamGeometry>
         <StreamGeometry x:Key="SiteSettingsIcon">M12,3 A9,9 0 1 1 11.99,3 M3,12 H21 M12,3 A14,14 0 0 1 12,21 M12,3 A14,14 0 0 0 12,21</StreamGeometry>
@@ -406,6 +409,31 @@
                              здесь вместо него «Выйти на рабочий стол» (вход при этом сохраняется). -->
                         <Button Grid.Column="3" x:Name="ExitButton" Classes="iconBtn" Click="ExitToDesktop_Click">
                             <Path Classes="btnIcon" Data="{StaticResource ExitIcon}"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 2026-10-02, владелец: «уведомление об окончании и приближении срока проката». Карточка
+                     в меню: разделы открываются поверх правой части окна, а меню видно всегда. -->
+                <Border DockPanel.Dock="Bottom" x:Name="RentalAlertCard" IsVisible="False" Margin="12,0,12,10"
+                        Padding="12,10" CornerRadius="12" BorderThickness="1"
+                        Background="{DynamicResource BrushWarningSoft}" BorderBrush="{DynamicResource BrushWarning}">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                        <TextBlock x:Name="RentalAlertTitle" FontSize="13" FontWeight="Bold" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushText}"/>
+                        <Button Grid.Column="1" x:Name="RentalAlertClose" Classes="iconBtn" Width="26" Height="26" Margin="6,-4,-6,0"
+                                VerticalAlignment="Top" Click="RentalAlertClose_Click">
+                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource CloseIcon}"/>
+                        </Button>
+                        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" x:Name="RentalAlertText" FontSize="12" Margin="0,4,0,8"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                        <Button Grid.Row="2" Grid.ColumnSpan="2" x:Name="RentalAlertOpen" Classes="link" Padding="0"
+                                Click="RentalAlertOpen_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock x:Name="RentalAlertOpenText" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                      VerticalAlignment="Center"/>
+                            </StackPanel>
                         </Button>
                     </Grid>
                 </Border>

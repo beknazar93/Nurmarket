@@ -49,6 +49,8 @@ public sealed class ClientPurchasesWindow : Window
     };
 
     private readonly string _clientId;
+    private readonly TextBlock _rentalsHead = new() { FontSize = 14, FontWeight = FontWeight.SemiBold, Margin = new Avalonia.Thickness(0, 0, 0, 6), IsVisible = false };
+    private readonly StackPanel _rentals = new() { Spacing = 6 };
     private CancellationTokenSource? _cts;
 
     public ClientPurchasesWindow(string clientId, string clientName)
@@ -67,6 +69,10 @@ public sealed class ClientPurchasesWindow : Window
 
         var left = new StackPanel { Spacing = 0 };
         left.Children.Add(_summary);
+        // 2026-10-02, владелец: «добавь к истории клиентов прокат тоже».
+        // Прокат — над таблицей чеков: под ней он уходил за край окна.
+        left.Children.Add(_rentalsHead);
+        left.Children.Add(new ScrollViewer { Content = _rentals, MaxHeight = 140, Margin = new Avalonia.Thickness(0, 0, 0, 10) });
         left.Children.Add(_grid);
 
         var right = new StackPanel { Spacing = 6, Margin = new Avalonia.Thickness(12, 0, 0, 0) };
@@ -96,8 +102,60 @@ public sealed class ClientPurchasesWindow : Window
         root.Children.Add(body);
 
         Content = root;
-        Opened += async (_, _) => await LoadAsync();
+        Opened += async (_, _) =>
+        {
+            await LoadAsync();
+            await LoadRentalsAsync();
+        };
         Closed += (_, _) => _cts?.Cancel();
+    }
+
+    /// <summary>Прокаты клиента (на руках, просроченные, возвращённые) — из /api/rentals/.</summary>
+    private async Task LoadRentalsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_clientId))
+            return;
+        try
+        {
+            var api = App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>();
+            var all = new List<NurMarketKassa.Services.Api.RentalDto>();
+            foreach (var status in new[] { "active", "overdue", "returned" })
+                all.AddRange(await api.ListAsync(status).ConfigureAwait(true));
+            var mine = all.Where(r => string.Equals(r.ClientId, _clientId, StringComparison.OrdinalIgnoreCase))
+                .GroupBy(r => r.Id).Select(g => g.First()).OrderByDescending(r => r.CreatedAt).ToList();
+            _rentals.Children.Clear();
+            _rentalsHead.IsVisible = mine.Count > 0;
+            _rentalsHead.Text = Tr.T($"Прокат: {mine.Count}", $"Прокат: {mine.Count}", $"Rentals: {mine.Count}", $"Kiralama: {mine.Count}", $"Prokat: {mine.Count}");
+            _rentalsHead.Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black;
+            foreach (var r in mine)
+            {
+                var status = r.IsOverdue ? Tr.T("просрочен", "мөөнөтү өттү", "overdue", "gecikmiş", "muddati o'tgan")
+                    : r.IsActive ? Tr.T("на руках", "колдо", "out", "dışarıda", "qo'lda")
+                    : r.Condition == "damaged" ? Tr.T("возвращено, повреждено", "кайтарылды, бузулган", "returned, damaged", "iade, hasarlı", "qaytarildi, shikastlangan")
+                    : Tr.T("возвращено", "кайтарылды", "returned", "iade edildi", "qaytarildi");
+                var deposit = r.IsDocumentDeposit ? Tr.T("залог: документ", "күрөө: документ", "deposit: document", "depozito: belge", "garov: hujjat")
+                    : Tr.T($"залог {r.DepositAmount:N0} сом", $"күрөө {r.DepositAmount:N0} сом", $"deposit {r.DepositAmount:N0} som", $"depozito {r.DepositAmount:N0} som", $"garov {r.DepositAmount:N0} so'm");
+                var row = new Border
+                {
+                    CornerRadius = new Avalonia.CornerRadius(8),
+                    Padding = new Avalonia.Thickness(10, 6),
+                    Background = this.FindResource("BrushPanelSoft") as IBrush ?? Brushes.WhiteSmoke,
+                    Child = new TextBlock
+                    {
+                        Text = $"№{r.Number} · {string.Join(", ", r.Items.Select(i => i.Label))} · {r.DateFrom:dd.MM}–{r.DateTo:dd.MM} · {status} · {deposit}"
+                               + (r.Penalty > 0 ? Tr.T($" · штраф {r.Penalty:N0}", $" · айып {r.Penalty:N0}", $" · penalty {r.Penalty:N0}", $" · ceza {r.Penalty:N0}", $" · jarima {r.Penalty:N0}") : ""),
+                        FontSize = 12.5,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = this.FindResource(r.IsOverdue ? "BrushDanger" : "BrushText") as IBrush ?? Brushes.Black,
+                    },
+                };
+                _rentals.Children.Add(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История клиента: прокат не загружен ({ex.Message}).", "WARNING");
+        }
     }
 
     private void BuildColumns()
@@ -267,6 +325,8 @@ public sealed class ClientPurchasesWindow : Window
         "transfer" or "card" or "noncash" => Tr.T("Безнал", "Накталай эмес", "Cashless", "Nakitsiz", "Naqdsiz"),
         "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
         "mixed" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karışık", "Aralash"),
+        // 2026-10-02: штраф по прокату сервер проводит продажей «Зачёт» (offset) — показывалось слово «offset».
+        "offset" => Tr.T("Зачёт из залога", "Күрөөдөн эсептөө", "From deposit", "Depozitodan mahsup", "Garovdan hisob"),
         "" => "—",
         _ => method!,
     };

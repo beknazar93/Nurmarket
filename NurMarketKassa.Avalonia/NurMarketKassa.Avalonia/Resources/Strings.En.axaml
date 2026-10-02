@@ -195,6 +195,7 @@
   <x:String x:Key="csh.checkout.newClientPhoneWatermark">Phone</x:String>
   <x:String x:Key="csh.checkout.addClient">+ Add client</x:String>
   <x:String x:Key="csh.checkout.mixed">Mixed</x:String>
+  <x:String x:Key="csh.checkout.rental">Make it a rental</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Cash</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Cashless</x:String>
   <x:String x:Key="csh.checkout.paidNow">Paid now (0 — all on credit)</x:String>

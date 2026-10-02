@@ -38,11 +38,29 @@ public sealed class NewRentalWindow : Window
     private readonly Button _create;
     private readonly List<RentalItem> _chosenItems = new();
     private (string Id, string Name)? _client;
+    // 2026-10-02, владелец: «список клиентов не открывается; если нет клиента — добавить клиента тоже сделай».
+    private readonly StackPanel _newClientPanel = new() { Spacing = 8, IsVisible = false };
+    private TextBox _newClientName = null!;
+    private TextBox _newClientPhone = null!;
     private DispatcherTimer? _clientTimer;
 
     public double RentTotal { get; private set; }
     private Border _moneyTile = null!;
     private Border _docTile = null!;
+
+    /// <summary>2026-10-02: из окна оплаты — вещи и клиент из чека уже подставлены.</summary>
+    public NewRentalWindow(IReadOnlyList<RentalItem> items, string? clientId, string? clientName, double pricePerDay = 0) : this()
+    {
+        _chosenItems.AddRange(items);
+        if (pricePerDay > 0)
+            _pricePerDay.Text = pricePerDay.ToString("0.##", CultureInfo.InvariantCulture);
+        if (!string.IsNullOrWhiteSpace(clientId))
+        {
+            _client = (clientId, clientName ?? "");
+            _clientChosen.Text = "✓ " + (clientName ?? "");
+        }
+        RenderItems();
+    }
 
     public NewRentalWindow()
     {
@@ -73,8 +91,35 @@ public sealed class NewRentalWindow : Window
 
         // 1. Клиент
         Use(_clientChosen, TextBlock.ForegroundProperty, "BrushSuccess");
-        root.Children.Add(Section(1, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz"), _clientSearch, _clientResults, _clientChosen));
+        var addClient = UiKit.Ghost(this, "+  " + T("Новый клиент", "Жаңы кардар", "New client", "Yeni müşteri", "Yangi mijoz"));
+        addClient.Height = 40;
+        addClient.HorizontalAlignment = HorizontalAlignment.Left;
+        addClient.Click += (_, _) =>
+        {
+            _newClientPanel.IsVisible = !_newClientPanel.IsVisible;
+            if (_newClientPanel.IsVisible)
+            {
+                // Набранное в поиске — подсказка: цифры в телефон, буквы в имя.
+                var typed = _clientSearch.Text?.Trim() ?? "";
+                if (typed.Length > 0 && typed.Count(char.IsDigit) >= typed.Length / 2)
+                    _newClientPhone.Text = typed;
+                else if (typed.Length > 0)
+                    _newClientName.Text = typed;
+                _newClientName.Focus();
+            }
+        };
+        _newClientName = UiKit.Input(this, T("Имя и фамилия", "Аты-жөнү", "Full name", "Ad soyad", "Ism familiya"));
+        _newClientPhone = UiKit.Input(this, T("Телефон, например +996 700 123 456", "Телефон, мисалы +996 700 123 456", "Phone, e.g. +996 700 123 456", "Telefon, örn. +996 700 123 456", "Telefon, masalan +996 700 123 456"));
+        var saveClient = UiKit.Primary(this, T("Сохранить клиента", "Кардарды сактоо", "Save client", "Müşteriyi kaydet", "Mijozni saqlash"));
+        saveClient.HorizontalAlignment = HorizontalAlignment.Left;
+        saveClient.Click += async (_, _) => await CreateClientAsync().ConfigureAwait(true);
+        _newClientPanel.Children.Add(_newClientName);
+        _newClientPanel.Children.Add(_newClientPhone);
+        _newClientPanel.Children.Add(saveClient);
+        root.Children.Add(Section(1, T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz"), _clientSearch, _clientResults, _clientChosen, addClient, _newClientPanel));
         _clientSearch.TextChanged += (_, _) => ScheduleClientSearch();
+        // Список клиентов — сразу при нажатии на поле (раньше — только с двух букв).
+        _clientSearch.GotFocus += (_, _) => { if (_client is null) ScheduleClientSearch(); };
 
         // 2. Вещи
         root.Children.Add(Section(2, T("Вещи", "Буюмдар", "Items", "Ürünler", "Buyumlar"), _itemSearch, _itemResults, _items));
@@ -248,11 +293,9 @@ public sealed class NewRentalWindow : Window
     {
         var text = _clientSearch.Text?.Trim() ?? "";
         _clientResults.Children.Clear();
-        if (text.Length < 2)
-            return;
         try
         {
-            var rows = await App.GetRequiredService<IClientsApiService>().GetClientsAsync(text).ConfigureAwait(true);
+            var rows = await App.GetRequiredService<IClientsApiService>().GetClientsAsync(text.Length == 0 ? null : text).ConfigureAwait(true);
             foreach (var r in rows.Take(8))
             {
                 var id = r.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
@@ -277,6 +320,34 @@ public sealed class NewRentalWindow : Window
         catch (Exception ex)
         {
             _clientResults.Children.Add(Small(T("Поиск клиентов не удался: ", "Кардарларды издөө болбой калды: ", "Client search failed: ", "Müşteri araması başarısız: ", "Mijozlarni qidirib bo'lmadi: ") + ex.Message));
+        }
+    }
+
+    private async Task CreateClientAsync()
+    {
+        var name = _newClientName.Text?.Trim() ?? "";
+        var phone = _newClientPhone.Text?.Trim() ?? "";
+        if (name.Length < 2 || phone.Count(char.IsDigit) < 6)
+        {
+            _error.Text = T("Впишите имя и телефон клиента.", "Кардардын атын жана телефонун жазыңыз.", "Enter the client's name and phone.", "Müşterinin adını ve telefonunu yazın.", "Mijozning ismi va telefonini yozing.");
+            return;
+        }
+        try
+        {
+            var created = await App.GetRequiredService<IClientsApiService>().CreateClientAsync(name, phone, null).ConfigureAwait(true);
+            var id = created.ValueKind == JsonValueKind.Object && created.TryGetProperty("id", out var idEl) ? idEl.ToString() : null;
+            if (string.IsNullOrWhiteSpace(id))
+                throw new InvalidOperationException(T("сервер не вернул номер клиента", "сервер кардардын номерин кайтарган жок", "the server returned no client id", "sunucu müşteri kimliği döndürmedi", "server mijoz raqamini qaytarmadi"));
+            _client = (id, name);
+            _clientChosen.Text = "✓ " + name + " · " + phone;
+            _clientResults.Children.Clear();
+            _newClientPanel.IsVisible = false;
+            _error.Text = "";
+            PosLogger.Log("Прокат: новый клиент создан из окна проката.", "RENTAL");
+        }
+        catch (Exception ex)
+        {
+            _error.Text = T("Клиента создать не удалось: ", "Кардарды түзүү болбой калды: ", "Could not create the client: ", "Müşteri oluşturulamadı: ", "Mijozni yaratib bo'lmadi: ") + RentalsApi.Describe(ex);
         }
     }
 

@@ -13,47 +13,47 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Карточка товара — вкладками: «Основное», «Категория и коды», «Упаковка», «Размеры и цвета», «Описание», «История»; вид товара — одним переключателем",
-        "Прокат в новом виде: счётчики сверху, карточки с цветной полосой статуса, оформление по шагам, залог — двумя плитками",
-        "Возврат проката: состояние двумя плитками и сразу видно, сколько вернуть клиенту",
-        "Исправлено: у просроченного проката есть кнопка «Принять возврат»; колесо мыши над датой больше не меняет срок; в истории видно, сколько удержано",
-        "Подсказка «С этим часто берут» — новый вид; выбранный размер и цвет не теряют выделение под мышкой",
+        "Прокат прямо из оплаты: кнопка «Оформить как прокат (аренда)» в окне оплаты — вещи и цена переносятся сами, оплата любым способом, в чеке строка «Прокат №N»",
+        "Возврат по номеру с чека: «Прокат» → поле «№ проката с чека» → Enter — прокат закрывается",
+        "Напоминания о сроке проката: в программе владельца — число у «Прокат» и карточка «вернуть сегодня / завтра / просрочено», владельцу в Телеграм — сообщение; в списке проката — оранжевая отметка",
+        "В окне проката: список клиентов открывается сразу, можно добавить нового клиента; в истории покупок клиента — его прокаты",
+        "Пустой чек закрывается сам при переходе на другой чек; новый пустой чек не создаётся, если текущий и так пустой",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Товардын карточкасы — өтмөктөр менен: «Негизги», «Категория жана коддор», «Таңгак», «Өлчөмдөр жана түстөр», «Сүрөттөмө», «Тарых»",
-        "Прокат жаңы көрүнүштө: жогоруда эсептегичтер, абал тилкеси бар карточкалар, кадам менен тариздөө, күрөө — эки плитка",
-        "Прокатты кайтаруу: абалы эки плитка менен жана кардарга канча кайтаруу керектиги дароо көрүнөт",
-        "Оңдолду: мөөнөтү өткөн прокатта «Кайтарууну кабыл алуу» баскычы бар; чычкан дөңгөлөгү датаны өзгөртпөйт; тарыхта канча кармалганы көрүнөт",
-        "«Муну менен көп алышат» кеңеши — жаңы көрүнүш; тандалган өлчөм жана түс чычкандын астында белгисин жоготпойт",
+        "Прокат төлөмдөн түз: төлөм терезесинде «Прокат (ижара) катары тариздөө» баскычы — буюмдар жана баа өзү өтөт, каалаган жол менен төлөө, чекте «Прокат №N» сабы",
+        "Чектеги номер боюнча кайтаруу: «Прокат» → «Чектеги прокат №» талаасы → Enter — прокат жабылат",
+        "Прокаттын мөөнөтү жөнүндө эскертүү: ээсинин программасында «Прокаттын» жанында сан жана «бүгүн / эртең кайтаруу / мөөнөтү өттү» карточкасы, ээсине Телеграмга билдирүү; прокат тизмесинде кызгылт сары белги",
+        "Прокат терезесинде: кардарлар тизмеси дароо ачылат, жаңы кардар кошсо болот; кардардын сатып алуулар тарыхында анын прокаттары",
+        "Бош чек башка чекке өткөндө өзү жабылат; учурдагы чек бош болсо, жаңы бош чек түзүлбөйт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Product card with tabs: “Main”, “Category & codes”, “Package”, “Sizes & colors”, “Description”, “History”; product type as one switch",
-        "Rentals redesigned: counters on top, cards with a colored status strip, step-by-step form, deposit as two tiles",
-        "Rental return: condition as two tiles and the amount to give back shown right away",
-        "Fixed: overdue rentals have a “Take back” button; the mouse wheel over a date no longer changes it; history shows the amount withheld",
-        "“Often bought with this” suggestion redesigned; the selected size and color keep their highlight under the mouse",
+        "Rental right from payment: “Make it a rental” button in the payment window — items and price carry over, any payment method, the receipt shows “Rental #N”",
+        "Take back by the receipt number: “Rentals” → “Rental # from receipt” field → Enter — the rental is closed",
+        "Rental due reminders: in the owner app — a count next to “Rentals” and a “due today / tomorrow / overdue” card, a Telegram message to the owner; an orange mark in the rental list",
+        "In the rental window: the client list opens at once, a new client can be added; the client's purchase history shows their rentals",
+        "An empty receipt closes itself when you switch to another one; no new empty receipt if the current one is already empty",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Ürün kartı sekmeli: «Temel», «Kategori ve kodlar», «Paket», «Bedenler ve renkler», «Açıklama», «Geçmiş»",
-        "Kiralama yeni görünümde: üstte sayaçlar, renkli durum şeritli kartlar, adım adım form, depozito iki kutucuk",
-        "Kiralama iadesi: durum iki kutucukla ve müşteriye ne kadar iade edileceği hemen görünür",
-        "Düzeltildi: gecikmiş kiralamada «İadeyi al» düğmesi var; fare tekerleği tarihi değiştirmiyor; geçmişte kesilen tutar görünür",
-        "«Bununla sık alınanlar» önerisi yeni görünümde; seçili beden ve renk fare altında vurgusunu kaybetmiyor",
+        "Ödemeden doğrudan kiralama: ödeme penceresinde «Kiralama olarak düzenle» düğmesi — ürünler ve fiyat kendiliğinden aktarılır, her ödeme yöntemi, fişte «Kiralama №N» satırı",
+        "Fiş numarasıyla iade: «Kiralama» → «Fişteki kiralama №» alanı → Enter — kiralama kapanır",
+        "Kiralama süresi hatırlatmaları: işletme sahibi programında «Kiralama» yanında sayı ve «bugün / yarın iade / gecikmiş» kartı, sahibine Telegram mesajı; kiralama listesinde turuncu işaret",
+        "Kiralama penceresinde: müşteri listesi hemen açılır, yeni müşteri eklenebilir; müşterinin satın alma geçmişinde kiralamaları",
+        "Boş fiş başka fişe geçince kendiliğinden kapanır; mevcut fiş zaten boşsa yeni boş fiş açılmaz",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Mahsulot kartasi bo'limlar bilan: «Asosiy», «Kategoriya va kodlar», «Qadoq», «O'lcham va ranglar», «Tavsif», «Tarix»",
-        "Prokat yangi ko'rinishda: tepada hisoblagichlar, rangli holat chizig'i bilan kartalar, bosqichma-bosqich forma, garov — ikki plitka",
-        "Prokatni qaytarish: holati ikki plitka bilan va mijozga qancha qaytarish kerakligi darhol ko'rinadi",
-        "Tuzatildi: muddati o'tgan prokatda «Qaytarishni qabul qilish» tugmasi bor; sichqoncha g'ildiragi sanani o'zgartirmaydi; tarixda ushlab qolingan summa ko'rinadi",
-        "«Bu bilan ko'p olishadi» maslahati yangi ko'rinishda; tanlangan o'lcham va rang sichqoncha ostida belgisini yo'qotmaydi",
+        "To'lovdan to'g'ridan-to'g'ri prokat: to'lov oynasida «Prokat (ijara) sifatida rasmiylashtirish» tugmasi — buyumlar va narx o'zi o'tadi, istalgan to'lov usuli, chekda «Prokat №N» qatori",
+        "Chekdagi raqam bo'yicha qaytarish: «Prokat» → «Chekdagi prokat №» maydoni → Enter — prokat yopiladi",
+        "Prokat muddati eslatmalari: egasi dasturida «Prokat» yonida son va «bugun / ertaga qaytarish / muddati o'tgan» kartasi, egasiga Telegramda xabar; prokat ro'yxatida to'q sariq belgi",
+        "Prokat oynasida: mijozlar ro'yxati darhol ochiladi, yangi mijoz qo'shish mumkin; mijozning xaridlar tarixida uning prokatlari",
+        "Bo'sh chek boshqa chekka o'tganda o'zi yopiladi; joriy chek bo'sh bo'lsa, yangi bo'sh chek ochilmaydi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

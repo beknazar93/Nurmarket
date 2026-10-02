@@ -293,6 +293,16 @@
                         </RadioButton>
                     </Grid>
 
+                    <!-- 2026-10-02, владелец: «добавь сюда аренду / прокат». Одежда и услуги. -->
+                    <Button Classes="pay-quick" IsVisible="{Binding ShowRentalButton}" Command="{Binding RentalCommand}"
+                            HorizontalAlignment="Stretch" Height="46" CornerRadius="12" Margin="0,-6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource BrushAccentStrong}" VerticalAlignment="Center"
+                                  Data="M12,4A3,3 0 0,1 15,7C15,8.27 14.21,9.36 13.1,9.79C12.91,9.9 12.71,10 12.5,10.1V11.3L21,17.5C21.88,18.13 21.43,19.5 20.35,19.5H3.65C2.57,19.5 2.12,18.13 3,17.5L11.5,11.3V9.14C11.5,8.76 11.73,8.43 12.07,8.28C12.67,8 13,7.54 13,7A1,1 0 0,0 12,6A1,1 0 0,0 11,7H9A3,3 0 0,1 12,4M12,13.04L6.37,17.5H17.63L12,13.04Z"/>
+                            <TextBlock Text="{DynamicResource csh.checkout.rental}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- Поле ввода наличных (показывается только при IsCashMode) -->
                     <StackPanel IsVisible="{Binding IsCashMode}" Spacing="8" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource csh.checkout.cashReceived}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>

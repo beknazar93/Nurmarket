@@ -197,6 +197,15 @@ public partial class MainWindow : Window
             _ = window.ShowDialog(this);
         };
         NurMarketKassa.AvaloniaHost.Views.Main.Controls.BasketExtraActions.OpenRentals ??= _viewModel.SideMenu.NavigateRentalAction;
+        // 2026-10-02: «Оформить как прокат» из окна оплаты.
+        _viewModel.Basket.RentalFromCart ??= async (items, clientId, clientName) =>
+        {
+            // Цена за сутки по умолчанию — сумма строк чека (у товара-услуги «Аренда…» это и есть цена суток).
+            var perDay = Convert.ToDouble(CartTotalsCalculator.Calculate(ResolveCartService().Root).TotalDue);
+            var dlg = new NurMarketKassa.AvaloniaHost.Views.NewRentalWindow(items, clientId, clientName, perDay);
+            var created = await dlg.ShowDialog<NurMarketKassa.Services.Api.RentalDto?>(this).ConfigureAwait(true);
+            return created is null ? null : (created, dlg.RentTotal);
+        };
         _viewModel.SideMenu.RefreshEntitlements();
 
         progress?.Report(Tr.T("Загрузка кассы...", "Касса жүктөлүүдө...", "Loading the till…", "Kasa yükleniyor...", "Kassa yuklanmoqda..."));
@@ -1861,6 +1870,9 @@ public partial class MainWindow : Window
             TelegramAssistant.VariantsLoader ??= (productId, token) => App.CatalogApi.GetProductVariantsAsync(productId, token);
             // 2026-10-02: бот отвечает и про прокат («кто не вернул», «залоги»).
             TelegramAssistant.RentalsLoader ??= (status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token);
+            // 2026-10-02, владелец: «уведомление о приближении и окончании срока проката — и в боте тоже».
+            // Касса шлёт напоминание в Телеграм, даже когда программа владельца закрыта (повтора нет — общий файл).
+            RentalDueNotifier.Start(TelegramAssistant.RentalsLoader);
             UserPreferences.AdoptTelegramBotFromOtherApp();
             if (!TelegramBotService.IsConfigured || !UserPreferences.Instance.TelegramCommandsEnabled)
             {

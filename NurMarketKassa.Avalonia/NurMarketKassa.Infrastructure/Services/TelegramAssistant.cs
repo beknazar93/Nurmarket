@@ -235,7 +235,18 @@ public static class TelegramAssistant
             foreach (var r in overdue.OrderBy(r => r.DateTo).Take(10))
                 sb.AppendLine(Item(r));
         }
-        var onTime = active.Where(r => !r.IsOverdue).OrderBy(r => r.DateTo).Take(10).ToList();
+        // 2026-10-02, владелец: «уведомление об окончании и приближении срока проката — и в боте тоже».
+        foreach (var (kind, title) in new[] { (RentalDueNotifier.DueKind.Today, "Вернуть сегодня"), (RentalDueNotifier.DueKind.Tomorrow, "Вернуть завтра") })
+        {
+            var due = active.Where(r => RentalDueNotifier.Kind(r) == kind).OrderBy(r => r.Number).ToList();
+            if (due.Count == 0)
+                continue;
+            sb.AppendLine();
+            sb.AppendLine($"<b>⏰ {title}</b>");
+            foreach (var r in due.Take(10))
+                sb.AppendLine(Item(r));
+        }
+        var onTime = active.Where(r => RentalDueNotifier.Kind(r) == RentalDueNotifier.DueKind.None).OrderBy(r => r.DateTo).Take(10).ToList();
         if (onTime.Count > 0)
         {
             sb.AppendLine();

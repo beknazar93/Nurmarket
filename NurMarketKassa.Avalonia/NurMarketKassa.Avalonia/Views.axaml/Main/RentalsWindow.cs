@@ -50,19 +50,34 @@ public sealed class RentalsWindow : Window
 
         var root = new Grid { Margin = new Thickness(24, 18, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
 
-        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
         var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         head.Children.Add(title);
+        // 2026-10-02, владелец: «когда приносит обратно — по этому чеку закрывали прокат». Номер проката
+        // печатается в чеке («Прокат №N…») — вводим его здесь, Enter открывает приём возврата.
+        var find = UiKit.Input(this, T("№ проката с чека", "Чектеги прокат №", "Rental # from receipt", "Fişteki kiralama №", "Chekdagi prokat №"), 46);
+        find.Width = 190;
+        find.Margin = new Thickness(0, 0, 10, 0);
+        find.IsVisible = !_readOnly;
+        find.KeyDown += async (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            e.Handled = true;
+            await FindByNumberAsync(find.Text).ConfigureAwait(true);
+        };
+        Grid.SetColumn(find, 1);
+        head.Children.Add(find);
         var refresh = UiKit.Ghost(this, T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"));
         refresh.Click += (_, _) => _ = LoadAsync();
-        Grid.SetColumn(refresh, 1);
+        Grid.SetColumn(refresh, 2);
         head.Children.Add(refresh);
         var add = UiKit.Primary(this, "+  " + T("Новый прокат", "Жаңы прокат", "New rental", "Yeni kiralama", "Yangi prokat"));
         add.Margin = new Thickness(10, 0, 0, 0);
         add.Click += async (_, _) => await NewRentalAsync().ConfigureAwait(true);
         add.IsVisible = !_readOnly;
-        Grid.SetColumn(add, 2);
+        Grid.SetColumn(add, 3);
         head.Children.Add(add);
         root.Children.Add(head);
 
@@ -98,6 +113,8 @@ public sealed class RentalsWindow : Window
             var active = await api.ListAsync("active").ConfigureAwait(true);
             var overdueList = await api.ListAsync("overdue").ConfigureAwait(true);
             _active = active.Concat(overdueList).Where(r => r.IsActive).GroupBy(r => r.Id).Select(g => g.First()).ToList();
+            // 2026-10-02: значок и карточка «сроки проката» в программе владельца — сразу по свежему списку.
+            RentalDueNotifier.Publish(_active);
             _returned = await api.ListAsync("returned").ConfigureAwait(true);
             var overdue = _active.Count(r => r.IsOverdue);
             var hint = _readOnly
@@ -204,7 +221,10 @@ public sealed class RentalsWindow : Window
     private Control Card(RentalDto r)
     {
         // 2026-10-02, редизайн: цветная полоса статуса, вещи — плашками, даты и залог — с пиктограммами.
-        var statusBrush = r.IsOverdue ? "BrushDanger" : r.IsActive ? "BrushSuccess" : r.Condition == "damaged" ? "BrushWarning" : "BrushBorderStrong";
+        // 2026-10-02: срок сегодня или завтра — оранжевая полоса и отметка («уведомление о приближении срока»).
+        var due = RentalDueNotifier.Kind(r);
+        var statusBrush = r.IsOverdue ? "BrushDanger" : due is RentalDueNotifier.DueKind.Today or RentalDueNotifier.DueKind.Tomorrow ? "BrushWarning"
+            : r.IsActive ? "BrushSuccess" : r.Condition == "damaged" ? "BrushWarning" : "BrushBorderStrong";
         var card = new Border { CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), ClipToBounds = true };
         Use(card, Border.BackgroundProperty, "BrushPanel");
         Use(card, Border.BorderBrushProperty, r.IsOverdue ? "BrushDanger" : "BrushBorder");
@@ -223,6 +243,10 @@ public sealed class RentalsWindow : Window
         head.Children.Add(Text(r.ClientName, 16, FontWeight.Bold, "BrushText"));
         if (r.IsOverdue)
             head.Children.Add(Badge(T($"просрочен на {OverdueDays(r)} дн.", $"{OverdueDays(r)} күн кечикти", $"{OverdueDays(r)} d overdue", $"{OverdueDays(r)} gün gecikti", $"{OverdueDays(r)} kun kechikdi"), "BrushDanger"));
+        else if (due == RentalDueNotifier.DueKind.Today)
+            head.Children.Add(Badge(T("вернуть сегодня", "бүгүн кайтаруу", "due today", "bugün iade", "bugun qaytarish"), "BrushWarning"));
+        else if (due == RentalDueNotifier.DueKind.Tomorrow)
+            head.Children.Add(Badge(T("вернуть завтра", "эртең кайтаруу", "due tomorrow", "yarın iade", "ertaga qaytarish"), "BrushWarning"));
         else if (r.IsActive)
             head.Children.Add(Badge(T("на руках", "колдо", "out", "dışarıda", "qo'lda"), "BrushSuccess"));
         else
@@ -290,6 +314,23 @@ public sealed class RentalsWindow : Window
         var p = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse(data), Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
         Use(p, Avalonia.Controls.Shapes.Shape.FillProperty, brush);
         return p;
+    }
+
+    private async Task FindByNumberAsync(string? text)
+    {
+        var digits = new string((text ?? "").Where(char.IsDigit).ToArray());
+        if (!int.TryParse(digits, out var number))
+            return;
+        var rental = _active.FirstOrDefault(r => r.Number == number);
+        if (rental is null)
+        {
+            var returned = _returned.FirstOrDefault(r => r.Number == number);
+            PosMessageBox.Show(this, returned != null
+                ? T($"Прокат №{number} уже возвращён.", $"Прокат №{number} мурунтан кайтарылган.", $"Rental #{number} has already been returned.", $"Kiralama №{number} zaten iade edildi.", $"Prokat №{number} allaqachon qaytarilgan.")
+                : T($"Прокат №{number} не найден среди выданных.", $"Прокат №{number} берилгендердин арасында табылган жок.", $"Rental #{number} not found among rented items.", $"Kiralama №{number} bulunamadı.", $"Prokat №{number} topilmadi."), Title ?? "");
+            return;
+        }
+        await ReturnAsync(rental).ConfigureAwait(true);
     }
 
     private async Task NewRentalAsync()

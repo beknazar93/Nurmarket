@@ -195,6 +195,7 @@
   <x:String x:Key="csh.checkout.newClientPhoneWatermark">Телефон</x:String>
   <x:String x:Key="csh.checkout.addClient">+ Добавить клиента</x:String>
   <x:String x:Key="csh.checkout.mixed">Смешанная</x:String>
+  <x:String x:Key="csh.checkout.rental">Оформить как прокат (аренда)</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Наличными</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Безналично</x:String>
   <x:String x:Key="csh.checkout.paidNow">Получено сейчас (0 — весь долг)</x:String>

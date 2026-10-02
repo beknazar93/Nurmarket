@@ -195,6 +195,7 @@
   <x:String x:Key="csh.checkout.newClientPhoneWatermark">Телефон</x:String>
   <x:String x:Key="csh.checkout.addClient">+ Клиентти кошуу</x:String>
   <x:String x:Key="csh.checkout.mixed">Аралаш</x:String>
+  <x:String x:Key="csh.checkout.rental">Прокат (ижара) катары тариздөө</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Накталай</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Накталай эмес</x:String>
   <x:String x:Key="csh.checkout.paidNow">Азыр алынды (0 — баары карызга)</x:String>

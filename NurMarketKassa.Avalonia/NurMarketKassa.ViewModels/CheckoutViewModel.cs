@@ -146,6 +146,13 @@ namespace NurMarketKassa.ViewModels
             _isPrintReceiptEnabled = UserPreferences.Instance.CheckoutPrintReceiptDefault;
 
             PayCommand = new RelayCommand(ExecutePay);
+            // 2026-10-02, владелец: «добавь сюда аренду / прокат — и в чек с номером проката и суммой».
+            RentalCommand = new RelayCommand(() =>
+            {
+                RentalRequested = true;
+                _customerDisplay?.SetSelectedBankQrPath(null);
+                RequestClose?.Invoke(false);
+            });
             CancelCommand = new RelayCommand(() =>
             {
                 _customerDisplay?.SetSelectedBankQrPath(null);
@@ -703,6 +710,18 @@ namespace NurMarketKassa.ViewModels
         public ICommand ClearCashCommand { get; }
 
         public event Action<bool>? RequestClose;
+
+        /// <summary>2026-10-02: кассир нажал «Оформить как прокат» — касса откроет «Новый прокат» с вещами
+        /// из чека, заменит их строкой «Прокат №N…» и снова откроет оплату.</summary>
+        public bool RentalRequested { get; private set; }
+
+        public System.Windows.Input.ICommand RentalCommand { get; private set; } = null!;
+
+        /// <summary>Прокат — только в сферах «Одежда» и «Услуги».</summary>
+        public bool ShowRentalButton => HasRentableItems && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices);
+
+        /// <summary>В чеке есть товары (не только «Доп. услуги» и строка «Прокат №…») — их можно выдать в прокат.</summary>
+        public bool HasRentableItems { get; set; } = true;
 
         /// <summary>Сумма, которую нужно передать как cash_received при чекауте — зависит от
         /// выбранного способа оплаты (для "долга" это частичная оплата, для "смешанной" — наличная часть).</summary>

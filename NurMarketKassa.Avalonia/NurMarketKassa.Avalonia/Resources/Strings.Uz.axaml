@@ -195,6 +195,7 @@
   <x:String x:Key="csh.checkout.newClientPhoneWatermark">Telefon</x:String>
   <x:String x:Key="csh.checkout.addClient">+ Mijoz qo'shish</x:String>
   <x:String x:Key="csh.checkout.mixed">Aralash</x:String>
+  <x:String x:Key="csh.checkout.rental">Prokat (ijara) sifatida rasmiylashtirish</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Naqd</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Naqdsiz</x:String>
   <x:String x:Key="csh.checkout.paidNow">Hozir olingan (0 — hammasi qarzga)</x:String>

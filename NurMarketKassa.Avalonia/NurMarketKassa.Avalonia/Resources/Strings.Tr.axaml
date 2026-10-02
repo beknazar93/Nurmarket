@@ -195,6 +195,7 @@
   <x:String x:Key="csh.checkout.newClientPhoneWatermark">Telefon</x:String>
   <x:String x:Key="csh.checkout.addClient">+ Müşteri ekle</x:String>
   <x:String x:Key="csh.checkout.mixed">Karışık</x:String>
+  <x:String x:Key="csh.checkout.rental">Kiralama olarak düzenle</x:String>
   <x:String x:Key="csh.checkout.mixedCash">Nakit</x:String>
   <x:String x:Key="csh.checkout.mixedNonCash">Nakitsiz</x:String>
   <x:String x:Key="csh.checkout.paidNow">Şimdi alınan (0 — tüm borç)</x:String>

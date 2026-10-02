@@ -21,7 +21,8 @@ public sealed record ServerBotSettings(
     bool VoiceRepliesEnabled,
     bool HealthReported = false,
     DateTimeOffset? LastUpdateAt = null,
-    DateTimeOffset? LastReplyAt = null)
+    DateTimeOffset? LastReplyAt = null,
+    bool RentalReminders = false)
 {
     /// <summary>Бот работает на сервере: токен у сервера и режим «server» — касса Telegram не опрашивает.</summary>
     public bool IsServerMode => TokenSet && string.Equals(Mode, "server", StringComparison.OrdinalIgnoreCase);
@@ -67,6 +68,9 @@ public sealed class ServerTelegramBotApi
     /// <summary>null — ещё не спрашивали (или сервер без бота).</summary>
     public static bool? LastKnownServerMode { get; private set; }
 
+    /// <summary>2026-10-02: бот на сервере сам напоминает о сроке проката — программа не дублирует.</summary>
+    public static bool LastKnownRentalReminders { get; private set; }
+
     /// <summary>Режим, узнанный у самого Telegram (getUpdates отказал из-за вебхука или снова
     /// работает) — без запроса к NurCRM.</summary>
     public static void NoteModeFromTelegram(bool serverMode) => LastKnownServerMode = serverMode;
@@ -78,6 +82,7 @@ public sealed class ServerTelegramBotApi
             var data = await _api.RequestAsync(HttpMethod.Get, Root + "settings/", null, null, ct).ConfigureAwait(false);
             var settings = Parse(data);
             LastKnownServerMode = settings?.IsServerMode;
+            LastKnownRentalReminders = settings is { IsServerMode: true, RentalReminders: true };
             return settings;
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
@@ -205,7 +210,9 @@ public sealed class ServerTelegramBotApi
             Bool(d, "voice_replies_enabled"),
             d.TryGetProperty("last_reply_at", out _),
             Date(d, "last_update_at"),
-            Date(d, "last_reply_at"));
+            Date(d, "last_reply_at"),
+            // 2026-10-02 (ТЗ часть 7, п. 4.5): сервер сам шлёт напоминания о сроке проката.
+            Bool(d, "rental_reminders"));
     }
 
     private static Dictionary<string, string> Period(DateTime from, DateTime to) => new()

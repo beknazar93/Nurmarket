@@ -652,6 +652,14 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     public void CreateNewReceipt()
     {
+        // 2026-10-02: на пустом чеке «+ Новый чек» не открывает ещё одну пустую вкладку.
+        if (LineCount == 0 && GetActiveSession() is { DeferredAt: null } current)
+        {
+            CartMessage = Tr.T($"«{current.BaseName}» и так пустой — добавляйте товары.", $"«{current.BaseName}» бош — товарларды кошуңуз.",
+                $"“{current.BaseName}” is already empty — add products.", $"«{current.BaseName}» zaten boş — ürün ekleyin.", $"«{current.BaseName}» bo'sh — mahsulot qo'shing.");
+            return;
+        }
+
         if (!TryEnsureReceiptSlotAvailable())
             return;
 
@@ -697,9 +705,21 @@ public sealed class BasketPanelViewModel : ViewModelBase
         if (target is null)
             return;
 
+        // 2026-10-02, владелец: «если чек пустой, почему автоматически он не закрывается?». Пустая
+        // вкладка закрывалась только после оплаты; при переключении на другую она оставалась висеть
+        // («Чек 2 • 0 тов.»). Теперь пустую обычную (не отложенную) вкладку, с которой уходят, убираем.
+        var leaving = GetActiveSession();
+        var dropLeaving = leaving != null && leaving.Id != target.Id && leaving.DeferredAt == null
+                          && LineCount == 0 && _sessions.Count > 1;
+
         PersistActiveSessionSnapshot();
-        _previousSessionId = _activeSessionId;
+        _previousSessionId = dropLeaving ? null : _activeSessionId;
         _activeSessionId = target.Id;
+        if (dropLeaving)
+        {
+            _sessions.Remove(leaving!);
+            PosLogger.Log("Пустая вкладка чека закрыта при переходе на другую.", "CART");
+        }
         // Открыли отложенный чек — покупатель вернулся, дальше это обычный чек.
         var wasHeld = target.DeferredAt != null;
         if (wasHeld)
@@ -1091,9 +1111,26 @@ public sealed class BasketPanelViewModel : ViewModelBase
             var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum, _clientsApi, _customerDisplay);
             if (preferredMethod == "transfer")
                 checkoutVm.IsTransfer = true;
+            // 2026-10-02: после «Оформить как прокат» в чеке только строка проката — кнопку больше не показываем.
+            checkoutVm.HasRentableItems = CartDisplayHelper.EnumerateItems(_cart.Root).Any(it => !CartDisplayHelper.IsCustomLine(it));
             var confirmed = await _windowService
                 .ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm)
                 .ConfigureAwait(false);
+
+            if (confirmed != true && checkoutVm.RentalRequested)
+            {
+                PosLogger.Log("PAY: кассир выбрал «Оформить как прокат».", "PAYMENT");
+                await RunOnUiThreadAsync(() =>
+                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
+                var clientId = checkoutVm.ClientId;
+                var clientName = checkoutVm.HasSelectedClient ? checkoutVm.SelectedClientName : null;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(300).ConfigureAwait(false);   // окно оплаты закрылось, IsBusy снят
+                    await _dispatcher.InvokeAsync(() => ConvertCartToRentalAsync(clientId, clientName)).ConfigureAwait(false);
+                });
+                return;
+            }
 
             if (confirmed != true)
             {
@@ -1238,6 +1275,15 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
                     : result.InfoMessage ?? Tr.T("Оплата выполнена. Новый чек открыт.", "Төлөм аткарылды. Жаңы чек ачылды.", "Payment completed. A new receipt has been opened.", "Ödeme tamamlandı. Yeni fiş açıldı.", "To'lov amalga oshirildi. Yangi chek ochildi.");
+                if (_rentalAwaitingPayment is { } rentalNo)
+                {
+                    _rentalAwaitingPayment = null;
+                    CartMessage = Tr.T($"Прокат №{rentalNo} оплачен. Он закроется, когда клиент вернёт вещь: «Прокат» → номер с чека → «Принять возврат».",
+                        $"Прокат №{rentalNo} төлөндү. Кардар буюмду кайтарганда жабылат: «Прокат» → чектеги номер → «Кайтарууну кабыл алуу».",
+                        $"Rental #{rentalNo} paid. It closes when the client returns the item: “Rentals” → number from the receipt → “Take back”.",
+                        $"Kiralama №{rentalNo} ödendi. Müşteri ürünü iade edince kapanır: «Kiralama» → fişteki numara → «İadeyi al».",
+                        $"Prokat №{rentalNo} to'landi. Mijoz buyumni qaytarganda yopiladi: «Prokat» → chekdagi raqam → «Qaytarishni qabul qilish».");
+                }
             }).ConfigureAwait(false);
 
             if (_checkoutUiFlow != null)
@@ -2518,6 +2564,85 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// <summary>2026-10-02, владелец: «прокат — в кассе тоже внутри добавь». Кнопка «Прокат» в меню
     /// «Ещё» у чека — в сферах «Одежда» и «Услуги».</summary>
     public bool ShowRental => MarketSpheres.IsClothing || MarketSpheres.IsServices;
+
+    /// <summary>2026-10-02: «Оформить как прокат» из окна оплаты — главное окно открывает «Новый прокат» с
+    /// вещами чека и клиентом; возвращает созданный прокат и стоимость проката (null — отменили).</summary>
+    public Func<IReadOnlyList<RentalItem>, string?, string?, Task<(RentalDto Rental, double Total)?>>? RentalFromCart { get; set; }
+
+    /// <summary>Вещи чека → «Новый прокат»; после оформления товары заменяются строкой
+    /// «Прокат №N: вещи, до ДД.ММ, залог …» на стоимость проката и снова открывается оплата. На бумажном
+    /// чеке — номер проката и сумма; по этому номеру прокат закрывают при возврате.</summary>
+    private async Task ConvertCartToRentalAsync(string? clientId, string? clientName)
+    {
+        if (RentalFromCart is null)
+            return;
+        var items = new List<RentalItem>();
+        var customs = new List<(string Name, double Price, double Qty)>();
+        foreach (var it in CartDisplayHelper.EnumerateItems(_cart.Root))
+        {
+            var qty = CartDisplayHelper.LineQuantity(it);
+            if (CartDisplayHelper.IsCustomLine(it))
+            {
+                customs.Add((CartDisplayHelper.ItemName(it), CartDisplayHelper.UnitPrice(it), qty));
+                continue;
+            }
+            var productId = CartDisplayHelper.TryProductId(it);
+            if (string.IsNullOrWhiteSpace(productId))
+                continue;
+            string? Field(string name) => it.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+            var title = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase))?.Title
+                        ?? CartDisplayHelper.ItemName(it);
+            items.Add(new RentalItem(productId, CartDisplayHelper.ServerVariantId(it), title, Field("variant_size") ?? "", Field("variant_color") ?? "", qty));
+        }
+        if (items.Count == 0)
+        {
+            CartMessage = Tr.T("В чеке нет товаров для проката.", "Чекте прокат үчүн товар жок.", "No products in the receipt to rent.", "Fişte kiralanacak ürün yok.", "Chekda prokat uchun mahsulot yo'q.");
+            return;
+        }
+
+        (RentalDto Rental, double Total)? result;
+        try
+        {
+            result = await RentalFromCart(items, clientId, clientName).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Прокат из чека: окно не открылось ({ex.Message}).", "WARNING");
+            return;
+        }
+        if (result is not { } done)
+            return;
+
+        var r = done.Rental;
+        var deposit = r.IsDocumentDeposit
+            ? Tr.T("залог: документ", "күрөө: документ", "deposit: document", "depozito: belge", "garov: hujjat")
+            : r.DepositAmount > 0
+                ? Tr.T($"залог {r.DepositAmount:0.##} сом", $"күрөө {r.DepositAmount:0.##} сом", $"deposit {r.DepositAmount:0.##} som", $"depozito {r.DepositAmount:0.##} som", $"garov {r.DepositAmount:0.##} so'm")
+                : "";
+        var line = $"Прокат №{r.Number}: {string.Join(", ", r.Items.Select(i => i.Label))}, до {r.DateTo:dd.MM}" + (deposit.Length > 0 ? ", " + deposit : "");
+
+        // Товары уходят в прокат (склад списывает документ проката), а в чеке остаётся только стоимость проката.
+        _cart.Clear();
+        foreach (var c in customs)
+            AddCustomItem(c.Name, Math.Abs(c.Price), c.Qty, c.Price < 0);
+        if (done.Total > 0)
+            AddCustomItem(line, done.Total, 1, false);
+        SyncLinesFromCart();
+        UpdateCartTotals();
+        PosLogger.Log($"Прокат №{r.Number} из чека: {items.Count} вещ., стоимость {done.Total:0.00}.", "RENTAL");
+        CartMessage = Tr.T($"Прокат №{r.Number} оформлен. Номер — на чеке, по нему закроете прокат при возврате.",
+            $"Прокат №{r.Number} түзүлдү. Номери — чекте, кайтарганда ушул номер боюнча жабасыз.",
+            $"Rental #{r.Number} created. The number is on the receipt — use it to close the rental on return.",
+            $"Kiralama №{r.Number} oluşturuldu. Numara fişte — iadede bununla kapatın.",
+            $"Prokat №{r.Number} rasmiylashtirildi. Raqami chekda — qaytarishda shu raqam bilan yopasiz.");
+        _rentalAwaitingPayment = r.Number;
+        if (Lines.Count > 0 && PayCommand.CanExecute(null))
+            PayCommand.Execute(null);
+    }
+
+    /// <summary>2026-10-02, владелец: «почему прокат не закрывается после оплаты». Оплата — это деньги за
+    /// аренду; прокат закрывается при возврате вещи. После оплаты касса говорит это прямо.</summary>
+    private int? _rentalAwaitingPayment;
 
     public string UpsellProductText => _upsell is null
         ? ""

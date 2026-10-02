@@ -141,6 +141,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             _telegramTimer.Start();
             // 2026-10-01: один раз предложить перенести бота на сервер NurCRM (работает круглые сутки).
             ServerBotOffer.Schedule(this);
+            // 2026-10-02: сроки проката — значок у «Проката», карточка в меню и напоминание в Телеграм.
+            RentalDueNotifier.Changed += OnRentalDueChanged;
+            RentalDueNotifier.Start((status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token));
             // Заказы с сайта — после сводки, чтобы первые запросы не шли пачкой.
             // 2026-09-30: опрос «Закупок» и значок — только когда список заказов включён.
             if (ShowcaseApiService.OrdersListEnabled)
@@ -158,6 +161,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             _telegramBot?.Stop();
             _siteOrdersTimer.Stop();
             ShowcaseApiService.NewOrdersCountChanged -= OnSiteOrdersCountChanged;
+            RentalDueNotifier.Changed -= OnRentalDueChanged;
             _abcDebounce.Stop();
             _abcCts?.Cancel();
             _cts.Cancel();
@@ -355,6 +359,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         NavPanel.Children.Clear();
         _navButtons.Clear();
         _siteOrdersBadge = null;
+        _rentalsBadge = null;
         var isStart = TariffGate.IsStartTariff;
         var pendingGroup = (string?)null;
 
@@ -391,22 +396,27 @@ public partial class OwnerShellWindow : Window, IMainShell
             Grid.SetColumn(label, 1);
             content.Children.Add(label);
             // 2026-09-29: у «Заказов с сайта» — число новых заказов (в свёрнутом меню — над иконкой).
-            if (key == "siteorders")
+            // 2026-10-02: у «Проката» — сколько вернуть сегодня/завтра и просрочено.
+            if (key is "siteorders" or "rentals")
             {
                 content.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-                _siteOrdersBadge = new Border { Classes = { "navBadge" }, Child = new TextBlock(), IsVisible = false };
+                var badge = new Border { Classes = { "navBadge" }, Child = new TextBlock(), IsVisible = false };
                 if (collapsed)
                 {
-                    _siteOrdersBadge.HorizontalAlignment = HorizontalAlignment.Right;
-                    _siteOrdersBadge.VerticalAlignment = VerticalAlignment.Top;
-                    _siteOrdersBadge.Margin = new Thickness(0, -9, -12, 0);
+                    badge.HorizontalAlignment = HorizontalAlignment.Right;
+                    badge.VerticalAlignment = VerticalAlignment.Top;
+                    badge.Margin = new Thickness(0, -9, -12, 0);
                 }
                 else
                 {
-                    _siteOrdersBadge.Margin = new Thickness(8, 0, 0, 0);
-                    Grid.SetColumn(_siteOrdersBadge, 2);
+                    badge.Margin = new Thickness(8, 0, 0, 0);
+                    Grid.SetColumn(badge, 2);
                 }
-                content.Children.Add(_siteOrdersBadge);
+                content.Children.Add(badge);
+                if (key == "siteorders")
+                    _siteOrdersBadge = badge;
+                else
+                    _rentalsBadge = badge;
             }
 
             var button = new Button { Content = content, Classes = { "nav" } };
@@ -480,7 +490,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
         // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
         // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
-        Add("rentals", "ClientsIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
+        Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
             MarketSpheres.IsClothing || MarketSpheres.IsServices,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
@@ -509,6 +519,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         UpdateNavHighlight();
         UpdateSiteOrdersBadge();
+        UpdateRentalAlert();
     }
 
     // ------------------------------------------------------------------ свёрнутое меню
@@ -2002,6 +2013,72 @@ public partial class OwnerShellWindow : Window, IMainShell
             ToolTip.SetTip(button, count > 0
                 ? title + " · " + Tr.T($"новых: {count}", $"жаңы: {count}", $"new: {count}", $"yeni: {count}", $"yangi: {count}")
                 : title);
+    }
+
+    // ------------------------------------------------------------------ прокат: сроки возврата
+
+    // 2026-10-02, владелец: «в админке добавь уведомление об окончании и приближении срока аренды проката».
+    // Проверяет RentalDueNotifier (раз в час); здесь — значок у пункта «Прокат» и карточка в меню.
+    // Карточку можно закрыть — снова появится, когда изменится состав (новый срок или просрочка).
+    private Border? _rentalsBadge;
+    private string _rentalAlertDismissed = "";
+
+    private void OnRentalDueChanged(RentalDueNotifier.Summary summary) => Dispatcher.UIThread.Post(UpdateRentalAlert);
+
+    private static string RentalAlertSignature(RentalDueNotifier.Summary s) =>
+        string.Join("|", s.Overdue.Select(r => "o" + r.Id).Concat(s.Today.Select(r => "t" + r.Id)).Concat(s.Tomorrow.Select(r => "m" + r.Id)));
+
+    private void UpdateRentalAlert()
+    {
+        var s = RentalDueNotifier.Last;
+        var count = s?.Count ?? 0;
+        var visibleSphere = MarketSpheres.IsClothing || MarketSpheres.IsServices;
+        if (_rentalsBadge is { Child: TextBlock badgeText } badge)
+        {
+            badge.IsVisible = visibleSphere && count > 0;
+            badgeText.Text = count > 99 ? "99+" : count.ToString(CultureInfo.InvariantCulture);
+            // Просрочка — красным, только сроки — цветом акцента.
+            if (s is { Overdue.Count: > 0 } && this.TryFindResource("BrushDanger", out var danger) && danger is IBrush red)
+                badge.Background = red;
+            else
+                badge.ClearValue(Border.BackgroundProperty);
+        }
+
+        if (s is null || count == 0 || !visibleSphere || UserPreferences.Instance.OwnerSidebarCollapsed
+            || RentalAlertSignature(s) == _rentalAlertDismissed)
+        {
+            RentalAlertCard.IsVisible = false;
+            return;
+        }
+
+        RentalAlertTitle.Text = "⏰ " + Tr.T("Прокат: сроки возврата", "Прокат: кайтаруу мөөнөтү", "Rentals: return dates", "Kiralama: iade tarihleri", "Prokat: qaytarish muddati");
+        var lines = new List<string>();
+        if (s.Overdue.Count > 0)
+            lines.Add(Tr.T($"Просрочено: {s.Overdue.Count}", $"Мөөнөтү өттү: {s.Overdue.Count}", $"Overdue: {s.Overdue.Count}", $"Gecikmiş: {s.Overdue.Count}", $"Muddati o'tgan: {s.Overdue.Count}"));
+        if (s.Today.Count > 0)
+            lines.Add(Tr.T($"Вернуть сегодня: {s.Today.Count}", $"Бүгүн кайтаруу: {s.Today.Count}", $"Due today: {s.Today.Count}", $"Bugün iade: {s.Today.Count}", $"Bugun qaytarish: {s.Today.Count}"));
+        if (s.Tomorrow.Count > 0)
+            lines.Add(Tr.T($"Вернуть завтра: {s.Tomorrow.Count}", $"Эртең кайтаруу: {s.Tomorrow.Count}", $"Due tomorrow: {s.Tomorrow.Count}", $"Yarın iade: {s.Tomorrow.Count}", $"Ertaga qaytarish: {s.Tomorrow.Count}"));
+        // Первые три — с именем клиента: владелец сразу видит, кому звонить.
+        foreach (var r in s.Overdue.Concat(s.Today).Concat(s.Tomorrow).Take(3))
+            lines.Add($"• №{r.Number} {r.ClientName} — {string.Join(", ", r.Items.Select(i => i.Label))}");
+        RentalAlertText.Text = string.Join("\n", lines);
+        RentalAlertOpenText.Text = Tr.T("Открыть прокат", "Прокатты ачуу", "Open rentals", "Kiralamayı aç", "Prokatni ochish");
+        ToolTip.SetTip(RentalAlertClose, Tr.T("Скрыть", "Жашыруу", "Hide", "Gizle", "Yashirish"));
+        RentalAlertCard.IsVisible = true;
+    }
+
+    private void RentalAlertClose_Click(object? sender, RoutedEventArgs e)
+    {
+        if (RentalDueNotifier.Last is { } s)
+            _rentalAlertDismissed = RentalAlertSignature(s);
+        RentalAlertCard.IsVisible = false;
+    }
+
+    private void RentalAlertOpen_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_navButtons.TryGetValue("rentals", out var button))
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
     /// <summary>Раздел «Настройки сайта» — пункт меню и кнопка «Настройки сайта» в «Заказах с сайта».
