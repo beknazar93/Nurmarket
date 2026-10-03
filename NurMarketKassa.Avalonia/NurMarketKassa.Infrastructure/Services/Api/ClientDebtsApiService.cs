@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -236,7 +236,9 @@ public sealed class ClientDebtsApiService : IDisposable
             {
                 if (_http != null)
                     return _http;
-                var handler = new JwtBearerRefreshHandler(_api) { InnerHandler = new HttpClientHandler() };
+                // 2026-10-04, стресс-тест: сервер NurCRM умеет gzip (страница каталога 155 КБ → 18 КБ), а касса его не
+                // просила — каждые 2 минуты качался полный каталог без сжатия. Accept-Encoding ставится сам.
+                var handler = new JwtBearerRefreshHandler(_api) { InnerHandler = new HttpClientHandler { AutomaticDecompression = System.Net.DecompressionMethods.All } };
                 _http = new HttpClient(handler)
                 {
                     BaseAddress = new Uri(_settings.ApiBaseUrl.Trim().TrimEnd('/') + "/", UriKind.Absolute),

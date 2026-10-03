@@ -43,7 +43,9 @@ public sealed partial class NurMarketApiClient : IDisposable
     public NurMarketApiClient(AppSettings settings)
     {
         var baseUrl = settings.ApiBaseUrl.Trim().TrimEnd('/') + "/";
-        var handler = new JwtBearerRefreshHandler(this) { InnerHandler = new HttpClientHandler() };
+        // 2026-10-04, стресс-тест: сервер NurCRM умеет gzip (страница каталога 155 КБ → 18 КБ), а касса его не
+        // просила — каждые 2 минуты качался полный каталог без сжатия. Accept-Encoding ставится сам.
+        var handler = new JwtBearerRefreshHandler(this) { InnerHandler = new HttpClientHandler { AutomaticDecompression = System.Net.DecompressionMethods.All } };
         _http = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl, UriKind.Absolute),
