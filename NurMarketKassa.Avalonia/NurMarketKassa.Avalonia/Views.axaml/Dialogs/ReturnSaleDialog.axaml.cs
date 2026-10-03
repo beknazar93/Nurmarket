@@ -26,6 +26,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// <summary>Номер чека, по которому идёт возврат — печатается на чеке возврата, чтобы
     /// кассир и покупатель могли сопоставить две бумажки.</summary>
     private string? _currentReceiptNumber;
+
+    /// <summary>2026-10-04, стресс-тест: итог выбранной продажи по серверу (поле total, уже за вычетом
+    /// прошлых возвратов) — запасная сумма полного возврата, если сервер не отдал документ возврата.</summary>
+    private decimal? _currentSaleTotal;
     private int _salesPage;
     private readonly HashSet<string> _salesSeenIds = new(StringComparer.OrdinalIgnoreCase);
     private string _searchFilter = "";
@@ -483,6 +487,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private void FillLinesFromSale(JsonElement sale)
     {
         Lines.Clear();
+        _currentSaleTotal = sale.ValueKind == JsonValueKind.Object
+                            && sale.TryGetProperty("total", out var saleTotalEl)
+                            && decimal.TryParse(saleTotalEl.ValueKind == JsonValueKind.String ? saleTotalEl.GetString() : saleTotalEl.GetRawText(),
+                                NumberStyles.Number, CultureInfo.InvariantCulture, out var saleTotalValue)
+            ? saleTotalValue
+            : null;
         foreach (var lineItem in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
             var lineId = CartDisplayHelper.TryRefundLineId(lineItem);
@@ -595,6 +605,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
             SaleDetailCache.Forget(_currentSaleId);
 
+            // 2026-10-04, стресс-тест: сумма возврата — та, что записал сервер (документ возврата).
+            // Оценка выше (сумма строк) не знает скидки на чек: сервер хранит её у продажи, а не в
+            // строках, и чек возврата печатал больше, чем сервер вернул (полный возврат №1348: касса
+            // 56,00, сервер 50,40). Сервер не ответил — остаётся оценка, как раньше.
+            var estimatedTotal = total;
+            total = await ServerRefundAmountAsync(_currentSaleId, total).ConfigureAwait(true);
+
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
             ShiftEventsStore.Record(
@@ -627,11 +644,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // руках не оказалось чека по непрошедшей операции.
             // Печать — в фоне (2026-09-25): медленный или отключённый принтер больше не
             // подвешивает окно на время записи в порт.
-            var printLines = selected.Select(l => (
+            var printLines = ScaleRefundLines(selected.Select(l => (
                 Name: l.Title,
                 Quantity: l.Quantity > 0 ? l.Quantity : 1,
                 UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
-                Sum: l.RefundSum)).ToList();
+                Sum: l.RefundSum)).ToList(), estimatedTotal, total);
             var printReceiptNumber = _currentReceiptNumber;
             var printCashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
             var printError = await Task.Run(() => OperationReceiptPrinter.PrintReturn(
@@ -649,9 +666,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
-            PosMessageBox.Show(this, selected.Count == 1
+            PosMessageBox.Show(this, (selected.Count == 1
                     ? Tr.T("Возврат оформлен.", "Кайтаруу таризделди.", "Return completed.", "İade tamamlandı.", "Qaytarish rasmiylashtirildi.")
-                    : Tr.T($"Возврат оформлен ({selected.Count} поз.).", $"Кайтаруу таризделди ({selected.Count} поз.).", $"Return completed ({selected.Count} items).", $"İade tamamlandı ({selected.Count} kalem).", $"Qaytarish rasmiylashtirildi ({selected.Count} poz.)."),
+                    : Tr.T($"Возврат оформлен ({selected.Count} поз.).", $"Кайтаруу таризделди ({selected.Count} поз.).", $"Return completed ({selected.Count} items).", $"İade tamamlandı ({selected.Count} kalem).", $"Qaytarish rasmiylashtirildi ({selected.Count} poz.)."))
+                    // 2026-10-04: сумма к выдаче — сервера (может отличаться от «~» в подтверждении: скидка на чек, долг).
+                    + "\n" + RefundToGiveText(total),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (ApiException ex) when (ex.StatusCode == 502 && ex.Message.Contains("Возвращено позиций", StringComparison.Ordinal))
@@ -678,6 +697,71 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         await RefreshCurrentSaleAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-04, стресс-тест на тестовом аккаунте: сумма только что оформленного возврата
+    /// так, как её записал сервер, — документ возврата (GET pos/returns/?sale=…, самый новый). Касса
+    /// считала её сама по строкам чека, а скидка на чек у сервера живёт в самой продаже, не в строках:
+    /// чек возврата и журнал смены получали сумму без скидки (полный возврат №1348 — 56,00 вместо
+    /// 50,40, разница ушла бы покупателю из ящика). Не ответил сервер — fallback, как раньше.</summary>
+    private static async Task<decimal> ServerRefundAmountAsync(string? saleId, decimal fallback)
+    {
+        if (string.IsNullOrWhiteSpace(saleId))
+            return fallback;
+        try
+        {
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var returns = await NurCrmReportsApi.ListReturnsAsync(null, null, saleId: saleId, ct: cts.Token).ConfigureAwait(true);
+            var newest = returns?
+                .Where(r => string.Equals(r.SaleId, saleId, StringComparison.OrdinalIgnoreCase) && r.Amount > 0m)
+                .OrderByDescending(r => r.CreatedAt ?? DateTimeOffset.MinValue)
+                .FirstOrDefault();
+            if (newest is null)
+                return fallback;
+            // Сколько денег сервер реально выдал (движение «Возврат по чеку»): у продажи «в долг» документ
+            // возврата — на весь чек (№1355: 34,00), а выдано только внесённое (10,00), долг списан.
+            var cashOut = await NurCrmReportsApi.ReturnCashOutAsync(saleId, newest.CreatedAt, cts.Token).ConfigureAwait(true);
+            var amount = cashOut ?? newest.Amount;
+            if (Math.Abs(amount - fallback) > 0.009m)
+                PosLogger.Log($"Возврат по продаже {saleId}: сервер вернул {amount:0.00} (документ {newest.Amount:0.00}), касса насчитала {fallback:0.00} — печатаем сумму сервера.", "WARNING");
+            return amount;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сумма возврата с сервера не получена, берём расчёт кассы: {ex.Message}", "WARNING");
+            return fallback;
+        }
+    }
+
+    /// <summary>2026-10-04: строка «Выдать покупателю: N сом» в сообщении об оформленном возврате.</summary>
+    private static string RefundToGiveText(decimal amount) => Tr.T(
+        $"Выдать покупателю: {amount:N2} сом.",
+        $"Сатып алуучуга берүү: {amount:N2} сом.",
+        $"Give the customer: {amount:N2} som.",
+        $"Müşteriye verilecek: {amount:N2} som.",
+        $"Xaridorga berish: {amount:N2} so'm.");
+
+    /// <summary>Строки чека возврата пропорционально приводятся к сумме сервера (см.
+    /// ServerRefundAmountAsync), чтобы сумма строк на бумаге совпадала с итогом.</summary>
+    private static List<(string Name, double Quantity, decimal UnitPrice, decimal Sum)> ScaleRefundLines(
+        List<(string Name, double Quantity, decimal UnitPrice, decimal Sum)> lines, decimal estimated, decimal actual)
+    {
+        if (lines.Count == 0 || estimated <= 0m || Math.Abs(estimated - actual) < 0.005m)
+            return lines;
+
+        var factor = actual / estimated;
+        var result = new List<(string Name, double Quantity, decimal UnitPrice, decimal Sum)>(lines.Count);
+        var left = actual;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            var sum = i == lines.Count - 1 ? left : Math.Round(line.Sum * factor, 2, MidpointRounding.AwayFromZero);
+            left -= sum;
+            var qty = line.Quantity > 0 ? (decimal)line.Quantity : 1m;
+            result.Add((line.Name, line.Quantity, Math.Round(sum / qty, 2, MidpointRounding.AwayFromZero), sum));
+        }
+
+        return result;
     }
 
     private async Task RefreshCurrentSaleAsync()
@@ -798,18 +882,22 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // стояла только в построчном возврате. Вернули покупателю весь чек наличными, а в
             // Z-отчёте, Telegram-сводке и выгрузке этой суммы нет: кассир сдаёт смену с
             // «недостачей» ровно на сумму возврата.
-            var wholeTotal = Lines.Sum(line => line.RefundSum);
+            // 2026-10-04, стресс-тест: сумма строк не учитывает скидку на чек — чек возврата печатал
+            // больше, чем заплатил покупатель (№1348: 56,00 вместо 50,40). Берём сумму документа
+            // возврата сервера, без него — итог продажи (total), и только потом — сумму строк.
+            var linesTotal = Lines.Where(l => l.CanReturn).Sum(line => line.RefundSum);
+            var wholeTotal = await ServerRefundAmountAsync(_currentSaleId, _currentSaleTotal ?? linesTotal).ConfigureAwait(true);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,
                 ShiftEventsStore.OperationKey(_currentSaleId),
                 (double)wholeTotal);
 
-            var wholeLines = Lines.Where(l => l.CanReturn).Select(l => (
+            var wholeLines = ScaleRefundLines(Lines.Where(l => l.CanReturn).Select(l => (
                 Name: l.Title,
                 Quantity: l.Quantity > 0 ? l.Quantity : 1,
                 UnitPrice: l.Quantity > 0 ? l.RefundSum / (decimal)l.Quantity : l.RefundSum,
-                Sum: l.RefundSum)).ToList();
+                Sum: l.RefundSum)).ToList(), linesTotal, wholeTotal);
             var wholeReceiptNumber = _currentReceiptNumber;
             var wholeReason = reasonDialog.ReasonText;
             var wholeCashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
@@ -843,7 +931,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 PosLogger.Log($"Loyalty reversal on full return failed: {ex.Message}", "WARNING");
             }
 
-            PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi."),
+            PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi.")
+                    + "\n" + RefundToGiveText(wholeTotal),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
             await RefreshCurrentSaleAsync().ConfigureAwait(true);
         }

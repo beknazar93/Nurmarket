@@ -334,6 +334,57 @@ public static class NurCrmReportsApi
         }
     }
 
+    /// <summary>2026-10-04, стресс-тест на тестовом аккаунте: сколько денег сервер реально выдал по
+    /// возврату — движения «pos_sale_return» этой продажи (source_id = id продажи), записанные в ту же
+    /// секунду, что и документ возврата (±15 с по часам сервера); у смешанной оплаты их два — складываем.
+    /// Сумма документа возврата бывает больше: у продажи «в долг» с предоплатой 10 из 34 документ — 34,
+    /// а выдано наличными 10 (остаток долга просто списан). null — движений нет или сервер не ответил.</summary>
+    public static async Task<decimal?> ReturnCashOutAsync(string? saleId, DateTimeOffset? returnCreatedAt, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(saleId) || returnCreatedAt is not { } docAt || Client is not { } client)
+            return null;
+
+        try
+        {
+            var data = await client.RequestAsync(
+                HttpMethod.Get,
+                "api/construction/cashflows/",
+                null,
+                new Dictionary<string, string> { ["source_kind"] = "pos_sale_return", ["source_id"] = saleId.Trim() },
+                ct).ConfigureAwait(false);
+            var rows = data.ValueKind == JsonValueKind.Array
+                ? data
+                : data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) ? r : default;
+            if (rows.ValueKind != JsonValueKind.Array)
+                return null;
+
+            decimal? sum = null;
+            foreach (var row in rows.EnumerateArray())
+            {
+                // Фильтры сервера сверяем ещё раз: старый сервер мог бы их проигнорировать.
+                if (!string.Equals(Str(row, "source_id"), saleId.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(Str(row, "source_kind"), "pos_sale_return", StringComparison.OrdinalIgnoreCase)
+                    || Str(row, "created_at") is not { } at
+                    || !DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.None, out var flowAt)
+                    || Math.Abs((flowAt - docAt).TotalSeconds) > 15
+                    || Dec(row, "amount") is not { } amount)
+                    continue;
+                sum = (sum ?? 0m) + amount;
+            }
+
+            return sum;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Деньги по возврату продажи {saleId} не прочитаны: {ex.Message}", "SALES");
+            return null;
+        }
+    }
+
     private static string? Str(JsonElement e, string key)
     {
         if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty(key, out var v))

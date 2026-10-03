@@ -404,6 +404,11 @@ public partial class ShiftDetailsDialog : Window
         // экран расходился бы с печатным чеком, где эта цифра уже серверная.
         var expenses = serverExpense is { } fromServer ? (double)fromServer : Get(ShiftEventsStore.KindExpense);
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
+        // 2026-10-04, стресс-тест: оплата долгов смены есть и в отчёте сервера (debt_payments_cash) —
+        // в программе владельца и на другой кассе локального журнала нет, плитка показывала «—»
+        // при оплате 30 сом в смене. Берём большее: журнал кассы знает и безналичную оплату.
+        if (_report is { DebtPaymentsCash: > 0m } withDebtPayments)
+            debtPaid = Math.Max(debtPaid, (double)withDebtPayments.DebtPaymentsCash!.Value);
 
         ReturnsText.Text = returns > 0.005 ? Money(returns) : "—";
         WriteOffsText.Text = writeOffs > 0.005 ? Money(writeOffs) : "—";
@@ -650,7 +655,10 @@ public partial class ShiftDetailsDialog : Window
         {
             deposits = server.Deposits;
             withdrawals = server.Withdrawals;
-            otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits - debtPaidCash);
+            // 2026-10-04, стресс-тест: income_total сервера включает и наличные, внесённые при продаже в
+            // долг (смена 7e33b63b: 150 = внесение 100 + оплата долгов 30 + предоплата 20). Без вычета
+            // предоплаты она печаталась дважды — своей строкой и ещё раз в «Прочие приходы».
+            otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits - debtPaidCash - debtPrepaidCash);
         }
         if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPrepaidCash > 0m || debtPaidCash > 0m)
         {
