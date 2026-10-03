@@ -33,6 +33,17 @@ public partial class ClientPickerDialog : Window
     public static System.Threading.Tasks.Task Open(Window owner, CheckoutViewModel viewModel) =>
         new ClientPickerDialog(viewModel).ShowDialog(owner);
 
+    /// <summary>2026-10-04, ТЗ разработчика NurCRM: скан QR клиента «NURCRM…», а клиента с таким телефоном
+    /// в базе нет — то же окно, но сразу раскрыт «Новый клиент» (телефон уже подставлен в модели), курсор в
+    /// поле имени: ФИО вводит кассир. Можно и выбрать клиента из списка или просто закрыть окно.</summary>
+    public static System.Threading.Tasks.Task OpenForNewClient(Window owner, CheckoutViewModel viewModel)
+    {
+        var dialog = new ClientPickerDialog(viewModel);
+        dialog.NewClientExpander.IsExpanded = true;
+        dialog.Opened += (_, _) => dialog.NewClientNameBox.Focus();
+        return dialog.ShowDialog(owner);
+    }
+
     /// <summary>Закрывается сразу, как только клиент выбран или только что добавлен — кассиру
     /// не нужно ещё одно подтверждающее нажатие после того, как он уже кликнул по клиенту.</summary>
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

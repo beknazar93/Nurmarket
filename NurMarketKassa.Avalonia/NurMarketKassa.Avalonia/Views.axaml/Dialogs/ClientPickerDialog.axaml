@@ -99,11 +99,13 @@
                     </ScrollViewer>
                 </Border>
 
-                <Expander Grid.Row="3" Margin="0,12,0,0"
+                <!-- 2026-10-04: имена — для скана QR клиента NurCRM: окно открывается сразу на «Новом клиенте»
+                     с подставленным телефоном и курсором в имени (ClientPickerDialog.OpenForNewClient). -->
+                <Expander x:Name="NewClientExpander" Grid.Row="3" Margin="0,12,0,0"
                           Header="{DynamicResource csh.checkout.newClient}"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <StackPanel Spacing="8" Margin="0,8,0,0">
-                        <TextBox Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
+                        <TextBox x:Name="NewClientNameBox" Text="{Binding NewClientName}" Watermark="{DynamicResource csh.checkout.newClientNameWatermark}" Height="40"/>
                         <TextBox Text="{Binding NewClientPhone}" Watermark="{DynamicResource csh.checkout.newClientPhoneWatermark}" Height="40"/>
                         <!-- Адрес необязателен, но при продаже в долг он и нужен: телефон
                              должника может не отвечать. -->

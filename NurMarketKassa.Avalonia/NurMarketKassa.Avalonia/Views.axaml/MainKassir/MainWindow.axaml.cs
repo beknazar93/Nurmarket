@@ -129,6 +129,8 @@ public partial class MainWindow : Window
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
         _viewModel.Basket.EnsureShiftBeforePayment = EnsureShiftBeforePaymentAsync;
+        // 2026-10-04: скан QR клиента NurCRM, а клиента нет в базе — окно «Новый клиент» с телефоном.
+        _viewModel.Basket.OfferNewClientFromQr = OfferNewClientFromQrAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
         ServerOutageMonitor.Recovered += OnServerRecovered;
 

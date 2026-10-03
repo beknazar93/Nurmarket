@@ -149,6 +149,8 @@ public partial class App : Application
         RegisterGlobalExceptionHandlers();
         // 2026-09-30: все окна-модалки — в пределах экрана кассы (маленькие/квадратные экраны).
         NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit.RegisterForAllWindows();
+        // 2026-10-04: два пальца на сенсоре — прокрутка, а не два нажатия сразу (см. TouchGuard).
+        TouchGuard.Register();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -298,6 +300,15 @@ public partial class App : Application
         {
             PosLogger.Log($"Unhandled Avalonia UI exception: {args.Exception}", "CRITICAL");
             CrashReportService.WriteReport(args.Exception, "Avalonia UI thread");
+
+            // 2026-10-04, владелец: «если 2 пальца касаются — появляется какая-то ошибка». Сбой во время касания
+            // двумя пальцами записан выше (журнал и отчёт); окно «Произошла ошибка» кассиру не показываем.
+            if (TouchGuard.MultiTouchRecently)
+            {
+                PosLogger.Log("Сбой во время касания двумя пальцами — окно ошибки не показано (подробности выше).", "WARNING");
+                args.Handled = true;
+                return;
+            }
 
             // Пробуем удержать кассу живой вместо аварийного закрытия — ошибка уже
             // произошла и залогирована, но кассиру лучше увидеть понятное сообщение

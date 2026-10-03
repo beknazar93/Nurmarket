@@ -19,7 +19,7 @@ namespace NurMarketKassa.ViewModels.Main;
 /// Этот файл отвечает за панель чека на главном экране кассира:
 /// строки корзины, пересчёт итогов, добавление по штрихкоду и управление текущим чеком.
 /// </summary>
-public sealed class BasketPanelViewModel : ViewModelBase
+public sealed partial class BasketPanelViewModel : ViewModelBase
 {
     public const int MaxOpenReceipts = 10;
 
@@ -1144,6 +1144,15 @@ public sealed class BasketPanelViewModel : ViewModelBase
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
+            // 2026-10-04, ТЗ разработчика NurCRM: QR клиента «NURCRM» + 12 цифр телефона проверяем ПЕРВЫМ,
+            // до товара и весового кода. Только строки с префиксом NURCRM — обычные штрихкоды идут дальше как
+            // были. Раньше строки журнала ниже: полный номер клиента в журнал не пишем (там будет маска).
+            if (ClientQrCode.TryParse(barcode, out var clientQr))
+            {
+                await HandleClientQrAsync(clientQr!).ConfigureAwait(true);
+                return;
+            }
+
             // 2026-09-15, диагностика живой жалобы ("штрих-М не читает") — снять после того как
             // разберёмся с реальным примером кода весов Штрих-М: без этой строки не видно, что
             // именно пришло со сканера и на каком именно шаге код не распознался.
@@ -1362,6 +1371,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
         // который кассир успел переключиться, — включая чужие ещё не оплаченные товары.
         _paidSessionId = GetActiveSession()?.Id;
         _paidSessionPreviousId = _previousSessionId;
+        // 2026-10-04: клиент, выбранный в этом чеке сканом QR клиента NurCRM, и сам чек — чтобы
+        // после оплаты снять клиента именно с него (_paidSessionId обнуляется позже).
+        var receiptClient = GetActiveSession()?.Client;
+        var paidSessionId = _paidSessionId;
 
         await RunOnUiThreadAsync(() =>
         {
@@ -1394,6 +1407,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum, _clientsApi, _customerDisplay);
             if (preferredMethod == "transfer")
                 checkoutVm.IsTransfer = true;
+            if (receiptClient != null)
+                checkoutVm.PreselectClient(receiptClient);
             // 2026-10-02: после «Оформить как прокат» в чеке только строка проката — кнопку больше не показываем.
             checkoutVm.HasRentableItems = CartDisplayHelper.EnumerateItems(_cart.Root).Any(it => !CartDisplayHelper.IsCustomLine(it));
             var confirmed = await _windowService
@@ -1553,6 +1568,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
                 }
 
                 _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Success, Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışverişiniz için teşekkürler!", "Xaridingiz uchun rahmat!"));
+                // 2026-10-04: чек оплачен — клиент QR остаётся у этого покупателя, а не переходит к следующему.
+                ForgetReceiptClient(paidSessionId);
                 SyncLinesFromCart();
                 UpdateCartTotals();
                 CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
@@ -1902,6 +1919,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             await RunOnUiThreadAsync(() =>
             {
                 _cart.ResetForNewReceipt();
+                // 2026-10-04: чек ушёл в «Отложенные» без клиента QR — вкладка теперь для нового покупателя.
+                ForgetReceiptClient(_activeSessionId);
                 PersistActiveSessionSnapshot();
                 SyncLinesFromCart();
                 UpdateCartTotals();
@@ -1955,6 +1974,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
                 ApplyCartJson(latest.CartJson);
                 DeferredCartsStore.RemoveIds(new[] { latest.Id });
+                // 2026-10-04: во вкладке теперь чек другого покупателя — клиента QR с неё снимаем.
+                ForgetReceiptClient(_activeSessionId);
 
                 SyncLinesFromCart();
                 UpdateCartTotals();
@@ -2014,6 +2035,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
     private void ClearReceipt()
     {
         _cart.ResetForNewReceipt();
+        // 2026-10-04: чек очищен — и клиент QR с него снимается.
+        ForgetReceiptClient(_activeSessionId);
         PersistActiveSessionSnapshot();
         SyncLinesFromCart();
         UpdateCartTotals();
@@ -3060,6 +3083,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
         public string BaseName { get; set; } = Tr.T("Основной чек", "Негизги чек", "Main receipt", "Ana fiş", "Asosiy chek");
         public string CartJson { get; set; } = "{}";
         public DateTime? DeferredAt { get; set; }
+
+        /// <summary>2026-10-04: клиент, выбранный в этом чеке сканом QR клиента NurCRM (см.
+        /// BasketPanelViewModel.ClientQr.cs). На диск не сохраняется — после перезапуска кассы QR
+        /// сканируют заново.</summary>
+        public ClientOption? Client { get; set; }
     }
 }
 

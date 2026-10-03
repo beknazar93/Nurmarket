@@ -85,6 +85,75 @@ public partial class TelegramBotSetupWindow : Window
         ServerTestButton.Content = Tr.T("Пробное сообщение с сервера", "Серверден сынак билдирүү", "Test message from the server", "Sunucudan deneme mesajı", "Serverdan sinov xabari");
         ServerTestAiButton.Content = Tr.T("Проверить ИИ на сервере", "Сервердеги ЖИни текшерүү", "Check AI on the server", "Sunucudaki yapay zekâyı kontrol et", "Serverdagi SIni tekshirish");
         ServerBackButton.Content = Tr.T("Вернуть на этот компьютер", "Бул компьютерге кайтаруу", "Move back to this computer", "Bu bilgisayara geri al", "Shu kompyuterga qaytarish");
+        ServerAiGetKeyButton.Content = Tr.T("Получить ключ (бесплатно)", "Ачкыч алуу (акысыз)", "Get a key (free)", "Anahtar al (ücretsiz)", "Kalit olish (bepul)");
+    }
+
+    /// <summary>2026-10-04: подпись и кнопка блока «ИИ на сервере» — по тому, есть ли ключ на сервере.</summary>
+    private void ShowServerAi(bool serverMode, bool keySet)
+    {
+        ServerAiPanel.IsVisible = serverMode;
+        ServerAiHint.Text = keySet
+            ? Tr.T("ИИ на сервере подключён. Чтобы заменить ключ Google Gemini, вставьте новый и нажмите «Заменить ключ ИИ».",
+                "Сервердеги ЖИ туташкан. Google Gemini ачкычын алмаштыруу үчүн жаңысын коюп, «ЖИ ачкычын алмаштыруу» дегенди басыңыз.",
+                "The AI on the server is connected. To replace the Google Gemini key, paste a new one and press “Replace AI key”.",
+                "Sunucudaki yapay zekâ bağlı. Google Gemini anahtarını değiştirmek için yenisini yapıştırıp «Yapay zekâ anahtarını değiştir»e basın.",
+                "Serverdagi SI ulangan. Google Gemini kalitini almashtirish uchun yangisini qo'yib, «SI kalitini almashtirish»ni bosing.")
+            : Tr.T("ИИ отвечает покупателям на вопросы о товарах и помогает оформить заказ. Нужен бесплатный ключ Google Gemini: нажмите «Получить ключ», войдите в Google, нажмите «Create API key», скопируйте ключ и вставьте сюда.",
+                "ЖИ сатып алуучулардын товарлар боюнча суроолоруна жооп берет жана заказ тариздөөгө жардам берет. Акысыз Google Gemini ачкычы керек: «Ачкыч алуу» дегенди басыңыз, Google'га кириңиз, «Create API key» басыңыз, ачкычты көчүрүп, бул жерге коюңуз.",
+                "The AI answers customers' questions about products and helps place orders. You need a free Google Gemini key: press “Get a key”, sign in to Google, press “Create API key”, copy the key and paste it here.",
+                "Yapay zekâ müşterilerin ürün sorularını yanıtlar ve sipariş vermeye yardım eder. Ücretsiz bir Google Gemini anahtarı gerekir: «Anahtar al»a basın, Google'a giriş yapın, «Create API key»e basın, anahtarı kopyalayıp buraya yapıştırın.",
+                "SI xaridorlarning mahsulotlar haqidagi savollariga javob beradi va buyurtma berishga yordam beradi. Bepul Google Gemini kaliti kerak: «Kalit olish»ni bosing, Google'ga kiring, «Create API key»ni bosing, kalitni nusxalab, shu yerga qo'ying.");
+        ServerAiSaveButton.Content = keySet
+            ? Tr.T("Заменить ключ ИИ", "ЖИ ачкычын алмаштыруу", "Replace AI key", "Yapay zekâ anahtarını değiştir", "SI kalitini almashtirish")
+            : Tr.T("Включить ИИ на сервере", "Серверде ЖИни күйгүзүү", "Turn on AI on the server", "Sunucuda yapay zekâyı aç", "Serverda SIni yoqish");
+    }
+
+    private async void ServerAiSave_Click(object? sender, RoutedEventArgs e)
+    {
+        var api = ServerApi;
+        var key = (ServerAiKeyBox.Text ?? "").Trim();
+        if (api is null)
+            return;
+        if (key.Length < 20)
+        {
+            ServerActionStatus.Text = Tr.T("Вставьте ключ Google Gemini (он начинается с «AIza»).", "Google Gemini ачкычын коюңуз («AIza» менен башталат).",
+                "Paste the Google Gemini key (it starts with “AIza”).", "Google Gemini anahtarını yapıştırın («AIza» ile başlar).", "Google Gemini kalitini qo'ying («AIza» bilan boshlanadi).");
+            return;
+        }
+        ServerAiSaveButton.IsEnabled = false;
+        ServerProgress.IsVisible = true;
+        ServerActionStatus.Text = Tr.T("Отправляю ключ ИИ на сервер…", "ЖИ ачкычы серверге жөнөтүлүүдө…", "Sending the AI key to the server…", "Yapay zekâ anahtarı sunucuya gönderiliyor…", "SI kaliti serverga yuborilmoqda…");
+        try
+        {
+            var s = await api.PatchSettingsAsync(new Dictionary<string, object?> { ["ai_key"] = key, ["ai_enabled"] = true }).ConfigureAwait(true);
+            ServerAiKeyBox.Text = "";
+            ShowServerStatus(s);
+            PosLogger.Log("Бот: ключ ИИ отправлен на сервер (в программе не сохраняется).", "TELEGRAM");
+            // Сразу проверяем: ключ мог оказаться неверным.
+            ServerTestAi_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            ServerActionStatus.Text = Tr.T("Сервер не принял ключ: ", "Сервер ачкычты кабыл алган жок: ", "The server did not accept the key: ", "Sunucu anahtarı kabul etmedi: ", "Server kalitni qabul qilmadi: ")
+                                      + ServerTelegramBotApi.Describe(ex);
+        }
+        finally
+        {
+            ServerAiSaveButton.IsEnabled = true;
+            ServerProgress.IsVisible = false;
+        }
+    }
+
+    private void ServerAiGetKey_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://aistudio.google.com/apikey") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Бот: страница ключа Gemini не открылась: {ex.Message}", "TELEGRAM");
+        }
     }
 
     private async Task RefreshServerStatusAsync()
@@ -111,10 +180,12 @@ public partial class TelegramBotSetupWindow : Window
             ServerStatus.Text = Tr.T("Сервер NurCRM пока не поддерживает бота.", "NurCRM сервери азырынча ботту колдобойт.", "The NurCRM server does not support the bot yet.",
                 "NurCRM sunucusu henüz botu desteklemiyor.", "NurCRM serveri hali botni qo'llab-quvvatlamaydi.");
             ServerMoveButton.IsEnabled = false;
+            ShowServerAi(false, false);
             return;
         }
 
         var on = s.IsServerMode;
+        ShowServerAi(on, s.AiKeySet);
         TelegramBotStatusChips.Fill(ServerChips, s);
         ServerTestButton.IsEnabled = on;
         ServerTestAiButton.IsEnabled = on && s.AiKeySet;
@@ -233,8 +304,16 @@ public partial class TelegramBotSetupWindow : Window
             var r = await api.TestAiAsync().ConfigureAwait(true);
             var answer = r.ValueKind == JsonValueKind.Object && r.TryGetProperty("answer", out var a) ? a.ToString() : "";
             var model = r.ValueKind == JsonValueKind.Object && r.TryGetProperty("model", out var m) ? m.ToString() : "";
-            ServerActionStatus.Text = Tr.T("ИИ на сервере отвечает", "Сервердеги ЖИ жооп берет", "The AI on the server answers", "Sunucudaki yapay zekâ yanıt veriyor", "Serverdagi SI javob beradi")
-                                      + (model.Length > 0 ? $" ({model})" : "") + (answer.Length > 0 ? ": " + answer : ".");
+            // 2026-10-04, стресс-тест бота: под нагрузкой сервер отдавал «ok» с пустым ответом ИИ — раньше
+            // это показывалось как «ИИ отвечает».
+            ServerActionStatus.Text = answer.Trim().Length == 0
+                ? Tr.T("ИИ на сервере вернул пустой ответ — Google Gemini перегружен, попробуйте ещё раз через минуту.",
+                    "Сервердеги ЖИ бош жооп кайтарды — Google Gemini жүктөлгөн, бир мүнөттөн кийин кайра аракет кылыңыз.",
+                    "The AI on the server returned an empty answer — Google Gemini is overloaded, try again in a minute.",
+                    "Sunucudaki yapay zekâ boş yanıt döndürdü — Google Gemini yoğun, bir dakika sonra tekrar deneyin.",
+                    "Serverdagi SI bo'sh javob qaytardi — Google Gemini band, bir daqiqadan keyin qayta urinib ko'ring.")
+                : Tr.T("ИИ на сервере отвечает", "Сервердеги ЖИ жооп берет", "The AI on the server answers", "Sunucudaki yapay zekâ yanıt veriyor", "Serverdagi SI javob beradi")
+                  + (model.Length > 0 ? $" ({model})" : "") + ": " + answer;
         }
         catch (Exception ex)
         {

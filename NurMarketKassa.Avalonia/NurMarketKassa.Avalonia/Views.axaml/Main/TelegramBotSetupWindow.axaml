@@ -157,6 +157,16 @@
               <Button x:Name="ServerTestAiButton" Margin="0,0,10,8" Click="ServerTestAi_Click" IsEnabled="False"/>
               <Button x:Name="ServerBackButton" Margin="0,0,10,8" Click="ServerBack_Click" IsEnabled="False"/>
             </WrapPanel>
+            <!-- 2026-10-04, владелец: «ИИ тоже на сервер — возможность для клиентов сделай». Ключ ИИ отправляется
+                 прямо на сервер (в программе не сохраняется) — без ключа в самой кассе. -->
+            <StackPanel x:Name="ServerAiPanel" Spacing="6" IsVisible="False">
+              <TextBlock Classes="StepBody" x:Name="ServerAiHint"/>
+              <WrapPanel>
+                <TextBox x:Name="ServerAiKeyBox" Width="340" PasswordChar="•" Watermark="AIza..." Margin="0,0,10,8"/>
+                <Button Classes="Primary" x:Name="ServerAiSaveButton" Margin="0,0,10,8" Click="ServerAiSave_Click"/>
+                <Button x:Name="ServerAiGetKeyButton" Margin="0,0,10,8" Click="ServerAiGetKey_Click"/>
+              </WrapPanel>
+            </StackPanel>
             <ProgressBar x:Name="ServerProgress" Classes="tg" IsIndeterminate="True" IsVisible="False"/>
             <TextBlock Classes="StepBody" x:Name="ServerActionStatus"/>
           </StackPanel>

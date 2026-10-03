@@ -500,6 +500,32 @@ public partial class MainWindow
         await AddProductFromCatalogAsync(created).ConfigureAwait(true);
     }
 
+    /// <summary>2026-10-04, ТЗ разработчика NurCRM: скан QR клиента «NURCRM…», а клиента с этим телефоном
+    /// в базе нет. Молча не заводим — открываем существующее окно выбора клиента сразу на «Новом клиенте»
+    /// с подставленным телефоном; ФИО вводит кассир и жмёт «+ Добавить клиента» (то же добавление, что в
+    /// окне оплаты). Возвращает выбранного или добавленного клиента, null — окно закрыли.</summary>
+    internal async Task<NurMarketKassa.ViewModels.ClientOption?> OfferNewClientFromQrAsync(string phone)
+    {
+        var clientsApi = App.AppHost?.Services.GetService<IClientsApiService>();
+        if (clientsApi is null)
+            return null;
+
+        var picker = new NurMarketKassa.ViewModels.CheckoutViewModel(new CartTotalsCalculator.CartTotals(), "", "", clientsApi)
+        {
+            NewClientPhone = phone,
+        };
+        picker.ErrorMessage = Tr.T(
+            $"Клиента с номером {phone} нет в базе. Введите имя и нажмите «+ Добавить клиента» — или закройте окно, чтобы продать без клиента.",
+            $"{phone} номерлүү кардар базада жок. Атын жазып, «+ Клиентти кошуу» баскычын басыңыз — же кардарсыз сатуу үчүн терезени жабыңыз.",
+            $"There is no customer with number {phone}. Enter a name and press “+ Add client” — or close the window to sell without a customer.",
+            $"{phone} numaralı müşteri veritabanında yok. Adını girip «+ Müşteri ekle»ye basın — ya da müşterisiz satış için pencereyi kapatın.",
+            $"{phone} raqamli mijoz bazada yo'q. Ismini kiriting va «+ Mijoz qo'shish» tugmasini bosing — yoki mijozsiz sotish uchun oynani yoping.");
+
+        await ClientPickerDialog.OpenForNewClient(this, picker).ConfigureAwait(true);
+        RestoreScannerFocus();
+        return picker.SelectedClient;
+    }
+
     internal Task ApplyOrderDiscountAsync()
     {
         if (!Authorize(PosPermissions.ApplyDiscount))
