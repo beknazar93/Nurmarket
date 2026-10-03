@@ -408,7 +408,7 @@ public static class TelegramAiChat
         Add(() => TelegramReportBuilder.BuildRevenue(1, "Выручка сегодня"));
         Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
         Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
-        Add(() => TelegramReportBuilder.BuildLowStock(3, 10));
+        Add(() => TelegramReportBuilder.BuildLowStock(take: 10));
         Add(TelegramInquiryStore.ShortSummary);
         if (TelegramAssistant.RentalContext(question) is { } rentals)
             sb.AppendLine(rentals);

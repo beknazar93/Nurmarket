@@ -1415,6 +1415,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
+        // 2026-10-03, владелец: «нужна кнопка для печати документов из чека» — товарный чек или накладная на A4.
+        private void DocSalesReceipt_Click(object sender, RoutedEventArgs e) => OpenSaleDocument(SaleDocumentHtmlBuilder.Kind.SalesReceipt);
+
+        private void DocWaybill_Click(object sender, RoutedEventArgs e) => OpenSaleDocument(SaleDocumentHtmlBuilder.Kind.Waybill);
+
+        private void OpenSaleDocument(SaleDocumentHtmlBuilder.Kind kind)
+        {
+            try
+            {
+                SaleDocumentHtmlBuilder.OpenForPrint(_currentReceiptJson, _currentReceiptNumber, ReadSaleTotal(_currentReceiptJson), kind);
+                ErrorMessage = "";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = Tr.T("Документ не открылся: ", "Документ ачылган жок: ", "The document did not open: ", "Belge açılmadı: ", "Hujjat ochilmadi: ") + ex.Message;
+            }
+        }
+
         private void Window_ManipulationBoundaryFeedback(object sender, ManipulationBoundaryFeedbackEventArgs e) =>
         e.Handled = true;
 

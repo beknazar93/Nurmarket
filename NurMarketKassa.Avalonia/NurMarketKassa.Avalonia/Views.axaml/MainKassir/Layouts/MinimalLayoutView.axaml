@@ -233,7 +233,7 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                                     <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                          только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="44" Height="26" MinHeight="0"
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="26" MinHeight="0"
                                                              Padding="4,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
                                                              Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -249,6 +249,8 @@
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding DiscountDisplayText}" IsVisible="{Binding HasDiscount}" FontSize="12"
                                                            Foreground="{DynamicResource BrushDanger}"/>
+                                                <TextBlock Text="{Binding LossDisplayText}" IsVisible="{Binding HasLoss}" FontSize="12" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrushDanger}" ToolTip.Tip="{Binding LossTooltip}"/>
                                             </StackPanel>
                                             <TextBlock Grid.Column="1" Classes="lx-money" FontSize="15" VerticalAlignment="Top"
                                                        Text="{Binding LineTotal, Converter={x:Static conv:MoneyConverter.Instance}}"/>

@@ -455,6 +455,11 @@ public sealed class UserPreferences
     /// отдельную настройку заводить незачем. Опрос идёт, лишь пока касса включена.</summary>
     public bool TelegramCommandsEnabled { get; set; } = true;
 
+    /// <summary>2026-10-03, клиент: «при оплате долга предоплата куда падает? Надо добавить выбор, как он даёт
+    /// предоплату; функцию можно включать и выключать в настройках». Включено — в окне оплаты «В долг» у
+    /// «Получено сейчас» выбор «Наличные / Безнал». Выключено (по умолчанию) — как раньше, наличными.</summary>
+    public bool DebtPrepaymentChooseMethod { get; set; }
+
     /// <summary>Имя бота без «@» — нужно, чтобы построить персональную ссылку для покупателя
     /// (t.me/ИмяБота?start=idКлиента). Заполняется автоматически при определении получателя.</summary>
     public string? TelegramBotUsername { get; set; }
@@ -1067,6 +1072,8 @@ public sealed class UserPreferences
                 p.ShiftAnalyticsUnlocked = fromFile.ShiftAnalyticsUnlocked.Value;
             if (fromFile.TelegramCommandsEnabled is not null)
                 p.TelegramCommandsEnabled = fromFile.TelegramCommandsEnabled.Value;
+            if (fromFile.DebtPrepaymentChooseMethod is not null)
+                p.DebtPrepaymentChooseMethod = fromFile.DebtPrepaymentChooseMethod.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramBotUsername))
                 p.TelegramBotUsername = fromFile.TelegramBotUsername;
             if (!string.IsNullOrWhiteSpace(fromFile.OwnerPhone))
@@ -1351,6 +1358,7 @@ public sealed class UserPreferences
                 TelegramBotUnlocked = TelegramBotUnlocked,
                 ShiftAnalyticsUnlocked = ShiftAnalyticsUnlocked,
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
+                DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
                 TelegramAiKeyProtected = string.IsNullOrWhiteSpace(TelegramAiKey) ? null : WindowsDpapiHelper.ProtectToBase64(TelegramAiKey),
@@ -1607,6 +1615,7 @@ public sealed class UserPreferences
         public bool? TelegramBotUnlocked { get; set; }
         public bool? ShiftAnalyticsUnlocked { get; set; }
         public bool? TelegramCommandsEnabled { get; set; }
+        public bool? DebtPrepaymentChooseMethod { get; set; }
         public string? TelegramBotUsername { get; set; }
         public bool? TelegramShiftSummaryEnabled { get; set; }
         public string? OwnerPhone { get; set; }

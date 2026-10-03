@@ -1503,4 +1503,13 @@
   <x:String x:Key="scalesPlu.refreshFromServerTip">Заново скачать товары, цены и PLU с сервера NurCRM и пересобрать список. Без интернета останется сохранённый каталог.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Категория</x:String>
   <x:String x:Key="finance.kpiDetailsTip">Нажмите — подробно: чеки и товары за период</x:String>
+  <x:String x:Key="receiptHistory.docSalesReceipt">Товарный чек (A4)</x:String>
+  <x:String x:Key="receiptHistory.docWaybill">Накладная (A4)</x:String>
+  <x:String x:Key="csh.checkout.prepayMethod">Предоплата:</x:String>
+  <x:String x:Key="csh.checkout.prepayCash">Наличные</x:String>
+  <x:String x:Key="csh.checkout.prepayNonCash">Безнал</x:String>
+  <x:String x:Key="settings.debtPrepayChoice">Предоплата при продаже в долг: выбор «Наличные / Безнал»</x:String>
+  <x:String x:Key="settings.debtPrepayChoiceHint">Включено — в окне оплаты «В долг» кассир выбирает, как внесена предоплата. Безнал не попадает в наличные смены.</x:String>
+  <x:String x:Key="csh.cart.wholesaleAll">Опт на весь чек</x:String>
+  <x:String x:Key="csh.cart.wholesaleTooltip">Продать по оптовой цене (ещё раз — снова розница)</x:String>
 </ResourceDictionary>

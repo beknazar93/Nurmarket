@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -20,6 +20,16 @@ public partial class AddStockQuantityDialog : Window
     {
         InitializeComponent();
         _unit = Tr.T("шт.", "даана", "pcs", "adet", "dona");
+        // 2026-10-03: скан штрихкода в это поле не должен становиться количеством.
+        NurMarketKassa.AvaloniaHost.Services.QuantityInputGuard.Attach(QuantityBox, () =>
+        {
+            ErrorText.Text = Tr.T("Это похоже на штрихкод — впишите количество (не больше 5 знаков).",
+                "Бул штрихкодго окшош — санын жазыңыз (5 белгиден ашпасын).",
+                "That looks like a barcode — enter the quantity (up to 5 characters).",
+                "Bu bir barkoda benziyor — miktarı girin (en fazla 5 karakter).",
+                "Bu shtrix-kodga o'xshaydi — miqdorni kiriting (5 belgidan oshmasin).");
+            ErrorText.IsVisible = true;
+        });
     }
 
     public AddStockQuantityDialog(string productName, double suggestedQuantity, bool mustWeigh)

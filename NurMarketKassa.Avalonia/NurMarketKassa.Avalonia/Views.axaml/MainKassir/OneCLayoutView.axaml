@@ -249,6 +249,8 @@
                                                    Foreground="{DynamicResource BrushTextSoft}"/>
                                         <TextBlock Text="{Binding DiscountDisplayText}" FontSize="14" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" Foreground="{DynamicResource BrushWarning}"/>
+                                        <TextBlock Text="{Binding LossDisplayText}" IsVisible="{Binding HasLoss}" FontSize="14" FontWeight="Bold"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}" ToolTip.Tip="{Binding LossTooltip}"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="10" HorizontalAlignment="Right" Margin="16,0,0,0">
@@ -296,7 +298,7 @@
                                                 Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"/>
                                         <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                              только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="46" Height="26" MinHeight="0"
+                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="46" Height="26" MinHeight="0"
                                                  Padding="4,0" FontSize="14" FontWeight="Normal" TextAlignment="Center" VerticalContentAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"

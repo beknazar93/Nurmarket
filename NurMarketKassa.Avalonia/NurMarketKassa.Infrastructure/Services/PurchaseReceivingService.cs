@@ -102,6 +102,9 @@ public sealed class PurchaseReceivingService
             }
 
             var global = await Api.FindGlobalProductByBarcodeAsync(code, ct).ConfigureAwait(false);
+            // 2026-10-03: UPC-A из сканера (12 цифр) ↔ EAN-13 с нулём в общей базе — см. BarcodeForms.
+            if (global is null && BarcodeForms.Alternate(code) is { } alternate)
+                global = await Api.FindGlobalProductByBarcodeAsync(alternate, ct).ConfigureAwait(false);
             if (global is { } g)
             {
                 return new ReceivingLineVm
@@ -348,6 +351,17 @@ public sealed class PurchaseReceivingService
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    // 2026-10-03, живой случай: у товара есть дубль с тем же штрихкодом — сервер на любое
+                    // изменение дубля отвечает 500. Говорим кассиру, что делать, а не «внутренняя ошибка».
+                    if (DuplicateOf(line) is { } dup)
+                    {
+                        errors.Add(Tr.T($"{line.ProductName}: не принят — на складе два товара со штрихкодом {line.Barcode} (второй: «{dup}»). Удалите лишний на складе и повторите.",
+                            $"{line.ProductName}: кабыл алынган жок — кампада {line.Barcode} штрихкоддуу эки товар бар (экинчиси: «{dup}»). Ашыкчасын өчүрүп, кайталаңыз.",
+                            $"{line.ProductName}: not received — the warehouse has two products with barcode {line.Barcode} (the other: “{dup}”). Delete the extra one and retry.",
+                            $"{line.ProductName}: kabul edilmedi — depoda {line.Barcode} barkodlu iki ürün var (diğeri: «{dup}»). Fazlasını silip tekrar deneyin.",
+                            $"{line.ProductName}: qabul qilinmadi — omborda {line.Barcode} shtrix-kodli ikkita mahsulot bor (ikkinchisi: «{dup}»). Ortiqchasini o'chirib, qayta urining."));
+                        continue;
+                    }
                     errors.Add(Tr.T($"{line.ProductName}: не принят — {ex.Message}",
                         $"{line.ProductName}: кабыл алынган жок — {ex.Message}",
                         $"{line.ProductName}: not received — {ex.Message}",
@@ -543,6 +557,24 @@ public sealed class PurchaseReceivingService
             JsonValueKind.Number => v.GetRawText(),
             _ => null,
         };
+    }
+
+    /// <summary>2026-10-03: другой товар каталога с тем же штрихкодом (дубль) — его название; null — дубля нет.</summary>
+    private static string? DuplicateOf(ReceivingLineVm line)
+    {
+        if (string.IsNullOrWhiteSpace(line.Barcode))
+            return null;
+        try
+        {
+            return CatalogCacheService.Products
+                .Where(p => !string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(p.Barcode?.Trim(), line.Barcode.Trim(), StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.Title).FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static double Num(JsonElement obj, string key) =>

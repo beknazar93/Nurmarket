@@ -407,19 +407,20 @@
                                     <Grid RowDefinitions="Auto,Auto"
                                           ColumnDefinitions="*,Auto,Auto,Auto"
                                           MinWidth="0">
-                                        <Border Grid.Row="0"
-                                                Grid.ColumnSpan="4"
-                                                IsVisible="{Binding HasDiscount}"
-                                                HorizontalAlignment="Right"
-                                                Background="#D32F2F"
-                                                CornerRadius="6"
-                                                Padding="9,4"
-                                                Margin="0,0,0,3">
-                                            <TextBlock Text="{Binding DiscountDisplayText}"
-                                                       Foreground="White"
-                                                       FontSize="12"
-                                                       FontWeight="Bold"/>
-                                        </Border>
+                                        <!-- 2026-10-03, владелец: «при скидке, если в убыток продаёт, — рядом с товаром показывать, сколько убытка». -->
+                                        <StackPanel Grid.Row="0" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="6"
+                                                    HorizontalAlignment="Right" Margin="0,0,0,3">
+                                            <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
+                                            <Border IsVisible="{Binding HasDiscount}"
+                                                    Background="#D32F2F"
+                                                    CornerRadius="6"
+                                                    Padding="9,4">
+                                                <TextBlock Text="{Binding DiscountDisplayText}"
+                                                           Foreground="White"
+                                                           FontSize="12"
+                                                           FontWeight="Bold"/>
+                                            </Border>
+                                        </StackPanel>
 
                                         <StackPanel Grid.Row="1"
                                                     Grid.Column="0"
@@ -459,6 +460,16 @@
                                                     Spacing="4"
                                                     Margin="0,0,6,0"
                                                     VerticalAlignment="Center">
+                                            <!-- 2026-10-03: строка ↔ оптовая цена (видно, если у товара есть оптовая цена). -->
+                                            <Button Classes="cart-qty"
+                                                    Focusable="False"
+                                                    IsVisible="{Binding CanWholesale}"
+                                                    Width="NaN" Padding="8,0"
+                                                    ToolTip.Tip="{DynamicResource csh.cart.wholesaleTooltip}"
+                                                    Command="{Binding WholesaleCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="{Binding WholesaleButtonText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            </Button>
                                             <Button Classes="cart-qty"
                                                     Focusable="False"
                                                     ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}"
@@ -481,7 +492,7 @@
                                                           CommandParameter="{Binding}">
                                                 <PathIcon Data="{StaticResource IconMinus}"/>
                                             </RepeatButton>
-                                            <TextBox Text="{Binding QuantityInput, Mode=TwoWay}"
+                                            <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5"
                                                      MinWidth="42" Height="32"
                                                      Background="{DynamicResource BrushInputAlt}"
                                                      BorderBrush="{DynamicResource BrushBorder}"
@@ -585,7 +596,7 @@
                                 <PathIcon Data="{StaticResource IconMinus}" Width="13" Height="13"/>
                             </RepeatButton>
                             <TextBox Grid.Column="1"
-                                     Text="{Binding ManualQuantity}"
+                                     Text="{Binding ManualQuantity}" MaxLength="5"
                                      BorderThickness="0"
                                      Background="Transparent"
                                      Foreground="{DynamicResource BrushText}"
@@ -720,7 +731,7 @@
 
                 <!-- Расширенные действия -->
                 <Grid Grid.Row="2"
-                      ColumnDefinitions="*,8,*,8,*"
+                      ColumnDefinitions="*,8,*,8,*,8,*"
                       HorizontalAlignment="Stretch"
                       Margin="0,0,0,6"
                       IsVisible="{Binding IsMoreActionsVisible}">
@@ -737,6 +748,12 @@
                             Classes="cart-action"
                             Content="{DynamicResource csh.cart.orderDiscount}"
                             Command="{Binding ApplyOrderDiscountCommand}"
+                            IsEnabled="{Binding HasItems}"/>
+                    <!-- 2026-10-03, клиент: «опт не только на весь чек, но и на сам товар». -->
+                    <Button Grid.Column="6"
+                            Classes="cart-action"
+                            Content="{DynamicResource csh.cart.wholesaleAll}"
+                            Command="{Binding WholesaleAllCommand}"
                             IsEnabled="{Binding HasItems}"/>
                 </Grid>
 

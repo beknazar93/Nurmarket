@@ -37,6 +37,22 @@ public sealed class CartLineItemVm : ViewModelBase
     public ICommand? WeighCommand { get; init; }
     public ICommand? DiscountCommand { get; init; }
     public ICommand? SetQuantityCommand { get; init; }
+    /// <summary>2026-10-03: строка ↔ оптовая цена.</summary>
+    public ICommand? WholesaleCommand { get; init; }
+    public bool IsWholesale { get; init; }
+
+    private bool _canWholesale;
+
+    /// <summary>У товара есть оптовая цена (или строка уже по опту) — кнопка «Опт» видна.</summary>
+    public bool CanWholesale
+    {
+        get => _canWholesale;
+        set => SetProperty(ref _canWholesale, value);
+    }
+
+    public string WholesaleButtonText => IsWholesale
+        ? Tr.T("Опт ✓", "Дүң ✓", "Wholesale ✓", "Toptan ✓", "Ulgurji ✓")
+        : Tr.T("Опт", "Дүң", "Wholesale", "Toptan", "Ulgurji");
 
     private string _quantityInput = "";
 
@@ -168,6 +184,50 @@ public sealed class CartLineItemVm : ViewModelBase
             ? " · " + Tr.T("было", "болгон", "was", "önce", "edi") + $" {basePrice.ToString("0.00", CultureInfo.InvariantCulture)} (−{Math.Round((1 - UnitPrice / basePrice) * 100):0}%)"
             : "");
 
-    public string LineTotalDisplay => $"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
+    // 2026-10-03, владелец: «при скидке, если в убыток продаёт, — на экране в корзине рядом с товаром показывать,
+    // сколько убытка». Считает BasketPanelViewModel.UpdateLossMarks: закупка × количество − сумма строки
+    // после скидки на позицию и её доли скидки на весь чек.
+    private double _lossAmount;
+    private double _unitCost;
+
+    public double LossAmount
+    {
+        get => _lossAmount;
+        set
+        {
+            if (!SetProperty(ref _lossAmount, value))
+                return;
+            OnPropertyChanged(nameof(HasLoss));
+            OnPropertyChanged(nameof(LossDisplayText));
+            OnPropertyChanged(nameof(LossTooltip));
+        }
+    }
+
+    /// <summary>Закупочная цена за единицу строки (за штуку при продаже поштучно из пачки).</summary>
+    public double UnitCost
+    {
+        get => _unitCost;
+        set
+        {
+            if (SetProperty(ref _unitCost, value))
+                OnPropertyChanged(nameof(LossTooltip));
+        }
+    }
+
+    public bool HasLoss => LossAmount > 0.005;
+
+    public string LossDisplayText => HasLoss
+        ? Tr.T("убыток", "зыян", "loss", "zarar", "zarar") + $" {LossAmount.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}"
+        : "";
+
+    public string LossTooltip => HasLoss
+        ? Tr.T($"Продаётся дешевле закупки: закупка {UnitCost:0.00} × {QuantityDisplay}, со скидкой — {LossAmount:0.00} сом убытка.",
+            $"Сатып алуу баасынан арзан сатылат: сатып алуу {UnitCost:0.00} × {QuantityDisplay}, арзандатуу менен — {LossAmount:0.00} сом зыян.",
+            $"Sold below cost: cost {UnitCost:0.00} × {QuantityDisplay}, with the discount — {LossAmount:0.00} som loss.",
+            $"Alış fiyatının altında satılıyor: alış {UnitCost:0.00} × {QuantityDisplay}, indirimle — {LossAmount:0.00} som zarar.",
+            $"Xarid narxidan arzon sotilmoqda: xarid {UnitCost:0.00} × {QuantityDisplay}, chegirma bilan — {LossAmount:0.00} so'm zarar.")
+        : "";
+
+    public string LineTotalDisplay =>$"{LineTotal.ToString("0.00", CultureInfo.InvariantCulture)} {Tr.T("сом", "сом", "som", "som", "so'm")}";
     public string LineTotalAmount => LineTotal.ToString("0.00", CultureInfo.InvariantCulture);
 }

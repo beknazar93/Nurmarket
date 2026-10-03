@@ -29,8 +29,9 @@ public static class TelegramAssistant
     public static (string? Command, string? Reply, bool Chat) Understand(string text, bool isOwner)
     {
         var words = Normalize(text);
+        // 2026-10-03, владелец (снимок чата): на «?» бот отвечал «Слушаю Вас…» без пользы — даём подсказку.
         if (words.Length == 0)
-            return (null, null, false);
+            return isOwner && text.Contains('?') ? ("help", null, false) : (null, null, false);
 
         // Покупатель (не владелец) может спросить только про свой долг.
         if (!isOwner)
@@ -56,9 +57,24 @@ public static class TelegramAssistant
         if (Has(words, InquiryWords))
             return (null, TelegramInquiryStore.BuildReport());
 
-        // 2026-10-02, владелец: «в боте тоже аренду и прокат добавь». «Кто не вернул прокат», «залоги».
-        if (Has(words, RentalWords) && RentalReport() is { } rentals)
-            return (null, rentals);
+        // 2026-10-03, владелец (снимок чата): «прокат джинсов» — бот отвечал «нет информации». Вещь
+        // названа — показываем её (размеры, цвета, остаток) и как выдать; иначе — отчёт о прокате.
+        if (Has(words, RentalWords))
+        {
+            var item = FindProducts(words.Where(w => !RentalWords.Any(r => w.StartsWith(r, StringComparison.Ordinal))).ToArray());
+            if (item.Count == 0)
+                item = FindByCategory(words);
+            if (item.Count > 0)
+                return (null, BuildProductReply(item) + "\nВыдать напрокат: касса → «Прокат» → «Новый прокат» (или в окне оплаты «Оформить как прокат»)."
+                    + (RentalReport() is { } r ? "\n\n" + r : ""));
+            if (RentalReport() is { } rentals)
+                return (null, rentals);
+        }
+
+        // 2026-10-03, владелец: «Какие одежды есть для покупки» — бот не находил: слово «одежда» — это
+        // категория, а не название товара. Список товаров категории с размерами и цветами.
+        if ((Has(words, ProductQueryWords) || Has(words, CatalogListWords)) && FindByCategory(words) is { Count: > 0 } inCategory)
+            return (null, BuildProductReply(inCategory));
 
         // Вопрос о конкретном товаре: «цена кола», «сколько осталось сахара», «кола бар бы».
         if (Has(words, ProductQueryWords) && FindProducts(words) is { Count: > 0 } found)
@@ -280,6 +296,8 @@ public static class TelegramAssistant
 
         var sb = new StringBuilder();
         var found = FindProducts(Normalize(question));
+        if (found.Count == 0)
+            found = FindByCategory(Normalize(question));
         if (found.Count > 0)
         {
             sb.AppendLine("Найдено по вопросу:");
@@ -310,6 +328,8 @@ public static class TelegramAssistant
             $"• {Escape(p.Title)} — {LocalCartService.ParsePrice(p.PriceLine).ToString("N2", Ru)} сом, {(p.Quantity > 0 ? "есть в наличии" : "нет в наличии")}";
 
         var found = FindProducts(words);
+        if (found.Count == 0)
+            found = FindByCategory(words);
         if (found.Count > 0)
             return string.Join("\n", found.Select((p, i) => Line(p) + (i < MaxVariantLookups ? Escape(VariantsText(p, withCounts: false)) : "") + Escape(AnalogText(p))));
 
@@ -399,6 +419,8 @@ public static class TelegramAssistant
         "цен", "стоит", "почем", "баа", "остат", "осталос", "наличи", "есть", "ли", "бар", "бы", "канча",
         "сколько", "какая", "какой", "какие", "у", "нас", "на", "в", "по", "а", "и", "за", "шт", "штук",
         "сом", "мне", "скажи", "покажи", "еще", "ещё", "складе", "склад", "товар", "товара", "бар бы", "или", "же", "вас", "у вас", "это",
+        // 2026-10-03: «какие одежды есть для покупки» — «для» и «покупки» не часть названия.
+        "для", "покупк", "купить", "продаж", "продать", "можно", "взять",
     };
 
     private static string[] Normalize(string text)
@@ -464,6 +486,43 @@ public static class TelegramAssistant
             .ToList();
     }
 
+    /// <summary>2026-10-03: слова вопроса, которые означают категорию (кыргызские и английские — к русской).</summary>
+    private static readonly (string Word, string Category)[] CategorySynonyms =
+    {
+        ("кийим", "одеж"), ("clothes", "одеж"), ("одеж", "одеж"), ("обув", "обув"), ("бут", "обув"), ("дары", "лекар"), ("лекарств", "лекар"),
+    };
+
+    /// <summary>2026-10-03: товары категории, названной в вопросе («какие одежды есть», «кийим барбы»):
+    /// слово (первые 4 буквы) содержится в названии категории. Сначала в наличии, не больше 20.</summary>
+    private static List<CatalogProductTileVm> FindByCategory(string[] words)
+    {
+        List<CatalogProductTileVm> products;
+        try
+        {
+            products = CatalogCacheService.Products.Where(p => !string.IsNullOrWhiteSpace(p.Title) && !string.IsNullOrWhiteSpace(p.Category)).ToList();
+        }
+        catch
+        {
+            return [];
+        }
+        if (products.Count == 0)
+            return [];
+
+        var keys = new List<string>();
+        foreach (var w in words.Where(w => w.Length >= 4 && !NotProductWords.Any(n => IsStopWord(w, n))))
+        {
+            var syn = CategorySynonyms.FirstOrDefault(x => w.StartsWith(x.Word, StringComparison.Ordinal));
+            keys.Add(syn.Category ?? w[..Math.Min(4, w.Length)]);
+        }
+        foreach (var key in keys.Distinct())
+        {
+            var match = products.Where(p => p.Category!.ToLowerInvariant().Replace('ё', 'е').Contains(key, StringComparison.Ordinal)).ToList();
+            if (match.Count > 0)
+                return match.OrderByDescending(p => p.Quantity > 0).ThenBy(p => p.Title).Take(20).ToList();
+        }
+        return [];
+    }
+
     /// <summary>Короткие служебные слова («в», «у», «ли») — только целиком, иначе «вода» потерялась бы
     /// из-за «в»; длинные — по началу слова с окончанием («цены», «остатки»).</summary>
     private static bool IsStopWord(string word, string stop) =>
@@ -472,6 +531,7 @@ public static class TelegramAssistant
     private static string BuildProductReply(List<CatalogProductTileVm> products)
     {
         var sb = new StringBuilder();
+        var lookups = 0;
         sb.AppendLine(products.Count == 1 ? "<b>Нашёл товар</b>" : $"<b>Нашёл товаров: {products.Count}</b>");
         sb.AppendLine();
         foreach (var p in products)
@@ -480,6 +540,9 @@ public static class TelegramAssistant
             var stock = p.Quantity.ToString("0.###", Ru) + (string.IsNullOrWhiteSpace(p.Unit) ? "" : " " + p.Unit);
             sb.AppendLine($"• <b>{Escape(p.Title)}</b>");
             sb.AppendLine($"  цена {price.ToString("N2", Ru)} сом · остаток {stock}");
+            // 2026-10-03: владельцу — тоже размеры и цвета (раньше только покупателю), по первым пяти товарам.
+            if (lookups++ < MaxVariantLookups && VariantsText(p, withCounts: true) is { Length: > 0 } variants)
+                sb.AppendLine("  " + Escape(variants.Trim()));
         }
 
         return sb.ToString();

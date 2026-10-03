@@ -472,6 +472,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-01, ТЗ-BE-2026-04 (AN-11, AN-12 сделаны сервером): прибыль (P&L), движение денег и сверка отчётов.
         Add("profitcash", "FinanceIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), !isStart,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("profitcash", () => new ProfitCashReconcileWindow()); });
+        // 2026-10-03, владелец: «если в убыток продаёт со скидкой — фиксировать в админке».
+        Add("losssales", "ReturnIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), true,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("losssales", () => new LossSalesWindow()); });
 
         // 2026-09-29, владелец: «заказы с сайта тоже должны падать в админку. Настройки сайта тоже».
         // Видны на любом тарифе: если витрина не подключена (на «Старте» это платная услуга NurCRM),

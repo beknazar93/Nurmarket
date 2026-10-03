@@ -802,6 +802,7 @@
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                             <Button Grid.Column="1" Classes="PrimaryButton"
                                     Content="{DynamicResource warehouse.receivingCommit}"
+                                    Click="ReceivingCommit_Click"
                                     Command="{Binding CommitReceivingCommand}"/>
                         </Grid>
                     </Grid>

@@ -13,47 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Прокат прямо из оплаты: кнопка «Оформить как прокат (аренда)» в окне оплаты — вещи и цена переносятся сами, оплата любым способом, в чеке строка «Прокат №N»",
-        "Возврат по номеру с чека: «Прокат» → поле «№ проката с чека» → Enter — прокат закрывается",
-        "Напоминания о сроке проката: в программе владельца — звуковой сигнал, число у «Прокат» и карточка «вернуть сегодня / завтра / просрочено», владельцу в Телеграм — сообщение; в списке проката — оранжевая отметка",
-        "В окне проката: список клиентов — выпадающий, с прокруткой, открывается сразу; можно добавить нового клиента; в истории покупок клиента — его прокаты",
-        "Пустой чек закрывается сам при переходе на другой чек; новый пустой чек не создаётся, если текущий и так пустой",
+        "Продажа в убыток: у товара в чеке «убыток N сом», если со скидкой он дешевле закупки; предупреждение кассиру; раздел владельца «Продажи в убыток»",
+        "Документы из чека на A4: товарный чек и накладная — в «Истории чеков» и в «Продажах»",
+        "Опт: кнопка «Опт» у товара в чеке и «Опт на весь чек» в «Ещё» (по оптовой цене из карточки)",
+        "Предоплата при продаже в долг: выбор «Наличные / Безнал» (включается в настройках)",
+        "Сканер находит товар с 12-значным кодом, если в каталоге он записан с нулём впереди; название нового товара — сразу из базы NurCRM",
+        "Приёмка: «Убрать» работает и при открытой правке ячейки; поле количества — не больше 5 знаков, скан в нём не превращается в количество",
+        "Телеграм-бот: кнопки в стиле Telegram, видно, работает ли ИИ на сервере; бот понимает «какие одежды есть», «прокат джинсов»",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Прокат төлөмдөн түз: төлөм терезесинде «Прокат (ижара) катары тариздөө» баскычы — буюмдар жана баа өзү өтөт, каалаган жол менен төлөө, чекте «Прокат №N» сабы",
-        "Чектеги номер боюнча кайтаруу: «Прокат» → «Чектеги прокат №» талаасы → Enter — прокат жабылат",
-        "Прокаттын мөөнөтү жөнүндө эскертүү: ээсинин программасында үн сигналы, «Прокаттын» жанында сан жана «бүгүн / эртең кайтаруу / мөөнөтү өттү» карточкасы, ээсине Телеграмга билдирүү; прокат тизмесинде кызгылт сары белги",
-        "Прокат терезесинде: кардарлар тизмеси — ачылма, жылдыруу менен, дароо ачылат; жаңы кардар кошсо болот; кардардын сатып алуулар тарыхында анын прокаттары",
-        "Бош чек башка чекке өткөндө өзү жабылат; учурдагы чек бош болсо, жаңы бош чек түзүлбөйт",
+        "Зыян менен сатуу: арзандатуу менен товар сатып алуу баасынан арзан болсо, чекте «зыян N сом»; кассирге эскертүү; ээсинин «Зыян менен сатуулар» бөлүмү",
+        "Чектен A4 документтер: товардык чек жана накладной — «Чектердин тарыхында» жана «Сатууларда»",
+        "Дүң: чектеги товардын «Дүң» баскычы жана «Дагы» ичинде «Бүт чекке дүң» (карточкадагы дүң баа боюнча)",
+        "Карызга сатууда алдын ала төлөм: «Накталай / Накталай эмес» тандоо (жөндөөлөрдөн күйгүзүлөт)",
+        "Сканер каталогдо алдында нөлү менен жазылган 12 орундуу коддуу товарды табат; жаңы товардын аталышы — дароо NurCRM базасынан",
+        "Кабыл алуу: уячаны оңдоо ачык болсо да «Алып салуу» иштейт; сан талаасы — 5 белгиден ашпайт, скан санга айланбайт",
+        "Телеграм-бот: Telegram стилиндеги баскычтар, серверде ЖИ иштеп жатабы — көрүнөт; бот «кандай кийим бар», «джинсы прокаты» дегенди түшүнөт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Rental right from payment: “Make it a rental” button in the payment window — items and price carry over, any payment method, the receipt shows “Rental #N”",
-        "Take back by the receipt number: “Rentals” → “Rental # from receipt” field → Enter — the rental is closed",
-        "Rental due reminders: in the owner app — a sound, a count next to “Rentals” and a “due today / tomorrow / overdue” card, a Telegram message to the owner; an orange mark in the rental list",
-        "In the rental window: the client list is a scrolling drop-down that opens at once; a new client can be added; the client's purchase history shows their rentals",
-        "An empty receipt closes itself when you switch to another one; no new empty receipt if the current one is already empty",
+        "Selling at a loss: a “loss N som” mark on the item when the discount takes it below cost; a warning for the cashier; owner section “Sales at a loss”",
+        "A4 documents from a receipt: sales receipt and waybill — in “Receipt history” and “Sales”",
+        "Wholesale: a “Wholesale” button on a receipt line and “Wholesale for receipt” in “More” (wholesale price from the product card)",
+        "Prepayment on credit sales: choose “Cash / Cashless” (turned on in settings)",
+        "The scanner finds a product with a 12-digit code stored with a leading zero; a new product’s name comes from the NurCRM base right away",
+        "Receiving: “Remove” works even while a cell is being edited; the quantity field takes up to 5 characters, a scan there doesn’t become a quantity",
+        "Telegram bot: Telegram-style buttons, you can see whether the AI works on the server; the bot understands “what clothes do you have”, “jeans rental”",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Ödemeden doğrudan kiralama: ödeme penceresinde «Kiralama olarak düzenle» düğmesi — ürünler ve fiyat kendiliğinden aktarılır, her ödeme yöntemi, fişte «Kiralama №N» satırı",
-        "Fiş numarasıyla iade: «Kiralama» → «Fişteki kiralama №» alanı → Enter — kiralama kapanır",
-        "Kiralama süresi hatırlatmaları: işletme sahibi programında sesli uyarı, «Kiralama» yanında sayı ve «bugün / yarın iade / gecikmiş» kartı, sahibine Telegram mesajı; kiralama listesinde turuncu işaret",
-        "Kiralama penceresinde: müşteri listesi kaydırmalı açılır liste, hemen açılır; yeni müşteri eklenebilir; müşterinin satın alma geçmişinde kiralamaları",
-        "Boş fiş başka fişe geçince kendiliğinden kapanır; mevcut fiş zaten boşsa yeni boş fiş açılmaz",
+        "Zararına satış: indirimle ürün alış fiyatının altına düşerse fişte «zarar N som»; kasiyere uyarı; işletme sahibi bölümü «Zararına satışlar»",
+        "Fişten A4 belgeler: satış fişi ve irsaliye — «Fiş geçmişi» ve «Satışlar» içinde",
+        "Toptan: fiş satırında «Toptan» düğmesi ve «Diğer» içinde «Tüm fişe toptan» (karttaki toptan fiyatla)",
+        "Veresiye satışta ön ödeme: «Nakit / Nakitsiz» seçimi (ayarlardan açılır)",
+        "Tarayıcı, katalogda başında sıfırla kayıtlı 12 haneli kodlu ürünü bulur; yeni ürünün adı hemen NurCRM tabanından gelir",
+        "Mal kabul: hücre düzenlenirken de «Kaldır» çalışır; miktar alanı en fazla 5 karakter, orada okutulan barkod miktar olmaz",
+        "Telegram botu: Telegram tarzı düğmeler, yapay zekânın sunucuda çalışıp çalışmadığı görünür; bot «hangi giysiler var», «kot kiralama» sorularını anlar",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "To'lovdan to'g'ridan-to'g'ri prokat: to'lov oynasida «Prokat (ijara) sifatida rasmiylashtirish» tugmasi — buyumlar va narx o'zi o'tadi, istalgan to'lov usuli, chekda «Prokat №N» qatori",
-        "Chekdagi raqam bo'yicha qaytarish: «Prokat» → «Chekdagi prokat №» maydoni → Enter — prokat yopiladi",
-        "Prokat muddati eslatmalari: egasi dasturida ovozli signal, «Prokat» yonida son va «bugun / ertaga qaytarish / muddati o'tgan» kartasi, egasiga Telegramda xabar; prokat ro'yxatida to'q sariq belgi",
-        "Prokat oynasida: mijozlar ro'yxati — aylantiriladigan ochiluvchi ro'yxat, darhol ochiladi; yangi mijoz qo'shish mumkin; mijozning xaridlar tarixida uning prokatlari",
-        "Bo'sh chek boshqa chekka o'tganda o'zi yopiladi; joriy chek bo'sh bo'lsa, yangi bo'sh chek ochilmaydi",
+        "Zarariga sotish: chegirma bilan mahsulot xarid narxidan arzon bo'lsa, chekda «zarar N so'm»; kassirga ogohlantirish; egasi bo'limi «Zarariga sotuvlar»",
+        "Chekdan A4 hujjatlar: tovar cheki va yuk xati — «Cheklar tarixi» va «Sotuvlar»da",
+        "Ulgurji: chek qatorida «Ulgurji» tugmasi va «Yana»da «Butun chekka ulgurji» (kartadagi ulgurji narx bo'yicha)",
+        "Qarzga sotishda oldindan to'lov: «Naqd / Naqdsiz» tanlovi (sozlamalarda yoqiladi)",
+        "Skaner katalogda oldida nol bilan yozilgan 12 xonali kodli mahsulotni topadi; yangi mahsulot nomi — darhol NurCRM bazasidan",
+        "Qabul qilish: katak tahrirlanayotganda ham «Olib tashlash» ishlaydi; miqdor maydoni — 5 belgidan oshmaydi, u yerdagi skan miqdorga aylanmaydi",
+        "Telegram bot: Telegram uslubidagi tugmalar, serverda SI ishlayaptimi — ko'rinadi; bot «qanday kiyimlar bor», «jinsi prokati»ni tushunadi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

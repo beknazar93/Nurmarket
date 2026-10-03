@@ -449,6 +449,31 @@ namespace NurMarketKassa.ViewModels
         public bool IsCashMode => _paymentMethod == "cash";
         public bool IsBankSelectionVisible => _paymentMethod is "transfer" or "mixed";
         public bool IsDebtMode => _paymentMethod == "debt";
+
+        // 2026-10-03, клиент: «при оплате долга предоплата куда падает? Нужен выбор, как он даёт предоплату;
+        // включать и выключать в настройках» (UserPreferences.DebtPrepaymentChooseMethod).
+        private bool _debtPrepaymentNonCash;
+
+        public bool ShowDebtPrepaymentMethod => IsDebtMode && NurMarketKassa.Services.UserPreferences.Instance.DebtPrepaymentChooseMethod;
+
+        public bool IsDebtPrepaymentCash
+        {
+            get => !_debtPrepaymentNonCash;
+            set { if (value) IsDebtPrepaymentNonCash = false; }
+        }
+
+        public bool IsDebtPrepaymentNonCash
+        {
+            get => _debtPrepaymentNonCash;
+            set
+            {
+                if (_debtPrepaymentNonCash == value)
+                    return;
+                _debtPrepaymentNonCash = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsDebtPrepaymentCash));
+            }
+        }
         public bool IsMixedMode => _paymentMethod == "mixed";
         public bool CanPay => CanExecutePay(null);
 
@@ -739,7 +764,10 @@ namespace NurMarketKassa.ViewModels
         public string? NonCashReceivedForApi =>
             PaymentMethod == "mixed"
                 ? (ParseNonNegative(_mixedNonCashAmount) ?? 0).ToString("0.00", CultureInfo.InvariantCulture)
-                : null;
+                // 2026-10-03: предоплата долга безналом — вся внесённая сумма (cash_received несёт её же целиком).
+                : PaymentMethod == "debt" && ShowDebtPrepaymentMethod && _debtPrepaymentNonCash && ParseNonNegative(_debtCashReceived) is > 0.005
+                    ? ParseNonNegative(_debtCashReceived)!.Value.ToString("0.00", CultureInfo.InvariantCulture)
+                    : null;
 
         public Dictionary<string, string>? PendingOrderDiscountBody
         {
@@ -1140,6 +1168,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(IsCashMode));
             OnPropertyChanged(nameof(IsBankSelectionVisible));
             OnPropertyChanged(nameof(IsDebtMode));
+            OnPropertyChanged(nameof(ShowDebtPrepaymentMethod));
             OnPropertyChanged(nameof(IsMixedMode));
             OnPropertyChanged(nameof(ShowClientSection));
             OnPropertyChanged(nameof(PayButtonText));

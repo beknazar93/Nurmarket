@@ -1503,4 +1503,13 @@
   <x:String x:Key="scalesPlu.refreshFromServerTip">Ürünleri, fiyatları ve PLU'ları NurCRM sunucusundan yeniden indirip listeyi yenile. İnternet yoksa kayıtlı katalog kalır.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategori</x:String>
   <x:String x:Key="finance.kpiDetailsTip">Ayrıntılar için dokunun: dönemin fişleri ve ürünleri</x:String>
+  <x:String x:Key="receiptHistory.docSalesReceipt">Satış fişi (A4)</x:String>
+  <x:String x:Key="receiptHistory.docWaybill">İrsaliye (A4)</x:String>
+  <x:String x:Key="csh.checkout.prepayMethod">Ön ödeme:</x:String>
+  <x:String x:Key="csh.checkout.prepayCash">Nakit</x:String>
+  <x:String x:Key="csh.checkout.prepayNonCash">Nakitsiz</x:String>
+  <x:String x:Key="settings.debtPrepayChoice">Veresiye satışta ön ödeme: «Nakit / Nakitsiz» seçimi</x:String>
+  <x:String x:Key="settings.debtPrepayChoiceHint">Açıkken kasiyer «Veresiye» ödeme penceresinde ön ödemenin nasıl yapıldığını seçer. Nakitsiz ödeme vardiya nakdine girmez.</x:String>
+  <x:String x:Key="csh.cart.wholesaleAll">Tüm fişe toptan</x:String>
+  <x:String x:Key="csh.cart.wholesaleTooltip">Toptan fiyatla sat (tekrar — perakendeye dön)</x:String>
 </ResourceDictionary>

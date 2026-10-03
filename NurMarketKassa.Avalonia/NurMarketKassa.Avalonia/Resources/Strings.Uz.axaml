@@ -1503,4 +1503,13 @@
   <x:String x:Key="scalesPlu.refreshFromServerTip">Tovarlar, narxlar va PLUlarni NurCRM serveridan qayta yuklab, ro'yxatni yangilash. Internet bo'lmasa, saqlangan katalog qoladi.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Kategoriya</x:String>
   <x:String x:Key="finance.kpiDetailsTip">Bosing — batafsil: davr cheklari va mahsulotlari</x:String>
+  <x:String x:Key="receiptHistory.docSalesReceipt">Tovar cheki (A4)</x:String>
+  <x:String x:Key="receiptHistory.docWaybill">Yuk xati (A4)</x:String>
+  <x:String x:Key="csh.checkout.prepayMethod">Oldindan to'lov:</x:String>
+  <x:String x:Key="csh.checkout.prepayCash">Naqd</x:String>
+  <x:String x:Key="csh.checkout.prepayNonCash">Naqdsiz</x:String>
+  <x:String x:Key="settings.debtPrepayChoice">Qarzga sotishda oldindan to'lov: «Naqd / Naqdsiz» tanlovi</x:String>
+  <x:String x:Key="settings.debtPrepayChoiceHint">Yoqilsa — kassir «Qarzga» to'lov oynasida oldindan to'lov qanday qilinganini tanlaydi. Naqdsiz to'lov smena naqdiga kirmaydi.</x:String>
+  <x:String x:Key="csh.cart.wholesaleAll">Butun chekka ulgurji</x:String>
+  <x:String x:Key="csh.cart.wholesaleTooltip">Ulgurji narxda sotish (yana bir marta — chakanaga qaytish)</x:String>
 </ResourceDictionary>

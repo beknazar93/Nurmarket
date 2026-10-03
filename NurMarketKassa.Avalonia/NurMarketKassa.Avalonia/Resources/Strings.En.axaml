@@ -1503,4 +1503,13 @@
   <x:String x:Key="scalesPlu.refreshFromServerTip">Download products, prices and PLUs from the NurCRM server again and rebuild the list. Without internet the saved catalog stays.</x:String>
   <x:String x:Key="scalesPlu.colCategory">Category</x:String>
   <x:String x:Key="finance.kpiDetailsTip">Tap for details: receipts and products for the period</x:String>
+  <x:String x:Key="receiptHistory.docSalesReceipt">Sales receipt (A4)</x:String>
+  <x:String x:Key="receiptHistory.docWaybill">Waybill (A4)</x:String>
+  <x:String x:Key="csh.checkout.prepayMethod">Prepayment:</x:String>
+  <x:String x:Key="csh.checkout.prepayCash">Cash</x:String>
+  <x:String x:Key="csh.checkout.prepayNonCash">Cashless</x:String>
+  <x:String x:Key="settings.debtPrepayChoice">Prepayment on credit sales: choose “Cash / Cashless”</x:String>
+  <x:String x:Key="settings.debtPrepayChoiceHint">When on, the cashier chooses how the prepayment was made in the “On credit” payment window. Cashless does not count as shift cash.</x:String>
+  <x:String x:Key="csh.cart.wholesaleAll">Wholesale for receipt</x:String>
+  <x:String x:Key="csh.cart.wholesaleTooltip">Sell at the wholesale price (again — back to retail)</x:String>
 </ResourceDictionary>

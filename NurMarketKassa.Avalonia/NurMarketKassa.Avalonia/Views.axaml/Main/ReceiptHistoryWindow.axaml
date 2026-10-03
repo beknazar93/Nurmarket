@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.ReceiptHistoryWindow"
         x:CompileBindings="False"
@@ -331,7 +331,7 @@
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Foreground="{DynamicResource BrushTextSoft}"/>
 
-            <Grid x:Name="DetailsPanel" IsVisible="False" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+            <Grid x:Name="DetailsPanel" IsVisible="False" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
 
               <!-- 0: номер, статус, время, кассир -->
               <StackPanel Grid.Row="0" Spacing="4">
@@ -444,9 +444,20 @@
                              TextWrapping="Wrap" TextAlignment="Center"/>
                 </Button>
               </Grid>
+              <!-- 2026-10-03, владелец: «нужна кнопка для печати документов из чека» — лист A4 в браузере. -->
+              <Grid Grid.Row="5" Margin="0,10,0,0" ColumnDefinitions="*,10,*">
+                <Button x:Name="DocReceiptButton" Grid.Column="0" Classes="btn-secondary" MinHeight="40"
+                        HorizontalAlignment="Stretch" IsEnabled="False" Click="DocReceipt_Click">
+                  <TextBlock Text="{DynamicResource receiptHistory.docSalesReceipt}" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+                <Button x:Name="DocWaybillButton" Grid.Column="2" Classes="btn-secondary" MinHeight="40"
+                        HorizontalAlignment="Stretch" IsEnabled="False" Click="DocWaybill_Click">
+                  <TextBlock Text="{DynamicResource receiptHistory.docWaybill}" TextWrapping="Wrap" TextAlignment="Center"/>
+                </Button>
+              </Grid>
 
               <!-- 5: результат печати -->
-              <TextBlock x:Name="ActionMessage" Grid.Row="5" IsVisible="False"
+              <TextBlock x:Name="ActionMessage" Grid.Row="6" IsVisible="False"
                          Margin="0,8,0,0" FontSize="13" FontWeight="SemiBold"
                          TextWrapping="Wrap" TextAlignment="Center"/>
             </Grid>

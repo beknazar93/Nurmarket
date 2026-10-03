@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using NurMarketKassa.Services.Api;
@@ -21,8 +21,9 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed partial class TelegramBotPollingService
 {
-    /// <summary>Порог «заканчивается» для /ostatki — как у старого локального отчёта.</summary>
-    private const double LowStockThreshold = 3;
+    /// <summary>Порог «заканчивается» для /ostatki. 2026-10-03: был 3, а склад и аналитика считают
+    /// «мало» ниже 10 — отчёты не сходились («22 в одном, 11 в другом»). Теперь один порог на всё.</summary>
+    private const double LowStockThreshold = NurMarketKassa.Models.Pos.CatalogProductTileVm.LowStockQuantityThreshold;
 
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 

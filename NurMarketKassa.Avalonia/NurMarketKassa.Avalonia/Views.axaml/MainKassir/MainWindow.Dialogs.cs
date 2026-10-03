@@ -328,6 +328,10 @@ public partial class MainWindow
         if (PosDialogHost.Show(dialog, this) != true)
             return Task.CompletedTask;
 
+        // 2026-10-03: кассир выбрал подсказанный товар каталога — продаём товаром, а не строкой без товара.
+        if (dialog.SelectedProduct is { } product)
+            return AddProductFromCatalogAsync(product);
+
         if (dialog.IsExpense && !_viewModel.Basket.HasItems)
         {
             RecordCashWithdrawal(dialog.ServiceName, dialog.Price * dialog.Quantity);
@@ -617,6 +621,9 @@ public partial class MainWindow
         _viewModel.Basket.CartMessage = dialog.ClearRequested
             ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
             : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");
+        // 2026-10-03: скидка увела товар ниже закупки — предупреждаем сразу.
+        if (!dialog.ClearRequested)
+            _viewModel.Basket.WarnIfSellingAtLoss();
         return Task.CompletedTask;
     }
 

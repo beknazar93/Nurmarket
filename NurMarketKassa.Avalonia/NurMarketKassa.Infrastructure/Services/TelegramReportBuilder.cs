@@ -163,10 +163,10 @@ public static class TelegramReportBuilder
     }
 
     /// <summary>Товары с нулевым или почти нулевым остатком — без привязки к скорости продаж.</summary>
-    public static string BuildLowStock(double threshold = 3, int take = 20)
+    public static string BuildLowStock(double threshold = NurMarketKassa.Models.Pos.CatalogProductTileVm.LowStockQuantityThreshold, int take = 20)
     {
         var low = CatalogCacheService.Products
-            .Where(p => p.Quantity <= threshold)
+            .Where(p => p.Quantity < threshold)
             .OrderBy(p => p.Quantity)
             .Take(take)
             .ToList();

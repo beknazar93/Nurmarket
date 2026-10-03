@@ -312,10 +312,18 @@ public partial class WarehouseWindow : Window, IOwnerSection
         ReceivingScanBox.Focus();
     }
 
+    /// <summary>2026-10-03: «Оприходовать» при открытой правке ячейки — сначала дописываем правку (Click идёт раньше
+    /// команды): иначе проведённая строка вернулась бы в таблицу при уходе с вкладки и её провели бы второй раз.</summary>
+    private void ReceivingCommit_Click(object? sender, RoutedEventArgs e) => ReceivingGrid.CommitEdit();
+
     private void ReceivingRemove_Click(object? sender, RoutedEventArgs e)
     {
         if (ReceivingGrid.SelectedItem is NurMarketKassa.Models.ReceivingLineVm line)
         {
+            // 2026-10-03, владелец: «в приёмке нажал „Убрать“, перешёл на другие вкладки — убранные товары
+            // вернулись». Воспроизведено: строка была в режиме правки ячейки (нажали «Принято»/цену); при уходе
+            // с вкладки таблица дописывала незаконченную правку и возвращала строку. Сначала отменяем правку.
+            ReceivingGrid.CancelEdit();
             _viewModel.ReceivingLines.Remove(line);
             RefreshReceivingSummary();
         }
@@ -683,7 +691,11 @@ public partial class WarehouseWindow : Window, IOwnerSection
         var units = products.Sum(p => p.Quantity);
         var purchaseValue = products.Sum(p => p.Quantity * p.PurchasePrice);
         var saleValue = products.Sum(p => p.Quantity * ParsePriceValue(p.PriceLine));
-        var lowOrOut = products.Count(p => p.Quantity <= 0 || p.IsLowStock);
+        // 2026-10-03, владелец: «„Мало на складе“: 22 в одном отчёте и 11 в другом». Здесь «Заканчивается»
+        // считало вместе и малый остаток, и нулевые, а «Аналитика склада» — только малый. Теперь как там:
+        // «Заканчивается» — остаток больше 0, но меньше 10; «Нет в наличии» — отдельно.
+        var low = products.Count(p => p.IsLowStock && p.Quantity > 0);
+        var outOfStock = products.Count(p => p.Quantity <= 0);
 
         WarehouseTotalsPanel.ItemsSource = new List<KpiCardVm>
         {
@@ -691,7 +703,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             new() { Label = Tr.T("Единиц на складе:", "Кампадагы бирдик:", "Units in stock:", "Stoktaki adet:", "Ombordagi birliklar:"), Value = units.ToString("N0") },
             new() { Label = Tr.T("По закупке:", "Сатып алуу баасы боюнча:", "At cost:", "Alış fiyatıyla:", "Xarid narxida:"), Value = $"{purchaseValue:N0} " + Tr.T("сом", "сом", "som", "som", "so'm") },
             new() { Label = Tr.T("По продаже:", "Сатуу баасы боюнча:", "At sale price:", "Satış fiyatıyla:", "Sotuv narxida:"), Value = $"{saleValue:N0} " + Tr.T("сом", "сом", "som", "som", "so'm") },
-            new() { Label = Tr.T("Заканчивается:", "Түгөнүп баратат:", "Running low:", "Tükenmek üzere:", "Tugab bormoqda:"), Value = lowOrOut.ToString("N0") },
+            new() { Label = Tr.T("Заканчивается:", "Түгөнүп баратат:", "Running low:", "Tükenmek üzere:", "Tugab bormoqda:"), Value = low.ToString("N0") },
+            new() { Label = Tr.T("Нет в наличии:", "Калдыкта жок:", "Out of stock:", "Stokta yok:", "Mavjud emas:"), Value = outOfStock.ToString("N0") },
         };
     }
 

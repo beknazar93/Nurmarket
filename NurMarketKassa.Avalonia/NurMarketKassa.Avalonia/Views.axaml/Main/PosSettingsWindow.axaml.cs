@@ -140,6 +140,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private RadioButton DoubleClickToCartRadio => _screenView.DoubleClickToCartRadio;
         private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
         private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
+        private CheckBox DebtPrepayChoiceCheck => _screenView.DebtPrepayChoiceCheck;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
 
         // --- Updates ---
@@ -290,6 +291,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DoubleClickToCartRadio.IsChecked = !prefs.SingleClickToCart;
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
             ResetManualAddQtyCheck.IsChecked = prefs.ResetManualAddQtyAfterAdd;
+            DebtPrepayChoiceCheck.IsChecked = prefs.DebtPrepaymentChooseMethod;
 
             // Вид кассы (раскладка) выбирается карточками прямо в ScreenSettingsView
             // (2026-09-28, шесть раскладок вместо двух радиокнопок) и применяется сразу.
@@ -428,6 +430,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DoubleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             SingleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
             ResetManualAddQtyCheck.IsCheckedChanged += ClickToCartMode_Changed;
+            // 2026-10-03: выбор способа предоплаты долга — сохраняется сразу.
+            DebtPrepayChoiceCheck.IsCheckedChanged += (_, _) =>
+            {
+                UserPreferences.Instance.DebtPrepaymentChooseMethod = DebtPrepayChoiceCheck.IsChecked == true;
+                UserPreferences.Instance.SaveToDisk();
+            };
             _screenView.SaveRequested += ScreenSaveRequested;
             _screenView.UiScaleChanged += (_, _) => RefreshUiScale();
             VoiceControlOpenMarketplaceButton.Click += (_, _) => NavigateToMarketplaceExtras();

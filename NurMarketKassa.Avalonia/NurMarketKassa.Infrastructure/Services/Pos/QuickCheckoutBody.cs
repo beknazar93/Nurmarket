@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -146,8 +146,11 @@ public static class QuickCheckoutBody
                 // 2026-10-01, ТЗ-BE-2026-04 AN-01 (сервер сделал): внесённое сразу при продаже в долг —
                 // с разбивкой. Касса принимает предоплату долга наличными, поэтому всё — в cash_amount:
                 // сервер кладёт её в «Наличные» продажи и в ожидаемую наличность смены (AN-02).
-                payment["cash_amount"] = received;
-                payment["card_amount"] = "0.00";
+                // 2026-10-03: если кассир выбрал «Безнал» (настройка DebtPrepaymentChooseMethod), безналичная
+                // часть приходит в nonCashReceived — она идёт в card_amount и в наличность смены не попадает.
+                var card = Math.Min(prepaid, decimal.TryParse(Money(nonCashReceived), NumberStyles.Any, CultureInfo.InvariantCulture, out var nc) ? nc : 0m);
+                payment["cash_amount"] = (prepaid - card).ToString("0.00", CultureInfo.InvariantCulture);
+                payment["card_amount"] = card.ToString("0.00", CultureInfo.InvariantCulture);
             }
 
             body["payment"] = payment;

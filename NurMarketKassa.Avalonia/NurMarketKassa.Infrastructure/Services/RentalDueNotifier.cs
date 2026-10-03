@@ -175,12 +175,14 @@ public static class RentalDueNotifier
             return;
 
         // Касса и программа владельца на одном ПК: отправляет та, что первой взяла замок.
-        using var mutex = new Mutex(false, @"Local\NurMarketRentalAlerts");
+        // 2026-10-03, журнал: «Object synchronization method was called from an unsynchronized block of code» —
+        // Mutex привязан к потоку, а после await отправки в Телеграм ReleaseMutex шёл с другого потока.
+        // Именованный семафор между процессами к потоку не привязан.
+        using var gate = new Semaphore(1, 1, @"Local\NurMarketRentalAlerts");
         var owned = false;
         try
         {
-            try { owned = mutex.WaitOne(TimeSpan.FromSeconds(30)); }
-            catch (AbandonedMutexException) { owned = true; }
+            owned = gate.WaitOne(TimeSpan.FromSeconds(30));
             if (!owned)
                 return;
 
@@ -213,7 +215,7 @@ public static class RentalDueNotifier
         finally
         {
             if (owned)
-                mutex.ReleaseMutex();
+                gate.Release();
         }
     }
 

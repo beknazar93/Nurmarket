@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -218,6 +218,7 @@ public partial class ReceiptHistoryWindow : Window
         DetailErrorText.IsVisible = false;
         ActionMessage.IsVisible = false;
         PrintCopyButton.IsEnabled = false;
+        DocReceiptButton.IsEnabled = DocWaybillButton.IsEnabled = false;
         DetailLoadingBar.IsVisible = true;
 
         try
@@ -230,6 +231,7 @@ public partial class ReceiptHistoryWindow : Window
             _shownDetailId = row.Entry.Id;
             FillDetails(row, detail);
             PrintCopyButton.IsEnabled = true;
+            DocReceiptButton.IsEnabled = DocWaybillButton.IsEnabled = true;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -431,6 +433,30 @@ public partial class ReceiptHistoryWindow : Window
         {
             _printing = false;
             PrintCopyButton.IsEnabled = _selectedDetail != null;
+        }
+    }
+
+    // 2026-10-03, владелец: «нужна кнопка для печати документов из чека». Товарный чек или накладная на A4.
+    private void DocReceipt_Click(object? sender, RoutedEventArgs e) => OpenDocument(SaleDocumentHtmlBuilder.Kind.SalesReceipt);
+
+    private void DocWaybill_Click(object? sender, RoutedEventArgs e) => OpenDocument(SaleDocumentHtmlBuilder.Kind.Waybill);
+
+    private void OpenDocument(SaleDocumentHtmlBuilder.Kind kind)
+    {
+        if (_selected is not { } row || _selectedDetail is not { } detail)
+            return;
+        try
+        {
+            var total = row.Entry.IsLocal ? row.Entry.Total : SalesWindow.ReadSaleTotal(detail) ?? row.Entry.Total;
+            SaleDocumentHtmlBuilder.OpenForPrint(detail, row.Entry.ReceiptNumber, total, kind);
+            ShowAction(Tr.T("Документ открыт в браузере — там же окно печати.", "Документ браузерде ачылды — басып чыгаруу терезеси ошол жерде.",
+                "The document opened in the browser with the print dialog.", "Belge tarayıcıda yazdırma penceresiyle açıldı.",
+                "Hujjat brauzerda chop etish oynasi bilan ochildi."), ok: true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: документ не открыт: {ex}", "PRINTER");
+            ShowAction(Tr.T("Документ не открылся: ", "Документ ачылган жок: ", "The document did not open: ", "Belge açılmadı: ", "Hujjat ochilmadi: ") + ex.Message, ok: false);
         }
     }
 

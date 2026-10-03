@@ -258,7 +258,7 @@
                                                     </Button>
                                                     <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                          только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MinWidth="44" Height="30" MinHeight="0"
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="30" MinHeight="0"
                                                              Padding="4,0" FontSize="15" FontWeight="Bold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
                                                              Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -276,6 +276,7 @@
                                                     <Border Classes="lx-badge-danger" IsVisible="{Binding HasDiscount}" VerticalAlignment="Center" Margin="4,0,0,0">
                                                         <TextBlock Text="{Binding DiscountDisplayText}"/>
                                                     </Border>
+                                                    <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
                                                     <Button Classes="lx-ghost" Width="32" Height="32" MinHeight="0" Padding="0" IsVisible="{Binding IsWeight}"

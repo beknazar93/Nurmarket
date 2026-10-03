@@ -364,6 +364,9 @@
                     </ScrollViewer>
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
+                        <!-- 2026-10-03, владелец: «нужна кнопка для печати документов из чека». -->
+                        <Button Content="{DynamicResource receiptHistory.docSalesReceipt}" Classes="SecondaryActionButton" Click="DocSalesReceipt_Click" />
+                        <Button Content="{DynamicResource receiptHistory.docWaybill}" Classes="SecondaryActionButton" Click="DocWaybill_Click" />
                         <Button Content="{DynamicResource sales.printReceiptButton}" Classes="PrimaryActionButton" Click="PrintReceiptAgain_Click" />
                         <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="CloseReceiptDetails_Click" />
                     </StackPanel>

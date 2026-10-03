@@ -27,15 +27,48 @@
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     </Style>
+    <!-- 2026-10-03, владелец: «телеграм-бота дизайн кнопки сделай как Telegram-приложение, красиво и
+         профессионально». Фирменный синий Telegram (#2AABEE / #229ED9), скругление 12, без рамки;
+         вторичные — светло-голубые с синим текстом. -->
     <Style Selector="Button">
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Padding" Value="14,8"/>
-      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Padding" Value="18,10"/>
+      <Setter Property="MinHeight" Value="40"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Background" Value="#1A2AABEE"/>
+      <Setter Property="Foreground" Value="#229ED9"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#332AABEE"/>
+      <Setter Property="Foreground" Value="#1E8CC4"/>
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4D2AABEE"/>
     </Style>
     <Style Selector="Button.Primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Background" Value="#2AABEE"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#229ED9"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.Primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1E8CC4"/>
+    </Style>
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#14808080"/>
+      <Setter Property="Foreground" Value="#80808080"/>
+    </Style>
+    <Style Selector="ProgressBar.tg">
+      <Setter Property="Foreground" Value="#2AABEE"/>
+      <Setter Property="Height" Value="4"/>
+      <Setter Property="MinHeight" Value="4"/>
+      <Setter Property="CornerRadius" Value="2"/>
     </Style>
   </Window.Styles>
 
@@ -116,12 +149,15 @@
             <TextBlock Classes="StepTitle" x:Name="ServerTitle"/>
             <TextBlock Classes="StepBody" x:Name="ServerHint"/>
             <TextBlock Classes="StepBody" x:Name="ServerStatus" FontWeight="SemiBold"/>
+            <!-- 2026-10-03, владелец: «индикатор ИИ на сервере добавь у клиентов» — метки состояния. -->
+            <WrapPanel x:Name="ServerChips"/>
             <WrapPanel>
               <Button Classes="Primary" x:Name="ServerMoveButton" Margin="0,0,10,8" Click="ServerMove_Click"/>
               <Button x:Name="ServerTestButton" Margin="0,0,10,8" Click="ServerTest_Click" IsEnabled="False"/>
               <Button x:Name="ServerTestAiButton" Margin="0,0,10,8" Click="ServerTestAi_Click" IsEnabled="False"/>
               <Button x:Name="ServerBackButton" Margin="0,0,10,8" Click="ServerBack_Click" IsEnabled="False"/>
             </WrapPanel>
+            <ProgressBar x:Name="ServerProgress" Classes="tg" IsIndeterminate="True" IsVisible="False"/>
             <TextBlock Classes="StepBody" x:Name="ServerActionStatus"/>
           </StackPanel>
         </Border>

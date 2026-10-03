@@ -362,6 +362,18 @@ public sealed class LocalProductRepository
             return null;
 
         var key = barcode.Trim();
+        var found = TryGetTileByExactBarcode(key);
+        if (found != null)
+            return found;
+
+        // 2026-10-03, живой случай (клиент palma): в каталоге «0762497741537» (EAN-13), а сканер присылает
+        // «762497741537» (UPC-A, 12 цифр) — это один и тот же код, но точный поиск его не находил, а ручной
+        // поиск находил по части кода. Пробуем код с ведущим нулём и без него.
+        return BarcodeForms.Alternate(key) is { } alternate ? TryGetTileByExactBarcode(alternate) : null;
+    }
+
+    private CatalogProductTileVm? TryGetTileByExactBarcode(string key)
+    {
 
         if (_cacheReady)
         {
@@ -388,6 +400,11 @@ public sealed class LocalProductRepository
 
     /// <summary>Один товар из базы по точному совпадению поля. Нужен, когда кэш ещё не готов:
     /// достать одну строку по индексу дешевле, чем поднять весь каталог.</summary>
+    /// <summary>2026-10-03: два товара с одним штрихкодом (дубль) — новый заменяет уже найденный, только если у
+    /// найденного нет остатка, а у нового есть. Иначе остаётся первый (каталог читается по порядку создания).</summary>
+    private static bool PreferForBarcode(CatalogProductTileVm candidate, CatalogProductTileVm current) =>
+        current.Quantity <= 0 && candidate.Quantity > 0;
+
     private CatalogProductTileVm? LoadSingleTile(string column, string value)
     {
         try
@@ -626,7 +643,11 @@ public sealed class LocalProductRepository
             skuCache[tile.Id.Trim()] = tile;
 
             var barcode = tile.Barcode?.Trim();
-            if (!string.IsNullOrEmpty(barcode))
+            // 2026-10-03, живой случай (тестовый аккаунт): у двух товаров один штрихкод («Батончик Mars» 0138 с
+            // остатком 98 и его дубль 0143 с остатком 0). Раньше скан брал последний — дубль, и приёмка падала
+            // (сервер не даёт менять дубль, 500). При совпадении берём товар с остатком, затем — с меньшим кодом.
+            if (!string.IsNullOrEmpty(barcode)
+                && (!barcodeCache.TryGetValue(barcode, out var already) || PreferForBarcode(tile, already)))
                 barcodeCache[barcode] = tile;
 
             // 2026-09-12: "Дополнительные штрихкоды" из карточки товара сохранялись (см.

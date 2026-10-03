@@ -1534,7 +1534,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         if (!string.IsNullOrWhiteSpace(clientId))
             body["client_id"] = clientId.Trim();
 
-        if (!string.IsNullOrWhiteSpace(nonCashReceived))
+        // 2026-10-03: у продажи «в долг» безналичная предоплата идёт только быстрым путём (cash_amount/card_amount);
+        // старому пути transfer_received для долга не отправляем — сервер понял бы его как смешанную оплату.
+        if (!string.IsNullOrWhiteSpace(nonCashReceived) && !string.Equals(paymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
             body["transfer_received"] = nonCashReceived.Trim();
 
         // 2026-09-28, BE-07: разбивка смешанной оплаты полями, которые NurCRM теперь хранит в

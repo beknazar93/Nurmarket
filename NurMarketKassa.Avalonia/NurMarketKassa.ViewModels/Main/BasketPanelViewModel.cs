@@ -156,6 +156,9 @@ public sealed class BasketPanelViewModel : ViewModelBase
             line is { IsWeight: true } && !string.IsNullOrEmpty(line.ItemId) && _reweighCartLine != null);
         LineDiscountCommand = new AsyncRelayCommand<CartLineItemVm>(ApplyLineDiscountAsync, line =>
             line != null && HasItems && !IsBusy && _applyLineDiscount != null);
+        // 2026-10-03, клиент: «опт не только на весь чек, но и на сам товар — переключатель».
+        WholesaleLineCommand = new RelayCommand<CartLineItemVm>(line => ToggleWholesale(line), line => line is { CanWholesale: true } && !IsBusy);
+        WholesaleAllCommand = new RelayCommand(ToggleWholesaleAll, () => HasItems && !IsBusy);
         IncreaseManualQuantityCommand = new RelayCommand(IncreaseManualQuantity);
         DecreaseManualQuantityCommand = new RelayCommand(DecreaseManualQuantity);
         ToggleMoreActionsCommand = new RelayCommand(() => IsMoreActionsVisible = !IsMoreActionsVisible);
@@ -392,6 +395,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
     public ICommand SetQuantityCommand { get; }
     public ICommand WeighLineCommand { get; }
     public ICommand LineDiscountCommand { get; }
+    public ICommand WholesaleLineCommand { get; }
+    public ICommand WholesaleAllCommand { get; }
     public ICommand IncreaseManualQuantityCommand { get; }
     public ICommand DecreaseManualQuantityCommand { get; }
     public ICommand ToggleMoreActionsCommand { get; }
@@ -546,7 +551,166 @@ public sealed class BasketPanelViewModel : ViewModelBase
         var total = !clear && !string.Equals(mode, "percent", StringComparison.OrdinalIgnoreCase) ? value : null;
         ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, percent, total);
         RefreshFromCart();
+        if (!clear)
+            WarnIfSellingAtLoss();
         return true;
+    }
+
+    // ------------------------------------------------------------------ продажа в убыток
+
+    /// <summary>2026-10-03, владелец: «если в убыток даёт скидку — предупреждение на экране; рядом с товаром
+    /// показывать, сколько убытка, и фиксировать в админке». Убыток строки = закупка × количество − сумма
+    /// строки после скидки на позицию и её доли скидки на весь чек. Только если на чеке есть скидка и
+    /// у товара указана закупочная цена: без скидки «цена ниже закупки» — это вопрос цен, не кассира.</summary>
+    public void UpdateLossMarks()
+    {
+        try
+        {
+            double orderDiscount = 0;
+            if (_cart.HasCart && _cart.Root.ValueKind == JsonValueKind.Object)
+                orderDiscount = CartTotalsCalculator.Calculate(_cart.Root).OrderDiscount;
+            var gross = Lines.Sum(l => Math.Max(0, l.LineTotal));
+            var share = gross > 0 ? Math.Clamp(orderDiscount / gross, 0, 1) : 0;
+            foreach (var line in Lines)
+            {
+                double loss = 0;
+                var cost = UnitCostOf(line);
+                line.UnitCost = cost;
+                line.CanWholesale = line.IsWholesale || WholesalePriceOf(line) > 0;
+                if (cost > 0 && (line.HasDiscount || share > 0))
+                {
+                    var net = Math.Max(0, line.LineTotal) * (1 - share);
+                    loss = Math.Round(Math.Max(0, cost * line.Quantity - net), 2);
+                }
+                line.LossAmount = loss;
+            }
+            OnPropertyChanged(nameof(LossTotal));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Убыток по строкам не посчитан: {ex.Message}", "WARNING");
+        }
+    }
+
+    public double LossTotal => Lines.Sum(l => l.LossAmount);
+
+    // ------------------------------------------------------------------ опт
+
+    /// <summary>Оптовая цена товара строки (за единицу строки); 0 — у товара её нет.</summary>
+    private double WholesalePriceOf(CartLineItemVm line)
+    {
+        if (string.IsNullOrWhiteSpace(line.ProductId) || _catalogLookup?.Invoke(line.ProductId) is not { } tile || tile.WholesalePrice <= 0)
+            return 0;
+        if (!string.IsNullOrWhiteSpace(line.SalePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
+            && string.Equals(piece.Id, line.SalePackageId, StringComparison.OrdinalIgnoreCase))
+            return Math.Round(tile.WholesalePrice / piece.QuantityInPackage, 2);
+        return tile.WholesalePrice;
+    }
+
+    /// <summary>Строка ↔ оптовая цена. Только у локального (ещё не отправленного) чека — серверную корзину
+    /// касса так не правит.</summary>
+    private void ToggleWholesale(CartLineItemVm? line, bool refresh = true)
+    {
+        if (line is null || string.IsNullOrWhiteSpace(line.ItemId) || !(_cart.IsStaging || _cart.IsLocalOffline))
+            return;
+        try
+        {
+            if (ReceiptSnapshotCartEditor.SetLineWholesale(_cart, line.ItemId, !line.IsWholesale, WholesalePriceOf(line)) && refresh)
+            {
+                RefreshFromCart();
+                CartMessage = !line.IsWholesale
+                    ? Tr.T($"«{line.Title}» — по оптовой цене.", $"«{line.Title}» — дүң баада.", $"“{line.Title}” — at the wholesale price.", $"«{line.Title}» — toptan fiyatla.", $"«{line.Title}» — ulgurji narxda.")
+                    : Tr.T($"«{line.Title}» — снова по розничной цене.", $"«{line.Title}» — кайра чекене баада.", $"“{line.Title}” — back to the retail price.", $"«{line.Title}» — yeniden perakende fiyatla.", $"«{line.Title}» — yana chakana narxda.");
+                PosLogger.Log($"Опт: строка «{line.Title}» → {(line.IsWholesale ? "розница" : "опт")}.", "CART");
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Опт: строку не переключить ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>«Опт на весь чек»: если хоть одна строка с оптовой ценой ещё в рознице — все такие на опт,
+    /// иначе все обратно в розницу.</summary>
+    private void ToggleWholesaleAll()
+    {
+        var candidates = Lines.Where(l => l.CanWholesale).ToList();
+        if (candidates.Count == 0)
+        {
+            _prompts.ShowWarning(Tr.T("У товаров этого чека не указана оптовая цена (карточка товара → «Оптовая цена»).",
+                "Бул чектеги товарлардын дүң баасы көрсөтүлгөн эмес (товардын карточкасы → «Дүң баа»).",
+                "The products in this receipt have no wholesale price (product card → “Wholesale price”).",
+                "Bu fişteki ürünlerin toptan fiyatı yok (ürün kartı → «Toptan fiyat»).",
+                "Bu chekdagi mahsulotlarning ulgurji narxi ko'rsatilmagan (mahsulot kartasi → «Ulgurji narx»)."));
+            return;
+        }
+        var toWholesale = candidates.Any(l => !l.IsWholesale);
+        foreach (var line in candidates.Where(l => l.IsWholesale != toWholesale).ToList())
+            ToggleWholesale(line, refresh: false);
+        RefreshFromCart();
+        CartMessage = toWholesale
+            ? Tr.T("Чек — по оптовым ценам.", "Чек — дүң бааларда.", "Receipt at wholesale prices.", "Fiş toptan fiyatlarla.", "Chek ulgurji narxlarda.")
+            : Tr.T("Чек — снова по розничным ценам.", "Чек — кайра чекене бааларда.", "Receipt back at retail prices.", "Fiş yeniden perakende fiyatlarla.", "Chek yana chakana narxlarda.");
+    }
+
+    private double UnitCostOf(CartLineItemVm line)
+    {
+        if (string.IsNullOrWhiteSpace(line.ProductId) || _catalogLookup?.Invoke(line.ProductId) is not { } tile || tile.PurchasePrice <= 0)
+            return 0;
+        if (!string.IsNullOrWhiteSpace(line.SalePackageId) && tile.PieceOption is { QuantityInPackage: > 0 } piece
+            && string.Equals(piece.Id, line.SalePackageId, StringComparison.OrdinalIgnoreCase))
+            return tile.PurchasePrice / piece.QuantityInPackage;
+        return tile.PurchasePrice;
+    }
+
+    /// <summary>Скидка увела чек в убыток — предупреждение кассиру (после скидки на чек или на позицию).</summary>
+    public void WarnIfSellingAtLoss()
+    {
+        UpdateLossMarks();
+        var loss = Lines.Where(l => l.HasLoss).ToList();
+        if (loss.Count == 0)
+            return;
+        var total = loss.Sum(l => l.LossAmount);
+        var list = string.Join("\n", loss.Take(5).Select(l => $"• {l.Title}: {l.LossDisplayText}"));
+        PosLogger.Log($"Скидка в убыток: {total:0.00} сом по {loss.Count} поз.", "CART");
+        _prompts.ShowWarning(Tr.T(
+            $"Со скидкой товар продаётся дешевле закупки — убыток {total:0.00} сом.\n{list}",
+            $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {total:0.00} сом.\n{list}",
+            $"With this discount the item sells below cost — loss {total:0.00} som.\n{list}",
+            $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {total:0.00} som.\n{list}",
+            $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}"));
+    }
+
+    /// <summary>Оплаченный чек с убытком — в журнал для программы владельца (LossSalesStore).</summary>
+    private void RecordLossSale(string? saleId)
+    {
+        try
+        {
+            UpdateLossMarks();
+            var loss = Lines.Where(l => l.HasLoss).ToList();
+            if (loss.Count == 0)
+                return;
+            LossSalesStore.Append(new LossSaleRecord
+            {
+                At = DateTimeOffset.Now,
+                SaleId = saleId,
+                Cashier = PosApp.CurrentUserDisplayName ?? "",
+                Lines = loss.Select(l => new LossSaleLine
+                {
+                    Title = l.Title,
+                    Quantity = l.Quantity,
+                    Unit = l.Unit,
+                    UnitPrice = l.UnitPrice,
+                    UnitCost = l.UnitCost,
+                    Net = Math.Round(l.UnitCost * l.Quantity - l.LossAmount, 2),
+                    Loss = l.LossAmount,
+                }).ToList(),
+            });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Продажа в убыток не записана: {ex.Message}", "WARNING");
+        }
     }
 
     public void AddProductFromCatalog(CatalogProductTileVm product, string? lineNameOverride = null)
@@ -1206,6 +1370,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             LogPendingInsufficientStockOverrideIfAny(result);
             RecordSoldLineItemsForHistory(TryReadSaleId(result));
+            RecordLossSale(TryReadSaleId(result));
             CreditOrRedeemLoyaltyPoints(checkoutVm, result);
             // Каталог должен мгновенно отразить проданный остаток (та же логика, что и после
             // пополнения склада при нулевом остатке — RefreshCatalogCommand делает полную
@@ -2309,6 +2474,12 @@ public sealed class BasketPanelViewModel : ViewModelBase
         {
             Lines.Clear();
             var itemNumber = 1;
+            // 2026-10-03: строки по оптовой цене (is_wholesale в строке чека).
+            var wholesaleIds = new HashSet<string>(StringComparer.Ordinal);
+            if (_cart.HasCart && _cart.Root.ValueKind == JsonValueKind.Object)
+                foreach (var it in CartDisplayHelper.EnumerateItems(_cart.Root))
+                    if (it.TryGetProperty("is_wholesale", out var w) && w.ValueKind == JsonValueKind.True && CartDisplayHelper.TryItemId(it) is { } wid)
+                        wholesaleIds.Add(wid);
             foreach (var item in _cart.Items)
             {
                 // Insert at the top: the cashier scans items in sequence and wants the most
@@ -2337,6 +2508,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     DiscountPercent = item.DiscountPercent is { } percent ? (double)percent : null,
                     FixedDiscountAmount = item.FixedDiscountAmount is { } fixedAmount ? (double)fixedAmount : null,
                     PromoBasePrice = item.PromoBasePrice,
+                    IsWholesale = wholesaleIds.Contains(item.Id ?? ""),
+                    WholesaleCommand = WholesaleLineCommand,
                     RemoveCommand = RemoveLineCommand,
                     IncreaseCommand = IncreaseQuantityCommand,
                     DecreaseCommand = DecreaseQuantityCommand,
@@ -2351,6 +2524,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             _suppressTabRebuild = false;
         }
 
+        UpdateLossMarks();
         RaiseCartCommands();
         PersistActiveSessionSnapshot();
         RebuildReceiptTabs();
@@ -2373,6 +2547,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         }
 
         SyncOrderDiscountFromCart();
+        UpdateLossMarks();
         var totals = CartTotalsCalculator.Calculate(_cart.Root);
         Subtotal = totals.Subtotal;
         Discount = totals.LineDiscounts + totals.OrderDiscount;

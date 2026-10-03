@@ -187,6 +187,14 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        // 2026-10-03, владелец: «используй базу готовых наименований NurCRM — если есть товар, вставь сразу
+        // название». Из кассы («Товар не найден» → «Добавить на склад») штрихкод уже вписан — название из
+        // общей базы спрашиваем сразу при открытии, не дожидаясь, пока кассир уйдёт из поля штрихкода.
+        Opened += (_, _) =>
+        {
+            if (_existing is null && !string.IsNullOrWhiteSpace(Barcode))
+                _ = FillNameFromGlobalBaseAsync(Barcode);
+        };
         // 2026-10-02, вкладки карточки: история закупок грузится при раскрытии — раскрываем при выборе вкладки.
         ProductTabs.SelectionChanged += (_, _) =>
         {
@@ -256,9 +264,14 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
         try
         {
-            if (await _catalogApi.FindWarehouseProductByBarcodeAsync(code).ConfigureAwait(true) is { } own)
+            // 2026-10-03: тот же код в другой записи (UPC-A 12 цифр ↔ EAN-13 с нулём) — см. BarcodeForms.
+            var alternate = BarcodeForms.Alternate(code);
+            var own = await _catalogApi.FindWarehouseProductByBarcodeAsync(code).ConfigureAwait(true);
+            if (own is null && alternate != null)
+                own = await _catalogApi.FindWarehouseProductByBarcodeAsync(alternate).ConfigureAwait(true);
+            if (own is { } ownProduct)
             {
-                var ownName = own.TryGetProperty("name", out var n) ? n.GetString() : null;
+                var ownName = ownProduct.TryGetProperty("name", out var n) ? n.GetString() : null;
                 ErrorMessage = Tr.T($"Товар с этим штрихкодом уже есть на складе: {ownName}.",
                     $"Мындай штрихкоддуу товар кампада мурунтан эле бар: {ownName}.",
                     $"A product with this barcode already exists in the warehouse: {ownName}.",
@@ -267,12 +280,16 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 return;
             }
 
-            if (await _catalogApi.FindGlobalProductByBarcodeAsync(code).ConfigureAwait(true) is { } global
-                && global.TryGetProperty("name", out var gn) && !string.IsNullOrWhiteSpace(gn.GetString())
+            var global = await _catalogApi.FindGlobalProductByBarcodeAsync(code).ConfigureAwait(true);
+            if (global is null && alternate != null)
+                global = await _catalogApi.FindGlobalProductByBarcodeAsync(alternate).ConfigureAwait(true);
+            if (global is { } globalProduct
+                && globalProduct.TryGetProperty("name", out var gn) && !string.IsNullOrWhiteSpace(gn.GetString())
                 && string.IsNullOrWhiteSpace(ProductName)
                 && string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
             {
                 ProductName = gn.GetString()!.Trim();
+                PosLogger.Log($"Карточка товара: название по штрихкоду {code} взято из общей базы NurCRM.", "CATALOG");
             }
         }
         catch (Exception ex)

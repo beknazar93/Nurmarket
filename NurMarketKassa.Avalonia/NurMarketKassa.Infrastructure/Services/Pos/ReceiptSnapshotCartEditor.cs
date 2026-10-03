@@ -204,6 +204,46 @@ public static class ReceiptSnapshotCartEditor
         ApplyRoot(cart, root);
     }
 
+    /// <summary>2026-10-03, клиент: «облегчить продажу оптового и розничного: опт не только на весь чек, но и на сам
+    /// товар — переключатель». Строка переходит на оптовую цену товара (wholesale_price) или обратно на розничную
+    /// (запоминается в retail_price строки). Скидка суммой переклампливается под новую сумму строки.</summary>
+    public static bool SetLineWholesale(ICartService cart, string itemId, bool wholesale, double wholesalePrice)
+    {
+        EnsureCart(cart);
+        var root = ParseRoot(cart);
+        var items = root["items"] as JsonArray ?? new JsonArray();
+        RepairMissingProductIds(items);
+        root["items"] = items;
+        var line = FindLineByItemId(items, itemId);
+        if (line == null)
+            return false;
+
+        var isWholesale = line["is_wholesale"] is JsonValue w && w.TryGetValue<bool>(out var was) && was;
+        if (wholesale == isWholesale)
+            return false;
+        if (wholesale)
+        {
+            if (!(wholesalePrice > 0))
+                return false;
+            line["retail_price"] = JsonNumericReader.ToDouble(line["unit_price"]);
+            line["unit_price"] = wholesalePrice;
+            line["is_wholesale"] = true;
+        }
+        else
+        {
+            if (line["retail_price"] is { } retail)
+                line["unit_price"] = JsonNumericReader.ToDouble(retail);
+            line.Remove("retail_price");
+            line.Remove("is_wholesale");
+        }
+
+        ClampLineDiscountToGross(line);
+        RecalcLine(line);
+        RecalcCartTotals(root);
+        ApplyRoot(cart, root);
+        return true;
+    }
+
     public static void PatchLineDiscount(ICartService cart, string itemId, string? mode, string? value)
     {
         EnsureCart(cart);

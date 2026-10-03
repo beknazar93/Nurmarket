@@ -107,6 +107,7 @@ public partial class TelegramBotSetupWindow : Window
     {
         if (s is null)
         {
+            ServerChips.Children.Clear();
             ServerStatus.Text = Tr.T("Сервер NurCRM пока не поддерживает бота.", "NurCRM сервери азырынча ботту колдобойт.", "The NurCRM server does not support the bot yet.",
                 "NurCRM sunucusu henüz botu desteklemiyor.", "NurCRM serveri hali botni qo'llab-quvvatlamaydi.");
             ServerMoveButton.IsEnabled = false;
@@ -114,6 +115,7 @@ public partial class TelegramBotSetupWindow : Window
         }
 
         var on = s.IsServerMode;
+        TelegramBotStatusChips.Fill(ServerChips, s);
         ServerTestButton.IsEnabled = on;
         ServerTestAiButton.IsEnabled = on && s.AiKeySet;
         ServerBackButton.IsEnabled = s.TokenSet;
@@ -173,6 +175,7 @@ public partial class TelegramBotSetupWindow : Window
         }
 
         ServerMoveButton.IsEnabled = false;
+        ServerProgress.IsVisible = true;
         ServerActionStatus.Text = Tr.T("Переношу на сервер…", "Серверге көчүрүлүүдө…", "Moving to the server…", "Sunucuya taşınıyor…", "Serverga ko'chirilmoqda…");
         try
         {
@@ -191,6 +194,7 @@ public partial class TelegramBotSetupWindow : Window
         finally
         {
             ServerMoveButton.IsEnabled = true;
+            ServerProgress.IsVisible = false;
         }
     }
 
@@ -222,6 +226,7 @@ public partial class TelegramBotSetupWindow : Window
         if (api is null)
             return;
         ServerTestAiButton.IsEnabled = false;
+        ServerProgress.IsVisible = true;
         ServerActionStatus.Text = Tr.T("Спрашиваю ИИ на сервере…", "Сервердеги ЖИден суралууда…", "Asking the AI on the server…", "Sunucudaki yapay zekâya soruluyor…", "Serverdagi SIdan so'ralmoqda…");
         try
         {
@@ -238,6 +243,7 @@ public partial class TelegramBotSetupWindow : Window
         finally
         {
             ServerTestAiButton.IsEnabled = true;
+            ServerProgress.IsVisible = false;
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -22,6 +22,8 @@ public sealed class TelegramBotAnalyticsWindow : Window
     private readonly StackPanel _customers = new() { Spacing = 6 };
     private readonly StackPanel _feed = new() { Spacing = 6 };
     private readonly TextBlock _status = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
+    // 2026-10-03, владелец: «индикатор ИИ на сервере добавь у клиентов» — бот на сервере, ИИ, связь, получатель.
+    private readonly WrapPanel _chips = new() { Margin = new Thickness(0, 0, 0, 8) };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public TelegramBotAnalyticsWindow()
@@ -34,7 +36,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
         // 2026-10-01, владелец (скриншот): «сделай фиксированную высоту и добавь скролл» — шапка и плитки
         // на месте, а колонки «Покупатели» и «Последние обращения» занимают остаток высоты окна и
         // прокручиваются каждая сама, не утаскивая за собой всю страницу.
-        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
+        var root = new Grid { Margin = new Thickness(24, 16, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
         var title = new TextBlock
         {
             Text = Tr.T("Обращения покупателей к боту", "Сатып алуучулардын ботко кайрылуулары", "Customer inquiries to the bot",
@@ -47,15 +49,17 @@ public sealed class TelegramBotAnalyticsWindow : Window
         _status.Margin = new Thickness(0, 6, 0, 16);
         _tiles.Margin = new Thickness(0, 0, 0, 16);
         Grid.SetRow(_status, 1);
-        Grid.SetRow(_tiles, 2);
+        Grid.SetRow(_chips, 2);
+        Grid.SetRow(_tiles, 3);
         root.Children.Add(title);
         root.Children.Add(_status);
+        root.Children.Add(_chips);
         root.Children.Add(_tiles);
 
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,16,3*") };
         columns.Children.Add(Card(Tr.T("Покупатели (30 дней)", "Сатып алуучулар (30 күн)", "Customers (30 days)", "Müşteriler (30 gün)", "Xaridorlar (30 kun)"), _customers, 0));
         columns.Children.Add(Card(Tr.T("Последние обращения", "Акыркы кайрылуулар", "Latest inquiries", "Son başvurular", "Oxirgi murojaatlar"), _feed, 2));
-        Grid.SetRow(columns, 3);
+        Grid.SetRow(columns, 4);
         root.Children.Add(columns);
 
         Content = root;
@@ -87,6 +91,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
             if (api is not null)
             {
                 var settings = await api.GetSettingsAsync().ConfigureAwait(true);
+                TelegramBotStatusChips.Fill(_chips, settings);
                 _serverMode = settings?.IsServerMode == true;
                 if (_serverMode)
                 {

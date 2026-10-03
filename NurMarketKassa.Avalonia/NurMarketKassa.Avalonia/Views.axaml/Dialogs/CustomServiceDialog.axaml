@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CustomServiceDialog"
         Title="{DynamicResource customService.title}"
@@ -97,6 +97,8 @@
             <StackPanel>
                 <TextBlock Classes="FieldLabel" Text="{DynamicResource customService.nameLabel}"/>
                 <TextBox x:Name="NameBox" Watermark="{DynamicResource customService.nameWatermark}"/>
+                <!-- 2026-10-03: похожие товары из каталога — чтобы не продавать товар «Доп. услугой» без остатка и себестоимости. -->
+                <StackPanel x:Name="SuggestPanel" Spacing="4" Margin="0,6,0,0" IsVisible="False"/>
             </StackPanel>
 
             <Grid ColumnDefinitions="*,12,120">

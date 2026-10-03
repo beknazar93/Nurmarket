@@ -435,6 +435,15 @@
                                      Height="44" Padding="12,8" FontSize="16" FontWeight="Bold"
                                      CornerRadius="10" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
                                      Background="{DynamicResource BrushPanel}" VerticalContentAlignment="Center"/>
+                            <!-- 2026-10-03: как внесена предоплата долга (включается в настройках кассы). -->
+                            <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding ShowDebtPrepaymentMethod}">
+                                <TextBlock Text="{DynamicResource csh.checkout.prepayMethod}" FontSize="13" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushTextMuted}"/>
+                                <RadioButton GroupName="DebtPrepay" IsChecked="{Binding IsDebtPrepaymentCash, Mode=TwoWay}"
+                                             Content="{DynamicResource csh.checkout.prepayCash}" FontSize="14"/>
+                                <RadioButton GroupName="DebtPrepay" IsChecked="{Binding IsDebtPrepaymentNonCash, Mode=TwoWay}"
+                                             Content="{DynamicResource csh.checkout.prepayNonCash}" FontSize="14"/>
+                            </StackPanel>
                             <TextBlock Text="{Binding DebtRemainingText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
                         </StackPanel>
 
