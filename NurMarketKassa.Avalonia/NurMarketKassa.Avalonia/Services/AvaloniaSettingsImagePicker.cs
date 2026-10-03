@@ -56,7 +56,11 @@ public sealed class AvaloniaSettingsImagePicker : ISettingsImagePicker
     private static TopLevel? GetTopLevel()
     {
         if (global::Avalonia.Application.Current?.ApplicationLifetime
+#if NURANDROID
+            is global::NurMarketKassa.IClassicDesktopStyleApplicationLifetime desktop) // 2026-10-04: Android-касса
+#else
             is global::Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+#endif
             return desktop.MainWindow;
 
         return null;

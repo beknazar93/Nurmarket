@@ -104,8 +104,20 @@ public static class PosDialogHost
 
         var observer = ObserveDialogAsync();
 
+#if NURANDROID
+        // 2026-10-04, Android-касса: у Avalonia на Android нет вложенного цикла (MainLoop) —
+        // ждём диалог вложенным циклом Android (NurMarketKassa.AndroidNestedLoop). Если он
+        // выключен — диалог показан без ожидания: сообщение работает, подтверждение = «нет».
+        if (!observer.IsCompleted)
+        {
+            if (!NurMarketKassa.AndroidNestedLoop.Enabled)
+                return null;
+            NurMarketKassa.AndroidNestedLoop.Run(cts.Token);
+        }
+#else
         if (!observer.IsCompleted)
             Dispatcher.UIThread.MainLoop(cts.Token);
+#endif
         failure?.Throw();
         return result;
     }

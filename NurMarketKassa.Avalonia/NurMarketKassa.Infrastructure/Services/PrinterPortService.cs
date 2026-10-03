@@ -14,11 +14,19 @@ public static class PrinterPortService
 {
     public sealed record PortProbeResult(bool IsAvailable, string Message, string PortKind);
 
+    /// <summary>2026-10-04, Android-касса: свой способ отправки байтов, который подставляет
+    /// Android-программа при запуске (USB host «USB…», Bluetooth «BT:…», сеть «TCP:адрес:9100»).
+    /// В Windows-кассе не задаётся (null) — путь печати прежний, без изменений.</summary>
+    public static IPlatformPrinterTransport? PlatformTransport { get; set; }
+
     public static PortProbeResult ProbePort(string? rawPort)
     {
         var port = NormalizePort(rawPort);
         if (string.IsNullOrWhiteSpace(port))
             return new PortProbeResult(false, Tr.T("Порт не указан", "Порт көрсөтүлгөн эмес", "No port specified", "Port belirtilmedi", "Port ko'rsatilmagan"), "none");
+
+        if (PlatformTransport is { } platform && platform.Handles(port))
+            return platform.Probe(port);
 
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
@@ -175,7 +183,8 @@ public static class PrinterPortService
     /// <summary>Имя принтера Windows (очередь печати), а не LPT/COM/WinUSB/сетевой путь —
     /// та же развилка, что в <see cref="WritePayload"/>.</summary>
     public static bool IsSpoolerPort(string port) =>
-        !WinUsbPrinterPort.IsWinUsbDevicePath(port)
+        PlatformTransport?.Handles(port) != true
+        && !WinUsbPrinterPort.IsWinUsbDevicePath(port)
         && !HardwarePortHelper.LooksLikeComPort(port)
         && !HardwarePortHelper.LooksLikeLptPort(port)
         && !port.StartsWith(@"\\", StringComparison.Ordinal);
@@ -250,6 +259,12 @@ public static class PrinterPortService
 
     private static void WritePayload(string port, byte[] payload, bool isKeepAlive)
     {
+        if (PlatformTransport is { } platform && platform.Handles(port))
+        {
+            platform.Write(port, payload, WriteTimeout(payload.Length));
+            return;
+        }
+
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
             if (!WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid))

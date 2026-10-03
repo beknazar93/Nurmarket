@@ -1,0 +1,131 @@
+<Project>
+  <!-- 2026-10-04: разметка окон кассы для Android.
+       На Android у Avalonia одно окно, поэтому окна кассы здесь наследуются от своего класса
+       NurMarketKassa.Window (слой поверх единственного вида, см. Shell\Window.cs). Компилятор
+       разметки должен видеть в корне именно этот класс, а не Avalonia.Controls.Window, поэтому
+       перед сборкой каждый .axaml кассы, где есть <Window …>, копируется в obj\nur-axaml\ с заменами:
+         <Window …> … </Window>          → <mw:Window xmlns:mw="using:NurMarketKassa" …> … </mw:Window>
+         <Window.Styles> и т.п.          → <mw:Window.Styles>
+         AncestorType=Window             → AncestorType=mw:Window
+         Selector="Window"               → Selector="mw|Window"
+       Исходные файлы Windows-кассы НЕ меняются. Файлы без <Window> подключаются как есть.
+       Путь ресурса (avares://NurMarketKassa.Avalonia/…) сохраняется через метаданные Link. -->
+
+  <PropertyGroup>
+    <NurAxamlGenDir>$(MSBuildProjectDirectory)\obj\nur-axaml\</NurAxamlGenDir>
+  </PropertyGroup>
+
+  <UsingTask TaskName="NurRewriteWindowAxaml"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Sources ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <HostDir ParameterType="System.String" Required="true" />
+      <OutDir ParameterType="System.String" Required="true" />
+      <Result ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        const string Ns = " xmlns:mw=\"using:NurMarketKassa\"";
+        var hostFull = Path.GetFullPath(HostDir);
+        if (!hostFull.EndsWith("\\") && !hostFull.EndsWith("/")) hostFull += Path.DirectorySeparatorChar;
+        var results = new List<Microsoft.Build.Framework.ITaskItem>();
+        var rewritten = 0;
+        foreach (var src in Sources)
+        {
+            var full = Path.GetFullPath(src.ItemSpec);
+            var rel = full.StartsWith(hostFull, StringComparison.OrdinalIgnoreCase) ? full.Substring(hostFull.Length) : Path.GetFileName(full);
+            var bytes = File.ReadAllBytes(full);
+            var text = new UTF8Encoding(false).GetString(bytes);
+            if (text.Length > 0 && text[0] == '﻿') text = text.Substring(1);
+
+            var original = text;
+            // Корневой элемент: первый тег после объявления XML и комментариев.
+            var rootMatch = Regex.Match(text, @"<(?![?!])([A-Za-z_][\w:.]*)");
+            var rootName = rootMatch.Success ? rootMatch.Groups[1].Value : "";
+            var rootIsWindow = rootName == "Window";
+
+            if (rootIsWindow)
+            {
+                text = text.Substring(0, rootMatch.Index) + "<mw:Window" + Ns + text.Substring(rootMatch.Index + rootMatch.Length);
+                var close = text.LastIndexOf("</Window>", StringComparison.Ordinal);
+                if (close >= 0)
+                    text = text.Substring(0, close) + "</mw:Window>" + text.Substring(close + "</Window>".Length);
+            }
+
+            var body = text;
+            body = Regex.Replace(body, @"<(/?)Window\.", "<$1mw:Window.");
+            body = Regex.Replace(body, @"AncestorType=Window\b", "AncestorType=mw:Window");
+            body = Regex.Replace(body, @"AncestorType=\{x:Type Window\}", "AncestorType={x:Type mw:Window}");
+            body = Regex.Replace(body, @"Selector=""Window""", @"Selector=""mw|Window""");
+            if (!rootIsWindow && body != text)
+            {
+                // Пространство имён mw нужно и в файлах, где корень — не окно (UserControl, Application).
+                var m = Regex.Match(body, @"<(?![?!])([A-Za-z_][\w:.]*)");
+                if (m.Success)
+                    body = body.Substring(0, m.Index + m.Length) + Ns + body.Substring(m.Index + m.Length);
+            }
+            text = body;
+
+            Microsoft.Build.Framework.ITaskItem item;
+            if (text == original)
+            {
+                item = new Microsoft.Build.Utilities.TaskItem(full);
+            }
+            else
+            {
+                var outPath = Path.Combine(OutDir, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+                var outBytes = new UTF8Encoding(true).GetBytes(text);
+                var preamble = new UTF8Encoding(true).GetPreamble();
+                var all = new byte[preamble.Length + outBytes.Length];
+                Buffer.BlockCopy(preamble, 0, all, 0, preamble.Length);
+                Buffer.BlockCopy(outBytes, 0, all, preamble.Length, outBytes.Length);
+                // Пишем только при изменении — иначе каждая сборка перекомпилировала бы всю разметку.
+                var same = false;
+                if (File.Exists(outPath))
+                {
+                    var existing = File.ReadAllBytes(outPath);
+                    same = existing.Length == all.Length;
+                    for (var i = 0; same && i < all.Length; i++)
+                        same = existing[i] == all[i];
+                }
+                if (!same)
+                    File.WriteAllBytes(outPath, all);
+                item = new Microsoft.Build.Utilities.TaskItem(outPath);
+                rewritten++;
+            }
+            item.SetMetadata("Link", rel);
+            item.SetMetadata("SubType", "Designer");
+            results.Add(item);
+        }
+        Result = results.ToArray();
+        Log.LogMessage(Microsoft.Build.Framework.MessageImportance.Normal,
+            "NurRewriteWindowAxaml: " + Sources.Length + " axaml, переписано под Android-окна: " + rewritten);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="NurRewriteWindowAxaml"
+          Condition="'$(_ComputeFilesToPublishForRuntimeIdentifiers)' != 'true'"
+          BeforeTargets="BeforeBuild;AddAvaloniaResources;_InjectAdditionalFiles;GenerateAvaloniaResources;CoreCompile">
+    <ItemGroup>
+      <_NurHostAxaml Include="$(HostDir)**\*.axaml" Exclude="$(HostExcludes)" />
+    </ItemGroup>
+    <NurRewriteWindowAxaml Sources="@(_NurHostAxaml)" HostDir="$(HostDir)" OutDir="$(NurAxamlGenDir)">
+      <Output TaskParameter="Result" ItemName="_NurAxamlResult" />
+    </NurRewriteWindowAxaml>
+    <ItemGroup>
+      <!-- Повторный вызов цели (внутренние сборки по RID) не должен удваивать список. -->
+      <AvaloniaXaml Remove="@(AvaloniaXaml)" />
+      <AvaloniaXaml Include="@(_NurAxamlResult)" />
+      <_NurAxamlResult Remove="@(_NurAxamlResult)" />
+      <_NurHostAxaml Remove="@(_NurHostAxaml)" />
+    </ItemGroup>
+  </Target>
+</Project>

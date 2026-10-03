@@ -515,6 +515,10 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     private static Window? TryGetMainWindow() =>
         (Application.Current?.ApplicationLifetime as
+#if NURANDROID
+            NurMarketKassa.IClassicDesktopStyleApplicationLifetime) // 2026-10-04: Android-касса, окна-слои
+#else
             Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+#endif
         ?.MainWindow;
 }

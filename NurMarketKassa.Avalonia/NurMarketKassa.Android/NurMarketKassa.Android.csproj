@@ -1,0 +1,123 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 2026-10-04, владелец: Android-версия кассы для кассовых аппаратов на Android (тип CaravPOS:
+       большой сенсорный экран, второй экран покупателя, встроенный термопринтер, сканер).
+       Как и NurMarketKassa.Portable, этот проект собирает ТОТ ЖЕ код Windows-кассы (файлы
+       NurMarketKassa.Avalonia подключаются ссылками, не копиями) — но под net8.0-android.
+
+       Главное отличие Android: у программы одно окно. Окна кассы (~65 классов Window) здесь
+       наследуются от своего класса NurMarketKassa.Window (папка Shell\) — это слой поверх
+       единственного вида, модальный — с затемнением. Разметка .axaml при сборке копируется в obj
+       с заменой корня <Window> на этот класс (build\NurAxamlRewrite.targets); исходные файлы
+       не меняются. Имя сборки то же — NurMarketKassa.Avalonia, иначе не найдутся ресурсы
+       avares://NurMarketKassa.Avalonia/…
+       Windows-касса этим проектом не затрагивается и собирается как раньше. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <!-- Неявные using Android-SDK (Android.App, Android.Widget) дают двусмысленность с Avalonia
+         (Application, Button, CheckBox…) — подключаем только обычный набор .NET, как у Windows-кассы. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Время жизни программы (AndroidDesktopLifetime) реализует интерфейсы Avalonia, которые в
+         публичных сборках-«ссылках» закрыты от реализации. Компилируем против настоящих сборок
+         Avalonia (версия закреплена — 11.2.5). -->
+    <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
+    <RootNamespace>NurMarketKassa.AvaloniaHost</RootNamespace>
+    <AssemblyName>NurMarketKassa.Avalonia</AssemblyName>
+    <DefineConstants>$(DefineConstants);NURPORTABLE;NURANDROID</DefineConstants>
+
+    <ApplicationId>kg.nurmarket.kassa</ApplicationId>
+    <ApplicationTitle>NurMarket Kassa</ApplicationTitle>
+    <!-- versionCode Android — целое, растёт с каждой сборкой для клиентов: 1.17.44 → 11744. -->
+    <ApplicationVersion>11744</ApplicationVersion>
+    <ApplicationDisplayVersion>1.17.44</ApplicationDisplayVersion>
+    <Version>1.17.44</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
+
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Кассовые аппараты бывают и 32-битные (armeabi-v7a), и 64-битные. -->
+    <RuntimeIdentifiers>android-arm;android-arm64</RuntimeIdentifiers>
+    <!-- APK должен ставиться без компьютера и отладчика: сборки внутри файла, не «быстрое развёртывание». -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <!-- Обрезка кода ломает отражение (DI, XAML, JSON, linq2db) — только SDK. -->
+    <AndroidLinkMode>None</AndroidLinkMode>
+    <PublishTrimmed>false</PublishTrimmed>
+    <!-- На ПК 7,8 ГБ памяти: d8/r8 (Java) не должны съесть всё. -->
+    <JavaMaximumHeapSize>1G</JavaMaximumHeapSize>
+    <!-- Предупреждения о совместимости платформ (Windows-only API в общем коде) закрыты проверками
+         OperatingSystem.IsWindows() в самом коде; на Android эти ветки не выполняются. -->
+    <NoWarn>$(NoWarn);CA1416;CS0618;XA0101;XA4211;NU1701;AVA3001</NoWarn>
+
+    <!-- Где на этом ПК Android SDK и JDK (сборка из командной строки их сама не находит). -->
+    <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' and Exists('$(LOCALAPPDATA)\Android\Sdk')">$(LOCALAPPDATA)\Android\Sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and '$(JAVA_HOME)' != ''">$(JAVA_HOME)</JavaSdkDirectory>
+
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultAvaloniaItems>false</EnableDefaultAvaloniaItems>
+    <EnableDefaultAndroidItems>true</EnableDefaultAndroidItems>
+    <HostDir>$(MSBuildThisFileDirectory)..\NurMarketKassa.Avalonia\</HostDir>
+    <PortableDir>$(MSBuildThisFileDirectory)..\NurMarketKassa.Portable\</PortableDir>
+    <HostExcludes>$(HostDir)obj\**;$(HostDir)bin\**;$(HostDir)publish*\**;$(HostDir)release*\**;$(HostDir)installer-out\**;$(HostDir)VoiceModel\**;$(HostDir)AnyDesk\**;$(HostDir)**\*.bak;$(HostDir)**\*.wpfbak;$(HostDir)**\*.shellbak;$(HostDir)**\*.Thin.cs;$(HostDir)**\*.Legacy.cs;$(HostDir)**\_wpf_port_backup\**</HostExcludes>
+  </PropertyGroup>
+
+  <!-- Android собирает список файлов APK внутренними сборками по архитектурам (arm, arm64). В них
+       XAML-компилятор Avalonia подменял путь к главной сборке на несуществующий (obj\…\android-arm64\
+       Avalonia\…), и NurMarketKassa.Avalonia.dll молча не попадала в APK. Разметка уже скомпилирована
+       внешней сборкой — во внутренних её отключаем. -->
+  <PropertyGroup Condition="'$(_ComputeFilesToPublishForRuntimeIdentifiers)' == 'true'">
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.IO" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Net.Http" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+    <Using Include="System.Windows" />
+  </ItemGroup>
+
+  <!-- Код Windows-кассы — ссылками. -->
+  <ItemGroup>
+    <Compile Include="$(HostDir)**\*.cs" Exclude="$(HostExcludes)" Link="Host\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Вход Windows-программы (Velopack, мьютекс, Win32) — на Android свой вход (MainActivity). -->
+    <Compile Remove="$(HostDir)Program.cs" />
+    <!-- Заменены заглушками из NurMarketKassa.Portable\Portable\ (общие для Linux и Android). -->
+    <Compile Remove="$(HostDir)Controls\WebView2Host.cs" />
+    <Compile Include="$(PortableDir)Portable\**\*.cs" Link="Portable\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Свои файлы Android-проекта: окна-слои (Shell\), платформа (Platform\), вход (MainActivity). -->
+    <Compile Include="*.cs;Shell\**\*.cs;Platform\**\*.cs" />
+    <AvaloniaResource Include="$(HostDir)Assets\**" Exclude="$(HostExcludes)" Link="Assets\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Разметка .axaml добавляется в build\NurAxamlRewrite.targets (копии с заменой <Window>). -->
+    <!-- Значки программ на экране Android (Resources\drawable\icon*.png) — копия Assets\app-logo.png:
+         Android не принимает в именах ресурсов дефис, ссылкой файл подключить нельзя. -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Android" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NurMarketKassa.ViewModels\NurMarketKassa.ViewModels.csproj" />
+    <ProjectReference Include="..\NurMarketKassa.Infrastructure\NurMarketKassa.Infrastructure.csproj" />
+    <ProjectReference Include="..\NurMarketKassa.Core\NurMarketKassa.Core.csproj" />
+    <ProjectReference Include="..\NurMarketKassa.Ui.Shared\NurMarketKassa.Ui.Shared.csproj" />
+  </ItemGroup>
+
+  <Import Project="build\NurAxamlRewrite.targets" />
+</Project>

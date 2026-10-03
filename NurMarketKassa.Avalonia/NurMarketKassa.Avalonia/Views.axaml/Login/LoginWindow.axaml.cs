@@ -158,14 +158,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     .ConfigureAwait(true);
                 if (!canOpen)
                 {
+#if NURANDROID
+                    // 2026-10-04, Android-касса: своё время жизни (окна-слои), см. NurMarketKassa.AndroidDesktopLifetime.
+                    if (Application.Current?.ApplicationLifetime is NurMarketKassa.IClassicDesktopStyleApplicationLifetime __shutdownDesk)
+#else
                     if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime __shutdownDesk)
+#endif
                         __shutdownDesk.Shutdown();
                     else
                         Close();
                     return;
                 }
 
+#if NURANDROID
+                if (Application.Current?.ApplicationLifetime is NurMarketKassa.IClassicDesktopStyleApplicationLifetime __desk) __desk.MainWindow = mainWindow;
+#else
                 if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime __desk) __desk.MainWindow = mainWindow;
+#endif
                 shell.PlaceOnPrimaryScreen();
                 mainWindow.Show();
                 Close();
@@ -399,7 +408,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private static void ShutdownApplication()
         {
             App.ExitWithoutLoginRedirect = true;
+#if NURANDROID
+            if (Application.Current?.ApplicationLifetime is NurMarketKassa.IClassicDesktopStyleApplicationLifetime desktop) // 2026-10-04: Android-касса
+#else
             if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+#endif
                 desktop.Shutdown();
             else
                 Environment.Exit(0);

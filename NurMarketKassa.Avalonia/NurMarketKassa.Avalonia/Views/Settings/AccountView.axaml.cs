@@ -65,7 +65,12 @@ public partial class AccountView : UserControl
         // 2026-09-29, владелец: «выйти из учётной записи» в программе владельца — теперь только
         // здесь (внизу меню вместо него «Выйти на рабочий стол»). Окна кассы у владельца нет —
         // раньше эта кнопка у него ничего не делала.
+#if NURANDROID
+        // 2026-10-04, Android-касса: окна там — слои, время жизни своё (NurMarketKassa.AndroidDesktopLifetime).
+        if (Avalonia.Application.Current?.ApplicationLifetime is NurMarketKassa.IClassicDesktopStyleApplicationLifetime desktop
+#else
         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+#endif
             && desktop.MainWindow is OwnerShellWindow ownerShell)
             await ownerShell.SignOutAsync().ConfigureAwait(true);
     }

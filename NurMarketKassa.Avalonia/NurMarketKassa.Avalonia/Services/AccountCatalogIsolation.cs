@@ -70,9 +70,17 @@ public static class AccountCatalogIsolation
 /// </summary>
 public static class TouchKeyboard
 {
+#if NURANDROID
+    // 2026-10-04, Android-касса: экранная клавиатура — системная Android, появляется сама при
+    // касании поля ввода; своя клавиатура кассы там не нужна.
+    public static void TryShow(NurMarketKassa.Window? owner = null) { }
+    public static void ShowOnDemand(NurMarketKassa.Window? owner = null) { }
+    public static void Close() { }
+#else
     public static void TryShow(Avalonia.Controls.Window? owner = null) => NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard.ShowKeyboard(owner);
     public static void ShowOnDemand(Avalonia.Controls.Window? owner = null) => NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard.ShowKeyboard(owner);
     public static void Close() => NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard.KillKeyboard();
+#endif
 }
 
 /// <summary>
