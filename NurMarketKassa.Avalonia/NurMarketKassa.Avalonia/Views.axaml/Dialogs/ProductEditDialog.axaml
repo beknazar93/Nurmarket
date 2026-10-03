@@ -180,6 +180,17 @@
                 <TabItem Header="{DynamicResource product.tabMain}">
                     <ScrollViewer Padding="0,14,10,6">
                         <StackPanel Spacing="20">
+                            <!-- 2026-10-03, владелец: «изучи веб — при скане, если товар есть в базе готовых наименований,
+                                 сразу всё подставляется». Подсказка и результат поиска в базе NurCRM (только новый товар). -->
+                            <Border IsVisible="{Binding ShowGlobalScanHint}" CornerRadius="10" Padding="12,10"
+                                    Background="{DynamicResource BrushAccentSoft}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource product.globalScanHint}" TextWrapping="Wrap" FontSize="12.5"
+                                               Foreground="{DynamicResource BrushText}"/>
+                                    <TextBlock Text="{Binding GlobalStatus}" IsVisible="{Binding HasGlobalStatus}" TextWrapping="Wrap"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                                </StackPanel>
+                            </Border>
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
                                 <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>

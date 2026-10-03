@@ -1512,4 +1512,5 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">Күйгүзүлсө — «Карызга» төлөм терезесинде кассир алдын ала төлөм кантип берилгенин тандайт. Накталай эмес төлөм сменанын накталай акчасына кирбейт.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Бүт чекке дүң</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Дүң баада сатуу (дагы бир жолу — кайра чекене)</x:String>
+  <x:String x:Key="product.globalScanHint">Товардын штрихкодун сканерлеңиз: NurCRM базасында болсо, аталышы, категориясы жана бренди өзү толот — бааларды жана санын гана көрсөтүңүз. Базада жок болсо — колго толтуруңуз.</x:String>
 </ResourceDictionary>

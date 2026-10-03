@@ -1512,4 +1512,5 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">When on, the cashier chooses how the prepayment was made in the “On credit” payment window. Cashless does not count as shift cash.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Wholesale for receipt</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Sell at the wholesale price (again — back to retail)</x:String>
+  <x:String x:Key="product.globalScanHint">Scan the product barcode: if it is in the NurCRM base, the name, category and brand fill in by themselves — just enter the prices and quantity. Not in the base — fill it in manually.</x:String>
 </ResourceDictionary>

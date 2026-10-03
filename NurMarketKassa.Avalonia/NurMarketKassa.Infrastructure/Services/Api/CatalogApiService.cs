@@ -599,12 +599,21 @@ public sealed class CatalogApiService : ICatalogApiService
 
     public async Task<JsonElement?> FindGlobalProductByBarcodeAsync(string barcode, CancellationToken ct = default)
     {
+        // 2026-10-03, владелец: «очень медленно». Сервер NurCRM отвечал по 40–60 с на запрос. Найденное в общей
+        // базе запоминаем на компьютере (общая база — справочник, меняется редко): повторный скан — мгновенно.
+        var key = barcode.Trim();
+        if (GlobalBarcodeCache.TryGet(key) is { } cached)
+            return cached;
         try
         {
             var data = await _client.RequestAsync(
-                    HttpMethod.Get, $"api/main/products/global-barcode/{Uri.EscapeDataString(barcode.Trim())}/", null, null, ct)
+                    HttpMethod.Get, $"api/main/products/global-barcode/{Uri.EscapeDataString(key)}/", null, null, ct)
                 .ConfigureAwait(false);
-            return data.ValueKind == JsonValueKind.Object ? data.Clone() : null;
+            if (data.ValueKind != JsonValueKind.Object)
+                return null;
+            var found = data.Clone();
+            GlobalBarcodeCache.Put(key, found);
+            return found;
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
         {

@@ -106,9 +106,55 @@ public static class SaleDocumentHtmlBuilder
         var safe = string.Concat((number ?? "sale").Where(ch => char.IsLetterOrDigit(ch) || ch == '-'));
         var path = Path.Combine(dir, $"{(kind == Kind.Waybill ? "nakladnaya" : "tovarny-chek")}-{safe}-{DateTime.Now:HHmmss}.html");
         File.WriteAllText(path, Build(sale, number, total, kind), new UTF8Encoding(true));
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        OpenInBrowser(path);
         PosLogger.Log($"Документ по чеку {number} открыт для печати ({kind}).", "PRINTER");
         return path;
+    }
+
+    /// <summary>2026-10-04, владелец (снимок): «Документ не открылся: … Указанному файлу не сопоставлено ни одно
+    /// приложение» — на компьютере нет программы по умолчанию для .html. Тогда открываем браузером напрямую:
+    /// Edge (есть в любой Windows 10/11), Chrome, Firefox.</summary>
+    private static void OpenInBrowser(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Документ: нет программы для .html ({ex.Message}) — открываю браузером.", "PRINTER");
+        }
+
+        var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var browsers = new[]
+        {
+            Path.Combine(pf86, @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(pf, @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(pf, @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(pf86, @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(local, @"Google\Chrome\Application\chrome.exe"),
+            Path.Combine(pf, @"Mozilla Firefox\firefox.exe"),
+            Path.Combine(pf86, @"Mozilla Firefox\firefox.exe"),
+        };
+        var url = new Uri(path).AbsoluteUri;
+        foreach (var exe in browsers.Where(File.Exists))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(exe, "\"" + url + "\"") { UseShellExecute = false });
+                return;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Документ: {Path.GetFileName(exe)} не запустился ({ex.Message}).", "PRINTER");
+            }
+        }
+
+        // Последняя попытка — протокол Edge, он зарегистрирован в Windows всегда.
+        Process.Start(new ProcessStartInfo("microsoft-edge:" + url) { UseShellExecute = true });
     }
 
     private static string? Str(JsonElement e, string name) =>

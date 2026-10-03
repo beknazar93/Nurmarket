@@ -1512,4 +1512,5 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">Включено — в окне оплаты «В долг» кассир выбирает, как внесена предоплата. Безнал не попадает в наличные смены.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Опт на весь чек</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Продать по оптовой цене (ещё раз — снова розница)</x:String>
+  <x:String x:Key="product.globalScanHint">Отсканируйте штрихкод товара: если он есть в базе NurCRM, название, категория и бренд заполнятся сами — останется указать цены и количество. Нет в базе — заполните вручную.</x:String>
 </ResourceDictionary>

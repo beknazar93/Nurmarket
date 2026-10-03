@@ -195,6 +195,15 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             if (_existing is null && !string.IsNullOrWhiteSpace(Barcode))
                 _ = FillNameFromGlobalBaseAsync(Barcode);
         };
+        // 2026-10-03: скан прямо в поле штрихкода заканчивается Enter — сразу ищем в базе NurCRM.
+        BarcodeBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter)
+            {
+                e.Handled = true;
+                _ = FillNameFromGlobalBaseAsync(Barcode);
+            }
+        };
         // 2026-10-02, вкладки карточки: история закупок грузится при раскрытии — раскрываем при выборе вкладки.
         ProductTabs.SelectionChanged += (_, _) =>
         {
@@ -259,16 +268,39 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     private async Task FillNameFromGlobalBaseAsync(string? barcode)
     {
         var code = barcode?.Trim() ?? "";
-        if (_existing is not null || _catalogApi is null || code.Length < 8 || !string.IsNullOrWhiteSpace(ProductName))
+        // 2026-10-03, владелец: «изучи веб: при сканировании, если товар есть в базе готовых наименований, сразу всё
+        // подставляется». Сайт (страница «добавить сканом») берёт из общей базы название, категорию и бренд — цен там
+        // нет. Заполняем пустые поля (вписанное руками не трогаем) и пишем, нашёлся ли товар.
+        if (_existing is not null || _catalogApi is null || code.Length < 8
+            || (!string.IsNullOrWhiteSpace(ProductName) && !string.IsNullOrWhiteSpace(Category) && !string.IsNullOrWhiteSpace(Brand))
+            || code == _globalLookedUp)
             return;
+        _globalLookedUp = code;
+        GlobalStatus = Tr.T("Ищу в базе NurCRM…", "NurCRM базасынан издеп жатам…", "Searching the NurCRM base…", "NurCRM tabanında aranıyor…", "NurCRM bazasidan qidirilmoqda…");
+        GlobalFound = null;
 
         try
         {
             // 2026-10-03: тот же код в другой записи (UPC-A 12 цифр ↔ EAN-13 с нулём) — см. BarcodeForms.
+            // 2026-10-03, владелец: «он не находит» — находил, но через 2,5 минуты: сервер NurCRM отвечал ~40 с на
+            // запрос, а склад и общая база спрашивались по очереди (до 4 запросов). Теперь все запросы — сразу.
             var alternate = BarcodeForms.Alternate(code);
-            var own = await _catalogApi.FindWarehouseProductByBarcodeAsync(code).ConfigureAwait(true);
-            if (own is null && alternate != null)
-                own = await _catalogApi.FindWarehouseProductByBarcodeAsync(alternate).ConfigureAwait(true);
+            var api = _catalogApi;
+            Task<System.Text.Json.JsonElement?> Safe(Func<Task<System.Text.Json.JsonElement?>> call) => Task.Run(async () =>
+            {
+                try { return await call().ConfigureAwait(false); }
+                catch (Exception ex) { PosLogger.Log($"Карточка товара: запрос по штрихкоду не удался: {ex.Message}", "DEBUG"); return null; }
+            });
+            var ownTask = Safe(() => api.FindWarehouseProductByBarcodeAsync(code));
+            var ownAltTask = alternate != null ? Safe(() => api.FindWarehouseProductByBarcodeAsync(alternate)) : Task.FromResult<System.Text.Json.JsonElement?>(null);
+            var globalTask = Safe(() => api.FindGlobalProductByBarcodeAsync(code));
+            var globalAltTask = alternate != null ? Safe(() => api.FindGlobalProductByBarcodeAsync(alternate)) : Task.FromResult<System.Text.Json.JsonElement?>(null);
+            var all = Task.WhenAll(ownTask, ownAltTask, globalTask, globalAltTask);
+            if (await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(4))).ConfigureAwait(true) != all)
+                GlobalStatus = Tr.T("Сервер NurCRM отвечает медленно, жду…", "NurCRM сервери жай жооп берип жатат, күтүп жатам…", "The NurCRM server is slow, waiting…",
+                    "NurCRM sunucusu yavaş yanıt veriyor, bekleniyor…", "NurCRM serveri sekin javob bermoqda, kutilmoqda…");
+            await all.ConfigureAwait(true);
+            var own = ownTask.Result ?? ownAltTask.Result;
             if (own is { } ownProduct)
             {
                 var ownName = ownProduct.TryGetProperty("name", out var n) ? n.GetString() : null;
@@ -277,25 +309,68 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     $"A product with this barcode already exists in the warehouse: {ownName}.",
                     $"Bu barkodlu ürün zaten depoda var: {ownName}.",
                     $"Bu shtrix-kodli mahsulot omborda allaqachon bor: {ownName}.");
+                GlobalStatus = "";
                 return;
             }
 
-            var global = await _catalogApi.FindGlobalProductByBarcodeAsync(code).ConfigureAwait(true);
-            if (global is null && alternate != null)
-                global = await _catalogApi.FindGlobalProductByBarcodeAsync(alternate).ConfigureAwait(true);
-            if (global is { } globalProduct
-                && globalProduct.TryGetProperty("name", out var gn) && !string.IsNullOrWhiteSpace(gn.GetString())
-                && string.IsNullOrWhiteSpace(ProductName)
-                && string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
+            var global = globalTask.Result ?? globalAltTask.Result;
+            if (!string.Equals(Barcode?.Trim(), code, StringComparison.Ordinal))
+                return; // штрихкод уже сменили — ответ устарел
+            if (global is { } globalProduct && GlobalText(globalProduct, "name") is { } globalName)
             {
-                ProductName = gn.GetString()!.Trim();
-                PosLogger.Log($"Карточка товара: название по штрихкоду {code} взято из общей базы NurCRM.", "CATALOG");
+                var category = GlobalText(globalProduct, "category");
+                var brand = GlobalText(globalProduct, "brand");
+                if (string.IsNullOrWhiteSpace(ProductName))
+                    ProductName = globalName;
+                if (string.IsNullOrWhiteSpace(Category) && category != null)
+                    Category = category;
+                if (string.IsNullOrWhiteSpace(Brand) && brand != null)
+                    Brand = brand;
+                GlobalFound = true;
+                GlobalStatus = "✓ " + Tr.T("Найдено в базе NurCRM: ", "NurCRM базасынан табылды: ", "Found in the NurCRM base: ", "NurCRM tabanında bulundu: ", "NurCRM bazasidan topildi: ")
+                               + string.Join(" · ", new[] { globalName, category, brand }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                               + Tr.T(". Укажите цены и количество.", ". Бааларды жана санын көрсөтүңүз.", ". Enter the prices and quantity.", ". Fiyatları ve miktarı girin.", ". Narx va miqdorni kiriting.");
+                PosLogger.Log($"Карточка товара: по штрихкоду {code} из общей базы NurCRM подставлены название, категория и бренд.", "CATALOG");
+            }
+            else
+            {
+                GlobalFound = false;
+                GlobalStatus = Tr.T("Этого штрихкода нет в базе NurCRM — заполните карточку вручную.", "Бул штрихкод NurCRM базасында жок — карточканы колго толтуруңуз.",
+                    "This barcode is not in the NurCRM base — fill in the card manually.", "Bu barkod NurCRM tabanında yok — kartı elle doldurun.",
+                    "Bu shtrix-kod NurCRM bazasida yo'q — kartani qo'lda to'ldiring.");
             }
         }
         catch (Exception ex)
         {
+            GlobalStatus = "";
+            _globalLookedUp = null;
             PosLogger.Log($"Карточка товара: общая база по штрихкоду {code} недоступна: {ex.Message}", "DEBUG");
         }
+    }
+
+    // 2026-10-03: строка «найдено / нет в базе NurCRM» над карточкой нового товара.
+    private string? _globalLookedUp;
+    private string _globalStatus = "";
+    private bool? _globalFound;
+
+    public string GlobalStatus { get => _globalStatus; private set { _globalStatus = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasGlobalStatus)); } }
+    public bool HasGlobalStatus => !string.IsNullOrEmpty(_globalStatus);
+    public bool? GlobalFound { get => _globalFound; private set { _globalFound = value; OnPropertyChanged(); OnPropertyChanged(nameof(GlobalNotFound)); } }
+    public bool GlobalNotFound => _globalFound == false;
+    public bool ShowGlobalScanHint => _existing is null;
+
+    /// <summary>Строка из ответа общей базы: «category»/«brand» бывают строкой или объектом с «name».</summary>
+    private static string? GlobalText(System.Text.Json.JsonElement e, string name)
+    {
+        if (!e.TryGetProperty(name, out var v))
+            return null;
+        var text = v.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.String => v.GetString(),
+            System.Text.Json.JsonValueKind.Object when v.TryGetProperty("name", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String => n.GetString(),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
     /// <summary>Строка истории закупок в карточке.</summary>
