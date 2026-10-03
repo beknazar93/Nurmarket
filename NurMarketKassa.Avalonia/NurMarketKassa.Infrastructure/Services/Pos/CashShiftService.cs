@@ -56,20 +56,28 @@ public sealed class CashShiftService : ICashShiftService
             return OpenOfflineShift(openingCash);
 
         var opening = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
+        // 2026-10-04, стенд «сбои сервера»: сервер, который молчит (обрыв без ответа, «чёрная дыра»,
+        // ответ через 20–60 с), кассир ждёт не дольше OpenShiftServerAnswerBudget с последнего ответа
+        // сервера, дальше — офлайн-смена (catch ниже), как при обрыве сети. Раньше — до 55 с на запрос
+        // (таймаут HttpClient): на стенде открытие смены при «чёрной дыре» заняло 55 с.
+        using var serverWait = new CancellationTokenSource(OpenShiftServerAnswerBudget);
+        using var serverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
+        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(OpenShiftServerAnswerBudget));
         try
         {
             // 2026-09-10: раньше вызывался ДО этого try/catch — ApiException отсюда (например,
             // "Сессия недействительна" при протухшем токене) улетал необработанным и ронял кассу
             // с крашем прямо при добавлении первого товара в чек (оно само открывает смену).
             // Теперь ошибки этого вызова обрабатываются теми же catch, что и ниже.
-            var cashboxId = await EnsurePosCashboxIdAsync(cancellationToken).ConfigureAwait(false);
+            var cashboxId = await EnsurePosCashboxIdAsync(serverCts.Token).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(cashboxId))
                 return CashShiftOperationResult.Failed(Tr.T("Не удалось определить кассу.", "Кассаны аныктоо мүмкүн болгон жок.",
                     "Could not determine the till.", "Kasa belirlenemedi.", "Kassani aniqlab bo'lmadi."));
 
             var response = await _shiftApi
-                .ConstructionShiftOpenAsync(cashboxId, opening, cancellationToken)
+                .ConstructionShiftOpenAsync(cashboxId, opening, serverCts.Token)
                 .ConfigureAwait(false);
+            watch.Stop();
 
             var shiftId = CartDisplayHelper.TryShiftIdFromOpenResponse(response);
 
@@ -129,6 +137,9 @@ public sealed class CashShiftService : ICashShiftService
         }
         catch (HttpRequestException ex)
         {
+            // 2026-10-04: обрыв связи — авария сразу (следующие действия кассира не ждут сеть), как в
+            // ветке сбоя сервера ниже.
+            ServerOutageMonitor.ReportFailure(Tr.T("открытие смены", "сменаны ачуу", "opening the shift", "vardiya açma", "smenani ochish"), ex, hard: true);
             PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
             ShiftService.IsShiftOpen = true;
             _offlinePosStateStore.SaveFromApp(openingCash);
@@ -177,7 +188,21 @@ public sealed class CashShiftService : ICashShiftService
             return CashShiftOperationResult.Failed(Tr.T("Ошибка открытия смены: ", "Сменаны ачууда ката кетти: ",
                 "Error opening the shift: ", "Vardiya açılırken hata oluştu: ", "Smenani ochishda xato: ") + ex.Message);
         }
+        finally
+        {
+            watch.Stop();
+        }
     }
+
+    /// <summary>2026-10-04: сколько открытие смены ждёт ответа сервера (с последнего ответа), прежде чем
+    /// открыть смену офлайн (владелец: «переход на офлайн должен быть мгновенным»). Живой сервер отвечает
+    /// на список касс и открытие смены за доли секунды; каждый ответ отсчитывает окно заново.</summary>
+    internal static readonly TimeSpan OpenShiftServerAnswerBudget = TimeSpan.FromSeconds(2);
+
+    /// <summary>2026-10-04: то же для закрытия смены. Чуть больше, чем у открытия: закрытие сервер
+    /// считает дольше (итоги смены), а закрытие «в кассе» вместо сервера — это Z-отчёт без итогов
+    /// сервера и закрытие на сервере только из очереди (SyncService, после досылки чеков смены).</summary>
+    internal static readonly TimeSpan CloseShiftServerAnswerBudget = TimeSpan.FromSeconds(3);
 
     /// <summary>Смена только в кассе (сервер недоступен). 2026-09-29: вынесено из OpenShiftAsync
     /// без изменений, чтобы ею же открывалась смена в аварии сервера.</summary>
@@ -262,13 +287,19 @@ public sealed class CashShiftService : ICashShiftService
                 ? CloseOfflineShiftLocally(shiftId, closingCash)
                 : CloseLocallyAndQueue(shiftId!, closing, closingCash, "сервер NurCRM не отвечает");
 
+        // 2026-10-04, стенд «сбои сервера»: молчащий сервер — не дольше CloseShiftServerAnswerBudget с
+        // последнего ответа, дальше смена закрывается в кассе, закрытие на сервере — в очередь (catch
+        // ниже). Раньше — до 55 с (таймаут HttpClient; на стенде при «чёрной дыре» — ровно 55 с).
+        using var serverWait = new CancellationTokenSource(CloseShiftServerAnswerBudget);
+        using var serverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
+        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(CloseShiftServerAnswerBudget));
         try
         {
             JsonElement response;
             try
             {
                 response = await _shiftApi
-                    .ConstructionShiftCloseAsync(shiftId!, closing, null, cancellationToken)
+                    .ConstructionShiftCloseAsync(shiftId!, closing, null, serverCts.Token)
                     .ConfigureAwait(false);
             }
             catch (ApiException ex) when (LooksLikeDecimalPlacesError(ex.Message))
@@ -283,15 +314,16 @@ public sealed class CashShiftService : ICashShiftService
                     "Закрытие смены отклонено из-за лишних знаков в суммах сервера — повтор с округлением.",
                     "SHIFT");
 
-                var rounded = await BuildRoundedTotalsAsync(shiftId!, cancellationToken).ConfigureAwait(false);
+                var rounded = await BuildRoundedTotalsAsync(shiftId!, serverCts.Token).ConfigureAwait(false);
                 if (rounded.Count == 0)
                     throw;
 
                 response = await _shiftApi
-                    .ConstructionShiftCloseAsync(shiftId!, closing, rounded, cancellationToken)
+                    .ConstructionShiftCloseAsync(shiftId!, closing, rounded, serverCts.Token)
                     .ConfigureAwait(false);
             }
 
+            watch.Stop();
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
             // A successful close is authoritative. An immediate list refresh may
@@ -409,6 +441,10 @@ public sealed class CashShiftService : ICashShiftService
                 return CloseLocallyAndQueue(shiftId!, closing, closingCash, ex.Message);
 
             return CashShiftOperationResult.Failed(DescribeCloseFailure(ex));
+        }
+        finally
+        {
+            watch.Stop();
         }
     }
 

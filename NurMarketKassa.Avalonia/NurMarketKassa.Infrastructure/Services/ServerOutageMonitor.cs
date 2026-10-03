@@ -109,6 +109,11 @@ public static class ServerOutageMonitor
     private static DateTimeOffset? _lastSuccessAt;
     private static CancellationTokenSource? _probeCts;
     private static int _probeAttempt;
+    private static DateTimeOffset? _lastRecoveredAt;
+
+    /// <summary>2026-10-04: авария в пределах этого окна после восстановления считается «дребезгом»
+    /// (см. StartProbeLoopLocked).</summary>
+    private static readonly TimeSpan FlapWindow = TimeSpan.FromMinutes(2);
 
     /// <summary>Проверка «сервер снова отвечает» — задаёт NurMarketApiClient (лёгкий запрос API с
     /// авторизацией). true — сервер жив. Исключения считаются неудачей.</summary>
@@ -198,6 +203,28 @@ public static class ServerOutageMonitor
     public static void ReportFailure(string context, Exception ex, bool hard = false) =>
         ReportFailure(context, Describe(ex), hard);
 
+    /// <summary>2026-10-04, стенд «сбои сервера»: обрыв или таймаут запроса, который УШЁЛ ДО последнего
+    /// успешного ответа сервера, о текущем состоянии сервера ничего не говорит. Живой случай стенда:
+    /// при «чёрной дыре» фоновые загрузки (каталог, история) висят до таймаута HttpClient (55 с); сервер
+    /// за это время ожил, касса вернулась в «Онлайн» и дослала очередь — а потом эти старые запросы
+    /// разом отваливались по таймауту и снова объявляли аварию: оплаты на ровном месте уходили в
+    /// очередь ещё минимум на 10 с. Такие сбои только пишутся в журнал.</summary>
+    public static void ReportTransportFailure(string context, Exception ex, DateTimeOffset requestStartedAt)
+    {
+        DateTimeOffset? lastSuccess;
+        lock (Sync)
+            lastSuccess = _lastSuccessAt;
+        if (lastSuccess is { } success && requestStartedAt < success)
+        {
+            PosLogger.Log(
+                $"Сбой старого запроса NurCRM ({context}, начат {requestStartedAt:HH:mm:ss}, сервер с тех пор отвечал в {success:HH:mm:ss}): {Describe(ex)} — не считается.",
+                "OUTAGE");
+            return;
+        }
+
+        ReportFailure(context, Describe(ex));
+    }
+
     /// <summary>Успешный ответ сервера (разобранный JSON или отказ 4xx — сервер жив).</summary>
     public static void ReportSuccess(string context)
     {
@@ -220,7 +247,10 @@ public static class ServerOutageMonitor
             var since = OutageSinceForLog();
             PosLogger.Log($"Связь с сервером NurCRM восстановлена ({context}){since}.", "OUTAGE");
             lock (Sync)
+            {
                 _outageSince = null;
+                _lastRecoveredAt = DateTimeOffset.Now;
+            }
         }
         else
         {
@@ -285,6 +315,8 @@ public static class ServerOutageMonitor
             _outageSince = null;
             _lastError = null;
             _lastErrorAt = null;
+            _lastRecoveredAt = null;
+            _probeAttempt = 0;
         }
     }
 
@@ -306,7 +338,13 @@ public static class ServerOutageMonitor
     private static void StartProbeLoopLocked()
     {
         StopProbeLoopLocked();
-        _probeAttempt = 0;
+        // 2026-10-04: авария снова через минуты после восстановления («дребезг»: проверка профиля
+        // проходит, а продажа/досылка снова падает) — паузы проверки продолжают расти (10 → 20 → 40 →
+        // 60 с), а не начинаются заново с 10 с: иначе касса каждые ~10 с на миг становилась
+        // «Онлайн» и очередной чек снова ждал сервер.
+        var flapping = _lastRecoveredAt is { } recovered && DateTimeOffset.Now - recovered < FlapWindow;
+        if (!flapping)
+            _probeAttempt = 0;
         var cts = new CancellationTokenSource();
         _probeCts = cts;
         _ = Task.Run(() => ProbeLoopAsync(cts.Token));

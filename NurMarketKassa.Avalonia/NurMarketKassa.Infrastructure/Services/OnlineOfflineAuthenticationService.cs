@@ -96,26 +96,36 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
 
         _api.RestoreOfflineSession(ToLegacySession(saved));
 
+        // 2026-10-04, стенд «сбои сервера»: при запуске кассы сервер ждём не дольше
+        // AutoLoginServerBudget. Раньше обновление токена и профиль шли с общим таймаутом HttpClient
+        // (55 с каждый): при «чёрной дыре» или медленном сервере кассир смотрел на заставку минуту и
+        // дольше. Не ответил вовремя — вход по сохранённой сессии (как без интернета), касса работает
+        // автономно, а проверку «сервер снова жив» ведёт ServerOutageMonitor в фоне.
+        using var serverBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        serverBudget.CancelAfter(AutoLoginServerBudget);
+        var serverCt = serverBudget.Token;
+
         try
         {
             // Refresh first when the local JWT lifetime has ended. An expired
             // token is never accepted offline, even if the network is down.
+            // 2026-10-04: кроме сбоя связи/сервера — тогда вход по живому refresh-токену (см. ниже).
             if (!IsLocallyValid(saved))
             {
-                if (!await _api.RefreshAccessAsync(cancellationToken).ConfigureAwait(false))
+                if (!await _api.RefreshAccessAsync(serverCt).ConfigureAwait(false))
                     return await RejectSavedSessionAsync(Tr.T("Сессия истекла. Войдите снова.",
                         "Сессиянын мөөнөтү бүттү. Кайра кириңиз.", "Your session has expired. Please sign in again.",
                         "Oturumun süresi doldu. Tekrar giriş yapın.", "Sessiya muddati tugadi. Qaytadan kiring."),
                         cancellationToken).ConfigureAwait(false);
 
-                var refreshedProfile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
+                var refreshedProfile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, refreshedProfile, saved);
                 await _storage.SaveSessionAsync(refreshed).ConfigureAwait(false);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
 
             // This request is the authoritative server-side validation.
-            var profile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
+            var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
             var validated = CreateSession(saved.Login, default, profile, saved);
             await _storage.SaveSessionAsync(validated).ConfigureAwait(false);
             return AuthenticationResult.Success(validated, AuthenticationMode.Online);
@@ -124,20 +134,24 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         {
             try
             {
-                if (!await _api.RefreshAccessAsync(cancellationToken).ConfigureAwait(false))
+                if (!await _api.RefreshAccessAsync(serverCt).ConfigureAwait(false))
                     return await RejectSavedSessionAsync(Tr.T("Сессия отозвана. Войдите снова.", "Сессия жокко чыгарылды. Кайра кириңиз.",
                         "Your session was revoked. Please sign in again.", "Oturum iptal edildi. Tekrar giriş yapın.",
                         "Sessiya bekor qilindi. Qaytadan kiring."),
                         cancellationToken).ConfigureAwait(false);
 
-                var profile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
+                var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, profile, saved);
                 await _storage.SaveSessionAsync(refreshed).ConfigureAwait(false);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
-            catch (Exception refreshError) when (IsNetworkFailure(refreshError, cancellationToken))
+            catch (Exception refreshError) when (IsNetworkFailure(refreshError, cancellationToken)
+                                                 || refreshError is ApiException { StatusCode: var code }
+                                                 && ServerOutageMonitor.IsServerFailureStatus(code))
             {
-                return await OfflineOrExpiredAsync(saved, cancellationToken).ConfigureAwait(false);
+                // 2026-10-04: и при 5xx/429 на обновлении токена — сервер не ответил по существу, это не
+                // «сессия отозвана» (раньше 5xx здесь стирал сохранённую сессию).
+                return await ContinueOfflineAfterServerFailureAsync(saved, refreshError, cancellationToken).ConfigureAwait(false);
             }
             catch (ApiException)
             {
@@ -157,7 +171,13 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         }
         catch (Exception ex) when (IsNetworkFailure(ex, cancellationToken))
         {
-            return await OfflineOrExpiredAsync(saved, cancellationToken).ConfigureAwait(false);
+            // 2026-10-04, стенд «сбои сервера»: нет интернета, «чёрная дыра» или сервер не ответил за
+            // AutoLoginServerBudget — как при аварии сервера ниже. Раньше здесь был OfflineOrExpiredAsync
+            // без refresh-токена: токен доступа живёт ~15 минут, поэтому почти любой перезапуск кассы без
+            // связи кончался «Сессия истекла. Для входа подключитесь к интернету.» и СТИРАЛ сохранённую
+            // сессию — кассир не мог работать, пока не вернётся интернет (а 60 часов офлайн-работы,
+            // которые разрешил владелец, на деле были 15 минутами).
+            return await ContinueOfflineAfterServerFailureAsync(saved, ex, cancellationToken).ConfigureAwait(false);
         }
         catch (ApiException ex) when (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
         {
@@ -172,24 +192,9 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             // связи), а срок сессии в аварии определяет refresh-токен: именно им касса продлит
             // доступ, как только сервер оживёт. Отозванный на сервере токен здесь не пройдёт
             // дальше первого же ответа сервера (401 → «Сессия недействительна», как и раньше).
-            var session = WithCurrentTokens(saved);
-            if (!ReferenceEquals(session, saved))
-                await _storage.SaveSessionAsync(session).ConfigureAwait(false);
-            if (IsLocallyValid(session) || IsRefreshLocallyValid(session))
-            {
-                PosLogger.Log($"Автовход: сервер не отвечает ({ServerOutageMonitor.Describe(ex)}) — вход по сохранённой сессии, касса работает автономно.", "OUTAGE");
-                return await OfflineOrExpiredAsync(session, cancellationToken, acceptValidRefresh: true).ConfigureAwait(false);
-            }
-
-            // Истёк и refresh-токен — войти всё равно нельзя, но сессию не стираем: как только
-            // сервер оживёт, автовход сам скажет, действительна ли она.
-            return AuthenticationResult.Failed(
-                AuthenticationFailure.ServerError,
-                Tr.T("Сервер NurCRM временно не отвечает, а сохранённый вход истёк. Повторите вход, когда сервер заработает.",
-                    "NurCRM сервери убактылуу жооп бербей жатат, сакталган кирүүнүн мөөнөтү бүткөн. Сервер иштегенде кайра кириңиз.",
-                    "The NurCRM server is temporarily not responding and the saved sign-in has expired. Sign in again once the server is back.",
-                    "NurCRM sunucusu geçici olarak yanıt vermiyor ve kayıtlı oturumun süresi dolmuş. Sunucu çalışınca yeniden giriş yapın.",
-                    "NurCRM serveri vaqtincha javob bermayapti, saqlangan kirish muddati tugagan. Server ishlaganda qayta kiring."));
+            // 2026-10-04: вынесено в ContinueOfflineAfterServerFailureAsync — тем же путём теперь идёт и
+            // сбой связи (см. catch выше).
+            return await ContinueOfflineAfterServerFailureAsync(saved, ex, cancellationToken).ConfigureAwait(false);
         }
         catch (ApiException)
         {
@@ -203,6 +208,47 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                     "Sunucu geçici olarak kullanılamıyor. Çevrimdışı girişe yalnızca ağ hatası olduğunda izin verilir.",
                     "Server vaqtincha mavjud emas. Oflayn kirishga faqat tarmoq xatosi bo'lganda ruxsat beriladi."));
         }
+    }
+
+    /// <summary>2026-10-04: сколько автовход ждёт сервер (обновление токена + профиль) при запуске кассы,
+    /// прежде чем войти по сохранённой сессии автономно. Живой сервер отвечает на оба запроса меньше
+    /// чем за секунду; ошибся (сервер просто медленный) — касса вернётся в «Онлайн» сама по первой
+    /// проверке монитора (через 10 с), чеки за это время уйдут из очереди.</summary>
+    internal static readonly TimeSpan AutoLoginServerBudget = TimeSpan.FromSeconds(3);
+
+    /// <summary>Сервер не ответил при автовходе (нет связи, «чёрная дыра», 5xx/429, HTML вместо JSON):
+    /// вход по сохранённой сессии автономно, если её ещё можно продлить refresh-токеном, и авария
+    /// объявляется сразу (ServerOutageMonitor) — смена, каталог и данные компании при запуске берутся
+    /// из кассы без ожидания сервера, а проверку «сервер снова жив» монитор ведёт в фоне. Сессия не
+    /// стирается: ни подтвердить, ни отвергнуть её сервер сейчас не может. 2026-09-29 — для 5xx,
+    /// 2026-10-04 вынесено в отдельный метод и для сбоя связи.</summary>
+    private async Task<AuthenticationResult> ContinueOfflineAfterServerFailureAsync(
+        UserSession saved,
+        Exception failure,
+        CancellationToken cancellationToken)
+    {
+        var session = WithCurrentTokens(saved);
+        if (!ReferenceEquals(session, saved))
+            await _storage.SaveSessionAsync(session).ConfigureAwait(false);
+        if (IsLocallyValid(session) || IsRefreshLocallyValid(session))
+        {
+            PosLogger.Log($"Автовход: сервер не отвечает ({ServerOutageMonitor.Describe(failure)}) — вход по сохранённой сессии, касса работает автономно.", "OUTAGE");
+            var result = await OfflineOrExpiredAsync(session, cancellationToken, acceptValidRefresh: true).ConfigureAwait(false);
+            if (result.IsSuccess)
+                ServerOutageMonitor.ReportFailure(Tr.T("вход в кассу", "кассага кирүү", "signing in to the till",
+                    "kasaya giriş", "kassaga kirish"), failure, hard: true);
+            return result;
+        }
+
+        // Истёк и refresh-токен — войти всё равно нельзя, но сессию не стираем: как только
+        // сервер оживёт, автовход сам скажет, действительна ли она.
+        return AuthenticationResult.Failed(
+            AuthenticationFailure.ServerError,
+            Tr.T("Сервер NurCRM временно не отвечает, а сохранённый вход истёк. Повторите вход, когда сервер заработает.",
+                "NurCRM сервери убактылуу жооп бербей жатат, сакталган кирүүнүн мөөнөтү бүткөн. Сервер иштегенде кайра кириңиз.",
+                "The NurCRM server is temporarily not responding and the saved sign-in has expired. Sign in again once the server is back.",
+                "NurCRM sunucusu geçici olarak yanıt vermiyor ve kayıtlı oturumun süresi dolmuş. Sunucu çalışınca yeniden giriş yapın.",
+                "NurCRM serveri vaqtincha javob bermayapti, saqlangan kirish muddati tugagan. Server ishlaganda qayta kiring."));
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -421,7 +467,10 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         LastAuthAt = DateTimeOffset.UtcNow,
     };
 
+    /// <summary>2026-10-04: OperationCanceledException, а не только TaskCanceledException — отмену по
+    /// бюджету автовхода (AutoLoginServerBudget) во время ожидания замка входа SemaphoreSlim бросает
+    /// именно его; настоящая отмена вызывающим (касса закрывается) по-прежнему не сбой связи.</summary>
     private static bool IsNetworkFailure(Exception exception, CancellationToken callerToken) =>
         exception is HttpRequestException ||
-        exception is TaskCanceledException && !callerToken.IsCancellationRequested;
+        exception is OperationCanceledException && !callerToken.IsCancellationRequested;
 }

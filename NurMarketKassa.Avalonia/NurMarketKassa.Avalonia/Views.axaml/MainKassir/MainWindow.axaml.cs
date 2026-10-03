@@ -2073,6 +2073,11 @@ public partial class MainWindow : Window
                 // {throw;} ниже, который предназначен для настоящей отмены (закрытие кассы), и
                 // вместо мягкого "кассу не выбрали, попробуем в другой раз" уронил бы весь вход.
                 JsonElement? rawListOrNull = null;
+                // 2026-10-04, стенд «сбои сервера»: сервер не отвечает (ServerOutageMonitor) — касса
+                // остаётся на своей кассе без запроса списка. Раньше этот запрос (до 6 с) и остаток смены
+                // ниже (до 6 с) шли и в аварии: запуск кассы и «Оплатить» без открытой смены ждали сеть
+                // до 12 с на каждый раз.
+                if (!ServerOutageMonitor.IsOutage)
                 try
                 {
                     using var cashboxTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -2174,6 +2179,12 @@ public partial class MainWindow : Window
                     // Автономный режим не ходит на сервер — разбивки продаж (как в вебе) взять
                     // неоткуда, диалог закрытия смены покажет только "Остаток по системе".
                     _shiftTotals = null;
+                }
+                else if (ServerOutageMonitor.IsOutage)
+                {
+                    // 2026-10-04: сервер не отвечает — остаток по кассе, без ожидания (см. выше);
+                    // разбивка остаётся последней полученной.
+                    _shiftCashBalance = OfflinePosStateStore.ReadShiftCashBalance();
                 }
                 else
                 {

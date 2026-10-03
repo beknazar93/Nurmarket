@@ -12,7 +12,10 @@ namespace NurMarketKassa.ViewModels.Main;
 /// «Новый клиент» с подставленным телефоном, ФИО вводит он сам. Продажу скан клиента не останавливает.</summary>
 public sealed partial class BasketPanelViewModel
 {
-    private static readonly TimeSpan ClientQrLookupTimeout = TimeSpan.FromSeconds(8);
+    /// <summary>2026-10-04, стенд «сбои сервера»: 8 → 3 с. Скан QR идёт внутри обработки скана (чек занят),
+    /// и при молчащем сервере кассир ждал 8 с; живой сервер находит клиента по телефону за доли секунды.
+    /// Не успел — как без связи: клиент из памяти кассы.</summary>
+    private static readonly TimeSpan ClientQrLookupTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>Поиск клиентов по телефону; помнит найденных — без связи с сервером постоянного
     /// покупателя можно выбрать только из этой памяти (до закрытия окна кассы).</summary>
@@ -87,7 +90,9 @@ public sealed partial class BasketPanelViewModel
                 using var findCts = new CancellationTokenSource(ClientQrLookupTimeout);
                 match = await lookup.FindAsync(national, findCts.Token).ConfigureAwait(false);
             }
-            catch (ApiException ex)
+            // 2026-10-04: 5xx/429/HTML вместо JSON — сервер не ответил по существу: как без связи
+            // (память кассы, catch ниже), а не «сервер отказал».
+            catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
             {
                 // Сервер ответил отказом — связь есть, память тут не поможет.
                 PosLogger.Log($"QR клиента {masked}: сервер отказал ({ex.StatusCode}): {ex.Message}", "WARNING");

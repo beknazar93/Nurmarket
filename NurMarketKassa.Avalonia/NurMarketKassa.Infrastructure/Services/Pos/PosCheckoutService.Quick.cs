@@ -154,7 +154,7 @@ public sealed partial class PosCheckoutService
                     return null;
                 }
             }
-            catch (ApiException ex) when (ex.StatusCode is 408 or 429 or 502 or 503 or 504)
+            catch (ApiException ex) when (IsQuickTransientStatus(ex.StatusCode))
             {
                 transient = ex;
                 PosLogger.Log($"PAY quick: {ex.StatusCode} (попытка {attempt}), повтор тем же ключом.", "WARNING");
@@ -289,6 +289,15 @@ public sealed partial class PosCheckoutService
 
     /// <summary>Допуск сверки итога кассы с сервером — копейка (плюс запас на двоичную погрешность).</summary>
     private const double TotalTolerance = 0.01 + 1e-6;
+
+    /// <summary>2026-10-04, стенд «сбои сервера»: ответы, после которых продажа с этим ключом МОГЛА
+    /// пройти или ещё выполняется, — повтор только тем же ключом (или очередь с ним же), но не старый
+    /// путь. Раньше сюда попадали лишь 408/429/502/503/504, а 520–524 (Cloudflare: запрос мог дойти до
+    /// сервера и провестись) и 409/423/425 («запрос с этим ключом ещё выполняется») считались отказом
+    /// по существу — касса уходила старым путём и создавала вторую продажу: на стенде 520 после
+    /// проведённой продажи давал 2 продажи на один чек.</summary>
+    internal static bool IsQuickTransientStatus(int? statusCode) =>
+        statusCode is 408 or 409 or 423 or 425 or 429 || statusCode is >= 501 and <= 599;
 
     private static string DescribeQuickError(ApiException ex)
     {

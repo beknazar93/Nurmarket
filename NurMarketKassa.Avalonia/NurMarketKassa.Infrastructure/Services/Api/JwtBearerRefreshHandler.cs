@@ -25,6 +25,9 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         CancellationToken cancellationToken)
     {
         var started = DateTime.UtcNow;
+        // 2026-10-04: момент отправки — обрыв/таймаут запроса, ушедшего до последнего ответа сервера,
+        // аварией не считается (см. ServerOutageMonitor.ReportTransportFailure).
+        var startedAt = DateTimeOffset.Now;
         try
         {
             var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
@@ -44,7 +47,7 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         }
         catch (HttpRequestException ex)
         {
-            ServerOutageMonitor.ReportFailure(DescribeRequest(request), ex);
+            ServerOutageMonitor.ReportTransportFailure(DescribeRequest(request), ex, startedAt);
             throw;
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested
@@ -52,7 +55,7 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         {
             // Таймаут HttpClient или вызывающего после долгого ожидания — сервер не отвечает.
             // Быстрая отмена (кассир закрыл окно) сбоем сервера не считается.
-            ServerOutageMonitor.ReportFailure(DescribeRequest(request), ex);
+            ServerOutageMonitor.ReportTransportFailure(DescribeRequest(request), ex, startedAt);
             throw;
         }
     }

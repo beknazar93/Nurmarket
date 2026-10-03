@@ -25,8 +25,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     /// <summary>2026-09-17: скан промахнулся мимо локального кэша — прежде чем спросить сервер
     /// напрямую, ждём не дольше этого времени (короткий сетевой запрос не должен подвешивать
-    /// сканирование на кассе при плохой связи).</summary>
-    private static readonly TimeSpan ServerBarcodeLookupTimeout = TimeSpan.FromSeconds(4);
+    /// сканирование на кассе при плохой связи).
+    /// 2026-10-04: 4 → 2 с (требование владельца: действие кассира не ждёт сеть дольше 1–2 с;
+    /// живой сервер находит товар по штрихкоду за доли секунды).</summary>
+    private static readonly TimeSpan ServerBarcodeLookupTimeout = TimeSpan.FromSeconds(2);
 
     /// <summary>Антидребезг: код, который сервер только что не нашёл, не переспрашиваем это
     /// время — иначе повторное сканирование одного и того же несуществующего штрих-кода долбило
@@ -1272,6 +1274,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     private async Task<CatalogProductTileVm?> TryFindProductOnServerAsync(string barcode)
     {
         if (string.IsNullOrWhiteSpace(barcode) || PosApp.CatalogApi is null)
+            return null;
+
+        // 2026-10-04, стенд «сбои сервера»: сервер не отвечает или касса работает без интернета —
+        // сервер не спрашиваем, сразу «не найдено» (предложение добавить товар). Раньше каждый скан
+        // незнакомого кода в аварии ждал таймаут поиска (4 с).
+        if (OfflineModeHelper.SellLocally)
             return null;
 
         if (_serverBarcodeMissCache.TryGetValue(barcode, out var missedAt) &&

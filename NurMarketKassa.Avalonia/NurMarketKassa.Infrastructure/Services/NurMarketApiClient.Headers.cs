@@ -24,7 +24,8 @@ public sealed partial class NurMarketApiClient
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        // 2026-10-04: + отмена при объявлении аварии (см. NurMarketApiClient._outageCancel).
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, OutageCancelToken);
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 

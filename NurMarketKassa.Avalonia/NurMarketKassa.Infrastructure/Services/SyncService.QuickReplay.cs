@@ -85,8 +85,13 @@ public sealed partial class SyncService
                 // Один повтор тем же ключом: прошедшую продажу он вернёт как повтор (200).
                 PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} — 500, повтор тем же ключом.", "OFFLINE");
             }
+            // 2026-10-04: 409/423/425 — «запрос с этим ключом ещё выполняется» (первая отправка ещё
+            // обрабатывается сервером): это не отказ по существу, старым путём идти нельзя — он создал
+            // бы вторую продажу. Такие ответы, как и 5xx, кроме 500, уходят в SyncBatchAsync — чек
+            // остаётся в очереди и досылается тем же ключом.
             catch (ApiException ex) when (ex.StatusCode == 500
-                                          || (ex.StatusCode is >= 400 and < 500 and not 408 and not 429))
+                                          || (ex.StatusCode is >= 400 and < 500
+                                              && !PosCheckoutService.IsQuickTransientStatus(ex.StatusCode)))
             {
                 // Продажи с этим ключом нет (иначе был бы 200-повтор) — пробуем старым путём.
                 PosLogger.Log(

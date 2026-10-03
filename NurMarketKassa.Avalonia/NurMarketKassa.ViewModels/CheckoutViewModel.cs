@@ -1350,7 +1350,9 @@ namespace NurMarketKassa.ViewModels
             if (_clientsLoaded || _isLoadingClients || _clientsApi == null)
                 return;
 
-            if (OfflineModeHelper.UseLocalOperations)
+            // 2026-10-04, стенд «сбои сервера»: и в аварии сервера (ServerOutageMonitor) — сразу «недоступны»,
+            // а не крутящийся список до таймаута HttpClient (55 с при «чёрной дыре»).
+            if (OfflineModeHelper.UseLocalOperations || OfflineModeHelper.IsServerOutage)
             {
                 ErrorMessage = Tr.T("Клиенты недоступны офлайн.",
                     "Клиенттер офлайн режимде жеткиликсиз.",

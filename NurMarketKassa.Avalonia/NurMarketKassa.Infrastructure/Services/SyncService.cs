@@ -372,6 +372,7 @@ public sealed partial class SyncService : IDisposable
 
     private async Task SyncBatchAsync(IReadOnlyList<OfflineSaleEntry> pending, CancellationToken ct)
     {
+        var stopBatch = false;
         foreach (var entry in pending)
         {
             ct.ThrowIfCancellationRequested();
@@ -398,6 +399,13 @@ public sealed partial class SyncService : IDisposable
             {
                 IsOnline = false;
                 OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: true);
+                // 2026-10-04: досылка не дошла до сервера — это авария, а не «единичный сбой»: следующие
+                // оплаты сразу идут в очередь, без ожидания сервера (раньше монитор оставался
+                // «Онлайн/Degraded», и следующий чек снова ждал 1,8 с). Только настоящий обрыв (с
+                // причиной от сокета/TLS): «не удалось сверить корзину» из ReplayOfflineSaleAsync —
+                // не авария.
+                if (ex.InnerException is not null)
+                    ServerOutageMonitor.ReportFailure(ReplayContext, ex, hard: true);
                 break;
             }
             catch (TaskCanceledException ex)
@@ -407,6 +415,8 @@ public sealed partial class SyncService : IDisposable
                     entry.Id,
                     string.IsNullOrWhiteSpace(ex.Message) ? "Таймаут сети." : ex.Message,
                     retryable: true);
+                if (!ct.IsCancellationRequested)
+                    ServerOutageMonitor.ReportFailure(ReplayContext, ex, hard: true);
                 break;
             }
             catch (ApiException ex)
@@ -416,7 +426,24 @@ public sealed partial class SyncService : IDisposable
                 // в NurCRM не попадает никогда. Временные сбои (5xx, таймаут шлюза, «слишком
                 // много запросов») к этому не относятся — их надо повторить. Отказ по существу
                 // (4xx: нет товара, неверные данные) повтором не лечится и остаётся failed.
-                var retryable = ex.StatusCode is null or >= 500 or 408 or 429;
+                // 2026-10-04: 409/423/425 («запрос с этим ключом ещё выполняется») — тоже временный:
+                // раньше такой чек уходил в «Некорректные чеки», хотя продажа на сервере проводится.
+                var retryable = ex.StatusCode is null or >= 500 or 408 or 429
+                                || PosCheckoutService.IsQuickTransientStatus(ex.StatusCode);
+                // 2026-10-04, стенд «сбои сервера»: сервер недоступен (502–504, 520–524, 408) или просит
+                // паузу (429, 409 — ключ ещё выполняется) — остальные чеки ждут, а не идут по одному в
+                // лежащий сервер (по 2–5 запросов на чек). Недоступность — ещё и авария: оплаты сразу в
+                // очередь. 500 — ошибка конкретного чека: следующие чеки досылаются (чтобы один «плохой»
+                // чек не держал всю очередь).
+                if (ex.StatusCode is 408 or (>= 502 and <= 599))
+                {
+                    stopBatch = true;
+                    ServerOutageMonitor.ReportFailure(ReplayContext, ex, hard: true);
+                }
+                else if (ex.StatusCode is 409 or 423 or 425 or 429)
+                {
+                    stopBatch = true;
+                }
                 // 2026-09-29: чек офлайн-смены (открыта в аварии сервера или без интернета) уходит без
                 // shift_id, и сервер берёт открытую смену кассира. Пока её нет, отказ 4xx («смена
                 // не открыта») временный: чек ждёт в очереди, пока кассир откроет смену, а не
@@ -438,8 +465,14 @@ public sealed partial class SyncService : IDisposable
 
             UpdateStatusText();
             RaiseStateChanged();
+            if (stopBatch)
+                break;
         }
     }
+
+    /// <summary>Подпись сбоя досылки для журнала монитора аварии (2026-10-04).</summary>
+    private static string ReplayContext => Tr.T("досылка очереди", "кезекти жөнөтүү", "sending the queue",
+        "kuyruğu gönderme", "navbatni yuborish");
 
     private async Task<string?> ReplayOfflineSaleAsync(OfflineSaleEntry entry, CancellationToken ct)
     {

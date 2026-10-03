@@ -37,6 +37,12 @@ public static class CompanyInfoService
         if (string.IsNullOrEmpty(authApi.AccessToken))
             return null;
 
+        // 2026-10-04, стенд «сбои сервера»: сервер не отвечает (ServerOutageMonitor) — срок подписки по
+        // сохранённой дате, без запроса. Раньше запуск кассы в аварии ждал здесь таймаута HttpClient
+        // (55 с при «чёрной дыре») — после входа кассир ещё минуту смотрел на заставку.
+        if (ServerOutageMonitor.IsOutage)
+            return GetCachedSubscriptionStatus();
+
         try
         {
             var company = await authApi.GetCompanyAsync(ct).ConfigureAwait(false);

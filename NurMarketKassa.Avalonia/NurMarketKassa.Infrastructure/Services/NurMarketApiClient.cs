@@ -53,6 +53,40 @@ public sealed partial class NurMarketApiClient : IDisposable
         UserPayload = default;
         // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
         ServerOutageMonitor.HealthProbe = ProbeServerHealthAsync;
+        ServerOutageMonitor.StateChanged += OnServerLinkStateChanged;
+    }
+
+    /// <summary>2026-10-04, стенд «сбои сервера»: запросы, ушедшие ДО объявления аварии, при аварии
+    /// отменяются сразу, а не висят до таймаута HttpClient (55 с). При «чёрной дыре» фоновые загрузки
+    /// (каталог, история продаж, остатки) занимали все места общей очереди запросов (_httpSlots, 12 на
+    /// этом ПК): сервер ожил, а первая оплата после восстановления ждала свободного места, не
+    /// дожидалась за 1,8 с, снова уходила в очередь и снова объявляла аварию — до минуты после
+    /// восстановления касса продавала «офлайн» на живом сервере. Отменённые запросы для вызывающих —
+    /// тот же таймаут, который они и так получили бы позже: фоновые повторят при следующем цикле,
+    /// оплата и досылка уже работают с ключом идемпотентности / сверкой корзины.</summary>
+    private CancellationTokenSource _outageCancel = new();
+
+    private CancellationToken OutageCancelToken => Volatile.Read(ref _outageCancel).Token;
+
+    private void OnServerLinkStateChanged(ServerLinkState from, ServerLinkState to)
+    {
+        if (to != ServerLinkState.Outage)
+            return;
+        var previous = Interlocked.Exchange(ref _outageCancel, new CancellationTokenSource());
+        // В фоне: событие приходит из потока, объявившего аварию (например, оплаты), — отмена чужих
+        // запросов не должна выполнять их продолжения в нём. Не Dispose: на её токен могут как раз
+        // сейчас связываться новые запросы.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                previous.Cancel();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Отмена зависших запросов при аварии не удалась: {ex.Message}", "OUTAGE WARNING");
+            }
+        });
     }
 
     internal void ApplyBearerAuthorization(HttpRequestMessage request)
@@ -853,7 +887,8 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        // 2026-10-04: + отмена при объявлении аварии (см. _outageCancel).
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, OutageCancelToken);
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
@@ -969,7 +1004,8 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        // 2026-10-04: + отмена при объявлении аварии (см. _outageCancel).
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, OutageCancelToken);
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
@@ -1067,8 +1103,13 @@ public sealed partial class NurMarketApiClient : IDisposable
 
         try
         {
-            await RequestAsync(HttpMethod.Get, "api/users/profile/", null, null, ct, TimeSpan.FromSeconds(8))
-                .ConfigureAwait(false);
+            // 2026-10-04, стенд «сбои сервера»: проверка идёт мимо общей очереди запросов (_httpSlots).
+            // При «чёрной дыре» фоновые загрузки занимают все места очереди до таймаута HttpClient
+            // (55 с), и проверка ждала свободного места дольше своих 8 с: сервер давно ожил, а касса
+            // оставалась «Автономно» ещё до минуты. Проверка — один лёгкий запрос раз в 10–60 с.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            await SendOnceAsync(HttpMethod.Get, "api/users/profile/", null, null, timeout.Token).ConfigureAwait(false);
             return true;
         }
         catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
@@ -1099,9 +1140,13 @@ public sealed partial class NurMarketApiClient : IDisposable
                 return false;
             }
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            using var doc = JsonDocument.Parse(text);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
+            // 2026-10-04: 200 со страницей HTML вместо JSON — сбой сервера (ApiException 502), как в
+            // RefreshAccessAsync. Раньше здесь был голый JsonException: обновление токена посреди досылки
+            // очереди превращало его в «отказ по существу» (SyncService.SyncBatchAsync, catch JsonException),
+            // и оплаченный чек навсегда уходил в «Некорректные чеки».
+            var root = ParseSuccessBody(text, "api/users/auth/refresh/");
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
                 AccessToken = acc.GetString();
                 if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
@@ -1525,6 +1570,7 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     public void Dispose()
     {
+        ServerOutageMonitor.StateChanged -= OnServerLinkStateChanged;
         _http.Dispose();
         _loginMutex.Dispose();
         _httpSlots.Dispose();
