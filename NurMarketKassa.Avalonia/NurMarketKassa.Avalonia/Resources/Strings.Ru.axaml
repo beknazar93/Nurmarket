@@ -1512,5 +1512,11 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">Включено — в окне оплаты «В долг» кассир выбирает, как внесена предоплата. Безнал не попадает в наличные смены.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Опт на весь чек</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Продать по оптовой цене (ещё раз — снова розница)</x:String>
+  <x:String x:Key="csh.cart.modeWholesale">Оптовый</x:String>
+  <x:String x:Key="csh.cart.modeRetail">Розничный</x:String>
+  <x:String x:Key="csh.cart.modeTooltip">Оптовый — товары с оптовой ценой в этом чеке продаются по опту (и всё, что отсканируете дальше). Новый чек — снова розничный.</x:String>
+  <x:String x:Key="shift.rentalsTitle">Прокат за смену</x:String>
+  <x:String x:Key="warehouse.refresh">Обновить</x:String>
+  <x:String x:Key="warehouse.refreshTooltip">Загрузить товары и остатки заново с сервера</x:String>
   <x:String x:Key="product.globalScanHint">Отсканируйте штрихкод товара: если он есть в базе NurCRM, название, категория и бренд заполнятся сами — останется указать цены и количество. Нет в базе — заполните вручную.</x:String>
 </ResourceDictionary>

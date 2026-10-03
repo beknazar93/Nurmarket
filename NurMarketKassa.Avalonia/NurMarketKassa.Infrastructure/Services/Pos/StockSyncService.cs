@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
@@ -146,8 +146,41 @@ public static class StockSyncService
         }
     }
 
-    public static async Task RefreshSoldItemsStockAsync(JsonElement cart, CancellationToken ct = default)
+    /// <summary>2026-10-04: сразу после оплаты — остаток проданных товаров уменьшается синхронно (и в базе, и
+    /// на плитках). Строки одного товара складываются: плитка обновляется отложенно, и второе вычитание по
+    /// той же vm.Quantity потеряло бы первое. Возвращает ожидаемый остаток после продажи — по нему фоновая
+    /// сверка с сервером (RefreshSoldItemsStockAsync) не даст запоздавшему ответу вернуть старое число.</summary>
+    public static IReadOnlyDictionary<string, double> ApplySoldItemsDecrement(JsonElement cart)
     {
+        var sold = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in CartDisplayHelper.EnumerateItems(cart))
+        {
+            var productId = CartDisplayHelper.TryProductId(line);
+            if (string.IsNullOrEmpty(productId))
+                continue;
+            var tile = CatalogCacheService.Products.FirstOrDefault(p =>
+                string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            var qty = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
+            sold[productId] = (sold.TryGetValue(productId, out var before) ? before : 0) + qty;
+        }
+
+        var expected = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (productId, qty) in sold)
+        {
+            if (FindExpectedPostSaleQuantity(productId, qty) is { } max)
+                expected[productId] = max;
+            DecrementLocalStock(productId, qty);
+        }
+        PosLogger.Log($"Остаток после продажи уменьшен сразу: товаров {expected.Count}.", "STOCK");
+        return expected;
+    }
+
+    /// <param name="alreadyDecremented">2026-10-04: остаток уже уменьшен ApplySoldItemsDecrement — здесь только
+    /// сверка с сервером (значения — ожидаемый остаток после продажи).</param>
+    public static async Task RefreshSoldItemsStockAsync(JsonElement cart, CancellationToken ct = default,
+        IReadOnlyDictionary<string, double>? alreadyDecremented = null)
+    {
+        var verified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in CartDisplayHelper.EnumerateItems(cart))
         {
             var productId = CartDisplayHelper.TryProductId(line);
@@ -159,11 +192,22 @@ public static class StockSyncService
             // напрямую вычиталось из остатка в УПАКОВКАХ для поштучной продажи из упаковки.
             var tile = CatalogCacheService.Products.FirstOrDefault(p =>
                 string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
-            var soldQty = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
-            // Captured before DecrementLocalStock (whose UI-side effect is posted, not
-            // synchronous) so it reflects the real pre-sale quantity, not a racy read.
-            var expectedMax = FindExpectedPostSaleQuantity(productId, soldQty);
-            DecrementLocalStock(productId, soldQty);
+            double? expectedMax;
+            if (alreadyDecremented is not null)
+            {
+                // Одна сверка на товар, даже если он в чеке несколькими строками.
+                if (!verified.Add(productId))
+                    continue;
+                expectedMax = alreadyDecremented.TryGetValue(productId, out var known) ? known : null;
+            }
+            else
+            {
+                var soldQty = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
+                // Captured before DecrementLocalStock (whose UI-side effect is posted, not
+                // synchronous) so it reflects the real pre-sale quantity, not a racy read.
+                expectedMax = FindExpectedPostSaleQuantity(productId, soldQty);
+                DecrementLocalStock(productId, soldQty);
+            }
 
             try
             {

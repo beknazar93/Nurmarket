@@ -1512,5 +1512,11 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">When on, the cashier chooses how the prepayment was made in the “On credit” payment window. Cashless does not count as shift cash.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Wholesale for receipt</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Sell at the wholesale price (again — back to retail)</x:String>
+  <x:String x:Key="csh.cart.modeWholesale">Wholesale</x:String>
+  <x:String x:Key="csh.cart.modeRetail">Retail</x:String>
+  <x:String x:Key="csh.cart.modeTooltip">Wholesale — items with a wholesale price in this receipt are sold at wholesale (including what you scan next). A new receipt is retail again.</x:String>
+  <x:String x:Key="shift.rentalsTitle">Rentals this shift</x:String>
+  <x:String x:Key="warehouse.refresh">Refresh</x:String>
+  <x:String x:Key="warehouse.refreshTooltip">Reload products and stock from the server</x:String>
   <x:String x:Key="product.globalScanHint">Scan the product barcode: if it is in the NurCRM base, the name, category and brand fill in by themselves — just enter the prices and quantity. Not in the base — fill it in manually.</x:String>
 </ResourceDictionary>

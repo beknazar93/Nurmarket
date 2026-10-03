@@ -75,8 +75,37 @@ public partial class ShiftDetailsDialog : Window
         // он уже с пересчитанной суммой и расхождением, а внесения/возвраты касса сама не знает,
         // если их делали на другом компьютере.
         _reportTask = LoadServerReportAsync(shift.Id);
+        _rentalsTask = LoadRentalsAsync(shift);
         if (RefreshFromServer)
             _ = RefreshFromServerAsync(shift.Id);
+    }
+
+    private Task<RentalShiftSummary?>? _rentalsTask;
+
+    /// <summary>2026-10-04, клиент: «на Z-отчёт — информацию об аренде». Прокат за время смены (сервер NurCRM).</summary>
+    private async Task<RentalShiftSummary?> LoadRentalsAsync(ShiftModel shift)
+    {
+        if (TelegramAssistant.RentalsLoader is not { } loader)
+            return null;
+        try
+        {
+            var all = await loader(null, _cts.Token).ConfigureAwait(true);
+            var summary = RentalShiftSummary.Compute(all, shift.OpenedAt, shift.ClosedAt);
+            if (_cts.IsCancellationRequested || summary.IsEmpty)
+                return null;
+            RentalsText.Text = summary.DisplayText();
+            RentalsPanel.IsVisible = true;
+            return summary;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Отчёт смены: прокат не загружен: {ex.Message}", "SHIFTS");
+            return null;
+        }
     }
 
     /// <summary>Загружает отчёт смены сервера (BE-10) и перерисовывает окно по нему.</summary>
@@ -538,7 +567,8 @@ public partial class ShiftDetailsDialog : Window
             var returns = _report is { ReturnsTotal: > 0m } r
                 ? (r.ReturnsCount, r.ReturnsTotal)
                 : _serverShiftReturns;
-            var report = BuildPrintableReport(_shift, _report, returns);
+            var rentals = _rentalsTask is { } rentalsTask ? await rentalsTask.ConfigureAwait(true) : null;
+            var report = BuildPrintableReport(_shift, _report, returns, rentals);
             var ok = await App.GetRequiredService<ICashShiftService>().PrintReportAsync(report).ConfigureAwait(true);
             if (!ok)
                 PosMessageBox.Show(this,
@@ -560,7 +590,8 @@ public partial class ShiftDetailsDialog : Window
     /// оплата раздельно, скидки, возвраты, внесения/изъятия и ожидаемый остаток сервера. null —
     /// как раньше, по итогам смены и журналу этой кассы.</param>
     /// <param name="returns">Возвраты смены с сервера (число, сумма); null — не известны.</param>
-    private static string BuildPrintableReport(ShiftModel shift, ServerShiftReport? server = null, (int Count, decimal Sum)? returns = null)
+    private static string BuildPrintableReport(ShiftModel shift, ServerShiftReport? server = null, (int Count, decimal Sum)? returns = null,
+        RentalShiftSummary? rentals = null)
     {
         var shortNumber = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
@@ -663,6 +694,13 @@ public partial class ShiftDetailsDialog : Window
         else if (shift.ClosingCash is { } actualOnly)
         {
             sb.AppendLine($"Фактический остаток: {actualOnly.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        }
+        // 2026-10-04, клиент: прокат в Z-отчёте.
+        if (rentals is { IsEmpty: false })
+        {
+            sb.AppendLine("------------------------------");
+            foreach (var line in rentals.PrintLines())
+                sb.AppendLine(line);
         }
         sb.AppendLine("------------------------------");
         sb.AppendLine("NurMarket Kassa");

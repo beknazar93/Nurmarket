@@ -142,6 +142,16 @@ public static class CartReceiptTextBuilder
                 AppendStackedAmountLine(sb, "ПРОМЕЖУТОЧНЫЙ ИТОГ:", FormatMoney(totals.Subtotal));
 
             var pm = (paymentMethodKey ?? "").Trim().ToLowerInvariant();
+            // 2026-10-04, клиент: предоплата долга — как её принял кассир (наличными/безналом) — видна и в чеке.
+            // PosCheckoutService передаёт «debt-noncash» / «debt-cash», для остального это обычный «debt».
+            string? debtPrepaymentLabel = pm switch
+            {
+                "debt-noncash" => "ВНЕСЕНО БЕЗНАЛОМ:",
+                "debt-cash" => "ВНЕСЕНО НАЛИЧНЫМИ:",
+                _ => null,
+            };
+            if (pm.StartsWith("debt-", StringComparison.Ordinal))
+                pm = "debt";
             var paymentMethodLine = FormatPaymentMethodLine(pm);
             if (paymentMethodLine != null)
                 Line(paymentMethodLine);
@@ -156,7 +166,7 @@ public static class CartReceiptTextBuilder
             }
             else if (pm is "debt" && cash.HasValue)
             {
-                AppendStackedAmountLine(sb, "ВНЕСЕНО:", FormatMoney(cash.Value));
+                AppendStackedAmountLine(sb, cash.Value > 0.005 && debtPrepaymentLabel != null ? debtPrepaymentLabel : "ВНЕСЕНО:", FormatMoney(cash.Value));
                 AppendStackedAmountLine(sb, "В ДОЛГ:", FormatMoney(Math.Max(0, totals.TotalDue - cash.Value)));
             }
             else if (pm.Length > 0 && cash.HasValue)

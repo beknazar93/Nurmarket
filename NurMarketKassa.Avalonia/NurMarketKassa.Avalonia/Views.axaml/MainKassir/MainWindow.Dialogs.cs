@@ -515,8 +515,15 @@ public partial class MainWindow
             return Task.CompletedTask;
         }
 
+        var (previousPercent, previousTotal) = _viewModel.Basket.ReadOrderDiscount();
         if (_viewModel.Basket.ApplyOrderDiscount(dlg.DiscountMode, dlg.DiscountValue))
         {
+            if (!ConfirmSellingAtLoss())
+            {
+                _viewModel.Basket.RestoreOrderDiscount(previousPercent, previousTotal);
+                _viewModel.Basket.CartMessage = LossDiscountCancelledText();
+                return Task.CompletedTask;
+            }
             _viewModel.Basket.CartMessage = dlg.DiscountMode == "percent"
                 ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
                 : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
@@ -618,14 +625,47 @@ public partial class MainWindow
             dialog.ClearRequested ? null : dialog.DiscountMode,
             dialog.ClearRequested ? null : dialog.DiscountValue);
         _viewModel.Basket.RefreshFromCart();
+        // 2026-10-04: скидка увела товар ниже закупки — без «Я знаю что делаю» возвращаем прежнюю скидку.
+        if (!dialog.ClearRequested && !ConfirmSellingAtLoss())
+        {
+            ReceiptSnapshotCartEditor.PatchLineDiscount(
+                cart,
+                line.ItemId,
+                mode,
+                value?.ToString(CultureInfo.InvariantCulture));
+            _viewModel.Basket.RefreshFromCart();
+            _viewModel.Basket.CartMessage = LossDiscountCancelledText();
+            return Task.CompletedTask;
+        }
         _viewModel.Basket.CartMessage = dialog.ClearRequested
             ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
             : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");
-        // 2026-10-03: скидка увела товар ниже закупки — предупреждаем сразу.
-        if (!dialog.ClearRequested)
-            _viewModel.Basket.WarnIfSellingAtLoss();
         return Task.CompletedTask;
     }
+
+    /// <summary>2026-10-04, клиент: «если скидку случайно выдать в убыток — предупреждающий экран, и после
+    /// подтверждения добавить скидку (кнопка «Я знаю что делаю»)». true — убытка нет или кассир подтвердил.</summary>
+    private bool ConfirmSellingAtLoss()
+    {
+        if (_viewModel.Basket.LossWarningText() is not { } text)
+            return true;
+        var ok = PosConfirmDialog.Show(
+            this,
+            Tr.T("Продажа в убыток", "Зыянга сатуу", "Selling at a loss", "Zararına satış", "Zarariga sotish"),
+            text + "\n\n" + Tr.T("Применить скидку?", "Арзандатууну колдоносузбу?", "Apply the discount?", "İndirim uygulansın mı?", "Chegirma qo'llansinmi?"),
+            Tr.T("Я знаю что делаю", "Эмне кылып жатканымды билем", "I know what I'm doing", "Ne yaptığımı biliyorum", "Nima qilayotganimni bilaman"),
+            Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+            PosConfirmAccent.Danger);
+        PosLogger.Log(ok ? "Скидка в убыток подтверждена кассиром («Я знаю что делаю»)." : "Скидка в убыток отменена кассиром.", "CART");
+        return ok;
+    }
+
+    private static string LossDiscountCancelledText() => Tr.T(
+        "Скидка не применена: товар ушёл бы в убыток.",
+        "Арзандатуу колдонулган жок: товар зыянга сатылмак.",
+        "Discount not applied: the item would sell at a loss.",
+        "İndirim uygulanmadı: ürün zararına satılacaktı.",
+        "Chegirma qo'llanmadi: mahsulot zarariga sotilardi.");
 
     private static (string? Mode, decimal? Value) ReadLineDiscount(ICartService cart, string itemId)
     {

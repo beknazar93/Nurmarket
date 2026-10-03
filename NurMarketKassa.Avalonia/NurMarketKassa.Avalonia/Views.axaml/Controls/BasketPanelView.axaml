@@ -249,6 +249,17 @@
                     Margin="0,0,0,10"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Top">
+                <DockPanel>
+                <!-- 2026-10-04, клиент: «тумблер сверху (Оптовый/Розничный)». Без фокуса — Enter сканера не должен
+                     его переключать. -->
+                <ToggleSwitch DockPanel.Dock="Right"
+                              Margin="10,0,0,14"
+                              VerticalAlignment="Center"
+                              Focusable="False"
+                              IsChecked="{Binding IsWholesaleMode}"
+                              OnContent="{DynamicResource csh.cart.modeWholesale}"
+                              OffContent="{DynamicResource csh.cart.modeRetail}"
+                              ToolTip.Tip="{DynamicResource csh.cart.modeTooltip}"/>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled"
                               HorizontalAlignment="Stretch"
@@ -291,6 +302,7 @@
                         </StackPanel>
                     </Border>
                 </ScrollViewer>
+                </DockPanel>
             </Border>
 
             <!-- Список позиций в корзине -->

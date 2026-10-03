@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace NurMarketKassa.Services;
@@ -16,11 +16,9 @@ public static class WindowsDpapiHelper
     {
         if (string.IsNullOrEmpty(plainText))
             return string.Empty;
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("DPAPI is supported only on Windows.");
-
+        // 2026-10-04: Linux/Android — без DPAPI, через PortableSecret (на Windows — тот же DPAPI).
         var plainBytes = Encoding.UTF8.GetBytes(plainText);
-        var protectedBytes = ProtectedData.Protect(plainBytes, Entropy, DataProtectionScope.CurrentUser);
+        var protectedBytes = PortableSecret.Protect(plainBytes, Entropy);
         return Convert.ToBase64String(protectedBytes);
     }
 
@@ -28,16 +26,10 @@ public static class WindowsDpapiHelper
     {
         if (string.IsNullOrWhiteSpace(protectedBase64))
             return string.Empty;
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("DPAPI is supported only on Windows.");
-
         try
         {
             var protectedBytes = Convert.FromBase64String(protectedBase64);
-            var plainBytes = ProtectedData.Unprotect(
-                protectedBytes,
-                Entropy,
-                DataProtectionScope.CurrentUser);
+            var plainBytes = PortableSecret.Unprotect(protectedBytes, Entropy);
             return Encoding.UTF8.GetString(plainBytes);
         }
         catch (FormatException)

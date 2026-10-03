@@ -16,6 +16,9 @@ public sealed class LocalProductRecord
     public string? Category { get; set; }
     public string? Brand { get; set; }
     public double PurchasePrice { get; set; }
+
+    /// <summary>2026-10-04: оптовая цена (колонка wholesale_price) — чтобы опт в чеке работал и с каталогом из базы.</summary>
+    public double WholesalePrice { get; set; }
     /// <summary>Компактный JSON опции поштучной продажи из упаковки (ProductPackageOption) или null.</summary>
     public string? PieceOptionJson { get; set; }
     /// <summary>Короткий PLU-код (поле "plu" в NurCRM) — им весы обычно кодируют товар в весовом штрих-коде.</summary>

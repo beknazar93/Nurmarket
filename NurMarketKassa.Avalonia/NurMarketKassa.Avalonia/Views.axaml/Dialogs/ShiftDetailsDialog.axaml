@@ -233,6 +233,20 @@
         </StackPanel>
       </Border>
 
+      <!-- 2026-10-04, клиент: «на Z-отчёт вывести информацию и об аренде». Прокат за смену — с сервера;
+           блок виден, только если прокат был или вещи сейчас на руках. -->
+      <Border x:Name="RentalsPanel" IsVisible="False"
+              Background="{DynamicResource BrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+              CornerRadius="12" Padding="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{DynamicResource shift.rentalsTitle}" FontSize="11"
+                     Foreground="{DynamicResource BrushTextSoft}"/>
+          <TextBlock x:Name="RentalsText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                     Foreground="{DynamicResource BrushText}"/>
+        </StackPanel>
+      </Border>
+
       <!-- Товары за смену (2026-09-24): что и на сколько продали, по локальной истории продаж
            кассы — та же, что у ABC и «Финансов». Считается по времени смены.
            2026-09-28: у серверной смены — позиции её продаж с сервера (сходится с выручкой),

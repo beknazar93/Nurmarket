@@ -993,7 +993,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         var printed = request.PrintReceipt && await TryPrintReceiptAsync(
             WithConsultantForReceipt(cartJsonSnapshot, request),
-            request.PaymentMethod,
+            ReceiptPaymentMethodKey(request),
             request.CashReceived,
             offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)").ConfigureAwait(false);
 
@@ -1132,6 +1132,20 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         var saleId = CheckoutResponseHelper.TrySaleId(checkoutResponse) ?? fallbackSaleId ?? "";
         PosLogger.Log($"Checkout API OK: saleId={saleId}", "PAYMENT");
 
+        // 2026-10-04, клиент: «после продажи количество минусуется через некоторое время». Остаток
+        // проданных товаров уменьшаем здесь, сразу после ответа сервера и ДО возврата к кассе: раньше
+        // это делалось в фоне, а касса тем временем перечитывала каталог из базы (RepublishFromLocalAsync)
+        // со старым остатком — и до следующей синхронизации (до 2 минут) на плитке было прежнее число.
+        IReadOnlyDictionary<string, double>? soldStockExpected = null;
+        try
+        {
+            soldStockExpected = StockSyncService.ApplySoldItemsDecrement(_cart.Root);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Checkout: остаток проданных товаров сразу не уменьшен: {ex.Message}", "STOCK");
+        }
+
         // 2026-09-15, живой баг ("Максимум: 5.33" — совершенно одинаковое число при трёх разных
         // клиентах/сменах/суммах подряд): сразу после создания продажи «в долг» сумма остатка по
         // новой сделке клиента на сервере ЕЩЁ НЕ ПОСЧИТАНА (похоже на асинхронный пересчёт на
@@ -1197,7 +1211,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         {
             try
             {
-                await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None)
+                await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None, soldStockExpected)
                     .ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -1221,7 +1235,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         var printed = request.PrintReceipt && await TryPrintReceiptAsync(
             cartJsonSnapshot,
-            request.PaymentMethod,
+            ReceiptPaymentMethodKey(request),
             request.CashReceived,
             checkoutResponse: checkoutResponse).ConfigureAwait(false);
 
@@ -1626,6 +1640,20 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         {
             PosLogger.Log($"Offline stock decrement skipped: {ex}", "STOCK");
         }
+    }
+
+    /// <summary>2026-10-04, клиент: «предоплата в долг — наличкой или безнал — в чеке тоже должно отображаться».
+    /// Для чека «в долг» с предоплатой: «debt-noncash» (безналом — NonCashReceived) или «debt-cash»;
+    /// CartReceiptTextBuilder печатает «ВНЕСЕНО БЕЗНАЛОМ/НАЛИЧНЫМИ». Серверу уходит прежний «debt».</summary>
+    private static string? ReceiptPaymentMethodKey(PosCheckoutRequest request)
+    {
+        if (!string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
+            return request.PaymentMethod;
+        static double Amount(string? s) =>
+            double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        if (Amount(request.NonCashReceived) > 0.005)
+            return "debt-noncash";
+        return Amount(request.CashReceived) > 0.005 ? "debt-cash" : request.PaymentMethod;
     }
 
     private async Task<bool> TryPrintReceiptAsync(

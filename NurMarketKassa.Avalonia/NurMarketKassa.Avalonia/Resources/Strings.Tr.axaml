@@ -1512,5 +1512,11 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">Açıkken kasiyer «Veresiye» ödeme penceresinde ön ödemenin nasıl yapıldığını seçer. Nakitsiz ödeme vardiya nakdine girmez.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Tüm fişe toptan</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Toptan fiyatla sat (tekrar — perakendeye dön)</x:String>
+  <x:String x:Key="csh.cart.modeWholesale">Toptan</x:String>
+  <x:String x:Key="csh.cart.modeRetail">Perakende</x:String>
+  <x:String x:Key="csh.cart.modeTooltip">Toptan — bu fişte toptan fiyatı olan ürünler toptan fiyatla satılır (sonra okutulanlar da). Yeni fiş yeniden perakende.</x:String>
+  <x:String x:Key="shift.rentalsTitle">Vardiyadaki kiralamalar</x:String>
+  <x:String x:Key="warehouse.refresh">Yenile</x:String>
+  <x:String x:Key="warehouse.refreshTooltip">Ürünleri ve stokları sunucudan yeniden yükle</x:String>
   <x:String x:Key="product.globalScanHint">Ürün barkodunu okutun: NurCRM tabanında varsa ad, kategori ve marka kendiliğinden dolar — yalnızca fiyatları ve miktarı girin. Tabanda yoksa elle doldurun.</x:String>
 </ResourceDictionary>

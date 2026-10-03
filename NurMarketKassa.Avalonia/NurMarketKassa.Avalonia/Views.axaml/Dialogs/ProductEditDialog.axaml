@@ -216,7 +216,9 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Grid ColumnDefinitions="*,14,Auto,14,*">
+                            <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
+                                 PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
+                            <Grid ColumnDefinitions="*,14,Auto,Auto,14,*">
                                 <StackPanel Grid.Column="0" Spacing="6" IsVisible="{Binding !IsQuickAddMode}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
                                     <TextBox Text="{Binding Unit}"/>
@@ -225,16 +227,16 @@
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.isWeightLabel}"/>
                                     <ToggleSwitch IsChecked="{Binding IsWeight}" OnContent="" OffContent="" Margin="0,0,0,8"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="4" Spacing="6">
+                                <StackPanel Grid.Column="3" Spacing="6" Width="150" Margin="14,0,0,0" VerticalAlignment="Bottom" IsVisible="{Binding IsWeight}">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.pluLabel}" TextWrapping="Wrap"/>
+                                    <TextBox Text="{Binding Plu}" Watermark="{DynamicResource product.pluWatermark}"
+                                             ToolTip.Tip="{DynamicResource product.pluWatermark}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="5" Spacing="6">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colStock}"/>
                                     <TextBox Text="{Binding Quantity}"/>
                                 </StackPanel>
                             </Grid>
-
-                            <StackPanel Spacing="8" IsVisible="{Binding IsWeight}">
-                                <TextBlock Classes="FieldLabel" Text="{DynamicResource product.pluLabel}"/>
-                                <TextBox Text="{Binding Plu}" Watermark="{DynamicResource product.pluWatermark}"/>
-                            </StackPanel>
 
                             <TextBlock Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
                             <Grid ColumnDefinitions="*,18,*,18,*">

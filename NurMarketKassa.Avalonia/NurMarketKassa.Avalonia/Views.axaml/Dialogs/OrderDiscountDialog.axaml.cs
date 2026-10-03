@@ -12,6 +12,10 @@ public partial class OrderDiscountDialog : Window
     public string DiscountValue { get; private set; } = "";
     public bool ClearRequested { get; private set; }
 
+    // 2026-10-04: переключение тумблера кассиром запоминается (UserPreferences.DiscountModePercent),
+    // программные установки при открытии окна — нет.
+    private bool _initializing = true;
+
     public OrderDiscountDialog() : this("", "") { }
 
     public OrderDiscountDialog(string currentPercent, string currentSum)
@@ -26,19 +30,27 @@ public partial class OrderDiscountDialog : Window
             DiscountTypeToggle.IsChecked = false; // sum
             ValueBox.Text = sum;
         }
-        else
+        else if (!string.IsNullOrEmpty(pct))
         {
             DiscountTypeToggle.IsChecked = true; // percent
             ValueBox.Text = pct;
+        }
+        else
+        {
+            // Скидки ещё нет — режим, который кассир выбрал в прошлый раз.
+            DiscountTypeToggle.IsChecked = UserPreferences.Instance.DiscountModePercent;
+            ValueBox.Text = "";
         }
 
         ScopeCheckBox.IsChecked = false; // весь чек
         DiscountScope = "check";
         SyncModeUi();
+        _initializing = false;
     }
 
     public void SetItemMode(string itemTitle, string? currentDiscountType, decimal? currentDiscountValue)
     {
+        _initializing = true;
         Title = Tr.T("Скидка на товар", "Товарга арзандатуу", "Product discount", "Ürün indirimi", "Mahsulotga chegirma");
         HeaderTitleText.Text = Tr.T("Скидка на товар", "Товарга арзандатуу", "Product discount", "Ürün indirimi", "Mahsulotga chegirma");
         ItemTitleLabel.Text = itemTitle;
@@ -62,13 +74,26 @@ public partial class OrderDiscountDialog : Window
         }
         else
         {
+            DiscountTypeToggle.IsChecked = UserPreferences.Instance.DiscountModePercent;
             ValueBox.Text = "";
         }
 
         SyncModeUi();
+        _initializing = false;
     }
 
-    private void DiscountType_Changed(object? sender, RoutedEventArgs e) => SyncModeUi();
+    private void DiscountType_Changed(object? sender, RoutedEventArgs e)
+    {
+        SyncModeUi();
+        if (_initializing)
+            return;
+        var prefs = UserPreferences.Instance;
+        var percent = DiscountTypeToggle.IsChecked == true;
+        if (prefs.DiscountModePercent == percent)
+            return;
+        prefs.DiscountModePercent = percent;
+        prefs.SaveToDisk();
+    }
 
     private void SyncModeUi()
     {

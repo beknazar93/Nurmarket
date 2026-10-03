@@ -551,9 +551,27 @@ public sealed class BasketPanelViewModel : ViewModelBase
         var total = !clear && !string.Equals(mode, "percent", StringComparison.OrdinalIgnoreCase) ? value : null;
         ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, percent, total);
         RefreshFromCart();
-        if (!clear)
-            WarnIfSellingAtLoss();
+        // 2026-10-04: убыток проверяет окно кассы (LossWarningText) — подтверждение «Я знаю что делаю»
+        // или откат к прежней скидке (RestoreOrderDiscount).
         return true;
+    }
+
+    /// <summary>Скидка на чек сейчас: (процент, сумма) строками — для отката, если кассир не подтвердил убыток.</summary>
+    public (string? Percent, string? Total) ReadOrderDiscount()
+    {
+        if (!_cart.HasCart || _cart.Root.ValueKind != JsonValueKind.Object)
+            return (null, null);
+        static string? Num(JsonElement root, string name) =>
+            root.TryGetProperty(name, out var v) && JsonNumericReader.TryToDouble(v, out var d) && d > 0
+                ? d.ToString(CultureInfo.InvariantCulture)
+                : null;
+        return (Num(_cart.Root, "order_discount_percent"), Num(_cart.Root, "order_discount_total"));
+    }
+
+    public void RestoreOrderDiscount(string? percent, string? total)
+    {
+        ReceiptSnapshotCartEditor.PatchOrderDiscount(_cart, percent, total);
+        RefreshFromCart();
     }
 
     // ------------------------------------------------------------------ продажа в убыток
@@ -653,6 +671,98 @@ public sealed class BasketPanelViewModel : ViewModelBase
             : Tr.T("Чек — снова по розничным ценам.", "Чек — кайра чекене бааларда.", "Receipt back at retail prices.", "Fiş yeniden perakende fiyatlarla.", "Chek yana chakana narxlarda.");
     }
 
+    // 2026-10-04, клиент: «поставить тумблер сверху (Оптовый/Розничный) для продажи оптовой ценой или по
+    // розничной; место, чтобы поставить галочку оптовой продажи определённого товара». Тумблер действует на
+    // текущий чек: включили — все строки с оптовой ценой и всё, что отсканируют дальше, по опту; галочка «Опт»
+    // у строки по-прежнему меняет один товар. Новый (пустой) или другой чек — снова «Розничный», чтобы
+    // следующего покупателя случайно не пробить по оптовым ценам.
+    private bool _isWholesaleMode;
+    private bool _applyingWholesaleMode;
+    private string _wholesaleModeSessionId = "";
+    private readonly HashSet<string> _wholesaleModeSeenLines = new(StringComparer.Ordinal);
+
+    public bool IsWholesaleMode
+    {
+        get => _isWholesaleMode;
+        set
+        {
+            if (_isWholesaleMode == value)
+                return;
+            _isWholesaleMode = value;
+            OnPropertyChanged();
+            if (_applyingWholesaleMode)
+                return;
+            var candidates = Lines.Where(l => l.CanWholesale && l.IsWholesale != value).ToList();
+            _applyingWholesaleMode = true;
+            try
+            {
+                foreach (var line in candidates)
+                    ToggleWholesale(line, refresh: false);
+                if (candidates.Count > 0)
+                    RefreshFromCart();
+            }
+            finally
+            {
+                _applyingWholesaleMode = false;
+            }
+            RememberWholesaleModeLines();
+            CartMessage = value
+                ? Tr.T("Оптовая продажа: товары с оптовой ценой — по опту.", "Дүң сатуу: дүң баасы бар товарлар — дүң баада.", "Wholesale sale: items with a wholesale price at wholesale.", "Toptan satış: toptan fiyatı olan ürünler toptan fiyatla.", "Ulgurji savdo: ulgurji narxi bor mahsulotlar ulgurji narxda.")
+                : Tr.T("Розничная продажа.", "Чекене сатуу.", "Retail sale.", "Perakende satış.", "Chakana savdo.");
+            PosLogger.Log($"Опт: тумблер чека → {(value ? "оптовый" : "розничный")}, строк переключено {candidates.Count}.", "CART");
+        }
+    }
+
+    private void RememberWholesaleModeLines()
+    {
+        _wholesaleModeSessionId = _activeSessionId;
+        _wholesaleModeSeenLines.Clear();
+        foreach (var line in Lines)
+            if (!string.IsNullOrEmpty(line.ItemId))
+                _wholesaleModeSeenLines.Add(line.ItemId);
+    }
+
+    /// <summary>После каждого обновления строк: другой или пустой чек — тумблер в «Розничный»; в оптовом
+    /// режиме новые строки с оптовой ценой сразу по опту (уже бывшие строки не трогаем — их могли
+    /// снять галочкой вручную).</summary>
+    private void ApplyWholesaleModeToNewLines()
+    {
+        if (_applyingWholesaleMode)
+            return;
+        // Пустой чек сбрасывает режим, только если в нём уже были строки (чек оплачен или очищен):
+        // включить «Оптовый» до первого скана можно.
+        if (_isWholesaleMode
+            && ((Lines.Count == 0 && _wholesaleModeSeenLines.Count > 0) || _wholesaleModeSessionId != _activeSessionId))
+        {
+            _isWholesaleMode = false;
+            OnPropertyChanged(nameof(IsWholesaleMode));
+        }
+        if (!_isWholesaleMode)
+        {
+            RememberWholesaleModeLines();
+            return;
+        }
+
+        var fresh = Lines.Where(l => !string.IsNullOrEmpty(l.ItemId) && !_wholesaleModeSeenLines.Contains(l.ItemId)).ToList();
+        foreach (var line in fresh)
+            _wholesaleModeSeenLines.Add(line.ItemId);
+        var toWholesale = fresh.Where(l => l.CanWholesale && !l.IsWholesale).ToList();
+        if (toWholesale.Count == 0)
+            return;
+        _applyingWholesaleMode = true;
+        try
+        {
+            foreach (var line in toWholesale)
+                ToggleWholesale(line, refresh: false);
+            RefreshFromCart();
+        }
+        finally
+        {
+            _applyingWholesaleMode = false;
+        }
+        RememberWholesaleModeLines();
+    }
+
     private double UnitCostOf(CartLineItemVm line)
     {
         if (string.IsNullOrWhiteSpace(line.ProductId) || _catalogLookup?.Invoke(line.ProductId) is not { } tile || tile.PurchasePrice <= 0)
@@ -666,19 +776,28 @@ public sealed class BasketPanelViewModel : ViewModelBase
     /// <summary>Скидка увела чек в убыток — предупреждение кассиру (после скидки на чек или на позицию).</summary>
     public void WarnIfSellingAtLoss()
     {
+        if (LossWarningText() is { } text)
+            _prompts.ShowWarning(text);
+    }
+
+    /// <summary>2026-10-04, клиент: «если скидку случайно выдать в убыток — предупреждающий экран, и только
+    /// после подтверждения (кнопка «Я знаю что делаю») добавить скидку». Текст предупреждения или null,
+    /// если после скидки убытка нет.</summary>
+    public string? LossWarningText()
+    {
         UpdateLossMarks();
         var loss = Lines.Where(l => l.HasLoss).ToList();
         if (loss.Count == 0)
-            return;
+            return null;
         var total = loss.Sum(l => l.LossAmount);
         var list = string.Join("\n", loss.Take(5).Select(l => $"• {l.Title}: {l.LossDisplayText}"));
         PosLogger.Log($"Скидка в убыток: {total:0.00} сом по {loss.Count} поз.", "CART");
-        _prompts.ShowWarning(Tr.T(
+        return Tr.T(
             $"Со скидкой товар продаётся дешевле закупки — убыток {total:0.00} сом.\n{list}",
             $"Арзандатуу менен товар сатып алуу баасынан арзан сатылат — зыян {total:0.00} сом.\n{list}",
             $"With this discount the item sells below cost — loss {total:0.00} som.\n{list}",
             $"Bu indirimle ürün alış fiyatının altında satılıyor — zarar {total:0.00} som.\n{list}",
-            $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}"));
+            $"Chegirma bilan mahsulot xarid narxidan arzon sotilmoqda — zarar {total:0.00} so'm.\n{list}");
     }
 
     /// <summary>Оплаченный чек с убытком — в журнал для программы владельца (LossSalesStore).</summary>
@@ -2525,6 +2644,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
         }
 
         UpdateLossMarks();
+        ApplyWholesaleModeToNewLines();
         RaiseCartCommands();
         PersistActiveSessionSnapshot();
         RebuildReceiptTabs();

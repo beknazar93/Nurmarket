@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
@@ -53,10 +53,8 @@ public sealed class SecureStorageService : IAuthSessionManager
             byte[] protectedBytes;
             try
             {
-                protectedBytes = ProtectedData.Protect(
-                    plainBytes,
-                    Entropy,
-                    DataProtectionScope.CurrentUser);
+                // 2026-10-04: PortableSecret — DPAPI на Windows, AES-GCM на Linux/Android.
+                protectedBytes = PortableSecret.Protect(plainBytes, Entropy);
             }
             finally
             {
@@ -94,10 +92,7 @@ public sealed class SecureStorageService : IAuthSessionManager
             try
             {
                 protectedBytes = await File.ReadAllBytesAsync(_filePath).ConfigureAwait(false);
-                plainBytes = ProtectedData.Unprotect(
-                    protectedBytes,
-                    Entropy,
-                    DataProtectionScope.CurrentUser);
+                plainBytes = PortableSecret.Unprotect(protectedBytes, Entropy);
 
                 var session = JsonSerializer.Deserialize<UserSession>(plainBytes, JsonOptions);
                 if (session is null)

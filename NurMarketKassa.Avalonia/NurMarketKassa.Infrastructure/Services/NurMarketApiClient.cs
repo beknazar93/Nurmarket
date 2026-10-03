@@ -1089,7 +1089,15 @@ public sealed partial class NurMarketApiClient : IDisposable
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync("api/users/auth/refresh/", content, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
+            {
+                // 2026-10-04, клиент: «если сервер временно не отвечает — выкидывает из аккаунта». Обновление
+                // токена во время аварии NurCRM (5xx, 408, 429) возвращало false, и вызывающий стирал сессию
+                // (ClearSession/Session.Clear) — кассир оказывался разлогинен. Сбой сервера — исключение, как
+                // в RefreshAccessAsync (исправлено 2026-09-29 только там); false — только отказ по существу.
+                if (ServerOutageMonitor.IsServerFailureStatus((int)resp.StatusCode))
+                    throw new ApiException($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
                 return false;
+            }
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             using var doc = JsonDocument.Parse(text);
             var root = doc.RootElement;

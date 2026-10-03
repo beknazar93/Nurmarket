@@ -1512,5 +1512,11 @@
   <x:String x:Key="settings.debtPrepayChoiceHint">Yoqilsa — kassir «Qarzga» to'lov oynasida oldindan to'lov qanday qilinganini tanlaydi. Naqdsiz to'lov smena naqdiga kirmaydi.</x:String>
   <x:String x:Key="csh.cart.wholesaleAll">Butun chekka ulgurji</x:String>
   <x:String x:Key="csh.cart.wholesaleTooltip">Ulgurji narxda sotish (yana bir marta — chakanaga qaytish)</x:String>
+  <x:String x:Key="csh.cart.modeWholesale">Ulgurji</x:String>
+  <x:String x:Key="csh.cart.modeRetail">Chakana</x:String>
+  <x:String x:Key="csh.cart.modeTooltip">Ulgurji — bu chekdagi ulgurji narxi bor mahsulotlar ulgurji narxda sotiladi (keyin skanerlanganlari ham). Yangi chek — yana chakana.</x:String>
+  <x:String x:Key="shift.rentalsTitle">Smenadagi prokat</x:String>
+  <x:String x:Key="warehouse.refresh">Yangilash</x:String>
+  <x:String x:Key="warehouse.refreshTooltip">Mahsulotlar va qoldiqlarni serverdan qayta yuklash</x:String>
   <x:String x:Key="product.globalScanHint">Mahsulot shtrix-kodini skanerlang: NurCRM bazasida bo'lsa, nomi, kategoriyasi va brendi o'zi to'ladi — faqat narx va miqdorni kiriting. Bazada bo'lmasa — qo'lda to'ldiring.</x:String>
 </ResourceDictionary>

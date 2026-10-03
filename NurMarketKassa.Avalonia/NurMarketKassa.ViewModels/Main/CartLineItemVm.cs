@@ -50,9 +50,10 @@ public sealed class CartLineItemVm : ViewModelBase
         set => SetProperty(ref _canWholesale, value);
     }
 
+    // 2026-10-04, клиент: «место, чтобы поставить галочку оптовой продажи определённого товара» — вид галочки.
     public string WholesaleButtonText => IsWholesale
-        ? Tr.T("Опт ✓", "Дүң ✓", "Wholesale ✓", "Toptan ✓", "Ulgurji ✓")
-        : Tr.T("Опт", "Дүң", "Wholesale", "Toptan", "Ulgurji");
+        ? Tr.T("☑ Опт", "☑ Дүң", "☑ Wholesale", "☑ Toptan", "☑ Ulgurji")
+        : Tr.T("☐ Опт", "☐ Дүң", "☐ Wholesale", "☐ Toptan", "☐ Ulgurji");
 
     private string _quantityInput = "";
 

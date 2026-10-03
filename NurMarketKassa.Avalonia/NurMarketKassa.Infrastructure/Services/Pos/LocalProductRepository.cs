@@ -328,6 +328,25 @@ public sealed class LocalProductRepository
             // Колонка уже существует.
         }
 
+        try
+        {
+            // 2026-10-04: оптовая цена товара. Раньше она жила только в плитках, пришедших с сервера:
+            // каталог из базы (запуск кассы, перечитывание после каждой продажи) её терял, и опт в чеке
+            // («☐ Опт» у строки, тумблер «Оптовый») не появлялся вовсе.
+            using var alterWholesale = connection.CreateCommand();
+            alterWholesale.CommandText = "ALTER TABLE Products ADD COLUMN wholesale_price REAL NOT NULL DEFAULT 0;";
+            alterWholesale.ExecuteNonQuery();
+            // Колонка новая — версия каталога сбрасывается, чтобы ближайшая синхронизация была полной и
+            // записала оптовые цены (иначе при неизменном каталоге сервер «нечего обновлять»).
+            using var resetVersion = connection.CreateCommand();
+            resetVersion.CommandText = "DELETE FROM catalog_meta WHERE key = 'catalog_version';";
+            resetVersion.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже существует.
+        }
+
         MigrateLegacyDataIfNeeded(connection);
     }
 
@@ -415,7 +434,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind, description
+                       alternate_barcode_variants, product_code, kind, description, wholesale_price
                 FROM Products WHERE {column} = $value COLLATE NOCASE LIMIT 1;
                 """;
             var parameter = command.CreateParameter();
@@ -477,7 +496,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind, description
+                       alternate_barcode_variants, product_code, kind, description, wholesale_price
                 FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
                 """;
             var parameter = command.CreateParameter();
@@ -1117,7 +1136,8 @@ public sealed class LocalProductRepository
             r.AlternateBarcodeVariantsJson ?? "",
             r.ProductCode ?? "",
             r.Kind ?? "",
-            r.Description ?? "");
+            r.Description ?? "",
+            r.WholesalePrice.ToString("0.####", CultureInfo.InvariantCulture));
 
     public int CountProducts()
     {
@@ -1409,7 +1429,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price
             FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
@@ -1440,7 +1460,8 @@ public sealed class LocalProductRepository
                 AlternateBarcodeVariantsJson = reader.IsDBNull(19) ? null : reader.GetString(19),
                 ProductCode = reader.IsDBNull(20) ? null : reader.GetString(20),
                 Kind = reader.IsDBNull(21) ? null : reader.GetString(21),
-                Description = reader.IsDBNull(22) ? null : reader.GetString(22)
+                Description = reader.IsDBNull(22) ? null : reader.GetString(22),
+                WholesalePrice = reader.IsDBNull(23) ? 0 : reader.GetDouble(23)
             });
         }
 
@@ -1462,12 +1483,12 @@ public sealed class LocalProductRepository
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
                 bundle_items_json, alternate_barcodes, alternate_barcode_variants,
-                intake_date, product_code, kind, description
+                intake_date, product_code, kind, description, wholesale_price
             ) VALUES (
                 @id, @name, @price, @barcode, @stock, @unit, @is_favorite, @must_weigh,
                 @image_url, @category, @brand, @purchase_price, @piece_option_json, @plu, @hotkey_group, @is_bundle, @article,
                 @bundle_items_json, @alternate_barcodes, @alternate_barcode_variants,
-                @intake_date, @product_code, @kind, @description
+                @intake_date, @product_code, @kind, @description, @wholesale_price
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1492,6 +1513,7 @@ public sealed class LocalProductRepository
                 product_code = excluded.product_code,
                 kind = excluded.kind,
                 description = excluded.description,
+                wholesale_price = excluded.wholesale_price,
                 intake_date = CASE
                     WHEN Products.intake_date IS NULL AND excluded.stock > 0 THEN @today
                     ELSE Products.intake_date
@@ -1520,6 +1542,7 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@product_code", DBNull.Value);
         command.Parameters.AddWithValue("@kind", DBNull.Value);
         command.Parameters.AddWithValue("@description", DBNull.Value);
+        command.Parameters.AddWithValue("@wholesale_price", 0d);
         command.Parameters.AddWithValue("@intake_date", DBNull.Value);
         command.Parameters.AddWithValue("@today", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
@@ -1550,6 +1573,7 @@ public sealed class LocalProductRepository
         command.Parameters["@product_code"].Value = (object?)record.ProductCode ?? DBNull.Value;
         command.Parameters["@kind"].Value = (object?)record.Kind ?? DBNull.Value;
         command.Parameters["@description"].Value = string.IsNullOrWhiteSpace(record.Description) ? DBNull.Value : record.Description;
+        command.Parameters["@wholesale_price"].Value = record.WholesalePrice;
         // Только для ветки INSERT (совсем новый товар) — для уже существующих строк
         // реальное решение принимает CASE в ON CONFLICT DO UPDATE (см. CreateUpsertCommand).
         command.Parameters["@intake_date"].Value = record.Stock > 0
@@ -1587,6 +1611,7 @@ public sealed class LocalProductRepository
             ProductCode = reader.FieldCount > 20 && !reader.IsDBNull(20) ? reader.GetString(20) : null,
             Kind = reader.FieldCount > 21 && !reader.IsDBNull(21) ? reader.GetString(21) : null,
             Description = reader.FieldCount > 22 && !reader.IsDBNull(22) ? reader.GetString(22) : null,
+            WholesalePrice = reader.FieldCount > 23 && !reader.IsDBNull(23) ? reader.GetDouble(23) : 0,
         };
 
     private static Product ToProduct(LocalProductRecord record) =>
@@ -1618,6 +1643,7 @@ public sealed class LocalProductRepository
             Unit = record.Unit,
             IsFavorite = record.IsFavorite,
             PurchasePrice = record.PurchasePrice,
+            WholesalePrice = record.WholesalePrice,
             PieceOption = DeserializePieceOption(record.PieceOptionJson),
             Plu = record.Plu,
             HotkeyGroup = record.HotkeyGroup,
@@ -1693,6 +1719,7 @@ public sealed class LocalProductRepository
             Category = vm.Category,
             Brand = vm.Brand,
             PurchasePrice = vm.PurchasePrice,
+            WholesalePrice = vm.WholesalePrice,
             PieceOptionJson = vm.PieceOption is null ? null : JsonSerializer.Serialize(vm.PieceOption),
             Plu = vm.Plu,
             HotkeyGroup = vm.HotkeyGroup,

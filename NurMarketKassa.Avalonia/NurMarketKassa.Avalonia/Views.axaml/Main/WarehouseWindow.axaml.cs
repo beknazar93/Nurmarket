@@ -794,6 +794,36 @@ public partial class WarehouseWindow : Window, IOwnerSection
             WarehouseTabs.SelectedItem = AnalyticsTabItem;
     }
 
+    /// <summary>2026-10-04, клиент: «кнопка "обновить страницу" для склада» — товары и остатки заново с сервера
+    /// (то же, что фоновая синхронизация каталога), затем таблица и итоги склада.</summary>
+    private async void RefreshWarehouse_Click(object? sender, RoutedEventArgs e)
+    {
+        RefreshWarehouseButton.IsEnabled = false;
+        try
+        {
+            var result = await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(true);
+            if (result.Success)
+                CatalogCacheService.NotifyCatalogChanged();
+            else
+                PosLogger.Log($"Склад: обновление с сервера не удалось ({result.ErrorMessage}) — показан локальный каталог.", "CATALOG");
+            await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+            RefreshWarehouseTotals();
+            // Удачное обновление видно по таблице — окно-сообщение только если сервер не ответил.
+            if (!result.Success)
+                App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(
+                    Tr.T("Сервер не ответил — показаны данные этого компьютера.", "Сервер жооп берген жок — бул компьютердеги маалыматтар көрсөтүлдү.", "The server did not respond — showing this computer's data.", "Sunucu yanıt vermedi — bu bilgisayardaki veriler gösteriliyor.", "Server javob bermadi — shu kompyuterdagi ma'lumotlar ko'rsatildi."),
+                    isWarning: true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Склад: обновление упало: {ex.Message}", "CATALOG");
+        }
+        finally
+        {
+            RefreshWarehouseButton.IsEnabled = true;
+        }
+    }
+
     public void FocusWithBarcode(string? barcode)
     {
         if (!string.IsNullOrWhiteSpace(barcode))
