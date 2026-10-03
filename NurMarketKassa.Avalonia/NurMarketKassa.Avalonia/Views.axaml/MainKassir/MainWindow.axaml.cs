@@ -1281,21 +1281,22 @@ public partial class MainWindow : Window
         }
     }
 
-    internal Task OpenShiftAsync()
+    internal async Task OpenShiftAsync()
     {
         if (_session.IsShiftOpen)
         {
             // Вторая смена поверх незакрытой осиротила бы продажи прежней смены.
             _prompts.ShowWarning(Tr.T("Смена уже открыта. Закройте текущую смену перед открытием новой.", "Смена мурунтан эле ачык. Жаңысын ачуудан мурун учурдагы сменаны жабыңыз.", "A shift is already open. Close the current shift before opening a new one.", "Vardiya zaten açık. Yeni bir vardiya açmadan önce mevcut vardiyayı kapatın.", "Smena allaqachon ochiq. Yangisini ochishdan oldin joriy smenani yoping."));
-            return Task.CompletedTask;
+            return;
         }
 
         var dlg = App.GetRequiredService<OpenShiftDialog>();
         dlg.SuggestedBalance = EffectiveShiftCashBalance;
-        if (PosDialogHost.Show(dlg, this) != true)
-            return Task.CompletedTask;
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        if (await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) != true)
+            return;
 
-        return ApplyShiftOpenedAsync(dlg.OpeningCash);
+        await ApplyShiftOpenedAsync(dlg.OpeningCash).ConfigureAwait(true);
     }
 
     internal Task CloseShiftAsync() => CloseShiftAsync(confirmUnfinishedReceipt: true);
@@ -1444,10 +1445,17 @@ public partial class MainWindow : Window
             return;
         }
         var dlg = App.GetRequiredService<ReturnSaleDialog>();
+#if NURANDROID
+        // 2026-10-04, Android-касса: без вложенного цикла — остаток смены обновляем после закрытия окна возврата.
+        _ = PosDialogHost.ShowAsync(dlg, this).ContinueWith(
+            _ => OnCheckoutSucceeded(this, EventArgs.Empty),
+            TaskScheduler.FromCurrentSynchronizationContext());
+#else
         PosDialogHost.Show(dlg, this);
         // Возврат меняет остаток смены так же, как продажа — подтягиваем его с сервера (2026-09-25:
         // после возврата в шапке оставалась сумма до возврата).
         OnCheckoutSucceeded(this, EventArgs.Empty);
+#endif
     }
 
     /// <summary>«История чеков» (2026-09-27): чеки этой кассы и печать копии. Без проверки прав

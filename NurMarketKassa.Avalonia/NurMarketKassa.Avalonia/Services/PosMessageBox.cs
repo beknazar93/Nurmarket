@@ -95,6 +95,46 @@ public static class PosMessageBox
         }
     }
 
+    /// <summary>2026-10-04, Android-касса: <see cref="Show(Window?, string, string, MessageBoxButton, MessageBoxImage, MessageBoxResult)"/>
+    /// из async-кода. В Windows — тот же синхронный Show (поведение прежнее); на Android — те же
+    /// окна, но без вложенного цикла сообщений (его у Avalonia на Android нет).</summary>
+    public static async Task<MessageBoxResult> ShowModalAsync(
+        Window? owner,
+        string messageBoxText,
+        string caption,
+        MessageBoxButton button = MessageBoxButton.OK,
+        MessageBoxImage icon = MessageBoxImage.None)
+    {
+#if NURANDROID
+        if (button == MessageBoxButton.YesNo
+            && string.Equals(caption, "Подтверждение", StringComparison.Ordinal)
+            && string.Equals(messageBoxText, "Подтвердить оплату?", StringComparison.Ordinal))
+        {
+            return await PaymentConfirmationDialog.ShowModalAsync(owner).ConfigureAwait(true)
+                ? MessageBoxResult.Yes
+                : MessageBoxResult.No;
+        }
+
+        if (button is MessageBoxButton.YesNo or MessageBoxButton.YesNoCancel)
+        {
+            var confirmed = await PosConfirmDialog.ShowModalAsync(
+                owner,
+                caption,
+                messageBoxText,
+                confirmText: Tr.T("Да", "Ооба", "Yes", "Evet", "Ha"),
+                cancelText: button == MessageBoxButton.YesNoCancel ? Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish") : Tr.T("Нет", "Жок", "No", "Hayır", "Yo'q")).ConfigureAwait(true);
+            return confirmed ? MessageBoxResult.Yes : MessageBoxResult.No;
+        }
+
+        var buttonText = icon == MessageBoxImage.Question ? Tr.T("ОК", "ОК", "OK", "Tamam", "OK") : Tr.T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli");
+        await PosAlertDialog.ShowAsync(owner, caption, messageBoxText, MapAlertKind(icon), buttonText).ConfigureAwait(true);
+        return MessageBoxResult.OK;
+#else
+        await Task.CompletedTask.ConfigureAwait(true);
+        return Show(owner, messageBoxText, caption, button, icon);
+#endif
+    }
+
     public static ShiftNotClosedDialogResult ShowShiftNotClosed(Window? owner) =>
         ShiftNotClosedDialog.Prompt(owner);
 
@@ -118,6 +158,10 @@ public static class PosDialogs
 {
     public static bool ConfirmYesNo(Window? owner, string message, string? title = null) =>
         PosConfirmDialog.Show(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message);
+
+    /// <summary>2026-10-04, Android-касса: то же из async-кода (в Windows — прежний синхронный ConfirmYesNo).</summary>
+    public static Task<bool> ConfirmYesNoModalAsync(Window? owner, string message, string? title = null) =>
+        PosConfirmDialog.ShowModalAsync(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message);
 
     public static void Info(Window? owner, string message, string? title = null) =>
         PosAlertDialog.Show(owner, title ?? Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info);

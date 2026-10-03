@@ -195,12 +195,42 @@ public sealed class WindowLayerHost : Panel
         if (hostW <= 0 || hostH <= 0)
             return; // вид ещё не разложен — пересчитаем в OnSizeChanged
 
+        // Полоса заголовка с «✕» — у окон, которым в Windows рамку рисовала система.
+        window.AndroidChromeVisible = window.SystemDecorations != SystemDecorations.None
+                                      && !(IsMainWindow?.Invoke(window) ?? false);
+
+        var isMain = IsMainWindow?.Invoke(window) ?? false;
+        var maximized = window.WindowState is WindowState.Maximized or WindowState.FullScreen;
+
+        // Окно, которое код сам поставил в точку экрана (разделы программы владельца поверх
+        // области главного окна): размер оставляем его, только не больше вида. Главное и
+        // развёрнутое окно всё равно растягиваются на весь вид.
+        layer.IsFill = false;
+        if (window.ExplicitPosition is not null && !isMain && !maximized)
+        {
+            layer.Applying = true;
+            try
+            {
+                window.MaxWidth = Math.Min(layer.Original.MaxWidth, hostW);
+                window.MaxHeight = Math.Min(layer.Original.MaxHeight, hostH);
+                window.HorizontalAlignment = HorizontalAlignment.Left;
+                window.VerticalAlignment = VerticalAlignment.Top;
+            }
+            finally
+            {
+                layer.Applying = false;
+            }
+            layer.InvalidateArrange();
+            return;
+        }
+
         var o = layer.Original;
-        var fill = window.WindowState is WindowState.Maximized or WindowState.FullScreen
-                   || (IsMainWindow?.Invoke(window) ?? false)
+        var fill = maximized
+                   || isMain
                    || (!double.IsNaN(o.Width) && o.Width >= hostW * 0.9 && !double.IsNaN(o.Height) && o.Height >= hostH * 0.85)
                    || (o.MinWidth >= hostW * 0.9 && o.MinHeight >= hostH * 0.85);
 
+        layer.IsFill = fill;
         layer.Applying = true;
         try
         {
@@ -220,8 +250,11 @@ public sealed class WindowLayerHost : Panel
             {
                 var maxW = Math.Max(200, hostW - 2 * DialogMargin);
                 var maxH = Math.Max(160, hostH - 2 * DialogMargin);
-                window.Width = double.IsNaN(o.Width) ? double.NaN : Math.Min(o.Width, maxW);
-                window.Height = double.IsNaN(o.Height) ? double.NaN : Math.Min(o.Height, maxH);
+                // SizeToContent в Avalonia главнее заданных Width/Height — окно по содержимому.
+                var autoW = window.SizeToContent is SizeToContent.Width or SizeToContent.WidthAndHeight;
+                var autoH = window.SizeToContent is SizeToContent.Height or SizeToContent.WidthAndHeight;
+                window.Width = autoW || double.IsNaN(o.Width) ? double.NaN : Math.Min(o.Width, maxW);
+                window.Height = autoH || double.IsNaN(o.Height) ? double.NaN : Math.Min(o.Height, maxH);
                 window.MinWidth = Math.Min(o.MinWidth, maxW);
                 window.MinHeight = Math.Min(o.MinHeight, maxH);
                 window.MaxWidth = Math.Min(o.MaxWidth, maxW);
@@ -234,6 +267,7 @@ public sealed class WindowLayerHost : Panel
         {
             layer.Applying = false;
         }
+        layer.InvalidateArrange();
     }
 
     // ---- Слой одного окна ----
@@ -266,6 +300,7 @@ public sealed class WindowLayerHost : Panel
         public bool IsModal { get; }
         public OriginalSize Original { get; }
         public bool Applying { get; set; }
+        public bool IsFill { get; set; }
 
         public void Detach() => Children.Clear();
 
@@ -279,7 +314,19 @@ public sealed class WindowLayerHost : Panel
         protected override Size ArrangeOverride(Size finalSize)
         {
             foreach (var child in Children)
+            {
+                if (ReferenceEquals(child, Window) && !IsFill && Window.ExplicitPosition is { } screenPoint)
+                {
+                    // Точка экрана (пиксели) → точка внутри вида (как PointToScreen у кода окна).
+                    var local = this.PointToClient(screenPoint);
+                    var size = Window.DesiredSize;
+                    var x = Math.Clamp(local.X, 0, Math.Max(0, finalSize.Width - size.Width));
+                    var y = Math.Clamp(local.Y, 0, Math.Max(0, finalSize.Height - size.Height));
+                    child.Arrange(new Rect(new Point(x, y), size));
+                    continue;
+                }
                 child.Arrange(new Rect(finalSize));
+            }
             return finalSize;
         }
     }

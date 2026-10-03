@@ -41,6 +41,14 @@ public partial class PrinterNotConnectedDialog : Window
         return dlg.Result;
     }
 
+    /// <summary>2026-10-04, Android-касса: из async-кода (в Windows — прежний синхронный ShowCheckout).</summary>
+    public static async Task<PrinterNotConnectedResult> ShowCheckoutModalAsync(Window? owner)
+    {
+        var dlg = new PrinterNotConnectedDialog(checkoutMode: true);
+        await PosDialogHost.ShowModalAsync(dlg, owner).ConfigureAwait(true);
+        return dlg.Result;
+    }
+
     public static void ShowOk(Window? owner, string? message = null)
     {
         var dlg = new PrinterNotConnectedDialog(checkoutMode: false);

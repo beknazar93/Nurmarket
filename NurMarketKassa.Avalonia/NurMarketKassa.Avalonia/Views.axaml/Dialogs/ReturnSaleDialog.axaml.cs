@@ -568,18 +568,19 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
         var total = selected.Sum(line => line.RefundSum);
 
-        if (PosMessageBox.Show(this,
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        if (await PosMessageBox.ShowModalAsync(this,
                 Tr.T($"Выбрано позиций: {selected.Count}\nСумма возврата: ~{total:F2} сом\n\nПродолжить?",
                     $"Тандалган позиция: {selected.Count}\nКайтаруу суммасы: ~{total:F2} сом\n\nУлантасызбы?",
                     $"Items selected: {selected.Count}\nRefund amount: ~{total:F2} som\n\nContinue?",
                     $"Seçilen kalem: {selected.Count}\nİade tutarı: ~{total:F2} som\n\nDevam edilsin mi?",
                     $"Tanlangan pozitsiyalar: {selected.Count}\nQaytarish summasi: ~{total:F2} so'm\n\nDavom etilsinmi?"),
                 Tr.T("Подтверждение возврата", "Кайтарууну ырастоо", "Confirm return", "İadeyi onayla", "Qaytarishni tasdiqlash"),
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         var reasonDialog = new ReturnLineReasonDialog(selected.Count);
-        if (PosDialogHost.Show(reasonDialog, this) != true)
+        if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
 
         var reason = reasonDialog.ReasonText;
@@ -857,16 +858,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         var reasonDialog = new ReturnLineReasonDialog(kind: ReturnReasonDialogKind.FullReceipt);
-        if (PosDialogHost.Show(reasonDialog, this) != true)
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
 
-        if (PosMessageBox.Show(this,
+        if (await PosMessageBox.ShowModalAsync(this,
                 Tr.T("Оформить полный возврат всего чека одной операцией? Позиции по отдельности возвращать не потребуется.",
                     "Бүт чекти бир операция менен толук кайтарасызбы? Позицияларды өз-өзүнчө кайтаруунун кереги жок болот.",
                     "Return the whole receipt in one operation? You won't need to return items one by one.",
                     "Tüm fiş tek işlemde iade edilsin mi? Kalemleri tek tek iade etmeniz gerekmeyecek.",
                     "Butun chek bitta amal bilan qaytarilsinmi? Pozitsiyalarni birma-bir qaytarish shart bo'lmaydi."),
-                Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         IsBusy = true;

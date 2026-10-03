@@ -122,6 +122,18 @@ public static class PosDialogHost
         return result;
     }
 
+    /// <summary>2026-10-04, Android-касса: модальный диалог из async-кода. В Windows — тот же
+    /// синхронный <see cref="Show"/> (вложенный цикл, результат готов сразу, поведение прежнее);
+    /// на Android — честное ожидание без вложенного цикла (<see cref="ShowAsync"/>).</summary>
+    public static Task<bool?> ShowModalAsync(Window dialog, Window? owner)
+    {
+#if NURANDROID
+        return ShowAsync(dialog, owner);
+#else
+        return Task.FromResult(Show(dialog, owner));
+#endif
+    }
+
     public static Task<bool?> ShowAsync(Window dialog, Window? owner)
     {
         owner = ResolveOwner(owner);

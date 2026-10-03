@@ -50,25 +50,24 @@ public partial class MainWindow
         return _session.IsShiftOpen;
     }
 
-    internal Task OpenDeferredCartsAsync()
+    internal async Task OpenDeferredCartsAsync()
     {
         var dlg = new DeferredCartsDialog(new DeferredCartsDialogActions
         {
             MergeIntoCurrentAsync = MergeDeferredIntoCurrentAsync,
             OpenAsSeparateAsync = OpenDeferredAsSeparateAsync,
         });
-        PosDialogHost.Show(dlg, this);
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
         _viewModel.Basket.RefreshFromCart();
-        return Task.CompletedTask;
     }
 
-    internal Task OpenCashOperationsAsync()
+    internal async Task OpenCashOperationsAsync()
     {
         var dlg = App.GetRequiredService<CashOperationsDialog>();
         dlg.OpenShiftAction = async cash => await ApplyShiftOpenedAsync(cash).ConfigureAwait(true);
         dlg.CloseShiftAction = async cash => await ApplyShiftClosedAsync(cash).ConfigureAwait(true);
-        PosDialogHost.Show(dlg, this);
-        return Task.CompletedTask;
+        await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
     }
 
     private readonly Dictionary<string, (DateTime At, List<ProductVariantDto> Variants)> _variantCache = new(StringComparer.OrdinalIgnoreCase);
@@ -119,7 +118,7 @@ public partial class MainWindow
                 if (picker.Result is not { Id: { } variantId } chosen)
                     return;
                 if (chosen.Quantity < picker.Quantity
-                    && !PosDialogs.ConfirmYesNo(this, Tr.T(
+                    && !await PosDialogs.ConfirmYesNoModalAsync(this, Tr.T(
                         $"Остаток этого размера/цвета — {chosen.Quantity:0.###} шт. Всё равно добавить {picker.Quantity:0} шт.?",
                         $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир {picker.Quantity:0} даана кошулсунбу?",
                         $"Only {chosen.Quantity:0.###} pcs of this size/color left. Add {picker.Quantity:0} pcs anyway?",
@@ -138,7 +137,7 @@ public partial class MainWindow
         if (vm.HasPieceOption && !mustWeigh)
         {
             var pkgDlg = new PackageChoiceDialog(vm.Title, vm.PriceLine, vm.Quantity, vm.PieceOption);
-            if (PosDialogHost.Show(pkgDlg, this) != true)
+            if (await PosDialogHost.ShowModalAsync(pkgDlg, this).ConfigureAwait(true) != true)
                 return;
 
             if (pkgDlg.IsPieceMode)
@@ -175,7 +174,7 @@ public partial class MainWindow
                 ? App.GetRequiredService<ScaleWeightProvider>().Scale
                 : null;
             var dlg = new WeighedProductDialog(vm.Title, vm.PriceLine, scale);
-            if (PosDialogHost.Show(dlg, this) != true || string.IsNullOrEmpty(dlg.QuantityNormalized))
+            if (await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) != true || string.IsNullOrEmpty(dlg.QuantityNormalized))
                 return;
 
             if (!double.TryParse(dlg.QuantityNormalized, NumberStyles.Any, CultureInfo.InvariantCulture, out qtyToAdd) || qtyToAdd <= 0)
@@ -251,7 +250,7 @@ public partial class MainWindow
         }
 
         var pkgDlg = new PackageChoiceDialog(vm.Title, vm.PriceLine, vm.Quantity, vm.PieceOption, triggeredByVoice: true);
-        if (PosDialogHost.Show(pkgDlg, this) != true)
+        if (await PosDialogHost.ShowModalAsync(pkgDlg, this).ConfigureAwait(true) != true)
             return;
 
         if (!pkgDlg.IsPieceMode)
@@ -322,24 +321,27 @@ public partial class MainWindow
     /// не строка продажи (такую всё равно нельзя оплатить, итог уйдёт в минус, см. PayAsync), а
     /// изъятие денег из кассы. Раньше для этого нужно было идти в «История смен → Изъятие» —
     /// теперь та же кнопка «Доп. услуга» сама оформляет изъятие, если корзина пуста.</summary>
-    internal Task AddCustomItemAsync()
+    internal async Task AddCustomItemAsync()
     {
         var dialog = new CustomServiceDialog();
-        if (PosDialogHost.Show(dialog, this) != true)
-            return Task.CompletedTask;
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true)
+            return;
 
         // 2026-10-03: кассир выбрал подсказанный товар каталога — продаём товаром, а не строкой без товара.
         if (dialog.SelectedProduct is { } product)
-            return AddProductFromCatalogAsync(product);
+        {
+            await AddProductFromCatalogAsync(product).ConfigureAwait(true);
+            return;
+        }
 
         if (dialog.IsExpense && !_viewModel.Basket.HasItems)
         {
             RecordCashWithdrawal(dialog.ServiceName, dialog.Price * dialog.Quantity);
-            return Task.CompletedTask;
+            return;
         }
 
         _viewModel.Basket.AddCustomItem(dialog.ServiceName, dialog.Price, dialog.Quantity, dialog.IsExpense);
-        return Task.CompletedTask;
     }
 
     private void RecordCashWithdrawal(string reason, double amount)
@@ -464,7 +466,7 @@ public partial class MainWindow
     internal async Task OfferAddUnknownProductAsync(string barcode)
     {
         var code = (barcode ?? "").Trim();
-        var confirmed = PosConfirmDialog.Show(
+        var confirmed = await PosConfirmDialog.ShowModalAsync(
             this,
             Tr.T("Товар не найден", "Товар табылган жок", "Product not found", "Ürün bulunamadı", "Mahsulot topilmadi"),
             Tr.T($"Штрих-код {code} не найден в каталоге. Добавить новый товар на склад?",
@@ -526,43 +528,43 @@ public partial class MainWindow
         return picker.SelectedClient;
     }
 
-    internal Task ApplyOrderDiscountAsync()
+    internal async Task ApplyOrderDiscountAsync()
     {
         if (!Authorize(PosPermissions.ApplyDiscount))
-            return Task.CompletedTask;
+            return;
         var dlg = App.GetRequiredService<OrderDiscountDialog>();
-        if (PosDialogHost.Show(dlg, this) != true)
-            return Task.CompletedTask;
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        if (await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) != true)
+            return;
 
         if (dlg.ClearRequested)
         {
             if (_viewModel.Basket.ApplyOrderDiscount(null, null, clear: true))
                 _viewModel.Basket.CartMessage = Tr.T("Скидка сброшена.", "Арзандатуу алынып салынды.", "Discount cleared.", "İndirim kaldırıldı.", "Chegirma bekor qilindi.");
-            return Task.CompletedTask;
+            return;
         }
 
         var (previousPercent, previousTotal) = _viewModel.Basket.ReadOrderDiscount();
         if (_viewModel.Basket.ApplyOrderDiscount(dlg.DiscountMode, dlg.DiscountValue))
         {
-            if (!ConfirmSellingAtLoss())
+            if (!await ConfirmSellingAtLossAsync().ConfigureAwait(true))
             {
                 _viewModel.Basket.RestoreOrderDiscount(previousPercent, previousTotal);
                 _viewModel.Basket.CartMessage = LossDiscountCancelledText();
-                return Task.CompletedTask;
+                return;
             }
             _viewModel.Basket.CartMessage = dlg.DiscountMode == "percent"
                 ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
                 : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
         }
-        return Task.CompletedTask;
     }
 
-    internal Task ReweighCartLineAsync(CartLineItemVm line)
+    internal async Task ReweighCartLineAsync(CartLineItemVm line)
     {
         if (!Authorize(PosPermissions.ViewScales))
-            return Task.CompletedTask;
+            return;
         if (!line.IsWeight || string.IsNullOrWhiteSpace(line.ItemId))
-            return Task.CompletedTask;
+            return;
 
         var scale = HardwareModeHelper.UsePhysicalScale()
             ? App.GetRequiredService<ScaleWeightProvider>().Scale
@@ -574,30 +576,29 @@ public partial class MainWindow
             line.Quantity.ToString("0.###", CultureInfo.InvariantCulture),
             Tr.T("Обновить", "Жаңылоо", "Update", "Güncelle", "Yangilash"));
 
-        if (PosDialogHost.Show(dialog, this) != true ||
+        if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true ||
             !double.TryParse(dialog.QuantityNormalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var quantity) ||
             quantity <= 0)
-            return Task.CompletedTask;
+            return;
 
         ResolveCartService().UpdateQuantity(line.ItemId, quantity);
         _viewModel.Basket.RefreshFromCart();
         _viewModel.Basket.CartMessage = Tr.T($"Вес «{line.Title}» обновлён: {quantity:0.###} кг.", $"«{line.Title}» салмагы жаңыртылды: {quantity:0.###} кг.", $"Weight of “{line.Title}” updated: {quantity:0.###} kg.", $"«{line.Title}» ağırlığı güncellendi: {quantity:0.###} kg.", $"«{line.Title}» og'irligi yangilandi: {quantity:0.###} kg.");
-        return Task.CompletedTask;
     }
 
-    internal Task ApplyLineDiscountAsync(CartLineItemVm line)
+    internal async Task ApplyLineDiscountAsync(CartLineItemVm line)
     {
         if (!Authorize(PosPermissions.ApplyDiscount))
-            return Task.CompletedTask;
+            return;
         if (string.IsNullOrWhiteSpace(line.ItemId))
-            return Task.CompletedTask;
+            return;
 
         var cart = ResolveCartService();
         var (mode, value) = ReadLineDiscount(cart, line.ItemId);
         var dialog = App.GetRequiredService<OrderDiscountDialog>();
         dialog.SetItemMode(line.Title, mode, value);
-        if (PosDialogHost.Show(dialog, this) != true)
-            return Task.CompletedTask;
+        if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true)
+            return;
 
         // 2026-09-08: "Максимальная скидка" — реальная серверная настройка (app.nurcrm.kg,
         // Моя компания → Касса), владелец попросил применять её и к скидке на позицию, а не
@@ -616,7 +617,7 @@ public partial class MainWindow
                 $"The discount can't exceed {lineLimitPercent:0.##}% — that's the limit set for employees.",
                 $"İndirim en fazla %{lineLimitPercent:0.##} olabilir — personel için belirlenen sınır budur.",
                 $"Chegirma {lineLimitPercent:0.##}%dan oshmasligi kerak — bu xodimlar uchun belgilangan chegara."));
-            return Task.CompletedTask;
+            return;
         }
 
         // Тот же лимит для скидки, введённой СУММОЙ: диалог позволяет переключить режим, и без
@@ -640,7 +641,7 @@ public partial class MainWindow
                         $"The discount can't exceed {lineLimitForSum:0.##}% — that is {allowedSum:0.00} som for this line.",
                         $"İndirim en fazla %{lineLimitForSum:0.##} olabilir — bu satır için {allowedSum:0.00} som.",
                         $"Chegirma {lineLimitForSum:0.##}%dan oshmasligi kerak — bu qator uchun {allowedSum:0.00} so'm."));
-                    return Task.CompletedTask;
+                    return;
                 }
             }
         }
@@ -652,7 +653,7 @@ public partial class MainWindow
             dialog.ClearRequested ? null : dialog.DiscountValue);
         _viewModel.Basket.RefreshFromCart();
         // 2026-10-04: скидка увела товар ниже закупки — без «Я знаю что делаю» возвращаем прежнюю скидку.
-        if (!dialog.ClearRequested && !ConfirmSellingAtLoss())
+        if (!dialog.ClearRequested && !await ConfirmSellingAtLossAsync().ConfigureAwait(true))
         {
             ReceiptSnapshotCartEditor.PatchLineDiscount(
                 cart,
@@ -661,27 +662,27 @@ public partial class MainWindow
                 value?.ToString(CultureInfo.InvariantCulture));
             _viewModel.Basket.RefreshFromCart();
             _viewModel.Basket.CartMessage = LossDiscountCancelledText();
-            return Task.CompletedTask;
+            return;
         }
         _viewModel.Basket.CartMessage = dialog.ClearRequested
             ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
             : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");
-        return Task.CompletedTask;
     }
 
     /// <summary>2026-10-04, клиент: «если скидку случайно выдать в убыток — предупреждающий экран, и после
     /// подтверждения добавить скидку (кнопка «Я знаю что делаю»)». true — убытка нет или кассир подтвердил.</summary>
-    private bool ConfirmSellingAtLoss()
+    private async Task<bool> ConfirmSellingAtLossAsync()
     {
         if (_viewModel.Basket.LossWarningText() is not { } text)
             return true;
-        var ok = PosConfirmDialog.Show(
+        // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
+        var ok = await PosConfirmDialog.ShowModalAsync(
             this,
             Tr.T("Продажа в убыток", "Зыянга сатуу", "Selling at a loss", "Zararına satış", "Zarariga sotish"),
             text + "\n\n" + Tr.T("Применить скидку?", "Арзандатууну колдоносузбу?", "Apply the discount?", "İndirim uygulansın mı?", "Chegirma qo'llansinmi?"),
             Tr.T("Я знаю что делаю", "Эмне кылып жатканымды билем", "I know what I'm doing", "Ne yaptığımı biliyorum", "Nima qilayotganimni bilaman"),
             Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
-            PosConfirmAccent.Danger);
+            PosConfirmAccent.Danger).ConfigureAwait(true);
         PosLogger.Log(ok ? "Скидка в убыток подтверждена кассиром («Я знаю что делаю»)." : "Скидка в убыток отменена кассиром.", "CART");
         return ok;
     }

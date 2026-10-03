@@ -1,7 +1,12 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Input;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace NurMarketKassa;
@@ -11,8 +16,10 @@ namespace NurMarketKassa;
 /// <see cref="WindowLayerHost"/>: Show() кладёт его поверх остальных, ShowDialog() — поверх с
 /// затемнением и блокировкой нижних слоёв, Close() убирает. API повторяет Avalonia.Controls.Window
 /// настолько, насколько его использует код кассы, поэтому окна кассы собираются без изменений.
-/// Положение и рамка окна (Position, SystemDecorations, перетаскивание) на Android не имеют
-/// смысла и только запоминаются.</summary>
+/// Как в Avalonia, окно невидимо (IsVisible = false), пока не показано. Position, заданная после
+/// показа (или при WindowStartupLocation = Manual), ставит окно в эту точку экрана — так программа
+/// владельца кладёт свои разделы поверх области главного окна. Рамка и перетаскивание на Android
+/// не имеют смысла и только запоминаются.</summary>
 public class WindowBase : TopLevel
 {
     public static readonly StyledProperty<bool> TopmostProperty =
@@ -29,10 +36,41 @@ public class WindowBase : TopLevel
 
     public bool IsActive { get; internal set; }
 
-    public PixelPoint Position { get; set; }
-#pragma warning disable CS0067 // окна на Android не двигаются — событие ради совместимости
+    private PixelPoint? _explicitPosition;
+
+    /// <summary>Положение окна на экране (пиксели). Чтение — где окно сейчас на самом деле.</summary>
+    public PixelPoint Position
+    {
+        get
+        {
+            if (_explicitPosition is { } explicitPosition)
+                return explicitPosition;
+            try
+            {
+                if (Avalonia.VisualTree.VisualExtensions.GetVisualRoot(this) is not null)
+                    return this.PointToScreen(new Point(0, 0));
+            }
+            catch
+            {
+                // не разложено — положения ещё нет
+            }
+            return default;
+        }
+        set
+        {
+            _explicitPosition = value;
+            PositionChanged?.Invoke(this, new PixelPointEventArgs(value));
+            if (this is Window w && w.IsShownInHost)
+                WindowLayerHost.Current?.Relayout(w);
+        }
+    }
+
+    /// <summary>Положение, заданное кодом окна (null — окно ставит WindowLayerHost).</summary>
+    internal PixelPoint? ExplicitPosition => _explicitPosition;
+
+    internal void ClearExplicitPosition() => _explicitPosition = null;
+
     public event EventHandler<PixelPointEventArgs>? PositionChanged;
-#pragma warning restore CS0067
 
     public event EventHandler? Activated;
     public event EventHandler? Deactivated;
@@ -83,6 +121,18 @@ public class Window : WindowBase
     public static readonly StyledProperty<WindowStartupLocation> WindowStartupLocationProperty =
         AvaloniaProperty.Register<Window, WindowStartupLocation>(nameof(WindowStartupLocation));
 
+    /// <summary>Показывать ли полосу заголовка с «✕» (на Android нет рамки окна). Задаёт
+    /// WindowLayerHost: да — у окон с системной рамкой в Windows (SystemDecorations ≠ None),
+    /// кроме главных окон, растянутых на весь экран.</summary>
+    public static readonly StyledProperty<bool> AndroidChromeVisibleProperty =
+        AvaloniaProperty.Register<Window, bool>(nameof(AndroidChromeVisible));
+
+    public bool AndroidChromeVisible
+    {
+        get => GetValue(AndroidChromeVisibleProperty);
+        set => SetValue(AndroidChromeVisibleProperty, value);
+    }
+
     public static readonly RoutedEvent<RoutedEventArgs> WindowOpenedEvent =
         RoutedEvent.Register<Window, RoutedEventArgs>("WindowOpened", RoutingStrategies.Direct);
     public static readonly RoutedEvent<RoutedEventArgs> WindowClosedEvent =
@@ -101,7 +151,67 @@ public class Window : WindowBase
         Focusable = true;
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
         ClipToBounds = true;
+        Template = ChromeTemplate;
+        // Как в Avalonia: окно невидимо, пока его не показали (код кассы проверяет IsVisible).
+        IsVisible = false;
     }
+
+    /// <summary>Шаблон окна: в Windows рамку и заголовок рисует система, здесь — сами
+    /// (полоса с названием окна и «✕», только если <see cref="AndroidChromeVisible"/>).</summary>
+    private static readonly FuncControlTemplate<Window> ChromeTemplate = new((window, scope) =>
+    {
+        var title = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            FontWeight = FontWeight.SemiBold,
+            FontSize = 16,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(14, 0, 8, 0),
+            [!TextBlock.TextProperty] = window[!TitleProperty],
+        };
+        var close = new Button
+        {
+            Content = "✕",
+            FontSize = 18,
+            MinWidth = 52,
+            MinHeight = 44,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Background = Brushes.Transparent,
+            BorderThickness = default,
+        };
+        close.Click += (_, _) => window.RequestCloseFromUser();
+        DockPanel.SetDock(close, Dock.Right);
+        var bar = new Border
+        {
+            MinHeight = 44,
+            [!Border.BackgroundProperty] = window.GetResourceObservable("BrushPanelElevated").ToBinding(),
+            [!Border.BorderBrushProperty] = window.GetResourceObservable("BrushBorder").ToBinding(),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            [!Visual.IsVisibleProperty] = window[!AndroidChromeVisibleProperty],
+            Child = new DockPanel { LastChildFill = true, Children = { close, title } },
+        };
+        DockPanel.SetDock(bar, Dock.Top);
+
+        var presenter = new ContentPresenter
+        {
+            Name = "PART_ContentPresenter",
+            [~ContentPresenter.ContentProperty] = new TemplateBinding(ContentProperty),
+            [~ContentPresenter.ContentTemplateProperty] = new TemplateBinding(ContentTemplateProperty),
+            [~ContentPresenter.PaddingProperty] = new TemplateBinding(PaddingProperty),
+            [~ContentPresenter.HorizontalContentAlignmentProperty] = new TemplateBinding(HorizontalContentAlignmentProperty),
+            [~ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(VerticalContentAlignmentProperty),
+        }.RegisterInNameScope(scope);
+
+        return new Border
+        {
+            [~Border.BackgroundProperty] = new TemplateBinding(BackgroundProperty),
+            [~Border.BorderBrushProperty] = new TemplateBinding(BorderBrushProperty),
+            [~Border.BorderThicknessProperty] = new TemplateBinding(BorderThicknessProperty),
+            [~Border.CornerRadiusProperty] = new TemplateBinding(CornerRadiusProperty),
+            Child = new DockPanel { LastChildFill = true, Children = { bar, presenter } },
+        };
+    });
 
     public string? Title
     {
@@ -232,6 +342,12 @@ public class Window : WindowBase
             return;
         }
 
+        // Положение, заданное до показа, в Avalonia действует только при Manual — иначе окно
+        // ставится по центру (CenterOwner/CenterScreen).
+        if (WindowStartupLocation != WindowStartupLocation.Manual)
+            ClearExplicitPosition();
+
+        IsVisible = true;
         IsModalLayer = modal;
         _closing = false;
         // Экран покупателя — на второй дисплей аппарата (Android Presentation), если он есть.
@@ -294,6 +410,7 @@ public class Window : WindowBase
             WindowLayerHost.Current?.Remove(this);
         IsShownExternally = false;
         IsShownInHost = false;
+        IsVisible = false;
         SetActive(false);
 
         RaiseClosedCore();
@@ -322,7 +439,18 @@ public class Window : WindowBase
     {
         base.OnPropertyChanged(change);
         if (change.Property == WindowStateProperty && IsShownInHost)
+        {
+            // «Свернуть» на Android — увести программу в фон (как кнопка «Домой»); окно остаётся
+            // в прежнем состоянии, чтобы при возврате касса была на экране как была.
+            if (change.GetNewValue<WindowState>() == WindowState.Minimized)
+            {
+                var previous = change.GetOldValue<WindowState>();
+                Dispatcher.UIThread.Post(() => WindowState = previous == WindowState.Minimized ? WindowState.Normal : previous);
+                AndroidPlatformHooks.MoveToBackground?.Invoke();
+                return;
+            }
             WindowLayerHost.Current?.Relayout(this);
+        }
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)

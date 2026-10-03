@@ -120,4 +120,7 @@ public static class AndroidPlatformHooks
 {
     /// <summary>Закрыть программу (FinishAffinity + завершение процесса).</summary>
     public static Action<int>? FinishApplication { get; set; }
+
+    /// <summary>Увести программу в фон (кнопка «Свернуть» окна кассы).</summary>
+    public static Action? MoveToBackground { get; set; }
 }
