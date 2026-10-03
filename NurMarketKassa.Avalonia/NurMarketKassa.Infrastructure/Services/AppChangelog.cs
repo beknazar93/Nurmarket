@@ -13,6 +13,7 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Исправлено: при выборе вида кассы «Профи» или «Карточки» появлялась «Ошибка в программе»",
         "Создание товара сканом, как на сайте: из базы NurCRM сразу подставляются название, категория и бренд; поиск быстрее, найденное запоминается",
         "Продажа в убыток: у товара в чеке «убыток N сом», если со скидкой он дешевле закупки; предупреждение кассиру; раздел владельца «Продажи в убыток»",
         "Документы из чека на A4: товарный чек и накладная — в «Истории чеков» и в «Продажах»",
@@ -25,6 +26,7 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Оңдолду: «Профи» же «Карточкалар» касса көрүнүшүн тандаганда «Программада ката» чыгып жатты",
         "Товарды скан менен түзүү, сайттагыдай: NurCRM базасынан аталышы, категориясы жана бренди дароо толот; издөө тезирээк, табылганы эстеп калат",
         "Зыян менен сатуу: арзандатуу менен товар сатып алуу баасынан арзан болсо, чекте «зыян N сом»; кассирге эскертүү; ээсинин «Зыян менен сатуулар» бөлүмү",
         "Чектен A4 документтер: товардык чек жана накладной — «Чектердин тарыхында» жана «Сатууларда»",
@@ -37,6 +39,7 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Fixed: choosing the “Pro” or “Cards” till view showed “An error occurred in the program”",
         "Creating a product by scan, as on the website: the name, category and brand come from the NurCRM base right away; faster search, found items are remembered",
         "Selling at a loss: a “loss N som” mark on the item when the discount takes it below cost; a warning for the cashier; owner section “Sales at a loss”",
         "A4 documents from a receipt: sales receipt and waybill — in “Receipt history” and “Sales”",
@@ -49,6 +52,7 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Düzeltildi: «Profi» veya «Kartlar» kasa görünümü seçilince «Programda hata» çıkıyordu",
         "Web sitesindeki gibi okutarak ürün oluşturma: ad, kategori ve marka hemen NurCRM tabanından gelir; arama daha hızlı, bulunanlar hatırlanır",
         "Zararına satış: indirimle ürün alış fiyatının altına düşerse fişte «zarar N som»; kasiyere uyarı; işletme sahibi bölümü «Zararına satışlar»",
         "Fişten A4 belgeler: satış fişi ve irsaliye — «Fiş geçmişi» ve «Satışlar» içinde",
@@ -61,6 +65,7 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Tuzatildi: «Profi» yoki «Kartochkalar» kassa ko'rinishi tanlanganda «Dasturda xato» chiqardi",
         "Saytdagidek skan orqali mahsulot yaratish: nomi, kategoriyasi va brendi darhol NurCRM bazasidan keladi; qidiruv tezroq, topilganlar eslab qolinadi",
         "Zarariga sotish: chegirma bilan mahsulot xarid narxidan arzon bo'lsa, chekda «zarar N so'm»; kassirga ogohlantirish; egasi bo'limi «Zarariga sotuvlar»",
         "Chekdan A4 hujjatlar: tovar cheki va yuk xati — «Cheklar tarixi» va «Sotuvlar»da",

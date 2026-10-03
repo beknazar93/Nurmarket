@@ -95,7 +95,6 @@
             <Setter Property="BorderThickness" Value="0,0,0,2"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="0"/>
-            <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.pr-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
