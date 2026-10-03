@@ -324,19 +324,61 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         }
     }
 
-    /// <summary>Список USB-устройств с каналом записи — для журнала/подсказки в настройках.</summary>
-    public static IReadOnlyList<string> DescribeUsbDevices()
+    /// <summary>Принтеры для списка «найденные» в настройках кассы: USB-устройства с каналом записи
+    /// и сопряжённые Bluetooth-устройства. Сетевой принтер вписывается вручную: TCP:адрес.</summary>
+    public IReadOnlyList<DiscoveredPrinter> Discover()
     {
-        var list = new List<string>();
+        var list = new List<DiscoveredPrinter>();
         try
         {
             foreach (var device in Usb.DeviceList?.Values ?? Enumerable.Empty<UsbDevice>())
-                list.Add($"USB:{device.VendorId:X4}:{device.ProductId:X4} {device.ManufacturerName} {device.ProductName}".Trim());
+            {
+                var hasOut = false;
+                var isPrinter = false;
+                for (var i = 0; i < device.InterfaceCount; i++)
+                {
+                    if (device.GetInterface(i) is not { } intf || FindBulkOut(intf) is null)
+                        continue;
+                    hasOut = true;
+                    isPrinter |= intf.InterfaceClass == UsbClass.Printer;
+                }
+                if (!hasOut)
+                    continue;
+                var name = $"{device.ManufacturerName} {device.ProductName}".Trim();
+                var path = $"USB:{device.VendorId:X4}:{device.ProductId:X4}";
+                list.Add(new DiscoveredPrinter(
+                    Tr.T($"🔌 USB {name} ({path[4..]}){(isPrinter ? "" : " — не принтер?")}",
+                        $"🔌 USB {name} ({path[4..]}){(isPrinter ? "" : " — принтер эмеспи?")}",
+                        $"🔌 USB {name} ({path[4..]}){(isPrinter ? "" : " — not a printer?")}",
+                        $"🔌 USB {name} ({path[4..]}){(isPrinter ? "" : " — yazıcı değil mi?")}",
+                        $"🔌 USB {name} ({path[4..]}){(isPrinter ? "" : " — printer emasmi?")}"),
+                    path));
+            }
         }
         catch (Exception ex)
         {
-            list.Add("USB: " + ex.Message);
+            PosLogger.Log($"Android: список USB-принтеров — {ex.Message}", "PRINTER");
         }
+
+        try
+        {
+            var granted = !OperatingSystem.IsAndroidVersionAtLeast(31)
+                          || AndroidBootstrap.AppContext.CheckSelfPermission(Manifest.Permission.BluetoothConnect) == Permission.Granted;
+            if (granted && Adapter is { IsEnabled: true } adapter)
+            {
+                foreach (var device in adapter.BondedDevices ?? Enumerable.Empty<BluetoothDevice>())
+                {
+                    if (string.IsNullOrWhiteSpace(device.Address))
+                        continue;
+                    list.Add(new DiscoveredPrinter($"📶 Bluetooth {device.Name} ({device.Address})", "BT:" + device.Address));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Android: список Bluetooth-устройств — {ex.Message}", "PRINTER");
+        }
+
         return list;
     }
 }

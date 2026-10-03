@@ -70,7 +70,9 @@ internal static class AndroidCustomerDisplay
 
     private static bool TryPresent(Window window)
     {
-        if (!IsCustomerWindow(window) || _activity is null || SecondaryDisplay is not { } display)
+        // Активность могла пересоздаться (Android) — берём текущую, а не ту, что была при запуске.
+        var activity = AndroidBootstrap.CurrentActivity ?? _activity;
+        if (!IsCustomerWindow(window) || activity is null || SecondaryDisplay is not { } display)
             return false;
         try
         {
@@ -79,7 +81,7 @@ internal static class AndroidCustomerDisplay
             window.Height = double.NaN;
             window.HorizontalAlignment = HorizontalAlignment.Stretch;
             window.VerticalAlignment = VerticalAlignment.Stretch;
-            _presentation = new CustomerPresentation(_activity, display, window);
+            _presentation = new CustomerPresentation(activity, display, window);
             _presentation.Show();
             _shownWindow = window;
             PosLogger.Log($"Android: экран покупателя открыт на дисплее «{display.Name}».", "CUSTOMER_DISPLAY");

@@ -15,4 +15,7 @@ public interface IPlatformPrinterTransport
 
     /// <summary>Проверка порта для окна настроек (кнопка «Проверить»).</summary>
     PrinterPortService.PortProbeResult Probe(string port);
+
+    /// <summary>Принтеры, которые платформа видит сама (для списка «найденные» в настройках).</summary>
+    IReadOnlyList<DiscoveredPrinter> Discover();
 }

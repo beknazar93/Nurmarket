@@ -22,6 +22,18 @@ public static class PrinterDiscoveryService
     {
         var result = new List<DiscoveredPrinter>();
 
+        // 2026-10-04, Android-касса: принтеры, которые видит сама платформа (USB host, Bluetooth).
+        // В Windows-кассе PlatformTransport не задан — список прежний.
+        try
+        {
+            if (PrinterPortService.PlatformTransport is { } platform)
+                result.AddRange(platform.Discover());
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Printer enumeration (platform) failed: {ex.GetType().Name}", "WARNING");
+        }
+
         try
         {
             foreach (var name in RawPrinterHelper.GetInstalledPrinterNames())
