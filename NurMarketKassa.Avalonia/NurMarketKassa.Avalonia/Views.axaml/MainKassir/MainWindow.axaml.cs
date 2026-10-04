@@ -1222,6 +1222,15 @@ public partial class MainWindow : Window
         // Офлайн-чек мог встать в очередь — значок «В очереди» в шапке обновляем сразу.
         _viewModel.Toolbar.Status.RefreshQueuedCount();
 
+        // 2026-10-04, живой тест: после офлайн-продажи «Касса: N сом» обновлялась только по таймеру, хотя
+        // сумма уже считается локально (остаток + внесения/изъятия + чеки очереди). Пересчитываем шапку
+        // сразу, без запроса к серверу; остаток с сервера — как раньше, через 2 с, и только если продажа
+        // ушла на сервер (в аварии и без связи его не спрашиваем).
+        if (_session.IsShiftOpen)
+            UpdateShiftBalanceUi();
+        if (OfflineModeHelper.SellLocally)
+            return;
+
         if (_balanceRefreshTimer == null)
         {
             _balanceRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
