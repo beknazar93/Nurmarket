@@ -157,6 +157,13 @@ public partial class App : Application
         // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
         ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
         CompanyInfoService.CompanyChanged += _ => ProductVariantCache.Clear();
+        // 2026-10-05, ТЗ часть 7: события допродажи уходят на сервер (UpsellServerSync).
+        UpsellServerSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketKassa.Services.Api.RecommendationsApi>();
+        // 2026-10-05, ТЗ часть 7, раздел 3: ошибки и падения — отчётами на сервер поддержки (ErrorReportService).
+        var reportsApi = AppHost.Services.GetRequiredService<NurMarketApiClient>();
+        ErrorReportService.Sender = body => reportsApi.RequestAsync(System.Net.Http.HttpMethod.Post, "api/support/error-reports/", body, null,
+            CancellationToken.None, TimeSpan.FromSeconds(20));
+        ErrorReportService.Start();
         // Догрузка истории продаж с сервера живёт в приложении, а вызывает её фоновая
         // синхронизация из Infrastructure — связываем их здесь.
         SalesHistoryBackfillHook.Register(SalesHistoryBackfill.RunAsync);

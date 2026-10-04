@@ -1067,6 +1067,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _lastSuccess = DateTime.Now;
             _offline = false;
             ApplyLanSales(online: true);
+            // 2026-10-05, ТЗ часть 7, п. 2.5: карточка «План продаж на месяц» (обновляется не чаще раза в 5 минут).
+            _ = RefreshSalesPlanAsync();
             if (DateTime.UtcNow - _abcRefreshedUtc > TimeSpan.FromMinutes(1))
                 RefreshAbcWhenVisible();
 

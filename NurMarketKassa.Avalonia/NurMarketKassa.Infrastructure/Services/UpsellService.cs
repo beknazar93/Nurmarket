@@ -111,6 +111,8 @@ public static class UpsellService
         try
         {
             DatabaseService.Instance.AppendUpsellEvent(evt, s.Product.Id, s.Product.Title, s.Price, s.TriggerProductId, Math.Round(s.Score, 4), cartKey);
+            // 2026-10-05, ТЗ часть 7: общий журнал всех касс компании на сервере — отправка раз в 5 минут.
+            UpsellServerSync.EnsureStarted();
         }
         catch (Exception ex)
         {
@@ -124,6 +126,8 @@ public static class UpsellService
         if (string.IsNullOrWhiteSpace(cartKey) || string.IsNullOrWhiteSpace(saleId))
             return;
         DatabaseService.Instance.LinkUpsellEventsToSale(cartKey, saleId);
+        // 2026-10-05, ТЗ часть 7: и на сервере — события чека досылаются, затем link-sale.
+        UpsellServerSync.LinkSaleLater(cartKey, saleId);
     }
 
     /// <summary>Итоги за период (для программы владельца).</summary>

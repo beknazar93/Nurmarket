@@ -31,7 +31,14 @@ public static class PosLogger
             _logger.Log(level, "[{Category}] {Message}", category, safeMessage);
         try { Mirror?.Invoke(category, safeMessage); }
         catch { /* копия журнала не должна ломать программу */ }
+        // 2026-10-05, ТЗ часть 7, раздел 3: ошибки — в отчёты для поддержки (ErrorReportService), строки — в его
+        // короткую память «что было перед ошибкой». Только уже очищенный от секретов текст.
+        try { Observer?.Invoke(level, category, safeMessage); }
+        catch { /* отчёты об ошибках не должны ломать программу */ }
     }
+
+    /// <summary>2026-10-05: каждая строка журнала (уровень, раздел, текст без секретов) — для ErrorReportService.</summary>
+    public static Action<LogLevel, string, string>? Observer { get; set; }
 
     private static LogLevel ParseLevel(string category)
     {

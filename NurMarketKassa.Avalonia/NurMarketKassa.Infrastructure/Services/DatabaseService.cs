@@ -2337,6 +2337,41 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>2026-10-05, ТЗ часть 7, п. 2.2: события допродажи этой компании с номером строки больше afterId —
+    /// для отправки на сервер пачками (UpsellServerSync).</summary>
+    public List<(long Id, string Event, string ProductId, double Price, string? TriggerProductId, double Score, string? CartKey, string? SaleId, string CreatedAt)>
+        LoadUpsellEventsAfter(long afterId, int limit)
+    {
+        var list = new List<(long, string, string, double, string?, double, string?, string?, string)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT id, event, product_id, COALESCE(price, 0), trigger_product_id, COALESCE(score, 0), cart_key, sale_id, created_at "
+                + "FROM UpsellEvents WHERE id > $after" + OwnRowsClause() + " ORDER BY id LIMIT $limit;";
+            command.Parameters.AddWithValue("$after", afterId);
+            command.Parameters.AddWithValue("$limit", limit);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetDouble(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetDouble(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7),
+                    reader.GetString(8)));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"UpsellEvents read failed: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+        return list;
+    }
+
     /// <summary>Итоги допродажи за период: показано, добавлено, пропущено и выручка добавленных
     /// товаров, которые остались в оплаченном чеке (по строкам продажи, не по цене подсказки).</summary>
     public (int Shown, int Accepted, int Skipped, double Revenue) GetUpsellStats(DateTime sinceUtc, DateTime untilUtc)

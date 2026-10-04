@@ -72,6 +72,8 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ServerTelegramBotApi>();
         // 2026-10-02: прокат (аренда) для одежды и услуг — документ ведёт сервер NurCRM.
         services.AddSingleton<RentalsApi>();
+        // 2026-10-05, ТЗ часть 7: журнал допродажи и итоги по всем кассам на сервере.
+        services.AddSingleton<RecommendationsApi>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
         services.AddSingleton<IInventoryApiService, InventoryApiService>();
         services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();

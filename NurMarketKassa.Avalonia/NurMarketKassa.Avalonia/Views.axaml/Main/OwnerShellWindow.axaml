@@ -692,6 +692,12 @@
                                 </Panel>
                             </DockPanel>
                         </Border>
+
+                        <!-- 2026-10-05, ТЗ часть 7, п. 2.5: план продаж на месяц (сервер выложил sales-targets 05.10).
+                             Заполняется в OwnerShellWindow.SalesPlan.cs; у сервера без адреса карточки нет. -->
+                        <Border Classes="card" x:Name="SalesPlanCard" Padding="20,16,20,14" VerticalAlignment="Top" IsVisible="False">
+                            <StackPanel x:Name="SalesPlanHost" Spacing="8"/>
+                        </Border>
                         </StackPanel>
                     </Grid>
 

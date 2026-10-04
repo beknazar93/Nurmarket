@@ -274,8 +274,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _keyCard.IsVisible = !TelegramAiChat.IsConfigured;
         _input.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
         _send.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
+        // 2026-10-05, проверка на телефоне: без ключа ИИ не работала и кнопка «Найди фото…», хотя поиску фото
+        // нейросеть не нужна (открытые базы товаров по штрихкоду) — она доступна всегда.
         foreach (var chip in _quick.Children.OfType<Button>())
-            chip.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
+            chip.IsEnabled = !_busy && (TelegramAiChat.IsConfigured || chip.Content is string text && IsPhotoRequest(text));
         if (_mic is not null)
             _mic.IsEnabled = TelegramAiChat.IsConfigured && (!_busy || _recorder is not null);
     }
@@ -311,7 +313,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private async Task SendAsync(string? text)
     {
         var question = (text ?? "").Trim();
-        if (question.Length == 0 || _busy || !TelegramAiChat.IsConfigured)
+        if (question.Length == 0 || _busy || (!TelegramAiChat.IsConfigured && !IsPhotoRequest(question)))
             return;
         // Вслух отвечаем только на вопрос голосом; напечатанный вопрос — молча, как раньше.
         var speak = _voiceAnswer;
@@ -353,7 +355,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var analysis = await OwnerAiContext.BuildAnalysisAsync(_cts.Token).ConfigureAwait(true);
             // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» — состояние функций бота на сервере.
             var bot = await BuildBotStateAsync(_cts.Token).ConfigureAwait(true);
-            var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, bot, debts, debtors, analysis, abc, warehouse }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
+            var upsell = await BuildUpsellAsync(_cts.Token).ConfigureAwait(true);
+            var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, bot, upsell, debts, debtors, analysis, abc, warehouse }.Where(s => !string.IsNullOrWhiteSpace(s)));
             var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(question, summary, _cts.Token).ConfigureAwait(true);
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
@@ -426,6 +430,30 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private static ServerBotSettings? _botCache;
     private static DateTime _botCacheAt;
+
+    private static async Task<string> BuildUpsellAsync(CancellationToken ct)
+    {
+        try
+        {
+            var api = App.AppHost?.Services.GetService<RecommendationsApi>();
+            if (api is null)
+                return "";
+            var stats = await api.GetStatsAsync(DateTime.Today.AddDays(-29), DateTime.Today, ct).ConfigureAwait(false);
+            if (stats is null || stats.Shown == 0)
+                return "";
+            return $"ДОПРОДАЖА «С этим часто берут» (все кассы, 30 дней): показано {stats.Shown}, добавлено {stats.Accepted} "
+                + $"({stats.AcceptanceRate:0.#} %), пропущено {stats.Skipped}, выручка {stats.Revenue:N0} сом, прибыль {stats.Profit:N0} сом.";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: итоги допродажи не получены ({ex.Message}).", "DEBUG");
+            return "";
+        }
+    }
 
     private static async Task<string> BuildBotStateAsync(CancellationToken ct)
     {
