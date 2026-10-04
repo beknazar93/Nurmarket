@@ -648,6 +648,25 @@ public sealed class CashShiftService : ICashShiftService
         if (string.IsNullOrWhiteSpace(shiftId))
             return null;
 
+        // 2026-10-04, отчёт о производительности (п. 12): долг смены уже посчитан сервером — by_payment.debt
+        // отчёта смены (остаток долга по продажам смены, сверено со сделками: смена 7e33b63b — 31,00 и там, и
+        // там). Один запрос ~0,3 с вместо до 10 страниц списка продаж и двух запросов на каждую продажу в
+        // долг. Нет отчёта или в нём нет поля debt — считаем по-старому.
+        try
+        {
+            var report = await Api.NurCrmReportsApi.GetShiftReportAsync(shiftId, cancellationToken).ConfigureAwait(false);
+            if (report is not null && report.ByPayment.ContainsKey("debt"))
+                return report.Debt;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Долг смены: отчёт смены сервера не получен, считаю по продажам: {ex.Message}", "SHIFT");
+        }
+
         try
         {
             var cashboxId = PosApp.PosCashboxId;

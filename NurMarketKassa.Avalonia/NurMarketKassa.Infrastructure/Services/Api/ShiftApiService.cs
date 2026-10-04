@@ -31,8 +31,96 @@ public sealed class ShiftApiService : IShiftApiService
         if (!openOnly)
             return FetchFullShiftsListAsync(ct);
 
+        return FetchOpenShiftsListAsync(ct);
+    }
+
+    // ── 2026-10-04, отчёт о производительности (п. 8): один запрос открытой смены после продажи ──────
+    // После оплаты список открытых смен спрашивали двое: проверка смены кассы (ShiftStateService, сразу) и
+    // шапка «Касса: N сом» (MainWindow, через 2 с) — два одинаковых запроса на каждую продажу. Теперь
+    // запоминается последний ответ ?status=open и момент, когда запрос ушёл; шапка берёт его, если он ушёл
+    // уже после продажи (ответ содержит её), или дожидается такого идущего запроса.
+    private readonly object _openListSync = new();
+    private JsonElement _openList;
+    private DateTime _openListRequestedUtc = DateTime.MinValue;
+    private string? _openListToken;
+    private Task<JsonElement>? _openListInFlight;
+    private DateTime _openListInFlightStartedUtc = DateTime.MinValue;
+    private DateTime _saleRecordedUtc = DateTime.MinValue;
+
+    private async Task<JsonElement> FetchOpenShiftsListAsync(CancellationToken ct)
+    {
+        var requestedUtc = DateTime.UtcNow;
         var query = new Dictionary<string, string> { ["status"] = "open" };
-        return _client.RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, query, ct);
+        var task = _client.RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, query, ct);
+        lock (_openListSync)
+        {
+            _openListInFlight = task;
+            _openListInFlightStartedUtc = requestedUtc;
+        }
+
+        var payload = await task.ConfigureAwait(false);
+        lock (_openListSync)
+        {
+            if (requestedUtc >= _openListRequestedUtc)
+            {
+                _openList = payload;
+                _openListRequestedUtc = requestedUtc;
+                _openListToken = _client.AccessToken;
+            }
+        }
+
+        return payload;
+    }
+
+    public void NoteSaleRecorded()
+    {
+        lock (_openListSync)
+            _saleRecordedUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>Остаток смены изменился не продажей (внесение/изъятие, открытие/закрытие смены) —
+    /// запомненный список больше не годится.</summary>
+    private void ForgetOpenShiftsList()
+    {
+        lock (_openListSync)
+            _openListRequestedUtc = DateTime.MinValue;
+    }
+
+    public async Task<JsonElement?> OpenShiftsListAfterSaleAsync(TimeSpan maxAge, CancellationToken ct = default)
+    {
+        Task<JsonElement>? inFlight = null;
+        lock (_openListSync)
+        {
+            if (_saleRecordedUtc == DateTime.MinValue)
+                return null;
+
+            var sameLogin = !string.IsNullOrEmpty(_openListToken)
+                && string.Equals(_openListToken, _client.AccessToken, StringComparison.Ordinal);
+            if (_openListRequestedUtc >= _saleRecordedUtc
+                && sameLogin
+                && DateTime.UtcNow - _openListRequestedUtc <= maxAge)
+                return _openList;
+
+            if (_openListInFlight is { IsCompleted: false } running && _openListInFlightStartedUtc >= _saleRecordedUtc)
+                inFlight = running;
+        }
+
+        if (inFlight is null)
+            return null;
+
+        try
+        {
+            return await inFlight.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // Тот запрос не удался — вызывающий спросит сам.
+            return null;
+        }
     }
 
     // Снимок последнего полного списка смен (см. TryGetRecentShiftsList). Сам список каждый раз
@@ -217,6 +305,7 @@ public sealed class ShiftApiService : IShiftApiService
         CancellationToken ct = default)
     {
         ForgetRecentShiftsList();
+        ForgetOpenShiftsList(); // 2026-10-04, п. 8
         var paths = new[] { "api/construction/shifts/open/", "api/construction/shift/open/" };
         var payloads = new[]
         {
@@ -257,6 +346,7 @@ public sealed class ShiftApiService : IShiftApiService
         CancellationToken ct = default)
     {
         ForgetRecentShiftsList();
+        ForgetOpenShiftsList(); // 2026-10-04, п. 8
         var sid = Uri.EscapeDataString(shiftId.Trim());
         var paths = new[]
         {
@@ -294,8 +384,12 @@ public sealed class ShiftApiService : IShiftApiService
         throw new ApiException("Не удалось закрыть смену", 404);
     }
 
-    public Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default) =>
-        _client.RequestAsync(HttpMethod.Post, "api/construction/cashflows/", body, null, ct);
+    public Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default)
+    {
+        // 2026-10-04, п. 8: внесение/изъятие меняет остаток смены — запомненный список открытых смен устарел.
+        ForgetOpenShiftsList();
+        return _client.RequestAsync(HttpMethod.Post, "api/construction/cashflows/", body, null, ct);
+    }
 
     public Task<JsonElement> ConstructionCashFlowsForShiftAsync(string shiftId, int page = 1, CancellationToken ct = default) =>
         _client.RequestAsync(

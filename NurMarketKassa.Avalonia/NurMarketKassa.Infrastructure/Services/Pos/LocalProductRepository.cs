@@ -429,27 +429,46 @@ public sealed class LocalProductRepository
         try
         {
             using var connection = OpenConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = $"""
-                SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
-                       image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
-                       is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind, description, wholesale_price
-                FROM Products WHERE {column} = $value COLLATE NOCASE LIMIT 1;
-                """;
-            var parameter = command.CreateParameter();
-            parameter.ParameterName = "$value";
-            parameter.Value = value;
-            command.Parameters.Add(parameter);
+            // 2026-10-04, отчёт о производительности (п. 14): раньше сразу «= $value COLLATE NOCASE» —
+            // индекс idx_products_barcode и первичный ключ id созданы без NOCASE, и SQLite перебирал всю
+            // таблицу: скан незнакомого штрихкода на каталоге 15 000 — 4,1 мс вместо сотых долей. Теперь
+            // сначала точное совпадение (по индексу); без учёта регистра — только если в значении есть
+            // буквы (штрихкоды из цифр регистра не имеют; id с сервера — UUID в нижнем регистре).
+            var found = QuerySingleTile(connection, column, value, ignoreCase: false);
+            if (found != null || !value.Any(char.IsLetter))
+                return found;
+            if (column == "id")
+            {
+                var lower = value.ToLowerInvariant();
+                return lower == value ? null : QuerySingleTile(connection, column, lower, ignoreCase: false);
+            }
 
-            using var reader = command.ExecuteReader();
-            return reader.Read() ? ToTileVm(ReadRecord(reader)) : null;
+            return QuerySingleTile(connection, column, value, ignoreCase: true);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Товар по {column} не прочитан: {ex.Message}", "WARNING");
             return null;
         }
+    }
+
+    private static CatalogProductTileVm? QuerySingleTile(SqliteConnection connection, string column, string value, bool ignoreCase)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
+                   image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
+                   is_bundle, article, bundle_items_json, alternate_barcodes,
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price
+            FROM Products WHERE {column} = $value{(ignoreCase ? " COLLATE NOCASE" : "")} LIMIT 1;
+            """;
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$value";
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ToTileVm(ReadRecord(reader)) : null;
     }
 
     public CatalogProductTileVm? TryGetTileBySku(string sku) =>
@@ -649,6 +668,16 @@ public sealed class LocalProductRepository
         BuildCache(tiles);
     }
 
+    /// <summary>2026-10-04: индекс штрихкодов вынесен из BuildCache без изменений правил — им же
+    /// пользуется точечная правка кэша после синхронизации (TryPatchCacheAfterSync).</summary>
+    private static Dictionary<string, CatalogProductTileVm> BuildBarcodeIndex(IReadOnlyList<CatalogProductTileVm> tiles)
+    {
+        var barcodeCache = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tile in tiles)
+            AddBarcodes(barcodeCache, tile);
+        return barcodeCache;
+    }
+
     private void BuildCache(IReadOnlyList<CatalogProductTileVm> tiles)
     {
         var barcodeCache = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
@@ -660,7 +689,33 @@ public sealed class LocalProductRepository
         {
             allProducts.Add(tile);
             skuCache[tile.Id.Trim()] = tile;
+            AddBarcodes(barcodeCache, tile);
+            searchRows.Add(CachedProductRow.From(tile));
+        }
 
+        searchRows.Sort(static (a, b) =>
+            string.Compare(a.SortKey, b.SortKey, StringComparison.OrdinalIgnoreCase));
+
+        _cacheLock.EnterWriteLock();
+        try
+        {
+            _barcodeCache = barcodeCache;
+            _skuCache = skuCache;
+            _allProductsCache = allProducts;
+            _searchRows = searchRows;
+            _cacheReady = true;
+        }
+        finally
+        {
+            _cacheLock.ExitWriteLock();
+        }
+
+        PosLogger.Log($"CATALOG cache ready: {allProducts.Count} products", "CATALOG");
+    }
+
+    private static void AddBarcodes(Dictionary<string, CatalogProductTileVm> barcodeCache, CatalogProductTileVm tile)
+    {
+        {
             var barcode = tile.Barcode?.Trim();
             // 2026-10-03, живой случай (тестовый аккаунт): у двух товаров один штрихкод («Батончик Mars» 0138 с
             // остатком 98 и его дубль 0143 с остатком 0). Раньше скан брал последний — дубль, и приёмка падала
@@ -684,28 +739,7 @@ public sealed class LocalProductRepository
                         barcodeCache[alt] = tile;
                 }
             }
-
-            searchRows.Add(CachedProductRow.From(tile));
         }
-
-        searchRows.Sort(static (a, b) =>
-            string.Compare(a.SortKey, b.SortKey, StringComparison.OrdinalIgnoreCase));
-
-        _cacheLock.EnterWriteLock();
-        try
-        {
-            _barcodeCache = barcodeCache;
-            _skuCache = skuCache;
-            _allProductsCache = allProducts;
-            _searchRows = searchRows;
-            _cacheReady = true;
-        }
-        finally
-        {
-            _cacheLock.ExitWriteLock();
-        }
-
-        PosLogger.Log($"CATALOG cache ready: {allProducts.Count} products", "CATALOG");
     }
 
     private bool EnsureCacheReady()
@@ -1073,7 +1107,8 @@ public sealed class LocalProductRepository
             }
         }
 
-        var deleted = existing.Keys.Count(id => !incoming.ContainsKey(id));
+        var deletedIds = existing.Keys.Where(id => !incoming.ContainsKey(id)).ToList();
+        var deleted = deletedIds.Count;
         if (added == 0 && changed == 0 && deleted == 0)
             return (0, 0, 0);
 
@@ -1088,7 +1123,7 @@ public sealed class LocalProductRepository
             var idParam = deleteCmd.CreateParameter();
             idParam.ParameterName = "@id";
             deleteCmd.Parameters.Add(idParam);
-            foreach (var id in existing.Keys.Where(id => !incoming.ContainsKey(id)))
+            foreach (var id in deletedIds)
             {
                 idParam.Value = id;
                 deleteCmd.ExecuteNonQuery();
@@ -1106,8 +1141,110 @@ public sealed class LocalProductRepository
         }
 
         transaction.Commit();
-        ResetCache();
+        // 2026-10-04, отчёт о производительности (п. 15): изменились остатки/цены нескольких товаров —
+        // правим только их строки в кэше, а не пересобираем весь кэш из базы (15 000 товаров — ~0,24 с
+        // чтения и разбора на каждую синхронизацию). Плитки неизменённых товаров остаются теми же
+        // объектами — экран кассы меняет только изменённые. Новые товары и смена названия (порядок
+        // списка по названию) — как раньше, полной пересборкой.
+        if (!TryPatchCacheAfterSync(incoming, toUpsert, added, deletedIds))
+            ResetCache();
         return (added, changed, deleted);
+    }
+
+    /// <summary>Сколько строк кэша правим точечно; больше — проще и не медленнее пересобрать целиком.</summary>
+    private const int MaxRowsToPatch = 3000;
+
+    /// <summary>2026-10-04, п. 15: точечная правка кэша после синхронизации (см. SyncReplaceAllWithDiff).
+    /// false — правка не применима (кэш не готов, есть новые товары, сменилось название, товара нет в
+    /// кэше, кэш успели пересобрать) — вызывающий пересобирает кэш как раньше.</summary>
+    private bool TryPatchCacheAfterSync(
+        IReadOnlyDictionary<string, LocalProductRecord> incoming,
+        IReadOnlyCollection<string> upserted,
+        int added,
+        IReadOnlyCollection<string> deletedIds)
+    {
+        if (!_cacheReady || added > 0 || upserted.Count + deletedIds.Count > MaxRowsToPatch)
+            return false;
+
+        try
+        {
+            List<CatalogProductTileVm> oldAll;
+            List<CachedProductRow> oldRows;
+            Dictionary<string, CatalogProductTileVm> oldSku;
+            _cacheLock.EnterReadLock();
+            try
+            {
+                oldAll = _allProductsCache;
+                oldRows = _searchRows;
+                oldSku = _skuCache;
+            }
+            finally
+            {
+                _cacheLock.ExitReadLock();
+            }
+
+            var replacements = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+            foreach (var id in upserted)
+            {
+                if (!incoming.TryGetValue(id, out var record) || !oldSku.TryGetValue(id.Trim(), out var current))
+                    return false;
+                // Кэш и строки поиска упорядочены по названию — новое название меняет порядок.
+                if (!string.Equals(current.Title, record.Name, StringComparison.Ordinal))
+                    return false;
+                // Ровно то, что дала бы пересборка из базы: описание из одних пробелов база хранит как NULL.
+                if (string.IsNullOrWhiteSpace(record.Description) && record.Description is not null)
+                    record.Description = null;
+                if (ToTileVm(record) is not { } tile)
+                    return false;
+                replacements[current.Id] = tile;
+            }
+
+            var deleted = new HashSet<string>(deletedIds, StringComparer.OrdinalIgnoreCase);
+            var all = new List<CatalogProductTileVm>(oldAll.Count);
+            foreach (var tile in oldAll)
+            {
+                if (deleted.Contains(tile.Id))
+                    continue;
+                all.Add(replacements.TryGetValue(tile.Id, out var replaced) ? replaced : tile);
+            }
+
+            var rows = new List<CachedProductRow>(oldRows.Count);
+            foreach (var row in oldRows)
+            {
+                if (deleted.Contains(row.Tile.Id))
+                    continue;
+                rows.Add(replacements.TryGetValue(row.Tile.Id, out var replaced) ? CachedProductRow.From(replaced) : row);
+            }
+
+            var sku = new Dictionary<string, CatalogProductTileVm>(all.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var tile in all)
+                sku[tile.Id.Trim()] = tile;
+            var barcodes = BuildBarcodeIndex(all);
+
+            _cacheLock.EnterWriteLock();
+            try
+            {
+                // Пока строили, кэш пересобрали (ResetCache/ClearAll) — наша правка устарела.
+                if (!ReferenceEquals(_allProductsCache, oldAll) || !_cacheReady)
+                    return false;
+                _barcodeCache = barcodes;
+                _skuCache = sku;
+                _allProductsCache = all;
+                _searchRows = rows;
+            }
+            finally
+            {
+                _cacheLock.ExitWriteLock();
+            }
+
+            PosLogger.Log($"CATALOG cache patched: изменено {replacements.Count}, удалено {deleted.Count} (без пересборки, всего {all.Count})", "CATALOG");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CATALOG cache patch failed, полная пересборка: {ex.Message}", "CATALOG");
+            return false;
+        }
     }
 
     /// <summary>Отпечаток записи для diff-синхронизации. Покрывает ВСЕ поля LocalProductRecord,
@@ -1415,7 +1552,13 @@ public sealed class LocalProductRepository
         // фоновой синхронизацией — на слабых устройствах это была одна из причин
         // подвисаний интерфейса каждые 45 секунд.
         using var pragmaCommand = connection.CreateCommand();
-        pragmaCommand.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000;";
+        // 2026-10-04, отчёт о производительности (п. 14): synchronous=NORMAL — для соединений КАТАЛОГА
+        // (это соединение — только товары и catalog_meta). В режиме WAL это безопасно для целостности базы
+        // (при пропаже питания теряется лишь последняя запись каталога, база не портится), а запись
+        // остатка после продажи и синхронизация не ждут fsync на каждую транзакцию (было 4,4 мс на запись
+        // при FULL). Продажи, очередь офлайн-чеков и прочее (DatabaseService) остаются с FULL: настройка
+        // действует только на своё соединение.
+        pragmaCommand.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; PRAGMA synchronous=NORMAL;";
         pragmaCommand.ExecuteNonQuery();
 
         return connection;

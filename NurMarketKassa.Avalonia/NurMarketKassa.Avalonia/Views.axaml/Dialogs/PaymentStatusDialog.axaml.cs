@@ -84,8 +84,36 @@ public partial class PaymentStatusDialog : Window
         _escapeTimer = null;
     }
 
+    /// <summary>2026-10-04, отчёт о производительности (п. 9): окно «Оплата успешно» — первая же клавиша
+    /// закрывает его сразу, не дожидаясь паузы. Кассир сканирует следующий товар, пока окно ещё видно, —
+    /// раньше этот скан пропадал целиком (окно держало фокус 1,2 с). Символ клавиши отдаётся общему
+    /// разбору сканера (тот же, что у окна кассы), остальные символы скана и Enter приходят уже в окно
+    /// кассы — товар добавляется в новый чек.</summary>
+    private bool _closeOnAnyKey;
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (_closeOnAnyKey)
+        {
+            _closeOnAnyKey = false;
+            e.Handled = true;
+            Close(true);
+            if (e.Key != Key.Escape)
+            {
+                try
+                {
+                    (App.AppHost?.Services.GetService(typeof(NurMarketKassa.Interfaces.IBarcodeInputService))
+                        as NurMarketKassa.Interfaces.IBarcodeInputService)?.ProcessKeyDown(e);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Окно «Платёж принят»: клавиша не передана сканеру: {ex.Message}", "PAYMENT");
+                }
+            }
+
+            return;
+        }
+
         // Escape работает только когда кнопка выхода уже показана: до этого момента оплата
         // штатно выполняется, и закрывать окно нечего.
         if (e.Key == Key.Escape && CloseButton.IsVisible)
@@ -118,6 +146,7 @@ public partial class PaymentStatusDialog : Window
                 ? Tr.T("Платёж принят. Открываем новый чек.", "Төлөм кабыл алынды. Жаңы чек ачылууда.", "Payment accepted. Opening a new receipt.", "Ödeme alındı. Yeni fiş açılıyor.", "To'lov qabul qilindi. Yangi chek ochilmoqda.")
                 : message;
             CloseButton.IsVisible = false;
+            _closeOnAnyKey = true; // 2026-10-04, п. 9: следующий скан закрывает окно сразу
             return;
         }
 

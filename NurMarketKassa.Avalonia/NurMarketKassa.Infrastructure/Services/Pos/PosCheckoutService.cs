@@ -991,15 +991,19 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // продажа до сервера. Не завязано на PrintReceipt — ящик нужен и когда чек не печатают.
         ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
 
-        var printed = request.PrintReceipt && await TryPrintReceiptAsync(
-            WithConsultantForReceipt(cartJsonSnapshot, request),
-            ReceiptPaymentMethodKey(request),
-            request.CashReceived,
-            offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)").ConfigureAwait(false);
-
         // The completed receipt must disappear before the cashier can start
         // another operation; a delayed background reset could erase new items.
         LocalCartService.StartNewLocalCart(_cart);
+
+        // 2026-10-04, отчёт о производительности (п. 9): как и при оплате онлайн — печать в фоне после
+        // сброса чека; «чек не напечатан» кассир увидит по результату печати (ReceiptPrintTask).
+        var printTask = request.PrintReceipt
+            ? PrintReceiptInBackground(
+                WithConsultantForReceipt(cartJsonSnapshot, request),
+                ReceiptPaymentMethodKey(request),
+                request.CashReceived,
+                offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)")
+            : null;
 
         // 2026-09-10: автономная продажа никуда не "выгружается" (нет сервера/аккаунта, на
         // который выгружать) — "В очереди: N" тут вводит в заблуждение, как будто чек чего-то
@@ -1027,19 +1031,15 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     $"Ödeme yerel olarak kaydedildi. Sırada: {pending}.",
                     $"To'lov shu kompyuterda saqlandi. Navbatda: {pending}.");
 
-        if (request.PrintReceipt && !printed)
-            info += Tr.T(" Продажа сохранена, но чек не напечатан; используйте повторную печать.",
-                " Сатуу сакталды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
-                " The sale is saved, but the receipt wasn't printed; use reprint.",
-                " Satış kaydedildi ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
-                " Sotuv saqlandi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.");
-
+        // 2026-10-04: «чек не напечатан» добавляет к этому сообщению BasketPanelViewModel, когда фоновая
+        // печать закончится неудачей (ReceiptPrintTask) — раньше здесь, после ожидания принтера.
         return PosCheckoutResult.OfflineSaved(
             total,
             cartJsonSnapshot,
             info,
             request.PrintReceipt,
-            printed);
+            receiptPrinted: false,
+            receiptPrintTask: printTask);
     }
 
     private async Task<PosCheckoutResult> CompleteOnlineCheckoutAsync(
@@ -1207,18 +1207,25 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             PosLogger.Log($"Checkout stock commit skipped after successful sale: {ex}", "STOCK");
         }
 
-        _ = Task.Run(async () =>
+        // 2026-10-04, отчёт о производительности (п. 8): остаток проданных товаров уже уменьшен сразу
+        // (ApplySoldItemsDecrement выше) — сверять его запросом products/{id} по каждому товару чека не нужно:
+        // настоящий остаток сервера принесёт синхронизация каталога (не реже раза в 15 минут). Сверка с
+        // сервером осталась только если сразу уменьшить не удалось (тогда она же и уменьшает).
+        if (soldStockExpected is null)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None, soldStockExpected)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Background stock refresh failed: {ex}", "STOCK");
-            }
-        });
+                try
+                {
+                    await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None, soldStockExpected)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Background stock refresh failed: {ex}", "STOCK");
+                }
+            });
+        }
 
         try
         {
@@ -1233,12 +1240,6 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
 
-        var printed = request.PrintReceipt && await TryPrintReceiptAsync(
-            cartJsonSnapshot,
-            ReceiptPaymentMethodKey(request),
-            request.CashReceived,
-            checkoutResponse: checkoutResponse).ConfigureAwait(false);
-
         // Чек уже оплачен и напечатан — кассир должен увидеть "готово" СЕЙЧАС, а не ждать ещё
         // два сетевых похода подряд (полный список смен + sales/start) просто чтобы завести
         // пустую корзину заранее (2026-09-05, по просьбе пользователя: "оплату делай
@@ -1252,6 +1253,17 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // чеков), так что явный вызов sales/start здесь ничего не даёт, кроме задержки.
         _cart.ResetForNewReceipt();
         PosLogger.Log("Checkout: next receipt started locally, server registration deferred.", "PAYMENT");
+        // 2026-10-04, отчёт о производительности (п. 9): печать чека — в фоне, уже после сброса чека. Раньше
+        // касса ждала принтер до окна «Платёж принят» (на ПК с принтером в ошибке — 1,6 с на каждой продаже,
+        // при зависшем принтере — до 8 с). Ящик открывается сразу (выше), чек печатается следом; не
+        // напечатался — кассиру показывается то же «чек не напечатан» (BasketPanelViewModel, ReceiptPrintTask).
+        var printTask = request.PrintReceipt
+            ? PrintReceiptInBackground(cartJsonSnapshot, ReceiptPaymentMethodKey(request), request.CashReceived,
+                checkoutResponse: checkoutResponse)
+            : null;
+        // 2026-10-04, п. 8: остаток смены после продажи шапка кассы возьмёт из ответа этой же проверки смены
+        // (ShiftApiService.OpenShiftsListAfterSaleAsync), а не отдельным вторым запросом.
+        _shiftApi.NoteSaleRecorded();
         _ = Task.Run(() => RefreshShiftStateInBackgroundAsync());
 
         var info = debtPartialAmountRequested
@@ -1260,13 +1272,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 "The sale was recorded on credit. The server applies the partial payment in the background — if the client's debt doesn't go down in a couple of minutes, enter the payment manually via “Pay debt”.",
                 "Satış veresiye olarak kaydedildi. Kısmi ödeme sunucu tarafından arka planda işleniyor — birkaç dakika içinde müşterinin borcu azalmazsa ödemeyi «Borç ödeme» üzerinden elle girin.",
                 "Sotuv qarzga rasmiylashtirildi. Qisman to'lovni server fonda hisoblaydi — agar bir-ikki daqiqadan keyin mijozning qarzi kamaymasa, to'lovni «Qarzni to'lash» orqali qo'lda kiriting.")
-            : request.PrintReceipt && !printed
-                ? Tr.T("Оплата выполнена, но чек не напечатан; используйте повторную печать.",
-                    "Төлөм аткарылды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
-                    "Payment completed, but the receipt wasn't printed; use reprint.",
-                    "Ödeme tamamlandı ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
-                    "To'lov amalga oshirildi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.")
-                : null;
+            : null;
 
         return PosCheckoutResult.Succeeded(
             total,
@@ -1274,8 +1280,33 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             checkoutResponse,
             info,
             request.PrintReceipt,
-            printed);
+            receiptPrinted: false,
+            receiptPrintTask: printTask);
     }
+
+    /// <summary>2026-10-04, п. 9: фоновые печати чеков идут строго по одной и по порядку продаж — два чека
+    /// подряд не должны перемешаться в одном принтере.</summary>
+    private static readonly SemaphoreSlim BackgroundPrintGate = new(1, 1);
+
+    private Task<bool> PrintReceiptInBackground(
+        string cartJson,
+        string? paymentMethod,
+        string? cashReceived,
+        string? offlineNote = null,
+        JsonElement? checkoutResponse = null) =>
+        Task.Run(async () =>
+        {
+            await BackgroundPrintGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                return await TryPrintReceiptAsync(cartJson, paymentMethod, cashReceived, offlineNote, checkoutResponse)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                BackgroundPrintGate.Release();
+            }
+        });
 
     /// <summary>Проверка "не закрылась ли смена удалённо" после оплаты — раньше блокировала
     /// завершение оплаты, пока не придёт ответ на api/construction/shifts/ (весь список смен

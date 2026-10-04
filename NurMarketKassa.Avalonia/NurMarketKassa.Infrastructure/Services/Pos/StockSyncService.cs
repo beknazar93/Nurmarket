@@ -17,21 +17,27 @@ public static class StockSyncService
     /// <summary>
     /// Читает остаток из JSON товара. Поддерживает плоские поля и массив stocks[] с привязкой к кассе.
     /// </summary>
-    public static double ResolveStockQuantity(JsonElement product, bool mustWeigh)
+    public static double ResolveStockQuantity(JsonElement product, bool mustWeigh) =>
+        ResolveStockQuantity(product, mustWeigh, null);
+
+    /// <param name="props">2026-10-04, отчёт о производительности (п. 16): поля товара, заранее собранные
+    /// одним проходом (ProductCatalogMapper.TryTile, JsonProps) — те же правила, без перебора всех полей
+    /// товара на каждое из ~15 имён остатка.</param>
+    internal static double ResolveStockQuantity(JsonElement product, bool mustWeigh, IReadOnlyDictionary<string, JsonElement>? props)
     {
         if (product.ValueKind != JsonValueKind.Object)
             return 0;
 
         // 1) Остатки по кассам/складам — приоритет для POS.
-        if (TryResolveFromStocksArray(product, mustWeigh) is { } fromStocks)
+        if (TryResolveFromStocksArray(product, mustWeigh, props) is { } fromStocks)
             return fromStocks;
 
         // 2) Весовые плоские поля.
         if (mustWeigh)
         {
-            if (TryReadDouble(product, "stock_weight") is { } sw)
+            if (TryReadDouble(product, "stock_weight", props) is { } sw)
                 return sw;
-            if (TryReadDouble(product, "weight") is { } w)
+            if (TryReadDouble(product, "weight", props) is { } w)
                 return w;
         }
 
@@ -50,12 +56,12 @@ public static class StockSyncService
                      "quantity",
                  })
         {
-            if (TryReadDouble(product, key) is { } value)
+            if (TryReadDouble(product, key, props) is { } value)
                 return value;
         }
 
         // 4) Вложенный объект stock: { quantity / ... }
-        if (product.TryGetProperty("stock", out var stockObj) && stockObj.ValueKind == JsonValueKind.Object)
+        if (JsonProps.TryGet(product, props, "stock", out var stockObj) && stockObj.ValueKind == JsonValueKind.Object)
         {
             foreach (var key in new[] { "stock_quantity", "quantity", "qty", "amount", "value" })
             {
@@ -274,11 +280,12 @@ public static class StockSyncService
         return null;
     }
 
-    private static double? TryResolveFromStocksArray(JsonElement product, bool mustWeigh)
+    private static double? TryResolveFromStocksArray(JsonElement product, bool mustWeigh,
+        IReadOnlyDictionary<string, JsonElement>? props = null)
     {
         foreach (var arrayName in new[] { "stocks", "stock_items", "warehouses", "balances" })
         {
-            if (!product.TryGetProperty(arrayName, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            if (!JsonProps.TryGet(product, props, arrayName, out var arr) || arr.ValueKind != JsonValueKind.Array)
                 continue;
 
             var cashboxId = (PosApp.PosCashboxId ?? "").Trim();
@@ -380,9 +387,9 @@ public static class StockSyncService
         return map;
     }
 
-    private static double? TryReadDouble(JsonElement obj, string prop)
+    private static double? TryReadDouble(JsonElement obj, string prop, IReadOnlyDictionary<string, JsonElement>? props = null)
     {
-        if (!obj.TryGetProperty(prop, out var v))
+        if (!JsonProps.TryGet(obj, props, prop, out var v))
             return null;
 
         return v.ValueKind switch

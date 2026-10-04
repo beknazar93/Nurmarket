@@ -341,10 +341,15 @@ public partial class ShiftDetailsDialog : Window
         // смешанная целиком уходила в безнал).
         var mixedCash = _report?.MixedCash ?? 0m;
         var mixedCard = _report?.MixedCard ?? 0m;
-        CashMixedText.IsVisible = mixedCash > 0m;
-        CashMixedText.Text = MixedLine(mixedCash);
-        CardMixedText.IsVisible = mixedCard > 0m;
-        CardMixedText.Text = MixedLine(mixedCard);
+        // 2026-10-04, стресс-тест (К4): «Наличные»/«Безналичные» теперь с предоплатой долга, как в окне
+        // закрытия смены и у сервера (ServerShiftReport.ApplyTo), — сама предоплата видна отдельной
+        // строкой под плиткой, а не теряется внутри суммы.
+        var prepaidCash = _report?.DebtPrepaymentsCash ?? 0m;
+        var prepaidCard = _report?.DebtPrepaymentsNonCash ?? 0m;
+        CashMixedText.IsVisible = mixedCash > 0m || prepaidCash > 0m;
+        CashMixedText.Text = SubLines(mixedCash, prepaidCash);
+        CardMixedText.IsVisible = mixedCard > 0m || prepaidCard > 0m;
+        CardMixedText.Text = SubLines(mixedCard, prepaidCard);
 
         BindExtraTotals(shift.Id, shift.ExpenseTotal);
 
@@ -403,6 +408,16 @@ public partial class ShiftDetailsDialog : Window
         // Расход — с сервера, если он его прислал: касса видит только свои операции, и
         // экран расходился бы с печатным чеком, где эта цифра уже серверная.
         var expenses = serverExpense is { } fromServer ? (double)fromServer : Get(ShiftEventsStore.KindExpense);
+        // 2026-10-04, стресс-тест (К5): expense_total сервера — это в том числе изъятия из ящика, а они уже
+        // показаны своей строкой «Изъятия» (смена 7e33b63b: расход 40 = изъятие 40 — одни и те же 40 сом
+        // дважды). В плитке «Расход» — только то, что сверх изъятий.
+        if (serverExpense is not null)
+        {
+            var shownWithdrawals = _report is { } withWithdrawals
+                ? withWithdrawals.Withdrawals
+                : ShiftCashOperationsStore.SumsForShift(shiftId).Withdrawals;
+            expenses = Math.Max(0, expenses - (double)shownWithdrawals);
+        }
         var debtPaid = Get(ShiftEventsStore.KindDebtPayment);
         // 2026-10-04, стресс-тест: оплата долгов смены есть и в отчёте сервера (debt_payments_cash) —
         // в программе владельца и на другой кассе локального журнала нет, плитка показывала «—»
@@ -446,6 +461,25 @@ public partial class ShiftDetailsDialog : Window
         $"incl. mixed: {amount:N2}",
         $"karışık dahil: {amount:N2}",
         $"shu jumladan aralash: {amount:N2}");
+
+    /// <summary>2026-10-04, К4: сколько из суммы плитки внесено при продаже в долг (предоплата).</summary>
+    private static string PrepaymentLine(decimal amount) => Tr.T(
+        $"в т. ч. предоплата долга: {amount:N2}",
+        $"анын ичинде карыздын алдын ала төлөмү: {amount:N2}",
+        $"incl. debt prepayment: {amount:N2}",
+        $"borç ön ödemesi dahil: {amount:N2}",
+        $"shu jumladan qarz oldindan to'lovi: {amount:N2}");
+
+    /// <summary>Строки под плиткой: смешанная и предоплата долга — каждая своей строкой, если есть.</summary>
+    private static string SubLines(decimal mixed, decimal prepaid)
+    {
+        var lines = new List<string>(2);
+        if (mixed > 0m)
+            lines.Add(MixedLine(mixed));
+        if (prepaid > 0m)
+            lines.Add(PrepaymentLine(prepaid));
+        return string.Join(Environment.NewLine, lines);
+    }
 
     /// <summary>2026-09-28, регресс 1.17.19: в смене была скидка 10 % на строку, а плитка
     /// «Скидки» показывала прочерк — она считала только скидки программы лояльности
@@ -615,10 +649,16 @@ public partial class ShiftDetailsDialog : Window
             sb.AppendLine($"  наличные: {cash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (server is { MixedCash: > 0m })
             sb.AppendLine($"    в т.ч. смешанная: {server.MixedCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        // 2026-10-04, стресс-тест (К4): наличные — с предоплатой долга (как в окне закрытия и у сервера),
+        // сама предоплата — строкой «в т.ч.», а не отдельным приходом ниже (было: «Внесено при продаже в долг»).
+        if (server is { DebtPrepaymentsCash: > 0m })
+            sb.AppendLine($"    в т.ч. предоплата долга: {server.DebtPrepaymentsCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.NonCashSales is { } card)
             sb.AppendLine($"  безналичные: {card.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (server is { MixedCard: > 0m })
             sb.AppendLine($"    в т.ч. смешанная: {server.MixedCard.ToString("0.00", CultureInfo.InvariantCulture)} сом");
+        if (server is { DebtPrepaymentsNonCash: > 0m })
+            sb.AppendLine($"    в т.ч. предоплата долга: {server.DebtPrepaymentsNonCash!.Value.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         if (shift.DebtSales is { } debt)
             sb.AppendLine($"  в долг: {debt.ToString("0.00", CultureInfo.InvariantCulture)} сом");
         // Скидки и возвраты — строками отчёта сервера (2026-09-28); без него их печатал только
@@ -660,12 +700,13 @@ public partial class ShiftDetailsDialog : Window
             // предоплаты она печаталась дважды — своей строкой и ещё раз в «Прочие приходы».
             otherIncome = Math.Max(0m, server.IncomeTotal - server.Deposits - debtPaidCash - debtPrepaidCash);
         }
-        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPrepaidCash > 0m || debtPaidCash > 0m)
+        // 2026-10-04 (К4): предоплата долга наличными уже в «наличных» выше (строкой «в т.ч.») — здесь её
+        // больше не печатаем, иначе читатель сложил бы её второй раз. Из «Прочих приходов» она по-прежнему
+        // вычитается.
+        if (deposits > 0m || withdrawals > 0m || otherIncome > 0m || debtPaidCash > 0m)
         {
             if (deposits > 0m)
                 sb.AppendLine($"Внесения: +{deposits.ToString("0.00", CultureInfo.InvariantCulture)} сом");
-            if (debtPrepaidCash > 0m)
-                sb.AppendLine($"Внесено при продаже в долг (нал.): +{debtPrepaidCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             if (debtPaidCash > 0m)
                 sb.AppendLine($"Оплата долгов наличными: +{debtPaidCash.ToString("0.00", CultureInfo.InvariantCulture)} сом");
             if (otherIncome > 0m)

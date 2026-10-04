@@ -16,6 +16,20 @@ public sealed class CatalogApiService : ICatalogApiService
 
     public CatalogApiService(NurMarketApiClient client) => _client = client;
 
+    /// <summary>2026-10-04, отчёт о производительности (п. 5): адреса, которые всегда отвечают 404/405
+    /// (catalog-meta, meta, catalog/version, products/version, products/agent-stock, agents/products —
+    /// проверено на NBS), запоминаются как «нет» до перезапуска программы. Раньше каждая синхронизация
+    /// каталога (раз в 2 минуты) тратила на них 6 из 10 запросов.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> MissingPaths = new(StringComparer.Ordinal);
+
+    private static bool IsKnownMissing(string path) => MissingPaths.ContainsKey(path);
+
+    private static void RememberMissing(string path)
+    {
+        if (MissingPaths.TryAdd(path, 0))
+            PosLogger.Log($"CATALOG: адрес {path} на сервере не существует — до перезапуска не спрашиваем.", "CATALOG");
+    }
+
     public async Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default)
     {
         foreach (var path in new[]
@@ -25,6 +39,8 @@ public sealed class CatalogApiService : ICatalogApiService
                      "api/main/agents/products/",
                  })
         {
+            if (IsKnownMissing(path))
+                continue;
             try
             {
                 var data = await _client.RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
@@ -34,7 +50,7 @@ public sealed class CatalogApiService : ICatalogApiService
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
-                /* next path */
+                RememberMissing(path);
             }
         }
 
@@ -132,6 +148,8 @@ public sealed class CatalogApiService : ICatalogApiService
                      "api/main/products/version/",
                  })
         {
+            if (IsKnownMissing(path))
+                continue;
             try
             {
                 var data = await _client.RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
@@ -150,12 +168,15 @@ public sealed class CatalogApiService : ICatalogApiService
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
+                RememberMissing(path);
                 continue;
             }
         }
 
         foreach (var path in new[] { "api/main/products/list/", "api/main/products/" })
         {
+            if (IsKnownMissing(path))
+                continue;
             try
             {
                 var qs = new Dictionary<string, string>
@@ -180,6 +201,7 @@ public sealed class CatalogApiService : ICatalogApiService
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
+                RememberMissing(path);
                 continue;
             }
         }

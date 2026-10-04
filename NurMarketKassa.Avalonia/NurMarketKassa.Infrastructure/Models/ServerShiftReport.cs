@@ -70,6 +70,21 @@ public sealed class ServerShiftReport
     /// <summary>Безнал всего — вместе с безналичной частью смешанной оплаты.</summary>
     public decimal NonCashTotal => OtherNonCash + MixedCard;
 
+    /// <summary>2026-10-04, стресс-тест (К4): cash_sales / noncash_sales отчёта сервера — продажи
+    /// наличными и безналом ВМЕСТЕ с предоплатой долга (смена 7e33b63b: cash_sales 23 842,27 = cash
+    /// 23 804,60 + смешанная 17,67 + предоплата 20). Ровно по ним считают окно закрытия смены, «Финансы»
+    /// и история смен (поле cash_sales списка смен); null — старый сервер без этих полей.</summary>
+    public decimal? ServerCashSales { get; init; }
+    public decimal? ServerNonCashSales { get; init; }
+
+    /// <summary>2026-10-04, К4: «Наличные» по одному правилу во всех окнах — наличные продажи (с наличной
+    /// частью смешанной) плюс наличные, внесённые при продаже в долг. Тогда выручка = наличные + безнал +
+    /// долг (остаток), как у сервера: sales_total = cash_sales + noncash_sales + debt.</summary>
+    public decimal CashWithPrepayment => ServerCashSales ?? CashTotal + (DebtPrepaymentsCash ?? 0m);
+
+    /// <summary>То же для безнала: безналичные продажи (со смешанной) плюс предоплата долга безналом.</summary>
+    public decimal NonCashWithPrepayment => ServerNonCashSales ?? NonCashTotal + (DebtPrepaymentsNonCash ?? 0m);
+
     public decimal Discounts { get; init; }
     public decimal BonusRedeemed { get; init; }
     public decimal ReturnsTotal { get; init; }
@@ -136,6 +151,8 @@ public sealed class ServerShiftReport
             DebtPrepaymentsCash = Num(e, "debt_prepayments_cash"),
             DebtPrepaymentsNonCash = Num(e, "debt_prepayments_noncash"),
             DebtPaymentsCash = Num(e, "debt_payments_cash"),
+            ServerCashSales = Num(e, "cash_sales"),
+            ServerNonCashSales = Num(e, "noncash_sales"),
             ExpenseTotal = Num(e, "expense_total") ?? 0m,
             ExpectedCash = Num(e, "expected_cash"),
             CountedCash = Num(e, "counted_cash"),
@@ -159,8 +176,12 @@ public sealed class ServerShiftReport
         // на кассе и ждёт сервера) — та, что ввёл кассир.
         ClosingCash = CountedCash ?? shift.ClosingCash,
         OpeningCash = OpeningCash ?? shift.OpeningCash,
-        CashSales = CashTotal,
-        NonCashSales = NonCashTotal,
+        // 2026-10-04, стресс-тест (К4): было CashTotal/NonCashTotal — без предоплаты долга, и окно смены
+        // показывало «Наличные» 16, а окно закрытия той же смены — 26; выручка не сходилась с нал + безнал +
+        // долг ровно на предоплату. Теперь «Наличные» = как у сервера и во всех окнах (с предоплатой), а
+        // сама предоплата показывается строкой «в т. ч. предоплата долга» (ShiftDetailsDialog).
+        CashSales = CashWithPrepayment,
+        NonCashSales = NonCashWithPrepayment,
         DebtSales = Debt,
         SalesCount = SalesCount,
         ExpenseTotal = ExpenseTotal,

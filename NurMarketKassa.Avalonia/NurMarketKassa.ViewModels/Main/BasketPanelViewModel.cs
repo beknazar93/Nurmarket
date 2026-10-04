@@ -1595,6 +1595,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 }
             }).ConfigureAwait(false);
 
+            // 2026-10-04, отчёт о производительности (п. 9): чек печатается в фоне, уже после сброса чека —
+            // не напечатался, кассир видит то же сообщение, что раньше показывалось сразу после оплаты.
+            if (result.ReceiptPrintTask is { } printTask)
+                _ = ReportReceiptNotPrintedAsync(printTask, result.SavedOffline);
+
             if (_checkoutUiFlow != null)
             {
                 // Нажатие "Оплатить" в диалоге чекаута уже было подтверждением кассира —
@@ -1652,6 +1657,46 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
             _ = ResetCustomerDisplayStatusAfterDelayAsync();
+        }
+    }
+
+    /// <summary>2026-10-04, п. 9: дождаться фоновой печати чека и, если чек не напечатан, сказать кассиру
+    /// теми же словами, что и раньше (тогда — сразу после оплаты, до сброса чека).</summary>
+    private async Task ReportReceiptNotPrintedAsync(Task<bool> printTask, bool savedOffline)
+    {
+        bool printed;
+        try
+        {
+            printed = await printTask.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PAY: фоновая печать чека упала: {ex.Message}", "PRINTER");
+            printed = false;
+        }
+
+        if (printed)
+            return;
+
+        PosLogger.Log("PAY: чек не напечатан (печать после оплаты, в фоне) — кассиру показано сообщение.", "PRINTER");
+        var message = savedOffline
+            ? Tr.T("Продажа сохранена, но чек не напечатан; используйте повторную печать.",
+                "Сатуу сакталды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
+                "The sale is saved, but the receipt wasn't printed; use reprint.",
+                "Satış kaydedildi ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
+                "Sotuv saqlandi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.")
+            : Tr.T("Оплата выполнена, но чек не напечатан; используйте повторную печать.",
+                "Төлөм аткарылды, бирок чек басылган жок; чекти кайра басып чыгарыңыз.",
+                "Payment completed, but the receipt wasn't printed; use reprint.",
+                "Ödeme tamamlandı ancak fiş yazdırılmadı; yeniden yazdırmayı kullanın.",
+                "To'lov amalga oshirildi, lekin chek chop etilmadi; qayta chop etishdan foydalaning.");
+        try
+        {
+            await RunOnUiThreadAsync(() => CartMessage = message).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PAY: сообщение «чек не напечатан» не показано: {ex.Message}", "PRINTER");
         }
     }
 

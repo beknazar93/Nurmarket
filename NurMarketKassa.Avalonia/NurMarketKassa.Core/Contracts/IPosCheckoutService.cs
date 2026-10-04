@@ -56,6 +56,13 @@ public sealed class PosCheckoutResult
     public string? CartJsonSnapshot { get; init; }
     public bool ReceiptPrintAttempted { get; init; }
     public bool ReceiptPrinted { get; init; }
+
+    /// <summary>2026-10-04, отчёт о производительности (п. 9): печать чека идёт в фоне уже после сброса
+    /// чека — касса готова к следующему покупателю, не дожидаясь принтера (на ПК с принтером в ошибке —
+    /// 1,6 с на каждой продаже). Результат печати: false — чек не напечатан, кассиру показывается то же
+    /// «чек не напечатан; используйте повторную печать». null — печать не запрашивалась (или прошла до
+    /// возврата, тогда смотрите <see cref="ReceiptPrinted"/>).</summary>
+    public Task<bool>? ReceiptPrintTask { get; init; }
     /// <summary>2026-09-28, продажа №1136: сервер провёл продажу на сумму, отличную от итога окна
     /// оплаты (например, акцию товара поменяли на сайте в последние минуты). Продажа уже есть —
     /// кассиру показывается это сообщение с разницей, чтобы вернуть или добрать деньги.</summary>
@@ -67,7 +74,8 @@ public sealed class PosCheckoutResult
         JsonElement? response = null,
         string? info = null,
         bool receiptPrintAttempted = false,
-        bool receiptPrinted = false) =>
+        bool receiptPrinted = false,
+        Task<bool>? receiptPrintTask = null) =>
         new()
         {
             IsSuccess = true,
@@ -77,6 +85,7 @@ public sealed class PosCheckoutResult
             InfoMessage = info,
             ReceiptPrintAttempted = receiptPrintAttempted,
             ReceiptPrinted = receiptPrinted,
+            ReceiptPrintTask = receiptPrintTask,
         };
 
     public static PosCheckoutResult OfflineSaved(
@@ -84,7 +93,8 @@ public sealed class PosCheckoutResult
         string cartJson,
         string? info = null,
         bool receiptPrintAttempted = false,
-        bool receiptPrinted = false) =>
+        bool receiptPrinted = false,
+        Task<bool>? receiptPrintTask = null) =>
         new()
         {
             IsSuccess = true,
@@ -94,6 +104,7 @@ public sealed class PosCheckoutResult
             InfoMessage = info,
             ReceiptPrintAttempted = receiptPrintAttempted,
             ReceiptPrinted = receiptPrinted,
+            ReceiptPrintTask = receiptPrintTask,
         };
 
     public static PosCheckoutResult Failed(string error) =>

@@ -1228,7 +1228,7 @@ public partial class MainWindow : Window
             _balanceRefreshTimer.Tick += async (_, _) =>
             {
                 _balanceRefreshTimer.Stop();
-                await RefreshShiftBalanceQuietAsync().ConfigureAwait(true);
+                await RefreshShiftBalanceQuietAsync(afterSale: true).ConfigureAwait(true);
             };
         }
 
@@ -1236,7 +1236,10 @@ public partial class MainWindow : Window
         _balanceRefreshTimer.Start();
     }
 
-    private async Task RefreshShiftBalanceQuietAsync()
+    /// <param name="afterSale">2026-10-04, отчёт о производительности (п. 8): после оплаты список открытых смен
+    /// уже спросила проверка смены кассы (ShiftStateService) — остаток берём из её ответа, а не вторым
+    /// таким же запросом.</param>
+    private async Task RefreshShiftBalanceQuietAsync(bool afterSale = false)
     {
         // 2026-09-29: в аварии сервера не спрашиваем — остаток в шапке считается по кассе, а
         // внесения/изъятия уйдут по событию восстановления связи (OnServerRecovered).
@@ -1262,7 +1265,10 @@ public partial class MainWindow : Window
             var queueAtBalance = OfflineQueueCash.Snapshot(_session.ActiveShiftId);
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
             cts.CancelAfter(TimeSpan.FromSeconds(8));
-            var list = await App.ShiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cts.Token).ConfigureAwait(true);
+            var recent = afterSale
+                ? await App.ShiftApi.OpenShiftsListAfterSaleAsync(TimeSpan.FromSeconds(30), cts.Token).ConfigureAwait(true)
+                : null;
+            var list = recent ?? await App.ShiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cts.Token).ConfigureAwait(true);
             if (ShiftBalanceHelper.FindOpenShiftBalance(list, App.PosCashboxId) is not { } balance)
             {
                 // 2026-10-04: остатка нет (офлайн-смена) — шапка всё равно учитывает новые чеки очереди.

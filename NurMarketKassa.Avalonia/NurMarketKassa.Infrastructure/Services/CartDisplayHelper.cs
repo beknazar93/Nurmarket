@@ -799,13 +799,17 @@ public static class CartDisplayHelper
     }
 
     /// <summary>Как _product_must_weigh в main.py — для каталога и диалога взвешивания.</summary>
-    public static bool ProductMustWeigh(JsonElement p) =>
-        TruthyBool(p, "is_wait") || TruthyBool(p, "is_weigh") || TruthyBool(p, "is_weight") ||
-        TruthyBool(p, "is_weight_product") ||
-        TruthyBool(p, "sale_as_weight") || TruthyBool(p, "sells_by_weight") || DictHasKgUnit(p) ||
-        ProductTypeImpliesWeight(p);
+    public static bool ProductMustWeigh(JsonElement p) => ProductMustWeigh(p, null);
 
-    private static bool DictHasKgUnit(JsonElement d)
+    /// <param name="props">2026-10-04, отчёт о производительности (п. 16): поля товара, заранее собранные
+    /// одним проходом (ProductCatalogMapper.TryTile, JsonProps) — те же правила, без ~25 переборов полей.</param>
+    internal static bool ProductMustWeigh(JsonElement p, IReadOnlyDictionary<string, JsonElement>? props) =>
+        TruthyBool(p, "is_wait", props) || TruthyBool(p, "is_weigh", props) || TruthyBool(p, "is_weight", props) ||
+        TruthyBool(p, "is_weight_product", props) ||
+        TruthyBool(p, "sale_as_weight", props) || TruthyBool(p, "sells_by_weight", props) || DictHasKgUnit(p, props) ||
+        ProductTypeImpliesWeight(p, props);
+
+    private static bool DictHasKgUnit(JsonElement d, IReadOnlyDictionary<string, JsonElement>? props = null)
     {
         if (d.ValueKind != JsonValueKind.Object)
             return false;
@@ -816,7 +820,7 @@ public static class CartDisplayHelper
                      "pricing_unit", "stock_unit", "weight_unit",
                  })
         {
-            if (d.TryGetProperty(key, out var u) && UnitIsKg(u))
+            if (JsonProps.TryGet(d, props, key, out var u) && UnitIsKg(u))
                 return true;
         }
 
@@ -824,13 +828,13 @@ public static class CartDisplayHelper
     }
 
     /// <summary>Режим продажи строкой: weight / kg / вес и т.п.</summary>
-    private static bool ProductTypeImpliesWeight(JsonElement p)
+    private static bool ProductTypeImpliesWeight(JsonElement p, IReadOnlyDictionary<string, JsonElement>? props = null)
     {
         if (p.ValueKind != JsonValueKind.Object)
             return false;
         foreach (var key in new[] { "type", "product_type", "kind", "sale_kind" })
         {
-            if (!p.TryGetProperty(key, out var v) || v.ValueKind != JsonValueKind.String)
+            if (!JsonProps.TryGet(p, props, key, out var v) || v.ValueKind != JsonValueKind.String)
                 continue;
             var s = v.GetString()?.Trim().ToLowerInvariant() ?? "";
             if (s.Length == 0)
@@ -907,9 +911,9 @@ public static class CartDisplayHelper
         return false;
     }
 
-    private static bool TruthyBool(JsonElement obj, string prop)
+    private static bool TruthyBool(JsonElement obj, string prop, IReadOnlyDictionary<string, JsonElement>? props = null)
     {
-        if (obj.ValueKind != JsonValueKind.Object || !obj.TryGetProperty(prop, out var v))
+        if (obj.ValueKind != JsonValueKind.Object || !JsonProps.TryGet(obj, props, prop, out var v))
             return false;
         if (v.ValueKind == JsonValueKind.True)
             return true;

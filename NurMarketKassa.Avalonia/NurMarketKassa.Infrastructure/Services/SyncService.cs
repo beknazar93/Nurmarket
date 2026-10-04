@@ -151,9 +151,10 @@ public sealed partial class SyncService : IDisposable
         }
         else
         {
-            IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
-            ServerOutageMonitor.ReportProbeResult(IsOnline, "SyncService");
-            IsOnline = IsOnline && !ServerOutageMonitor.IsOutage;
+            // 2026-10-04, отчёт о производительности (п. 6): одна общая проверка с шапкой кассы
+            // (SharedConnectivityCheck) — и только если за минуту не было ни одного удачного ответа
+            // сервера. Раньше здесь был свой GET / каждые 45 с, независимо от шапки (каждые 20 с).
+            IsOnline = await SharedConnectivityCheck.CheckAsync(_auth.CanReachApiAsync, "SyncService", ct).ConfigureAwait(false);
         }
 
         LeaveOfflineModeIfBackOnline();
@@ -352,7 +353,9 @@ public sealed partial class SyncService : IDisposable
                     // applied (via CatalogCacheService.Products) landed on those orphaned
                     // tiles instead of the ones bound to the screen, so a sale's stock
                     // decrement silently never appeared until the next full app restart.
-                    await _catalogCache.SyncCatalogFullAsync(ct).ConfigureAwait(false);
+                    // 2026-10-04, отчёт о производительности (п. 5): раз в 2 мин — только проверка «версии»
+                    // каталога (1 запрос); весь каталог — при её изменении и раз в 15 мин (остатки).
+                    await _catalogCache.SyncCatalogIfChangedAsync(ct).ConfigureAwait(false);
                     _lastCatalogSyncUtc = DateTime.UtcNow;
                 }
                 catch

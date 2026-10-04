@@ -68,8 +68,21 @@ public static class SalesHistoryBackfill
         }
     }
 
+    /// <summary>2026-10-04, отчёт о производительности (п. 11): прошлый полный проход дочитал всё, что было
+    /// нужно (порция не упёрлась в <see cref="MaxSalesPerPass"/>), — история за 8 страниц полная, и следующий
+    /// проход останавливается на первой странице, где нечего добирать.</summary>
+    private static bool _backlogComplete;
+
+    /// <summary>Чеки, у которых на сервере нет строк с товаром (например, только «Доп. услуга»): в
+    /// локальную историю их записать нечем, и без этого списка такая страница никогда не считалась бы
+    /// «уже известной».</summary>
+    private static readonly HashSet<string> NothingToRecord = new(StringComparer.OrdinalIgnoreCase);
+
     private static async Task<int> LoadAsync(CancellationToken ct)
     {
+        var known = SoldLineItemsStore.KnownSaleIds();
+        var legacyWatermark = SoldLineItemsStore.LegacyWatermark();
+        var stopEarly = _backlogComplete;
         var raw = new List<JsonElement>();
         for (var page = 1; page <= MaxPages; page++)
         {
@@ -80,6 +93,12 @@ public static class SalesHistoryBackfill
             raw.AddRange(pageItems);
             if (pageItems.Count < PageSize)
                 break;
+            // 2026-10-04, п. 11: раньше каждые 30 минут листались все 8 страниц (640 чеков), хотя новых —
+            // единицы и все на первой странице. Теперь: страница, где все чеки уже в истории (или отменены,
+            // или старше отсечки), — дальше листать незачем. Первый проход после запуска — полный (сверка
+            // удалённых продаж по всем 8 страницам и добор истории новой кассы).
+            if (stopEarly && pageItems.All(sale => !NeedsFetch(sale, known, legacyWatermark)))
+                break;
         }
 
         await PruneRemovedSalesAsync(raw, ct).ConfigureAwait(false);
@@ -87,8 +106,8 @@ public static class SalesHistoryBackfill
         // Пропускаем только те чеки, которые в локальной истории уже есть — по номеру
         // продажи. Старая проверка «всё, что новее самой старой локальной записи, уже учтено»
         // верна лишь для одной кассы: на второй она отсекала как раз чужие чеки.
-        var known = SoldLineItemsStore.KnownSaleIds();
-        var legacyWatermark = SoldLineItemsStore.LegacyWatermark();
+        // 2026-10-04: known/legacyWatermark читаются выше, до листания (нужны для ранней остановки);
+        // PruneRemovedSalesAsync убирает из истории только отменённые/удалённые — их и так не тянем.
         var added = 0;
 
         // Отбираем, что вообще нужно тянуть, и только потом идём в сеть — так видно объём
@@ -98,32 +117,19 @@ public static class SalesHistoryBackfill
         {
             ct.ThrowIfCancellationRequested();
 
-            if (!sale.TryGetProperty("id", out var idProp))
+            // 2026-10-04: правила отбора вынесены в NeedsFetch без изменений — ими же пользуется ранняя
+            // остановка листания выше.
+            if (!NeedsFetch(sale, known, legacyWatermark, out var saleId, out var createdAt))
                 continue;
 
-            var saleId = idProp.ToString() ?? "";
-            if (string.IsNullOrWhiteSpace(saleId) || known.Contains(saleId))
-                continue;
-
-            // Отменённая продажа — не продажа: в ABC и выручку её тянуть нельзя (2026-09-24,
-            // раньше тянулась, а новая сверка тут же убирала её обратно — по кругу).
-            if (sale.TryGetProperty("status", out var statusProp)
-                && string.Equals(statusProp.GetString(), "canceled", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (!sale.TryGetProperty("created_at", out var dateProp) ||
-                !DateTime.TryParse(dateProp.GetString(), out var createdAt))
-                continue;
-
-            // Всё, что старше отсечки, локальная история уже содержит — просто без номера,
-            // поэтому по номеру этого не видно. Подтянуть такие чеки — значит задвоить их.
-            if (legacyWatermark is { } watermark && createdAt.ToUniversalTime() <= watermark)
-                continue;
-
-            todo.Add((saleId, createdAt.ToUniversalTime()));
+            todo.Add((saleId, createdAt));
             if (todo.Count >= MaxSalesPerPass)
                 break;
         }
+
+        // 2026-10-04, п. 11: порция не упёрлась в предел — всё нужное из просмотренных страниц дочитано
+        // (или дочитается сейчас), и следующий проход может остановиться на первой «известной» странице.
+        _backlogComplete = todo.Count < MaxSalesPerPass;
 
         if (todo.Count == 0)
             return 0;
@@ -187,7 +193,12 @@ public static class SalesHistoryBackfill
             }
 
             if (lines.Count == 0)
+            {
+                // 2026-10-04: записывать нечего — помним, чтобы не тянуть этот чек каждые 30 минут.
+                lock (NothingToRecord)
+                    NothingToRecord.Add(saleId);
                 continue;
+            }
 
             SoldLineItemsStore.AppendBackfill(lines, saleId);
             known.Add(saleId);
@@ -199,6 +210,46 @@ public static class SalesHistoryBackfill
 
         return added;
     }
+
+    /// <summary>Нужно ли тянуть этот чек в локальную историю (правила — как были в цикле отбора LoadAsync).</summary>
+    private static bool NeedsFetch(JsonElement sale, HashSet<string> known, DateTime? legacyWatermark,
+        out string saleId, out DateTime createdAtUtc)
+    {
+        saleId = "";
+        createdAtUtc = default;
+        if (!sale.TryGetProperty("id", out var idProp))
+            return false;
+
+        saleId = idProp.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(saleId) || known.Contains(saleId))
+            return false;
+        lock (NothingToRecord)
+        {
+            if (NothingToRecord.Contains(saleId))
+                return false;
+        }
+
+        // Отменённая продажа — не продажа: в ABC и выручку её тянуть нельзя (2026-09-24,
+        // раньше тянулась, а новая сверка тут же убирала её обратно — по кругу).
+        if (sale.TryGetProperty("status", out var statusProp)
+            && string.Equals(statusProp.GetString(), "canceled", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!sale.TryGetProperty("created_at", out var dateProp) ||
+            !DateTime.TryParse(dateProp.GetString(), out var createdAt))
+            return false;
+
+        // Всё, что старше отсечки, локальная история уже содержит — просто без номера,
+        // поэтому по номеру этого не видно. Подтянуть такие чеки — значит задвоить их.
+        if (legacyWatermark is { } watermark && createdAt.ToUniversalTime() <= watermark)
+            return false;
+
+        createdAtUtc = createdAt.ToUniversalTime();
+        return true;
+    }
+
+    private static bool NeedsFetch(JsonElement sale, HashSet<string> known, DateTime? legacyWatermark) =>
+        NeedsFetch(sale, known, legacyWatermark, out _, out _);
 
     /// <summary>Сколько подозрительных продаж проверяем за проход — каждая это отдельный запрос.</summary>
     private const int MaxPruneChecksPerPass = 30;

@@ -5,7 +5,12 @@ namespace NurMarketKassa.Services;
 /// <summary>URL превью товара (логика product_media.product_image_url).</summary>
 public static class ProductImageUrl
 {
-    public static string? TryGet(JsonElement p, string apiBaseUrl)
+    public static string? TryGet(JsonElement p, string apiBaseUrl) => TryGet(p, apiBaseUrl, null);
+
+    /// <param name="props">2026-10-04, отчёт о производительности (п. 16): поля товара, заранее собранные
+    /// одним проходом (ProductCatalogMapper.TryTile, JsonProps): ~26 имён верхнего уровня, почти все
+    /// отсутствуют, — без перебора всех полей на каждое имя. Правила выбора картинки те же.</param>
+    internal static string? TryGet(JsonElement p, string apiBaseUrl, IReadOnlyDictionary<string, JsonElement>? props)
     {
         if (p.ValueKind != JsonValueKind.Object)
             return null;
@@ -18,7 +23,7 @@ public static class ProductImageUrl
                      "main_image_url", "cover_url", "preview_url", "image_path", "media_url",
                  })
         {
-            if (p.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String)
+            if (JsonProps.TryGet(p, props, k, out var v) && v.ValueKind == JsonValueKind.String)
             {
                 AddCandidate(candidates, ToAbsolute(v.GetString(), baseTrim));
             }
@@ -26,7 +31,7 @@ public static class ProductImageUrl
 
         foreach (var k in new[] { "image", "photo", "thumbnail", "picture", "cover", "img" })
         {
-            if (!p.TryGetProperty(k, out var v))
+            if (!JsonProps.TryGet(p, props, k, out var v))
                 continue;
             if (v.ValueKind == JsonValueKind.String)
             {
@@ -48,7 +53,7 @@ public static class ProductImageUrl
 
         foreach (var nest in new[] { "primary_image", "main_image", "cover_image", "image_data", "photo_data" })
         {
-            if (!p.TryGetProperty(nest, out var nested) || nested.ValueKind != JsonValueKind.Object)
+            if (!JsonProps.TryGet(p, props, nest, out var nested) || nested.ValueKind != JsonValueKind.Object)
                 continue;
             foreach (var kk in new[] { "url", "src", "image", "file", "path", "thumbnail", "full", "download_url" })
             {
@@ -59,7 +64,7 @@ public static class ProductImageUrl
 
         foreach (var key in new[] { "images", "photos", "gallery", "media", "attachments" })
         {
-            if (!p.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            if (!JsonProps.TryGet(p, props, key, out var arr) || arr.ValueKind != JsonValueKind.Array)
                 continue;
             var n = 0;
             foreach (var it in arr.EnumerateArray())

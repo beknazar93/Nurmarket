@@ -38,7 +38,19 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// каждые 20 секунд: продажа, пробитая на кассе, появляется здесь без отдельной синхронизации.</summary>
 public partial class OwnerShellWindow : Window, IMainShell
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(20);
+    // 2026-10-04, отчёт о производительности (п. 7): 60 с вместо 20 с и только пока «Сводка» на экране и
+    // окно активно (RefreshWhenShownAsync). Было 12 запросов в минуту с каждой программы владельца (27 —
+    // утром до первой продажи), даже свёрнутой или под открытым разделом.
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(60);
+
+    /// <summary>2026-10-04, п. 7: график «Выручка за 7 дней» — отдельный отчёт сервера; обновлять его чаще
+    /// раза в 5 минут незачем (кнопка «Обновить» и смена периода — сразу).</summary>
+    private static readonly TimeSpan ChartRefreshInterval = TimeSpan.FromMinutes(5);
+    private JsonElement? _chartCache;
+    private string? _chartCacheKey;
+    private DateTime _chartCacheAtUtc = DateTime.MinValue;
+    private DateTime _lastRefreshStartedUtc = DateTime.MinValue;
+
     private const int RecentRows = 8;
 
     // Цвета способов оплаты. Цветом выделена только точка/полоса, подпись — обычным цветом текста
@@ -122,7 +134,14 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         InitializeComponent();
         _timer = new DispatcherTimer { Interval = RefreshInterval };
-        _timer.Tick += async (_, _) => await RefreshAsync().ConfigureAwait(true);
+        _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
+        // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
+        // или владелец работал в другой программе) — обновить сразу, не дожидаясь таймера.
+        Activated += async (_, _) =>
+        {
+            if (DateTime.UtcNow - _lastRefreshStartedUtc >= RefreshInterval)
+                await RefreshWhenShownAsync().ConfigureAwait(true);
+        };
         _abcDebounce = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         _abcDebounce.Tick += (_, _) =>
         {
@@ -904,7 +923,15 @@ public partial class OwnerShellWindow : Window, IMainShell
                     : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
     }
 
-    private async Task RefreshAsync()
+    /// <summary>2026-10-04, п. 7: «Сводка» видна владельцу — окно активно, не свёрнуто и не закрыто
+    /// открытым разделом (тогда сводка спрятана, см. OverviewScroll).</summary>
+    private bool IsOverviewShown =>
+        IsVisible && IsActive && WindowState != WindowState.Minimized && OverviewScroll.IsVisible;
+
+    /// <summary>Обновление по таймеру и при возврате в окно — только когда «Сводку» видно (см. RefreshInterval).</summary>
+    private Task RefreshWhenShownAsync() => IsOverviewShown ? RefreshAsync() : Task.CompletedTask;
+
+    private async Task RefreshAsync(bool forceChart = false)
     {
         if (_refreshing || _loggingOut || _cts.IsCancellationRequested)
             return;
@@ -920,6 +947,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         _refreshing = true;
         RefreshButton.IsEnabled = false;
+        _lastRefreshStartedUtc = DateTime.UtcNow;
         try
         {
             var (from, to) = CurrentRange();
@@ -937,7 +965,13 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
             var previousTask = _compareKey != compareKey ? App.SalesApi.MarketSalesReportAsync(prevFrom, prevTo, ct) : null;
-            var chartTask = !ChartIsPeriod ? App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct) : null;
+            // 2026-10-04, п. 7: график 7 дней — раз в 5 минут (и сразу по «Обновить» / смене дня).
+            var chartKey = $"{chartFrom:yyyyMMdd}:{chartTo:yyyyMMdd}";
+            var chartCached = !forceChart
+                && _chartCache is not null
+                && _chartCacheKey == chartKey
+                && DateTime.UtcNow - _chartCacheAtUtc < ChartRefreshInterval;
+            var chartTask = !ChartIsPeriod && !chartCached ? App.SalesApi.MarketSalesReportAsync(chartFrom, chartTo, ct) : null;
             var rowsTask = App.SalesApi.PosSalesListAsync(1, RecentRows, null, ct, dateFrom: from, dateToExclusive: to.AddDays(1));
             // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
             // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
@@ -954,7 +988,15 @@ public partial class OwnerShellWindow : Window, IMainShell
                 _compareKey = compareKey;
             }
 
-            var chartSource = chartTask != null ? await chartTask.ConfigureAwait(true) : report;
+            var chartSource = chartTask != null
+                ? await chartTask.ConfigureAwait(true)
+                : !ChartIsPeriod && chartCached ? _chartCache!.Value : report;
+            if (chartTask != null)
+            {
+                _chartCache = chartSource.Clone();
+                _chartCacheKey = chartKey;
+                _chartCacheAtUtc = DateTime.UtcNow;
+            }
 
             var rows = await rowsTask.ConfigureAwait(true);
 
@@ -1923,7 +1965,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         // 2026-09-29: «Обновить» — всегда свежие цифры сервера, мимо короткого кэша отчётов.
         NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
-        _ = RefreshAsync();
+        _ = RefreshAsync(forceChart: true);
         _ = RefreshAbcAsync();
     }
 

@@ -34,6 +34,18 @@ public interface IShiftApiService
     /// затем, чтобы найти в нём одну строку.</summary>
     bool TryGetRecentShiftsList(TimeSpan maxAge, out JsonElement payload);
 
+    /// <summary>2026-10-04, отчёт о производительности (п. 8): продажа проведена на сервере — следующий
+    /// ответ списка открытых смен уже содержит её в остатке смены.</summary>
+    void NoteSaleRecorded() { }
+
+    /// <summary>2026-10-04, п. 8: список открытых смен (?status=open), запрошенный уже ПОСЛЕ последней
+    /// продажи и не старше <paramref name="maxAge"/>; идущий такой запрос — дождаться. null — такого
+    /// нет, нужен свой запрос. Шапка кассы берёт остаток смены после оплаты отсюда: проверку смены сразу
+    /// после продажи (ShiftStateService) делает касса, и раньше шапка через 2 с спрашивала то же самое
+    /// ещё раз.</summary>
+    Task<JsonElement?> OpenShiftsListAfterSaleAsync(TimeSpan maxAge, CancellationToken ct = default) =>
+        Task.FromResult<JsonElement?>(null);
+
     /// <summary>POST открытия смены (перебор URL и вариантов тела).</summary>
     Task<JsonElement> ConstructionShiftOpenAsync(string cashboxId, string openingCash = "0.00", CancellationToken ct = default);
 

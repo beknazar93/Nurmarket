@@ -655,7 +655,11 @@ public sealed class CatalogPanelViewModel : ViewModelBase
     /// к этому моменту уже списан локально и записан в SQLite (StockSyncService.DecrementLocalStock),
     /// а изменения с сервера приходят фоновым sync'ом (SyncService → CatalogCacheService.CatalogChanged
     /// → OnCatalogChangedExternally → сюда же).</summary>
-    public async Task RepublishFromLocalAsync()
+    public Task RepublishFromLocalAsync() => RepublishFromLocalAsync(keepPage: false);
+
+    /// <param name="keepPage">2026-10-04, отчёт о производительности (п. 15): фоновая синхронизация
+    /// каталога не сбрасывает кассира на первую страницу каталога — он мог листать третью.</param>
+    private async Task RepublishFromLocalAsync(bool keepPage)
     {
         if (_republishing)
             return;
@@ -665,7 +669,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         {
             _catalogCache.TryLoadFromDatabase();
             var products = _catalogCache.GetProducts().ToList();
-            await _dispatcher.InvokeAsync(() => PublishProducts(products)).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(() => PublishProducts(products, keepPage)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -677,12 +681,13 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         }
     }
 
-    private void OnCatalogChangedExternally() => _ = RepublishFromLocalAsync();
+    private void OnCatalogChangedExternally() => _ = RepublishFromLocalAsync(keepPage: true);
 
-    private void PublishProducts(List<CatalogProductTileVm> products)
+    private void PublishProducts(List<CatalogProductTileVm> products, bool keepPage = false)
     {
         _allProducts = products;
-        ResetCurrentPage();
+        if (!keepPage)
+            ResetCurrentPage();
         ApplyFilter();
         ProductCountText = Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}");
         RefreshFavorites();
@@ -703,7 +708,6 @@ public sealed class CatalogPanelViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        Products.Clear();
         var query = _searchText.Trim();
         // Активный поиск (2+ символа) ищет по всему каталогу независимо от выбранной вкладки
         // (Весовые/Штучные/...) — кассиру не нужно гадать, в какой вкладке искать товар.
@@ -723,8 +727,24 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         if (CurrentPage > TotalPages)
             CurrentPage = TotalPages;
 
-        foreach (var product in filtered.Skip((CurrentPage - 1) * PageSize).Take(PageSize))
-            Products.Add(product);
+        // 2026-10-04, отчёт о производительности (п. 15): видимые плитки правим на месте — меняются только
+        // те, что стали другими объектами (изменённые товары после синхронизации); остальные не
+        // перерисовываются. Раньше страница каждый раз очищалась и строилась заново.
+        var pageItems = filtered.Skip((CurrentPage - 1) * PageSize).Take(PageSize).ToList();
+        if (Products.Count == pageItems.Count)
+        {
+            for (var i = 0; i < pageItems.Count; i++)
+            {
+                if (!ReferenceEquals(Products[i], pageItems[i]))
+                    Products[i] = pageItems[i];
+            }
+        }
+        else
+        {
+            Products.Clear();
+            foreach (var product in pageItems)
+                Products.Add(product);
+        }
 
         ProductCountText = _filteredProductCount == _allProducts.Count
             ? Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}")

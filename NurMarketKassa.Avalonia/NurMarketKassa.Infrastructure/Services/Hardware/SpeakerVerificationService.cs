@@ -213,6 +213,25 @@ public sealed class SpeakerVerificationService : IDisposable
         }
     }
 
+    /// <summary>2026-10-04, отчёт о производительности (п. 17): голосовое управление выключено — модель
+    /// голосового замка (≈ 25–40 МБ памяти) не держим. Её грузит и окно «Голосовое управление», спрашивая
+    /// «голос зарегистрирован?», и раньше она оставалась в памяти до выхода из кассы. Голос кассира лежит в
+    /// voiceprint.json — при следующей проверке модель и голос загрузятся заново (EnsureLoaded).</summary>
+    public void Unload()
+    {
+        lock (_lock)
+        {
+            if (_extractor == null && _manager == null)
+                return;
+            _manager?.Dispose();
+            _manager = null;
+            _extractor?.Dispose();
+            _extractor = null;
+        }
+
+        PosLogger.Log("Голосовой замок: модель выгружена из памяти (голосовое управление выключено).", "VOICE_LOCK");
+    }
+
     public void Dispose()
     {
         lock (_lock)

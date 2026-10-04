@@ -90,7 +90,10 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         dialog.ShowResult(isSuccess, message);
         if (isSuccess)
         {
-            await Task.Delay(1200).ConfigureAwait(true);
+            // 2026-10-04, отчёт о производительности (п. 9): «Платёж принят» — 0,6 с вместо 1,2 с, а первая
+            // же клавиша (следующий скан) закрывает окно сразу (PaymentStatusDialog.OnKeyDown) — тогда и
+            // ждать здесь больше нечего.
+            await Task.WhenAny(Task.Delay(600), dialogTask).ConfigureAwait(true);
             if (dialog.IsVisible)
                 dialog.Close(true);
         }

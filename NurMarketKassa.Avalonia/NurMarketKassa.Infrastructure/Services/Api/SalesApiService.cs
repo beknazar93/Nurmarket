@@ -237,6 +237,10 @@ public sealed partial class SalesApiService : ISalesApiService
         throw new ApiException("Сервер не поддерживает добавление услуги в чек.", 404);
     }
 
+    /// <summary>2026-10-04, п. 10 отчёта о производительности: запасные адреса списка продаж, ответившие
+    /// 404/405 (их на сервере нет), — до перезапуска программы больше не спрашиваются.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> MissingSalesListPaths = new(StringComparer.Ordinal);
+
     /// <summary><paramref name="dateFrom"/>/<paramref name="dateToExclusive"/> — серверная фильтрация
     /// по периоду. Проверено живыми запросами к app.nurcrm.kg 2026-09-21: из всех вариантов имён
     /// работают ровно <c>date_from</c> и <c>date_to</c> (у created_at__gte, created_at__date__gte и
@@ -297,6 +301,12 @@ public sealed partial class SalesApiService : ISalesApiService
         var sawEmptySuccess = false;
         foreach (var path in paths)
         {
+            // 2026-10-04, отчёт о производительности (п. 10): запасные адреса sales/list/ и sale/list/
+            // на сервере не существуют (404, проверено) — после первого 404 больше не спрашиваем их до
+            // перезапуска. Сам основной адрес на 404 (страница за последней) так не помечается.
+            if (path != paths[0] && MissingSalesListPaths.ContainsKey(path))
+                continue;
+
             foreach (var qs in queries)
             {
                 try
@@ -304,15 +314,25 @@ public sealed partial class SalesApiService : ISalesApiService
                     var data = await GetRetryingThrottleAsync(path, qs, ct).ConfigureAwait(false);
                     var root = UnwrapListRootElement(data);
                     var list = NurMarketApiClient.UnwrapList(root);
-                    if (list.Count > 0)
-                        return list;
-                    sawEmptySuccess = true;
+                    // 2026-10-04, п. 10: пустой ответ сервера — это и есть ответ (нет продаж за период,
+                    // «сегодня» до первой продажи, страница за последней). Раньше на пустом ответе перебирались
+                    // ещё 3–5 вариантов запроса и 2 несуществующих адреса — 6–8 запросов вместо одного, а
+                    // «Сводка» владельца делала их каждые 20 с всё утро до первой продажи.
+                    return list;
                 }
                 catch (ApiException e)
                 {
                     last = e;
                     if (e.StatusCode is 404 or 405 or 410)
+                    {
+                        if (path != paths[0])
+                            MissingSalesListPaths[path] = 0;
+                        // Основной адрес ответил 404 на страницу > 1 — это «страницы нет», а не «адреса нет»:
+                        // запасные адреса тут ничего не дадут (2026-10-04).
+                        if (path == paths[0] && page > 1)
+                            throw;
                         break;
+                    }
                     if (e.StatusCode == 400)
                         continue;
                     throw;

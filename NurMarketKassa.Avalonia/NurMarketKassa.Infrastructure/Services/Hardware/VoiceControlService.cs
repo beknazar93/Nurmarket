@@ -73,6 +73,10 @@ public sealed class VoiceControlService : IVoiceControlService
             {
                 _status = "выключено в настройках";
                 PosLogger.Log("Голосовое управление: выключено в настройках кассы.", "VOICE");
+                // 2026-10-04, отчёт о производительности (п. 17): голос выключен — ни одной модели в памяти.
+                // Модель распознавания Vosk освобождает StopInternal выше (замер: ≈ 0,7–0,8 ГБ, пока голос
+                // включён); модель голосового замка — здесь.
+                _speakerVerification?.Unload();
                 return;
             }
 

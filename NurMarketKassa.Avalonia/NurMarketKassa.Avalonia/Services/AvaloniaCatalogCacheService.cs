@@ -82,7 +82,10 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         CatalogCacheService.NotifyCatalogChanged();
     }
 
-    public Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
+    public Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default) =>
+        StartFullSync(cancellationToken, knownVersion: null);
+
+    private Task<CatalogSyncResult> StartFullSync(CancellationToken cancellationToken, CatalogVersionInfo? knownVersion)
     {
         lock (_syncGate)
         {
@@ -95,13 +98,86 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 return Task.FromResult(fresh);
             }
 
-            var task = SyncCatalogFullCoreAsync(cancellationToken);
+            var task = SyncCatalogFullCoreAsync(cancellationToken, knownVersion);
             _inFlightSync = task;
             return task;
         }
     }
 
-    private async Task<CatalogSyncResult> SyncCatalogFullCoreAsync(CancellationToken cancellationToken = default)
+    /// <summary>2026-10-04, отчёт о производительности (п. 5): как часто фоновая синхронизация всё-таки
+    /// качает каталог целиком, даже если «версия» не менялась. Продажа на другой кассе или на сайте не
+    /// меняет updated_at товара (проверено на NBS), и остатки по версии не видны — их приносит эта
+    /// полная загрузка (свои продажи вычитаются сразу, соседние кассы — по локальной сети). Большой каталог
+    /// (больше 3000 товаров — 30+ страниц на каждую полную загрузку) и слабый ПК — раз в 30 минут,
+    /// остальные — раз в 15.</summary>
+    private TimeSpan FullReloadInterval =>
+        UserPreferences.Instance.LowPerformanceMode || _products.Count > 3000
+            ? TimeSpan.FromMinutes(30)
+            : TimeSpan.FromMinutes(15);
+
+    /// <summary>2026-10-04, п. 5: фоновая синхронизация (SyncService, раз в 2 мин). Раньше каждый раз
+    /// качался весь каталог: 145 товаров — 2 страницы и 8 служебных запросов, 15 000 товаров — 150
+    /// страниц, 27 МБ и ~90 с из каждых 120 с. Теперь сначала один лёгкий запрос «версии» (число товаров
+    /// + последний изменённый, ordering=-updated_at&amp;page_size=1, ~1 КБ); совпала с сохранённой после
+    /// прошлой полной загрузки — каталог не качается. Полная загрузка — при изменении версии и не реже
+    /// <see cref="FullReloadInterval"/>. Явные обновления (кнопка «Обновить», Склад, весы) идут через
+    /// <see cref="SyncCatalogFullAsync"/> и всегда качают всё.</summary>
+    public async Task<CatalogSyncResult> SyncCatalogIfChangedAsync(CancellationToken cancellationToken = default)
+    {
+        if (OfflineModeHelper.SellLocally)
+            return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+
+        Task<CatalogSyncResult>? running;
+        DateTime lastFull;
+        lock (_syncGate)
+        {
+            running = _inFlightSync is { IsCompleted: false } inFlight ? inFlight : null;
+            lastFull = _lastSuccessfulSyncUtc;
+        }
+
+        if (running != null)
+            return await running.ConfigureAwait(false);
+
+        // Полной загрузки в этом запуске ещё не было (старт, смена аккаунта) или она была давно — всё.
+        if (DateTime.UtcNow - lastFull >= FullReloadInterval)
+            return await StartFullSync(cancellationToken, knownVersion: null).ConfigureAwait(false);
+
+        CatalogVersionInfo? remote;
+        try
+        {
+            remote = await _catalogApi.ProductsCatalogVersionAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ApiException ex)
+        {
+            return CatalogSyncResult.Failed(ex.Message);
+        }
+        catch (HttpRequestException ex)
+        {
+            return CatalogSyncResult.Failed(string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message);
+        }
+
+        var local = LocalProductRepository.Instance.GetCatalogVersionToken();
+        if (remote is { IsEmpty: false }
+            && !string.IsNullOrEmpty(local)
+            && string.Equals(remote.Token, local, StringComparison.Ordinal))
+        {
+            PosLogger.Log(
+                $"CATALOG: версия не изменилась ({remote.Token}) — полная загрузка пропущена; остатки — не позже чем через {(lastFull + FullReloadInterval - DateTime.UtcNow).TotalMinutes:0} мин.",
+                "CATALOG");
+            return CatalogSyncResult.Ok(0, 0, 0);
+        }
+
+        PosLogger.Log($"CATALOG: версия изменилась ({local ?? "—"} → {remote?.Token ?? "нет ответа"}) — полная загрузка.", "CATALOG");
+        // Версия уже получена — повторно её не спрашиваем (см. SyncCatalogFullCoreAsync).
+        return await StartFullSync(cancellationToken, remote).ConfigureAwait(false);
+    }
+
+    private async Task<CatalogSyncResult> SyncCatalogFullCoreAsync(CancellationToken cancellationToken = default,
+        CatalogVersionInfo? knownVersion = null)
     {
         // 2026-09-29: и в аварии сервера — каталог из локальной базы, сервер не дёргаем.
         if (OfflineModeHelper.SellLocally)
@@ -114,7 +190,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         try
         {
             var snapshotStartedUtc = DateTime.UtcNow;
-            var remoteVersion = await _catalogApi
+            // 2026-10-04: версию только что получила SyncCatalogIfChangedAsync — второй запрос не нужен.
+            var remoteVersion = knownVersion ?? await _catalogApi
                 .ProductsCatalogVersionAsync(cancellationToken)
                 .ConfigureAwait(false);
 
