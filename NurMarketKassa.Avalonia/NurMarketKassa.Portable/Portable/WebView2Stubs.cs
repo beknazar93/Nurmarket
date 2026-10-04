@@ -12,6 +12,8 @@ namespace Microsoft.Web.WebView2.Core
         public event EventHandler<EventArgs>? NavigationCompleted;
         public bool CanGoBack => false;
         public bool CanGoForward => false;
+        // 2026-10-05: «Открыть в браузере» открывает текущую страницу (WhatsApp Web / NurCRM) — здесь её нет.
+        public string Source => "";
         public void GoBack() { }
         public void GoForward() { }
         public void Reload() { }

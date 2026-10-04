@@ -752,6 +752,7 @@
                   Margin="0,10,0,0"
                   IsVisible="{Binding ShowPager}">
                 <Button Grid.Column="0"
+                        x:Name="PrevPageButton"
                         Classes="catalog-pager"
                         Content="{DynamicResource csh.catalog.prevPage}"
                         Command="{Binding PreviousPageCommand}"/>
@@ -792,6 +793,7 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
                 <Button Grid.Column="2"
+                        x:Name="NextPageButton"
                         Classes="catalog-pager"
                         Content="{DynamicResource csh.catalog.nextPage}"
                         Command="{Binding NextPageCommand}"/>

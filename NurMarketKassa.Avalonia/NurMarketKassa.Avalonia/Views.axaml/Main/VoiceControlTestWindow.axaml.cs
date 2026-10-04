@@ -447,6 +447,7 @@ public partial class VoiceControlTestWindow : Window
             VoiceIntent.Pay => Tr.T("оплата", "төлөө", "payment", "ödeme", "to'lov"),
             VoiceIntent.RepeatLast => Tr.T("повторить последнюю команду", "акыркы буйрукту кайталоо", "repeat last command", "son komutu tekrarla", "oxirgi buyruqni takrorlash"),
             VoiceIntent.Cancel => Tr.T("отмена", "жокко чыгаруу", "cancel", "iptal", "bekor qilish"),
+            VoiceIntent.AiAnswer => Tr.T("ответ ИИ: ", "ИИ жообу: ", "AI answer: ", "YZ yanıtı: ", "SI javobi: ") + result.ProductQuery,
             _ => Tr.T("не распознано", "таанылган жок", "not recognized", "tanınmadı", "tanib olinmadi"),
         };
         var lockSuffix = result.VoiceMatched == false
@@ -507,6 +508,8 @@ public partial class VoiceControlTestWindow : Window
             && command.Intent != NurMarketKassa.Services.Hardware.VoiceIntent.FindProduct)
         {
             ManualResultText.Text = $"Intent = {command.Intent}" + (command.RequiresConfirmation ? Tr.T(" (требует подтверждения)", " (ырастоону талап кылат)", " (requires confirmation)", " (onay gerektirir)", " (tasdiqlashni talab qiladi)") : "");
+            if (command.Intent == NurMarketKassa.Services.Hardware.VoiceIntent.Unknown)
+                _ = AskAiAsync(commandText, input);
             return;
         }
 
@@ -530,6 +533,27 @@ public partial class VoiceControlTestWindow : Window
                     $"Intent = {command.Intent}, so'rov «{command.ProductText}» — noaniq, {candidates.Count} ta variant: ")
                 + string.Join(", ", candidates.Take(5).Select(p => p.Title)) + ".",
         };
+        if (candidates.Count == 0)
+            _ = AskAiAsync(commandText, input);
+    }
+
+    /// <summary>2026-10-05: тот же запасной путь, что и на живом голосе (VoiceAi) — обычный разбор не справился,
+    /// спрашиваем ИИ и дописываем его ответ, чтобы владелец мог проверить без микрофона.</summary>
+    private async Task AskAiAsync(string commandText, string input)
+    {
+        if (!VoiceAi.IsAvailable)
+        {
+            ManualResultText.Text += Tr.T(" ИИ не подключён (нет ключа ИИ в настройках бота).", " ИИ туташкан эмес (бот жөндөөлөрүндө ИИ ачкычы жок).",
+                " AI is not connected (no AI key in the bot settings).", " YZ bağlı değil (bot ayarlarında YZ anahtarı yok).", " SI ulanmagan (bot sozlamalarida SI kaliti yo'q).");
+            return;
+        }
+        var before = ManualResultText.Text;
+        ManualResultText.Text = before + Tr.T(" Спрашиваю ИИ…", " ИИден сурап жатам…", " Asking AI…", " YZ'ye soruyorum…", " SIdan so'rayapman…");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var smart = await VoiceAi.InterpretAsync(commandText, input, CatalogCacheService.Products, cts.Token).ConfigureAwait(true);
+        ManualResultText.Text = before + "\n" + (smart is null
+            ? Tr.T("ИИ: не понял команду.", "ИИ: буйрукту түшүнгөн жок.", "AI: did not understand the command.", "YZ: komutu anlamadı.", "SI: buyruqni tushunmadi.")
+            : Tr.T("ИИ: ", "ИИ: ", "AI: ", "YZ: ", "SI: ") + DescribeResult(smart));
     }
 
     /// <summary>Собственные слова-единицы кассира (VoiceLexiconStore) — база для расширения

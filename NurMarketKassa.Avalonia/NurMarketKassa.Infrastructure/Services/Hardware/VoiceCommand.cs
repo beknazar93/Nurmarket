@@ -11,6 +11,9 @@ public enum VoiceIntent
     RepeatLast,
     Cancel,
     Pay,
+
+    /// <summary>2026-10-05: ответ ИИ на вопрос кассира голосом (VoiceAi) — текст ответа в ProductQuery.</summary>
+    AiAnswer,
 }
 
 /// <summary>Была ли произнесённая единица явным сигналом "поштучно" (шт/штука/даана/…) или

@@ -1166,6 +1166,11 @@ public partial class MainWindow : Window
                         ExecuteCommand(basket.PayCommand);
                     break;
 
+                case VoiceIntent.AiAnswer:
+                    // 2026-10-05: кассир спросил голосом («касса сколько стоит пепси») — ответ ИИ (VoiceAi).
+                    _prompts.ShowToast(Tr.T("ИИ: ", "ИИ: ", "AI: ", "YZ: ", "SI: ") + result.ProductQuery);
+                    break;
+
                 case VoiceIntent.Cancel:
                 case VoiceIntent.Unknown:
                 default:

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -20,16 +20,31 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// </summary>
 public partial class CrmWebViewWindow : Window, IOwnerSection
 {
-    private const string HomeUrl = "https://nurcrm.kg";
+    private const string NurCrmUrl = "https://nurcrm.kg";
 
+    /// <summary>2026-10-05, владелец: «к десктопу добавь … WhatsApp Web» — то же окно со встроенным браузером
+    /// для web.whatsapp.com (вход по QR-коду один раз — профиль WebView2 постоянный).</summary>
+    public const string WhatsAppWebUrl = "https://web.whatsapp.com";
+
+    private readonly string _homeUrl;
     private CoreWebView2? _webView;
 
-    public CrmWebViewWindow()
+    public CrmWebViewWindow() : this(NurCrmUrl, "NurCRM — nurcrm.kg")
     {
+    }
+
+    public CrmWebViewWindow(string homeUrl, string caption)
+    {
+        _homeUrl = homeUrl;
         InitializeComponent();
+        if (!string.Equals(homeUrl, NurCrmUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            Title = caption;
+            AddressLabel.Text = caption;
+        }
         WebHost.WebViewReady += OnWebViewReady;
         WebHost.InitializationFailed += OnInitializationFailed;
-        WebHost.Navigate(HomeUrl);
+        WebHost.Navigate(homeUrl);
     }
 
     private void OnWebViewReady(CoreWebView2 webView)
@@ -81,7 +96,7 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
     {
         try
         {
-            Process.Start(new ProcessStartInfo(HomeUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(_webView?.Source is { Length: > 0 } current ? current : _homeUrl) { UseShellExecute = true });
         }
         catch (Exception ex)
         {

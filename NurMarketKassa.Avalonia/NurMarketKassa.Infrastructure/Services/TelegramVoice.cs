@@ -32,7 +32,10 @@ public static class TelegramVoice
     public static bool IsAvailable => TelegramAiChat.IsConfigured;
 
     /// <summary>Текст голосового сообщения. null — не распознано (причина в журнале).</summary>
-    public static async Task<string?> TranscribeAsync(byte[] ogg, CancellationToken ct)
+    public static Task<string?> TranscribeAsync(byte[] ogg, CancellationToken ct) => TranscribeAsync(ogg, "audio/ogg", ct);
+
+    /// <summary>2026-10-05: то же для записи с микрофона компьютера (голосовой чат ИИ-советника — «audio/wav»).</summary>
+    public static async Task<string?> TranscribeAsync(byte[] audio, string mimeType, CancellationToken ct)
     {
         var key = UserPreferences.Instance.TelegramAiKey;
         if (string.IsNullOrWhiteSpace(key))
@@ -44,7 +47,7 @@ public static class TelegramVoice
             {
                 ["role"] = "user",
                 ["parts"] = new JsonArray(
-                    new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = "audio/ogg", ["data"] = Convert.ToBase64String(ogg) } },
+                    new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = mimeType, ["data"] = Convert.ToBase64String(audio) } },
                     new JsonObject { ["text"] = "Запиши дословно, что сказано в этом аудио (обычно по-русски или по-кыргызски). "
                                                 + "Ответь только текстом речи, без пояснений и кавычек. Если речи нет — ответь пустой строкой." }),
             }),
@@ -71,13 +74,31 @@ public static class TelegramVoice
     /// <summary>Голосовой ответ (OGG/Opus) для текста ответа бота. null — не получилось.</summary>
     public static async Task<byte[]?> SynthesizeAsync(string htmlOrText, CancellationToken ct)
     {
+        var (pcm, rate) = await SynthesizePcmAsync(htmlOrText, "Подробности — в сообщении.", ct).ConfigureAwait(false);
+        if (pcm == null)
+            return null;
+        try
+        {
+            return EncodeOggOpus(pcm, rate);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Голос в боте: не перекодировано в OGG ({ex.Message}).", "TELEGRAM");
+            return null;
+        }
+    }
+
+    /// <summary>2026-10-05: озвучка как есть (PCM 16 бит моно) — для голосового чата ИИ-советника, который играет её
+    /// сам. moreHint — фраза в конце, если длинный текст обрезан («Подробности — на экране.»).</summary>
+    public static async Task<(short[]? Pcm, int Rate)> SynthesizePcmAsync(string htmlOrText, string moreHint, CancellationToken ct)
+    {
         var key = UserPreferences.Instance.TelegramAiKey;
         if (string.IsNullOrWhiteSpace(key))
-            return null;
+            return (null, 0);
 
-        var spoken = ToSpeech(htmlOrText);
+        var spoken = ToSpeech(htmlOrText, moreHint);
         if (spoken.Length == 0)
-            return null;
+            return (null, 0);
 
         var body = new JsonObject
         {
@@ -103,29 +124,21 @@ public static class TelegramVoice
             {
                 PosLogger.Log($"Голос в боте: озвучка {model} → HTTP {status}.", "TELEGRAM");
                 if (status is 400 or 401 or 403 or 429)
-                    return null;
+                    return (null, 0);
                 continue;
             }
 
             var (pcm, rate) = ReadAudio(json);
             if (pcm == null)
                 continue;
-            try
-            {
-                return EncodeOggOpus(pcm, rate);
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Голос в боте: не перекодировано в OGG ({ex.Message}).", "TELEGRAM");
-                return null;
-            }
+            return (pcm, rate);
         }
 
-        return null;
+        return (null, 0);
     }
 
     /// <summary>Текст для озвучки: без разметки, ссылок и значков, не длиннее MaxSpokenChars (по предложению).</summary>
-    private static string ToSpeech(string text)
+    private static string ToSpeech(string text, string moreHint)
     {
         var s = System.Net.WebUtility.HtmlDecode(Regex.Replace(text, "<[^>]+>", " "));
         s = Regex.Replace(s, @"https?://\S+", "");
@@ -134,7 +147,7 @@ public static class TelegramVoice
         if (s.Length <= MaxSpokenChars)
             return s;
         var cut = s.LastIndexOfAny(new[] { '.', '!', '?' }, MaxSpokenChars);
-        return (cut > 100 ? s[..(cut + 1)] : s[..MaxSpokenChars]) + " Подробности — в сообщении.";
+        return (cut > 100 ? s[..(cut + 1)] : s[..MaxSpokenChars]) + " " + moreHint;
     }
 
     private static async Task<(string Json, int Status)> PostAsync(string model, string key, string body, CancellationToken ct)

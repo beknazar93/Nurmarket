@@ -562,6 +562,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group(Tr.T("Сервис", "Кызмат", "Tools", "Araçlar", "Xizmat"));
         Add("crm", "CrmIcon", "NurCRM", !isStart,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
+        // 2026-10-05, владелец: «к десктопу добавь воронку и WhatsApp Web». WhatsApp Web — встроенный браузер
+        // (только Windows: WebView2); на Android откроется приложение WhatsApp.
+        Add("whatsapp", "WhatsAppIcon", "WhatsApp", true, OpenWhatsApp);
+        Add("funnel", "FunnelIcon", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), true,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("funnel", () => new FunnelWindow()); });
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
         Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,

@@ -143,6 +143,156 @@ public static class OwnerAiContext
         }
     }
 
+    private static readonly SemaphoreSlim AnalysisGate = new(1, 1);
+    private static string? _analysisCached;
+    private static DateTime _analysisCachedAtUtc = DateTime.MinValue;
+
+    /// <summary>2026-10-05, владелец: «в ИИ добавь анализ продаж, анализ склада, анализ клиентов, анализ заказов,
+    /// чтобы он смог потом предлагать назначить акции на проблемные товары». Готовые выводы для нейросети:
+    /// • товары без продаж 30 дней при остатке (замороженные деньги);
+    /// • затоваривание — запаса больше чем на 60 дней продаж;
+    /// • падение продаж — последние 15 дней против предыдущих 15;
+    /// • низкая наценка (меньше 10 %) и продажа ниже закупки;
+    /// • растущие товары (кандидаты в «паровоз» для комплекта со слабыми);
+    /// • клиенты — сколько всего и новых за 30 дней (без имён); заказы через Telegram-бота за 30 дней.
+    /// Продажи — тот же расчёт, что «ABC-анализ» (AnalyticsReportData, цифры сервера); склад — каталог программы.
+    /// Пересчёт не чаще раза в 10 минут.</summary>
+    public static async Task<string> BuildAnalysisAsync(CancellationToken ct)
+    {
+        await AnalysisGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_analysisCached is not null && DateTime.UtcNow - _analysisCachedAtUtc < TimeSpan.FromMinutes(10))
+                return _analysisCached;
+            var sb = new StringBuilder();
+            sb.AppendLine("АНАЛИЗ ДЛЯ АКЦИЙ (30 дней; используй его, чтобы предлагать акции на проблемные товары):");
+            try
+            {
+                await AppendProductAnalysisAsync(sb, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"ИИ-советник: анализ товаров не построен ({ex.Message}).", "WARNING");
+                sb.AppendLine("Анализ товаров сейчас не построился.");
+            }
+            await AppendClientsAndOrdersAsync(sb, ct).ConfigureAwait(false);
+            _analysisCached = sb.ToString().TrimEnd();
+            _analysisCachedAtUtc = DateTime.UtcNow;
+            return _analysisCached;
+        }
+        finally
+        {
+            AnalysisGate.Release();
+        }
+    }
+
+    private static async Task AppendProductAnalysisAsync(StringBuilder sb, CancellationToken ct)
+    {
+        var today = DateTime.Today;
+        var recent = await AnalyticsReportData.BuildAsync(App.SalesApi, today.AddDays(-14), today, includeSeasonality: false, ct: ct).ConfigureAwait(false);
+        var before = await AnalyticsReportData.BuildAsync(App.SalesApi, today.AddDays(-29), today.AddDays(-15), includeSeasonality: false, ct: ct).ConfigureAwait(false);
+        static Dictionary<string, double> SoldQty(AnalyticsReportData d)
+        {
+            var rows = d.Slice(AnalyticsReportData.KeyRevenue)?.Rows ?? d.Abc;
+            return rows.GroupBy(r => r.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Sum(r => r.Quantity), StringComparer.OrdinalIgnoreCase);
+        }
+        var q2 = SoldQty(recent);
+        var q1 = SoldQty(before);
+
+        IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
+        if (tiles.Count == 0)
+            tiles = CatalogCacheService.Products.ToList();
+        static double Price(CatalogProductTileVm t) => LocalCartService.ParsePrice(t.PriceLine);
+        string Money(double v) => v.ToString("N0", Ru) + " сом";
+
+        var rows = tiles
+            .Where(t => !t.IsService)
+            .Select(t =>
+            {
+                var name = t.Title.Trim();
+                var sold30 = (q1.TryGetValue(name, out var a) ? a : 0) + (q2.TryGetValue(name, out var b) ? b : 0);
+                var perDay = sold30 / 30.0;
+                var price = Price(t);
+                var markup = t.PurchasePrice > 0 ? (price - t.PurchasePrice) / t.PurchasePrice * 100 : (double?)null;
+                return new
+                {
+                    Tile = t, Name = name, Stock = t.Quantity, Sold30 = sold30, PerDay = perDay,
+                    Recent = q2.TryGetValue(name, out var r2) ? r2 : 0, Before = q1.TryGetValue(name, out var r1) ? r1 : 0,
+                    Price = price, Cost = t.PurchasePrice, Markup = markup,
+                    Frozen = Math.Max(0, t.Quantity) * (t.PurchasePrice > 0 ? t.PurchasePrice : price),
+                };
+            })
+            .ToList();
+
+        var dead = rows.Where(r => r.Stock > 0 && r.Sold30 <= 0).OrderByDescending(r => r.Frozen).Take(15).ToList();
+        sb.AppendLine($"• Не продавались 30 дней, но лежат на складе — {rows.Count(r => r.Stock > 0 && r.Sold30 <= 0)} поз., " +
+                      $"заморожено {Money(dead.Sum(r => r.Frozen))} (по закупке): " +
+                      (dead.Count == 0 ? "нет." : string.Join("; ", dead.Select(r => $"{r.Name} — остаток {r.Stock:0.###}, {Money(r.Frozen)}"))));
+
+        var overstock = rows.Where(r => r.PerDay > 0 && r.Stock / r.PerDay > 60).OrderByDescending(r => r.Stock / r.PerDay).Take(12).ToList();
+        sb.AppendLine("• Затоварено (запаса больше чем на 60 дней продаж): " +
+                      (overstock.Count == 0 ? "нет." : string.Join("; ", overstock.Select(r =>
+                          $"{r.Name} — остаток {r.Stock:0.###}, продаётся {r.PerDay:0.##} в день, хватит на {r.Stock / r.PerDay:0} дн."))));
+
+        var falling = rows.Where(r => r.Before >= 3 && r.Recent < r.Before * 0.6).OrderBy(r => r.Recent / Math.Max(1, r.Before)).Take(10).ToList();
+        sb.AppendLine("• Продажи упали (последние 15 дней против предыдущих 15): " +
+                      (falling.Count == 0 ? "нет." : string.Join("; ", falling.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
+
+        var lowMargin = rows.Where(r => r.Markup is { } m && m < 10).OrderBy(r => r.Markup).Take(12).ToList();
+        sb.AppendLine("• Низкая наценка (меньше 10 %) или цена ниже закупки — скидку на них давать нельзя: " +
+                      (lowMargin.Count == 0 ? "нет." : string.Join("; ", lowMargin.Select(r =>
+                          $"{r.Name} — цена {r.Price:0.##}, закупка {r.Cost:0.##}, наценка {r.Markup:0.#} %"))));
+
+        var growing = rows.Where(r => r.Recent >= 3 && r.Recent > r.Before * 1.3).OrderByDescending(r => r.Recent - r.Before).Take(6).ToList();
+        sb.AppendLine("• Растут (хорошие «паровозы» для комплекта со слабым товаром): " +
+                      (growing.Count == 0 ? "нет." : string.Join("; ", growing.Select(r => $"{r.Name} — было {r.Before:0.###}, стало {r.Recent:0.###}"))));
+
+        var withCost = rows.Where(r => r.Stock > 0 && r.Cost > 0).ToList();
+        sb.AppendLine($"• Склад: {rows.Count(r => r.Stock > 0)} позиций в наличии, по закупке {Money(withCost.Sum(r => r.Stock * r.Cost))}; " +
+                      $"нет в наличии {rows.Count(r => r.Stock <= 0)}.");
+        sb.AppendLine("Правила акций: скидка не ниже закупки + 5 %; на мёртвый остаток — скидка 15–30 % или «2 по цене 1,5»; " +
+                      "затоваренное — в комплект с растущим товаром; падающее — выкладка/напоминание в боте; товары с низкой наценкой — без скидки.");
+    }
+
+    private static async Task AppendClientsAndOrdersAsync(StringBuilder sb, CancellationToken ct)
+    {
+        try
+        {
+            var api = App.GetRequiredService<NurMarketKassa.Services.Api.IClientsApiService>();
+            int total = 0, recent = 0;
+            var since = DateTime.UtcNow.AddDays(-30);
+            for (var page = 1; page <= 20; page++)
+            {
+                var (items, hasNext) = await api.GetClientsPageAsync(page, null, ct).ConfigureAwait(false);
+                foreach (var c in items)
+                {
+                    total++;
+                    if (DateTime.TryParse(Str(c, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var at) && at >= since)
+                        recent++;
+                }
+                if (!hasNext)
+                    break;
+            }
+            sb.AppendLine($"• Клиенты (сервер NurCRM): всего {total}, новых за 30 дней {recent}.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"ИИ-советник: клиенты для анализа не получены ({ex.Message}).", "WARNING");
+        }
+        try
+        {
+            var stats = await App.GetRequiredService<NurMarketKassa.Services.Api.ServerTelegramBotApi>()
+                .GetStatsAsync(DateTime.Today.AddDays(-29), DateTime.Today.AddDays(1), ct).ConfigureAwait(false);
+            sb.AppendLine($"• Заказы через Telegram-бота за 30 дней: обращений {stats.Messages}, покупателей {stats.People}, " +
+                          $"заказов {stats.Orders} на {stats.OrdersTotal.ToString("N0", Ru)} сом. Заказы с витрины сайта приходят в WhatsApp (на сервере не хранятся).");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"ИИ-советник: статистика бота не получена ({ex.Message}).", "WARNING");
+        }
+    }
+
     /// <summary>2026-10-05, владелец: «дай список клиентов-должников». Имена и телефоны клиентов в Google не уходят:
     /// нейросеть видит должников под кодами [Д1], [Д2]… (сумма, число чеков, с какой даты), а настоящие имя и
     /// телефон подставляет в её ответ сама программа (<see cref="RevealDebtors"/>) — на этом компьютере.</summary>

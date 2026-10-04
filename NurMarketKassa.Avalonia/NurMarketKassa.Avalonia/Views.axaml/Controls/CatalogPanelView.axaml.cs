@@ -36,6 +36,26 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         if (OperatingSystem.IsAndroid())
         {
             CardsListBox.SizeChanged += (_, _) => Dispatcher.UIThread.Post(FitTilesToRow, DispatcherPriority.Background);
+            // 2026-10-05, проверка 1.17.49 на телефоне: номера страниц налезали на «Вперёд ›» — на узком экране
+            // у кнопок «Назад» / «Вперёд» остаются только стрелки.
+            bool? narrowPager = null;
+            SizeChanged += (_, e) =>
+            {
+                var narrow = e.NewSize.Width < 520;
+                if (narrow == narrowPager)
+                    return;
+                narrowPager = narrow;
+                if (narrow)
+                {
+                    PrevPageButton.Content = "‹";
+                    NextPageButton.Content = "›";
+                }
+                else
+                {
+                    PrevPageButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("csh.catalog.prevPage"));
+                    NextPageButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("csh.catalog.nextPage"));
+                }
+            };
             // 2026-10-05, «при смене страницы каталога жёстко тормозит»: время показа страницы — в журнал.
             DataContextChanged += (_, _) =>
             {
@@ -45,6 +65,14 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                         if (e.PropertyName != nameof(CatalogPanelViewModel.CurrentPage))
                             return;
                         var page = vm.CurrentPage;
+                        // 2026-10-05, проверка 1.17.49 на телефоне: новая страница открывалась прокрученной туда же,
+                        // где была прежняя (видна середина страницы) — показываем её с начала.
+                        // Плитки лежат во внешнем ScrollViewer (вокруг ListBox) — сбрасываем и его, и внутренний.
+                        foreach (var list in new[] { CardsListBox, TableListBox })
+                        {
+                            list.FindAncestorOfType<ScrollViewer>()?.ScrollToHome();
+                            list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()?.ScrollToHome();
+                        }
                         var sw = System.Diagnostics.Stopwatch.StartNew();
                         // Этапы: подготовка (плитки созданы), раскладка, кадр нарисован.
                         long prepared = -1, laidOut = -1;

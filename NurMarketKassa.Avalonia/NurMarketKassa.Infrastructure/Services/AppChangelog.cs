@@ -61,15 +61,77 @@ public static class AppChangelog
         "«Texnik yordam»: «Qurilma ma'lumotlarini nusxalash» tugmasi — kompyuter va kassa haqidagi ma'lumotlar buferga, yordamga yuborish uchun",
     ];
 
+    // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
+    // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
+    // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    public static readonly string[] AndroidLatest =
+    [
+        "Кассовые терминалы со встроенным сканером и принтером (Sunmi, iMin, Urovo, Newland и похожие): коды со сканера принимаются сами, встроенный принтер чеков находится сам",
+        "При сворачивании касса больше не закрывается — работает в фоне, в шторке «NurMarket работает»",
+        "Кнопка 📷 в поиске товара — сканер штрихкодов камерой",
+        "Окна весового товара, возврата, оплаты долга, проката, истории чеков и настроек подстроены под телефон; каталог — по 12 товаров на странице, листается быстрее",
+        "Программа владельца: «Подробнее» в продажах больше не зависает; новые разделы «ИИ-советник», «Воронка» (с источником клиента) и «WhatsApp»",
+        "Изъятие больше наличных в кассе запрещено; если кассу закрыли сразу после оплаты, товары больше не возвращаются в чек",
+    ];
+
+    public static readonly string[] AndroidLatestKy =
+    [
+        "Ичинде сканер жана принтер бар касса терминалдары (Sunmi, iMin, Urovo, Newland ж.б.): сканердин коддору өзү кабыл алынат, чек принтери өзү табылат",
+        "Кичирейткенде касса мындан ары жабылбайт — фондо иштейт, билдирмелерде «NurMarket иштеп жатат»",
+        "Товар издөөдө 📷 баскычы — камера менен штрихкод сканери",
+        "Салмак товары, кайтаруу, карыз төлөө, прокат, чектердин тарыхы жана жөндөөлөр терезелери телефонго ылайыкталды; каталогдо баракта 12 товар, тезирээк жылат",
+        "Ээсинин программасы: сатуудагы «Толугураак» мындан ары катып калбайт; жаңы бөлүмдөр «ИИ-кеңешчи», «Воронка» (кардардын булагы менен) жана «WhatsApp»",
+        "Кассадагы накталайдан көп алуу тыюу салынды; төлөмдөн кийин касса дароо жабылса, товарлар чекке кайтпайт",
+    ];
+
+    public static readonly string[] AndroidLatestEn =
+    [
+        "Till terminals with a built-in scanner and printer (Sunmi, iMin, Urovo, Newland and similar): scanner codes are accepted and the built-in receipt printer is found automatically",
+        "Minimising no longer closes the till — it keeps running in the background with “NurMarket is running” in the notification shade",
+        "The 📷 button in product search — barcode scanning with the camera",
+        "Weighed-product, return, debt payment, rentals, receipt history and settings windows fit a phone; the catalog shows 12 products per page and pages faster",
+        "Owner app: “Details” in sales no longer freezes; new sections “AI advisor”, “Funnel” (with client source) and “WhatsApp”",
+        "A cash-out larger than the cash in the till is not allowed; if the till is closed right after payment, the items no longer come back into the receipt",
+    ];
+
+    public static readonly string[] AndroidLatestTr =
+    [
+        "Dahili tarayıcılı ve yazıcılı kasa terminalleri (Sunmi, iMin, Urovo, Newland ve benzerleri): tarayıcı kodları kendiliğinden alınır, dahili fiş yazıcısı kendiliğinden bulunur",
+        "Küçültünce kasa artık kapanmıyor — arka planda çalışır, bildirimlerde «NurMarket çalışıyor»",
+        "Ürün aramada 📷 düğmesi — kamerayla barkod tarama",
+        "Tartılı ürün, iade, borç ödeme, kiralama, fiş geçmişi ve ayarlar pencereleri telefona uyarlandı; katalogda sayfada 12 ürün, daha hızlı",
+        "Sahip programı: satışlarda «Ayrıntılar» artık donmuyor; yeni bölümler «YZ danışmanı», «Huni» (müşteri kaynağıyla) ve «WhatsApp»",
+        "Kasadaki nakitten fazla çıkış yasak; kasa ödemeden hemen sonra kapanırsa ürünler fişe geri gelmez",
+    ];
+
+    public static readonly string[] AndroidLatestUz =
+    [
+        "Ichki skaner va printerli kassa terminallari (Sunmi, iMin, Urovo, Newland va shunga o'xshashlar): skaner kodlari o'zi qabul qilinadi, ichki chek printeri o'zi topiladi",
+        "Yig'ilganda kassa endi yopilmaydi — fonda ishlaydi, bildirishnomalarda «NurMarket ishlayapti»",
+        "Mahsulot qidiruvida 📷 tugmasi — kamera bilan shtrix-kod skaneri",
+        "Tortiladigan mahsulot, qaytarish, qarz to'lash, prokat, cheklar tarixi va sozlamalar oynalari telefonga moslashtirildi; katalogda sahifada 12 ta mahsulot, tezroq",
+        "Egasi dasturi: savdodagi «Batafsil» endi qotib qolmaydi; yangi bo'limlar «SI-maslahatchi», «Voronka» (mijoz manbasi bilan) va «WhatsApp»",
+        "Kassadagi naqddan ko'p chiqim taqiqlangan; to'lovdan so'ng kassa darhol yopilsa, mahsulotlar chekka qaytmaydi",
+    ];
+
     public static string[] LatestForCurrentLanguage() =>
-        UserPreferences.Instance.Language switch
-        {
-            AppLanguage.Kyrgyz => LatestKy,
-            AppLanguage.English => LatestEn,
-            AppLanguage.Turkish => LatestTr,
-            AppLanguage.Uzbek => LatestUz,
-            _ => Latest,
-        };
+        OperatingSystem.IsAndroid()
+            ? UserPreferences.Instance.Language switch
+            {
+                AppLanguage.Kyrgyz => AndroidLatestKy,
+                AppLanguage.English => AndroidLatestEn,
+                AppLanguage.Turkish => AndroidLatestTr,
+                AppLanguage.Uzbek => AndroidLatestUz,
+                _ => AndroidLatest,
+            }
+            : UserPreferences.Instance.Language switch
+            {
+                AppLanguage.Kyrgyz => LatestKy,
+                AppLanguage.English => LatestEn,
+                AppLanguage.Turkish => LatestTr,
+                AppLanguage.Uzbek => LatestUz,
+                _ => Latest,
+            };
 
     public static string LatestAsBulletedText() =>
         string.Join("\n", System.Linq.Enumerable.Select(LatestForCurrentLanguage(), line => "• " + line));

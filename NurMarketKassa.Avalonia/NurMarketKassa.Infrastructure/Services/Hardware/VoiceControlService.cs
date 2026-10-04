@@ -232,6 +232,42 @@ public sealed class VoiceControlService : IVoiceControlService
                 break;
         }
 
+        // 2026-10-05, владелец: «ИИ добавь и к голосовому управлению». Обычный разбор не понял фразу или не нашёл
+        // товар — спрашиваем ИИ (VoiceAi) в фоне, не задерживая распознавание следующих фраз. Нет ключа, нет
+        // связи, ИИ не ответил за 6 с — отдаём обычный результат, как раньше («товар не найден» и т.д.).
+        if (VoiceAi.IsAvailable && VoiceAi.ShouldAsk(result))
+        {
+            var plain = result;
+            var audio = utteranceAudio;
+            _ = Task.Run(async () =>
+            {
+                VoiceCommandResult? smart = null;
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+                    smart = await VoiceAi.InterpretAsync(commandText, text, products, cts.Token).ConfigureAwait(false);
+                    if (smart is { Intent: VoiceIntent.AddProduct, Product: { } found })
+                    {
+                        // Как в обычном разборе: для весового товара вес с весов важнее произнесённого числа.
+                        if (found.MustWeigh && _weightScale is { IsAvailable: true, LastWeight: > 0 })
+                            smart = smart with { Quantity = _weightScale.LastWeight!.Value };
+                        _lastAddProductResult = smart;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Голосовое управление: ИИ не помог ({ex.Message}).", "VOICE");
+                }
+                Publish(smart ?? plain, text, audio);
+            });
+            return;
+        }
+
+        Publish(result, text, utteranceAudio);
+    }
+
+    private void Publish(VoiceCommandResult result, string text, byte[] utteranceAudio)
+    {
         // Голосовой замок (2026-09-05) — применяется к ЛЮБОЙ распознанной команде, не только
         // AddProduct: "касса очисти чек" от постороннего голоса ничем не лучше "касса молоко".
         // Verify возвращает null, если замок выключен/голос не зарегистрирован — тогда

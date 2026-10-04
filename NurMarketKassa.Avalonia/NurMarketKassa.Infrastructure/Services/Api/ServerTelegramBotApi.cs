@@ -40,6 +40,10 @@ public sealed record ServerBotStats(int Messages, int People, int Orders, double
 /// <summary>Одно обращение покупателя к боту на сервере (GET /api/main/telegram-bot/inquiries/).</summary>
 public sealed record ServerBotInquiry(DateTimeOffset? At, string ChatId, string Name, string Username, string Text, string Reply, bool IsVoice, string? OrderNumber, double? OrderTotal);
 
+/// <summary>2026-10-05, ТЗ часть 11: свой сценарий или команда бота (GET /api/main/telegram-bot/scenarios/).</summary>
+public sealed record ServerBotScenario(string Id, string Kind, string? Command, IReadOnlyList<string> Keywords, string Title,
+    string ReplyText, string Audience, bool IsActive, bool ShowInMenu, int Hits);
+
 /// <summary>Покупатель бота на сервере (GET /api/main/telegram-bot/customers/).</summary>
 public sealed record ServerBotCustomer(string ChatId, string Name, string Username, int Messages, int Orders, DateTimeOffset? LastAt);
 
@@ -170,6 +174,74 @@ public sealed class ServerTelegramBotApi
         var data = await _api.RequestAsync(HttpMethod.Get, Root + "customers/", null, Period(from, to), ct).ConfigureAwait(false);
         return Rows(data).Select(r => new ServerBotCustomer(Str(r, "chat_id") ?? "", Str(r, "name") ?? "", Str(r, "username") ?? "",
             Int(r, "messages"), Int(r, "orders"), Date(r, "last_at"))).ToList();
+    }
+
+    /// <summary>2026-10-05, ТЗ часть 11: известно ли, что сервер умеет сценарии (null — ещё не спрашивали).</summary>
+    public static bool? ScenariosSupported { get; private set; }
+
+    /// <summary>Свои сценарии и команды бота. null — сервер их пока не умеет (404): программа готова заранее,
+    /// заработает сразу, как только бэкенд выложит API из ТЗ части 11.</summary>
+    public async Task<IReadOnlyList<ServerBotScenario>?> GetScenariosAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var data = await _api.RequestAsync(HttpMethod.Get, Root + "scenarios/", null, null, ct).ConfigureAwait(false);
+            ScenariosSupported = true;
+            return Rows(data).Select(ParseScenario).ToList();
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            ScenariosSupported = false;
+            return null;
+        }
+    }
+
+    /// <summary>Создать сценарий (поля — как в ТЗ части 11, п. 1.2). Ошибку сервера — текстом в исключении (DescribeFields).</summary>
+    public async Task<ServerBotScenario?> CreateScenarioAsync(IReadOnlyDictionary<string, object?> body, CancellationToken ct = default)
+    {
+        var data = await _api.RequestAsync(HttpMethod.Post, Root + "scenarios/", body, null, ct).ConfigureAwait(false);
+        return data.ValueKind == JsonValueKind.Object ? ParseScenario(data) : null;
+    }
+
+    /// <summary>«Что ответит бот» на текст — ничего не отправляет в Telegram (ТЗ часть 11, scenarios/test/).
+    /// Возвращает текст ответа сценария или null, если ни один сценарий не сработал.</summary>
+    public async Task<string?> TestScenarioAsync(string text, string audience, CancellationToken ct = default)
+    {
+        var data = await _api.RequestAsync(HttpMethod.Post, Root + "scenarios/test/",
+            new Dictionary<string, object?> { ["text"] = text, ["audience"] = audience }, null, ct).ConfigureAwait(false);
+        if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("matched", out var m) || m.ValueKind != JsonValueKind.Object)
+            return null;
+        return Str(data, "reply_text");
+    }
+
+    private static ServerBotScenario ParseScenario(JsonElement r)
+    {
+        var keywords = r.TryGetProperty("keywords", out var k) && k.ValueKind == JsonValueKind.Array
+            ? k.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToList()
+            : new List<string>();
+        return new ServerBotScenario(Str(r, "id") ?? "", Str(r, "kind") ?? "", Str(r, "command"), keywords, Str(r, "title") ?? "",
+            Str(r, "reply_text") ?? "", Str(r, "audience") ?? "customers",
+            !r.TryGetProperty("is_active", out var a) || a.ValueKind != JsonValueKind.False, Bool(r, "show_in_menu"), Int(r, "hits"));
+    }
+
+    /// <summary>Ошибка 400 с полями, как в DRF ({"command": ["Такая команда уже есть"]}) — «command: Такая команда уже есть».</summary>
+    public static string DescribeFields(Exception ex)
+    {
+        if (ex is ApiException { Payload: { ValueKind: JsonValueKind.Object } payload })
+        {
+            foreach (var p in payload.EnumerateObject())
+            {
+                var msg = p.Value.ValueKind switch
+                {
+                    JsonValueKind.String => p.Value.GetString(),
+                    JsonValueKind.Array when p.Value.GetArrayLength() > 0 => p.Value[0].ToString(),
+                    _ => null,
+                };
+                if (!string.IsNullOrWhiteSpace(msg))
+                    return p.Name is "detail" or "non_field_errors" ? msg! : $"{p.Name}: {msg}";
+            }
+        }
+        return Describe(ex);
     }
 
     /// <summary>Текст ошибки сервера из ApiException (поле token / detail), без токенов.</summary>
