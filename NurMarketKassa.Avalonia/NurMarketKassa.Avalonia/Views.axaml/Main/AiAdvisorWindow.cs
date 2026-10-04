@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
@@ -185,7 +186,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _root.Margin = narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 18, 24, 24);
             reset.IsVisible = !narrow;
             _send.Padding = new Thickness(narrow ? 12 : 20, 0);
+            // Ключ: поле на всю ширину, «Получить ключ» и «Сохранить» — строкой ниже (на телефоне поле было в 60 точек).
+            keyRow.ColumnDefinitions = new ColumnDefinitions(narrow ? "*,*" : "*,Auto,Auto");
+            keyRow.RowDefinitions = narrow ? new RowDefinitions("Auto,8,Auto") : new RowDefinitions();
+            Grid.SetColumnSpan(_keyBox, narrow ? 2 : 1);
+            Grid.SetRow(getKey, narrow ? 2 : 0);
+            Grid.SetColumn(getKey, narrow ? 0 : 1);
+            Grid.SetRow(saveKey, narrow ? 2 : 0);
+            Grid.SetColumn(saveKey, narrow ? 1 : 2);
+            getKey.Margin = new Thickness(narrow ? 0 : 8, 0, narrow ? 4 : 0, 0);
+            saveKey.Margin = new Thickness(narrow ? 4 : 8, 0, 0, 0);
+            getKey.HorizontalAlignment = saveKey.HorizontalAlignment = narrow ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
         });
+        keyRow.Classes.Add("no-reflow");
 
         RefreshKeyCard();
         AddBubble(T("Здравствуйте! Я ИИ-советник вашего магазина. Спросите про продажи, остатки, закупки или как поднять выручку — "
@@ -280,6 +293,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var abc = await OwnerAiContext.BuildAbcAsync(_cts.Token).ConfigureAwait(true);
             var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, debts, debtors, abc, warehouse }.Where(s => !string.IsNullOrWhiteSpace(s)));
             var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(question, summary, _cts.Token).ConfigureAwait(true);
+            if (answer is { Length: > 0 })
+                AddProductPhotos(answer);
             thinking.Text = answer is { Length: > 0 }
                 ? OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(answer), debtorNames)
                 : T("Не получилось ответить: ", "Жооп берүү мүмкүн болгон жок: ", "Couldn't answer: ", "Yanıt verilemedi: ", "Javob berib bo'lmadi: ") + (error ?? "нет ответа");
@@ -321,6 +336,52 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _messages.Children.Add(bubble);
         ScrollToEnd();
         return body;
+    }
+
+    /// <summary>2026-10-05, владелец: «добавь ИИ отправлять фото товара, если есть». Под ответом — фото товаров,
+    /// которые советник назвал (до 4), из того же кэша фото, что у плиток каталога.</summary>
+    private void AddProductPhotos(string answer)
+    {
+        var products = OwnerAiContext.FindMentionedProducts(answer);
+        if (products.Count == 0)
+            return;
+        var strip = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };
+        var services = App.AppHost?.Services;
+        foreach (var product in products)
+        {
+            var image = new Image { Width = 112, Height = 112, Stretch = Stretch.UniformToFill };
+            image.Bind(Image.SourceProperty, new Avalonia.Data.Binding(nameof(product.ProductImagePath))
+            {
+                Source = product,
+                Converter = NurMarketKassa.AvaloniaHost.Converters.AssetPathToBitmapConverter.Instance,
+                ConverterParameter = "thumb",
+            });
+            var caption = new TextBlock
+            {
+                Text = product.Title, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 112,
+                TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 2, Margin = new Thickness(0, 4, 0, 0),
+            };
+            Use(caption, TextBlock.ForegroundProperty, "BrushTextSoft");
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(10), Padding = new Thickness(6), BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 8, 0),
+                Child = new StackPanel { Children = { new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Child = image }, caption } },
+            };
+            Use(card, Border.BackgroundProperty, "BrushPanel");
+            Use(card, Border.BorderBrushProperty, "BrushBorder");
+            strip.Children.Add(card);
+            // Фото ещё не скачано — качаем в кэш (как плитка каталога); путь подставится в картинку сам.
+            if (string.IsNullOrEmpty(product.ProductImagePath) && !string.IsNullOrWhiteSpace(product.ImageUrl) && services is not null)
+            {
+                _ = services.GetRequiredService<ProductThumbService>().SetThumbAsync(
+                    Dispatcher.UIThread, services.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>(),
+                    services.GetRequiredService<NurMarketKassa.Configuration.AppSettings>().ApiBaseUrl,
+                    product.ImageUrl!, product, CancellationToken.None);
+            }
+        }
+        _messages.Children.Add(strip);
+        ScrollToEnd();
     }
 
     private void ScrollToEnd() =>

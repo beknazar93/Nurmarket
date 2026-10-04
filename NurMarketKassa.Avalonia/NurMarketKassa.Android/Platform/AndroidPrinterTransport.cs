@@ -141,8 +141,10 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         }
 
         // «BT» — первый сопряжённый принтер: класс «изображение/печать» или имя с printer/pos.
+        // 2026-10-05: встроенный принтер POS-терминала («InnerPrinter» Sunmi/iMin, «BluetoothPrinter») — первым.
         var bonded = adapter.BondedDevices?.ToList() ?? new List<BluetoothDevice>();
-        return bonded.FirstOrDefault(d => d.BluetoothClass?.MajorDeviceClass == MajorDeviceClass.Imaging)
+        return bonded.FirstOrDefault(AndroidBuiltInPrinter.IsBuiltIn)
+               ?? bonded.FirstOrDefault(d => d.BluetoothClass?.MajorDeviceClass == MajorDeviceClass.Imaging)
                ?? bonded.FirstOrDefault(d => (d.Name ?? "").Contains("print", StringComparison.OrdinalIgnoreCase)
                                              || (d.Name ?? "").Contains("pos", StringComparison.OrdinalIgnoreCase)
                                              || (d.Name ?? "").Contains("inner", StringComparison.OrdinalIgnoreCase));
@@ -370,7 +372,15 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
                 {
                     if (string.IsNullOrWhiteSpace(device.Address))
                         continue;
-                    list.Add(new DiscoveredPrinter($"📶 Bluetooth {device.Name} ({device.Address})", "BT:" + device.Address));
+                    // 2026-10-05: встроенный принтер POS-терминала — первым в списке и с понятной подписью.
+                    if (AndroidBuiltInPrinter.IsBuiltIn(device))
+                        list.Insert(0, new DiscoveredPrinter(
+                            Tr.T($"🧾 Встроенный принтер кассы ({device.Name})", $"🧾 Кассанын ичиндеги принтер ({device.Name})",
+                                $"🧾 Built-in till printer ({device.Name})", $"🧾 Kasanın dahili yazıcısı ({device.Name})",
+                                $"🧾 Kassaning ichki printeri ({device.Name})"),
+                            "BT:" + device.Address));
+                    else
+                        list.Add(new DiscoveredPrinter($"📶 Bluetooth {device.Name} ({device.Address})", "BT:" + device.Address));
                 }
             }
         }

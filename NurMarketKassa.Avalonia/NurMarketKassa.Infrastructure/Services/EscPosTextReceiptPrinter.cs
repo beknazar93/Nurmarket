@@ -85,6 +85,12 @@ public static class EscPosTextReceiptPrinter
         if (raw.Length == 0)
             throw new InvalidOperationException("Пустой текст чека.");
 
+        // 2026-10-05, владелец: «изучи Android POS-кассы … чековый принтер — чтобы работало 100%». Встроенный
+        // принтер Sunmi (виртуальный Bluetooth «InnerPrinter») из кириллицы знает только CP866 — без кыргызских
+        // ң ө ү. Зато умеет UTF-8 (документация SUNMI Inbuilt Printer: FS & + FS C 0xFF): весь текст как есть.
+        if (IsUtf8Pos(cfg.TextEncoding))
+            return BuildUtf8PosReceipt(raw);
+
         var encName = MapToDotNetEncoding(cfg.TextEncoding);
         Encoding encoding;
         try
@@ -169,6 +175,41 @@ public static class EscPosTextReceiptPrinter
             s.Write(encoding.GetBytes(line));
 
         EscPosCommands.WriteLineFeed(s);
+    }
+
+    /// <summary>2026-10-05: кодировка «utf8-pos» — встроенный принтер Android-кассы в режиме UTF-8 (Sunmi).</summary>
+    public const string Utf8PosEncoding = "utf8-pos";
+
+    private static bool IsUtf8Pos(string? userEnc) =>
+        string.Equals((userEnc ?? "").Trim(), Utf8PosEncoding, StringComparison.OrdinalIgnoreCase);
+
+    private static byte[] BuildUtf8PosReceipt(string text)
+    {
+        using var s = new MemoryStream(capacity: Math.Max(512, text.Length * 3));
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        EscPosCommands.WriteInitialize(s);
+        // FS & — многобайтовый режим, FS C 0xFF — кодировка UTF-8.
+        s.Write(new byte[] { 0x1C, 0x26, 0x1C, 0x43, 0xFF });
+        EscPosCommands.WriteDefaultLineSpacing(s);
+        EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: TextFontHeightMultiplier());
+        var utf8 = new UTF8Encoding(false);
+        var boldFirst = true;
+        foreach (var line in lines)
+        {
+            if (boldFirst && !string.IsNullOrWhiteSpace(line))
+            {
+                s.Write(new byte[] { 0x1B, 0x45, 0x01 });
+                WriteTextLine(s, utf8, line);
+                s.Write(new byte[] { 0x1B, 0x45, 0x00 });
+                boldFirst = false;
+                continue;
+            }
+            WriteTextLine(s, utf8, line);
+        }
+        EscPosCommands.WriteCharacterSize(s, widthMultiplier: 1, heightMultiplier: 1);
+        EscPosCommands.WriteLineFeed(s);
+        EscPosCommands.WriteFeedAndCut(s);
+        return s.ToArray();
     }
 
     private static string NormalizeDevicePath(string raw)

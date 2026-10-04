@@ -292,6 +292,7 @@
   <x:String x:Key="printSettings.width58">58 mm (32 chars)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 chars)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (prints as cp1251)</x:String>
+  <x:String x:Key="printSettings.utf8Pos">UTF-8 — built-in printer of an Android till (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (no Cyrillic)</x:String>
   <x:String x:Key="common.save">Save</x:String>
   <x:String x:Key="common.apply">Apply</x:String>

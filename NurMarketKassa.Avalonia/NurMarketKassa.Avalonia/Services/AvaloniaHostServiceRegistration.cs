@@ -23,6 +23,8 @@ internal static class AvaloniaHostServiceRegistration
     {
         var settings = AppSettings.Load();
         UserPreferences.LoadFromDiskAndMergeDefaults(settings);
+        // 2026-10-05: платформенные доводки настроек — только после чтения файла (Android: встроенный принтер POS).
+        UserPreferences.AfterLoadedFromDisk?.Invoke();
 
         services.AddSingleton(settings);
         services.AddSingleton<IUpdateCheckService, UpdateCheckService>();

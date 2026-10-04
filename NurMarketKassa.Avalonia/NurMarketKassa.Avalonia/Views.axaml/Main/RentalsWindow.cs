@@ -53,6 +53,7 @@ public sealed class RentalsWindow : Window
         var root = new Grid { Margin = new Thickness(24, 18, 24, 24), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*") };
 
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
+        head.Classes.Add("no-reflow"); // 2026-10-05: на телефоне перестраивается здесь же (NarrowLayout ниже)
         var title = new TextBlock { Text = T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), FontSize = 24, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         head.Children.Add(title);
@@ -277,6 +278,7 @@ public sealed class RentalsWindow : Window
         outer.Children.Add(strip);
 
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(16, 14, 16, 14) };
+        grid.Classes.Add("no-reflow"); // 2026-10-05: карточка на телефоне — в две строки (_narrow ниже)
         Grid.SetColumn(grid, 1);
         outer.Children.Add(grid);
 

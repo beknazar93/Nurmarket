@@ -119,7 +119,14 @@ public static class ReceiptPrintService
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("Текст чека пуст.");
 
-        if (prefs.SelectedPrintMode == PrintMode.Graphic)
+        // 2026-10-05: графический чек рисуется через System.Drawing — его нет на Android и Linux. Там — текстом
+        // ESC/POS, а не ошибка печати после каждой продажи.
+        if (prefs.SelectedPrintMode == PrintMode.Graphic && !OperatingSystem.IsWindows())
+        {
+            PosLogger.Log("ReceiptPrintService: графический чек есть только в Windows — печать текстом.", "PRINTER");
+            PrintText(prefs.ToReceiptPrinterSettings(), text);
+        }
+        else if (prefs.SelectedPrintMode == PrintMode.Graphic)
         {
             if (!prefs.GraphicReceiptEnabled)
                 throw new InvalidOperationException("Графический чек выключен в настройках кассы.");

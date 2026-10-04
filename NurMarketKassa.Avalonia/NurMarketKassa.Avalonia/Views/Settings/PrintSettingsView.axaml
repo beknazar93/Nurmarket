@@ -203,6 +203,8 @@
                   <ComboBoxItem Content="iso-8859-5" Tag="iso-8859-5"/>
                   <ComboBoxItem Content="koi8-r" Tag="koi8-r"/>
                   <ComboBoxItem Content="{DynamicResource printSettings.utf8AsCp1251}" Tag="utf-8"/>
+                  <!-- 2026-10-05: встроенный принтер Android POS (Sunmi) — UTF-8, печатает и кыргызские буквы. -->
+                  <ComboBoxItem Content="{DynamicResource printSettings.utf8Pos}" Tag="utf8-pos"/>
                 </ComboBox>
               </StackPanel>
 

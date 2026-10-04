@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WeighedProductDialog"
         Title="{DynamicResource weigh.title}"
@@ -174,7 +174,7 @@
                 <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,2"/>
 
                 <!-- Сетка: Левая часть (Ввод) и Правая часть (Кнопки быстрых значений + Нумпад) -->
-                <Grid x:Name="BodyGrid" ColumnDefinitions="*,24,310">
+                <Grid x:Name="BodyGrid" Classes="no-reflow" ColumnDefinitions="*,24,310">
 
                     <!-- ЛЕВАЯ КОЛОНКА -->
                     <StackPanel x:Name="InputColumn" Grid.Column="0" VerticalAlignment="Top" Spacing="16">

@@ -45,8 +45,35 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
             return;
         _barcodeBuf = "";
         _fastRunLength = 0;
+        Remember(trimmed);
         BarcodeScanned?.Invoke(trimmed);
     }
+
+    /// <summary>2026-10-05, владелец: «изучи Android POS-кассы, сканер… чтобы программа работала 100%». Встроенный
+    /// сканер POS-терминала (Sunmi, iMin, Urovo, Newland, iData…) отдаёт код рассылкой Android (AndroidHardwareScanner).
+    /// Многие при этом ещё и «печатают» тот же код как клавиатура — без проверки товар добавлялся бы дважды.
+    /// Тот же код другим путём в пределах <see cref="DuplicateWindowMs"/> второй раз не принимается.</summary>
+    public void InjectDeviceScan(string code)
+    {
+        var trimmed = code?.Trim();
+        if (string.IsNullOrEmpty(trimmed) || IsDuplicate(trimmed))
+            return;
+        Inject(trimmed);
+    }
+
+    private const int DuplicateWindowMs = 800;
+    private string? _lastCode;
+    private long _lastCodeTick;
+
+    private void Remember(string code)
+    {
+        _lastCode = code;
+        _lastCodeTick = Environment.TickCount64;
+    }
+
+    private bool IsDuplicate(string code) =>
+        string.Equals(_lastCode, code, StringComparison.Ordinal)
+        && Environment.TickCount64 - _lastCodeTick < DuplicateWindowMs;
 
     public void ProcessKeyDown(KeyEventArgs e)
     {
@@ -62,6 +89,10 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
                 var code = _barcodeBuf;
                 _barcodeBuf = "";
                 _fastRunLength = 0;
+                // 2026-10-05: тот же код только что пришёл рассылкой встроенного сканера — второй раз не добавляем.
+                if (IsDuplicate(code))
+                    return;
+                Remember(code);
                 BarcodeScanned?.Invoke(code);
             }
             else

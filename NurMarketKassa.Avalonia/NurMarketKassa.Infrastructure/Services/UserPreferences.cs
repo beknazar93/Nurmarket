@@ -795,6 +795,11 @@ public sealed class UserPreferences
         }
     }
 
+    /// <summary>2026-10-05: вызывается сразу после <see cref="LoadFromDiskAndMergeDefaults"/> (AvaloniaHostServiceRegistration).
+    /// Android ставит сюда автонастройку встроенного принтера POS-терминала — до этой минуты в <see cref="Instance"/>
+    /// значения по умолчанию, и сохранение затёрло бы файл настроек кассы.</summary>
+    public static Action? AfterLoadedFromDisk { get; set; }
+
     public static void LoadFromDiskAndMergeDefaults(AppSettings appDefaults)
     {
         var p = Instance;

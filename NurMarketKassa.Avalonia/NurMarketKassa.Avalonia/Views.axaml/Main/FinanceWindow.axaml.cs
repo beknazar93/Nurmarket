@@ -2858,6 +2858,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             if (sender is not Border { Tag: string tile })
                 return;
+            // 2026-10-05, владелец (телефон): «зависла в продажах — нажатие на подробнее». Окно открывалось
+            // синхронно прямо из нажатия пальца; на Android ожидание окна — вложенный цикл, и пока обработчик
+            // нажатия не вернулся, следующие касания снова попадали в эту плитку: за минуту открылось 37 окон
+            // друг на друге. Окно — после нажатия, и не второе, пока первое открыто.
+            e.Handled = true;
+            if (_drillDownOpen)
+                return;
+            Dispatcher.UIThread.Post(() => OpenKpiDrillDown(tile));
+        }
+
+        private bool _drillDownOpen;
+
+        private void OpenKpiDrillDown(string tile)
+        {
+            if (_drillDownOpen)
+                return;
             if (_listPending)
             {
                 ErrorMessage = Tr.T("Список чеков ещё загружается — нажмите через несколько секунд.",
@@ -2890,7 +2906,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var subtitle = _displayFrom.Date == _displayTo.Date
                 ? _displayFrom.ToString("dd.MM.yyyy")
                 : $"{_displayFrom:dd.MM.yyyy} — {_displayTo:dd.MM.yyyy}";
-            PosDialogHost.Show(new ShiftDrillDownDialog(kind, subtitle, sales, returns), this);
+            _drillDownOpen = true;
+            try
+            {
+                PosDialogHost.Show(new ShiftDrillDownDialog(kind, subtitle, sales, returns), this);
+            }
+            finally
+            {
+                _drillDownOpen = false;
+            }
         }
 
         private async void RefundsGrid_MouseDoubleClick(object sender, TappedEventArgs e)

@@ -292,6 +292,7 @@
   <x:String x:Key="printSettings.width58">58 мм (32 белги)</x:String>
   <x:String x:Key="printSettings.width80">80 мм (48 белги)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 катары басылат)</x:String>
+  <x:String x:Key="printSettings.utf8Pos">UTF-8 — Android-кассанын ичиндеги принтер (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (кириллицасыз)</x:String>
   <x:String x:Key="common.save">Сактоо</x:String>
   <x:String x:Key="common.apply">Колдонуу</x:String>

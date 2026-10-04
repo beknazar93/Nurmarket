@@ -41,7 +41,7 @@ internal static class AutoReflow
             }
             if (visual is StackPanel stack)
             {
-                ApplyStack(stack, narrow);
+                ApplyStack(stack, narrow, root);
                 continue;
             }
             if (visual is not Grid grid)
@@ -57,10 +57,18 @@ internal static class AutoReflow
                 continue;
             if (!StructureQualifies(grid))
             {
-                Rejected.AddOrUpdate(grid, Marker); // устройство сетки не подходит — больше не проверяем
-                continue;
+                // 2026-10-05, снимки владельца (программа владельца на телефоне): ряд «заголовок | кнопки»
+                // (колонки «*, Auto…» — «Продажи», «Склад», «Пополнение») уходил за правый край. Такой ряд —
+                // тоже столбиком, но только когда он правда не помещается (проверяется на каждом проходе).
+                if (!RowGridShape(grid))
+                {
+                    Rejected.AddOrUpdate(grid, Marker); // устройство сетки не подходит — больше не проверяем
+                    continue;
+                }
+                if (!RowChildrenQualify(grid) || !GridOverflows(grid, root))
+                    continue;
             }
-            if (!ChildrenQualify(grid))
+            else if (!ChildrenQualify(grid))
                 continue; // элементы могут появиться позже (данные загрузятся) — проверим в следующий раз
             state = new GridState { Columns = grid.ColumnDefinitions, Rows = grid.RowDefinitions };
             foreach (var child in grid.Children.OfType<Control>())
@@ -114,7 +122,7 @@ internal static class AutoReflow
     // ---- строка, которая не помещается в ширину, — с переносом, как слова в тексте ----
     private static readonly ConditionalWeakTable<StackPanel, WrapPanel> WrappedStacks = new();
 
-    private static void ApplyStack(StackPanel panel, bool narrow)
+    private static void ApplyStack(StackPanel panel, bool narrow, Visual root)
     {
         if (WrappedStacks.TryGetValue(panel, out var wrap))
         {
@@ -136,7 +144,15 @@ internal static class AutoReflow
         if (panel.Children.Count < 2 || panel.Bounds.Width <= 0)
             return;
         // Помещается — как есть; не помещается (обрезается справа) — с переносом.
-        if (panel.DesiredSize.Width <= panel.Bounds.Width + 2)
+        // 2026-10-05: раньше сравнивалось DesiredSize с Bounds — но Avalonia обрезает DesiredSize до доступной
+        // ширины, и ряд «Поиск | Excel | Word | Обновить» не переносился никогда. Теперь — сумма естественных
+        // ширин элементов против места до правого края окна. Ряды, которые сами листаются вбок (полосы вкладок
+        // в ScrollViewer), не трогаются.
+        if (InHorizontalScroller(panel, root))
+            return;
+        var visible = panel.Children.Where(c => c.IsVisible).ToList();
+        var natural = visible.Sum(c => c.DesiredSize.Width) + panel.Spacing * Math.Max(0, visible.Count - 1);
+        if (!Overflows(panel, natural, root))
             return;
         if (panel.FindAncestorOfType<Avalonia.Controls.Button>() is not null)
             return; // значок + текст внутри кнопки
@@ -153,6 +169,69 @@ internal static class AutoReflow
         panel.Orientation = Orientation.Vertical;
         panel.Children.Add(wrap);
         WrappedStacks.AddOrUpdate(panel, wrap);
+    }
+
+    /// <summary>2026-10-05: сколько места до правого края окна (или до края самого элемента, если он уже).</summary>
+    private static bool Overflows(Control control, double naturalWidth, Visual root)
+    {
+        var available = control.Bounds.Width > 0 ? control.Bounds.Width : double.MaxValue;
+        if (root is Layoutable { Bounds.Width: > 0 } window && control.TranslatePoint(default, root) is { } origin)
+            available = Math.Min(available, window.Bounds.Width - origin.X);
+        return available > 0 && naturalWidth > available + 2;
+    }
+
+    private static bool InHorizontalScroller(Control control, Visual root)
+    {
+        for (var v = control.GetVisualParent(); v is not null && !ReferenceEquals(v, root); v = v.GetVisualParent())
+        {
+            if (v is ScrollViewer { HorizontalScrollBarVisibility: not ScrollBarVisibility.Disabled })
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>2026-10-05: ряд «заголовок | кнопки»: одна строка, колонки «*», «Auto» и постоянной ширины,
+    /// хотя бы одна не резиновая (сетки из одних резиновых колонок — правило StructureQualifies).</summary>
+    private static bool RowGridShape(Grid grid)
+    {
+        if (grid.TemplatedParent is not null || grid.Classes.Contains("no-reflow"))
+            return false;
+        var columns = grid.ColumnDefinitions;
+        if (columns.Count < 2 || columns.Count > 8 || grid.RowDefinitions.Count > 1)
+            return false;
+        return columns.Any(c => c.Width.IsAuto || (c.Width.IsAbsolute && c.Width.Value > 40));
+    }
+
+    private static bool RowChildrenQualify(Grid grid)
+    {
+        // 2026-10-05: бывает виден один элемент — заголовок раздела скрыт в программе владельца, а ряд
+        // «Поиск | Excel | Word | Обновить» в колонке «Auto» не помещается («Продажи», «ABC-анализ»): переносить
+        // этот ряд можно, только когда колонка станет резиновой — поэтому достаточно одного видимого элемента.
+        var children = grid.Children.OfType<Control>().Where(c => c.IsVisible).ToList();
+        if (children.Count < 1)
+            return false;
+        return !children.Any(c => Grid.GetColumnSpan(c) > 1 || Grid.GetRow(c) > 0);
+    }
+
+    /// <summary>Естественная ширина ряда: колонки «Auto» — по самому широкому элементу, постоянные — как заданы,
+    /// резиновые — не меньше 60 точек (заголовок или поле должны хоть как-то читаться).</summary>
+    private static bool GridOverflows(Grid grid, Visual root)
+    {
+        if (grid.Bounds.Width <= 0 || InHorizontalScroller(grid, root))
+            return false;
+        double natural = 0;
+        for (var i = 0; i < grid.ColumnDefinitions.Count; i++)
+        {
+            var width = grid.ColumnDefinitions[i].Width;
+            var inColumn = grid.Children.OfType<Control>().Where(c => c.IsVisible && Grid.GetColumn(c) == i).ToList();
+            if (width.IsAbsolute)
+                natural += width.Value;
+            else if (width.IsAuto)
+                natural += inColumn.Count == 0 ? 0 : inColumn.Max(c => c.DesiredSize.Width);
+            else if (inColumn.Count > 0)
+                natural += Math.Max(60, inColumn.Max(c => c.DesiredSize.Width));
+        }
+        return Overflows(grid, natural, root);
     }
 
     private static bool StructureQualifies(Grid grid)

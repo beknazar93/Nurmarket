@@ -46,8 +46,18 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                             return;
                         var page = vm.CurrentPage;
                         var sw = System.Diagnostics.Stopwatch.StartNew();
+                        // Этапы: подготовка (плитки созданы), раскладка, кадр нарисован.
+                        long prepared = -1, laidOut = -1;
+                        Dispatcher.UIThread.Post(() => prepared = sw.ElapsedMilliseconds, DispatcherPriority.Send);
+                        void OnLayout(object? s, EventArgs a)
+                        {
+                            LayoutUpdated -= OnLayout;
+                            laidOut = sw.ElapsedMilliseconds;
+                        }
+                        LayoutUpdated += OnLayout;
                         Dispatcher.UIThread.Post(() => PosLogger.Log(
-                            $"Каталог: страница {page} показана за {sw.ElapsedMilliseconds} мс ({vm.Products.Count} товаров).", "UI"),
+                            $"Каталог: страница {page} показана за {sw.ElapsedMilliseconds} мс ({vm.Products.Count} товаров; " +
+                            $"подготовка {prepared} мс, раскладка {laidOut} мс).", "UI"),
                             DispatcherPriority.Background);
                     };
             };

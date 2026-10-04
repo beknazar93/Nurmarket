@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models;
@@ -573,9 +574,28 @@ public partial class ShiftDetailsDialog : Window
     {
         if (_shift is null || sender is not Control { Tag: string kind })
             return;
-
-        PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) ? SaleRows() : null), this);
+        // 2026-10-05: как плитки «Финансов» (FinanceWindow.Kpi_PointerPressed) — на телефоне касания во время
+        // открытия окна снова попадали в плитку и открывали окно за окном. Окно — после касания, одно.
+        e.Handled = true;
+        if (_drillDownOpen)
+            return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_drillDownOpen || _shift is null)
+                return;
+            _drillDownOpen = true;
+            try
+            {
+                PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) ? SaleRows() : null), this);
+            }
+            finally
+            {
+                _drillDownOpen = false;
+            }
+        });
     }
+
+    private bool _drillDownOpen;
 
     private void Close_Click(object? sender, RoutedEventArgs e)
     {

@@ -240,6 +240,38 @@ public static class OwnerAiContext
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private const int MaxProducts = 600;
 
+    /// <summary>2026-10-05, владелец: «добавь боту и ИИ отправлять фото товара, если есть». Товары каталога,
+    /// названные в ответе советника (по полному названию, без учёта регистра), у которых есть фото, — в порядке
+    /// упоминания, не больше <paramref name="max"/>.</summary>
+    public static IReadOnlyList<CatalogProductTileVm> FindMentionedProducts(string text, int max = 4)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return Array.Empty<CatalogProductTileVm>();
+        try
+        {
+            IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
+            if (tiles.Count == 0)
+                tiles = CatalogCacheService.Products.ToList();
+            return tiles
+                .Where(t => t.Title.Trim().Length >= 3
+                            && (!string.IsNullOrWhiteSpace(t.ImageUrl) || !string.IsNullOrWhiteSpace(t.ProductImagePath)))
+                .Select(t => (Tile: t, At: text.IndexOf(t.Title.Trim(), StringComparison.OrdinalIgnoreCase)))
+                .Where(x => x.At >= 0)
+                .OrderBy(x => x.At)
+                .ThenByDescending(x => x.Tile.Title.Length)
+                .Select(x => x.Tile)
+                .GroupBy(t => t.Id)
+                .Select(g => g.First())
+                .Take(max)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: товары для фото не найдены ({ex.Message}).", "WARNING");
+            return Array.Empty<CatalogProductTileVm>();
+        }
+    }
+
     public static string BuildWarehouse()
     {
         try

@@ -292,6 +292,7 @@
   <x:String x:Key="printSettings.width58">58 mm (32 belgi)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 belgi)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 sifatida chop etiladi)</x:String>
+  <x:String x:Key="printSettings.utf8Pos">UTF-8 — Android kassaning ichki printeri (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (kirillitsasiz)</x:String>
   <x:String x:Key="common.save">Saqlash</x:String>
   <x:String x:Key="common.apply">Qo'llash</x:String>

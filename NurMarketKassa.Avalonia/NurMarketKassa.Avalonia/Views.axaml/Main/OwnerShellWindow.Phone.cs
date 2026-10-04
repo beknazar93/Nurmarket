@@ -153,6 +153,10 @@ public partial class OwnerShellWindow
     private void ApplyPhoneColumns()
     {
         var columns = RootGrid.ColumnDefinitions;
+        // 2026-10-05, снимки владельца: колонка меню шириной 0 не обрезает содержимое — логотип и «≡» меню
+        // рисовались поверх шапки раздела (два значка «≡» на логотипе). Закрытое меню на телефоне скрыто целиком.
+        if (RootGrid.Children.OfType<Border>().FirstOrDefault(b => Grid.GetColumn(b) == 0 && Grid.GetRow(b) == 1) is { } sidebar)
+            sidebar.IsVisible = !_phoneLayout || _phoneMenuOpen;
         if (!_phoneLayout)
         {
             // Ширину меню слева ставит ApplySidebarLayout; правая часть — снова на всё остальное.

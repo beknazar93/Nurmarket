@@ -219,7 +219,7 @@
       </Grid>
 
       <!-- 1: период, поиск, обновить -->
-      <Grid x:Name="ToolbarGrid" Grid.Row="1" Margin="0,14,0,0">
+      <Grid x:Name="ToolbarGrid" Classes="no-reflow" Grid.Row="1" Margin="0,14,0,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto"/>
           <ColumnDefinition Width="3*" MaxWidth="480"/>

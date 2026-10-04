@@ -71,9 +71,10 @@ internal static class AndroidBootstrap
         // или кассовый терминал (DeviceForm).
         NurMarketKassa.AvaloniaHost.Services.DeviceForm.IsHandheld = DetectHandheld(activity);
         // 2026-10-05, владелец: «при смене страницы каталога жёстко тормозит» — на телефоне видно ~6 плиток,
-        // а страница создавала все 50. Телефон/планшет — 20 товаров на страницу, терминал — как было (50).
+        // а страница создавала все 50. Телефон/планшет — 12 товаров на страницу (два экрана; замер 05.10 на Redmi 12:
+        // 20 плиток — 0,9–1,7 с, почти всё — создание плиток), терминал — как было (50).
         if (NurMarketKassa.AvaloniaHost.Services.DeviceForm.IsHandheld)
-            NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.PageSizeOverride = 20;
+            NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.PageSizeOverride = 12;
         // 2026-10-05: «Скопировать информацию об устройстве» (окно «Удалённая поддержка») — сведения Android.
         NurMarketKassa.AvaloniaHost.Services.DeviceInfoReport.PlatformDetails = AndroidDeviceInfo.Collect;
 
@@ -97,6 +98,11 @@ internal static class AndroidBootstrap
         PrinterPortService.PlatformTransport = new AndroidPrinterTransport();
         // 2026-10-04: камера аппарата как сканер штрихкодов (CameraScan, кнопка «камера» в чеке, карточке товара, приёмке).
         AndroidCameraScanner.Install();
+        // 2026-10-05: встроенный сканер POS-терминала (рассылки Sunmi, iMin, Urovo, Newland, iData…) — AndroidHardwareScanner.
+        AndroidHardwareScanner.Install(Android.App.Application.Context);
+        // 2026-10-05: встроенный принтер POS-терминала (Sunmi, iMin…) — выбирается сам, если принтер не настроен.
+        // Только после чтения файла настроек (до него в UserPreferences значения по умолчанию).
+        UserPreferences.AfterLoadedFromDisk = () => AndroidBuiltInPrinter.ApplyDefaults(Android.App.Application.Context);
         AndroidPlatformHooks.FinishApplication = code =>
         {
             try { CurrentActivity?.FinishAffinity(); } catch { /* активность уже закрыта */ }
