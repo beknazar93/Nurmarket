@@ -13,67 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Опт: тумблер «Розничный / Оптовый» над чеком и галочка «Опт» у товара; оптовая цена больше не теряется после перезапуска и после продажи",
-        "Скидка в убыток: окно «Продажа в убыток» с кнопкой «Я знаю что делаю» — без подтверждения скидка не применяется",
-        "Окно скидки помнит выбранный режим — процент или сом",
-        "Чек «в долг»: печатается, как внесена предоплата — «наличными» или «безналом»",
-        "Отчёт закрытия смены: блок «Прокат за смену» — выдано, возвращено, залоги, штрафы, на руках",
-        "Склад: кнопка «Обновить» — товары и остатки заново с сервера",
-        "Новый товар: поле PLU весового товара больше не сдвигает цены вниз",
-        "Касса больше не выходит из аккаунта, если сервер NurCRM временно не отвечает",
-        "Остаток товара уменьшается сразу после продажи",
+        "Нет интернета или сервер не отвечает — касса не ждёт: продажа сразу уходит в очередь, смена открывается и закрывается за 2–3 секунды, отправка на сервер — в фоне и без двойных продаж",
+        "Возврат: на чеке и в сообщении — сумма, которую нужно выдать покупателю («Выдать покупателю: N сом»)",
+        "QR клиента из приложения NurCRM «Мои баллы»: отсканировали — клиент сразу в чеке; нового клиента касса предложит добавить с его номером",
+        "Сенсорный экран: два пальца прокручивают список и не нажимают две кнопки сразу",
+        "Телеграм-бот: ИИ на сервере можно включить своим ключом прямо из программы",
+        "Z-отчёт: предоплата долга больше не считается дважды",
+        "Связь с сервером быстрее: ответы приходят сжатыми — в 8 раз меньше интернета",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Дүң: чектин үстүндө «Чекене / Дүң» которгуч жана товардагы «Дүң» белгиси; дүң баа кайра жүргүзгөндөн жана сатуудан кийин жоголбойт",
-        "Зыянга арзандатуу: «Эмне кылып жатканымды билем» баскычы менен эскертүү — ырастабасаңыз арзандатуу колдонулбайт",
-        "Арзандатуу терезеси тандалган режимди эстейт — пайыз же сом",
-        "«Карызга» чек: алдын ала төлөм кантип берилгени басылат — накталай же накталай эмес",
-        "Сменаны жабуу отчёту: «Сменадагы прокат» — берилди, кайтарылды, күрөөлөр, айыптар, колдо",
-        "Кампа: «Жаңылоо» баскычы — товарлар жана калдыктар серверден кайра",
-        "Жаңы товар: салмактуу товардын PLU талаасы бааларды ылдый түртпөйт",
-        "NurCRM сервери убактылуу жооп бербесе, касса аккаунттан чыгып кетпейт",
-        "Товардын калдыгы сатуудан кийин дароо азаят",
+        "Интернет жок же сервер жооп бербесе — касса күтпөйт: сатуу дароо кезекке кетет, смена 2–3 секундада ачылат жана жабылат, серверге жөнөтүү фондо жана кош сатуусуз",
+        "Кайтаруу: чекте жана билдирүүдө сатып алуучуга берилүүчү сумма («Сатып алуучуга берүү: N сом»)",
+        "NurCRM «Менин баллдарым» тиркемесинен кардардын QR коду: сканерлегенде кардар дароо чекте; жаңы кардарды касса анын номери менен кошууну сунуштайт",
+        "Сенсордук экран: эки манжа тизмени жылдырат жана эки баскычты бир убакта баспайт",
+        "Телеграм-бот: сервердеги ЖИни өз ачкычыңыз менен программадан эле күйгүзсө болот",
+        "Z-отчёт: карыздын алдын ала төлөмү эки жолу эсептелбейт",
+        "Сервер менен байланыш тезирээк: жооптор кысылып келет — интернет 8 эсе аз",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Wholesale: a “Retail / Wholesale” switch above the receipt and a “Wholesale” tick on each item; the wholesale price is no longer lost after a restart or a sale",
-        "Discount below cost: a “Selling at a loss” window with an “I know what I'm doing” button — without it the discount is not applied",
-        "The discount window remembers the chosen mode — percent or som",
-        "Credit receipt: the prepayment method is printed — “cash” or “non-cash”",
-        "Shift closing report: a “Rentals this shift” block — issued, returned, deposits, penalties, still out",
-        "Warehouse: a “Refresh” button — products and stock reloaded from the server",
-        "New product: the PLU field of a weighed product no longer pushes the prices down",
-        "The till no longer logs out when the NurCRM server is temporarily down",
-        "Stock goes down right after a sale",
+        "No internet or the server is not responding — the till does not wait: a sale goes to the queue at once, a shift opens and closes in 2–3 seconds, sending to the server happens in the background without double sales",
+        "Returns: the receipt and the message show the amount to give the customer (“Give the customer: N som”)",
+        "Customer QR from the NurCRM “My points” app: scan it and the customer is in the receipt; for a new customer the till offers to add them with their number",
+        "Touch screen: two fingers scroll the list and no longer press two buttons at once",
+        "Telegram bot: the AI on the server can be turned on with your own key right from the program",
+        "Z report: a debt prepayment is no longer counted twice",
+        "Faster connection to the server: responses come compressed — 8 times less internet",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Toptan: fişin üstünde «Perakende / Toptan» anahtarı ve üründe «Toptan» işareti; toptan fiyat yeniden başlatmadan ve satıştan sonra kaybolmuyor",
-        "Zararına indirim: «Ne yaptığımı biliyorum» düğmeli uyarı — onay olmadan indirim uygulanmaz",
-        "İndirim penceresi seçilen modu hatırlar — yüzde veya som",
-        "Veresiye fişi: ön ödemenin nasıl alındığı yazdırılır — «nakit» veya «nakitsiz»",
-        "Vardiya kapanış raporu: «Vardiyadaki kiralamalar» — verilen, iade edilen, depozitolar, cezalar, dışarıdakiler",
-        "Depo: «Yenile» düğmesi — ürünler ve stoklar sunucudan yeniden",
-        "Yeni ürün: tartılı ürünün PLU alanı artık fiyatları aşağı itmiyor",
-        "NurCRM sunucusu geçici olarak yanıt vermezse kasa hesaptan çıkmıyor",
-        "Ürün stoku satıştan hemen sonra azalır",
+        "İnternet yoksa veya sunucu yanıt vermiyorsa kasa beklemiyor: satış hemen kuyruğa gider, vardiya 2–3 saniyede açılıp kapanır, sunucuya gönderim arka planda ve çift satış olmadan",
+        "İade: fişte ve mesajda müşteriye verilecek tutar («Müşteriye ver: N som»)",
+        "NurCRM «Puanlarım» uygulamasından müşteri QR'ı: okutunca müşteri hemen fişte; yeni müşteriyi kasa numarasıyla eklemeyi önerir",
+        "Dokunmatik ekran: iki parmak listeyi kaydırır, iki düğmeye birden basmaz",
+        "Telegram botu: sunucudaki yapay zekâ kendi anahtarınızla doğrudan programdan açılabilir",
+        "Z raporu: borç ön ödemesi artık iki kez sayılmıyor",
+        "Sunucuyla bağlantı daha hızlı: yanıtlar sıkıştırılmış gelir — 8 kat daha az internet",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Ulgurji: chek ustida «Chakana / Ulgurji» tugmasi va mahsulotda «Ulgurji» belgisi; ulgurji narx qayta ishga tushirish va sotuvdan keyin yo'qolmaydi",
-        "Zarariga chegirma: «Nima qilayotganimni bilaman» tugmali ogohlantirish — tasdiqsiz chegirma qo'llanmaydi",
-        "Chegirma oynasi tanlangan rejimni eslab qoladi — foiz yoki so'm",
-        "«Qarzga» chek: oldindan to'lov qanday qabul qilingani chop etiladi — «naqd» yoki «naqdsiz»",
-        "Smena yopilishi hisoboti: «Smenadagi prokat» — berildi, qaytarildi, garovlar, jarimalar, qo'lda",
-        "Ombor: «Yangilash» tugmasi — mahsulotlar va qoldiqlar serverdan qayta",
-        "Yangi mahsulot: vaznli mahsulotning PLU maydoni narxlarni pastga surmaydi",
-        "NurCRM serveri vaqtincha javob bermasa, kassa akkauntdan chiqib ketmaydi",
-        "Mahsulot qoldig'i sotuvdan keyin darhol kamayadi",
+        "Internet yo'q yoki server javob bermasa — kassa kutmaydi: sotuv darhol navbatga ketadi, smena 2–3 soniyada ochiladi va yopiladi, serverga yuborish fonda va ikki marta sotuvsiz",
+        "Qaytarish: chekda va xabarda xaridorga beriladigan summa («Xaridorga berish: N so'm»)",
+        "NurCRM «Mening ballarim» ilovasidan mijoz QR kodi: skanerlansa mijoz darhol chekda; yangi mijozni kassa uning raqami bilan qo'shishni taklif qiladi",
+        "Sensorli ekran: ikki barmoq ro'yxatni aylantiradi va ikki tugmani birdaniga bosmaydi",
+        "Telegram-bot: serverdagi SIni o'z kalitingiz bilan to'g'ridan-to'g'ri dasturdan yoqish mumkin",
+        "Z-hisobot: qarzning oldindan to'lovi endi ikki marta hisoblanmaydi",
+        "Server bilan aloqa tezroq: javoblar siqilgan holda keladi — internet 8 barobar kam",
     ];
 
     public static string[] LatestForCurrentLanguage() =>
