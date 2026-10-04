@@ -13,57 +13,57 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Нет интернета или сервер не отвечает — касса не ждёт: продажа сразу уходит в очередь, смена открывается и закрывается за 2–3 секунды, отправка на сервер — в фоне и без двойных продаж",
-        "Возврат: на чеке и в сообщении — сумма, которую нужно выдать покупателю («Выдать покупателю: N сом»)",
-        "QR клиента из приложения NurCRM «Мои баллы»: отсканировали — клиент сразу в чеке; нового клиента касса предложит добавить с его номером",
-        "Сенсорный экран: два пальца прокручивают список и не нажимают две кнопки сразу",
-        "Телеграм-бот: ИИ на сервере можно включить своим ключом прямо из программы",
-        "Z-отчёт: предоплата долга больше не считается дважды",
-        "Связь с сервером быстрее: ответы приходят сжатыми — в 8 раз меньше интернета",
+        "Маленькие экраны и сенсорные моноблоки (1024×768, 1280×800, 1366×768): касса больше не уменьшается целиком — кнопки крупные, под палец, «Оплатить» всегда видна, лишнее в шапке — в меню «⋯». Настройки → Экран → «Компактный вид»",
+        "Оплата быстрее: 3 секунды → 1 секунда, чек печатается в фоне; окно «Платёж принят» закрывается следующим сканом",
+        "Меньше интернета и нагрузки: каталог не скачивается заново, если не менялся; одна проверка связи вместо двух; «Сводка» владельца обновляется раз в минуту и только когда открыта",
+        "Без интернета: возврат и оплата долга сразу говорят «недоступно» вместо ожидания 55 секунд; вход по паролю — не дольше 8 секунд, есть «Войти автономно»",
+        "«Касса: N сом» в шапке учитывает продажи, сделанные без интернета; после возврата интернета касса становится «Онлайн» не позже чем через 20 секунд",
+        "Окно смены: «Наличные» одинаковые во всех окнах, предоплата долга — отдельной строкой; в «Прокате за смену» виден возвращённый залог",
+        "После перезапуска кассы не нужно снова вводить пароль, пока вход действителен",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Интернет жок же сервер жооп бербесе — касса күтпөйт: сатуу дароо кезекке кетет, смена 2–3 секундада ачылат жана жабылат, серверге жөнөтүү фондо жана кош сатуусуз",
-        "Кайтаруу: чекте жана билдирүүдө сатып алуучуга берилүүчү сумма («Сатып алуучуга берүү: N сом»)",
-        "NurCRM «Менин баллдарым» тиркемесинен кардардын QR коду: сканерлегенде кардар дароо чекте; жаңы кардарды касса анын номери менен кошууну сунуштайт",
-        "Сенсордук экран: эки манжа тизмени жылдырат жана эки баскычты бир убакта баспайт",
-        "Телеграм-бот: сервердеги ЖИни өз ачкычыңыз менен программадан эле күйгүзсө болот",
-        "Z-отчёт: карыздын алдын ала төлөмү эки жолу эсептелбейт",
-        "Сервер менен байланыш тезирээк: жооптор кысылып келет — интернет 8 эсе аз",
+        "Кичине экрандар жана сенсордук моноблоктор: касса толугу менен кичирейбейт — баскычтар чоң, «Төлөө» дайыма көрүнөт, ашыкчасы шапкадагы «⋯» менюсунда. Жөндөөлөр → Экран → «Компакттуу көрүнүш»",
+        "Төлөм тезирээк: 3 секунд → 1 секунд, чек фондо басылат",
+        "Интернет жана жүк азыраак: каталог өзгөрбөсө кайра жүктөлбөйт; байланышты бир гана текшерүү; ээсинин «Жыйынтыгы» мүнөтүнө бир жолу жана ачык турганда гана жаңырат",
+        "Интернетсиз: кайтаруу жана карыз төлөө 55 секунд күтпөй дароо «жеткиликсиз» дейт; сырсөз менен кирүү 8 секунддан ашпайт, «Автономдуу кирүү» бар",
+        "Шапкадагы «Касса: N сом» интернетсиз сатууларды эсептейт; интернет келгенде касса 20 секунддун ичинде «Онлайн» болот",
+        "Смена терезеси: «Накталай» бардык терезелерде бирдей, карыздын алдын ала төлөмү өзүнчө сапта; «Сменадагы прокатта» кайтарылган күрөө көрүнөт",
+        "Кассаны кайра жүргүзгөндөн кийин кирүү жарактуу болсо сырсөздү кайра киргизүүнүн кереги жок",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "No internet or the server is not responding — the till does not wait: a sale goes to the queue at once, a shift opens and closes in 2–3 seconds, sending to the server happens in the background without double sales",
-        "Returns: the receipt and the message show the amount to give the customer (“Give the customer: N som”)",
-        "Customer QR from the NurCRM “My points” app: scan it and the customer is in the receipt; for a new customer the till offers to add them with their number",
-        "Touch screen: two fingers scroll the list and no longer press two buttons at once",
-        "Telegram bot: the AI on the server can be turned on with your own key right from the program",
-        "Z report: a debt prepayment is no longer counted twice",
-        "Faster connection to the server: responses come compressed — 8 times less internet",
+        "Small screens and touch monoblocks (1024×768, 1280×800, 1366×768): the till no longer shrinks as a whole — buttons are finger-sized, “Pay” is always visible, extras moved to the “⋯” menu. Settings → Screen → “Compact view”",
+        "Faster payment: 3 seconds → 1 second, the receipt prints in the background",
+        "Less internet and load: the catalog is not downloaded again if unchanged; one connection check instead of two; the owner's Summary refreshes once a minute and only while open",
+        "Offline: returns and debt payments say “unavailable” at once instead of waiting 55 seconds; password login takes at most 8 seconds, with “Sign in offline”",
+        "“Till: N som” in the header includes sales made offline; when the internet returns the till is Online within 20 seconds",
+        "Shift window: “Cash” is the same in all windows, debt prepayment on its own line; returned rental deposits are shown",
+        "After restarting the till there is no need to enter the password again while the login is valid",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "İnternet yoksa veya sunucu yanıt vermiyorsa kasa beklemiyor: satış hemen kuyruğa gider, vardiya 2–3 saniyede açılıp kapanır, sunucuya gönderim arka planda ve çift satış olmadan",
-        "İade: fişte ve mesajda müşteriye verilecek tutar («Müşteriye ver: N som»)",
-        "NurCRM «Puanlarım» uygulamasından müşteri QR'ı: okutunca müşteri hemen fişte; yeni müşteriyi kasa numarasıyla eklemeyi önerir",
-        "Dokunmatik ekran: iki parmak listeyi kaydırır, iki düğmeye birden basmaz",
-        "Telegram botu: sunucudaki yapay zekâ kendi anahtarınızla doğrudan programdan açılabilir",
-        "Z raporu: borç ön ödemesi artık iki kez sayılmıyor",
-        "Sunucuyla bağlantı daha hızlı: yanıtlar sıkıştırılmış gelir — 8 kat daha az internet",
+        "Küçük ekranlar ve dokunmatik monobloklar: kasa artık bütünüyle küçülmüyor — düğmeler parmak boyutunda, «Öde» her zaman görünür, fazlası «⋯» menüsünde. Ayarlar → Ekran → «Kompakt görünüm»",
+        "Daha hızlı ödeme: 3 saniye → 1 saniye, fiş arka planda yazdırılır",
+        "Daha az internet ve yük: katalog değişmediyse yeniden indirilmez; iki yerine tek bağlantı kontrolü; işletme sahibi Özeti dakikada bir ve yalnızca açıkken yenilenir",
+        "İnternetsiz: iade ve borç ödemesi 55 saniye beklemeden hemen «kullanılamıyor» der; şifreyle giriş en fazla 8 saniye, «Çevrimdışı giriş» var",
+        "Başlıktaki «Kasa: N som» çevrimdışı satışları da sayar; internet dönünce kasa 20 saniye içinde Çevrimiçi olur",
+        "Vardiya penceresi: «Nakit» tüm pencerelerde aynı, borç ön ödemesi ayrı satırda; iade edilen kira depozitosu görünür",
+        "Kasa yeniden başlatıldığında giriş geçerliyse şifreyi tekrar girmek gerekmez",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Internet yo'q yoki server javob bermasa — kassa kutmaydi: sotuv darhol navbatga ketadi, smena 2–3 soniyada ochiladi va yopiladi, serverga yuborish fonda va ikki marta sotuvsiz",
-        "Qaytarish: chekda va xabarda xaridorga beriladigan summa («Xaridorga berish: N so'm»)",
-        "NurCRM «Mening ballarim» ilovasidan mijoz QR kodi: skanerlansa mijoz darhol chekda; yangi mijozni kassa uning raqami bilan qo'shishni taklif qiladi",
-        "Sensorli ekran: ikki barmoq ro'yxatni aylantiradi va ikki tugmani birdaniga bosmaydi",
-        "Telegram-bot: serverdagi SIni o'z kalitingiz bilan to'g'ridan-to'g'ri dasturdan yoqish mumkin",
-        "Z-hisobot: qarzning oldindan to'lovi endi ikki marta hisoblanmaydi",
-        "Server bilan aloqa tezroq: javoblar siqilgan holda keladi — internet 8 barobar kam",
+        "Kichik ekranlar va sensorli monobloklar: kassa endi butunlay kichraymaydi — tugmalar barmoq uchun katta, «To'lash» doim ko'rinadi, ortiqchasi «⋯» menyusida. Sozlamalar → Ekran → «Ixcham ko'rinish»",
+        "To'lov tezroq: 3 soniya → 1 soniya, chek fonda chop etiladi",
+        "Kamroq internet va yuk: katalog o'zgarmasa qayta yuklanmaydi; ikki o'rniga bitta aloqa tekshiruvi; ega «Xulosasi» daqiqada bir marta va faqat ochiq bo'lganda yangilanadi",
+        "Internetsiz: qaytarish va qarz to'lovi 55 soniya kutmasdan darhol «mavjud emas» deydi; parol bilan kirish 8 soniyadan oshmaydi, «Oflayn kirish» bor",
+        "Sarlavhadagi «Kassa: N so'm» internetsiz sotuvlarni ham hisoblaydi; internet qaytganda kassa 20 soniya ichida Onlayn bo'ladi",
+        "Smena oynasi: «Naqd» barcha oynalarda bir xil, qarzning oldindan to'lovi alohida qatorda; qaytarilgan prokat garovi ko'rinadi",
+        "Kassa qayta ishga tushirilganda kirish amal qilsa parolni qayta kiritish shart emas",
     ];
 
     public static string[] LatestForCurrentLanguage() =>
