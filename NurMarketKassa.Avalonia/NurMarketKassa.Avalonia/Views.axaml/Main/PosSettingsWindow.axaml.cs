@@ -173,6 +173,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DataContext = this;
             InitializeComponent();
             this.FitToScreen();
+            // 2026-10-05, снимок владельца с телефона: отдельная колонка «Закрыть» справа отнимала у вкладок
+            // треть ширины, а крестик закрытия на Android и так есть в заголовке окна.
+            if (OperatingSystem.IsAndroid())
+                SidebarCloseButton.IsVisible = false;
 
             _customizationView.DataContext = SettingsVm;
             _monitorView = new MonitorSettingsView(new MonitorSettingsViewModel(

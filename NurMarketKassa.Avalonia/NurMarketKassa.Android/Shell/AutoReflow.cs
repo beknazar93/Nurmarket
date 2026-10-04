@@ -32,7 +32,7 @@ internal static class AutoReflow
 
     public static void Apply(Visual root, bool narrow)
     {
-        foreach (var visual in root.GetVisualDescendants().ToList())
+        foreach (var visual in Walk(root).ToList())
         {
             if (visual is UniformGrid uniform)
             {
@@ -67,6 +67,26 @@ internal static class AutoReflow
                 state.Children.Add((child, Grid.GetColumn(child)));
             Grids.AddOrUpdate(grid, state);
             Toggle(grid, state, true);
+        }
+    }
+
+    /// <summary>2026-10-05, владелец: «программа тротлит сама по себе». Перестройка обходила ВСЁ дерево окна раз в
+    /// 0,4 с при любом пересчёте разметки (прокрутка — тоже пересчёт), включая каждую ячейку таблиц. Внутрь таблиц,
+    /// строк списков, полей ввода и полос прокрутки не заходим: там нечего ставить столбиком, а элементов — тысячи.</summary>
+    private static IEnumerable<Visual> Walk(Visual root)
+    {
+        var stack = new Stack<Visual>();
+        foreach (var child in root.GetVisualChildren())
+            stack.Push(child);
+        while (stack.Count > 0)
+        {
+            var visual = stack.Pop();
+            yield return visual;
+            if (visual is TextBox or ScrollBar or ListBoxItem
+                || visual.GetType().Name is "DataGrid" or "DataGridRow" or "DataGridCellsPresenter")
+                continue;
+            foreach (var child in visual.GetVisualChildren())
+                stack.Push(child);
         }
     }
 
@@ -139,6 +159,10 @@ internal static class AutoReflow
     {
         if (grid.TemplatedParent is not null)
             return false; // часть шаблона кнопки, списка, полосы прокрутки
+        // 2026-10-05: окно само перестраивает эту сетку на узком экране (NarrowLayout) — например, делит
+        // высоту между списком и составом чека, а не «по содержимому», как здесь.
+        if (grid.Classes.Contains("no-reflow"))
+            return false;
         var columns = grid.ColumnDefinitions;
         if (columns.Count < 2 || grid.RowDefinitions.Count > 1)
             return false;

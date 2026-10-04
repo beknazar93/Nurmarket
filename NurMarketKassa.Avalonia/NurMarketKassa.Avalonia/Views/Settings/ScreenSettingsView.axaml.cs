@@ -31,7 +31,18 @@ public partial class ScreenSettingsView : UserControl
     public ScreenSettingsView()
     {
         InitializeComponent();
-        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
+        // 2026-10-05, снимок владельца с телефона: на Android видны пункты только для Windows — «Полноэкранный
+        // режим», «Настоящий полноэкранный режим (панель задач Windows)», «Запускать вместе с Windows».
+        // На Android касса и так во весь экран, а автозапуска у неё нет — строки скрыты.
+        if (OperatingSystem.IsAndroid())
+        {
+            foreach (var check in new Control[] { FullscreenCheck, TrueFullscreenCheck, AutostartCheck })
+            {
+                if (check.Parent is Control row)
+                    row.IsVisible = false;
+            }
+        }
+        CashboxCombo.ItemsSource =new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
         CashboxCombo.SelectedIndex = 0;
 
         _suppressUiScaleChange = true;

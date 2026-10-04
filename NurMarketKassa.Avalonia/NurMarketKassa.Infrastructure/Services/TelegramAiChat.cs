@@ -57,6 +57,60 @@ public static class TelegramAiChat
         + "(например «Напитки:»), под ним пункты. Между группами — пустая строка. "
         + "Название товара можно выделить **жирным**. Перед списком и после — не больше одной короткой фразы.";
 
+    /// <summary>2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
+    /// специальную вкладку». Раздел «ИИ-советник» программы владельца (AiAdvisorWindow): та же сводка магазина,
+    /// что у бота, свой разговор, вместо команд бота — разделы программы; ответ простым текстом.</summary>
+    /// <param name="serverSummary">Цифры «Сводки» программы владельца (отчёт сервера NurCRM). Есть — выручка берётся
+    /// из них, а не из локальной истории продаж (она бывает неполной или с повторами: живой случай 05.10 —
+    /// 1 353 572 сом за 7 дней по локальной истории против 886 049 сом на сервере).</param>
+    public static Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct) =>
+        AskCoreAsync(OwnerAppHistoryKey, question,
+            OwnerAppPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+            + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
+            + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary)), ct, raw: true);
+
+    /// <summary>«Новый разговор» в разделе «ИИ-советник».</summary>
+    public static void ResetOwnerAppHistory()
+    {
+        lock (History)
+            History.Remove(OwnerAppHistoryKey);
+    }
+
+    private const string OwnerAppHistoryKey = "ownerapp";
+
+    private const string OwnerAppPrompt =
+        "Ты — ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurMarket (раздел «ИИ-советник»). "
+        + "Владелец советуется с тобой о своём магазине. Отвечай по делу и дружелюбно, до 8–10 предложений, на языке собеседника "
+        + "(русский, кыргызский, английский, турецкий или узбекский). "
+        + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи раздел программы: "
+        + "«Продажи», «Аналитика», «ABC-анализ», «Пополнение и сроки», «Прибыль и деньги», «Клиенты» (долги), «Склад». "
+        + "В сводке есть итоги долгов и список должников: каждый должник обозначен кодом вида [Д1], [Д2]. Называя должника, "
+        + "пиши его код в квадратных скобках ровно так, как в сводке, — программа сама покажет владельцу вместо кода имя и телефон. "
+        + "Никогда не пиши, что имена или телефоны скрыты, недоступны или конфиденциальны — владелец видит их вместо кодов. "
+        + "Просят список должников — перечисли ВСЕХ из сводки, каждого с новой строки: «• [Д1] — 1 000 сом, чеков: 2, долг с 01.09.2026», "
+        + "в конце — итог. "
+        + "В сводке есть ABC-анализ за 30 дней (срезы по выручке, прибыли, количеству, категориям, брендам и складу, группы A/B/C) — "
+        + "по нему советуй, что нельзя допускать до нуля (A), что держать в меньшем запасе или выводить (C), где товар в A по выручке, "
+        + "но в C по прибыли (мало наценки). "
+        + "В сводке есть и склад: все товары с категорией, ценой продажи, закупкой и остатком — по нему считай наценку, "
+        + "замороженные в остатках деньги, что закончилось и что заказать. "
+        + "Никогда не выдумывай суммы, остатки и цены. Давай конкретные советы: что заказать, что продвигать, где теряются деньги, "
+        + "как поднять продажи, как работать с покупателями и выкладкой. Валюта — сом. "
+        + "Оформление — простой текст: без таблиц, решёток (#) и звёздочек; список — каждый пункт с новой строки и начинается с «• », "
+        + "не больше 10–15 пунктов.";
+
+    /// <summary>2026-10-05: ответ нейросети для окна программы (не Telegram): единые «• », без разметки Markdown.</summary>
+    public static string ToPlainText(string text)
+    {
+        var s = text.Replace("\r\n", "\n");
+        s = Regex.Replace(s, @"(?<=\S)[ \t]+[\*•][ \t]+(?=\S)", "\n• ");
+        s = Regex.Replace(s, @"(?m)^[ \t]*[\*\-\+•][ \t]+", "• ");
+        s = Regex.Replace(s, @"(?m)^[ \t]*#{1,6}[ \t]*", "");
+        s = s.Replace("**", "").Replace("__", "").Replace("`", "");
+        s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
+        return s;
+    }
+
     /// <summary>Ответ на реплику владельца. Error — понятная владельцу причина, если не вышло.</summary>
     public static Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct) =>
         AskCoreAsync("owner:" + chatId, question,
@@ -406,7 +460,7 @@ public static class TelegramAiChat
     }
 
     /// <summary>Сводка для нейросети: те же отчёты, что шлёт бот, без HTML-разметки.</summary>
-    private static string BuildShopContext(string question)
+    private static string BuildShopContext(string question, bool localRevenue = true)
     {
         var sb = new StringBuilder();
         void Add(Func<string> build)
@@ -421,9 +475,13 @@ public static class TelegramAiChat
             }
         }
 
-        Add(() => TelegramReportBuilder.BuildRevenue(1, "Выручка сегодня"));
-        Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
-        Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
+        // 2026-10-05: «ИИ-советник» программы владельца передаёт выручку с сервера — локальную не добавляем.
+        if (localRevenue)
+        {
+            Add(() => TelegramReportBuilder.BuildRevenue(1, "Выручка сегодня"));
+            Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
+            Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
+        }
         Add(() => TelegramReportBuilder.BuildLowStock(take: 10));
         Add(TelegramInquiryStore.ShortSummary);
         if (TelegramAssistant.RentalContext(question) is { } rentals)

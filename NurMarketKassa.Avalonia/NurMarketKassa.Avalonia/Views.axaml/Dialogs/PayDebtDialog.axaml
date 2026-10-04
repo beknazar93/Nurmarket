@@ -87,7 +87,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid Margin="16,12,16,16" x:CompileBindings="False">
+    <Grid x:Name="RootGrid" Margin="16,12,16,16" x:CompileBindings="False">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -186,8 +186,8 @@
                      сам раскладывает сумму от старых долгов к новым, одним запросом вместо десятков
                      взносов по одному (~15 с). Тексты — в коде (PayDebtDialog.OneSum.cs). -->
                 <StackPanel Spacing="4" IsVisible="{Binding ShowPayAllBlock}">
-                    <Grid ColumnDefinitions="Auto,160,Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding PayAllLabel}" VerticalAlignment="Center"
+                    <Grid x:Name="PayAllGrid" ColumnDefinitions="Auto,160,Auto">
+                        <TextBlock x:Name="PayAllLabelText" Grid.Column="0" Text="{Binding PayAllLabel}" VerticalAlignment="Center"
                                    FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
                         <TextBox Grid.Column="1" x:Name="PayAllAmountBox" Text="{Binding PayAllAmountText, Mode=TwoWay}"
                                  FontWeight="Bold"/>
@@ -234,7 +234,7 @@
                             Click="ShowHistoryTab_Click"/>
                 </StackPanel>
 
-                <DataGrid Grid.Row="2"
+                <DataGrid x:Name="UnpaidGrid" Grid.Row="2"
                           IsVisible="{Binding ShowUnpaid}"
                           ItemsSource="{Binding DebtSales}"
                           AutoGenerateColumns="False"
@@ -266,7 +266,7 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <DataGrid Grid.Row="2"
+                <DataGrid x:Name="HistoryGrid" Grid.Row="2"
                           IsVisible="{Binding ShowHistory}"
                           ItemsSource="{Binding DebtHistory}"
                           AutoGenerateColumns="False"

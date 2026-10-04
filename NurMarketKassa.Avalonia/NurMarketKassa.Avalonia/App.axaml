@@ -216,5 +216,41 @@
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
+    <!-- 2026-10-04, редизайн под Android-телефон: вкладки разделов (Склад: Товары, Приёмка, Ревизия, Списание…)
+         переносились в 4 строки и съедали пол-экрана. На узком экране — одной строкой, листаются пальцем. Класс
+         android-narrow ставит окнам Android-оболочка (WindowLayerHost) только на узком экране; в Windows его нет.
+         Вкладки каталога кассы уже в своей прокрутке — их не трогаем. -->
+    <Style Selector=".android-narrow TabControl[TabStripPlacement=Top]:not(.catalog-tabs)">
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Background="{TemplateBinding Background}"
+                  HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                  VerticalAlignment="{TemplateBinding VerticalAlignment}">
+            <DockPanel>
+              <ScrollViewer DockPanel.Dock="Top"
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Disabled">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}"/>
+              </ScrollViewer>
+              <ContentPresenter Name="PART_SelectedContentHost"
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{TemplateBinding SelectedContent}"
+                                ContentTemplate="{TemplateBinding SelectedContentTemplate}"/>
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
   </Application.Styles>
 </Application>

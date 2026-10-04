@@ -77,6 +77,9 @@
   <x:String x:Key="csh.catalog.tabPieceOption">Singles from pack</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Bundles</x:String>
   <x:String x:Key="csh.catalog.tabServices">Services</x:String>
+  <!-- 2026-10-04, телефон: переключатель «Товары / Чек» главного окна -->
+  <x:String x:Key="csh.phone.products">Products</x:String>
+  <x:String x:Key="csh.phone.receipt">Receipt</x:String>
   <x:String x:Key="csh.catalog.colName">Product</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Barcode</x:String>
   <x:String x:Key="csh.catalog.colStock">Stock</x:String>
@@ -320,6 +323,8 @@
   <x:String x:Key="remoteSupport.intro">Remote help uses AnyDesk. Click the button below and AnyDesk will open with a connection address (ID). Read this address to the support agent by phone or on WhatsApp.</x:String>
   <x:String x:Key="remoteSupport.launchButton">Launch AnyDesk</x:String>
   <x:String x:Key="remoteSupport.downloadButton">Download AnyDesk</x:String>
+  <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
+  <x:String x:Key="remoteSupport.copyDeviceInfo">Copy device information</x:String>
 
   <!-- Knowledge base -->
   <x:String x:Key="kb.subtitle">Answers to common questions about running the till. Click a question to see the answer.</x:String>

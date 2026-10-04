@@ -84,10 +84,13 @@
                             IsCancel="True"
                             IsDefault="True"
                             Click="BtnCancel_Click"/>
+                    <!-- 2026-10-04, стресс-тест на Android: «Подтвердить и добави» — шрифт телефона шире Segoe UI.
+                         Не уже прежних 180, но по тексту. -->
                     <Button x:Name="BtnOverride"
                             Content="{DynamicResource noStock.confirmAndAdd}"
                             Classes="btn-override"
-                            Width="180"
+                            MinWidth="180"
+                            Padding="12,0"
                             Height="40"
                             IsVisible="False"
                             Click="BtnOverride_Click"/>

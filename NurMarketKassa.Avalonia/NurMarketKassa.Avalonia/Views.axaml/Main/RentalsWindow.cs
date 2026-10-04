@@ -31,6 +31,8 @@ public sealed class RentalsWindow : Window
     /// <summary>2026-10-02, редизайн: счётчики плитками (на руках, просрочено, залоги деньгами).</summary>
     private readonly Grid _stats = new() { ColumnDefinitions = new ColumnDefinitions("*,12,*,12,*"), Margin = new Thickness(0, 4, 0, 16) };
     private string _tab = "active";
+    /// <summary>2026-10-05: окно уже 700 точек (телефон) — см. NarrowLayout в конструкторе.</summary>
+    private bool _narrow;
     private IReadOnlyList<RentalDto> _active = Array.Empty<RentalDto>();
     private IReadOnlyList<RentalDto> _returned = Array.Empty<RentalDto>();
 
@@ -89,14 +91,55 @@ public sealed class RentalsWindow : Window
         Grid.SetRow(_stats, 2);
         root.Children.Add(_stats);
 
-        _tabs.Margin = new Thickness(0, 0, 0, 14);
-        Grid.SetRow(_tabs, 3);
-        root.Children.Add(_tabs);
+        // 2026-10-05, снимок владельца с телефона: «Возвращены 19» уходила за край — вкладки листаются вбок.
+        var tabsScroll = new ScrollViewer
+        {
+            Content = _tabs,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Margin = new Thickness(0, 0, 0, 14),
+        };
+        Grid.SetRow(tabsScroll, 3);
+        root.Children.Add(tabsScroll);
 
         var scroll = new ScrollViewer { Content = _list, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto };
         Grid.SetRow(scroll, 4);
         root.Children.Add(scroll);
         Content = root;
+
+        // 2026-10-05, снимок владельца с телефона: «+ Новый прокат» уходила за край, в карточке залог
+        // наезжал на имя клиента и даты, «Принять возврат» обрезалась. Телефон: заголовок и «+ Новый
+        // прокат» — первой строкой, поиск по номеру и «Обновить» — второй; карточка — в две строки.
+        NarrowLayout.Attach(this, 700, narrow =>
+        {
+            _narrow = narrow;
+            root.Margin = narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 18, 24, 24);
+            if (narrow)
+            {
+                head.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+                head.RowDefinitions = new RowDefinitions("Auto,8,Auto");
+                Grid.SetColumn(add, 1);
+                Grid.SetRow(find, 2);
+                Grid.SetColumn(find, 0);
+                find.Width = double.NaN;
+                find.Margin = new Thickness(0, 0, 8, 0);
+                Grid.SetRow(refresh, 2);
+                Grid.SetColumn(refresh, 1);
+            }
+            else
+            {
+                head.ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto");
+                head.RowDefinitions = new RowDefinitions();
+                Grid.SetColumn(add, 3);
+                Grid.SetRow(find, 0);
+                Grid.SetColumn(find, 1);
+                find.Width = 190;
+                find.Margin = new Thickness(0, 0, 10, 0);
+                Grid.SetRow(refresh, 0);
+                Grid.SetColumn(refresh, 2);
+            }
+            Render();
+        });
 
         Opened += (_, _) => _ = LoadAsync();
     }
@@ -295,13 +338,27 @@ public sealed class RentalsWindow : Window
         deposit.Child = depGrid;
         Grid.SetColumn(deposit, 1);
         grid.Children.Add(deposit);
+        if (_narrow)
+        {
+            // 2026-10-05: телефон — вещи и даты первой строкой, залог и «Принять возврат» — второй.
+            grid.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+            grid.RowDefinitions = new RowDefinitions("Auto,10,Auto");
+            grid.Margin = new Thickness(12, 12, 12, 12);
+            Grid.SetColumnSpan(left, 2);
+            Grid.SetRow(deposit, 2);
+            Grid.SetColumn(deposit, 0);
+            deposit.Margin = new Thickness(0, 0, 8, 0);
+            deposit.MinWidth = 0;
+            deposit.HorizontalAlignment = HorizontalAlignment.Left;
+        }
 
         if (r.IsActive && !_readOnly)
         {
             var ret = UiKit.Primary(this, T("Принять возврат", "Кайтарууну кабыл алуу", "Take back", "İadeyi al", "Qaytarishni qabul qilish"));
             ret.VerticalAlignment = VerticalAlignment.Center;
             ret.Click += async (_, _) => await ReturnAsync(r).ConfigureAwait(true);
-            Grid.SetColumn(ret, 2);
+            Grid.SetColumn(ret, _narrow ? 1 : 2);
+            Grid.SetRow(ret, _narrow ? 2 : 0);
             grid.Children.Add(ret);
         }
 

@@ -33,6 +33,8 @@
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
         <!-- 2026-10-01: раздел «Телеграм-бот» — самолётик Telegram. -->
         <StreamGeometry x:Key="TelegramBotIcon">M21,4 L3,11 L9,13.5 L11,20 L14,15.5 L19,19 Z M9,13.5 L21,4</StreamGeometry>
+        <!-- 2026-10-05: раздел «ИИ-советник» — облачко разговора с искрой. -->
+        <StreamGeometry x:Key="AiAdvisorIcon">M4,5 H20 V16 H11 L6,20 V16 H4 Z M12,7.5 L13,10 L15.5,10.5 L13,11 L12,13.5 L11,11 L8.5,10.5 L11,10 Z</StreamGeometry>
         <StreamGeometry x:Key="MarketplaceIcon">M6,8 H18 L19,21 H5 Z M9,8 V6 A3,3 0 0 1 15,6 V8</StreamGeometry>
         <StreamGeometry x:Key="SettingsIcon">M12,8 A4,4 0 1 1 11.99,8 M19,12 A7,7 0 0 0 18.8,10.4 L21,8 L18,5 L15.6,6.2 A7,7 0 0 0 14,5.5 L13,2 H9 L8,5.5 A7,7 0 0 0 6.4,6.2 L4,5 L1,8 L3.2,10.4 A7,7 0 0 0 3,12 A7,7 0 0 0 3.2,13.6 L1,16 L4,19 L6.4,17.8 A7,7 0 0 0 8,18.5 L9,22 H13 L14,18.5 A7,7 0 0 0 15.6,17.8 L18,19 L21,16 L18.8,13.6 A7,7 0 0 0 19,12</StreamGeometry>
         <StreamGeometry x:Key="KnowledgeBaseIcon">M4,5 A2,2 0 0 1 6,3 H20 V19 H6 A2,2 0 0 0 4,21 Z M4,5 V19 M8,8 H16 M8,12 H14</StreamGeometry>
@@ -261,6 +263,26 @@
             <Setter Property="Height" Value="38"/>
             <Setter Property="CornerRadius" Value="11"/>
         </Style>
+        <!-- 2026-10-04, редизайн под Android-телефон (класс phone ставит OwnerShellWindow.Phone.cs, в Windows его
+             нет): в карточке 190 точек «71 818,22 сом» обрезалось до «71 818,...», «Средний чек» уходил под значок. -->
+        <Style Selector=".phone Border.card">
+            <Setter Property="Padding" Value="12,12"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector=".phone TextBlock.kpiValue">
+            <Setter Property="FontSize" Value="19"/>
+            <Setter Property="Margin" Value="0,6,0,6"/>
+        </Style>
+        <Style Selector=".phone TextBlock.kpiLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector=".phone Border.kpiIcon">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+        </Style>
         <Style Selector="Border.kpiIcon Path">
             <Setter Property="Width" Value="19"/>
             <Setter Property="Height" Value="19"/>
@@ -270,6 +292,10 @@
             <Setter Property="StrokeJoin" Value="Round"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector=".phone Border.kpiIcon Path">
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
         </Style>
         <Style Selector="Border.delta">
             <Setter Property="CornerRadius" Value="7"/>

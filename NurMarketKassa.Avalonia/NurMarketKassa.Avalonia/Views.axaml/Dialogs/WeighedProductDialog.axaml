@@ -143,7 +143,7 @@
             <Separator Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="{DynamicResource BrushPanelSoft}"/>
 
             <!-- 2. Основной контент -->
-            <StackPanel Grid.Row="1" Margin="24,20,24,24" Spacing="16">
+            <StackPanel x:Name="ContentPanel" Grid.Row="1" Margin="24,20,24,24" Spacing="16">
                 <!-- Название товара и цена -->
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="HeaderTitleText"
@@ -174,10 +174,10 @@
                 <Separator Height="1" Background="{DynamicResource BrushPanelSoft}" Margin="0,2"/>
 
                 <!-- Сетка: Левая часть (Ввод) и Правая часть (Кнопки быстрых значений + Нумпад) -->
-                <Grid ColumnDefinitions="*,24,310">
+                <Grid x:Name="BodyGrid" ColumnDefinitions="*,24,310">
 
                     <!-- ЛЕВАЯ КОЛОНКА -->
-                    <StackPanel Grid.Column="0" VerticalAlignment="Top" Spacing="16">
+                    <StackPanel x:Name="InputColumn" Grid.Column="0" VerticalAlignment="Top" Spacing="16">
                         <!-- Переключатель "По весу" / "По сумме" — виден только когда известна
                              числовая цена за кг (иначе вес из суммы посчитать нечем). -->
                         <Grid x:Name="ModeTabsRow" ColumnDefinitions="*,6,*" IsVisible="False">
@@ -215,7 +215,7 @@
                                 Click="FromScale_Click"/>
 
                         <!-- Нижние кнопки действий -->
-                        <Grid ColumnDefinitions="*,12,*" Margin="0,32,0,0">
+                        <Grid x:Name="ActionButtonsGrid" ColumnDefinitions="*,12,*" Margin="0,32,0,0">
                             <Button x:Name="CancelButton"
                                     Grid.Column="0"
                                     Classes="btn-light"
@@ -240,7 +240,7 @@
                     </StackPanel>
 
                     <!-- ПРАВАЯ КОЛОНКА (Кнопки быстрых весов + Цифровая клавиатура) -->
-                    <StackPanel Grid.Column="2" Spacing="12">
+                    <StackPanel x:Name="KeypadColumn" Grid.Column="2" Spacing="12">
 
                         <!-- Быстрые кнопки выбора веса (скрыты в режиме "По сумме" — пресеты веса
                              там не имеют смысла) -->

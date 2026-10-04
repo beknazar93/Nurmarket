@@ -14,7 +14,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <!-- 2026-10-04, владелец: «исправление запуска у других устройств» — с Android 5.0 (API 21), как разрешают .NET 8 и
+         Avalonia 11.2; было с 7.0 (API 24): на старых кассовых терминалах APK не ставился. -->
+    <SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <!-- Неявные using Android-SDK (Android.App, Android.Widget) дают двусмысленность с Avalonia
          (Application, Button, CheckBox…) — подключаем только обычный набор .NET, как у Windows-кассы. -->
@@ -38,8 +40,9 @@
     <FileVersion>$(Version)</FileVersion>
 
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    <!-- Кассовые аппараты бывают и 32-битные (armeabi-v7a), и 64-битные. -->
-    <RuntimeIdentifiers>android-arm;android-arm64</RuntimeIdentifiers>
+    <!-- Кассовые аппараты бывают и 32-битные (armeabi-v7a), и 64-битные. 2026-10-04: и на процессорах Intel
+         (x86_64 — моноблоки, эмуляторы): без него APK там не ставился («несовместимо»). -->
+    <RuntimeIdentifiers>android-arm;android-arm64;android-x64</RuntimeIdentifiers>
     <!-- APK должен ставиться без компьютера и отладчика: сборки внутри файла, не «быстрое развёртывание». -->
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>

@@ -26,7 +26,7 @@ internal static class AndroidSound
             player.Prepare();
             player.Start();
             // PlaySync в Windows ждёт конца звука; на главном потоке ждать нельзя (интерфейс замрёт).
-            if (Android.OS.Looper.MainLooper is not { IsCurrentThread: true })
+            if (!NurMarketKassa.AndroidNestedLoop.OnMainThread)
                 done.Wait(TimeSpan.FromSeconds(15));
         }
         catch (Exception ex)
@@ -35,7 +35,7 @@ internal static class AndroidSound
         }
         finally
         {
-            if (Android.OS.Looper.MainLooper is not { IsCurrentThread: true })
+            if (!NurMarketKassa.AndroidNestedLoop.OnMainThread)
             {
                 try { player?.Release(); } catch { /* уже освобождён */ }
                 try { File.Delete(path); } catch { /* временный файл */ }

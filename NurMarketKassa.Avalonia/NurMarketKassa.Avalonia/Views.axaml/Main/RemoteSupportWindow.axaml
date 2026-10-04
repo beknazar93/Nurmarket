@@ -79,10 +79,15 @@
         <Button Grid.Row="3" x:Name="LaunchButton" Content="{DynamicResource remoteSupport.launchButton}"
                 Classes="PrimaryActionButton" Click="LaunchButton_Click" Margin="0,0,0,14"/>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+        <!-- 2026-10-05, владелец: «кнопку "скопировать информацию об устройстве" — чтобы легче было адаптировать под
+             такие устройства». Текст об аппарате и экране — в буфер обмена (DeviceInfoReport). На Android — главная кнопка
+             окна (AnyDesk там не запускается). WrapPanel — на узком экране кнопки переносятся. -->
+        <WrapPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button x:Name="CopyDeviceInfoButton" Content="{DynamicResource remoteSupport.copyDeviceInfo}"
+                    Classes="SecondaryActionButton" Click="CopyDeviceInfo_Click" Margin="0,0,12,8"/>
             <Button x:Name="DownloadButton" Content="{DynamicResource remoteSupport.downloadButton}"
-                    Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click"/>
-            <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click"/>
-        </StackPanel>
+                    Classes="SecondaryActionButton" IsVisible="False" Click="DownloadButton_Click" Margin="0,0,12,8"/>
+            <Button IsCancel="True" x:Name="CloseButton" Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="Close_Click" Margin="0,0,0,8"/>
+        </WrapPanel>
     </Grid>
 </Window>

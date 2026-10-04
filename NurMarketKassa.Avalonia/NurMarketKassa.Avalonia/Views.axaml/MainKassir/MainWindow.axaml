@@ -66,6 +66,29 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
         </Style>
 
+        <!-- 2026-10-04, телефон: переключатель «Товары / Чек» (см. PhoneModeBar). -->
+        <Style Selector="ToggleButton.phone-tab">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="ToggleButton.phone-tab:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+        <Style Selector="ToggleButton.phone-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="ToggleButton.phone-tab:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        </Style>
+
         <!-- 1. Полностью отключаем системную рамку FocusAdorner -->
         <Style Selector="TextBox">
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
@@ -537,6 +560,62 @@
                                     HorizontalContentAlignment="Stretch"
                                     VerticalContentAlignment="Stretch"
                                     DataContext="{Binding Basket}"/>
+
+            <!-- 2026-10-04, редизайн под Android-телефон: на вертикальном телефоне каталог и чек вместе не
+                 помещаются (оставался ряд товаров и строка чека). Как в мобильных кассах — два экрана «Товары» и
+                 «Чек» с переключателем: на нём сколько позиций в чеке, а «Оплатить» с суммой — прямо из каталога.
+                 Показывает MainWindow.ApplyPortraitLayout; на планшетах, терминалах и в Windows скрыт. -->
+            <Border x:Name="PhoneModeBar"
+                    IsVisible="False"
+                    Background="{DynamicResource BrushCartSurface}"
+                    BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="0,0,0,1"
+                    Padding="8,6">
+                <Grid ColumnDefinitions="*,6,*,6,Auto">
+                    <ToggleButton x:Name="PhoneCatalogTab"
+                                  Grid.Column="0"
+                                  Classes="phone-tab"
+                                  Focusable="False"
+                                  Click="PhoneCatalogTab_Click">
+                        <TextBlock Text="{DynamicResource csh.phone.products}" FontSize="14" FontWeight="SemiBold"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="PhoneCartTab"
+                                  Grid.Column="2"
+                                  Classes="phone-tab"
+                                  Focusable="False"
+                                  Click="PhoneCartTab_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{DynamicResource csh.phone.receipt}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Border IsVisible="{Binding Basket.HasLines}"
+                                    Background="{DynamicResource BrushDanger}"
+                                    CornerRadius="10"
+                                    MinWidth="22"
+                                    Padding="6,1"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Basket.Lines.Count}"
+                                           FontSize="12"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </ToggleButton>
+                    <Button x:Name="PhonePayButton"
+                            Grid.Column="4"
+                            Classes="main-primary"
+                            Focusable="False"
+                            MinHeight="44"
+                            Padding="14,2"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Command="{Binding Basket.PayCommand}">
+                        <StackPanel Spacing="0">
+                            <TextBlock Text="{Binding Basket.PayButtonText}" FontSize="11" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding Basket.TotalDisplay}" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- Альтернативная раскладка "1С-стиль" (2026-09-06) — переключается в Настройках →

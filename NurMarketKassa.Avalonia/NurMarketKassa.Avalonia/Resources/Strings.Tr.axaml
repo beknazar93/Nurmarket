@@ -77,6 +77,9 @@
   <x:String x:Key="csh.catalog.tabPieceOption">Tek tek satış</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Setler</x:String>
   <x:String x:Key="csh.catalog.tabServices">Hizmetler</x:String>
+  <!-- 2026-10-04, телефон: переключатель «Товары / Чек» главного окна -->
+  <x:String x:Key="csh.phone.products">Ürünler</x:String>
+  <x:String x:Key="csh.phone.receipt">Fiş</x:String>
   <x:String x:Key="csh.catalog.colName">Ürün</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Barkod</x:String>
   <x:String x:Key="csh.catalog.colStock">Stok</x:String>
@@ -320,6 +323,8 @@
   <x:String x:Key="remoteSupport.intro">Uzaktan yardım için AnyDesk kullanılır. Aşağıdaki düğmeye basın — AnyDesk bir bağlantı adresi (ID) ile açılacaktır. Bu adresi telefonda veya WhatsApp'ta destek görevlisine bildirin.</x:String>
   <x:String x:Key="remoteSupport.launchButton">AnyDesk'i başlat</x:String>
   <x:String x:Key="remoteSupport.downloadButton">AnyDesk'i indir</x:String>
+  <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
+  <x:String x:Key="remoteSupport.copyDeviceInfo">Cihaz bilgilerini kopyala</x:String>
 
   <!-- Bilgi bankası -->
   <x:String x:Key="kb.subtitle">Kasa kullanımıyla ilgili sık sorulan soruların cevapları. Cevabı görmek için soruya tıklayın.</x:String>

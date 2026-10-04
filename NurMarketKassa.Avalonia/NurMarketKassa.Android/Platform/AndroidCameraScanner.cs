@@ -41,7 +41,9 @@ internal static class AndroidCameraScanner
             return null;
         }
 
-        if (activity.CheckSelfPermission(Android.Manifest.Permission.Camera) != Permission.Granted)
+        // 2026-10-04: разрешения во время работы — с Android 6.0; на 5.x камера разрешена при установке.
+        if (OperatingSystem.IsAndroidVersionAtLeast(23)
+            && activity.CheckSelfPermission(Android.Manifest.Permission.Camera) != Permission.Granted)
         {
             _permission = new TaskCompletionSource<bool>();
             activity.RequestPermissions(new[] { Android.Manifest.Permission.Camera }, PermissionRequestCode);
@@ -297,7 +299,7 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
                 // Сначала как есть, потом повёрнутый на 90° (линейным штрихкодам ориентация важна).
                 var result = _reader.Decode(new PlanarYUVLuminanceSource(data, width, height, 0, 0, width, height, false))
                              ?? _reader.Decode(new PlanarYUVLuminanceSource(RotateLuma(data, width, height), height, width, 0, 0, height, width, false));
-                if (result is not null && !string.IsNullOrWhiteSpace(result.Text))
+                if (result is not null && !string.IsNullOrWhiteSpace(result.Text) && IsConfirmed(result.Text.Trim(), result.BarcodeFormat))
                     RunOnUiThread(() => Deliver(result.Text));
             }
             catch
@@ -309,6 +311,37 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
                 _busy = false;
             }
         });
+    }
+
+    // 2026-10-04, владелец: «баг видел в мобилке касса и ещё в админке тоже». Один и тот же товар камера
+    // прочитала как 1726000161518 (ошибка чтения), а со второго раза — 4700000161515 (настоящий). Оба кода
+    // сходятся по контрольной цифре EAN-13, поэтому касса завела товар под неверным штрихкодом, а настоящий
+    // потом «не находился». По одному смазанному или срезанному краем кадру линейный штрихкод иногда
+    // распознаётся как соседний верный по контрольной сумме. Теперь линейный код засчитывается, только когда
+    // два кадра подряд дали ОДИН И ТОТ ЖЕ результат (+0,1–0,3 с); QR и DataMatrix с коррекцией ошибок — сразу.
+    // Проверка идёт по одному кадру за раз (_busy), поэтому поля без блокировок.
+    private const int LinearConfirmations = 2;
+    private static readonly TimeSpan ConfirmWindow = TimeSpan.FromSeconds(1.5);
+    private string? _candidate;
+    private int _candidateHits;
+    private DateTime _candidateAtUtc;
+
+    private bool IsConfirmed(string text, BarcodeFormat format)
+    {
+        if (format is BarcodeFormat.QR_CODE or BarcodeFormat.DATA_MATRIX)
+            return true;
+        var now = DateTime.UtcNow;
+        if (string.Equals(text, _candidate, StringComparison.Ordinal) && now - _candidateAtUtc < ConfirmWindow)
+            _candidateHits++;
+        else
+        {
+            if (_candidate is not null && !string.Equals(text, _candidate, StringComparison.Ordinal))
+                PosLogger.Log($"Камера-сканер: кадры разошлись ({_candidate} → {text}) — ждём совпадения.", "CART");
+            _candidate = text;
+            _candidateHits = 1;
+        }
+        _candidateAtUtc = now;
+        return _candidateHits >= LinearConfirmations;
     }
 
     /// <summary>Яркость кадра NV21 (первые width×height байт), повёрнутая на 90° по часовой.</summary>

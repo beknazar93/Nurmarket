@@ -21,9 +21,24 @@ namespace NurMarketKassa;
 /// <summary>Замена Avalonia.Controls.TopLevel для кода кассы: «верхний уровень» здесь — окно-слой
 /// (<see cref="Window"/>). Всё, что в Avalonia живёт у настоящего TopLevel (буфер обмена, файлы,
 /// фокус, экраны), берётся у единственного настоящего TopLevel Android-вида.</summary>
-public class TopLevel : ContentControl
+public class TopLevel : ContentControl, IResourceNode
 {
     protected override Type StyleKeyOverride => typeof(ContentControl);
+
+    /// <summary>2026-10-04, стресс-тест на телефоне: в окне «Товар закончился» левая кнопка была «ОК» вместо
+    /// «Отмена». Настоящее окно Avalonia находит ресурсы приложения сразу при создании, а окно-слой — только
+    /// когда его показали (до этого оно вне дерева). Подписи из {DynamicResource} приходили уже после
+    /// конструктора и затирали то, что код окна поставил сам (так в 32 окнах: кнопки «Да/Нет» вместо
+    /// «Удалить»/«Закрыть смену», заголовки, оплата, весы). Теперь, пока окно не показано, ресурсы берутся
+    /// у приложения — как в Windows; после показа значения те же, и ничего не перезаписывается.</summary>
+    bool IResourceNode.TryGetResource(object key, ThemeVariant? theme, out object? value)
+    {
+        if (TryGetResource(key, theme, out value))
+            return true;
+        if (Parent is null && Application.Current is { } app)
+            return app.TryGetResource(key, app.ActualThemeVariant, out value);
+        return false;
+    }
 
     /// <summary>Как Avalonia.Controls.TopLevel.GetTopLevel: окно-слой, в котором лежит элемент.
     /// Для элементов во всплывающих панелях (Popup/Flyout) — окно по логическому дереву;

@@ -13,47 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Одежда с размерами и цветами: продажа проходит одним запросом — быстрее (было 1,3 с, стало 0,8 с), окно размеров открывается сразу, а остаток проданного размера уменьшается сразу после оплаты",
-        "Бот магазина знает размеры и цвета: на «какие размеры есть?» сам называет размеры и цвета в наличии",
-        "Android: касса и программа владельца открываются и работают на телефонах и кассовых терминалах; экран поворачивается, все окна подстраиваются под экран, прокрутка пальцем",
-        "Android: камера телефона — сканер штрихкодов (в чеке, в карточке товара, в приёмке), с анимацией и зелёной вспышкой при удачном скане",
-        "Android и Linux: значки на месте (раньше были квадраты); экранная клавиатура больше не выскакивает сама при открытии окна",
+        "Программа владельца: новый раздел «ИИ-советник» — чат с ИИ о вашем магазине. Видит выручку и прибыль из «Сводки», ABC-анализ, склад (цены, закупка, остатки) и долги клиентов, отвечает по вашим данным и не выдумывает цифр",
+        "ИИ-советник показывает список должников с именами и телефонами, но в интернет уходят только суммы под кодами — имена и телефоны подставляет сама программа на вашем компьютере",
+        "Изъятие из кассы больше наличных, чем в ней есть, запрещено; перед изъятием касса пишет, сколько останется",
+        "«Пополнить склад?»: после «Нет» вопрос больше не открывается снова и возвращается прежнее количество; оплата не начинается, пока вопрос открыт",
+        "Если кассу закрыли сразу после оплаты, оплаченные товары больше не возвращаются в чек",
+        "«Тех. поддержка»: кнопка «Скопировать информацию об устройстве» — сведения о компьютере и кассе в буфер обмена, чтобы отправить их в поддержку",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Өлчөмү жана түсү бар кийим: сатуу бир суроо менен өтөт — тезирээк (1,3 с → 0,8 с), өлчөм терезеси дароо ачылат, сатылган өлчөмдүн калдыгы төлөмдөн кийин дароо азаят",
-        "Дүкөндүн боту өлчөмдөрдү жана түстөрдү билет: «кандай өлчөмдөр бар?» дегенде бар өлчөмдөрдү жана түстөрдү өзү айтат",
-        "Android: касса жана ээсинин программасы телефондордо жана касса терминалдарында ачылат жана иштейт; экран бурулат, бардык терезелер экранга ылайыкташат, манжа менен жылдыруу",
-        "Android: телефондун камерасы — штрихкод сканери (чекте, товар карточкасында, кабыл алууда), анимациясы жана ийгиликтүү скандагы жашыл жаркылдоо менен",
-        "Android жана Linux: белгилер ордунда (мурда төрт бурчтуктар болчу); терезе ачылганда экран клавиатурасы өзү чыкпайт",
+        "Ээсинин программасы: жаңы «ИИ-кеңешчи» бөлүмү — дүкөнүңүз жөнүндө ИИ менен маек. «Жыйынтыктагы» кирешени жана пайданы, ABC-анализди, кампаны (баалар, сатып алуу, калдыктар) жана кардарлардын карыздарын көрөт, маалыматыңыз боюнча жооп берет жана сандарды ойлоп чыгарбайт",
+        "ИИ-кеңешчи карызкорлордун тизмесин аттары жана телефондору менен көрсөтөт, бирок интернетке коддор астындагы суммалар гана кетет — аттарды жана телефондорду программа өзү компьютериңизде коёт",
+        "Кассада бар накталай акчадан көп алуу тыюу салынды; алуунун алдында касса канча калаарын жазат",
+        "«Кампаны толуктайсызбы?»: «Жок» дегенден кийин суроо кайра ачылбайт жана мурунку сан кайтат; суроо ачык турганда төлөм башталбайт",
+        "Кассаны төлөмдөн кийин дароо жапса, төлөнгөн товарлар чекке кайра кайтпайт",
+        "«Тех колдоо»: «Түзмөк жөнүндө маалыматты көчүрүү» баскычы — компьютер жана касса жөнүндө маалымат алмашуу буферине, колдоого жиберүү үчүн",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Clothing with sizes and colors: the sale goes in one request — faster (1.3 s → 0.8 s), the size window opens instantly, and the sold size's stock drops right after payment",
-        "The shop bot knows sizes and colors: asked “what sizes are there?” it lists the sizes and colors in stock",
-        "Android: the till and the owner program open and work on phones and POS terminals; the screen rotates, every window adapts to the screen, finger scrolling",
-        "Android: the phone camera is a barcode scanner (in the receipt, the product card, receiving), with an animation and a green flash on a good scan",
-        "Android and Linux: icons are back (they were squares); the on-screen keyboard no longer pops up by itself when a window opens",
+        "Owner program: new “AI advisor” section — chat with AI about your shop. It sees revenue and profit from the Overview, the ABC analysis, the warehouse (prices, cost, stock) and customer debts, answers from your data and never makes numbers up",
+        "The AI advisor lists debtors with names and phones, but only amounts under codes go online — the program fills in names and phones on your computer",
+        "Taking more cash out of the till than it holds is no longer allowed; before a cash-out the till shows what will remain",
+        "“Restock?”: after “No” the question no longer reopens and the previous quantity comes back; payment won't start while the question is open",
+        "If the till is closed right after payment, the paid items no longer come back into the receipt",
+        "“Support”: a “Copy device information” button — computer and till details to the clipboard to send to support",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Beden ve renkli giyim: satış tek istekte geçer — daha hızlı (1,3 sn → 0,8 sn), beden penceresi hemen açılır, satılan bedenin stoğu ödemeden hemen sonra düşer",
-        "Mağaza botu beden ve renkleri biliyor: «hangi bedenler var?» sorusuna stoktaki beden ve renkleri kendisi söyler",
-        "Android: kasa ve işletme sahibi programı telefonlarda ve POS terminallerinde açılıp çalışır; ekran döner, tüm pencereler ekrana uyum sağlar, parmakla kaydırma",
-        "Android: telefon kamerası barkod okuyucu (fişte, ürün kartında, mal kabulde), animasyonlu ve başarılı okumada yeşil yanıp sönme ile",
-        "Android ve Linux: simgeler yerinde (önceden kareydi); pencere açılınca ekran klavyesi artık kendiliğinden açılmıyor",
+        "İşletme sahibi programı: yeni «Yapay zekâ danışmanı» bölümü — mağazanız hakkında yapay zekâ ile sohbet. Özet'teki ciro ve kârı, ABC analizini, depoyu (fiyatlar, maliyet, stok) ve müşteri borçlarını görür, verilerinize göre yanıtlar ve rakam uydurmaz",
+        "Yapay zekâ danışmanı borçluları ad ve telefonlarıyla listeler, ancak internete yalnızca kodlu tutarlar gider — ad ve telefonları program bilgisayarınızda yerleştirir",
+        "Kasadaki nakitten fazla para çıkışı artık yasak; çıkıştan önce kasa ne kadar kalacağını gösterir",
+        "«Stok eklensin mi?»: «Hayır»dan sonra soru tekrar açılmaz ve önceki miktar geri gelir; soru açıkken ödeme başlamaz",
+        "Kasa ödemeden hemen sonra kapatılırsa ödenen ürünler artık fişe geri gelmez",
+        "«Destek»: «Cihaz bilgilerini kopyala» düğmesi — bilgisayar ve kasa bilgileri panoya, desteğe göndermek için",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "O'lcham va rangli kiyim: sotuv bitta so'rovda o'tadi — tezroq (1,3 s → 0,8 s), o'lcham oynasi darhol ochiladi, sotilgan o'lcham qoldig'i to'lovdan keyin darhol kamayadi",
-        "Do'kon boti o'lcham va ranglarni biladi: «qanday o'lchamlar bor?» deganda mavjud o'lcham va ranglarni o'zi aytadi",
-        "Android: kassa va ega dasturi telefonlarda va kassa terminallarida ochiladi va ishlaydi; ekran aylanadi, barcha oynalar ekranga moslashadi, barmoq bilan aylantirish",
-        "Android: telefon kamerasi — shtrix-kod skaneri (chekda, mahsulot kartasida, qabul qilishda), animatsiya va muvaffaqiyatli skanda yashil chaqnash bilan",
-        "Android va Linux: belgilar joyida (avval kvadratlar edi); oyna ochilganda ekran klaviaturasi endi o'zi chiqmaydi",
+        "Ega dasturi: yangi «SI maslahatchi» bo'limi — do'koningiz haqida SI bilan suhbat. «Umumiy ko'rinish»dagi tushum va foydani, ABC-tahlilni, omborni (narxlar, tannarx, qoldiqlar) va mijozlar qarzlarini ko'radi, ma'lumotlaringiz bo'yicha javob beradi va raqamlarni o'ylab topmaydi",
+        "SI maslahatchi qarzdorlar ro'yxatini ism va telefonlari bilan ko'rsatadi, lekin internetga faqat kodlangan summalar ketadi — ism va telefonlarni dastur kompyuteringizda o'zi qo'yadi",
+        "Kassadagi naqd puldan ko'p chiqim endi taqiqlangan; chiqimdan oldin kassa qancha qolishini yozadi",
+        "«Omborni to'ldirasizmi?»: «Yo'q»dan keyin savol qayta ochilmaydi va oldingi miqdor qaytadi; savol ochiq turganda to'lov boshlanmaydi",
+        "Kassa to'lovdan so'ng darhol yopilsa, to'langan mahsulotlar endi chekka qaytmaydi",
+        "«Texnik yordam»: «Qurilma ma'lumotlarini nusxalash» tugmasi — kompyuter va kassa haqidagi ma'lumotlar buferga, yordamga yuborish uchun",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

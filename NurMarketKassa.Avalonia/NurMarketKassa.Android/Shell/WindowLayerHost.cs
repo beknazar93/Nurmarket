@@ -31,10 +31,15 @@ public sealed class WindowLayerHost : Panel
 
     /// <summary>2026-10-04: окна, которые на узком экране сами перестраиваются в одну колонку
     /// (NarrowStack / свои правки) — их не уменьшаем, а даём ширину экрана.</summary>
-    internal static readonly HashSet<string> NarrowWindows = new(StringComparer.Ordinal) { "CheckoutDialog", "LoginWindow", "ProductEditDialog" };
+    // 2026-10-05, снимки владельца с телефона: в возврате список чеков уходил под кнопки окна, в оплате долга
+    // таблица сжималась до одной строки — окно листалось целиком, и таблицы получали высоту «по содержимому».
+    // Эти окна перестраиваются сами (NarrowLayout) и на телефоне открываются во весь экран.
+    internal static readonly HashSet<string> NarrowWindows = new(StringComparer.Ordinal)
+        { "CheckoutDialog", "LoginWindow", "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog" };
 
     /// <summary>2026-10-04: формы, которые на телефоне открываются во весь экран.</summary>
-    internal static readonly HashSet<string> FullScreenOnPhone = new(StringComparer.Ordinal) { "ProductEditDialog" };
+    internal static readonly HashSet<string> FullScreenOnPhone = new(StringComparer.Ordinal)
+        { "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog" };
     private readonly List<Window> _windows = new();
     private readonly Dictionary<Window, Layer> _layers = new();
     private readonly Dictionary<Window, IInputElement?> _lastFocus = new();
@@ -79,10 +84,53 @@ public sealed class WindowLayerHost : Panel
 
         ApplySizing(window);
         UpdateInteractivity();
+        // 2026-10-05, владелец: «плавный интерфейс и приятный переход». Окна и диалоги появляются плавно; главные
+        // окна (заставка, касса, программа владельца) — сразу.
+        if (!(IsMainWindow?.Invoke(window) ?? false))
+            AnimateIn(layer, modal);
         // 2026-10-04: журнал окон — чтобы по журналу Android было видно, какое окно висит сверху.
         NurMarketKassa.Services.PosLogger.Log($"Android: окно открыто {window.GetType().Name}{(modal ? " (модальное)" : "")}, слоёв {_windows.Count}.", "UI");
         // 2026-10-04, диагностика «модалка открыта, но её не видно»: через секунду — размеры и видимость слоёв.
         DispatcherTimer.RunOnce(DumpLayers, TimeSpan.FromSeconds(1));
+    }
+
+    private static readonly TimeSpan AppearDuration = TimeSpan.FromMilliseconds(170);
+
+    /// <summary>2026-10-05: появление окна — затухание 0 → 1, модальное ещё и поднимается на 18 точек. Анимируется
+    /// сам слой (его размер и уменьшение окна — в ArrangeOverride — не трогаются).</summary>
+    private static void AnimateIn(Layer layer, bool modal)
+    {
+        try
+        {
+            var easing = new Avalonia.Animation.Easings.CubicEaseOut();
+            var transitions = new Avalonia.Animation.Transitions
+            {
+                new Avalonia.Animation.DoubleTransition { Property = OpacityProperty, Duration = AppearDuration, Easing = easing },
+            };
+            layer.Opacity = 0;
+            if (modal)
+            {
+                transitions.Add(new Avalonia.Animation.TransformOperationsTransition
+                {
+                    Property = RenderTransformProperty,
+                    Duration = AppearDuration,
+                    Easing = easing,
+                });
+                layer.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(18px)");
+            }
+            layer.Transitions = transitions;
+            Dispatcher.UIThread.Post(() =>
+            {
+                layer.Opacity = 1;
+                if (modal)
+                    layer.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("none");
+            }, DispatcherPriority.Background);
+        }
+        catch
+        {
+            layer.Opacity = 1;
+            layer.RenderTransform = null;
+        }
     }
 
     private void DumpLayers()
@@ -122,6 +170,20 @@ public sealed class WindowLayerHost : Panel
         if (!_layers.TryGetValue(window, out var layer))
             return;
         window.IsVisible = true;
+        // 2026-10-04, стресс-тест на телефоне: экранная клавиатура меняет высоту вида → «экраны изменились» →
+        // касса (MainWindow.OnCashierScreensChanged) вызывает Activate() главного окна, и оно поднималось НАД
+        // открытым модальным окном: «Укажите количество» пропадало под кассой, а касса принимала касания.
+        // Как в Windows: пока выше открыт модальный диалог, окно под ним не поднимается и фокус из поля
+        // диалога не забирает (иначе закрылась бы клавиатура).
+        var position = _windows.IndexOf(window);
+        for (var i = _windows.Count - 1; i > position; i--)
+        {
+            if (_windows[i].IsVisible && _layers[_windows[i]].IsModal)
+            {
+                UpdateInteractivity();
+                return;
+            }
+        }
         if (!ReferenceEquals(_windows.LastOrDefault(), window))
         {
             RememberFocusOfTop();
@@ -257,6 +319,8 @@ public sealed class WindowLayerHost : Panel
         // (AutoReflow), модалка-форма листается вверх-вниз целиком. Окна, перестроенные вручную (NarrowWindows), — как есть.
         var phone = OperatingSystem.IsAndroid() && hostW < AutoReflow.NarrowWidth;
         window.AutoReflowEnabled = phone && !narrowAware;
+        // 2026-10-04, редизайн под телефон: общие стили узкого экрана (вкладки одной строкой — App.axaml).
+        window.Classes.Set("android-narrow", phone);
         if (window.ExplicitPosition is not null && !isMain && !maximized)
         {
             layer.Scale = 1.0;

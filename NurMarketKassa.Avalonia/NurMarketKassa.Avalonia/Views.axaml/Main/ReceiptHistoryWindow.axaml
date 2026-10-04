@@ -193,7 +193,7 @@
     </Style>
   </Window.Styles>
 
-  <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+  <Border x:Name="RootCard" Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
           Background="{DynamicResource BrushDialogPanel}"
           BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
@@ -219,14 +219,14 @@
       </Grid>
 
       <!-- 1: период, поиск, обновить -->
-      <Grid Grid.Row="1" Margin="0,14,0,0">
+      <Grid x:Name="ToolbarGrid" Grid.Row="1" Margin="0,14,0,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto"/>
           <ColumnDefinition Width="3*" MaxWidth="480"/>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+        <StackPanel x:Name="PeriodChips" Grid.Column="0" Orientation="Horizontal" Spacing="6">
           <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="shift" IsChecked="True"
                        Content="{DynamicResource receiptHistory.periodShift}" Click="Period_Click"/>
           <RadioButton Classes="period-chip" GroupName="ReceiptPeriod" Tag="today"
@@ -240,7 +240,7 @@
                  HorizontalAlignment="Stretch"
                  Watermark="{DynamicResource receiptHistory.searchWatermark}"
                  TextChanged="SearchBox_TextChanged"/>
-        <Button Grid.Column="3"
+        <Button x:Name="RefreshButton" Grid.Column="3"
                 Content="{DynamicResource common.refresh}"
                 Classes="btn-secondary"
                 MinHeight="42" MinWidth="110"

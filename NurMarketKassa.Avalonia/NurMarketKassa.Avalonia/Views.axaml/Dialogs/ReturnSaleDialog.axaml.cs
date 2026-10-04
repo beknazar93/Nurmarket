@@ -61,6 +61,42 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-10-05: телефон — чеки сверху, состав чека снизу, высота окна делится между ними поровну
+    /// (а не «по содержимому», как при общей автоподгонке); в таблице чеков без колонки «Дата»; «Оконный режим»
+    /// на Android не нужен.</summary>
+    private void ApplyNarrowLayout(bool narrow)
+    {
+        RootCard.Padding = new Avalonia.Thickness(narrow ? 12 : 24);
+        RootCard.Margin = new Avalonia.Thickness(narrow ? 6 : 12);
+        WindowModeButton.IsVisible = !narrow;
+        var salesBlock = MainAreaGrid.Children[0];
+        if (narrow)
+        {
+            MainAreaGrid.ColumnDefinitions = new ColumnDefinitions("*");
+            MainAreaGrid.RowDefinitions = new RowDefinitions("*,12,*");
+            Grid.SetRow(LinesBlock, 2);
+            Grid.SetColumn(LinesBlock, 0);
+        }
+        else
+        {
+            MainAreaGrid.ColumnDefinitions = new ColumnDefinitions("*,16,*");
+            MainAreaGrid.RowDefinitions = new RowDefinitions();
+            Grid.SetRow(LinesBlock, 0);
+            Grid.SetColumn(LinesBlock, 2);
+        }
+        Grid.SetRow(salesBlock, 0);
+        Grid.SetColumn(salesBlock, 0);
+
+        // Колонки: № чека, Дата, Сумма, «Выбрать».
+        if (SalesDataGrid.Columns.Count >= 4)
+        {
+            SalesDataGrid.Columns[0].Width = new DataGridLength(narrow ? 96 : 110);
+            SalesDataGrid.Columns[1].IsVisible = !narrow;
+            SalesDataGrid.Columns[2].Width = narrow ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(110);
+            SalesDataGrid.Columns[3].Width = new DataGridLength(narrow ? 96 : 110);
+        }
+    }
+
     public ReturnSaleDialog()
     {
         InitializeComponent();
@@ -68,6 +104,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         DataContext = this;
         Lines.CollectionChanged += (_, _) => UpdateReceiptChrome();
         Opened += OnFirstOpened;
+        // 2026-10-05, снимок владельца с телефона: список чеков уходил под «Ввести ID продажи вручную» и
+        // кнопки окна, колонка «Дата» сжималась в пустую полоску, суммы обрезались («20150,00 со»).
+        NarrowLayout.Attach(this, 700, ApplyNarrowLayout);
 
         // Подписка на изменение свойств окна через стандартный PropertyChanged
         PropertyChanged += (s, e) =>

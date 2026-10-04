@@ -60,6 +60,18 @@ public partial class NewOperationDialog : Window
             return;
         }
 
+        // 2026-10-04, ТЗ 1.17.48 P0-2: изъятие не больше наличных в кассе и с подтверждением «станет».
+        if (!_isDeposit)
+        {
+            if (CashWithdrawalGuard.Refusal(amount) is { } refusal)
+            {
+                PosMessageBox.Show(this, refusal, CashWithdrawalGuard.Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (!PosDialogs.ConfirmYesNo(this, CashWithdrawalGuard.ConfirmText(amount), CashWithdrawalGuard.Title))
+                return;
+        }
+
         var type = _isDeposit ? "Внесение" : "Изъятие";
         var createdAt = DateTime.Now;
         var cashier = App.CurrentUserId ?? CashierBox.SelectedItem?.ToString() ?? "—";

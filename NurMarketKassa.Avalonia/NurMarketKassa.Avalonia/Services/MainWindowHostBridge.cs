@@ -48,7 +48,15 @@ public sealed class MainWindowHostBridge
 
     public void TryAddProduct(CatalogProductTileVm product)
     {
-        if (AddProductFromCatalog != null)
-            _ = AddProductFromCatalog(product, null);
+        if (AddProductFromCatalog == null)
+            return;
+        // 2026-10-04, стресс-тест на Android: ошибка при добавлении товара плиткой терялась молча (задача
+        // без ожидания) — кассир нажимал, ничего не происходило, а в журнале было пусто.
+        _ = AddProductFromCatalog(product, null).ContinueWith(
+            t => NurMarketKassa.Services.PosLogger.Log(
+                $"Добавление товара «{product.Title}» не удалось: {t.Exception?.GetBaseException()}", "ERROR"),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -36,6 +37,47 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
     {
         InitializeComponent();
         RefreshStatus();
+        // 2026-10-05: на Android AnyDesk отсюда не запустить — главная кнопка окна «Скопировать информацию об устройстве».
+        if (OperatingSystem.IsAndroid())
+        {
+            LaunchButton.IsVisible = false;
+            DownloadButton.IsVisible = false;
+            CopyDeviceInfoButton.Classes.Set("SecondaryActionButton", false);
+            CopyDeviceInfoButton.Classes.Set("PrimaryActionButton", true);
+            StatusText.Text = Tr.T(
+                "Нажмите «Скопировать информацию об устройстве» и отправьте текст в поддержку NurMarket (Telegram, WhatsApp) — по нему программу подстроят под ваш аппарат. Удалённый доступ на Android — приложение AnyDesk из Google Play.",
+                "«Түзмөк жөнүндө маалыматты көчүрүү» баскычын басып, текстти NurMarket колдоосуна жибериңиз (Telegram, WhatsApp) — ал боюнча программа аппаратыңызга ылайыкталат. Android'де алыстан кирүү — Google Play'деги AnyDesk колдонмосу.",
+                "Tap “Copy device information” and send the text to NurMarket support (Telegram, WhatsApp) — it helps adapt the app to your device. Remote access on Android: the AnyDesk app from Google Play.",
+                "«Cihaz bilgilerini kopyala»ya dokunun ve metni NurMarket desteğine gönderin (Telegram, WhatsApp) — program cihazınıza göre uyarlanır. Android'de uzaktan erişim: Google Play'deki AnyDesk uygulaması.",
+                "«Qurilma ma'lumotlarini nusxalash»ni bosing va matnni NurMarket qo'llab-quvvatlash xizmatiga yuboring (Telegram, WhatsApp) — dastur qurilmangizga moslashtiriladi. Android'da masofaviy kirish — Google Play'dagi AnyDesk ilovasi.");
+        }
+    }
+
+    /// <summary>2026-10-05, владелец: «скопировать информацию об устройстве — в буфер обмена».</summary>
+    private async void CopyDeviceInfo_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var text = DeviceInfoReport.Build(this);
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard is null)
+                throw new InvalidOperationException("буфер обмена недоступен");
+            await clipboard.SetTextAsync(text).ConfigureAwait(true);
+            PosLogger.Log("Поддержка: информация об устройстве скопирована:\n" + text, "INFO");
+            StatusText.Text = Tr.T(
+                "Скопировано. Вставьте текст в чат поддержки NurMarket (долгое нажатие → «Вставить»).",
+                "Көчүрүлдү. Текстти NurMarket колдоо чатына чаптаңыз (узак басуу → «Чаптоо»).",
+                "Copied. Paste the text into the NurMarket support chat (long press → “Paste”).",
+                "Kopyalandı. Metni NurMarket destek sohbetine yapıştırın (uzun basın → «Yapıştır»).",
+                "Nusxalandi. Matnni NurMarket qo'llab-quvvatlash chatiga joylashtiring (uzoq bosing → «Joylashtirish»).");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Поддержка: информацию об устройстве скопировать не удалось: {ex.Message}", "WARNING");
+            StatusText.Text = Tr.T(
+                $"Скопировать не удалось: {ex.Message}", $"Көчүрүү мүмкүн болгон жок: {ex.Message}",
+                $"Could not copy: {ex.Message}", $"Kopyalanamadı: {ex.Message}", $"Nusxalab bo'lmadi: {ex.Message}");
+        }
     }
 
     private static string? FindInstalledAnyDesk()

@@ -208,7 +208,7 @@
                         BorderThickness="1"
                         CornerRadius="12"
                         Padding="10,0">
-                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Stretch">
+                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
                         <PathIcon Data="{StaticResource IconSearch}"
                                   Width="16" Height="16"
                                   Foreground="{DynamicResource BrushTextSoft}"
@@ -226,6 +226,17 @@
                                  VerticalContentAlignment="Center"
                                  HorizontalAlignment="Stretch"
                                  VerticalAlignment="Center"/>
+                        <!-- 2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск. -->
+                        <Button Grid.Column="2"
+                                IsVisible="{OnPlatform False, Android=True}"
+                                Click="SearchCameraScan_Click"
+                                Focusable="False"
+                                Width="44" Height="42" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                ToolTip.Tip="{DynamicResource csh.cart.cameraScan}">
+                            <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="20"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
                     </Grid>
                 </Border>
                 <Button Grid.Column="1"

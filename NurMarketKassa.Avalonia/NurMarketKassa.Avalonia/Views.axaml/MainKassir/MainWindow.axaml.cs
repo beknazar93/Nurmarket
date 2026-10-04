@@ -130,6 +130,9 @@ public partial class MainWindow : Window
         MarketSpheres.Changed += OnMarketSphereChanged;
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
+        // 2026-10-04: оплата проведена — состояние на диск сразу, без задержки 0,4 с (иначе после сбоя сразу
+        // за оплатой касса восстанавливала оплаченный чек). SaveDebounced с 0 отменяет и прежнюю отложенную запись.
+        _viewModel.Basket.PaymentCommitted += (_, _) => _applicationStateService.SaveDebounced(CaptureApplicationState, 0);
         _viewModel.Basket.ShiftDesyncDetected += OnShiftDesyncDetected;
         _viewModel.Basket.EnsureShiftBeforePayment = EnsureShiftBeforePaymentAsync;
         // 2026-10-04: скан QR клиента NurCRM, а клиента нет в базе — окно «Новый клиент» с телефоном.
@@ -1305,6 +1308,9 @@ public partial class MainWindow : Window
     /// его получили (см. OfflineQueueCash) — чтобы отправленные потом чеки не считались дважды.</summary>
     private OfflineQueueCashSnapshot _queueCashAtBalance = OfflineQueueCashSnapshot.Empty;
 
+    /// <summary>2026-10-04, ТЗ P0-2: наличные в кассе для проверки изъятия (CashWithdrawalGuard) — как в шапке.</summary>
+    internal decimal? CurrentDrawerCash => EffectiveShiftCashBalance;
+
     private decimal? EffectiveShiftCashBalance
     {
         get
@@ -2087,10 +2093,37 @@ public partial class MainWindow : Window
         if (w <= 0 || h <= 0)
             return;
         var portrait = h > w * 1.05;
-        if (portrait == _portraitLayout)
+        // 2026-10-04, редизайн: вертикально и невысоко — телефон (и планшет 7"): два экрана «Товары» / «Чек».
+        // 2026-10-04, владелец: «раздели каталог и корзину для всех мобильных устройств» — на телефоне и планшете
+        // (DeviceForm) два экрана в любом положении. Кассовый терминал — рядом или каталог над чеком, как было.
+        var phone = DeviceForm.IsHandheld || (portrait && h < PhoneModeMaxHeight);
+        if (portrait == _portraitLayout && phone == _phoneMode)
             return;
         _portraitLayout = portrait;
+        _phoneMode = phone;
         Classes.Set("portrait", portrait);
+        Classes.Set("phone", phone);
+        PhoneModeBar.IsVisible = phone;
+        CatalogGridSplitter.IsVisible = !phone;
+
+        if (phone)
+        {
+            MainContentGrid.RowDefinitions = new RowDefinitions("Auto,*");
+            CatalogColumn.MinWidth = 0;
+            CartColumn.MinWidth = 0;
+            Grid.SetRow(PhoneModeBar, 0);
+            Grid.SetColumnSpan(PhoneModeBar, 3);
+            Grid.SetRow(CatalogPanel, 1);
+            Grid.SetColumn(CatalogPanel, 0);
+            Grid.SetColumnSpan(CatalogPanel, 3);
+            Grid.SetRow(CartPanelView, 1);
+            Grid.SetColumn(CartPanelView, 0);
+            Grid.SetColumnSpan(CartPanelView, 3);
+            ApplyPhoneScreen();
+            PosLogger.Log($"Экран {w:0}×{h:0}: телефон — экраны «Товары» и «Чек».", "UI");
+            return;
+        }
+        ApplyPhoneScreen();
 
         if (portrait)
         {
@@ -2123,6 +2156,68 @@ public partial class MainWindow : Window
         Grid.SetColumnSpan(CartPanelView, portrait ? 3 : 1);
         PosLogger.Log($"Экран {w:0}×{h:0}: {(portrait ? "вертикальная раскладка (каталог над чеком)" : "горизонтальная раскладка")}.", "UI");
     }
+
+    /// <summary>Ниже этой высоты (точки вида) вертикальный экран — телефонный: каталог и чек по очереди.</summary>
+    private const double PhoneModeMaxHeight = 1000;
+
+    private bool _phoneMode;
+    private bool _phoneShowsCart;
+    private bool _phoneBasketWatched;
+
+    /// <summary>2026-10-04, телефон: какой из двух экранов виден. Вне телефонного режима видны оба.</summary>
+    private void ApplyPhoneScreen()
+    {
+        if (_phoneMode && !_phoneBasketWatched)
+        {
+            // Чек оплачен или очищен — обратно к товарам (как в мобильных кассах).
+            _phoneBasketWatched = true;
+            _viewModel.Basket.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(BasketPanelViewModel.IsEmpty))
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_phoneMode && _phoneShowsCart && _viewModel.Basket.IsEmpty)
+                            ShowPhoneScreen(cart: false);
+                    });
+            };
+        }
+        var showCart = _phoneMode && _phoneShowsCart;
+        // 2026-10-05, «приятный переход»: экран, который появляется, проявляется за 0,15 с.
+        if (_phoneMode && showCart && !CartPanelView.IsVisible)
+            FadeIn(CartPanelView);
+        else if (_phoneMode && !showCart && !CatalogPanel.IsVisible)
+            FadeIn(CatalogPanel);
+        CatalogPanel.IsVisible = !showCart;
+        CartPanelView.IsVisible = !_phoneMode || showCart;
+        PhoneCatalogTab.IsChecked = !showCart;
+        PhoneCartTab.IsChecked = showCart;
+        PhonePayButton.IsVisible = !showCart;
+    }
+
+    private static void FadeIn(Control control)
+    {
+        control.Transitions ??= new Avalonia.Animation.Transitions
+        {
+            new Avalonia.Animation.DoubleTransition
+            {
+                Property = OpacityProperty,
+                Duration = TimeSpan.FromMilliseconds(150),
+                Easing = new Avalonia.Animation.Easings.CubicEaseOut(),
+            },
+        };
+        control.Opacity = 0;
+        Dispatcher.UIThread.Post(() => control.Opacity = 1, DispatcherPriority.Background);
+    }
+
+    private void ShowPhoneScreen(bool cart)
+    {
+        _phoneShowsCart = cart;
+        ApplyPhoneScreen();
+    }
+
+    private void PhoneCatalogTab_Click(object? sender, RoutedEventArgs e) => ShowPhoneScreen(cart: false);
+
+    private void PhoneCartTab_Click(object? sender, RoutedEventArgs e) => ShowPhoneScreen(cart: true);
 
     private ApplicationState CaptureApplicationState() =>
         new()

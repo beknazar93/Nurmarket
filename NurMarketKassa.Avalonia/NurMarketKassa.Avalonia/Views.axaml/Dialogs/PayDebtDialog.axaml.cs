@@ -101,6 +101,50 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     private static bool IsKyrgyz => UserPreferences.Instance.Language == AppLanguage.Kyrgyz;
 
     /// <summary>Parameterless ctor required by Avalonia XAML runtime loader / designer.</summary>
+    /// <summary>2026-10-05: телефон — подпись «Погасить одной суммой» строкой выше поля и кнопки; в таблице
+    /// долгов вместо колонки «Товар» — дата, сумма и «Оплатить»; без кнопки «свернуть».</summary>
+    private void ApplyNarrowLayout(bool narrow)
+    {
+        RootGrid.Margin = narrow ? new Avalonia.Thickness(8, 6, 8, 8) : new Avalonia.Thickness(16, 12, 16, 16);
+        MinimizeButton.IsVisible = !narrow;
+        if (narrow)
+        {
+            PayAllGrid.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+            PayAllGrid.RowDefinitions = new RowDefinitions("Auto,6,Auto");
+            Grid.SetColumnSpan(PayAllLabelText, 2);
+            PayAllLabelText.Margin = default;
+            Grid.SetRow(PayAllAmountBox, 2);
+            Grid.SetColumn(PayAllAmountBox, 0);
+            Grid.SetRow(PayAllButton, 2);
+            Grid.SetColumn(PayAllButton, 1);
+        }
+        else
+        {
+            PayAllGrid.ColumnDefinitions = new ColumnDefinitions("Auto,160,Auto");
+            PayAllGrid.RowDefinitions = new RowDefinitions();
+            Grid.SetColumnSpan(PayAllLabelText, 1);
+            PayAllLabelText.Margin = new Avalonia.Thickness(0, 0, 10, 0);
+            Grid.SetRow(PayAllAmountBox, 0);
+            Grid.SetColumn(PayAllAmountBox, 1);
+            Grid.SetRow(PayAllButton, 0);
+            Grid.SetColumn(PayAllButton, 2);
+        }
+
+        // Непогашенные: Дата, Товар, К оплате, «Оплатить». История: Дата, Товар, Оплачено.
+        if (UnpaidGrid.Columns.Count >= 4)
+        {
+            UnpaidGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 140);
+            UnpaidGrid.Columns[1].IsVisible = !narrow;
+            UnpaidGrid.Columns[2].Width = narrow ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(150);
+            UnpaidGrid.Columns[3].Width = new DataGridLength(narrow ? 96 : 120);
+        }
+        if (HistoryGrid.Columns.Count >= 3)
+        {
+            HistoryGrid.Columns[0].Width = new DataGridLength(narrow ? 138 : 140);
+            HistoryGrid.Columns[2].Width = new DataGridLength(narrow ? 112 : 150);
+        }
+    }
+
     public PayDebtDialog() : this(ResolveService<IClientsApiService>(), ResolveService<ISalesApiService>())
     {
     }
@@ -119,6 +163,9 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         InitializeComponent();
         this.ClampToScreenHeight();
         DataContext = this;
+        // 2026-10-05, снимок владельца с телефона: кнопка «Погасить» уходила за край, в таблице видна одна
+        // строка и обрезанная дата. На телефоне окно во весь экран (WindowLayerHost) и перестраивается здесь.
+        AvaloniaHost.Services.NarrowLayout.Attach(this, 700, ApplyNarrowLayout);
 
         Title = Tr.T("Оплата долга", "Карыз төлөө", "Debt payment", "Borç ödemesi", "Qarzni to'lash");
         HeaderTitleText.Text = Tr.T("Оплата долга", "Карыз төлөө", "Debt payment", "Borç ödemesi", "Qarzni to'lash");

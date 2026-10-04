@@ -219,6 +219,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// <summary>Оплата прошла (на UI-потоке). Окно кассы по нему подтягивает остаток смены.</summary>
     public event EventHandler? CheckoutSucceeded;
 
+    /// <summary>2026-10-04: оплата проведена, корзина уже новая — состояние кассы нужно записать на диск
+    /// немедленно (вызывается на UI-потоке, раньше окна «Платёж принят»).</summary>
+    public event EventHandler? PaymentCommitted;
+
     public ObservableCollection<CartLineItemVm> Lines { get; } = new();
     public ObservableCollection<ReceiptTabVm> ReceiptTabs { get; } = new();
 
@@ -1322,7 +1326,34 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         }
     }
 
+    /// <summary>2026-10-04, ТЗ 1.17.48 P0-5: пока открыт вопрос «пополнить склад?» по строке — оплату не начинаем
+    /// (кассир ввёл количество и сразу нажал «Оплатить»: поле применилось по уходу фокуса, а чек ушёл бы со
+    /// старым количеством). Во время оплаты поздние правки количества про склад не спрашивают.</summary>
     private async Task PayAsync()
+    {
+        if (!_stockOffersOpen.IsEmpty)
+        {
+            CartMessage = Tr.T(
+                "Сначала ответьте на вопрос о пополнении склада.",
+                "Адегенде кампаны толуктоо суроосуна жооп бериңиз.",
+                "Answer the restock question first.",
+                "Önce stok ekleme sorusunu yanıtlayın.",
+                "Avval omborni to'ldirish savoliga javob bering.");
+            return;
+        }
+
+        _paymentInProgress = true;
+        try
+        {
+            await PayCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _paymentInProgress = false;
+        }
+    }
+
+    private async Task PayCoreAsync()
     {
         // Способ оплаты от кнопок «Наличные»/«Безнал» раскладки (2026-09-28) — одноразовый:
         // забираем сразу, чтобы следующее обычное «Оплатить» открылось как всегда.
@@ -1514,6 +1545,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             RecordSoldLineItemsForHistory(TryReadSaleId(result));
             RecordLossSale(TryReadSaleId(result));
             CreditOrRedeemLoyaltyPoints(checkoutVm, result);
+            // 2026-10-04, стресс-тест на Android: касса, закрытая сразу после оплаты (сбой, разряд, смахнули из
+            // недавних), при запуске восстанавливала ОПЛАЧЕННЫЙ чек с товарами — риск продать их второй раз.
+            // Корзина к этому месту уже новая (PosCheckoutService), а на диск состояние попадало только после окна
+            // «Платёж принят» и ещё 0,4 с. Теперь окно кассы пишет его сразу (MainWindow, PaymentCommitted).
+            await RunOnUiThreadAsync(() => PaymentCommitted?.Invoke(this, EventArgs.Empty)).ConfigureAwait(false);
             // Каталог должен мгновенно отразить проданный остаток (та же логика, что и после
             // пополнения склада при нулевом остатке — RefreshCatalogCommand делает полную
             // синхронизацию с сервером, а не только точечный пересчёт проданных позиций).
@@ -2184,6 +2220,42 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// запрошенное количество.</summary>
     private async Task OfferReplenishThenSetQuantityAsync(CartLineItemVm line, double desired, double limit)
     {
+        // 2026-10-04, ТЗ 1.17.48 P0-1: окно вопроса забирало фокус у поля количества, LostFocus применял то же
+        // число ещё раз и открывал второе окно, третье… — «Нет» и Esc будто не работали, выйти можно было только
+        // «Да» (менял склад). Теперь один вопрос на строку за раз. P0-5: строки уже нет в чеке (чек оплачен,
+        // строка удалена) или идёт оплата — не спрашиваем, поле возвращаем к количеству строки.
+        if (_paymentInProgress || !IsLineInCart(line) || !_stockOffersOpen.TryAdd(line.ItemId, 0))
+        {
+            if (!_stockOffersOpen.ContainsKey(line.ItemId))
+                ResetQuantityInput(line);
+            return;
+        }
+
+        try
+        {
+            await OfferReplenishThenSetQuantityCoreAsync(line, desired, limit).ConfigureAwait(false);
+        }
+        finally
+        {
+            _stockOffersOpen.TryRemove(line.ItemId, out _);
+        }
+    }
+
+    /// <summary>2026-10-04, ТЗ 1.17.48 P0-1/P0-5: вопрос «пополнить склад?» по строке уже открыт (ключ — id строки).</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _stockOffersOpen = new(StringComparer.Ordinal);
+
+    /// <summary>2026-10-04, ТЗ P0-5: идёт оплата — поздние правки количества старых строк не спрашивают про склад.</summary>
+    private volatile bool _paymentInProgress;
+
+    private bool IsLineInCart(CartLineItemVm line) =>
+        !string.IsNullOrEmpty(line.ItemId)
+        && _cart.Items.Any(item => string.Equals(item.Id, line.ItemId, StringComparison.Ordinal));
+
+    /// <summary>Поле количества — обратно к фактическому количеству строки (отказ, ошибка пополнения).</summary>
+    private static void ResetQuantityInput(CartLineItemVm line) => line.QuantityInput = line.QuantityDisplay;
+
+    private async Task OfferReplenishThenSetQuantityCoreAsync(CartLineItemVm line, double desired, double limit)
+    {
         var formattedLimit = limit.ToString(line.IsWeight ? "0.###" : "0", CultureInfo.InvariantCulture);
         CartMessage = Tr.T($"Достигнут лимит остатка: {formattedLimit} {line.Unit}.", $"Калдык чегине жетти: {formattedLimit} {line.Unit}.",
             $"Stock limit reached: {formattedLimit} {line.Unit}.", $"Stok sınırına ulaşıldı: {formattedLimit} {line.Unit}.",
@@ -2191,6 +2263,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
         if (_replenishStock == null || string.IsNullOrWhiteSpace(line.ProductId))
         {
+            ResetQuantityInput(line);
             _prompts.ShowWarning(CartMessage);
             return;
         }
@@ -2202,11 +2275,23 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             $"Stokta yalnızca {formattedLimit} {line.Unit} var. Devam edip depoya stok eklemek ister misiniz?",
             $"Omborda faqat {formattedLimit} {line.Unit} bor. Davom etib, omborni to'ldirasizmi?"))
             .ConfigureAwait(false);
-        if (!confirmed)
+        // 2026-10-04, ТЗ P0-1/P0-5: «Нет» (Esc) — поле к количеству строки, склад не трогаем; строки уже нет
+        // в чеке (оплатили, пока висел вопрос) — тоже ничего не делаем.
+        var stillInCart = false;
+        await RunOnUiThreadAsync(() =>
+        {
+            stillInCart = IsLineInCart(line);
+            if (!confirmed || !stillInCart || _paymentInProgress)
+                ResetQuantityInput(line);
+        }).ConfigureAwait(false);
+        if (!confirmed || !stillInCart || _paymentInProgress)
             return;
 
         if (!await _replenishStock(line.ProductId!, desired, line.IsWeight).ConfigureAwait(false))
+        {
+            await RunOnUiThreadAsync(() => ResetQuantityInput(line)).ConfigureAwait(false);
             return;
+        }
 
         await RunOnUiThreadAsync(() =>
         {
@@ -2247,6 +2332,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     private void SetLineQuantity(CartLineItemVm? line)
     {
         if (!CanChangeLineQuantity(line))
+            return;
+        // 2026-10-04, ТЗ P0-5: поле старой строки теряет фокус уже после оплаты — строки в чеке нет, применять нечего.
+        if (!IsLineInCart(line!))
             return;
 
         var minimum = line!.IsWeight ? 0.1 : 1;

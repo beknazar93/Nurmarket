@@ -17,7 +17,12 @@ namespace NurMarketKassa.ViewModels.Main;
 /// </summary>
 public sealed class CatalogPanelViewModel : ViewModelBase
 {
-    private const int PageSize = 50;
+    /// <summary>2026-10-05, владелец (Android): «при смене страницы каталога жёстко тормозит» — на телефоне
+    /// видно ~6 плиток, а при смене страницы создавались все 50. Телефон ставит меньше (PageSizeOverride).</summary>
+    private static int PageSize => PageSizeOverride > 0 ? PageSizeOverride : 50;
+
+    /// <summary>2026-10-05: товаров на страницу каталога; 0 — как было (50). Ставит Android-телефон.</summary>
+    public static int PageSizeOverride { get; set; }
     /// <summary>Вкладка «Услуги» в <see cref="Tabs"/>.</summary>
     public const int ServicesTabIndex = 5;
     private const int MaxVisiblePagerButtons = 9;

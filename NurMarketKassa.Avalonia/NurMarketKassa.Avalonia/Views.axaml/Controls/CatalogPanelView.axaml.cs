@@ -32,6 +32,72 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         // CatalogKeyboardNavigation: её же используют остальные раскладки кассы.
         CatalogKeyboardNavigation.Attach(CardsListBox, () => DataContext as CatalogPanelViewModel);
         CatalogKeyboardNavigation.Attach(TableListBox, () => DataContext as CatalogPanelViewModel);
+        // 2026-10-04, редизайн под любые Android-устройства: плитки — по ширине ряда (см. FitTilesToRow).
+        if (OperatingSystem.IsAndroid())
+        {
+            CardsListBox.SizeChanged += (_, _) => Dispatcher.UIThread.Post(FitTilesToRow, DispatcherPriority.Background);
+            // 2026-10-05, «при смене страницы каталога жёстко тормозит»: время показа страницы — в журнал.
+            DataContextChanged += (_, _) =>
+            {
+                if (DataContext is CatalogPanelViewModel vm)
+                    vm.PropertyChanged += (_, e) =>
+                    {
+                        if (e.PropertyName != nameof(CatalogPanelViewModel.CurrentPage))
+                            return;
+                        var page = vm.CurrentPage;
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        Dispatcher.UIThread.Post(() => PosLogger.Log(
+                            $"Каталог: страница {page} показана за {sw.ElapsedMilliseconds} мс ({vm.Products.Count} товаров).", "UI"),
+                            DispatcherPriority.Background);
+                    };
+            };
+        }
+    }
+
+    /// <summary>2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск
+    /// каталога (найдётся по штрихкоду, как при ручном вводе).</summary>
+    private async void SearchCameraScan_Click(object? sender, RoutedEventArgs e)
+    {
+        var code = await CameraScan.ScanCodeAsync().ConfigureAwait(true);
+        if (code is null || DataContext is not CatalogPanelViewModel vm)
+            return;
+        PosLogger.Log($"Камера-сканер: код в поиск каталога ({code.Length} симв.).", "CART");
+        vm.SearchText = code;
+    }
+
+    /// <summary>Плитка с отступами: Margin="6" у плитки в шаблоне.</summary>
+    private const double TileSlotMargin = 12;
+
+    /// <summary>Уже этого плитка не делается — название и цена перестают помещаться.</summary>
+    private const double MinFluidTileWidth = 140;
+
+    /// <summary>2026-10-04, редизайн под любые Android-устройства. Плитки были одной ширины (тема × «Размер
+    /// карточек»): на телефоне в колонку 430 точек помещалась одна плитка, на планшете по бокам сетки
+    /// оставались пустые поля. Теперь число плиток в ряду — сколько помещается при выбранном размере
+    /// (на телефоне не меньше двух), а ширина плитки растягивается на весь ряд. Высота — как была, на узких
+    /// плитках немного ниже. Только Android: в Windows размер плиток — настройка кассира, как раньше.</summary>
+    private void FitTilesToRow()
+    {
+        if (Application.Current is not { } app
+            || !app.TryGetResource("CatalogTileWidth", app.ActualThemeVariant, out var wValue) || wValue is not double preferredWidth
+            || !app.TryGetResource("CatalogTileHeight", app.ActualThemeVariant, out var hValue) || hValue is not double preferredHeight
+            || preferredWidth <= 0)
+            return;
+        var scroller = CardsListBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        var available = scroller is { Viewport.Width: > 1 } ? scroller.Viewport.Width : CardsListBox.Bounds.Width;
+        available -= 2; // запас на округление — иначе последняя плитка ряда переносится
+        if (available < MinFluidTileWidth)
+            return;
+        var columns = Math.Max(1, (int)Math.Floor(available / (preferredWidth + TileSlotMargin)));
+        if (columns < 2 && available / 2 - TileSlotMargin >= MinFluidTileWidth)
+            columns = 2;
+        var width = Math.Floor(available / columns - TileSlotMargin);
+        var height = Math.Round(preferredHeight * Math.Clamp(width / preferredWidth, 0.85, 1.0));
+        if (Resources.TryGetValue("CatalogTileWidth", out var oldW) && oldW is double ow && Math.Abs(ow - width) < 0.5
+            && Resources.TryGetValue("CatalogTileHeight", out var oldH) && oldH is double oh && Math.Abs(oh - height) < 0.5)
+            return;
+        Resources["CatalogTileWidth"] = width;
+        Resources["CatalogTileHeight"] = height;
     }
 
     /// <summary>Клавиатурный курсор стоит на плитке каталога (кассир ведёт его стрелками, рамка

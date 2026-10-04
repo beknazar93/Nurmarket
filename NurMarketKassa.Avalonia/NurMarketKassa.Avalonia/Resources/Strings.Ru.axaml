@@ -77,6 +77,9 @@
   <x:String x:Key="csh.catalog.tabPieceOption">Поштучно</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Комплекты</x:String>
   <x:String x:Key="csh.catalog.tabServices">Услуги</x:String>
+  <!-- 2026-10-04, телефон: переключатель «Товары / Чек» главного окна -->
+  <x:String x:Key="csh.phone.products">Товары</x:String>
+  <x:String x:Key="csh.phone.receipt">Чек</x:String>
   <x:String x:Key="csh.catalog.colName">Товар</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Штрихкод</x:String>
   <x:String x:Key="csh.catalog.colStock">Остаток</x:String>
@@ -320,6 +323,8 @@
   <x:String x:Key="remoteSupport.intro">Для удалённой помощи используется программа AnyDesk. Нажмите кнопку ниже — откроется AnyDesk с адресом (ID) для подключения. Продиктуйте этот адрес оператору поддержки по телефону или в WhatsApp.</x:String>
   <x:String x:Key="remoteSupport.launchButton">Запустить AnyDesk</x:String>
   <x:String x:Key="remoteSupport.downloadButton">Скачать AnyDesk</x:String>
+  <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
+  <x:String x:Key="remoteSupport.copyDeviceInfo">Скопировать информацию об устройстве</x:String>
 
   <!-- База знаний (этап 5 бэклога "Доработки") -->
   <x:String x:Key="kb.subtitle">Ответы на частые вопросы о работе кассы. Нажмите на вопрос, чтобы увидеть ответ.</x:String>

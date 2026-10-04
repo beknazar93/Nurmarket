@@ -77,6 +77,9 @@
   <x:String x:Key="csh.catalog.tabPieceOption">Donalab</x:String>
   <x:String x:Key="csh.catalog.tabBundle">To'plamlar</x:String>
   <x:String x:Key="csh.catalog.tabServices">Xizmatlar</x:String>
+  <!-- 2026-10-04, телефон: переключатель «Товары / Чек» главного окна -->
+  <x:String x:Key="csh.phone.products">Mahsulotlar</x:String>
+  <x:String x:Key="csh.phone.receipt">Chek</x:String>
   <x:String x:Key="csh.catalog.colName">Mahsulot</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Shtrix-kod</x:String>
   <x:String x:Key="csh.catalog.colStock">Qoldiq</x:String>
@@ -320,6 +323,8 @@
   <x:String x:Key="remoteSupport.intro">Masofaviy yordam uchun AnyDesk dasturidan foydalaniladi. Quyidagi tugmani bosing — AnyDesk ulanish manzili (ID) bilan ochiladi. Ushbu manzilni telefon yoki WhatsApp orqali yordam operatoriga ayting.</x:String>
   <x:String x:Key="remoteSupport.launchButton">AnyDesk'ni ishga tushirish</x:String>
   <x:String x:Key="remoteSupport.downloadButton">AnyDesk'ni yuklab olish</x:String>
+  <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
+  <x:String x:Key="remoteSupport.copyDeviceInfo">Qurilma ma'lumotlarini nusxalash</x:String>
 
   <!-- Bilimlar bazasi -->
   <x:String x:Key="kb.subtitle">Kassaning ishlashi haqida tez-tez so'raladigan savollarga javoblar. Javobni ko'rish uchun savolni bosing.</x:String>

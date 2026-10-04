@@ -324,6 +324,16 @@ public partial class MainWindow
 
         if (dialog.IsExpense && !_viewModel.Basket.HasItems)
         {
+            // 2026-10-04, ТЗ 1.17.48 P0-2: изъятие не больше наличных в кассе и с подтверждением «станет».
+            var amount = (decimal)(dialog.Price * dialog.Quantity);
+            if (CashWithdrawalGuard.Refusal(amount) is { } refusal)
+            {
+                _viewModel.Basket.CartMessage = refusal;
+                await PosAlertDialog.ShowAsync(this, CashWithdrawalGuard.Title, refusal, PosAlertKind.Warning).ConfigureAwait(true);
+                return;
+            }
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, CashWithdrawalGuard.ConfirmText(amount), CashWithdrawalGuard.Title).ConfigureAwait(true))
+                return;
             RecordCashWithdrawal(dialog.ServiceName, dialog.Price * dialog.Quantity);
             return;
         }

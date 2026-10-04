@@ -77,6 +77,9 @@
   <x:String x:Key="csh.catalog.tabPieceOption">Даналап</x:String>
   <x:String x:Key="csh.catalog.tabBundle">Комплекттер</x:String>
   <x:String x:Key="csh.catalog.tabServices">Кызматтар</x:String>
+  <!-- 2026-10-04, телефон: переключатель «Товары / Чек» главного окна -->
+  <x:String x:Key="csh.phone.products">Товарлар</x:String>
+  <x:String x:Key="csh.phone.receipt">Чек</x:String>
   <x:String x:Key="csh.catalog.colName">Товар</x:String>
   <x:String x:Key="csh.catalog.colBarcode">Штрихкод</x:String>
   <x:String x:Key="csh.catalog.colStock">Калдык</x:String>
@@ -320,6 +323,8 @@
   <x:String x:Key="remoteSupport.intro">Алыстан жардам алуу үчүн AnyDesk программасы колдонулат. Төмөнкү баскычты басыңыз — туташуу дареги (ID) менен AnyDesk ачылат. Ошол даректи колдоо операторуна телефон же WhatsApp аркылуу айтып бериңиз.</x:String>
   <x:String x:Key="remoteSupport.launchButton">AnyDesk'ти иштетүү</x:String>
   <x:String x:Key="remoteSupport.downloadButton">AnyDesk'ти жүктөп алуу</x:String>
+  <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
+  <x:String x:Key="remoteSupport.copyDeviceInfo">Түзмөк жөнүндө маалыматты көчүрүү</x:String>
 
   <!-- Билим базасы (бэклог "Доработки" этап 5) -->
   <x:String x:Key="kb.subtitle">Кассанын иштеши боюнча көп берилүүчү суроолорго жооптор. Жоопту көрүү үчүн суроону басыңыз.</x:String>

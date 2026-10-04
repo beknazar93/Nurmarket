@@ -1,4 +1,4 @@
-using Android.App;
+﻿using Android.App;
 using Android.Content;
 using Avalonia.Controls.ApplicationLifetimes;
 using NurMarketKassa.Services;
@@ -15,6 +15,34 @@ internal static class AndroidBootstrap
     public static Context AppContext => Android.App.Application.Context;
 
     private static bool _platformInstalled;
+
+    /// <summary>2026-10-04: телефон или планшет (экран до 11") — да; стационарный кассовый терминал (CaravPOS и
+    /// т. п., 15") — нет. По физической диагонали; если аппарат сообщает неверную плотность (бывает у дешёвых
+    /// терминалов) — по наименьшей стороне экрана в точках.</summary>
+    private static bool DetectHandheld(Activity activity)
+    {
+        try
+        {
+            var metrics = new Android.Util.DisplayMetrics();
+#pragma warning disable CA1422, CS0618 // GetRealMetrics устарел с Android 11, но работает на всех версиях от 7.0
+            activity.WindowManager?.DefaultDisplay?.GetRealMetrics(metrics);
+#pragma warning restore CA1422, CS0618
+            var widthInches = metrics.WidthPixels / (double)metrics.Xdpi;
+            var heightInches = metrics.HeightPixels / (double)metrics.Ydpi;
+            var inches = Math.Sqrt(widthInches * widthInches + heightInches * heightInches);
+            var smallestDp = Math.Min(metrics.WidthPixels, metrics.HeightPixels) / (double)Math.Max(0.5f, metrics.Density);
+            var handheld = inches is > 3 and < 40 ? inches < 11.0 : smallestDp < 720;
+            PosLogger.Log(
+                $"Android: экран {inches:0.0}\" (наименьшая сторона {smallestDp:0} точек) — " +
+                (handheld ? "телефон/планшет: каталог и чек отдельными экранами." : "кассовый терминал: каталог и чек рядом."),
+                "INFO");
+            return handheld;
+        }
+        catch
+        {
+            return true;
+        }
+    }
 
     /// <summary>До запуска Avalonia: платформенные замены Windows-функций.</summary>
     public static void BeforeAvalonia(Activity activity)
@@ -38,6 +66,16 @@ internal static class AndroidBootstrap
             else
                 Android.Util.Log.Info("NurMarket", text);
         };
+
+        // 2026-10-04, владелец: «раздели каталог и корзину для всех мобильных устройств» — телефон/планшет
+        // или кассовый терминал (DeviceForm).
+        NurMarketKassa.AvaloniaHost.Services.DeviceForm.IsHandheld = DetectHandheld(activity);
+        // 2026-10-05, владелец: «при смене страницы каталога жёстко тормозит» — на телефоне видно ~6 плиток,
+        // а страница создавала все 50. Телефон/планшет — 20 товаров на страницу, терминал — как было (50).
+        if (NurMarketKassa.AvaloniaHost.Services.DeviceForm.IsHandheld)
+            NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.PageSizeOverride = 20;
+        // 2026-10-05: «Скопировать информацию об устройстве» (окно «Удалённая поддержка») — сведения Android.
+        NurMarketKassa.AvaloniaHost.Services.DeviceInfoReport.PlatformDetails = AndroidDeviceInfo.Collect;
 
         // 2026-10-04: время жизни кассы — до RegisterServices, иначе Avalonia бросает исключение (см. InstallLifetime).
         NurMarketKassa.AvaloniaHost.App.BeforeRegisterServices = InstallLifetime;

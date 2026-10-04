@@ -22,6 +22,41 @@ public partial class WeighedProductDialog : Window
 
     public string QuantityNormalized { get; private set; } = "";
 
+    private bool _narrowLayout;
+
+    /// <summary>2026-10-05: узкое окно (телефон) — сверху поле веса, ниже быстрые веса и цифры, внизу
+    /// «Отмена» / «В чек»; широкое — как было: ввод слева, цифры справа.</summary>
+    private void ApplyNarrowLayout(bool narrow)
+    {
+        if (narrow == _narrowLayout)
+            return;
+        _narrowLayout = narrow;
+        if (narrow)
+        {
+            ContentPanel.Margin = new Avalonia.Thickness(16, 12, 16, 16);
+            ContentPanel.Spacing = 10;
+            BodyGrid.ColumnDefinitions = new ColumnDefinitions("*");
+            BodyGrid.RowDefinitions = new RowDefinitions("Auto,12,Auto");
+            Grid.SetColumn(KeypadColumn, 0);
+            Grid.SetRow(KeypadColumn, 2);
+            InputColumn.Children.Remove(ActionButtonsGrid);
+            KeypadColumn.Children.Add(ActionButtonsGrid);
+            ActionButtonsGrid.Margin = new Avalonia.Thickness(0, 4, 0, 0);
+        }
+        else
+        {
+            ContentPanel.Margin = new Avalonia.Thickness(24, 20, 24, 24);
+            ContentPanel.Spacing = 16;
+            BodyGrid.ColumnDefinitions = new ColumnDefinitions("*,24,310");
+            BodyGrid.RowDefinitions = new RowDefinitions();
+            Grid.SetColumn(KeypadColumn, 2);
+            Grid.SetRow(KeypadColumn, 0);
+            KeypadColumn.Children.Remove(ActionButtonsGrid);
+            InputColumn.Children.Add(ActionButtonsGrid);
+            ActionButtonsGrid.Margin = new Avalonia.Thickness(0, 32, 0, 0);
+        }
+    }
+
     public WeighedProductDialog() : this("", "", null) { }
 
     public WeighedProductDialog(
@@ -34,6 +69,12 @@ public partial class WeighedProductDialog : Window
     {
         InitializeComponent();
         this.ClampToScreenHeight();
+        // 2026-10-05, владелец на телефоне: «проблема весовых товаров» — правая колонка (быстрые веса и
+        // цифры) шириной 310, и в окне 414 точек поле веса и кнопки «Отмена» / «В чек» сжимались почти
+        // в ноль (автоподгонка Android колонки постоянной ширины не перестраивает). Узкое окно — колонки
+        // друг под другом, см. ApplyNarrowLayout. На Windows окно 620 — без изменений.
+        if (OperatingSystem.IsAndroid())
+            SizeChanged += (_, e) => ApplyNarrowLayout(e.NewSize.Width < 560);
         _scale = scale;
         _scaleLive = HasLiveScaleConnection(scale);
         // 2026-09-14, по просьбе владельца: обратный расчёт — кассир вводит сумму (клиент хочет

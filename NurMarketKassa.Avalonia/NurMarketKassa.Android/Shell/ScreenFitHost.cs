@@ -14,9 +14,16 @@ public sealed class ScreenFitHost : LayoutTransformControl
 {
     public const double DesignWidth = 1000;
     public const double DesignHeight = 660;
+    /// <summary>2026-10-04, редизайн «под любое Android-устройство»: низкий горизонтальный экран (телефон боком
+    /// 809×355, терминал 1024×600 → 1024×449 без панелей) уменьшал кассу под высоту 660 — 54 % и 68 %, текст
+    /// ~1 мм, кнопки мельче пальца. Компактный вид кассы работает и от этой высоты (каталог — ряд товаров,
+    /// чек листается), поэтому по высоте уменьшаем только под неё.</summary>
+    public const double LandscapeMinDesignHeight = 480;
     public const double MinScale = 0.4;
-    /// <summary>Вертикальный экран: ширина одной колонки кассы (чек — CartMinimumWidth 490).</summary>
-    public const double PortraitDesignWidth = 500;
+    /// <summary>Вертикальный экран: ширина одной колонки кассы. 2026-10-04: было 500 (под CartMinimumWidth 490
+    /// горизонтального вида) — на телефонах 360–411 точек касса уменьшалась до 72–82 %. Одна колонка
+    /// помещается и в 430 (чек в вертикальной раскладке без минимальной ширины).</summary>
+    public const double PortraitDesignWidth = 430;
     public const double PortraitMinScale = 0.6;
 
     private double _lastWidth = -1;
@@ -59,7 +66,7 @@ public sealed class ScreenFitHost : LayoutTransformControl
         var portrait = _fullHeight > w * 1.05;
         var scale = portrait
             ? Math.Clamp(w / PortraitDesignWidth, PortraitMinScale, 1.0)
-            : Math.Clamp(Math.Min(w / DesignWidth, _fullHeight / DesignHeight), MinScale, 1.0);
+            : Math.Clamp(Math.Min(w / DesignWidth, _fullHeight / LandscapeMinDesignHeight), MinScale, 1.0);
         scale = Math.Round(scale, 3);
         if (Math.Abs(scale - Scale) < 0.002)
             return;

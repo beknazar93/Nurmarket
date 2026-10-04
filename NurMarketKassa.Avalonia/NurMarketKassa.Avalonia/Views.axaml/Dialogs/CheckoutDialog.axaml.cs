@@ -50,7 +50,11 @@ public partial class CheckoutDialog : Window
         // открывает экранную клавиатуру поверх окна оплаты — там курсор не ставим: клавиатура появится, когда
         // кассир сам нажмёт на поле. Узкий экран (вертикальный телефон) — «Итог» над способами оплаты.
         if (OperatingSystem.IsAndroid())
+        {
             NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, CheckoutColumnsGrid, 700, "Auto,16,*");
+            // 2026-10-04, редизайн под телефон: узкое окно — меньше поля, компактный «Итог» (стили .narrow).
+            SizeChanged += (_, e) => Classes.Set("narrow", e.NewSize.Width < 560);
+        }
 
         Opened += (_, _) =>
         {

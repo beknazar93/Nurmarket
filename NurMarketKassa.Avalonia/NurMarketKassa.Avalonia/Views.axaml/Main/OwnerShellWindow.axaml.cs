@@ -165,6 +165,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             NarrowStack.Attach(OverviewScroll, OverviewRow2, 760, "Auto,16,Auto");
             OverviewScroll.SizeChanged += (_, _) => ApplyNarrowKpiGrid();
         }
+        // 2026-10-04, редизайн под Android-телефон: меню по «≡», без кнопок окна (OwnerShellWindow.Phone.cs).
+        AttachPhoneLayout();
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
@@ -414,7 +416,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         var isStart = TariffGate.IsStartTariff;
         var pendingGroup = (string?)null;
 
-        var collapsed = UserPreferences.Instance.OwnerSidebarCollapsed;
+        // 2026-10-04: на телефоне меню открывается на весь экран — всегда с подписями (OwnerShellWindow.Phone.cs).
+        var collapsed = UserPreferences.Instance.OwnerSidebarCollapsed && !_phoneLayout;
         ApplySidebarLayout(collapsed);
 
         void Group(string title) => pendingGroup = title;
@@ -481,6 +484,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _navButtons[key] = button;
             button.Click += (_, _) =>
             {
+                // 2026-10-04, телефон: выбор пункта закрывает меню на весь экран.
+                SetPhoneMenu(false);
                 try
                 {
                     open();
@@ -496,6 +501,10 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         Add("overview", "HomeIcon", Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish"), true,
             () => ShowSection(null));
+        // 2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
+        // специальную вкладку». Видит выручку и лучшие товары — права как у «Аналитики».
+        Add("aiadvisor", "AiAdvisorIcon", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), true,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("aiadvisor", () => new AiAdvisorWindow()); });
 
         Group(Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
         Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
@@ -580,6 +589,12 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void Collapse_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-10-04, телефон: «≡» в меню — закрыть меню на весь экран (OwnerShellWindow.Phone.cs).
+        if (_phoneLayout)
+        {
+            SetPhoneMenu(!_phoneMenuOpen);
+            return;
+        }
         var prefs = UserPreferences.Instance;
         prefs.OwnerSidebarCollapsed = !prefs.OwnerSidebarCollapsed;
         prefs.SaveToDisk();
@@ -603,6 +618,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         ExitButton.IsVisible = !collapsed;
         UserFooter.Padding = collapsed ? new Thickness(16, 12) : new Thickness(14, 12);
         ToolTip.SetTip(AvatarText, collapsed ? UserNameText.Text : null);
+        ApplyPhoneColumns();
     }
 
     // ------------------------------------------------------------------ разделы в окне
@@ -748,6 +764,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         SectionTitleText.IsVisible = !overview;
         SectionHost.IsVisible = !overview;
         HeaderGrid.Margin = overview ? new Thickness(28, 12, 10, 4) : new Thickness(24, 4, 10, 4);
+        AdjustHeaderForPhone(overview);
         if (section != null)
             SectionTitleText.Text = TitleFor(section);
         UpdateNavHighlight();
@@ -1324,6 +1341,21 @@ public partial class OwnerShellWindow : Window, IMainShell
             ? Tr.T($"маржа {margin:0.#}%", $"маржа {margin:0.#}%", $"margin {margin:0.#}%", $"marj %{margin:0.#}", $"marja {margin:0.#}%")
             : hint;
         SetDelta(ProfitDeltaPill, ProfitDelta, ProfitDeltaHint, Num(cards, "gross_profit"), prev is { } p4 ? Num(p4, "gross_profit") : null, profitHint);
+
+        // 2026-10-05: те же цифры — «ИИ-советнику» (OwnerOverviewSnapshot), точнее локальной истории продаж.
+        OwnerOverviewSnapshot.Set("1-cards",
+            $"Сводка сервера NurCRM за период «{PeriodNameForAi()}»: выручка {Num(cards, "revenue"):0.##} сом, чеков {Num(cards, "transactions"):0}, " +
+            $"средний чек {Num(cards, "avg_check"):0.##} сом, валовая прибыль {Num(cards, "gross_profit"):0.##} сом" +
+            (margin != 0 ? $" (маржа {margin:0.#}%)" : "") + ".");
+    }
+
+    /// <summary>Название выбранного периода «Сводки» для «ИИ-советника».</summary>
+    private string PeriodNameForAi()
+    {
+        var (from, to) = CurrentRange();
+        return from.Date == to.Date
+            ? from.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) + (from.Date == DateTime.Today ? " (сегодня)" : "")
+            : $"{from:dd.MM}–{to:dd.MM.yyyy}";
     }
 
     /// <summary>Сумма крупно, «сом» мелко и приглушённо.</summary>
@@ -1386,6 +1418,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         var values = days.Select(d => byDay.TryGetValue(d, out var v) ? v : 0).ToList();
         var max = values.Count == 0 ? 0 : values.Max();
         var total = values.Sum();
+        // 2026-10-05: выручка по дням — «ИИ-советнику» (OwnerOverviewSnapshot).
+        OwnerOverviewSnapshot.Set("2-chart",
+            $"Выручка по дням с {from:dd.MM} по {to:dd.MM} (сервер NurCRM): " +
+            string.Join(", ", days.Select((d, i) => $"{d:dd.MM} — {values[i]:0.##}")) + $"; итого {total:0.##} сом.");
         ChartTotalText.Text = Tr.T($"Итого: {Amount(total)} {Som()}", $"Жыйынтык: {Amount(total)} {Som()}", $"Total: {Amount(total)} {Som()}",
             $"Toplam: {Amount(total)} {Som()}", $"Jami: {Amount(total)} {Som()}");
         ChartEmptyText.IsVisible = max <= 0;
@@ -1561,6 +1597,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
 
         items = items.Where(i => i.Revenue > 0).OrderByDescending(i => i.Revenue).Take(5).ToList();
+        // 2026-10-05: лучшие товары периода — «ИИ-советнику» (OwnerOverviewSnapshot).
+        OwnerOverviewSnapshot.Set("3-top",
+            $"Лучшие товары за период «{PeriodNameForAi()}» (сервер NurCRM): " +
+            (items.Count == 0 ? "продаж нет" : string.Join("; ", items.Select(i => $"{i.Name} — продано {i.Sold:0.###}, выручка {i.Revenue:0.##} сом"))) + ".");
         TopEmptyText.IsVisible = items.Count == 0;
         var max = items.Count == 0 ? 0 : items.Max(i => i.Revenue);
 

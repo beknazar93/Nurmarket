@@ -17,7 +17,7 @@ namespace NurMarketKassa;
 /// (сообщения работают, подтверждения считаются отказом).</summary>
 public static class AndroidNestedLoop
 {
-    private const string ExitMarker = "NurMarketKassa.AndroidNestedLoop.Exit";
+    internal const string ExitMarker = "NurMarketKassa.AndroidNestedLoop.Exit";
 
     public static bool Enabled { get; set; } = true;
 
@@ -36,7 +36,7 @@ public static class AndroidNestedLoop
         if (token.IsCancellationRequested)
             return;
 
-        if (Looper.MainLooper is not { IsCurrentThread: true })
+        if (!OnMainThread)
             throw new InvalidOperationException("Синхронный диалог на Android можно показать только с главного потока.");
 
         _handler ??= new Handler(Looper.MainLooper!);
@@ -56,7 +56,7 @@ public static class AndroidNestedLoop
         {
             // штатный выход из вложенного цикла
         }
-        catch (Exception ex) when (ex.Message == ExitMarker || ex.InnerException?.Message == ExitMarker)
+        catch (Exception ex) when (IsExitSignal(ex))
         {
             // на некоторых версиях исключение приходит обёрнутым
         }
@@ -68,6 +68,28 @@ public static class AndroidNestedLoop
             if (Frames.Count > 0 && Frames.Peek().Done)
                 PostExitCheck();
         }
+    }
+
+    /// <summary>2026-10-04, «запуск на других устройствах»: Looper.IsCurrentThread есть только с Android 6.0 — на 5.x
+    /// касса падала бы на первом окне «Да/Нет». Сравнение с главным Looper работает на всех версиях.</summary>
+    internal static bool OnMainThread => Looper.MyLooper() is { } current && current.Equals(Looper.MainLooper);
+
+    /// <summary>2026-10-04, стресс-тест на телефоне: касса закрывалась при закрытии любого
+    /// ожидающего диалога («Касса обновлена» → «Понятно»). Сигнал выхода проходит через обработчик
+    /// необработанных ошибок Android, и экран ошибки (AndroidCrashReport) принимал его за падение.
+    /// Сообщение у сигнала видно только через Java (у System.Exception — стандартный текст),
+    /// поэтому проверяем и Java-сообщение, и полный текст с Java-стеком.</summary>
+    public static bool IsExitSignal(Exception? ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e.Message == ExitMarker)
+                return true;
+            if (e is Java.Lang.Throwable jt && jt.Message == ExitMarker)
+                return true;
+        }
+        try { return ex?.ToString().Contains(ExitMarker, StringComparison.Ordinal) == true; }
+        catch { return false; }
     }
 
     private static void PostExitCheck() => _handler?.Post(ExitIfTopDone);

@@ -86,7 +86,7 @@
     </Style>
   </Window.Styles>
 
-  <Border Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
+  <Border x:Name="RootCard" Margin="12" CornerRadius="{DynamicResource SettingsCardRadius}"
           Background="{DynamicResource BrushDialogPanel}"
           BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
@@ -101,7 +101,7 @@
       </StackPanel>
 
       <!-- Основная область с 2 колонками -->
-      <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,16,*">
+      <Grid x:Name="MainAreaGrid" Classes="no-reflow" Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,16,*">
 
         <!-- БЛОК 1: Чеки продаж -->
         <DockPanel Grid.Column="0" LastChildFill="True">
@@ -149,7 +149,7 @@
         </DockPanel>
 
         <!-- БЛОК 2: Содержимое выбранного чека -->
-        <DockPanel Grid.Column="2" LastChildFill="True">
+        <DockPanel x:Name="LinesBlock" Grid.Column="2" LastChildFill="True">
           <TextBlock DockPanel.Dock="Top" Text="{DynamicResource returnSale.step2}"
                      FontWeight="Bold" FontSize="16" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
 
@@ -239,7 +239,7 @@
         </Expander>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
-          <Button Content="{DynamicResource common.windowedMode}" Classes="btn-secondary"
+          <Button x:Name="WindowModeButton" Content="{DynamicResource common.windowedMode}" Classes="btn-secondary"
                   Height="42" MinWidth="120"
                   Click="ToggleFullscreen_Click"/>
           <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary"

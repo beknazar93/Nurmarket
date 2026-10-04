@@ -25,8 +25,19 @@ internal static class AndroidCrashReport
             return;
         _installed = true;
         var ctx = activity.ApplicationContext ?? activity;
-        Android.Runtime.AndroidEnvironment.UnhandledExceptionRaiser += (_, e) => Report(ctx, e.Exception, "UI");
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => Report(ctx, e.ExceptionObject as Exception, "AppDomain");
+        // 2026-10-04, стресс-тест: сигнал выхода из вложенного цикла диалога (AndroidNestedLoop) тоже идёт
+        // через этот обработчик — это не падение, его пропускаем дальше (Handled не трогаем), иначе касса
+        // закрывалась при закрытии каждого ожидающего диалога.
+        Android.Runtime.AndroidEnvironment.UnhandledExceptionRaiser += (_, e) =>
+        {
+            if (!NurMarketKassa.AndroidNestedLoop.IsExitSignal(e.Exception))
+                Report(ctx, e.Exception, "UI");
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (!NurMarketKassa.AndroidNestedLoop.IsExitSignal(e.ExceptionObject as Exception))
+                Report(ctx, e.ExceptionObject as Exception, "AppDomain");
+        };
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             // Не роняет программу — только в журнал.
@@ -64,7 +75,14 @@ internal static class AndroidCrashReport
             var path = PathFor(activity);
             if (!File.Exists(path))
                 return;
-            StartViewer(activity, File.ReadAllText(path));
+            // 2026-10-04, клиенты: «при запуске сворачивается». Файл удалялся только кнопкой «Закрыть» —
+            // после «Назад»/«Домой» экран ошибки открывался при КАЖДОМ запуске и закрывал кассу. Теперь
+            // прошлую ошибку показываем один раз, а ложную (сигнал выхода из диалога, 1.17.48) — не показываем.
+            var text = File.ReadAllText(path);
+            File.Delete(path);
+            if (text.Contains(NurMarketKassa.AndroidNestedLoop.ExitMarker, StringComparison.Ordinal))
+                return;
+            StartViewer(activity, text);
         }
         catch { /* показать не вышло — касса запускается как обычно */ }
     }
@@ -127,6 +145,9 @@ internal static class AndroidCrashReport
     Label = "NurMarket",
     Theme = "@android:style/Theme.DeviceDefault.Light.NoActionBar",
     Process = ":crash",
+    // 2026-10-04: своя задача. С общей (по умолчанию — имя пакета) запуск с ClearTask закрывал саму кассу:
+    // экран прошлой ошибки при старте убивал только что открытую кассу («при запуске сворачивается»).
+    TaskAffinity = "kg.nurmarket.kassa.crash",
     Exported = false,
     ExcludeFromRecents = true,
     LaunchMode = Android.Content.PM.LaunchMode.SingleTask)]

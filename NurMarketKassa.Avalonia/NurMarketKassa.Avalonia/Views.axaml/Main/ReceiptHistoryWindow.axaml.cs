@@ -46,6 +46,38 @@ public partial class ReceiptHistoryWindow : Window
         InitializeComponent();
         _canReturn = CanReturn();
         Opened += OnFirstOpened;
+        // 2026-10-05, снимок владельца с телефона: «Вчера», поиск и «Обновить» уходили за правый край.
+        NarrowLayout.Attach(this, 600, ApplyNarrowLayout);
+    }
+
+    /// <summary>2026-10-05: телефон — период отдельной строкой, ниже поиск и «Обновить»; поля окна меньше.</summary>
+    private void ApplyNarrowLayout(bool narrow)
+    {
+        RootCard.Padding = new Avalonia.Thickness(narrow ? 12 : 20);
+        RootCard.Margin = new Avalonia.Thickness(narrow ? 6 : 12);
+        if (narrow)
+        {
+            ToolbarGrid.ColumnDefinitions = new ColumnDefinitions("*,Auto");
+            ToolbarGrid.RowDefinitions = new RowDefinitions("Auto,8,Auto");
+            Grid.SetColumnSpan(PeriodChips, 2);
+            Grid.SetRow(SearchBox, 2);
+            Grid.SetColumn(SearchBox, 0);
+            SearchBox.Margin = new Avalonia.Thickness(0, 0, 8, 0);
+            Grid.SetRow(RefreshButton, 2);
+            Grid.SetColumn(RefreshButton, 1);
+        }
+        else
+        {
+            ToolbarGrid.ColumnDefinitions = new ColumnDefinitions("Auto,3*,*,Auto");
+            ToolbarGrid.ColumnDefinitions[1].MaxWidth = 480;
+            ToolbarGrid.RowDefinitions = new RowDefinitions();
+            Grid.SetColumnSpan(PeriodChips, 1);
+            Grid.SetRow(SearchBox, 0);
+            Grid.SetColumn(SearchBox, 1);
+            SearchBox.Margin = new Avalonia.Thickness(12, 0);
+            Grid.SetRow(RefreshButton, 0);
+            Grid.SetColumn(RefreshButton, 3);
+        }
     }
 
     private async void OnFirstOpened(object? sender, EventArgs e)

@@ -102,6 +102,67 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <!-- 2026-10-04, редизайн под Android-телефон: в окне 431 точка поля 16 + 32 оставляли содержимому ~320 —
+             «Наличн/ые», «Оплатить 50.0». Обычные значения (раньше стояли прямо на элементах) и узкий вид:
+             класс narrow ставит CheckoutDialog.axaml.cs только на Android, когда окно уже 560. -->
+        <Style Selector="Border.checkout-shell">
+            <Setter Property="Margin" Value="16"/>
+            <Setter Property="Padding" Value="32,28"/>
+        </Style>
+        <Style Selector="StackPanel.checkout-header">
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+        <Style Selector="Grid.checkout-columns">
+            <Setter Property="Margin" Value="0,0,0,24"/>
+        </Style>
+        <Style Selector="Border.checkout-total-card">
+            <Setter Property="Padding" Value="24"/>
+        </Style>
+        <Style Selector="TextBlock.checkout-big-total">
+            <Setter Property="FontSize" Value="44"/>
+        </Style>
+        <Style Selector="Button.checkout-cancel">
+            <Setter Property="Width" Value="150"/>
+        </Style>
+        <Style Selector=".narrow Border.checkout-shell">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="14,14"/>
+        </Style>
+        <Style Selector=".narrow StackPanel.checkout-header">
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector=".narrow Grid.checkout-columns">
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style Selector=".narrow Border.checkout-total-card">
+            <Setter Property="Padding" Value="12,8"/>
+        </Style>
+        <Style Selector=".narrow Border.checkout-total-icon">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".narrow StackPanel.checkout-total-stack">
+            <Setter Property="Spacing" Value="4"/>
+        </Style>
+        <Style Selector=".narrow TextBlock.checkout-big-total">
+            <Setter Property="FontSize" Value="34"/>
+        </Style>
+        <Style Selector=".narrow Button.checkout-cancel">
+            <Setter Property="Width" Value="104"/>
+        </Style>
+        <Style Selector=".narrow RadioButton.PayTypeOption">
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector=".narrow RadioButton.PayTypeOption:focus-visible">
+            <Setter Property="Padding" Value="7,0"/>
+        </Style>
+        <Style Selector=".narrow RadioButton.PayTypeOption Border.pay-icon">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="14"/>
+        </Style>
+
         <Style Selector="CheckBox.Switch">
             <Setter Property="Padding" Value="10,0,0,0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -170,22 +231,21 @@
     </Window.Styles>
 
     <!-- Кастомное модальное окно -->
-    <Border Margin="16" CornerRadius="{DynamicResource SettingsCardRadius}"
+    <Border Classes="checkout-shell" CornerRadius="{DynamicResource SettingsCardRadius}"
             Background="{DynamicResource BrushPanel}"
             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-            BoxShadow="0 20 48 0 #40101828"
-            Padding="32,28">
+            BoxShadow="0 20 48 0 #40101828">
 
         <Grid RowDefinitions="Auto,*,Auto">
 
             <!-- 1. Заголовок диалога -->
-            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,24">
+            <StackPanel Grid.Row="0" Spacing="4" Classes="checkout-header">
                 <TextBlock Text="{DynamicResource csh.checkout.title}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock Text="{DynamicResource csh.checkout.subtitle}" FontSize="14" Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Text="{DynamicResource csh.checkout.subtitle}" FontSize="14" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
             </StackPanel>
 
             <!-- 2. Основной контент: Итог слева, Оплата справа -->
-            <Grid x:Name="CheckoutColumnsGrid" Grid.Row="1" ColumnDefinitions="*,32,*" Margin="0,0,0,24">
+            <Grid x:Name="CheckoutColumnsGrid" Grid.Row="1" ColumnDefinitions="*,32,*" Classes="checkout-columns">
 
                 <!-- Левая колонка: Итоговая сумма -->
                 <Border Grid.Column="0"
@@ -193,9 +253,9 @@
                         BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1"
                         CornerRadius="12"
-                        Padding="24">
-                    <StackPanel Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <Border Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center"
+                        Classes="checkout-total-card">
+                    <StackPanel Spacing="12" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="checkout-total-stack">
+                        <Border Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center" Classes="checkout-total-icon"
                                 Background="{DynamicResource BrushAccentSoft}">
                             <Path Width="26" Height="26" Stretch="Uniform" Fill="{DynamicResource BrushAccentStrong}"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -206,7 +266,7 @@
                                    HorizontalAlignment="Center" TextAlignment="Center"/>
 
                         <TextBlock Text="{Binding BigTotalDisplay}"
-                                   FontSize="44" FontWeight="Bold"
+                                   Classes="checkout-big-total" FontWeight="Bold"
                                    Foreground="{DynamicResource BrushText}"
                                    TextWrapping="Wrap"
                                    HorizontalAlignment="Center" TextAlignment="Center"/>
@@ -615,7 +675,8 @@
             <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
                 <Button IsCancel="True" Grid.Column="0" Content="{DynamicResource csh.checkout.cancel}"
                         Click="Cancel_Click"
-                        Height="56" Width="150"
+                        Classes="checkout-cancel"
+                        Height="56"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
                         Background="{DynamicResource BrushPanel}"

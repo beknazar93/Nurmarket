@@ -1,4 +1,4 @@
-using NurMarketKassa.Interfaces;
+﻿using NurMarketKassa.Interfaces;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
@@ -15,6 +15,24 @@ public static class CameraScan
     public static Func<Task<string?>>? Scanner { get; set; }
 
     public static bool IsAvailable => Scanner is not null;
+
+    /// <summary>2026-10-05, владелец: «добавь сканер при поиске товара» — считать код камерой и вернуть его
+    /// (null — закрыли без кода или камеры нет).</summary>
+    public static async Task<string?> ScanCodeAsync()
+    {
+        if (Scanner is not { } scanner)
+            return null;
+        try
+        {
+            var code = await scanner().ConfigureAwait(true);
+            return string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Камера-сканер: {ex.Message}", "WARNING");
+            return null;
+        }
+    }
 
     /// <summary>Считать код камерой и отдать его кассе как скан.</summary>
     public static async Task ScanIntoKassaAsync()

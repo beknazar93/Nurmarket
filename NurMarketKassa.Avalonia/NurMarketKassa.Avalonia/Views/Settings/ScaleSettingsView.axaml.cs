@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -35,6 +35,23 @@ public partial class ScaleSettingsView : UserControl
         BarcodePanel.RulesChanged += () => LabelRulesPanel.Refresh();
         LabelRulesPanel.RulesChanged += () => BarcodePanel.Refresh();
         LabelRulesPanel.WizardRequested += () => ShowSection(2);
+        // 2026-10-05, снимок владельца с телефона: в четыре вкладки в ряд «Весы с этикетками» рвалось
+        // посреди слова («этикеткам / и»). Телефон — вкладки в два ряда (см. ArrangeSectionTabs).
+        NarrowLayout.Attach(this, 520, narrow =>
+        {
+            _narrowTabs = narrow;
+            ArrangeSectionTabs();
+        });
+    }
+
+    private bool _narrowTabs;
+
+    /// <summary>Вкладки разделов: на компьютере — одним рядом (3 или 4), на телефоне — по две в ряд.</summary>
+    private void ArrangeSectionTabs()
+    {
+        var count = TabLabelButton.IsVisible ? 4 : 3;
+        SectionTabsGrid.Columns = _narrowTabs ? 2 : count;
+        SectionTabsGrid.Rows = _narrowTabs ? (count + 1) / 2 : 1;
     }
 
     private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -58,7 +75,7 @@ public partial class ScaleSettingsView : UserControl
     {
         var allowed = TariffGate.CanUseScales;
         TabLabelButton.IsVisible = allowed;
-        SectionTabsGrid.Columns = allowed ? 4 : 3;
+        ArrangeSectionTabs();
         // Первый заход: весы у кассы не включены, а этикеточные доступны — открываем их (там же
         // «вес или сумма в штрихкоде»); иначе — весы на кассе.
         if (_lastSection < 0)
