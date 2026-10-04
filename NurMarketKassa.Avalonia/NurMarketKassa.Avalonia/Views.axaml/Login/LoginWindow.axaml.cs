@@ -40,6 +40,32 @@ namespace NurMarketKassa.AvaloniaHost.Views
             return sp.GetRequiredService<T>();
         }
 
+        private bool _narrowLoginLayout;
+
+        private void ApplyNarrowLoginLayout()
+        {
+            var w = Bounds.Width;
+            if (w <= 0)
+                return;
+            var narrow = _narrowLoginLayout ? w < 800 : w < 760;
+            if (narrow == _narrowLoginLayout)
+                return;
+            _narrowLoginLayout = narrow;
+            foreach (var child in MainLayout.Children.OfType<Control>())
+            {
+                // Колонка 0 — картинка и название, колонка 2 — форма входа (сохранена в Tag до первой смены).
+                child.Tag ??= Grid.GetColumn(child);
+                var column = (int)child.Tag;
+                if (column == 0)
+                    child.IsVisible = !narrow;
+                else if (column == 2)
+                {
+                    Grid.SetColumn(child, narrow ? 0 : 2);
+                    Grid.SetColumnSpan(child, narrow ? 3 : 1);
+                }
+            }
+        }
+
         public LoginWindow(LoginViewModel viewModel)
         {
             InitializeComponent();
@@ -58,6 +84,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             // перезапуска приложения. Кассир может явно снять галочку сам.
             _viewModel.RememberMe = true;
             RememberMeCheckBox.IsChecked = true;
+
+            // 2026-10-04, Android (вертикальный телефон): левая половина с картинкой не помещается рядом с
+            // формой — на узком окне её прячем, форма входа — на всю ширину.
+            if (OperatingSystem.IsAndroid())
+                SizeChanged += (_, _) => ApplyNarrowLoginLayout();
 
             // Программа владельца входит через это же окно: заголовок про кассу и автономный
             // вход (без сервера) ей не подходят (2026-09-27).

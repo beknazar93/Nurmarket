@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
@@ -37,7 +37,8 @@ public static class PrinterPortService
 
         if (HardwarePortHelper.LooksLikeComPort(port))
         {
-            var names = SerialPort.GetPortNames();
+            // 2026-10-04, Android: GetPortNames бросает исключение (нет доступа к /sys/class/tty) — безопасный список.
+            var names = ScaleReaderService.GetAvailablePorts();
             var found = names.Any(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase));
             return found
                 ? new PortProbeResult(true, Tr.T("● Доступен (COM)", "● Жеткиликтүү (COM)", "● Available (COM)", "● Kullanılabilir (COM)", "● Mavjud (COM)"), "com")

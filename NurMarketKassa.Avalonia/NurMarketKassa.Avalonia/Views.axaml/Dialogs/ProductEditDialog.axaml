@@ -196,14 +196,14 @@
                                 <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
                             </StackPanel>
 
-                            <Grid ColumnDefinitions="*,18,*">
+                            <Grid x:Name="NarrowRowMain" ColumnDefinitions="*,18,*">
                                 <StackPanel Grid.Column="0" Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
                                     <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Spacing="8">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colBarcode}"/>
-                                    <Grid ColumnDefinitions="*,Auto">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
                                         <TextBox x:Name="BarcodeBox" Grid.Column="0" Text="{Binding Barcode}"
                                                  LostFocus="BarcodeBox_LostFocus"
                                                  Watermark="{DynamicResource product.barcodeScanWatermarkShort}"
@@ -212,13 +212,20 @@
                                                 Content="{DynamicResource product.generateBarcode}"
                                                 Command="{Binding GenerateBarcodeCommand}"
                                                 IsVisible="{Binding !IsQuickAddMode}"/>
+                                        <!-- 2026-10-04, Android: камера аппарата как сканер (CameraScan). -->
+                                        <Button Grid.Column="2" Classes="SecondaryButton" Margin="6,0,0,0"
+                                                IsVisible="{OnPlatform False, Android=True}"
+                                                Click="CameraScanButton_Click" Focusable="False"
+                                                ToolTip.Tip="{DynamicResource csh.cart.cameraScan}">
+                                            <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="18" VerticalAlignment="Center"/>
+                                        </Button>
                                     </Grid>
                                 </StackPanel>
                             </Grid>
 
                             <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
                                  PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
-                            <Grid ColumnDefinitions="*,14,Auto,Auto,14,*">
+                            <Grid x:Name="NarrowRowStock" ColumnDefinitions="*,14,Auto,Auto,14,*">
                                 <StackPanel Grid.Column="0" Spacing="6" IsVisible="{Binding !IsQuickAddMode}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
                                     <TextBox Text="{Binding Unit}"/>
@@ -239,7 +246,7 @@
                             </Grid>
 
                             <TextBlock Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
-                            <Grid ColumnDefinitions="*,18,*,18,*">
+                            <Grid x:Name="NarrowRowPrices" ColumnDefinitions="*,18,*,18,*">
                                 <StackPanel Grid.Column="0" Spacing="8">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
                                     <TextBox Text="{Binding PurchasePrice}"/>
@@ -316,7 +323,7 @@
                                      который плодил дубли ("Напитки"/"напитки"). Без ComboBox/Popup — по той же
                                      причине, что и "Горячая клавиша" ниже (в окне без системного хрома всплывающее
                                      меню не открывается), тот же приём: кнопка + разворачиваемая панель. -->
-                                <Grid ColumnDefinitions="*,18,*">
+                                <Grid x:Name="NarrowRowCategory" ColumnDefinitions="*,18,*">
                                     <StackPanel Grid.Column="0" Spacing="8">
                                         <TextBlock Classes="FieldLabel" Text="{DynamicResource product.categoryLabel}"/>
                                         <Button x:Name="CategoryToggleButton" Classes="SecondaryButton" MinHeight="44"
@@ -397,7 +404,7 @@
                         <StackPanel Spacing="20">
                             <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
                                 <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
-                                <Grid ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
+                                <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
                                     <StackPanel Grid.Column="0" Spacing="8">
                                         <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
                                         <TextBox Text="{Binding PackageQuantity}"/>

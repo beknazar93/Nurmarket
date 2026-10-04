@@ -1,4 +1,4 @@
-<Window x:Class="NurMarketKassa.AvaloniaHost.Views.OwnerShellWindow"
+﻿<Window x:Class="NurMarketKassa.AvaloniaHost.Views.OwnerShellWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:CompileBindings="False"
@@ -505,7 +505,7 @@
                 <StackPanel Margin="28,12,28,28" Spacing="16">
 
                     <!-- Показатели -->
-                    <Grid ColumnDefinitions="*,16,*,16,*,16,*">
+                    <Grid x:Name="OverviewKpiGrid" ColumnDefinitions="*,16,*,16,*,16,*">
                         <Border Grid.Column="0" Classes="card">
                             <StackPanel>
                                 <Grid ColumnDefinitions="*,Auto">
@@ -569,7 +569,7 @@
                     </Grid>
 
                     <!-- Выручка по дням + способы оплаты -->
-                    <Grid ColumnDefinitions="3*,16,2*">
+                    <Grid x:Name="OverviewRow1" ColumnDefinitions="3*,16,2*">
                         <Border Grid.Column="0" Classes="card">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
@@ -611,7 +611,7 @@
                     </Grid>
 
                     <!-- Последние продажи + топ товаров -->
-                    <Grid ColumnDefinitions="3*,16,2*">
+                    <Grid x:Name="OverviewRow2" ColumnDefinitions="3*,16,2*">
                         <Border Grid.Column="0" Classes="card" Padding="20,16,20,10" VerticalAlignment="Top">
                             <DockPanel>
                                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">

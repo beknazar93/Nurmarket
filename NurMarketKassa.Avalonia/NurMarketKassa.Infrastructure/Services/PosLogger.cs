@@ -19,12 +19,18 @@ public static class PosLogger
             _logger = loggerFactory.CreateLogger("NurMarketKassa.POS");
     }
 
+    /// <summary>2026-10-04, Android: копия каждой строки журнала (уже без секретов) — в журнал Android (logcat),
+    /// иначе с аппарата её не прочитать (файл журнала во внутренней папке программы). null — не дублировать.</summary>
+    public static Action<string, string>? Mirror { get; set; }
+
     public static void Log(string message, string category = "INFO")
     {
         var safeMessage = SensitiveDataRedactor.Redact(message);
         var level = ParseLevel(category);
         lock (SyncRoot)
             _logger.Log(level, "[{Category}] {Message}", category, safeMessage);
+        try { Mirror?.Invoke(category, safeMessage); }
+        catch { /* копия журнала не должна ломать программу */ }
     }
 
     private static LogLevel ParseLevel(string category)

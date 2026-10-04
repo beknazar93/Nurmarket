@@ -726,6 +726,13 @@
                                      Watermark="{DynamicResource warehouse.receivingScanHint}"
                                      TextChanged="ReceivingScan_TextChanged"
                                      KeyDown="ReceivingScan_KeyDown"/>
+                            <!-- 2026-10-04, Android: камера аппарата как сканер (CameraScan). -->
+                            <Button Classes="SecondaryButton" Margin="6,0,0,0"
+                                    IsVisible="{OnPlatform False, Android=True}"
+                                    Click="CameraScanButton_Click" Focusable="False"
+                                    ToolTip.Tip="{DynamicResource csh.cart.cameraScan}">
+                                <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="18" VerticalAlignment="Center"/>
+                            </Button>
                             <TextBox x:Name="ReceivingQuantityBox" Width="90" Text="1"
                                      KeyDown="ReceivingQuantity_KeyDown"/>
                             <Button Classes="SecondaryButton"

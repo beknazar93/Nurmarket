@@ -95,6 +95,7 @@
   <x:String x:Key="csh.cart.typeQuantityTooltip">Miqdorni qo'lda kiritish</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Chekdan olib tashlash</x:String>
   <x:String x:Key="csh.cart.barcodeWatermark">Mahsulot kodi yoki nomini kiriting…</x:String>
+  <x:String x:Key="csh.cart.cameraScan">Kamera bilan skanerlash</x:String>
   <x:String x:Key="csh.cart.add">Qo'shish</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Chekni kechiktirish</x:String>
   <x:String x:Key="csh.cart.defer">Chekni kechiktirish</x:String>

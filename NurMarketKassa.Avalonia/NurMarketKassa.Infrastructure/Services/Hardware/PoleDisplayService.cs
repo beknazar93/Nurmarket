@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO.Ports;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -203,7 +203,8 @@ public sealed class PoleDisplayService
         CancellationToken cancellationToken)
     {
         var skip = new HashSet<string>(skipPorts.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()), StringComparer.OrdinalIgnoreCase);
-        var ports = SerialPort.GetPortNames()
+        // 2026-10-04, Android: GetPortNames бросает исключение (нет доступа к /sys/class/tty) — безопасный список.
+        var ports = ScaleReaderService.GetAvailablePorts()
             .Where(p => ComPortPattern.IsMatch(p) && !skip.Contains(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(p => int.TryParse(p[3..], out var n) ? n : int.MaxValue)

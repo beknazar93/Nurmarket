@@ -21,6 +21,20 @@ public sealed class WindowLayerHost : Panel
     public static WindowLayerHost? Current { get; private set; }
 
     private const double DialogMargin = 8;
+
+    /// <summary>2026-10-04: меньше этого окно не уменьшается (дальше текст не прочитать) — остальное листается вбок.</summary>
+    private const double MinDialogScale = 0.75;
+
+    /// <summary>2026-10-04: окна кассы и разделы владельца на узком экране раскладываются не уже этого (точек),
+    /// лишнее листается вбок (Window.LayoutMinWidth).</summary>
+    private const double ComfortWidth = 760;
+
+    /// <summary>2026-10-04: окна, которые на узком экране сами перестраиваются в одну колонку
+    /// (NarrowStack / свои правки) — их не уменьшаем, а даём ширину экрана.</summary>
+    internal static readonly HashSet<string> NarrowWindows = new(StringComparer.Ordinal) { "CheckoutDialog", "LoginWindow", "ProductEditDialog" };
+
+    /// <summary>2026-10-04: формы, которые на телефоне открываются во весь экран.</summary>
+    internal static readonly HashSet<string> FullScreenOnPhone = new(StringComparer.Ordinal) { "ProductEditDialog" };
     private readonly List<Window> _windows = new();
     private readonly Dictionary<Window, Layer> _layers = new();
     private readonly Dictionary<Window, IInputElement?> _lastFocus = new();
@@ -65,12 +79,35 @@ public sealed class WindowLayerHost : Panel
 
         ApplySizing(window);
         UpdateInteractivity();
+        // 2026-10-04: журнал окон — чтобы по журналу Android было видно, какое окно висит сверху.
+        NurMarketKassa.Services.PosLogger.Log($"Android: окно открыто {window.GetType().Name}{(modal ? " (модальное)" : "")}, слоёв {_windows.Count}.", "UI");
+        // 2026-10-04, диагностика «модалка открыта, но её не видно»: через секунду — размеры и видимость слоёв.
+        DispatcherTimer.RunOnce(DumpLayers, TimeSpan.FromSeconds(1));
+    }
+
+    private void DumpLayers()
+    {
+        try
+        {
+            var lines = _windows.Select(w =>
+            {
+                var l = _layers.TryGetValue(w, out var layer) ? layer : null;
+                return $"{w.GetType().Name}: окно vis={w.IsVisible} op={w.Opacity:0.##} {w.Bounds.Width:0}×{w.Bounds.Height:0}@{w.Bounds.X:0},{w.Bounds.Y:0}"
+                       + (l is null ? " (без слоя)" : $" | слой vis={l.IsVisible} hit={l.IsHitTestVisible} {l.Bounds.Width:0}×{l.Bounds.Height:0} scale={l.Scale:0.##}");
+            });
+            NurMarketKassa.Services.PosLogger.Log($"Android: слои {Bounds.Width:0}×{Bounds.Height:0} — " + string.Join(" ; ", lines), "UI");
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: слои — {ex.Message}", "UI");
+        }
     }
 
     internal void Remove(Window window)
     {
         if (!_layers.TryGetValue(window, out var layer))
             return;
+        NurMarketKassa.Services.PosLogger.Log($"Android: окно закрыто {window.GetType().Name}, слоёв {_windows.Count - 1}.", "UI");
         _layers.Remove(window);
         _windows.Remove(window);
         _lastFocus.Remove(window);
@@ -184,6 +221,9 @@ public sealed class WindowLayerHost : Panel
             ApplySizing(w);
         foreach (var w in _windows)
             w.Screens.RaiseChanged();
+        // 2026-10-04: диагностика (клавиатура меняет высоту вида) — слои после раскладки.
+        if (_windows.Count > 1)
+            DispatcherTimer.RunOnce(DumpLayers, TimeSpan.FromMilliseconds(500));
     }
 
     private void ApplySizing(Window window)
@@ -196,8 +236,13 @@ public sealed class WindowLayerHost : Panel
             return; // вид ещё не разложен — пересчитаем в OnSizeChanged
 
         // Полоса заголовка с «✕» — у окон, которым в Windows рамку рисовала система.
+        // 2026-10-04: окно, которое рисует свой заголовок и «✕» (ExtendClientAreaToDecorationsHint + NoChrome,
+        // например «Новый товар»), второй полосы не получает — было два заголовка подряд.
+        var ownChrome = window.ExtendClientAreaToDecorationsHint
+                        && window.ExtendClientAreaChromeHints == Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
         window.AndroidChromeVisible = window.SystemDecorations != SystemDecorations.None
-                                      && !(IsMainWindow?.Invoke(window) ?? false);
+                                      && !(IsMainWindow?.Invoke(window) ?? false)
+                                      && !ownChrome;
 
         var isMain = IsMainWindow?.Invoke(window) ?? false;
         var maximized = window.WindowState is WindowState.Maximized or WindowState.FullScreen;
@@ -206,11 +251,22 @@ public sealed class WindowLayerHost : Panel
         // области главного окна): размер оставляем его, только не больше вида. Главное и
         // развёрнутое окно всё равно растягиваются на весь вид.
         layer.IsFill = false;
+        var narrowAware = isMain || NarrowWindows.Contains(window.GetType().Name);
+        // 2026-10-04, владелец: «ты не адаптировал админку», «пройдись по всем модалкам». Узкий экран (телефон):
+        // окно не уменьшается и не листается вбок, а перестраивается — ряды «блок | блок» встают столбиком
+        // (AutoReflow), модалка-форма листается вверх-вниз целиком. Окна, перестроенные вручную (NarrowWindows), — как есть.
+        var phone = OperatingSystem.IsAndroid() && hostW < AutoReflow.NarrowWidth;
+        window.AutoReflowEnabled = phone && !narrowAware;
         if (window.ExplicitPosition is not null && !isMain && !maximized)
         {
+            layer.Scale = 1.0;
             layer.Applying = true;
             try
             {
+                // Раздел программы владельца: на телефоне — перестройка (см. выше), на широком — раскладка не уже
+                // ComfortWidth с прокруткой вбок.
+                window.AndroidPageScroll = false;
+                window.LayoutMinWidth = narrowAware || phone ? 0 : ComfortWidth;
                 window.MaxWidth = Math.Min(layer.Original.MaxWidth, hostW);
                 window.MaxHeight = Math.Min(layer.Original.MaxHeight, hostH);
                 window.HorizontalAlignment = HorizontalAlignment.Left;
@@ -225,17 +281,25 @@ public sealed class WindowLayerHost : Panel
         }
 
         var o = layer.Original;
+        // 2026-10-04, владелец: «в модалке цена продажи не видно». Форма на телефоне — во весь экран (как в
+        // приложениях Android): все поля быстрого добавления товара помещаются, кнопки внизу.
+        var phoneFull = phone && FullScreenOnPhone.Contains(window.GetType().Name);
         var fill = maximized
                    || isMain
+                   || phoneFull
                    || (!double.IsNaN(o.Width) && o.Width >= hostW * 0.9 && !double.IsNaN(o.Height) && o.Height >= hostH * 0.85)
                    || (o.MinWidth >= hostW * 0.9 && o.MinHeight >= hostH * 0.85);
 
         layer.IsFill = fill;
+        layer.Scale = 1.0;
         layer.Applying = true;
         try
         {
             if (fill)
             {
+                // 2026-10-04: окно на весь экран: на телефоне — перестройка, иначе раскладка не уже ComfortWidth.
+                window.AndroidPageScroll = false;
+                window.LayoutMinWidth = narrowAware || phone ? 0 : (o.Width > 0 ? Math.Min(o.Width, ComfortWidth) : ComfortWidth);
                 window.Width = double.NaN;
                 window.Height = double.NaN;
                 window.MinWidth = 0;
@@ -250,6 +314,20 @@ public sealed class WindowLayerHost : Panel
             {
                 var maxW = Math.Max(200, hostW - 2 * DialogMargin);
                 var maxH = Math.Max(160, hostH - 2 * DialogMargin);
+                // 2026-10-04, «адаптацию под все экраны»: окно шире экрана (вертикальный телефон, диалог
+                // на 880 точек) раньше сжималось и обрезалось. Теперь оно уменьшается целиком; окна, которые
+                // сами перестраиваются в узкую колонку (NarrowWindows), — только сжимаются, как раньше.
+                var designW = !double.IsNaN(o.Width) ? o.Width : o.MinWidth;
+                // Телефон: модалка во всю ширину, без уменьшения, поля столбиком, листается целиком.
+                var scale = designW > maxW * 1.05 && !narrowAware && !phone
+                    ? Math.Max(MinDialogScale, maxW / designW)
+                    : 1.0;
+                layer.Scale = scale;
+                maxW /= scale;
+                maxH /= scale;
+                window.AndroidPageScroll = phone && !narrowAware;
+                // Не поместилось и после уменьшения — содержимое не уже своей ширины (до 760), листается вбок.
+                window.LayoutMinWidth = narrowAware || phone || !(designW > 0) ? 0 : Math.Min(designW, ComfortWidth);
                 // SizeToContent в Avalonia главнее заданных Width/Height — окно по содержимому.
                 var autoW = window.SizeToContent is SizeToContent.Width or SizeToContent.WidthAndHeight;
                 var autoH = window.SizeToContent is SizeToContent.Height or SizeToContent.WidthAndHeight;
@@ -302,12 +380,18 @@ public sealed class WindowLayerHost : Panel
         public bool Applying { get; set; }
         public bool IsFill { get; set; }
 
+        /// <summary>2026-10-04: окно шире экрана уменьшается целиком (1 — как есть).</summary>
+        public double Scale { get; set; } = 1.0;
+
         public void Detach() => Children.Clear();
+
+        private Size Unscaled(Size size) =>
+            Scale < 0.999 ? new Size(size.Width / Scale, size.Height / Scale) : size;
 
         protected override Size MeasureOverride(Size availableSize)
         {
             foreach (var child in Children)
-                child.Measure(availableSize);
+                child.Measure(ReferenceEquals(child, Window) ? Unscaled(availableSize) : availableSize);
             return availableSize;
         }
 
@@ -323,6 +407,29 @@ public sealed class WindowLayerHost : Panel
                     var x = Math.Clamp(local.X, 0, Math.Max(0, finalSize.Width - size.Width));
                     var y = Math.Clamp(local.Y, 0, Math.Max(0, finalSize.Height - size.Height));
                     child.Arrange(new Rect(new Point(x, y), size));
+                    continue;
+                }
+                if (ReferenceEquals(child, Window))
+                {
+                    if (Scale < 0.999)
+                    {
+                        // 2026-10-04: уменьшенное окно — своего размера, сжимается от своего левого верхнего угла,
+                        // поэтому ставим этот угол так, чтобы сжатое окно оказалось по центру слоя (раньше окно
+                        // раскладывалось на весь слой и после сжатия съезжало влево-вверх).
+                        var size = Window.DesiredSize;
+                        var w = Math.Min(size.Width, finalSize.Width / Scale);
+                        var h = Math.Min(size.Height, finalSize.Height / Scale);
+                        var x = Math.Max(0, (finalSize.Width - w * Scale) / 2);
+                        var y = Math.Max(0, (finalSize.Height - h * Scale) / 2);
+                        Window.RenderTransformOrigin = RelativePoint.TopLeft;
+                        Window.RenderTransform = new ScaleTransform(Scale, Scale);
+                        child.Arrange(new Rect(x, y, w, h));
+                    }
+                    else
+                    {
+                        Window.RenderTransform = null;
+                        child.Arrange(new Rect(finalSize));
+                    }
                     continue;
                 }
                 child.Arrange(new Rect(finalSize));
@@ -343,6 +450,9 @@ public sealed class WindowLayerHost : Panel
         _attachedTop = AvTopLevel.GetTopLevel(this);
         if (_attachedTop is null)
             return;
+        // 2026-10-04: поля вокруг вида кассы (вырез камеры в горизонтальном положении) были белыми —
+        // фон Avalonia по умолчанию. Теперь — цвет окна кассы.
+        _attachedTop[!AvTopLevel.BackgroundProperty] = this.GetResourceObservable("BrushWindow").ToBinding();
         _attachedTop.BackRequested += OnBackRequested;
         _attachedTop.AddHandler(KeyDownEvent, ForwardUnfocusedKey, RoutingStrategies.Bubble);
         _attachedTop.AddHandler(KeyUpEvent, ForwardUnfocusedKey, RoutingStrategies.Bubble);

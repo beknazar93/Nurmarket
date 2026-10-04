@@ -187,6 +187,18 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        // 2026-10-04, владелец (Android, телефон): «видишь модалку — там ничего не видно при добавлении нового
+        // товара». Окно на 660 точек на телефоне обрезалось справа. На узком экране ряды полей — столбиком
+        // (артикул/штрихкод, остаток/единица/PLU, цены, категория/бренд, упаковка), окно — во всю ширину.
+        if (OperatingSystem.IsAndroid())
+        {
+            const double narrow = 560;
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, NarrowRowMain, narrow, "Auto,10,Auto");
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, NarrowRowStock, narrow, "Auto,10,Auto,Auto,10,Auto");
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, NarrowRowPrices, narrow, "Auto,10,Auto,10,Auto");
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, NarrowRowCategory, narrow, "Auto,10,Auto");
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, NarrowRowPackage, narrow, "Auto,10,Auto");
+        }
         // 2026-10-03, владелец: «используй базу готовых наименований NurCRM — если есть товар, вставь сразу
         // название». Из кассы («Товар не найден» → «Добавить на склад») штрихкод уже вписан — название из
         // общей базы спрашиваем сразу при открытии, не дожидаясь, пока кассир уйдёт из поля штрихкода.
@@ -246,6 +258,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
         _barcodeInputService.ProcessKeyDown(e);
     }
+
+    /// <summary>2026-10-04, Android: камера аппарата как сканер — код приходит как скан USB-сканера (OnBarcodeScanned).</summary>
+    private async void CameraScanButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        await NurMarketKassa.AvaloniaHost.Services.CameraScan.ScanIntoKassaAsync().ConfigureAwait(true);
 
     private void OnBarcodeScanned(string barcode)
     {

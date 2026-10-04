@@ -130,9 +130,41 @@ public partial class OwnerShellWindow : Window, IMainShell
         return true;
     }
 
+    private bool _narrowKpi;
+
+    /// <summary>2026-10-04, Android: четыре показателя «Сводки» в ряд не помещаются на узком экране —
+    /// там они 2×2 (колонки 0, 2, 4, 6 → клетки 2×2), на широком — снова в ряд.</summary>
+    private void ApplyNarrowKpiGrid()
+    {
+        var w = OverviewScroll.Bounds.Width;
+        if (w <= 0)
+            return;
+        var narrow = _narrowKpi ? w < 800 : w < 760;
+        if (narrow == _narrowKpi)
+            return;
+        _narrowKpi = narrow;
+        OverviewKpiGrid.ColumnDefinitions = new ColumnDefinitions(narrow ? "*,16,*" : "*,16,*,16,*,16,*");
+        OverviewKpiGrid.RowDefinitions = narrow ? new RowDefinitions("Auto,16,Auto") : new RowDefinitions();
+        var index = 0;
+        foreach (var card in OverviewKpiGrid.Children.OfType<Control>())
+        {
+            Grid.SetColumn(card, narrow ? (index % 2) * 2 : index * 2);
+            Grid.SetRow(card, narrow ? (index / 2) * 2 : 0);
+            index++;
+        }
+    }
+
     public OwnerShellWindow()
     {
         InitializeComponent();
+        // 2026-10-04, владелец: «у владельца тоже адаптацию под экраны сделай» (Android, вертикальный телефон).
+        // «Сводка»: на узком месте показатели — 2×2, «Выручка | Способы оплаты» и «Последние | Лучшие» — друг под другом.
+        if (OperatingSystem.IsAndroid())
+        {
+            NarrowStack.Attach(OverviewScroll, OverviewRow1, 760, "Auto,16,Auto");
+            NarrowStack.Attach(OverviewScroll, OverviewRow2, 760, "Auto,16,Auto");
+            OverviewScroll.SizeChanged += (_, _) => ApplyNarrowKpiGrid();
+        }
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто

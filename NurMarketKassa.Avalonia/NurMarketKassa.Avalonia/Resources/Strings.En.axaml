@@ -95,6 +95,7 @@
   <x:String x:Key="csh.cart.typeQuantityTooltip">Enter quantity manually</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Remove from receipt</x:String>
   <x:String x:Key="csh.cart.barcodeWatermark">Enter product code or name…</x:String>
+  <x:String x:Key="csh.cart.cameraScan">Scan with the camera</x:String>
   <x:String x:Key="csh.cart.add">Add</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Hold receipt</x:String>
   <x:String x:Key="csh.cart.defer">Hold receipt</x:String>

@@ -991,6 +991,10 @@ public partial class WarehouseWindow : Window, IOwnerSection
         return null;
     }
 
+    /// <summary>2026-10-04, Android: камера аппарата как сканер — код приходит как скан USB-сканера (OnBarcodeScanned).</summary>
+    private async void CameraScanButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        await NurMarketKassa.AvaloniaHost.Services.CameraScan.ScanIntoKassaAsync().ConfigureAwait(true);
+
     private void OnBarcodeScanned(string barcode)
     {
         Dispatcher.UIThread.Post(() =>

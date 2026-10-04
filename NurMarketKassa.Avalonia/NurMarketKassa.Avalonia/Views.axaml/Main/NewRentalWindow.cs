@@ -427,16 +427,10 @@ public sealed class NewRentalWindow : Window
 
     private async Task PickProductAsync(CatalogProductTileVm p)
     {
-        List<ProductVariantDto>? variants = null;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
-            variants = await App.CatalogApi.GetProductVariantsAsync(p.Id, cts.Token).ConfigureAwait(true);
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Прокат: варианты товара {p.Id} не получены ({ex.Message}).", "RENTAL");
-        }
+        // 2026-10-04: общий кеш размеров (ProductVariantCache) — окно открывается сразу, без ожидания сервера.
+        var variants = await ProductVariantCache.GetAsync(p.Id, TimeSpan.FromSeconds(4)).ConfigureAwait(true);
+        if (variants is null)
+            PosLogger.Log($"Прокат: варианты товара {p.Id} не получены.", "RENTAL");
 
         if (variants is { Count: > 0 } && variants.Any(v => v.IsActive))
         {
@@ -516,6 +510,10 @@ public sealed class NewRentalWindow : Window
         {
             var created = await App.GetRequiredService<RentalsApi>().CreateAsync(_client.Value.Id, _chosenItems, from, to, "day",
                 money ? "money" : "document", depAmount, money ? "cash" : null, doc, _note.Text?.Trim()).ConfigureAwait(true);
+            // 2026-10-04: вещь ушла со склада — остаток размера в окне выбора уменьшается сразу.
+            foreach (var item in _chosenItems)
+                if (item.ProductId is { } pid && item.VariantId is { } vid)
+                    ProductVariantCache.Adjust(pid, vid, -item.Qty);
             Close(created);
         }
         catch (Exception ex)
@@ -689,6 +687,10 @@ public sealed class ReturnRentalWindow : Window
         try
         {
             var done = await App.GetRequiredService<RentalsApi>().ReturnAsync(_rental.Id, _damaged.IsChecked == true ? "damaged" : "ok", penalty).ConfigureAwait(true);
+            // 2026-10-04: вещь вернулась на склад — остаток размера в окне выбора растёт сразу.
+            foreach (var item in _rental.Items)
+                if (item.ProductId is { } pid && item.VariantId is { } vid)
+                    ProductVariantCache.Adjust(pid, vid, item.Qty);
             Close(done);
         }
         catch (Exception ex)

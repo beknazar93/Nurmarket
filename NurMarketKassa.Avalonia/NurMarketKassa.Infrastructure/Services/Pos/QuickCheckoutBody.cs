@@ -20,6 +20,7 @@ namespace NurMarketKassa.Services;
 ///   "consultant_commission_percent": "5.00", "print_receipt": false }
 /// </code>
 /// price — цена за единицу, discount — скидка на строку суммой. Кассу сервер берёт из смены.
+/// Размер/цвет одежды (2026-10-04) — "variant": uuid варианта в позиции; сервер списывает остаток и товара, и размера.
 /// Всё, чего новый адрес не умеет, возвращает null — такой чек идёт старым путём
 /// (sales/start → позиции → скидка → checkout):
 /// поштучная продажа из пачки (sale_package_id сервер здесь не знает), «Доп. услуга» с
@@ -75,7 +76,9 @@ public static class QuickCheckoutBody
                 if (line["product"] is JsonValue productValue && productValue.TryGetValue<string>(out var product)
                     && line["price"] is JsonValue priceValue && priceValue.TryGetValue<string>(out var price))
                 {
-                    var key = product + "|" + price;
+                    // 2026-10-04: разные размеры/цвета одного товара по одной цене — разные позиции.
+                    var variant = line["variant"] is JsonValue variantValue && variantValue.TryGetValue<string>(out var v) ? v : "";
+                    var key = product + "|" + price + "|" + variant;
                     if (byProductAndPrice.TryGetValue(key, out var first))
                     {
                         first["qty"] = SumDecimalText(first["qty"], line["qty"]);
@@ -217,19 +220,18 @@ public static class QuickCheckoutBody
             return null;
         }
 
-        // 2026-10-01: вариант (размер/цвет) — через add-item с variant_id (StagingCartService).
-        if (!string.IsNullOrWhiteSpace(CartDisplayHelper.ServerVariantId(it)))
-        {
-            unsupportedReason = $"«{name}»: размер/цвет";
-            return null;
-        }
-
         var line = new JsonObject
         {
             ["product"] = productId.Trim(),
             ["qty"] = QuantityText(it, qty),
             ["price"] = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it)),
         };
+        // 2026-10-01: вариант (размер/цвет) шёл только старым путём (add-item с variant_id).
+        // 2026-10-04, владелец: «по одеждам очень тормозит» — каждый чек с одеждой шёл старым путём
+        // (открыть продажу, каждая позиция, провести). Сервер принимает вариант и здесь — полем "variant":
+        // проверено продажей на тестовом аккаунте (0,79 с против 1,34 с; списались и товар, и размер).
+        if (CartDisplayHelper.ServerVariantId(it) is { Length: > 0 } variantId)
+            line["variant"] = variantId.Trim();
         if (CartDisplayHelper.OptionalDiscountTotalParam(it) is { } lineDiscount)
             line["discount"] = lineDiscount;
         return line;

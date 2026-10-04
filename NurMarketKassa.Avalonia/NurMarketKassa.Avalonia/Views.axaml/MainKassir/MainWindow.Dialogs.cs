@@ -70,27 +70,14 @@ public partial class MainWindow
         await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true);
     }
 
-    private readonly Dictionary<string, (DateTime At, List<ProductVariantDto> Variants)> _variantCache = new(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>2026-10-01: варианты товара (размер/цвет) с сервера, кеш на 2 минуты. null — сервер
-    /// недоступен: товар добавляется как обычно (без варианта), причина — в журнал.</summary>
-    private async Task<List<ProductVariantDto>?> LoadProductVariantsAsync(string productId)
-    {
-        if (_variantCache.TryGetValue(productId, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(2))
-            return cached.Variants;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
-            var list = await App.CatalogApi.GetProductVariantsAsync(productId, cts.Token).ConfigureAwait(true);
-            _variantCache[productId] = (DateTime.UtcNow, list);
-            return list;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Варианты товара {productId} не получены ({ex.Message}) — добавляю без размера/цвета.", "CART");
-            return null;
-        }
-    }
+    /// <summary>2026-10-01: варианты товара (размер/цвет) с сервера. null — сервер недоступен: товар
+    /// добавляется как обычно (без варианта), причина — в журнал.
+    /// 2026-10-04, владелец: «по одеждам очень тормозит, количество не уменьшается». Был свой кеш на 2 минуты:
+    /// каждое первое нажатие ждало сервер до 6 с (без интернета — все 6 с), а после продажи окно ещё до 2 минут
+    /// показывало прежний остаток размера. Теперь общий ProductVariantCache: из кеша — сразу, обновление в фоне,
+    /// после продажи остаток размера уменьшен сразу, без связи с сервером — не ждём.</summary>
+    private Task<List<ProductVariantDto>?> LoadProductVariantsAsync(string productId) =>
+        ProductVariantCache.GetAsync(productId, TimeSpan.FromSeconds(4));
 
     internal async Task AddProductFromCatalogAsync(CatalogProductTileVm vm, string? lineNameOverride = null)
     {

@@ -95,6 +95,7 @@
   <x:String x:Key="csh.cart.typeQuantityTooltip">Санын кол менен киргизүү</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Чектен алып салуу</x:String>
   <x:String x:Key="csh.cart.barcodeWatermark">Товардын кодун же атын киргизиңиз…</x:String>
+  <x:String x:Key="csh.cart.cameraScan">Камера менен сканерлөө</x:String>
   <x:String x:Key="csh.cart.add">Кошуу</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Чекти калтыруу</x:String>
   <x:String x:Key="csh.cart.defer">Чекти калтыруу</x:String>

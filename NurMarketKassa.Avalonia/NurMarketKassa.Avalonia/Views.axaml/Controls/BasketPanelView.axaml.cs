@@ -30,4 +30,8 @@ public partial class BasketPanelView : UserControl
     /// <summary>«Печать последнего чека» в меню «Ещё» (2026-09-27), см. <see cref="BasketExtraActions"/>.</summary>
     private async void PrintLastReceipt_Click(object? sender, RoutedEventArgs e) =>
         await BasketExtraActions.PrintLastReceiptAsync(sender as Button, DataContext as BasketPanelViewModel).ConfigureAwait(true);
+
+    /// <summary>2026-10-04, Android: камера как сканер — код уходит в чек как скан USB-сканера.</summary>
+    private async void CameraScanButton_Click(object? sender, RoutedEventArgs e) =>
+        await CameraScan.ScanIntoKassaAsync().ConfigureAwait(true);
 }

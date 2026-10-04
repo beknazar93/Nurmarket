@@ -95,6 +95,7 @@
   <x:String x:Key="csh.cart.typeQuantityTooltip">Ввести количество вручную</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Убрать из чека</x:String>
   <x:String x:Key="csh.cart.barcodeWatermark">Введите код товара или название…</x:String>
+  <x:String x:Key="csh.cart.cameraScan">Сканировать камерой</x:String>
   <x:String x:Key="csh.cart.add">Добавить</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Отложить чек</x:String>
   <x:String x:Key="csh.cart.defer">Отложить чек</x:String>

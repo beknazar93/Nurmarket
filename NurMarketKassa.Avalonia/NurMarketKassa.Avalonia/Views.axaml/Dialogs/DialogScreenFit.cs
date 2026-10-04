@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -34,6 +34,8 @@ internal static class DialogScreenFit
     /// прокрутку.</summary>
     public static void FitToScreen(this Window window, double margin = 24)
     {
+        if (OperatingSystem.IsAndroid())
+            return; // 2026-10-04: на Android размер окна задаёт WindowLayerHost (см. FitToKassaScreen)
         var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
         if (screen is null)
             return;
@@ -68,6 +70,13 @@ internal static class DialogScreenFit
     /// ставится по его центру. Вызывать в Opened/Loaded.</summary>
     public static void FitToKassaScreen(this Window window, double margin = 16)
     {
+        // 2026-10-04, Android (владелец: «клавиатура открывается — модалка закрывается и больше не открывается»):
+        // здесь окну ставились точка и предельный размер по «экрану»; на Android окно с заданной точкой
+        // становится «окном в точке экрана», и при открытии клавиатуры (экран ниже) оно уезжало из вида, оставаясь
+        // открытым и модальным — касса больше ничего не открывала. На Android размер и место окна задаёт
+        // WindowLayerHost (по центру, в пределах вида, и с клавиатурой тоже).
+        if (OperatingSystem.IsAndroid())
+            return;
         var screen = KassaScreen(window);
         if (screen is null)
             return;

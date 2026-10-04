@@ -129,8 +129,6 @@ public static class TelegramAssistant
     /// null — варианты не подключены.</summary>
     public static Func<string, CancellationToken, Task<List<ProductVariantDto>>>? VariantsLoader { get; set; }
 
-    private static readonly ConcurrentDictionary<string, (DateTime At, List<ProductVariantDto> List)> VariantCache = new(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>Сколько товаров из вопроса дополняем вариантами. Масштаб (15 000 клиентов): запрос к
     /// серверу только по найденным в вопросе товарам, не больше пяти, с кэшем на 2 минуты.</summary>
     private const int MaxVariantLookups = 5;
@@ -140,24 +138,15 @@ public static class TelegramAssistant
     /// Пусто, если вариантов нет или сервер не ответил.</summary>
     private static string VariantsText(CatalogProductTileVm p, bool withCounts)
     {
-        if (VariantsLoader is null || string.IsNullOrWhiteSpace(p.Id))
+        if (string.IsNullOrWhiteSpace(p.Id))
             return "";
-        List<ProductVariantDto> list;
-        if (VariantCache.TryGetValue(p.Id, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(2))
-            list = cached.List;
-        else
-        {
-            try
-            {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
-                list = Task.Run(() => VariantsLoader(p.Id, cts.Token)).GetAwaiter().GetResult() ?? new List<ProductVariantDto>();
-                VariantCache[p.Id] = (DateTime.UtcNow, list);
-            }
-            catch
-            {
-                return "";
-            }
-        }
+        // 2026-10-04: общий кеш с окном выбора размера (ProductVariantCache) — бот видит остаток размера
+        // сразу после продажи на кассе и не спрашивает сервер о том, что кассир уже открывал.
+        ProductVariantCache.Loader ??= VariantsLoader;
+        if (ProductVariantCache.Loader is null)
+            return "";
+        if (ProductVariantCache.Get(p.Id, TimeSpan.FromSeconds(4)) is not { } list)
+            return "";
 
         var active = list.Where(v => v.IsActive).ToList();
         if (active.Count == 0)
@@ -279,7 +268,8 @@ public static class TelegramAssistant
     public static string? RentalContext(string question) =>
         Has(Normalize(question), RentalWords) ? RentalReport() : null;
 
-    public static string CustomerCatalogContext(string question)
+    /// <param name="earlierCustomerText">2026-10-04: прошлые реплики покупателя — товар, о котором шла речь.</param>
+    public static string CustomerCatalogContext(string question, string? earlierCustomerText = null)
     {
         List<CatalogProductTileVm> all;
         try
@@ -298,6 +288,18 @@ public static class TelegramAssistant
         var found = FindProducts(Normalize(question));
         if (found.Count == 0)
             found = FindByCategory(Normalize(question));
+        // 2026-10-04, владелец: «бот предлагал размеры, цвета, знал обо всём этом». Живой случай 04.10 (бот на
+        // сервере): «какие размеры есть?» без названия товара → ответ без размеров («свободный размер»).
+        // Товар — из прошлых реплик покупателя; в магазине одежды вопрос о размере/цвете без товара — размеры
+        // того, что в наличии (сначала то, что кассир уже открывал: без лишних запросов к серверу).
+        if (found.Count == 0 && !string.IsNullOrWhiteSpace(earlierCustomerText))
+            found = FindProducts(Normalize(earlierCustomerText));
+        if (found.Count == 0 && MarketSpheres.IsClothing && Has(Normalize(question), SizeWords))
+            found = all.Where(p => p.Quantity > 0)
+                .OrderByDescending(p => ProductVariantCache.IsCached(p.Id))
+                .ThenBy(p => p.Title)
+                .Take(MaxVariantLookups)
+                .ToList();
         if (found.Count > 0)
         {
             sb.AppendLine("Найдено по вопросу:");
@@ -406,6 +408,8 @@ public static class TelegramAssistant
     private static readonly string[] MonthWords = { "месяц", "30" };
     // 2026-10-02: прокат и аренда.
     private static readonly string[] RentalWords = { "прокат", "аренд", "ижара", "залог", "күрөө", "куроо" };
+    // 2026-10-04: вопрос о размере или цвете одежды (ru, ky, en, tr, uz).
+    private static readonly string[] SizeWords = { "размер", "цвет", "өлчөм", "олчом", "түс", "size", "colo", "beden", "renk", "o'lcham", "olcham", "rang" };
     private static readonly string[] InquiryWords = { "обращ", "кайрыл", "писали", "написали", "кто писал", "сколько писал", "жазышты", "жазды" };
     private static readonly string[] ReasoningWords = { "почему", "зачем", "как лучше", "как увелич", "как подня", "что делать", "посовету", "эмне үчүн", "эмнеге", "кантип" };
     private static readonly string[] HelpWords = { "помощ", "помоги", "умеешь", "команд", "справк", "жардам", "help" };

@@ -34,6 +34,10 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        // 2026-10-04, «на Android программа не открывается»: любая ошибка — на экран (AndroidCrashReport),
+        // а не молчаливое закрытие. Прошлый запуск упал — сначала его текст.
+        AndroidCrashReport.Install(this);
+        AndroidCrashReport.ShowPendingIfAny(this);
         // Как первая строка Program.Main в Windows: режим до любых путей к данным.
         NurMarketKassa.Services.AppMode.Initialize(IsOwnerProgram ? new[] { "--owner" } : Array.Empty<string>());
         AndroidBootstrap.BeforeAvalonia(this);
@@ -43,12 +47,21 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     protected override AppBuilder CustomizeAppBuilder(AppBuilder builder) =>
         base.CustomizeAppBuilder(builder)
             .WithInterFont()
+            // 2026-10-04, «иконки исчезли»: шрифта значков Windows на Android нет — NurIcons (IconFontFallback).
+            .With(NurMarketKassa.AvaloniaHost.Services.IconFontFallback.Options)
             .AfterSetup(_ => AndroidBootstrap.InstallShell(this));
 
     protected override void OnStop()
     {
         AndroidBootstrap.OnEnteredBackground();
         base.OnStop();
+    }
+
+    public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+    {
+        base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        // 2026-10-04: разрешение на камеру для сканера штрихкодов.
+        AndroidCameraScanner.OnPermissionResult(requestCode, grantResults);
     }
 
     protected override void OnNewIntent(Intent? intent)

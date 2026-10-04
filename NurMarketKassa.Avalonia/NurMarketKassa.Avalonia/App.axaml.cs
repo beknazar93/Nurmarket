@@ -133,6 +133,17 @@ public partial class App : Application
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
+    /// <summary>2026-10-04, Android-касса: заменить время жизни приложения (AndroidBootstrap.InstallLifetime).
+    /// Только здесь — до base.RegisterServices: после неё Avalonia запрещает менять ApplicationLifetime
+    /// (живое падение на телефоне). В Windows и Linux не задано.</summary>
+    public static Action<Application>? BeforeRegisterServices { get; set; }
+
+    public override void RegisterServices()
+    {
+        BeforeRegisterServices?.Invoke(this);
+        base.RegisterServices();
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         AppHost = Host.CreateDefaultBuilder()
@@ -143,6 +154,9 @@ public partial class App : Application
         // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
         // так разделение срабатывает на любом пути входа, включая смену кассира.
         CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
+        // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
+        ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
+        CompanyInfoService.CompanyChanged += _ => ProductVariantCache.Clear();
         // Догрузка истории продаж с сервера живёт в приложении, а вызывает её фоновая
         // синхронизация из Infrastructure — связываем их здесь.
         SalesHistoryBackfillHook.Register(SalesHistoryBackfill.RunAsync);

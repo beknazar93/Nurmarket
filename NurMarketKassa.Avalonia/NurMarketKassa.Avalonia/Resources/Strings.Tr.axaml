@@ -95,6 +95,7 @@
   <x:String x:Key="csh.cart.typeQuantityTooltip">Miktarı elle gir</x:String>
   <x:String x:Key="csh.cart.removeTooltip">Fişten çıkar</x:String>
   <x:String x:Key="csh.cart.barcodeWatermark">Ürün kodu veya adı girin…</x:String>
+  <x:String x:Key="csh.cart.cameraScan">Kamerayla tara</x:String>
   <x:String x:Key="csh.cart.add">Ekle</x:String>
   <x:String x:Key="csh.cart.deferTooltip">Fişi beklet</x:String>
   <x:String x:Key="csh.cart.defer">Fişi beklet</x:String>

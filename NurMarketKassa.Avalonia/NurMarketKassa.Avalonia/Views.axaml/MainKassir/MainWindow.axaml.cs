@@ -122,6 +122,9 @@ public partial class MainWindow : Window
         CatalogGridSplitter.PointerReleased += OnCatalogGridSplitterPointerReleased;
         CatalogColumn.PropertyChanged += OnCatalogColumnPropertyChanged;
         CartColumn.PropertyChanged += OnCartColumnPropertyChanged;
+        // 2026-10-04, Android: экран поворачивается вместе с телефоном — вертикально каталог над чеком.
+        if (OperatingSystem.IsAndroid())
+            SizeChanged += (_, _) => ApplyPortraitLayout();
         RestoreApplicationState();
         ApplyMarketSphereToCatalog(fromSettings: false);
         MarketSpheres.Changed += OnMarketSphereChanged;
@@ -2071,11 +2074,62 @@ public partial class MainWindow : Window
     private void SaveApplicationState() =>
         _applicationStateService.Save(CaptureApplicationState());
 
+    private bool _portraitLayout;
+
+    /// <summary>2026-10-04, владелец (Android): «сделай как у других Android-программ», «адаптацию под все
+    /// экраны». Экран больше не закреплён горизонтально; на вертикальном (телефон) каталог и чек — друг под
+    /// другом на всю ширину, разделитель тянется вверх-вниз. Колонки сетки не трогаются (их ширины — сохранённая
+    /// пропорция для горизонтального экрана), каталог и чек только растягиваются на все три колонки.</summary>
+    private void ApplyPortraitLayout()
+    {
+        var w = Bounds.Width;
+        var h = Bounds.Height;
+        if (w <= 0 || h <= 0)
+            return;
+        var portrait = h > w * 1.05;
+        if (portrait == _portraitLayout)
+            return;
+        _portraitLayout = portrait;
+        Classes.Set("portrait", portrait);
+
+        if (portrait)
+        {
+            MainContentGrid.RowDefinitions = new RowDefinitions("1.1*,8,*");
+            CatalogColumn.MinWidth = 0;
+            CartColumn.MinWidth = 0;
+        }
+        else
+        {
+            MainContentGrid.RowDefinitions = new RowDefinitions();
+            CatalogColumn.MinWidth = this.FindResource("CatalogMinimumWidth") is double catalogMin ? catalogMin : 470;
+            CartColumn.MinWidth = this.FindResource("CartMinimumWidth") is double cartMin ? cartMin : 490;
+        }
+
+        Grid.SetRow(CatalogPanel, 0);
+        Grid.SetColumn(CatalogPanel, 0);
+        Grid.SetColumnSpan(CatalogPanel, portrait ? 3 : 1);
+
+        Grid.SetRow(CatalogGridSplitter, portrait ? 1 : 0);
+        Grid.SetColumn(CatalogGridSplitter, portrait ? 0 : 1);
+        Grid.SetColumnSpan(CatalogGridSplitter, portrait ? 3 : 1);
+        CatalogGridSplitter.ResizeDirection = portrait ? GridResizeDirection.Rows : GridResizeDirection.Columns;
+        CatalogGridSplitter.Width = portrait ? double.NaN : 8;
+        CatalogGridSplitter.MinWidth = portrait ? 0 : 8;
+        CatalogGridSplitter.MaxWidth = portrait ? double.PositiveInfinity : 8;
+        CatalogGridSplitter.Height = portrait ? 8 : double.NaN;
+
+        Grid.SetRow(CartPanelView, portrait ? 2 : 0);
+        Grid.SetColumn(CartPanelView, portrait ? 0 : 2);
+        Grid.SetColumnSpan(CartPanelView, portrait ? 3 : 1);
+        PosLogger.Log($"Экран {w:0}×{h:0}: {(portrait ? "вертикальная раскладка (каталог над чеком)" : "горизонтальная раскладка")}.", "UI");
+    }
+
     private ApplicationState CaptureApplicationState() =>
         new()
         {
-            CatalogWidth = MainContentGrid.ColumnDefinitions[0].ActualWidth,
-            CartWidth = MainContentGrid.ColumnDefinitions[2].ActualWidth,
+            // 2026-10-04: в вертикальной раскладке колонки не видны — сохраняем прежнюю пропорцию, а не ширины.
+            CatalogWidth = _portraitLayout ? CatalogColumn.Width.Value : MainContentGrid.ColumnDefinitions[0].ActualWidth,
+            CartWidth = _portraitLayout ? CartColumn.Width.Value : MainContentGrid.ColumnDefinitions[2].ActualWidth,
             Catalog = _viewModel.Catalog.CaptureState(),
             Basket = _viewModel.Basket.CaptureState(),
         };

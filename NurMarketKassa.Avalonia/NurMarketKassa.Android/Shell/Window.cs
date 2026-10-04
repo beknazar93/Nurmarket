@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Interactivity;
@@ -203,13 +204,22 @@ public class Window : WindowBase
             [~ContentPresenter.VerticalContentAlignmentProperty] = new TemplateBinding(VerticalContentAlignmentProperty),
         }.RegisterInNameScope(scope);
 
+        // 2026-10-04: прокрутка вбок на узком экране (см. LayoutMinWidth); на широком выключена.
+        var scroller = new ScrollViewer
+        {
+            Name = "PART_LayoutScroller",
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = presenter,
+        }.RegisterInNameScope(scope);
+
         return new Border
         {
             [~Border.BackgroundProperty] = new TemplateBinding(BackgroundProperty),
             [~Border.BorderBrushProperty] = new TemplateBinding(BorderBrushProperty),
             [~Border.BorderThicknessProperty] = new TemplateBinding(BorderThicknessProperty),
             [~Border.CornerRadiusProperty] = new TemplateBinding(CornerRadiusProperty),
-            Child = new DockPanel { LastChildFill = true, Children = { bar, presenter } },
+            Child = new DockPanel { LastChildFill = true, Children = { bar, scroller } },
         };
     });
 
@@ -366,7 +376,26 @@ public class Window : WindowBase
             RaiseEvent(new RoutedEventArgs(WindowOpenedEvent, this));
             if (ShowActivated)
                 host.FocusWindow(this);
+            // 2026-10-04, владелец: «при оплате клавиатура мешает»; Z-отчёт и другие окна тоже ставят курсор в поле
+            // при открытии — экранная клавиатура выезжала сама и закрывала окно. Курсор остаётся (сканер и
+            // USB-клавиатура пишут в поле), а экранная клавиатура появится, когда кассир сам нажмёт на поле.
+            HideSoftKeyboard();
+            DispatcherTimer.RunOnce(HideSoftKeyboard, TimeSpan.FromMilliseconds(150));
+            DispatcherTimer.RunOnce(HideSoftKeyboard, TimeSpan.FromMilliseconds(600));
         }, DispatcherPriority.Loaded);
+    }
+
+    private static void HideSoftKeyboard()
+    {
+        try
+        {
+            var activity = NurMarketKassa.Droid.AndroidBootstrap.CurrentActivity;
+            var view = activity?.CurrentFocus ?? activity?.Window?.DecorView;
+            if (activity?.GetSystemService(Android.Content.Context.InputMethodService) is Android.Views.InputMethods.InputMethodManager ime
+                && view?.WindowToken is { } token)
+                ime.HideSoftInputFromWindow(token, Android.Views.InputMethods.HideSoftInputFlags.None);
+        }
+        catch { /* клавиатуры нет */ }
     }
 
     public void Hide()
@@ -438,6 +467,8 @@ public class Window : WindowBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == LayoutMinWidthProperty)
+            UpdateLayoutMinWidth();
         if (change.Property == WindowStateProperty && IsShownInHost)
         {
             // «Свернуть» на Android — увести программу в фон (как кнопка «Домой»); окно остаётся
@@ -457,6 +488,108 @@ public class Window : WindowBase
     {
         base.OnSizeChanged(e);
         RaiseResized(e.NewSize);
+        UpdateLayoutMinWidth();
+    }
+
+    // ---- 2026-10-04: узкий экран — раскладка не уже LayoutMinWidth, лишнее листается вбок ----
+
+    /// <summary>2026-10-04, владелец: «адаптация админки всех вкладок», «и в кассе тоже не все вкладки».
+    /// Окна кассы и разделы программы владельца рассчитаны на широкий экран; на вертикальном телефоне
+    /// они сжимались до ~400 точек: таблицы обрезались, ряды плашек становились нечитаемыми столбиками.
+    /// Теперь содержимое окна (под заголовком) раскладывается не уже этой ширины, а если экран уже —
+    /// листается вбок. 0 — как раньше. Задаёт WindowLayerHost.</summary>
+    public static readonly StyledProperty<double> LayoutMinWidthProperty =
+        AvaloniaProperty.Register<Window, double>(nameof(LayoutMinWidth));
+
+    public double LayoutMinWidth
+    {
+        get => GetValue(LayoutMinWidthProperty);
+        set => SetValue(LayoutMinWidthProperty, value);
+    }
+
+    private ScrollViewer? _layoutScroller;
+    private ContentPresenter? _layoutPresenter;
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        _layoutScroller = e.NameScope.Find<ScrollViewer>("PART_LayoutScroller");
+        _layoutPresenter = e.NameScope.Find<ContentPresenter>("PART_ContentPresenter");
+        UpdateLayoutMinWidth();
+    }
+
+    private void UpdateLayoutMinWidth()
+    {
+        if (_layoutScroller is null || _layoutPresenter is null)
+            return;
+        var available = Bounds.Width;
+        var narrow = LayoutMinWidth > 0 && available > 0 && LayoutMinWidth > available + 1;
+        _layoutScroller.HorizontalScrollBarVisibility = narrow ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        _layoutScroller.VerticalScrollBarVisibility = AndroidPageScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        _layoutPresenter.Width = narrow ? LayoutMinWidth : double.NaN;
+    }
+
+    // ---- 2026-10-04: телефон — ряды столбиком (AutoReflow), форма листается целиком ----
+
+    /// <summary>Модалка-форма на телефоне листается пальцем вверх-вниз целиком, как страница
+    /// (её поля после AutoReflow стоят столбиком и выше экрана). Задаёт WindowLayerHost.</summary>
+    public bool AndroidPageScroll
+    {
+        get => _androidPageScroll;
+        set
+        {
+            if (_androidPageScroll == value)
+                return;
+            _androidPageScroll = value;
+            UpdateLayoutMinWidth();
+        }
+    }
+    private bool _androidPageScroll;
+
+    /// <summary>Ряды «блок | блок» в окне на узком экране встают столбиком (AutoReflow). Задаёт WindowLayerHost.</summary>
+    public bool AutoReflowEnabled
+    {
+        get => _autoReflowEnabled;
+        set
+        {
+            if (_autoReflowEnabled == value)
+                return;
+            _autoReflowEnabled = value;
+            if (value)
+                LayoutUpdated += OnLayoutUpdatedForReflow;
+            else
+                LayoutUpdated -= OnLayoutUpdatedForReflow;
+            QueueReflow();
+        }
+    }
+    private bool _autoReflowEnabled;
+    private bool _reflowQueued;
+    private long _lastReflowTicks;
+
+    private void OnLayoutUpdatedForReflow(object? sender, EventArgs e) => QueueReflow();
+
+    /// <summary>Не чаще раза в 0,4 с: содержимое разделов дорисовывается после загрузки данных — новые ряды
+    /// тоже должны встать столбиком, но обходить дерево на каждый кадр незачем.</summary>
+    private void QueueReflow()
+    {
+        if (_reflowQueued)
+            return;
+        _reflowQueued = true;
+        var wait = Math.Max(0, 400 - (Environment.TickCount64 - _lastReflowTicks));
+        DispatcherTimer.RunOnce(() =>
+        {
+            _reflowQueued = false;
+            _lastReflowTicks = Environment.TickCount64;
+            try
+            {
+                if (IsVisible && Bounds.Width > 0)
+                    AutoReflow.Apply(this, _autoReflowEnabled && Bounds.Width < AutoReflow.NarrowWidth);
+            }
+            catch (Exception ex)
+            {
+                NurMarketKassa.Services.PosLogger.Log($"Android: перестройка окна {GetType().Name} — {ex.Message}", "WARNING");
+            }
+        }, TimeSpan.FromMilliseconds(Math.Max(1, wait)));
     }
 }
 

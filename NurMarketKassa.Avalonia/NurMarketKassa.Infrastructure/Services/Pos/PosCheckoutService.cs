@@ -1140,6 +1140,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         try
         {
             soldStockExpected = StockSyncService.ApplySoldItemsDecrement(_cart.Root);
+            // 2026-10-04, владелец: «при продаже одежды количество не уменьшается» — окно размеров брало
+            // остаток размера из кеша на 2 минуты. Теперь остаток проданного размера/цвета уменьшается сразу.
+            ProductVariantCache.ApplySale(_cart.Root);
         }
         catch (Exception ex)
         {
@@ -1666,6 +1669,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                     }
                 }
             }
+
+            // 2026-10-04: и остаток проданного размера/цвета одежды — в окне выбора размера сразу.
+            ProductVariantCache.ApplySale(doc.RootElement);
         }
         catch (Exception ex)
         {

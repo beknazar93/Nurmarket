@@ -57,7 +57,9 @@ internal static class AndroidCustomerDisplay
         display.GetRealMetrics(metrics);
 #pragma warning restore CA1422, CS0618
         var scaling = metrics.Density > 0 ? metrics.Density : 1.0;
-        var primaryWidth = (int)((WindowLayerHost.Current?.Bounds.Width ?? 1280) * (TopLevel.RealTopLevel?.RenderScaling ?? 1.0));
+        // 2026-10-04: ширина основного экрана в пикселях — с учётом подгонки вида кассы (ScreenFitHost).
+        var primaryWidth = (int)((WindowLayerHost.Current?.Bounds.Width ?? 1280)
+                                 * (TopLevel.RealTopLevel?.RenderScaling ?? 1.0) * (ScreenFitHost.Current?.Scale ?? 1.0));
         var rect = new PixelRect(primaryWidth, 0, metrics.WidthPixels, metrics.HeightPixels);
 #pragma warning disable CS0618
         return new Avalonia.Platform.Screen(scaling, rect, rect, false);
@@ -129,7 +131,9 @@ internal static class AndroidCustomerDisplay
         protected override void OnCreate(Bundle? savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
-            _view = new AvaloniaView(Context) { Content = _window };
+            // 2026-10-04, владелец: «2 экран покупателя тоже доработать». Экран покупателя рассчитан на
+            // 800×520 и больше; задний дисплей терминала бывает меньше — окно равномерно уменьшается целиком.
+            _view = new AvaloniaView(Context) { Content = new FitToDesign(_window, 800, 520) };
             SetContentView(_view);
         }
 
@@ -137,9 +141,41 @@ internal static class AndroidCustomerDisplay
         {
             if (_view is null)
                 return;
+            if (_view.Content is FitToDesign fit)
+                fit.Child = null;
             _view.Content = null;
             _view.Dispose();
             _view = null;
+        }
+    }
+
+    /// <summary>2026-10-04: окно, рассчитанное на designWidth×designHeight, на экране меньше — уменьшается
+    /// целиком (на экране больше — 100 %).</summary>
+    private sealed class FitToDesign : LayoutTransformControl
+    {
+        private readonly double _designWidth;
+        private readonly double _designHeight;
+        private double _scale = 1;
+
+        public FitToDesign(Avalonia.Controls.Control child, double designWidth, double designHeight)
+        {
+            _designWidth = designWidth;
+            _designHeight = designHeight;
+            Child = child;
+            ClipToBounds = true;
+        }
+
+        protected override void OnSizeChanged(SizeChangedEventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (e.NewSize.Width <= 0 || e.NewSize.Height <= 0)
+                return;
+            var scale = Math.Round(Math.Clamp(Math.Min(e.NewSize.Width / _designWidth, e.NewSize.Height / _designHeight), 0.4, 1.0), 3);
+            if (Math.Abs(scale - _scale) < 0.002)
+                return;
+            _scale = scale;
+            LayoutTransform = scale >= 0.999 ? null : new Avalonia.Media.ScaleTransform(scale, scale);
+            PosLogger.Log($"Android: экран покупателя {e.NewSize.Width:0}×{e.NewSize.Height:0} точек → масштаб {scale:P0}.", "CUSTOMER_DISPLAY");
         }
     }
 

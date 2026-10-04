@@ -160,7 +160,8 @@ public sealed class Screens
     private static Screen Synthesized()
     {
         var host = WindowLayerHost.Current;
-        var scaling = TopLevel.RealTopLevel?.RenderScaling ?? 1.0;
+        // 2026-10-04: вид кассы уменьшен под экран (ScreenFitHost) — точки вида × масштаб = пиксели экрана.
+        var scaling = (TopLevel.RealTopLevel?.RenderScaling ?? 1.0) * (ScreenFitHost.Current?.Scale ?? 1.0);
         var w = host?.Bounds.Width > 0 ? host.Bounds.Width : 1280;
         var h = host?.Bounds.Height > 0 ? host.Bounds.Height : 800;
         var rect = new PixelRect(0, 0, (int)(w * scaling), (int)(h * scaling));
@@ -173,7 +174,12 @@ public sealed class Screens
     {
         get
         {
-            try { if (Real?.Primary is { } p) return p; } catch { /* нет экранов у платформы */ }
+            // 2026-10-04: при подгонке под экран (ScreenFitHost) «экран» кассы — уменьшенный вид, а не
+            // настоящий экран Android: иначе UiScaleHelper окна уменьшил бы его второй раз.
+            if (ScreenFitHost.Current is null)
+            {
+                try { if (Real?.Primary is { } p) return p; } catch { /* нет экранов у платформы */ }
+            }
             return Synthesized();
         }
     }
@@ -185,7 +191,7 @@ public sealed class Screens
             var list = new List<Screen>();
             try
             {
-                if (Real?.All is { Count: > 0 } all)
+                if (ScreenFitHost.Current is null && Real?.All is { Count: > 0 } all)
                     list.AddRange(all);
             }
             catch { /* нет экранов у платформы */ }

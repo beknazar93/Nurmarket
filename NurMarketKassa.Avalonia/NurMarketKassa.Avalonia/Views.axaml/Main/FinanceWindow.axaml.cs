@@ -311,6 +311,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
             Grid.SetColumn(PeriodBar, 1);
             HeaderRow.Children.Add(PeriodBar);
             HeaderActions.VerticalAlignment = VerticalAlignment.Center;
+            // 2026-10-04, Android (телефон): период и «Excel / Word / Обновить» в одной строке налезали друг на
+            // друга — период отдельной строкой под кнопками, на всю ширину, с переносом кнопок.
+            if (OperatingSystem.IsAndroid())
+            {
+                HeaderRow.RowDefinitions = new RowDefinitions("Auto,Auto");
+                Grid.SetRow(PeriodBar, 1);
+                Grid.SetColumn(PeriodBar, 0);
+                Grid.SetColumnSpan(PeriodBar, 3);
+                PeriodBar.Margin = new Thickness(0, 8, 0, 0);
+                HeaderActions.HorizontalAlignment = HorizontalAlignment.Right;
+            }
             HeaderBlock.Margin = new Thickness(0, 0, 0, 14);
             FinanceTabs.Margin = new Thickness(0);
             ContentGrid.Margin = OwnerSectionLayout.Margin;

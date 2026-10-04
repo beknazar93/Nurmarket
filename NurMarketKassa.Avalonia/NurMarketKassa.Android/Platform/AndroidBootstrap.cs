@@ -27,6 +27,21 @@ internal static class AndroidBootstrap
         try { System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance); }
         catch { /* уже зарегистрирован */ }
 
+        // 2026-10-04: журнал кассы — ещё и в журнал Android (adb logcat -s NurMarket), см. PosLogger.Mirror.
+        PosLogger.Mirror = (category, message) =>
+        {
+            var text = $"[{category}] {message}";
+            if (category.Contains("ERROR", StringComparison.OrdinalIgnoreCase) || category.Contains("CRITICAL", StringComparison.OrdinalIgnoreCase))
+                Android.Util.Log.Error("NurMarket", text);
+            else if (category.Contains("WARN", StringComparison.OrdinalIgnoreCase))
+                Android.Util.Log.Warn("NurMarket", text);
+            else
+                Android.Util.Log.Info("NurMarket", text);
+        };
+
+        // 2026-10-04: время жизни кассы — до RegisterServices, иначе Avalonia бросает исключение (см. InstallLifetime).
+        NurMarketKassa.AvaloniaHost.App.BeforeRegisterServices = InstallLifetime;
+
         // Host.CreateDefaultBuilder (App.axaml.cs) берёт папку содержимого из текущей папки и следит
         // за appsettings.json. На Android текущая папка — «/», следить за ней нельзя: ставим папку
         // программы и выключаем слежение (настройки на Android всё равно не меняются на ходу).
@@ -42,6 +57,8 @@ internal static class AndroidBootstrap
         NurMarketKassa.AvaloniaHost.Portable.PortablePlatform.WavPlayer = AndroidSound.PlayWav;
         // Печать чека: USB host, Bluetooth, сеть (TCP 9100) — см. AndroidPrinterTransport.
         PrinterPortService.PlatformTransport = new AndroidPrinterTransport();
+        // 2026-10-04: камера аппарата как сканер штрихкодов (CameraScan, кнопка «камера» в чеке, карточке товара, приёмке).
+        AndroidCameraScanner.Install();
         AndroidPlatformHooks.FinishApplication = code =>
         {
             try { CurrentActivity?.FinishAffinity(); } catch { /* активность уже закрыта */ }
@@ -72,21 +89,33 @@ internal static class AndroidBootstrap
                       $"{Android.OS.Build.Manufacturer} {Android.OS.Build.Model}.", "INFO");
     }
 
-    /// <summary>После настройки Avalonia и до App.OnFrameworkInitializationCompleted: вид программы
-    /// — стопка окон кассы, время жизни — «настольное» для кода кассы.</summary>
-    public static void InstallShell(Activity activity)
+    /// <summary>2026-10-04: до Application.RegisterServices (App.BeforeRegisterServices) — время жизни
+    /// «настольное» для кода кассы. Позже Avalonia менять его не даёт (живое падение на телефоне:
+    /// «It's not possible to change ApplicationLifetime after Application was initialized»).</summary>
+    public static void InstallLifetime(Avalonia.Application app)
     {
-        var app = Avalonia.Application.Current
-                  ?? throw new InvalidOperationException("Avalonia не запущена.");
         if (app.ApplicationLifetime is AndroidDesktopLifetime)
             return;
         if (app.ApplicationLifetime is not ISingleViewApplicationLifetime single)
             throw new InvalidOperationException("Android: неожиданное время жизни приложения " + app.ApplicationLifetime?.GetType().Name);
+        app.ApplicationLifetime = new AndroidDesktopLifetime(single);
+    }
+
+    /// <summary>После настройки Avalonia и до App.OnFrameworkInitializationCompleted: вид программы
+    /// — стопка окон кассы (время жизни уже поставлено в <see cref="InstallLifetime"/>).</summary>
+    public static void InstallShell(Activity activity)
+    {
+        var app = Avalonia.Application.Current
+                  ?? throw new InvalidOperationException("Avalonia не запущена.");
+        if (app.ApplicationLifetime is not AndroidDesktopLifetime lifetime)
+            throw new InvalidOperationException("Android: время жизни кассы не поставлено, а стоит " + app.ApplicationLifetime?.GetType().Name);
+        if (lifetime.Host is not null)
+            return;
 
         var host = new WindowLayerHost();
-        var lifetime = new AndroidDesktopLifetime(single, host);
-        app.ApplicationLifetime = lifetime;
-        single.MainView = host;
+        lifetime.AttachHost(host);
+        // 2026-10-04: вид кассы — подогнанный под экран аппарата (ScreenFitHost).
+        lifetime.MainView = new ScreenFitHost(host);
         AndroidCustomerDisplay.Initialize(activity);
     }
 

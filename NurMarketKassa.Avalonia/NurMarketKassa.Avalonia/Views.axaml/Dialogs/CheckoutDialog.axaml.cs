@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -46,9 +46,15 @@ public partial class CheckoutDialog : Window
 
         // Сумма наличными сразу выделена — кассир может просто начать печатать цифры,
         // не стирая предложенную сумму вручную, либо сразу нажать Enter для оплаты без изменений.
+        // 2026-10-04, владелец (Android): «при оплате клавиатура мешает». На Android фокус в поле суммы сразу
+        // открывает экранную клавиатуру поверх окна оплаты — там курсор не ставим: клавиатура появится, когда
+        // кассир сам нажмёт на поле. Узкий экран (вертикальный телефон) — «Итог» над способами оплаты.
+        if (OperatingSystem.IsAndroid())
+            NurMarketKassa.AvaloniaHost.Services.NarrowStack.Attach(this, CheckoutColumnsGrid, 700, "Auto,16,*");
+
         Opened += (_, _) =>
         {
-            if (_viewModel.IsCashMode)
+            if (_viewModel.IsCashMode && !OperatingSystem.IsAndroid())
             {
                 CashReceivedBox.Focus();
                 CashReceivedBox.SelectAll();

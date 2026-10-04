@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using NurMarketKassa.Configuration;
@@ -261,7 +261,9 @@ public sealed class ScaleReaderService : IDisposable
         if (string.IsNullOrWhiteSpace(port) || !HardwarePortHelper.LooksLikeComPort(port))
             return new ScaleProbeResult(false, Tr.T("○ COM-порт не выбран", "○ COM-порт тандалган жок", "○ No COM port selected", "○ COM portu seçilmedi", "○ COM port tanlanmagan"), ScalePortState.NotSpecified);
 
-        var names = SerialPort.GetPortNames();
+        // 2026-10-04, Android: «настройки не открываются» — GetPortNames там бросает UnauthorizedAccessException
+        // (нет доступа к /sys/class/tty), и окно настроек падало при выборе порта весов. Список — безопасный.
+        var names = GetAvailablePorts();
         if (!names.Any(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase)))
             return new ScaleProbeResult(false, Tr.T("○ COM-порт не найден", "○ COM-порт табылган жок", "○ COM port not found", "○ COM portu bulunamadı", "○ COM port topilmadi"), ScalePortState.NotFound);
 

@@ -411,6 +411,12 @@
                   Margin="0,0,0,8"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch">
+                <!-- 2026-10-04: пустой чек с «Быстрыми товарами» — в прокрутке. Без неё на низком месте для чека
+                     (вертикальный телефон, маленький экран) блок вылезал за свою строку и ложился поверх
+                     поля ввода, кнопок и «Итого». -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding IsEmpty}">
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Spacing="8"
@@ -492,6 +498,7 @@
                         </ItemsControl>
                     </StackPanel>
                 </StackPanel>
+                </ScrollViewer>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
@@ -686,6 +693,18 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="10,0">
+                        <DockPanel>
+                        <!-- 2026-10-04, Android: камера аппарата как сканер (CameraScan) — код уходит в чек как скан. -->
+                        <Button DockPanel.Dock="Right"
+                                IsVisible="{OnPlatform False, Android=True}"
+                                Click="CameraScanButton_Click"
+                                Focusable="False"
+                                Width="44" Height="44" Padding="0"
+                                Background="Transparent" BorderThickness="0"
+                                ToolTip.Tip="{DynamicResource csh.cart.cameraScan}">
+                            <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="20"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
                         <TextBox Text="{Binding BarcodeInput}"
                                  Watermark="{DynamicResource csh.cart.barcodeWatermark}"
                                  BorderThickness="0"
@@ -699,6 +718,7 @@
                                 <KeyBinding Gesture="Enter" Command="{Binding AddByBarcodeCommand}"/>
                             </TextBox.KeyBindings>
                         </TextBox>
+                        </DockPanel>
                     </Border>
 
                     <Border Grid.Column="2"

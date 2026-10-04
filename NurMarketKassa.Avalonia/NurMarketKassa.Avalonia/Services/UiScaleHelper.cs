@@ -174,6 +174,11 @@ public static class UiScaleHelper
             availableHeight,
             fitWidth,
             fitHeight);
+        // 2026-10-04, Android: под экран аппарата весь вид кассы уже подогнан (ScreenFitHost), а окно шире
+        // экрана уменьшается слоем окон (WindowLayerHost) — второе уменьшение здесь сделало бы окно мелким
+        // (вертикальный телефон: 0,5 × 0,8). Компактный вид выбирается как обычно.
+        if (OperatingSystem.IsAndroid())
+            scale = 1.0;
 
         transformRoot.LayoutTransform = Math.Abs(scale - 1.0) < 0.001
             ? null

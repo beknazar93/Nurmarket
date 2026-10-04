@@ -35,6 +35,19 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
 
     public bool HasBufferedInput => _barcodeBuf.Length > 0;
 
+    /// <summary>2026-10-04, владелец: «доступ к камере в Android, чтобы её как сканер можно было использовать
+    /// в кассе, при создании товаров, приёмке». Код, считанный камерой (CameraScan), — как скан
+    /// USB-сканера: те же обработчики в кассе, карточке товара и на складе.</summary>
+    public void Inject(string code)
+    {
+        var trimmed = code?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return;
+        _barcodeBuf = "";
+        _fastRunLength = 0;
+        BarcodeScanned?.Invoke(trimmed);
+    }
+
     public void ProcessKeyDown(KeyEventArgs e)
     {
         var mods = e.KeyModifiers;

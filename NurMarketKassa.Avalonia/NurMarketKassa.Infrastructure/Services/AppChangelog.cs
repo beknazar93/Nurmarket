@@ -13,57 +13,47 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Маленькие экраны и сенсорные моноблоки (1024×768, 1280×800, 1366×768): касса больше не уменьшается целиком — кнопки крупные, под палец, «Оплатить» всегда видна, лишнее в шапке — в меню «⋯». Настройки → Экран → «Компактный вид»",
-        "Оплата быстрее: 3 секунды → 1 секунда, чек печатается в фоне; окно «Платёж принят» закрывается следующим сканом",
-        "Меньше интернета и нагрузки: каталог не скачивается заново, если не менялся; одна проверка связи вместо двух; «Сводка» владельца обновляется раз в минуту и только когда открыта",
-        "Без интернета: возврат и оплата долга сразу говорят «недоступно» вместо ожидания 55 секунд; вход по паролю — не дольше 8 секунд, есть «Войти автономно»",
-        "«Касса: N сом» в шапке учитывает продажи, сделанные без интернета; после возврата интернета касса становится «Онлайн» не позже чем через 20 секунд",
-        "Окно смены: «Наличные» одинаковые во всех окнах, предоплата долга — отдельной строкой; в «Прокате за смену» виден возвращённый залог",
-        "После перезапуска кассы не нужно снова вводить пароль, пока вход действителен",
+        "Одежда с размерами и цветами: продажа проходит одним запросом — быстрее (было 1,3 с, стало 0,8 с), окно размеров открывается сразу, а остаток проданного размера уменьшается сразу после оплаты",
+        "Бот магазина знает размеры и цвета: на «какие размеры есть?» сам называет размеры и цвета в наличии",
+        "Android: касса и программа владельца открываются и работают на телефонах и кассовых терминалах; экран поворачивается, все окна подстраиваются под экран, прокрутка пальцем",
+        "Android: камера телефона — сканер штрихкодов (в чеке, в карточке товара, в приёмке), с анимацией и зелёной вспышкой при удачном скане",
+        "Android и Linux: значки на месте (раньше были квадраты); экранная клавиатура больше не выскакивает сама при открытии окна",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Кичине экрандар жана сенсордук моноблоктор: касса толугу менен кичирейбейт — баскычтар чоң, «Төлөө» дайыма көрүнөт, ашыкчасы шапкадагы «⋯» менюсунда. Жөндөөлөр → Экран → «Компакттуу көрүнүш»",
-        "Төлөм тезирээк: 3 секунд → 1 секунд, чек фондо басылат",
-        "Интернет жана жүк азыраак: каталог өзгөрбөсө кайра жүктөлбөйт; байланышты бир гана текшерүү; ээсинин «Жыйынтыгы» мүнөтүнө бир жолу жана ачык турганда гана жаңырат",
-        "Интернетсиз: кайтаруу жана карыз төлөө 55 секунд күтпөй дароо «жеткиликсиз» дейт; сырсөз менен кирүү 8 секунддан ашпайт, «Автономдуу кирүү» бар",
-        "Шапкадагы «Касса: N сом» интернетсиз сатууларды эсептейт; интернет келгенде касса 20 секунддун ичинде «Онлайн» болот",
-        "Смена терезеси: «Накталай» бардык терезелерде бирдей, карыздын алдын ала төлөмү өзүнчө сапта; «Сменадагы прокатта» кайтарылган күрөө көрүнөт",
-        "Кассаны кайра жүргүзгөндөн кийин кирүү жарактуу болсо сырсөздү кайра киргизүүнүн кереги жок",
+        "Өлчөмү жана түсү бар кийим: сатуу бир суроо менен өтөт — тезирээк (1,3 с → 0,8 с), өлчөм терезеси дароо ачылат, сатылган өлчөмдүн калдыгы төлөмдөн кийин дароо азаят",
+        "Дүкөндүн боту өлчөмдөрдү жана түстөрдү билет: «кандай өлчөмдөр бар?» дегенде бар өлчөмдөрдү жана түстөрдү өзү айтат",
+        "Android: касса жана ээсинин программасы телефондордо жана касса терминалдарында ачылат жана иштейт; экран бурулат, бардык терезелер экранга ылайыкташат, манжа менен жылдыруу",
+        "Android: телефондун камерасы — штрихкод сканери (чекте, товар карточкасында, кабыл алууда), анимациясы жана ийгиликтүү скандагы жашыл жаркылдоо менен",
+        "Android жана Linux: белгилер ордунда (мурда төрт бурчтуктар болчу); терезе ачылганда экран клавиатурасы өзү чыкпайт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Small screens and touch monoblocks (1024×768, 1280×800, 1366×768): the till no longer shrinks as a whole — buttons are finger-sized, “Pay” is always visible, extras moved to the “⋯” menu. Settings → Screen → “Compact view”",
-        "Faster payment: 3 seconds → 1 second, the receipt prints in the background",
-        "Less internet and load: the catalog is not downloaded again if unchanged; one connection check instead of two; the owner's Summary refreshes once a minute and only while open",
-        "Offline: returns and debt payments say “unavailable” at once instead of waiting 55 seconds; password login takes at most 8 seconds, with “Sign in offline”",
-        "“Till: N som” in the header includes sales made offline; when the internet returns the till is Online within 20 seconds",
-        "Shift window: “Cash” is the same in all windows, debt prepayment on its own line; returned rental deposits are shown",
-        "After restarting the till there is no need to enter the password again while the login is valid",
+        "Clothing with sizes and colors: the sale goes in one request — faster (1.3 s → 0.8 s), the size window opens instantly, and the sold size's stock drops right after payment",
+        "The shop bot knows sizes and colors: asked “what sizes are there?” it lists the sizes and colors in stock",
+        "Android: the till and the owner program open and work on phones and POS terminals; the screen rotates, every window adapts to the screen, finger scrolling",
+        "Android: the phone camera is a barcode scanner (in the receipt, the product card, receiving), with an animation and a green flash on a good scan",
+        "Android and Linux: icons are back (they were squares); the on-screen keyboard no longer pops up by itself when a window opens",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Küçük ekranlar ve dokunmatik monobloklar: kasa artık bütünüyle küçülmüyor — düğmeler parmak boyutunda, «Öde» her zaman görünür, fazlası «⋯» menüsünde. Ayarlar → Ekran → «Kompakt görünüm»",
-        "Daha hızlı ödeme: 3 saniye → 1 saniye, fiş arka planda yazdırılır",
-        "Daha az internet ve yük: katalog değişmediyse yeniden indirilmez; iki yerine tek bağlantı kontrolü; işletme sahibi Özeti dakikada bir ve yalnızca açıkken yenilenir",
-        "İnternetsiz: iade ve borç ödemesi 55 saniye beklemeden hemen «kullanılamıyor» der; şifreyle giriş en fazla 8 saniye, «Çevrimdışı giriş» var",
-        "Başlıktaki «Kasa: N som» çevrimdışı satışları da sayar; internet dönünce kasa 20 saniye içinde Çevrimiçi olur",
-        "Vardiya penceresi: «Nakit» tüm pencerelerde aynı, borç ön ödemesi ayrı satırda; iade edilen kira depozitosu görünür",
-        "Kasa yeniden başlatıldığında giriş geçerliyse şifreyi tekrar girmek gerekmez",
+        "Beden ve renkli giyim: satış tek istekte geçer — daha hızlı (1,3 sn → 0,8 sn), beden penceresi hemen açılır, satılan bedenin stoğu ödemeden hemen sonra düşer",
+        "Mağaza botu beden ve renkleri biliyor: «hangi bedenler var?» sorusuna stoktaki beden ve renkleri kendisi söyler",
+        "Android: kasa ve işletme sahibi programı telefonlarda ve POS terminallerinde açılıp çalışır; ekran döner, tüm pencereler ekrana uyum sağlar, parmakla kaydırma",
+        "Android: telefon kamerası barkod okuyucu (fişte, ürün kartında, mal kabulde), animasyonlu ve başarılı okumada yeşil yanıp sönme ile",
+        "Android ve Linux: simgeler yerinde (önceden kareydi); pencere açılınca ekran klavyesi artık kendiliğinden açılmıyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Kichik ekranlar va sensorli monobloklar: kassa endi butunlay kichraymaydi — tugmalar barmoq uchun katta, «To'lash» doim ko'rinadi, ortiqchasi «⋯» menyusida. Sozlamalar → Ekran → «Ixcham ko'rinish»",
-        "To'lov tezroq: 3 soniya → 1 soniya, chek fonda chop etiladi",
-        "Kamroq internet va yuk: katalog o'zgarmasa qayta yuklanmaydi; ikki o'rniga bitta aloqa tekshiruvi; ega «Xulosasi» daqiqada bir marta va faqat ochiq bo'lganda yangilanadi",
-        "Internetsiz: qaytarish va qarz to'lovi 55 soniya kutmasdan darhol «mavjud emas» deydi; parol bilan kirish 8 soniyadan oshmaydi, «Oflayn kirish» bor",
-        "Sarlavhadagi «Kassa: N so'm» internetsiz sotuvlarni ham hisoblaydi; internet qaytganda kassa 20 soniya ichida Onlayn bo'ladi",
-        "Smena oynasi: «Naqd» barcha oynalarda bir xil, qarzning oldindan to'lovi alohida qatorda; qaytarilgan prokat garovi ko'rinadi",
-        "Kassa qayta ishga tushirilganda kirish amal qilsa parolni qayta kiritish shart emas",
+        "O'lcham va rangli kiyim: sotuv bitta so'rovda o'tadi — tezroq (1,3 s → 0,8 s), o'lcham oynasi darhol ochiladi, sotilgan o'lcham qoldig'i to'lovdan keyin darhol kamayadi",
+        "Do'kon boti o'lcham va ranglarni biladi: «qanday o'lchamlar bor?» deganda mavjud o'lcham va ranglarni o'zi aytadi",
+        "Android: kassa va ega dasturi telefonlarda va kassa terminallarida ochiladi va ishlaydi; ekran aylanadi, barcha oynalar ekranga moslashadi, barmoq bilan aylantirish",
+        "Android: telefon kamerasi — shtrix-kod skaneri (chekda, mahsulot kartasida, qabul qilishda), animatsiya va muvaffaqiyatli skanda yashil chaqnash bilan",
+        "Android va Linux: belgilar joyida (avval kvadratlar edi); oyna ochilganda ekran klaviaturasi endi o'zi chiqmaydi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

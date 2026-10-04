@@ -396,7 +396,9 @@
                                  SelectionMode="Single">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel HorizontalAlignment="Left" Orientation="Horizontal"/>
+                                    <!-- 2026-10-04, владелец (Android): «каталоги по центру, по 2, чтобы отступы были равными» —
+                                         на Android плитки по центру, в Windows — как раньше, слева. -->
+                                    <WrapPanel HorizontalAlignment="{OnPlatform Left, Android=Center}" Orientation="Horizontal"/>
                                 </ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
                             <ListBox.ItemTemplate>

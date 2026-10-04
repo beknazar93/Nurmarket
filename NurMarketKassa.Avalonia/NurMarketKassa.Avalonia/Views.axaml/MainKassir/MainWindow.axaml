@@ -161,6 +161,24 @@
         <Style Selector=".compact StackPanel.header-status">
             <Setter Property="Spacing" Value="10"/>
         </Style>
+        <!-- 2026-10-04, Android, вертикальный телефон (класс окна "portrait", см. ApplyPortraitLayout):
+             шапка в ширину телефона — название короче, у «Открыть/Закрыть смену» только замок. -->
+        <Style Selector=".portrait TextBlock.header-title">
+            <Setter Property="MaxWidth" Value="130"/>
+        </Style>
+        <Style Selector=".portrait Button.shift-action TextBlock">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".portrait Button.shift-action">
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+        <!-- «Касса: N сом» в ширину телефона не помещается (оставалась буква «К») — она есть в окне смены. -->
+        <Style Selector=".portrait TextBlock.header-network">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".portrait TextBlock.header-balance">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
@@ -329,7 +347,8 @@
                     </Border>
 
                     <!-- Баланс кассы, по умолчанию "Касса: 0.00 сом" -->
-                    <TextBlock Text="{Binding Toolbar.Status.ShiftBalanceText}"
+                    <TextBlock Classes="header-balance"
+                               Text="{Binding Toolbar.Status.ShiftBalanceText}"
                                FontSize="13"
                                FontWeight="Bold"
                                Foreground="{DynamicResource BrushMoney}"
@@ -512,7 +531,7 @@
                           ShowsPreview="False"
                           ZIndex="100"/>
 
-            <views:CustomerCartView Grid.Column="2"
+            <views:CustomerCartView x:Name="CartPanelView" Grid.Column="2"
                                     HorizontalAlignment="Stretch"
                                     VerticalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"

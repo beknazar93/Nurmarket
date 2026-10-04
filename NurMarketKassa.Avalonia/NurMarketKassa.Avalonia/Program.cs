@@ -195,6 +195,10 @@ internal static class Program
             .UsePlatformDetect()
             .WithInterFont();
 
+        // 2026-10-04: на Linux нет шрифта значков Windows — значки из NurIcons (см. IconFontFallback).
+        if (!OperatingSystem.IsWindows())
+            builder = builder.With(NurMarketKassa.AvaloniaHost.Services.IconFontFallback.Options);
+
         if (IsLowPerformanceModeEnabled())
         {
             // Программный рендер вместо GPU-ускорения: медленнее на сложных сценах,

@@ -27,18 +27,28 @@ public sealed class AndroidDesktopLifetime : IClassicDesktopStyleApplicationLife
     private Window? _mainWindow;
     private bool _exited;
 
-    public AndroidDesktopLifetime(ISingleViewApplicationLifetime inner, WindowLayerHost host)
+    /// <summary>2026-10-04, живое падение на телефоне (Xiaomi, Android 15): «It's not possible to change
+    /// ApplicationLifetime after Application was initialized». Avalonia разрешает менять ApplicationLifetime
+    /// только до Application.RegisterServices, а время жизни ставилось в AfterSetup — касса не открывалась
+    /// ни на одном аппарате. Теперь оно ставится до RegisterServices (App.BeforeRegisterServices), а стопка
+    /// окон, которая сама является элементом Avalonia, подключается позже — <see cref="AttachHost"/> в AfterSetup.</summary>
+    public AndroidDesktopLifetime(ISingleViewApplicationLifetime inner)
     {
         _inner = inner;
+        Instance = this;
+    }
+
+    /// <summary>Подключить стопку окон (после запуска Avalonia, в AfterSetup).</summary>
+    public void AttachHost(WindowLayerHost host)
+    {
         Host = host;
         Host.IsMainWindow = w => ReferenceEquals(w, _mainWindow)
                                  || w.GetType().Name is "MainWindow" or "OwnerShellWindow" or "LoginWindow" or "SplashWindow";
-        Instance = this;
     }
 
     public static AndroidDesktopLifetime? Instance { get; private set; }
 
-    public WindowLayerHost Host { get; }
+    public WindowLayerHost Host { get; private set; } = null!;
 
     public Avalonia.Controls.Control? MainView
     {
