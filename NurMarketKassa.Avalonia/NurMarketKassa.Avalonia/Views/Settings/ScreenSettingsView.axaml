@@ -279,6 +279,24 @@
 
               <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
 
+              <!-- 2026-10-04: компактный вид «Классики» для маленьких экранов и сенсорных моноблоков
+                   (UserPreferences.CompactLayoutMode). «Авто» — по умолчанию, применяется сразу. -->
+              <StackPanel Spacing="4">
+                <TextBlock Text="{DynamicResource posSettings.screen.compactLayout}" Classes="SettingsCardTitle" FontSize="14"/>
+                <TextBlock Text="{DynamicResource posSettings.screen.compactLayoutDesc}"
+                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <RadioButton x:Name="CompactAutoRadio" Margin="0,0,8,8" GroupName="CompactLayout" Classes="ClickPill"
+                               Content="{DynamicResource posSettings.screen.compactAuto}" IsCheckedChanged="CompactLayoutRadio_Changed"/>
+                  <RadioButton x:Name="CompactOnRadio" Margin="0,0,8,8" GroupName="CompactLayout" Classes="ClickPill"
+                               Content="{DynamicResource posSettings.screen.compactOn}" IsCheckedChanged="CompactLayoutRadio_Changed"/>
+                  <RadioButton x:Name="CompactOffRadio" Margin="0,0,8,8" GroupName="CompactLayout" Classes="ClickPill"
+                               Content="{DynamicResource posSettings.screen.compactOff}" IsCheckedChanged="CompactLayoutRadio_Changed"/>
+                </WrapPanel>
+              </StackPanel>
+
+              <Separator Background="{DynamicResource BrushPanelSoft}" Height="1"/>
+
               <!-- Размер карточек каталога (2026-09-24): отдельно от общего масштаба. -->
               <StackPanel Spacing="4">
                 <Grid ColumnDefinitions="*,Auto">

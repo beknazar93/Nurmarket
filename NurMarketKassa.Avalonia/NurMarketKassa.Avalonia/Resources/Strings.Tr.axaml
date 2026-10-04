@@ -761,6 +761,11 @@
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kasa ekranındaki tüm öğelerin boyutu — %50 ile %200 arasında. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Ürün kartı boyutu</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Büyük kartlar dokunmatik ekranda kolay seçilir, küçükler ekrana daha çok ürün sığdırır. Başlık ve fiş değişmez.</x:String>
+  <x:String x:Key="posSettings.screen.compactLayout">Küçük ekranlar için kompakt görünüm</x:String>
+  <x:String x:Key="posSettings.screen.compactLayoutDesc">1024×768, 1280×800, 1366×768 ekranlarda ve dokunmatik hepsi bir arada bilgisayarlarda kasa tamamen küçülmek yerine yeniden düzenlenir: başlıkta «⋯» menüsü, iki sıralı fiş satırları, en az 44 noktalık düğmeler. «Klasik» görünümde çalışır.</x:String>
+  <x:String x:Key="posSettings.screen.compactAuto">Otomatik</x:String>
+  <x:String x:Key="posSettings.screen.compactOn">Her zaman</x:String>
+  <x:String x:Key="posSettings.screen.compactOff">Kapalı</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Kasa düzeni</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Kasa ekranı için altı düzen. Bir kart seçin, kasa yeniden başlatmadan hemen değişir. Ürünler, fişler, ödeme ve barkod okuyucu tüm düzenlerde aynı çalışır.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Standart</x:String>

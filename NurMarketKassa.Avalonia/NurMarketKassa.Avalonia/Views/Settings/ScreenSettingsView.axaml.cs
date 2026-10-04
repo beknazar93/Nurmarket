@@ -39,6 +39,11 @@ public partial class ScreenSettingsView : UserControl
         UpdateUiScaleValueText(UserPreferences.Instance.UiScalePercent);
         TileSizeSlider.Value = UserPreferences.Instance.CatalogTileScalePercent;
         TileSizeValueText.Text = $"{UserPreferences.Instance.CatalogTileScalePercent:F0}%";
+        // 2026-10-04: компактный вид для маленьких экранов — текущий выбор (по умолчанию «Авто»).
+        var compactMode = UserPreferences.Instance.CompactLayoutMode;
+        CompactOnRadio.IsChecked = compactMode == "on";
+        CompactOffRadio.IsChecked = compactMode == "off";
+        CompactAutoRadio.IsChecked = compactMode is not ("on" or "off");
         _suppressUiScaleChange = false;
         QuickProductsCheck.IsChecked = UserPreferences.Instance.ShowQuickProducts;
         UpsellCheck.IsChecked = UserPreferences.Instance.UpsellEnabled;
@@ -122,6 +127,27 @@ public partial class ScreenSettingsView : UserControl
         UiScaleChanged?.Invoke(this, EventArgs.Empty);
         // После применения — чтобы подпись показала, что реально получилось на этом экране.
         UpdateUiScaleValueText(e.NewValue);
+        ScheduleUiScaleSaveDebounce();
+    }
+
+    /// <summary>2026-10-04: компактный вид «Классики» (Авто / Всегда / Выключен) — сразу, без
+    /// «Сохранить», как масштаб: касса перестраивается и пересчитывает масштаб (MainWindow.RefreshUiScale).
+    /// Пишется только выбор владельца; у кого его нет, остаётся «Авто».</summary>
+    private void CompactLayoutRadio_Changed(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressUiScaleChange || sender is not RadioButton { IsChecked: true } radio)
+            return;
+
+        var mode = ReferenceEquals(radio, CompactOnRadio) ? "on"
+            : ReferenceEquals(radio, CompactOffRadio) ? "off"
+            : "auto";
+        if (UserPreferences.Instance.CompactLayoutMode == mode)
+            return;
+
+        UserPreferences.Instance.CompactLayoutMode = mode;
+        App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
+        UiScaleChanged?.Invoke(this, EventArgs.Empty);
+        UpdateUiScaleValueText(UiScaleSlider.Value);
         ScheduleUiScaleSaveDebounce();
     }
 

@@ -87,6 +87,80 @@
         <Style Selector="TextBox:focus /template/ Border#PART_BackgroundControlThickness">
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
+
+        <!-- ============ Шапка: обычный и компактный вид (2026-10-04) ============
+             Владелец: «сделай редизайн, учитывай маленькие экраны и моноблоки сенсорные, где не
+             умещается всё». Размеры кнопок шапки заданы стилями, а не прямо на кнопках: значение,
+             заданное на самом элементе, стиль переопределить не может, а компактному виду (класс
+             окна "compact", см. MainWindow.RefreshUiScale) нужно их менять. Цели нажатия — не меньше
+             44 точек: по ним попадают пальцем. -->
+        <Style Selector="Border.kassa-header">
+            <Setter Property="Padding" Value="16,10"/>
+        </Style>
+        <Style Selector="Button.header-tool">
+            <Setter Property="Width" Value="58"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="Button.header-menu">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <!-- «⋯ Ещё» шапки есть только в компактном виде: в нём прячутся «Экран», «Тема» и
+             «Горячие» (кнопка экранной клавиатуры остаётся — без неё на сенсорном моноблоке не
+             набрать текст). -->
+        <Style Selector="Button.header-more">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Button.shift-action">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="TextBlock.header-title">
+            <Setter Property="MaxWidth" Value="360"/>
+        </Style>
+        <Style Selector="TextBlock.header-network">
+            <Setter Property="MaxWidth" Value="280"/>
+        </Style>
+        <Style Selector="MenuItem.header-menu-item">
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="Padding" Value="12,0"/>
+        </Style>
+
+        <Style Selector=".compact Border.kassa-header">
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+        <Style Selector=".compact Button.header-tool">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="44"/>
+        </Style>
+        <Style Selector=".compact TextBlock.header-tool-label">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".compact Button.header-secondary">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".compact Button.header-more">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <!-- Две кнопки смены, из которых одна всегда недоступна (смена или открыта, или нет), —
+             в компактном виде видна только та, которую можно нажать. -->
+        <Style Selector=".compact Button.shift-action:disabled">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".compact Button.shift-action">
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+        <Style Selector=".compact TextBlock.header-title">
+            <Setter Property="MaxWidth" Value="200"/>
+        </Style>
+        <Style Selector=".compact TextBlock.header-network">
+            <Setter Property="MaxWidth" Value="170"/>
+        </Style>
+        <Style Selector=".compact StackPanel.header-status">
+            <Setter Property="Spacing" Value="10"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
@@ -158,11 +232,12 @@
         <DockPanel Grid.Row="0">
         <Border DockPanel.Dock="Bottom" Height="{DynamicResource OrnamentBandHeight}"
                 Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
-        <Border
+        <!-- 2026-10-04: отступы и размеры шапки — в стилях Border.kassa-header / Button.header-*
+             (обычный и компактный вид, см. Window.Styles выше). -->
+        <Border Classes="kassa-header"
                 Background="{DynamicResource BrushWindowAlt}"
                 BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="0,0,0,1"
-                Padding="16,10">
+                BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*,Auto">
 
                 <!-- Меню, логотип, название кассы -->
@@ -170,9 +245,7 @@
                             Orientation="Horizontal"
                             Spacing="10"
                             VerticalAlignment="Center">
-                    <Button Classes="main-ghost"
-                            Width="38" Height="38"
-                            Padding="0"
+                    <Button Classes="main-ghost header-menu"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.menuTooltip}"
@@ -185,18 +258,25 @@
                         <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
                                Stretch="Uniform"/>
                     </Border>
-                    <TextBlock Text="{Binding Toolbar.UserTitle}"
+                    <!-- 2026-10-04: длинное имя кассы/кассира не выталкивает кнопки шапки за край. -->
+                    <TextBlock Classes="header-title"
+                               Text="{Binding Toolbar.UserTitle}"
                                FontSize="15"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource BrushText}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               ToolTip.Tip="{Binding Toolbar.UserTitle}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Статус: сеть + баланс кассы/смены -->
                 <StackPanel Grid.Column="1"
+                            Classes="header-status"
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
+                            ClipToBounds="True"
                             Spacing="18">
                     <!-- 2026-09-29: подсказка — с какого времени сервер не отвечает и последняя ошибка -->
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
@@ -215,11 +295,13 @@
                                    Foreground="{DynamicResource BrushTextSoft}"/>
                     </StackPanel>
 
-                    <TextBlock Text="{Binding Toolbar.Status.NetworkModeText}"
+                    <TextBlock Classes="header-network"
+                               Text="{Binding Toolbar.Status.NetworkModeText}"
                                FontSize="12"
                                Foreground="{DynamicResource BrushTextSoft}"
                                TextWrapping="Wrap"
-                               MaxWidth="280"
+                               MaxLines="2"
+                               TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center"/>
 
                     <!-- Очередь чеков, не отправленных на сервер (см. OfflinePendingSalesStore) -->
@@ -272,41 +354,38 @@
                 </StackPanel>
 
                 <!-- Тема, клавиатура, смена -->
+                <!-- 2026-10-04: кнопки с подписью — Button.header-tool (размер в стилях окна). В компактном
+                     виде «Экран», «Тема» и «Горячие» (header-secondary) уходят в меню «⋯», подписи под
+                     значками прячутся; клавиатура остаётся на месте. -->
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="8"
                             VerticalAlignment="Center">
-                    <Button Classes="main-ghost"
-                            Width="58" Height="46"
-                            Padding="0"
+                    <Button Classes="main-ghost header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
                             Command="{Binding Toolbar.CheckCustomerDisplayCommand}">
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconMonitor}"/>
-                            <TextBlock Text="{DynamicResource header.labelCustomerDisplay}" FontSize="9"
+                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelCustomerDisplay}" FontSize="9"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost"
-                            Width="58" Height="46"
-                            Padding="0"
+                    <Button Classes="main-ghost header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
                             Click="ToggleTheme_Click">
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17" HorizontalAlignment="Center"/>
-                            <TextBlock Text="{DynamicResource header.labelTheme}" FontSize="9"
+                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelTheme}" FontSize="9"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost"
-                            Width="58" Height="46"
-                            Padding="0"
+                    <Button Classes="main-ghost header-tool"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
@@ -316,24 +395,57 @@
                              набор на экранной клавиатуре уходил в буфер сканера и пропадал. -->
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
-                            <TextBlock Text="{DynamicResource header.labelKeyboard}" FontSize="9"
+                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelKeyboard}" FontSize="9"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost"
-                            Width="58" Height="46"
-                            Padding="0"
+                    <Button Classes="main-ghost header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.hotkeysTooltip}"
                             Click="OpenHotkeySettings_Click">
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconBolt}"/>
-                            <TextBlock Text="{DynamicResource header.labelHotkeys}" FontSize="9"
+                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelHotkeys}" FontSize="9"
                                        HorizontalAlignment="Center"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
+                    </Button>
+                    <!-- 2026-10-04: «⋯ Ещё» — только в компактном виде (см. стиль Button.header-more). Без
+                         фокуса, как кнопка клавиатуры: Enter сканера не должен открывать меню. Пункты меню —
+                         те же действия, что у спрятанных кнопок, крупные (48 точек) для пальца. -->
+                    <Button Classes="main-ghost header-tool header-more"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Focusable="False"
+                            ToolTip.Tip="{DynamicResource csh.cart.moreTooltip}">
+                        <PathIcon Classes="header-icon" Data="{StaticResource IconMore}"/>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
+                                          Command="{Binding Toolbar.CheckCustomerDisplayCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconMonitor}" Width="18" Height="18"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{Binding Toolbar.ThemeTooltip}"
+                                          Click="ToggleTheme_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{DynamicResource mainWindow.hotkeysTooltip}"
+                                          Click="OpenHotkeySettings_Click">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconBolt}" Width="18" Height="18"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </MenuFlyout>
+                        </Button.Flyout>
                     </Button>
                     <Button Classes="main-outline shift-action"
                             HorizontalContentAlignment="Center"

@@ -51,7 +51,21 @@ public static class UiScaleHelper
         public Window? Window;
         public bool WaitingForAttach;
         public string? LastLoggedScreen;
+        /// <summary>2026-10-04: компактный вид (см. ApplyAdaptive); null — у окна его нет.</summary>
+        public CompactLayoutPolicy? Compact;
+        public bool? LastCompact;
     }
+
+    /// <summary>2026-10-04, редизайн под маленькие экраны и сенсорные моноблоки. У окна есть второй,
+    /// компактный вид с меньшим «родным» размером (CompactWidth × CompactHeight). Когда обычный вид не
+    /// помещается на экран в выбранном масштабе, окно переходит на компактный — и масштаб считается уже
+    /// от него: на 1024×768 касса остаётся в 100%, а не уменьшается до 78% вместе с кнопками.
+    /// Changed вызывается при каждом переключении вида (и при первом применении).</summary>
+    public sealed record CompactLayoutPolicy(double CompactWidth, double CompactHeight, Action<bool> Changed);
+
+    /// <summary>Обычный вид считается непомещающимся, если подгонка урезала бы его меньше, чем до
+    /// 97% выбранного масштаба: на 1600×900 (не хватает 4 точек по высоте) остаётся обычный вид.</summary>
+    private const double CompactTolerance = 0.97;
 
     private static readonly ConditionalWeakTable<LayoutTransformControl, RootState> States = new();
 
@@ -64,6 +78,51 @@ public static class UiScaleHelper
     public static double Apply(LayoutTransformControl transformRoot, double designWidth, double designHeight)
     {
         var state = States.GetValue(transformRoot, _ => new RootState());
+        // Обычный вызов — окно без компактного вида (или касса переключилась на вид без него).
+        state.Compact = null;
+        state.LastCompact = null;
+        return ApplyCore(transformRoot, state, designWidth, designHeight);
+    }
+
+    /// <summary>2026-10-04: как Apply, но у окна есть компактный вид (см. CompactLayoutPolicy):
+    /// какой из двух видов показать, решается здесь же по экрану, выбранному масштабу и настройке
+    /// UserPreferences.CompactLayoutMode, и пересчитывается вместе с масштабом при смене экрана/DPI.</summary>
+    public static double ApplyAdaptive(
+        LayoutTransformControl transformRoot,
+        double designWidth,
+        double designHeight,
+        CompactLayoutPolicy compact)
+    {
+        var state = States.GetValue(transformRoot, _ => new RootState());
+        state.Compact = compact;
+        return ApplyCore(transformRoot, state, designWidth, designHeight);
+    }
+
+    /// <summary>Нужен ли компактный вид — чистая формула, без Avalonia. "on"/"off" — выбор владельца
+    /// (Настройки → Экран), иначе ("auto") — только если обычный вид в выбранном масштабе не помещается
+    /// на экран и его пришлось бы заметно уменьшать.</summary>
+    public static bool ShouldUseCompactLayout(
+        string? mode,
+        double preferredPercent,
+        double availableWidthDip,
+        double availableHeightDip,
+        double designWidth,
+        double designHeight)
+    {
+        if (string.Equals(mode, "on", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(mode, "off", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var fit = ComputeFitScale(availableWidthDip, availableHeightDip, designWidth, designHeight);
+        if (fit is null)
+            return false; // экран ещё неизвестен — решим, когда окно окажется на нём
+        var preferred = Math.Clamp(double.IsFinite(preferredPercent) ? preferredPercent : 100, 50, 200) / 100.0;
+        return fit.Value < preferred * CompactTolerance;
+    }
+
+    private static double ApplyCore(LayoutTransformControl transformRoot, RootState state, double designWidth, double designHeight)
+    {
         state.DesignWidth = designWidth;
         state.DesignHeight = designHeight;
 
@@ -74,12 +133,47 @@ public static class UiScaleHelper
             WatchWindow(transformRoot, state, window);
 
         var screen = MeasureScreen(window);
+        var availableWidth = screen.Width - SafetyMarginPx;
+        var availableHeight = screen.Height - SafetyMarginPx;
+
+        // 2026-10-04: компактный вид — масштаб считается от его (меньшего) родного размера.
+        var fitWidth = designWidth;
+        var fitHeight = designHeight;
+        if (state.Compact is { } compactPolicy)
+        {
+            var useCompact = ShouldUseCompactLayout(
+                UserPreferences.Instance.CompactLayoutMode,
+                UserPreferences.Instance.UiScalePercent,
+                availableWidth,
+                availableHeight,
+                designWidth,
+                designHeight);
+            if (useCompact)
+            {
+                fitWidth = compactPolicy.CompactWidth;
+                fitHeight = compactPolicy.CompactHeight;
+            }
+
+            if (state.LastCompact != useCompact)
+            {
+                state.LastCompact = useCompact;
+                try
+                {
+                    compactPolicy.Changed(useCompact);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Compact layout switch failed: {ex.Message}", "WARNING");
+                }
+            }
+        }
+
         var scale = ComputeScale(
             UserPreferences.Instance.UiScalePercent,
-            screen.Width - SafetyMarginPx,
-            screen.Height - SafetyMarginPx,
-            designWidth,
-            designHeight);
+            availableWidth,
+            availableHeight,
+            fitWidth,
+            fitHeight);
 
         transformRoot.LayoutTransform = Math.Abs(scale - 1.0) < 0.001
             ? null
@@ -88,7 +182,7 @@ public static class UiScaleHelper
         if (window is not null && screen.IsKnown)
         {
             FitMinSizeToScreen(window, screen.Width, screen.Height);
-            LogScreenOnce(state, screen, designWidth, designHeight, scale);
+            LogScreenOnce(state, screen, fitWidth, fitHeight, scale);
         }
 
         return scale;
@@ -217,7 +311,7 @@ public static class UiScaleHelper
         {
             transformRoot.AttachedToVisualTree -= OnAttached;
             state.WaitingForAttach = false;
-            Apply(transformRoot, state.DesignWidth, state.DesignHeight);
+            ApplyCore(transformRoot, state, state.DesignWidth, state.DesignHeight);
         }
 
         transformRoot.AttachedToVisualTree += OnAttached;
@@ -237,7 +331,7 @@ public static class UiScaleHelper
             Dispatcher.UIThread.Post(() =>
             {
                 if (ReferenceEquals(state.Window, window))
-                    Apply(transformRoot, state.DesignWidth, state.DesignHeight);
+                    ApplyCore(transformRoot, state, state.DesignWidth, state.DesignHeight);
             }, DispatcherPriority.Background);
 
         var screens = window.Screens;
@@ -264,14 +358,16 @@ public static class UiScaleHelper
     /// видно разрешение, масштаб Windows и итоговый масштаб, не спрашивая владельца.</summary>
     private static void LogScreenOnce(RootState state, ScreenDip screen, double designWidth, double designHeight, double scale)
     {
-        var key = $"{screen.PixelWidth}x{screen.PixelHeight}@{screen.Scaling:0.##}";
+        // 2026-10-04: в ключе и в строке журнала — ещё и вид (обычный/компактный).
+        var layout = state.LastCompact switch { true => " compact", false => " normal", _ => "" };
+        var key = $"{screen.PixelWidth}x{screen.PixelHeight}@{screen.Scaling:0.##}{layout}";
         if (key == state.LastLoggedScreen)
             return;
 
         state.LastLoggedScreen = key;
         PosLogger.Log(
             $"UI scale: work area {screen.PixelWidth}x{screen.PixelHeight} px, Windows scale {screen.Scaling * 100:0}%, " +
-            $"design {designWidth:0}x{designHeight:0}, preference {UserPreferences.Instance.UiScalePercent:0}% -> applied {scale * 100:0}%",
+            $"design {designWidth:0}x{designHeight:0}{layout}, preference {UserPreferences.Instance.UiScalePercent:0}% -> applied {scale * 100:0}%",
             "UI");
     }
 }

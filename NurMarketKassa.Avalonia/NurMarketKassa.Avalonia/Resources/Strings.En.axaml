@@ -761,6 +761,11 @@
   <x:String x:Key="posSettings.screen.uiScaleDesc">Size of all elements on the till screen, from 50% to 200%. Applies immediately, no restart needed.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Product tile size</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Larger tiles are easier to tap on a touch screen; smaller ones fit more products on the screen. The header and receipt are not affected.</x:String>
+  <x:String x:Key="posSettings.screen.compactLayout">Compact layout for small screens</x:String>
+  <x:String x:Key="posSettings.screen.compactLayoutDesc">On 1024×768, 1280×800 and 1366×768 screens and touch all-in-ones the till rearranges itself instead of shrinking: a “⋯” menu in the header, two-row receipt lines, buttons at least 44 points high. Works in the Classic layout.</x:String>
+  <x:String x:Key="posSettings.screen.compactAuto">Auto</x:String>
+  <x:String x:Key="posSettings.screen.compactOn">Always</x:String>
+  <x:String x:Key="posSettings.screen.compactOff">Off</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Till layout</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Six till screen layouts. Pick a card and the till rearranges instantly, with no restart. Products, receipts, payment and the scanner work the same in every layout.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Standard</x:String>

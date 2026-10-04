@@ -16,9 +16,11 @@
              заканчивает каждый код, нажимал кнопку, оставшуюся в фокусе после щелчка («Доп. услуга»,
              «Скидка», «Ещё», «Печать последнего», «Оплатить»…), а код до сканера не доходил. Как у
              Button.receipt-tab (978b762) и всех кнопок новых видов кассы — без фокуса. -->
+        <!-- 2026-10-04, редизайн под сенсорные моноблоки: все кнопки чека не ниже 44 точек — по ним
+             попадают пальцем (было 42, у +/−/%/корзины — 32). -->
         <Style Selector="Button.cart-action">
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Height" Value="42"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="8,10"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -38,8 +40,8 @@
         </Style>
 
         <Style Selector="Button.cart-qty, RepeatButton.cart-qty">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -58,8 +60,8 @@
         </Style>
 
         <Style Selector="Button.cart-delete">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
@@ -118,7 +120,7 @@
              +/− у строк чека и все кнопки новых видов кассы (LayoutStyles.axaml). -->
         <Style Selector="Button.receipt-tab">
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="9,7"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -201,8 +203,8 @@
             <Setter Property="Opacity" Value="0.4"/>
         </Style>
         <Style Selector="Button.cart-qty PathIcon, RepeatButton.cart-qty PathIcon">
-            <Setter Property="Width" Value="13"/>
-            <Setter Property="Height" Value="13"/>
+            <Setter Property="Width" Value="15"/>
+            <Setter Property="Height" Value="15"/>
         </Style>
         <Style Selector="Button.cart-delete:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
@@ -215,7 +217,7 @@
         <Style Selector="Button.new-receipt-tab">
             <!-- 2026-09-29: без фокуса, см. комментарий у Button.receipt-tab выше. -->
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="9,7"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -232,11 +234,110 @@
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
+
+        <!-- ============ Компактный вид (2026-10-04) ============
+             Класс "compact" ставит окно кассы, когда обычный вид не помещается на экран (1024×768,
+             1280×800, 1366×768, сенсорные моноблоки; см. MainWindow.RefreshUiScale). Касса тогда не
+             уменьшается целиком, а перестраивает чек: строка товара в два ряда (название и сумма
+             сверху, цена × количество и кнопки снизу), отступы и итог плотнее. Ниже сначала обычный
+             вид (значения, которые раньше стояли прямо на элементах), потом .compact — он идёт
+             позже и переопределяет. -->
+        <Style Selector="Border.cart-surface">
+            <Setter Property="Padding" Value="16,14"/>
+        </Style>
+        <Style Selector="Border.cart-tabs-row">
+            <Setter Property="MinHeight" Value="62"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+        <Style Selector="Border.cart-tabs-pad">
+            <Setter Property="Padding" Value="0,4,0,18"/>
+        </Style>
+        <Style Selector="Border.cart-line">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <!-- Место суммы и кнопок в сетке строки задаётся только здесь (не на самих элементах), иначе
+             компактный вид не смог бы его поменять: значение на элементе сильнее стиля. -->
+        <Style Selector="StackPanel.line-amount">
+            <Setter Property="Grid.Row" Value="1"/>
+            <Setter Property="Grid.Column" Value="1"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+        <Style Selector="Grid.line-controls">
+            <Setter Property="Grid.Row" Value="1"/>
+            <Setter Property="Grid.Column" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.line-priceqty-compact">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Grid.cart-entry-row">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style Selector="Grid.cart-total-row">
+            <Setter Property="Margin" Value="0,8,0,10"/>
+        </Style>
+        <Style Selector="TextBlock.cart-total">
+            <Setter Property="FontSize" Value="40"/>
+        </Style>
+        <Style Selector="TextBlock.cart-action-text">
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+        </Style>
+
+        <Style Selector=".compact Border.cart-surface">
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+        <Style Selector=".compact Border.cart-tabs-row">
+            <Setter Property="MinHeight" Value="52"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector=".compact Border.cart-tabs-pad">
+            <Setter Property="Padding" Value="0,2,0,8"/>
+        </Style>
+        <Style Selector=".compact Border.cart-line">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <!-- Кнопки строки — вторым рядом на всю ширину строки, слева от них «цена × количество». -->
+        <Style Selector=".compact Grid.line-controls">
+            <Setter Property="Grid.Row" Value="2"/>
+            <Setter Property="Grid.Column" Value="0"/>
+            <Setter Property="Grid.ColumnSpan" Value="3"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+        <Style Selector=".compact StackPanel.line-amount">
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+        <Style Selector=".compact TextBlock.line-priceqty-wide">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".compact TextBlock.line-priceqty-compact">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector=".compact Grid.cart-entry-row">
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style Selector=".compact Grid.cart-total-row">
+            <Setter Property="Margin" Value="0,2,0,6"/>
+        </Style>
+        <Style Selector=".compact TextBlock.cart-total">
+            <Setter Property="FontSize" Value="32"/>
+        </Style>
+        <!-- Узкий чек: подписи кнопок — в две строки вместо «Отложить ч…», «Кошумча …». -->
+        <Style Selector=".compact Button.cart-action">
+            <Setter Property="Padding" Value="6,2"/>
+        </Style>
+        <Style Selector=".compact TextBlock.cart-action-text">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
     </UserControl.Styles>
 
     <!-- 2026-09-30: своя кисть корзины (= BrushWindowAlt; у темы «Кыргыз» — узор тумар). -->
-    <Border Background="{DynamicResource BrushCartSurface}"
-            Padding="16,14"
+    <Border Classes="cart-surface"
+            Background="{DynamicResource BrushCartSurface}"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
         <Grid RowDefinitions="Auto,*,Auto"
@@ -245,8 +346,7 @@
 
             <!-- Вкладки открытых чеков -->
             <Border Grid.Row="0"
-                    MinHeight="62"
-                    Margin="0,0,0,10"
+                    Classes="cart-tabs-row"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Top">
                 <DockPanel>
@@ -269,7 +369,7 @@
                       Fluent ScrollViewer uses an overlay scrollbar. The bottom
                       padding reserves a separate hit area below the receipt tabs.
                     -->
-                    <Border Padding="0,4,0,18">
+                    <Border Classes="cart-tabs-pad">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="8"
                                     VerticalAlignment="Top">
@@ -409,18 +509,21 @@
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CartLineItemVm">
-                                <Border Background="{DynamicResource BrushCatalogTileBg}"
+                                <!-- 2026-10-04, редизайн: отступы строки — в стиле Border.cart-line (обычный и
+                                     компактный вид). Сетка строки: [название | сумма | кнопки]. В компактном виде
+                                     кнопки (Grid.line-controls) уходят вторым рядом на всю ширину, слева от них —
+                                     «цена × количество» (line-priceqty-compact), название получает всю ширину. -->
+                                <Border Classes="cart-line"
+                                        Background="{DynamicResource BrushCatalogTileBg}"
                                         BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                         BorderThickness="1"
                                         CornerRadius="8"
-                                        Padding="10,8"
-                                        Margin="0,0,0,8"
                                         HorizontalAlignment="Stretch">
-                                    <Grid RowDefinitions="Auto,Auto"
-                                          ColumnDefinitions="*,Auto,Auto,Auto"
+                                    <Grid RowDefinitions="Auto,Auto,Auto"
+                                          ColumnDefinitions="*,Auto,Auto"
                                           MinWidth="0">
                                         <!-- 2026-10-03, владелец: «при скидке, если в убыток продаёт, — рядом с товаром показывать, сколько убытка». -->
-                                        <StackPanel Grid.Row="0" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="6"
+                                        <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
                                                     HorizontalAlignment="Right" Margin="0,0,0,3">
                                             <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
                                             <Border IsVisible="{Binding HasDiscount}"
@@ -445,17 +548,17 @@
                                                        FontSize="15"
                                                        Foreground="{DynamicResource BrushText}"
                                                        TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding PriceQuantityLine}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Title}"/>
+                                            <TextBlock Classes="line-priceqty-wide"
+                                                       Text="{Binding PriceQuantityLine}"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource BrushTextSoft}"
                                                        TextWrapping="NoWrap"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Row="1"
-                                                    Grid.Column="1"
-                                                    Margin="0,0,6,0"
+                                        <StackPanel Classes="line-amount"
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Right">
                                             <TextBlock Text="{Binding LineTotalAmount}"
@@ -466,85 +569,96 @@
                                                        HorizontalAlignment="Right"/>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Row="1"
-                                                    Grid.Column="2"
-                                                    Orientation="Horizontal"
-                                                    Spacing="4"
-                                                    Margin="0,0,6,0"
-                                                    VerticalAlignment="Center">
-                                            <!-- 2026-10-03: строка ↔ оптовая цена (видно, если у товара есть оптовая цена). -->
-                                            <Button Classes="cart-qty"
-                                                    Focusable="False"
-                                                    IsVisible="{Binding CanWholesale}"
-                                                    Width="NaN" Padding="8,0"
-                                                    ToolTip.Tip="{DynamicResource csh.cart.wholesaleTooltip}"
-                                                    Command="{Binding WholesaleCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <TextBlock Text="{Binding WholesaleButtonText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                            </Button>
-                                            <Button Classes="cart-qty"
-                                                    Focusable="False"
-                                                    ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}"
-                                                    Command="{Binding DiscountCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <PathIcon Data="{StaticResource IconPercent}"/>
-                                            </Button>
-                                            <Button Classes="cart-qty"
-                                                    Focusable="False"
-                                                    IsVisible="{Binding IsWeight}"
-                                                    ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}"
-                                                    Command="{Binding WeighCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <PathIcon Data="{StaticResource IconScale}"/>
-                                            </Button>
-                                            <RepeatButton Classes="cart-qty"
-                                                          Focusable="False"
-                                                          ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}"
-                                                          Command="{Binding DecreaseCommand}"
-                                                          CommandParameter="{Binding}">
-                                                <PathIcon Data="{StaticResource IconMinus}"/>
-                                            </RepeatButton>
-                                            <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5"
-                                                     MinWidth="42" Height="32"
-                                                     Background="{DynamicResource BrushInputAlt}"
-                                                     BorderBrush="{DynamicResource BrushBorder}"
-                                                     BorderThickness="1"
-                                                     CornerRadius="6"
-                                                     Padding="6,0"
-                                                     MinHeight="0"
-                                                     FontSize="13"
-                                                     FontWeight="Bold"
-                                                     Foreground="{DynamicResource BrushText}"
-                                                     TextAlignment="Center"
-                                                     VerticalContentAlignment="Center"
-                                                     ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}"
-                                                     LostFocus="QuantityInput_LostFocus">
-                                                <TextBox.KeyBindings>
-                                                    <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
-                                                </TextBox.KeyBindings>
-                                            </TextBox>
-                                            <RepeatButton Classes="cart-qty"
-                                                          Focusable="False"
-                                                          IsEnabled="{Binding CanIncrease}"
-                                                          ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}"
-                                                          Command="{Binding IncreaseCommand}"
-                                                          CommandParameter="{Binding}">
-                                                <PathIcon Data="{StaticResource IconPlus}"/>
-                                            </RepeatButton>
-                                        </StackPanel>
-
-                                        <Button Grid.Row="1"
-                                                Grid.Column="3"
-                                                Classes="cart-delete"
-                                                Focusable="False"
-                                                ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}"
-                                                Command="{Binding RemoveCommand}"
-                                                CommandParameter="{Binding}">
-                                            <PathIcon Width="14"
-                                                      Height="14"
-                                                      Foreground="{DynamicResource BrushDanger}"
-                                                      Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
-                                        </Button>
+                                        <!-- Кнопки строки и (в компактном виде) «цена × количество» слева от них.
+                                             Корзина — последней кнопкой этого ряда (раньше отдельной колонкой). -->
+                                        <Grid Classes="line-controls"
+                                              ColumnDefinitions="*,Auto"
+                                              VerticalAlignment="Center">
+                                            <TextBlock Grid.Column="0"
+                                                       Classes="line-priceqty-compact"
+                                                       Text="{Binding PriceQuantityLine}"
+                                                       FontSize="13"
+                                                       Foreground="{DynamicResource BrushTextSoft}"
+                                                       Margin="0,0,8,0"
+                                                       VerticalAlignment="Center"
+                                                       TextWrapping="NoWrap"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4"
+                                                        VerticalAlignment="Center">
+                                                <!-- 2026-10-03: строка ↔ оптовая цена (видно, если у товара есть оптовая цена). -->
+                                                <Button Classes="cart-qty"
+                                                        Focusable="False"
+                                                        IsVisible="{Binding CanWholesale}"
+                                                        Width="NaN" MinWidth="44" Padding="10,0"
+                                                        ToolTip.Tip="{DynamicResource csh.cart.wholesaleTooltip}"
+                                                        Command="{Binding WholesaleCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="{Binding WholesaleButtonText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <Button Classes="cart-qty"
+                                                        Focusable="False"
+                                                        ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}"
+                                                        Command="{Binding DiscountCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <PathIcon Data="{StaticResource IconPercent}"/>
+                                                </Button>
+                                                <Button Classes="cart-qty"
+                                                        Focusable="False"
+                                                        IsVisible="{Binding IsWeight}"
+                                                        ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}"
+                                                        Command="{Binding WeighCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <PathIcon Data="{StaticResource IconScale}"/>
+                                                </Button>
+                                                <RepeatButton Classes="cart-qty"
+                                                              Focusable="False"
+                                                              ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}"
+                                                              Command="{Binding DecreaseCommand}"
+                                                              CommandParameter="{Binding}">
+                                                    <PathIcon Data="{StaticResource IconMinus}"/>
+                                                </RepeatButton>
+                                                <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5"
+                                                         MinWidth="52" Height="44"
+                                                         Background="{DynamicResource BrushInputAlt}"
+                                                         BorderBrush="{DynamicResource BrushBorder}"
+                                                         BorderThickness="1"
+                                                         CornerRadius="6"
+                                                         Padding="6,0"
+                                                         MinHeight="0"
+                                                         FontSize="15"
+                                                         FontWeight="Bold"
+                                                         Foreground="{DynamicResource BrushText}"
+                                                         TextAlignment="Center"
+                                                         VerticalContentAlignment="Center"
+                                                         ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}"
+                                                         LostFocus="QuantityInput_LostFocus">
+                                                    <TextBox.KeyBindings>
+                                                        <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
+                                                    </TextBox.KeyBindings>
+                                                </TextBox>
+                                                <RepeatButton Classes="cart-qty"
+                                                              Focusable="False"
+                                                              IsEnabled="{Binding CanIncrease}"
+                                                              ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}"
+                                                              Command="{Binding IncreaseCommand}"
+                                                              CommandParameter="{Binding}">
+                                                    <PathIcon Data="{StaticResource IconPlus}"/>
+                                                </RepeatButton>
+                                                <Button Classes="cart-delete"
+                                                        Focusable="False"
+                                                        Margin="2,0,0,0"
+                                                        ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}"
+                                                        Command="{Binding RemoveCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <PathIcon Width="16"
+                                                              Height="16"
+                                                              Foreground="{DynamicResource BrushDanger}"
+                                                              Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -559,11 +673,12 @@
                   HorizontalAlignment="Stretch">
 
                 <!-- Ввод штрихкода + количество -->
+                <!-- 2026-10-04: поле, −/+ и «Добавить» — высотой 44 (палец); отступ — в стиле Grid.cart-entry-row. -->
                 <Grid Grid.Row="0"
+                      Classes="cart-entry-row"
                       ColumnDefinitions="*,8,Auto,8,Auto"
                       MinWidth="0"
-                      HorizontalAlignment="Stretch"
-                      Margin="0,0,0,8">
+                      HorizontalAlignment="Stretch">
                     <Border Grid.Column="0"
                             HorizontalAlignment="Stretch"
                             Background="{DynamicResource BrushInput}"
@@ -576,8 +691,9 @@
                                  BorderThickness="0"
                                  Background="Transparent"
                                  Foreground="{DynamicResource BrushText}"
-                                 MinHeight="42"
+                                 MinHeight="44"
                                  FontSize="13"
+                                 VerticalContentAlignment="Center"
                                  HorizontalAlignment="Stretch">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding AddByBarcodeCommand}"/>
@@ -591,10 +707,10 @@
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="2,0">
-                        <Grid ColumnDefinitions="34,38,34" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="44,40,44" VerticalAlignment="Center">
                             <RepeatButton Grid.Column="0"
-                                          Width="34"
-                                          Height="40"
+                                          Width="44"
+                                          Height="44"
                                           Padding="0"
                                           Background="Transparent"
                                           BorderThickness="0"
@@ -605,10 +721,12 @@
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
                                           Command="{Binding DecreaseManualQuantityCommand}">
-                                <PathIcon Data="{StaticResource IconMinus}" Width="13" Height="13"/>
+                                <PathIcon Data="{StaticResource IconMinus}" Width="15" Height="15"/>
                             </RepeatButton>
                             <TextBox Grid.Column="1"
                                      Text="{Binding ManualQuantity}" MaxLength="5"
+                                     MinHeight="44"
+                                     VerticalContentAlignment="Center"
                                      BorderThickness="0"
                                      Background="Transparent"
                                      Foreground="{DynamicResource BrushText}"
@@ -616,8 +734,8 @@
                                      FontWeight="Bold"
                                      VerticalAlignment="Center"/>
                             <RepeatButton Grid.Column="2"
-                                          Width="34"
-                                          Height="40"
+                                          Width="44"
+                                          Height="44"
                                           Padding="0"
                                           Background="Transparent"
                                           BorderThickness="0"
@@ -628,7 +746,7 @@
                                           VerticalContentAlignment="Center"
                                           Cursor="Hand"
                                           Command="{Binding IncreaseManualQuantityCommand}">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="13" Height="13"/>
+                                <PathIcon Data="{StaticResource IconPlus}" Width="15" Height="15"/>
                             </RepeatButton>
                         </Grid>
                     </Border>
@@ -638,7 +756,7 @@
                             MinWidth="120"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
-                            Height="42"
+                            Height="44"
                             Padding="10,8"
                             FontSize="13"
                             Content="{DynamicResource csh.cart.add}"
@@ -669,9 +787,9 @@
                                       Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.2,16.2L11,13V7H12.5V12.2L17,14.9L16.2,16.2Z"/>
                             <TextBlock Grid.Column="1"
                                        Text="{DynamicResource csh.cart.defer}"
+                                       Classes="cart-action-text"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="NoWrap"/>
+                                       TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
 
@@ -691,9 +809,9 @@
                                       Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
                             <TextBlock Grid.Column="1"
                                        Text="{DynamicResource csh.cart.deleteReceipt}"
+                                       Classes="cart-action-text"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="NoWrap"/>
+                                       TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
 
@@ -714,9 +832,9 @@
                                       Data="M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
                             <TextBlock Grid.Column="1"
                                        Text="{DynamicResource csh.cart.customService}"
+                                       Classes="cart-action-text"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="NoWrap"/>
+                                       TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
                     <Button Grid.Column="6"
@@ -734,9 +852,9 @@
                                       Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/>
                             <TextBlock Grid.Column="1"
                                        Text="{DynamicResource csh.cart.more}"
+                                       Classes="cart-action-text"
                                        VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       TextWrapping="NoWrap"/>
+                                       TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
                 </Grid>
@@ -833,9 +951,11 @@
                 <!-- Итоговая сумма -->
                 <!-- Редизайн 2026-09-28: подпись «Итого» слева, сумма с валютой вплотную справа —
                      как итог на бумажном чеке; сумма крупнее всего остального на экране. -->
+                <!-- 2026-10-04: отступы и размер итога — в стилях Grid.cart-total-row / TextBlock.cart-total
+                     (в компактном виде итог 32 вместо 40, чтобы чеку осталось больше строк). -->
                 <Grid Grid.Row="5"
+                      Classes="cart-total-row"
                       ColumnDefinitions="*,Auto"
-                      Margin="0,8,0,10"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Bottom">
                     <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Bottom" Margin="0,0,0,8">
@@ -852,8 +972,7 @@
                         <!-- 40px вместо 30: цена товара на плитке каталога — 22px и повторяется
                              на экране десятки раз, из-за чего итог чека почти не выделялся. -->
                         <TextBlock Text="{Binding TotalAmount}"
-                                   Classes="num"
-                                   FontSize="40"
+                                   Classes="num cart-total"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource BrushMoney}"/>
                         <TextBlock Text="{DynamicResource csh.catalog.currency}"

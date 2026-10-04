@@ -295,6 +295,13 @@ public sealed class UserPreferences
     /// корректно пересчитывает координаты кликов/попаданий курсором под новым масштабом.</summary>
     public double UiScalePercent { get; set; } = 100;
 
+    /// <summary>2026-10-04, владелец: «сделай редизайн, учитывай маленькие экраны и сенсорные моноблоки,
+    /// где не умещается всё». Компактный вид «Классики» (шапка с меню «⋯», строки чека в два ряда,
+    /// кнопки не меньше 44 точек): "auto" — сам включается, когда обычный вид не помещается на экран
+    /// в выбранном масштабе (1024×768, 1280×800, 1366×768…), "on" — всегда, "off" — никогда (как до
+    /// 1.17.46). По умолчанию "auto": у старых настроек поля нет — обновление их не меняет.</summary>
+    public string CompactLayoutMode { get; set; } = "auto";
+
     /// <summary>Код тестировщика обновлений (см. UpdateChannel). Пусто — обычный канал.</summary>
     public string UpdateTesterCode { get; set; } = "";
 
@@ -1201,6 +1208,8 @@ public sealed class UserPreferences
                 p.ApplyBackgroundToCashierScreen = fromFile.ApplyBackgroundToCashierScreen.Value;
             if (fromFile.UiScalePercent is not null)
                 p.UiScalePercent = Math.Clamp(fromFile.UiScalePercent.Value, 50, 200);
+            if (fromFile.CompactLayoutMode is "auto" or "on" or "off")
+                p.CompactLayoutMode = fromFile.CompactLayoutMode;
             if (fromFile.UpdateTesterCode is not null)
                 p.UpdateTesterCode = fromFile.UpdateTesterCode;
             if (fromFile.CatalogTileScalePercent is not null)
@@ -1447,6 +1456,7 @@ public sealed class UserPreferences
                 BackgroundBlurPercent = BackgroundBlurPercent,
                 ApplyBackgroundToCashierScreen = ApplyBackgroundToCashierScreen,
                 UiScalePercent = UiScalePercent,
+                CompactLayoutMode = CompactLayoutMode,
                 CatalogTileScalePercent = CatalogTileScalePercent,
                 MarketSphere = MarketSphere,
                 MarketSphereServerSeen = MarketSphereServerSeen,
@@ -1706,6 +1716,7 @@ public sealed class UserPreferences
         public double? BackgroundBlurPercent { get; set; }
         public bool? ApplyBackgroundToCashierScreen { get; set; }
         public double? UiScalePercent { get; set; }
+        public string? CompactLayoutMode { get; set; }
         public double? CatalogTileScalePercent { get; set; }
         public string? MarketSphere { get; set; }
         public string? MarketSphereServerSeen { get; set; }

@@ -761,6 +761,11 @@
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kassa ekranidagi barcha elementlarning o'lchami — 50% dan 200% gacha. Qayta ishga tushirmasdan darhol qo'llaniladi.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Mahsulot kartalari o'lchami</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Kattaroq — sensorli ekranda barmoq bilan bosish qulay, kichikroq — ekranga ko'proq mahsulot sig'adi. Yuqori panel va chekka ta'sir qilmaydi.</x:String>
+  <x:String x:Key="posSettings.screen.compactLayout">Kichik ekranlar uchun ixcham ko'rinish</x:String>
+  <x:String x:Key="posSettings.screen.compactLayoutDesc">1024×768, 1280×800, 1366×768 ekranlarda va sensorli monobloklarda kassa butunlay kichraymasdan qayta joylashadi: sarlavhada «⋯» menyusi, chek qatorlari ikki qatorda, tugmalar kamida 44 nuqta. «Klassika» ko'rinishida ishlaydi.</x:String>
+  <x:String x:Key="posSettings.screen.compactAuto">Avto</x:String>
+  <x:String x:Key="posSettings.screen.compactOn">Doim</x:String>
+  <x:String x:Key="posSettings.screen.compactOff">O'chiq</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Kassa ko'rinishi</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Kassa ekranining oltita ko'rinishi. Kartochkani tanlang — kassa qayta ishga tushirmasdan darhol o'zgaradi. Mahsulotlar, cheklar, to'lov va skaner barcha ko'rinishlarda bir xil ishlaydi.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Oddiy</x:String>

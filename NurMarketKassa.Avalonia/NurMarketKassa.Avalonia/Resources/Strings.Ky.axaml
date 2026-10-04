@@ -761,6 +761,11 @@
   <x:String x:Key="posSettings.screen.uiScaleDesc">Касса экранындагы бардык элементтердин өлчөмү — 50%дан 200%га чейин. Кайра иштетпестен эле колдонулат.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Товар карточкаларынын өлчөмү</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Чоңураак — сенсордук экранда манжа менен басууга ыңгайлуу, кичирээк — экранга көбүрөөк товар батат. Жогорку тилкени жана чекти өзгөртпөйт.</x:String>
+  <x:String x:Key="posSettings.screen.compactLayout">Кичине экрандар үчүн тыгыз көрүнүш</x:String>
+  <x:String x:Key="posSettings.screen.compactLayoutDesc">1024×768, 1280×800, 1366×768 экрандарында жана сенсордук моноблоктордо касса толугу менен кичирейбей, кайра түзүлөт: башында «⋯» меню, чектин саптары эки катар, баскычтар 44 чекиттен кем эмес. «Классика» көрүнүшүндө иштейт.</x:String>
+  <x:String x:Key="posSettings.screen.compactAuto">Авто</x:String>
+  <x:String x:Key="posSettings.screen.compactOn">Дайыма</x:String>
+  <x:String x:Key="posSettings.screen.compactOff">Өчүк</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Кассанын көрүнүшү</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Кассанын экранынын алты түрү. Карточканы тандаңыз — касса кайра иштетпестен дароо өзгөрөт. Товарлар, чектер, төлөө жана сканер бардык түрлөрдө бирдей иштейт.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Кадимки</x:String>

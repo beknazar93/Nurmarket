@@ -1758,6 +1758,11 @@ public partial class MainWindow : Window
         _shownLayoutMode = mode;
         if (switched && !isOneC)
             Dispatcher.UIThread.Post(RestoreScannerFocus, DispatcherPriority.Background);
+
+        // 2026-10-04: компактный вид и его масштаб есть только у «Классики» — при смене вида
+        // кассы пересчитываем масштаб (см. RefreshUiScale).
+        if (switched)
+            RefreshUiScale();
     }
 
     private Control? _altLayout;
@@ -1771,7 +1776,39 @@ public partial class MainWindow : Window
     /// курсор на увеличенном/уменьшённом интерфейсе. Вызывается при загрузке окна и заново из
     /// PosSettingsWindow/ScreenSettingsView сразу при перетаскивании ползунка и после
     /// "Сохранить" — см. MainWindowHostBridge.Window.</summary>
-    internal void RefreshUiScale() => UiScaleHelper.Apply(UiScaleTransform, 1280, 840);
+    internal void RefreshUiScale()
+    {
+        // 2026-10-04, редизайн под маленькие экраны и сенсорные моноблоки: у «Классики» есть
+        // компактный вид (класс "compact" у окна — стили в MainWindow, CatalogPanelView и
+        // BasketPanelView). Он включается сам, когда обычный вид не помещается на экран, и масштаб
+        // тогда считается от компактного размера 1000×660 — на 1024×768 и 1366×768 касса остаётся
+        // в 100% вместо 78–84%, кнопки не мельчают. Остальные виды кассы под компактный размер не
+        // рассчитаны — у них всё по-прежнему (1280×840, без класса).
+        if (KassaLayouts.Normalize(UserPreferences.Instance.MainLayoutMode) == KassaLayouts.Standard)
+        {
+            UiScaleHelper.ApplyAdaptive(UiScaleTransform, 1280, 840,
+                new UiScaleHelper.CompactLayoutPolicy(CompactDesignWidth, CompactDesignHeight, SetCompactLayout));
+        }
+        else
+        {
+            UiScaleHelper.Apply(UiScaleTransform, 1280, 840);
+            SetCompactLayout(false);
+        }
+    }
+
+    /// <summary>2026-10-04: «родной» размер компактного вида «Классики» — помещается на 1024×768
+    /// (рабочая область 1024×728 минус запас UiScaleHelper) без уменьшения.</summary>
+    private const double CompactDesignWidth = 1000;
+    private const double CompactDesignHeight = 660;
+
+    /// <summary>2026-10-04: включает/выключает компактный вид (класс окна "compact").</summary>
+    private void SetCompactLayout(bool compact)
+    {
+        if (Classes.Contains("compact") == compact)
+            return;
+        Classes.Set("compact", compact);
+        PosLogger.Log(compact ? "Компактный вид кассы включён (маленький экран)." : "Обычный вид кассы.", "UI");
+    }
 
     /// <summary>Обои экрана кассира (Настройки → Кастомизация) — читает UserPreferences и
     /// применяет живьём: размытие через Avalonia BlurEffect на самом Image (размывается только

@@ -761,6 +761,11 @@
   <x:String x:Key="posSettings.screen.uiScaleDesc">Размер всех элементов на экране кассы — от 50% до 200%. Применяется сразу, без перезапуска.</x:String>
   <x:String x:Key="posSettings.screen.tileSize">Размер карточек товара</x:String>
   <x:String x:Key="posSettings.screen.tileSizeDesc">Крупнее — удобнее пальцем на сенсорном экране, мельче — больше товаров помещается на экран. Шапку и чек не меняет.</x:String>
+  <x:String x:Key="posSettings.screen.compactLayout">Компактный вид для маленьких экранов</x:String>
+  <x:String x:Key="posSettings.screen.compactLayoutDesc">На экранах 1024×768, 1280×800, 1366×768 и сенсорных моноблоках касса не уменьшается целиком, а перестраивается: меню «⋯» в шапке, строки чека в два ряда, кнопки не меньше 44 точек. Работает в виде «Классика».</x:String>
+  <x:String x:Key="posSettings.screen.compactAuto">Авто</x:String>
+  <x:String x:Key="posSettings.screen.compactOn">Всегда</x:String>
+  <x:String x:Key="posSettings.screen.compactOff">Выключен</x:String>
   <x:String x:Key="posSettings.screen.layoutMode">Вид кассы</x:String>
   <x:String x:Key="posSettings.screen.layoutModeDesc">Шесть раскладок экрана кассы. Выберите карточку — касса перестроится сразу, без перезапуска. Товары, чеки, оплата и сканер работают одинаково во всех раскладках.</x:String>
   <x:String x:Key="posSettings.screen.layoutStandard">Обычный</x:String>
