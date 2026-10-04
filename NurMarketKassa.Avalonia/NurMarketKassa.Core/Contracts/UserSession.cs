@@ -54,6 +54,11 @@ public sealed class AuthenticationResult
     public UserSession? Session { get; init; }
     public string? ErrorMessage { get; init; }
 
+    /// <summary>2026-10-04: сервер не ответил на вход по паролю, а на этом ПК есть сохранённый вход
+    /// этим логином — окно входа может предложить «Войти автономно»
+    /// (<see cref="IOnlineOfflineAuthenticationService.ContinueOfflineAsync"/>).</summary>
+    public bool CanContinueOffline { get; init; }
+
     public static AuthenticationResult Success(UserSession session, AuthenticationMode mode) =>
         new() { IsSuccess = true, Session = session, Mode = mode };
 
@@ -72,4 +77,8 @@ public interface IOnlineOfflineAuthenticationService
 
     Task<AuthenticationResult> AutoLoginAsync(CancellationToken cancellationToken = default);
     Task LogoutAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>2026-10-04: вход автономно по сохранённой сессии этого логина, когда сервер не
+    /// ответил на вход по паролю (см. <see cref="AuthenticationResult.CanContinueOffline"/>).</summary>
+    Task<AuthenticationResult> ContinueOfflineAsync(string username, CancellationToken cancellationToken = default);
 }

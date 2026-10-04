@@ -36,6 +36,21 @@ public static class ApiThrottle
         }
     }
 
+    private static DateTime _lastThrottledUtc = DateTime.MinValue;
+
+    /// <summary>2026-10-04: когда сервер последний раз ответил 429. Окна с коротким ожиданием сервера
+    /// (ServerAnswerWait) по нему отличают «сервер жив и просит паузу» от «сервер молчит»: к концу
+    /// ожидания пауза из 429 уже истекает, и по одному RemainingBlock 429 принимался за аварию
+    /// (стенд 04.10: окно возврата при 429 объявляло аварию на живом сервере).</summary>
+    public static DateTime LastThrottledUtc
+    {
+        get
+        {
+            lock (Sync)
+                return _lastThrottledUtc;
+        }
+    }
+
     /// <summary>Запоминает паузу из ответа 429 и возвращает её.</summary>
     internal static TimeSpan ReportThrottled(HttpResponseMessage response, string? body)
     {
@@ -50,6 +65,7 @@ public static class ApiThrottle
             var until = DateTime.UtcNow + wait;
             if (until > _blockedUntilUtc)
                 _blockedUntilUtc = until;
+            _lastThrottledUtc = DateTime.UtcNow;
         }
 
         PosLogger.Log($"Сервер попросил паузу {wait.TotalSeconds:0} с (слишком частые запросы): {response.RequestMessage?.RequestUri?.AbsolutePath}", "API");

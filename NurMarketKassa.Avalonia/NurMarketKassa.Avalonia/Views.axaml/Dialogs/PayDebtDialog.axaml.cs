@@ -132,7 +132,20 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         // 2026-09-28: блок «Погасить одной суммой» (PayDebtDialog.OneSum.cs).
         InitOneSumPayment();
         Opened += async (_, _) => await EnsureClientsLoadedAsync().ConfigureAwait(true);
+        // 2026-10-04: фоновая догрузка клиентов останавливается вместе с окном.
+        Closed += (_, _) => _closedCts.Cancel();
     }
+
+    /// <summary>2026-10-04: подпись сбоя для журнала аварии (ServerOutageMonitor).</summary>
+    private static string DebtContext => Tr.T("оплата долга", "карыз төлөө", "debt payment", "borç ödemesi", "qarzni to'lash");
+
+    /// <summary>2026-10-04: отмена фоновой догрузки списка клиентов при закрытии окна.</summary>
+    private readonly CancellationTokenSource _closedCts = new();
+
+    /// <summary>2026-10-04: сервер не ответил на первую порцию данных (или касса уже в аварии) —
+    /// текст для кассира: что делать, а не «Превышено время ожидания» через 55 с.</summary>
+    private static string ServerDownMessage(ServerNotAnsweringException? ex) =>
+        ex is { Throttled: true } ? ServerAnswerWait.ThrottledMessage : OfflineModeHelper.DebtPaymentUnavailableInOutage;
 
     public string ClientSearchText
     {
@@ -202,27 +215,98 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         ClientSearchBox.Focus();
     }
 
+    /// <summary>2026-10-04, отчёт «офлайн и сбои сервера»: раньше окно ждало ВСЕ страницы клиентов
+    /// (до 40) с таймаутом 55 с на запрос — при молчащем сервере кассир почти минуту смотрел на пустое
+    /// окно. Теперь первая страница — не дольше 5 с без ответа сервера (ServerAnswerWait; сбой — авария
+    /// и текст «оплата долга недоступна»), остальные догружаются фоном, окно ими не блокируется.</summary>
     private async Task EnsureClientsLoadedAsync()
     {
         if (_clientsLoaded)
             return;
 
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            ErrorMessage = ServerDownMessage(null);
+            return;
+        }
+
         try
         {
-            var raw = await _clientsApi.GetClientsAsync(null).ConfigureAwait(true);
-            _allClients = raw
-                .Where(el => TryGetString(el, "type") is null or "client")
-                .Select(ToClientOption)
-                .Where(c => !string.IsNullOrWhiteSpace(c.Id))
-                .OrderBy(c => c.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
+            var (firstPage, hasNext) = await ServerAnswerWait.FirstPortionAsync(DebtContext,
+                ct => _clientsApi.GetClientsPageAsync(1, null, ct), _closedCts.Token).ConfigureAwait(true);
+            _allClients = ToClientOptions(firstPage);
             _clientsLoaded = true;
             ApplyClientFilter();
+            if (hasNext)
+                _ = LoadRemainingClientsAsync(_closedCts.Token);
+        }
+        catch (ServerNotAnsweringException ex)
+        {
+            ErrorMessage = ServerDownMessage(ex);
+        }
+        catch (OperationCanceledException) when (_closedCts.IsCancellationRequested)
+        {
+            // окно закрыли во время загрузки
         }
         catch (Exception ex)
         {
             ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ex.Message;
             PosLogger.Log($"PayDebt clients load failed: {ex}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-04: клиенты в списке окна — те же правила, что были в EnsureClientsLoadedAsync.</summary>
+    private static List<ClientOption> ToClientOptions(IEnumerable<JsonElement> raw) =>
+        raw.Where(el => TryGetString(el, "type") is null or "client")
+            .Select(ToClientOption)
+            .Where(c => !string.IsNullOrWhiteSpace(c.Id))
+            .OrderBy(c => c.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+    /// <summary>2026-10-04: страницы клиентов со второй — фоном, по одной: каждая сразу попадает в
+    /// поиск. Обычные таймауты: никто не ждёт. Сбой — в журнал и строкой в окне, загруженное остаётся.</summary>
+    private async Task LoadRemainingClientsAsync(CancellationToken ct)
+    {
+        var loaded = 0;
+        try
+        {
+            for (var page = 2; !ct.IsCancellationRequested; page++)
+            {
+                var (items, hasNext) = await _clientsApi.GetClientsPageAsync(page, null, ct).ConfigureAwait(true);
+                if (items.Count == 0)
+                    break;
+
+                var ids = _allClients.Select(c => c.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var added = ToClientOptions(items).Where(c => ids.Add(c.Id)).ToList();
+                if (added.Count > 0)
+                {
+                    _allClients = _allClients.Concat(added)
+                        .OrderBy(c => c.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList();
+                    loaded += added.Count;
+                    ApplyClientFilter();
+                }
+
+                if (!hasNext)
+                    break;
+            }
+
+            if (loaded > 0)
+                PosLogger.Log($"Оплата долга: фоном догружено клиентов {loaded}, всего {_allClients.Count}.", "SALES");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Оплата долга: список клиентов загружен не полностью ({_allClients.Count}): {ex.Message}", "WARNING");
+            if (string.IsNullOrEmpty(ErrorMessage))
+                ErrorMessage = Tr.T(
+                    "Список клиентов загружен не полностью — сервер не ответил. Если клиента нет в поиске, откройте окно ещё раз.",
+                    "Клиенттердин тизмеси толук жүктөлгөн жок — сервер жооп берген жок. Клиент издөөдө жок болсо, терезени кайра ачыңыз.",
+                    "The client list was not fully loaded — the server did not respond. If the client is not in the search, reopen the window.",
+                    "Müşteri listesi tam yüklenmedi — sunucu yanıt vermedi. Müşteri aramada yoksa pencereyi yeniden açın.",
+                    "Mijozlar ro'yxati to'liq yuklanmadi — server javob bermadi. Mijoz qidiruvda bo'lmasa, oynani qayta oching.");
         }
     }
 
@@ -233,16 +317,32 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         DebtSales.Clear();
         DebtHistory.Clear();
         OnPropertyChanged(nameof(TotalOwedText));
+        // 2026-10-04: сервер уже признан лежащим — не ждём его ещё раз.
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            ErrorMessage = ServerDownMessage(null);
+            return;
+        }
+
         try
         {
-            var raw = await _salesApi.PosDebtSalesAsync(clientId).ConfigureAwait(true);
-            var rows = raw.Select(ToDebtSaleRow).OrderByDescending(r => r.DateDisplay).ToList();
+            // 2026-10-04: долги клиента и их остатки по сделкам — одна «первая порция»: не дольше 5 с
+            // без ответа сервера (окно отсчитывается заново после каждого ответа), сбой — авария и
+            // текст. Раньше — до 55 с на каждый запрос. Не дождались остатков — список не показываем:
+            // суммы продаж без уточнения по сделке завышены (уже внесённые платежи в них не видны).
+            var rows = await ServerAnswerWait.FirstPortionAsync(DebtContext, async ct =>
+            {
+                var raw = await _salesApi.PosDebtSalesAsync(clientId, ct).ConfigureAwait(true);
+                var list = raw.Select(ToDebtSaleRow).OrderByDescending(r => r.DateDisplay).ToList();
 
-            // Сервер не обновляет status самой продажи после оплаты через сделку (deal) —
-            // продажа может годами висеть как "debt", хотя реально уже полностью погашена.
-            // Уточняем остаток напрямую по сделке: непогашенные остаются в основном списке,
-            // а полностью оплаченные переезжают в историю вместо того чтобы просто исчезать.
-            await Task.WhenAll(rows.Select(r => ResolveRealRemainingDebtAsync(clientId, r))).ConfigureAwait(true);
+                // Сервер не обновляет status самой продажи после оплаты через сделку (deal) —
+                // продажа может годами висеть как "debt", хотя реально уже полностью погашена.
+                // Уточняем остаток напрямую по сделке: непогашенные остаются в основном списке,
+                // а полностью оплаченные переезжают в историю вместо того чтобы просто исчезать.
+                await Task.WhenAll(list.Select(r => ResolveRealRemainingDebtAsync(clientId, r, ct))).ConfigureAwait(true);
+                ct.ThrowIfCancellationRequested();
+                return list;
+            }, _closedCts.Token).ConfigureAwait(true);
 
             foreach (var row in rows)
             {
@@ -254,6 +354,14 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(TotalOwedText));
             // 2026-09-28: сумма «Погасить одной суммой» — весь долг по умолчанию.
             OnDebtSalesReloaded();
+        }
+        catch (ServerNotAnsweringException ex)
+        {
+            ErrorMessage = ServerDownMessage(ex);
+        }
+        catch (OperationCanceledException) when (_closedCts.IsCancellationRequested)
+        {
+            // окно закрыли во время загрузки
         }
         catch (ApiException ex)
         {
@@ -270,14 +378,14 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     /// remaining_debt по сделке вместо исходной суммы продажи. При любой ошибке (сеть,
     /// сделка не найдена и т.п.) оставляет строку как есть — она просто ведёт себя
     /// по-старому и покажет ошибку сервера при попытке оплаты, а не исчезнет молча.</summary>
-    private async Task ResolveRealRemainingDebtAsync(string clientId, DebtSaleRow row)
+    private async Task ResolveRealRemainingDebtAsync(string clientId, DebtSaleRow row, CancellationToken ct = default)
     {
         try
         {
             var dealId = row.DealId;
             if (string.IsNullOrWhiteSpace(dealId))
             {
-                var saleDetail = await _salesApi.PosSaleGetAsync(row.Id).ConfigureAwait(true);
+                var saleDetail = await _salesApi.PosSaleGetAsync(row.Id, ct).ConfigureAwait(true);
                 dealId = saleDetail.ValueKind == JsonValueKind.Object
                     && saleDetail.TryGetProperty("deal_id", out var dealIdEl)
                     && dealIdEl.ValueKind == JsonValueKind.String
@@ -288,7 +396,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 row.DealId = dealId;
             }
 
-            var deal = await _salesApi.ClientDealGetAsync(clientId, dealId).ConfigureAwait(true);
+            var deal = await _salesApi.ClientDealGetAsync(clientId, dealId, ct).ConfigureAwait(true);
             if (deal.ValueKind != JsonValueKind.Object)
                 return;
 

@@ -22,31 +22,41 @@ public sealed class ClientsApiService : IClientsApiService
 
         for (var page = 1; page <= MaxPages; page++)
         {
-            var query = new Dictionary<string, string>
-            {
-                ["page"] = page.ToString(CultureInfo.InvariantCulture),
-            };
-            if (!string.IsNullOrWhiteSpace(search))
-                query["search"] = search.Trim();
-
-            var data = await _client
-                .RequestAsync(HttpMethod.Get, "api/main/clients/", null, query, ct)
-                .ConfigureAwait(false);
-
-            var pageItems = NurMarketApiClient.UnwrapList(data);
+            var (pageItems, hasNext) = await GetClientsPageAsync(page, search, ct).ConfigureAwait(false);
             if (pageItems.Count == 0)
                 break;
 
             result.AddRange(pageItems);
-
-            var hasNext = data.ValueKind == JsonValueKind.Object
-                && data.TryGetProperty("next", out var next)
-                && next.ValueKind == JsonValueKind.String;
             if (!hasNext)
                 break;
         }
 
         return result;
+    }
+
+    /// <summary>2026-10-04: одна страница списка — тот же запрос, что был телом цикла
+    /// <see cref="GetClientsAsync"/>. Окно оплаты долга показывает первую страницу сразу, остальные
+    /// догружает фоном (раньше ждало все страницы, при молчащем сервере — до 55 с).</summary>
+    public async Task<(List<JsonElement> Items, bool HasNext)> GetClientsPageAsync(
+        int page, string? search, CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["page"] = Math.Max(1, page).ToString(CultureInfo.InvariantCulture),
+        };
+        if (!string.IsNullOrWhiteSpace(search))
+            query["search"] = search.Trim();
+
+        var data = await _client
+            .RequestAsync(HttpMethod.Get, "api/main/clients/", null, query, ct)
+            .ConfigureAwait(false);
+
+        var pageItems = NurMarketApiClient.UnwrapList(data);
+        var hasNext = page < MaxPages
+            && data.ValueKind == JsonValueKind.Object
+            && data.TryGetProperty("next", out var next)
+            && next.ValueKind == JsonValueKind.String;
+        return (pageItems, hasNext && pageItems.Count > 0);
     }
 
     public Task<JsonElement> CreateClientAsync(

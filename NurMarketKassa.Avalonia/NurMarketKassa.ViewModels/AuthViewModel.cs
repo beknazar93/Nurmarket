@@ -55,7 +55,36 @@ public class AuthViewModel : ViewModelBase
     public string Username
     {
         get => _username;
-        set => SetProperty(ref _username, value ?? "");
+        set
+        {
+            if (!SetProperty(ref _username, value ?? ""))
+                return;
+            // 2026-10-04: предложение войти автономно — только для того логина, для которого оно сделано.
+            if (_offlineOfferLogin != null
+                && !string.Equals(_offlineOfferLogin, _username.Trim(), StringComparison.OrdinalIgnoreCase))
+                CanContinueOffline = false;
+        }
+    }
+
+    /// <summary>2026-10-04: логин, для которого после молчания сервера предложен автономный вход.</summary>
+    private string? _offlineOfferLogin;
+
+    /// <summary>2026-10-04, отчёт «офлайн и сбои сервера»: сервер не ответил на вход по паролю, а на
+    /// этом ПК есть сохранённый вход этим логином — кнопка входа становится «Войти автономно»
+    /// (OnlineOfflineAuthenticationService.ContinueOfflineAsync, как автовход при сбое сервера).</summary>
+    public bool CanContinueOffline
+    {
+        get => _offlineOfferLogin != null;
+        private set
+        {
+            var login = value ? Username.Trim() : null;
+            if (string.Equals(_offlineOfferLogin, login, StringComparison.Ordinal))
+                return;
+            _offlineOfferLogin = login;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LoginButtonText));
+            OnPropertyChanged(nameof(LoginButtonIsOfflineAccent));
+        }
     }
 
     /// <remarks>Held only in memory for the duration of the login attempt.</remarks>
@@ -112,10 +141,12 @@ public class AuthViewModel : ViewModelBase
         private set => SetProperty(ref _loadingStatus, value ?? "");
     }
 
-    public string LoginButtonText => IsOfflineMode
+    public string LoginButtonText => CanContinueOffline
+        ? Tr.T("Войти автономно", "Автономдук кирүү", "Sign in offline", "Çevrimdışı giriş yap", "Oflayn kirish")
+        : IsOfflineMode
         ? Tr.T("Работа без сети", "Тармаксыз иштөө", "Working offline", "Çevrimdışı çalışma", "Tarmoqsiz ishlash")
         : Tr.T("Войти", "Кирүү", "Sign in", "Giriş yap", "Kirish");
-    public bool LoginButtonIsOfflineAccent => IsOfflineMode;
+    public bool LoginButtonIsOfflineAccent => IsOfflineMode || CanContinueOffline;
 
     /// <summary>2026-09-09: какой экран формы входа сейчас показан — обычный NurCRM или один из
     /// шагов автономного (офлайн) режима.</summary>
@@ -201,15 +232,34 @@ public class AuthViewModel : ViewModelBase
         }
 
         IsLoading = true;
-        LoadingStatus = Tr.T("Авторизация…", "Авторизация…", "Signing in…", "Giriş yapılıyor…", "Avtorizatsiya…");
+        // 2026-10-04: кассир видит, что касса ждёт сервер (не дольше 8 с на шаг — см.
+        // OnlineOfflineAuthenticationService.ManualLoginServerBudget), а не «Авторизация…» минуту.
+        LoadingStatus = Tr.T("Подключаюсь к серверу…", "Серверге туташып жатам…", "Connecting to the server…", "Sunucuya bağlanılıyor…", "Serverga ulanmoqda…");
         try
         {
-            var result = await _authentication.LoginAsync(
-                Username,
-                Password,
-                RememberMe,
-                CancellationToken.None).ConfigureAwait(true);
+            // 2026-10-04: сервер только что не ответил, кассир нажал «Войти автономно» — вход по
+            // сохранённой сессии этого логина, без нового ожидания сервера.
+            var offerLogin = _offlineOfferLogin;
+            var result = offerLogin != null
+                         && string.Equals(offerLogin, Username.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? await _authentication.ContinueOfflineAsync(Username, CancellationToken.None).ConfigureAwait(true)
+                : await _authentication.LoginAsync(
+                    Username,
+                    Password,
+                    RememberMe,
+                    CancellationToken.None).ConfigureAwait(true);
+            CanContinueOffline = false;
             await HandleResultAsync(result).ConfigureAwait(true);
+            if (result.CanContinueOffline)
+            {
+                CanContinueOffline = true;
+                ErrorMessage = (result.ErrorMessage ?? "") + "\n" + Tr.T(
+                    "На этом компьютере уже был вход с этим логином — можно войти автономно: нажмите «Войти автономно». Продажи уйдут на сервер сами, когда он заработает.",
+                    "Бул компьютерде бул логин менен мурун кирүү болгон — автономдук кирсе болот: «Автономдук кирүү» баскычын басыңыз. Сатуулар сервер иштегенде өзү жөнөтүлөт.",
+                    "This login has already signed in on this computer — you can sign in offline: press “Sign in offline”. Sales will be sent to the server automatically once it is back.",
+                    "Bu kullanıcı adıyla bu bilgisayarda daha önce giriş yapıldı — çevrimdışı giriş yapabilirsiniz: «Çevrimdışı giriş yap»a basın. Satışlar sunucu çalışınca otomatik gönderilir.",
+                    "Bu kompyuterda ushbu login bilan avval kirilgan — oflayn kirish mumkin: «Oflayn kirish» tugmasini bosing. Sotuvlar server ishlaganda o'zi yuboriladi.");
+            }
         }
         catch (Exception ex)
         {

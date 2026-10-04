@@ -395,6 +395,13 @@ public sealed partial class SyncService : IDisposable
                 // Соседи перестают вычитать этот чек из остатка, как только увидят его на сервере.
                 Lan.LanJournal.PublishUploaded(entry.Id, saleId);
             }
+            catch (ReplayDeferredException ex)
+            {
+                // 2026-10-04: checkout этой корзины отправлен недавно — сервер мог его ещё не довести.
+                // Чек ждёт в очереди, следующие досылаются (SyncService.LegacySettle.cs).
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: true);
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} отложен — {ex.Message}", "OFFLINE");
+            }
             catch (HttpRequestException ex)
             {
                 IsOnline = false;
@@ -530,6 +537,10 @@ public sealed partial class SyncService : IDisposable
 
             if (state == CartSaleSessionHelper.CartCheckoutState.Open)
             {
+                // 2026-10-04: «open» сразу после отправки может значить «сервер ещё проводит» — ждём
+                // (SyncService.LegacySettle.cs), иначе вторая продажа на тот же чек.
+                DeferWhileLegacyCheckoutMayRun(entry);
+
                 // Сервер подтвердил: корзина ещё не оплачена — значит, прошлая оплата отклонена или
                 // не дошла. Её содержимое пересобираем заново (см. RebuildReplayCartAsync): раньше
                 // здесь шли «сразу к оплате» с тем, что лежит в корзине, и если сервер отклонил чек

@@ -130,6 +130,32 @@ public sealed partial class NurMarketApiClient : IDisposable
     private void PersistTokensToSecureStore() =>
         OfflineAuthSessionStore.UpdateTokens(AccessToken, RefreshToken);
 
+    /// <summary>2026-10-04, отчёт «офлайн и сбои сервера», раздел «Риски»: токены, обновлённые посреди
+    /// работы (401 → refresh в JwtBearerRefreshHandler), сохранялись только в старый файл сессии
+    /// (offline_auth_session.dat), который вход очищает, — в auth.dat, откуда их берёт автовход,
+    /// оставались токены и отметка связи момента входа/автовхода. Проверено на тестовом аккаунте 04.10:
+    /// сейчас NurCRM на обновление отдаёт только новый access (живёт 15 мин), refresh-токен не меняет и
+    /// старый не отзывает (живёт 7 дней от входа) — поэтому перезапуск до сих пор не ломался. Но
+    /// (1) отметка «последняя связь с сервером» в auth.dat стояла на моменте запуска, и 60 часов
+    /// офлайн-работы считались от него, а не от последнего ответа сервера; (2) включи сервер смену
+    /// refresh-токена при обновлении — касса после перезапуска открывала бы окно входа. Событие:
+    /// (refresh, по которому обновили; новый access; refresh после обновления) — его слушает
+    /// OnlineOfflineAuthenticationService и переписывает auth.dat. Вызывается под замком входа,
+    /// обработчик не должен ждать сеть.</summary>
+    public static event Action<string?, string?, string?>? SessionTokensRefreshed;
+
+    private static void RaiseSessionTokensRefreshed(string? usedRefresh, string? access, string? refresh)
+    {
+        try
+        {
+            SessionTokensRefreshed?.Invoke(usedRefresh, access, refresh);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сохранение обновлённых токенов: подписчик упал: {ex.GetType().Name}", "AUTH");
+        }
+    }
+
     // Ленивые экземпляры доменных сервисов для делегирования из устаревших методов.
     private CatalogApiService? _catalogApi;
     private SalesApiService? _salesApi;
@@ -238,6 +264,8 @@ public sealed partial class NurMarketApiClient : IDisposable
             if (root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
+                // 2026-10-04: refresh-токен, по которому обновили, — для SessionTokensRefreshed.
+                var usedRefresh = RefreshToken;
                 AccessToken = acc.GetString();
                 if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
                 {
@@ -247,6 +275,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                 }
 
                 PersistTokensToSecureStore();
+                RaiseSessionTokensRefreshed(usedRefresh, AccessToken, RefreshToken);
                 return true;
             }
 
@@ -1150,6 +1179,8 @@ public sealed partial class NurMarketApiClient : IDisposable
             if (root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
+                // 2026-10-04: refresh-токен, по которому обновили, — для SessionTokensRefreshed.
+                var usedRefresh = RefreshToken;
                 AccessToken = acc.GetString();
                 if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
                 {
@@ -1159,6 +1190,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                 }
 
                 PersistTokensToSecureStore();
+                RaiseSessionTokensRefreshed(usedRefresh, AccessToken, RefreshToken);
                 return true;
             }
 

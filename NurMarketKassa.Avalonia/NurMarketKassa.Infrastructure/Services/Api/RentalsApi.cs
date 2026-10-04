@@ -142,6 +142,7 @@ public sealed class RentalsApi
                     Num(i, "qty") is var q && q > 0 ? q : 1));
         }
 
+        var (refunded, withheld) = DepositSettlement(d);
         return new RentalDto(
             Str(d, "id") ?? "",
             (int)Num(d, "number"),
@@ -162,9 +163,38 @@ public sealed class RentalsApi
             Str(d, "note") ?? "",
             Stamp(d, "created_at"),
             Stamp(d, "returned_at"),
-            Num(d, "deposit_refunded"),
-            Num(d, "deposit_withheld"));
+            refunded,
+            withheld);
     }
+
+    /// <summary>2026-10-04, живой случай (Z-отчёт, прокат №8, залог 500 деньгами, возвращён): в блоке
+    /// «Прокат за смену» не было «залог −500», хотя в «Расходе» смены 500 есть. Проверено на тестовом
+    /// аккаунте (GET api/rentals/, только чтение): полей deposit_refunded / deposit_withheld в ответе
+    /// сервера НЕТ (ни в списке, ни в карточке) — касса читала их как 0. Возврат залога сервер проводит
+    /// движением денег «Возврат залога по прокату №N» (расход, source_kind=rental) на сумму залога минус
+    /// штраф: №8 500−0 = 500, №4 500−200 = 300, №3 1000−200 = 800. Так и считаем, пока сервер не отдаёт
+    /// эти поля сам (отдаст — берём его числа).</summary>
+    private static (double Refunded, double Withheld) DepositSettlement(JsonElement d)
+    {
+        var serverRefunded = NumOrNull(d, "deposit_refunded");
+        var serverWithheld = NumOrNull(d, "deposit_withheld");
+        if (serverRefunded is not null || serverWithheld is not null)
+            return (serverRefunded ?? 0, serverWithheld ?? 0);
+
+        var returned = string.Equals(Str(d, "status"), "returned", StringComparison.OrdinalIgnoreCase)
+                       || Stamp(d, "returned_at") is not null;
+        if (!returned || string.Equals(Str(d, "deposit_type"), "document", StringComparison.OrdinalIgnoreCase))
+            return (0, 0);
+
+        var deposit = Math.Max(0, Num(d, "deposit_amount"));
+        var withheld = Math.Min(deposit, Math.Max(0, Num(d, "penalty")));
+        return (Math.Round(deposit - withheld, 2), Math.Round(withheld, 2));
+    }
+
+    private static double? NumOrNull(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.Number or JsonValueKind.String
+            ? Num(e, name)
+            : null;
 
     private static IEnumerable<JsonElement> Rows(JsonElement data)
     {

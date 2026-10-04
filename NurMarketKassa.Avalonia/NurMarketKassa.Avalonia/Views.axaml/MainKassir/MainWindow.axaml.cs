@@ -133,6 +133,7 @@ public partial class MainWindow : Window
         _viewModel.Basket.OfferNewClientFromQr = OfferNewClientFromQrAsync;
         _viewModel.Basket.CheckoutSucceeded += OnCheckoutSucceeded;
         ServerOutageMonitor.Recovered += OnServerRecovered;
+        ServerOutageMonitor.QueueFlushed += OnQueueFlushed;
 
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -1242,7 +1243,13 @@ public partial class MainWindow : Window
         if (!_session.IsShiftOpen
             || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous
             || ServerOutageMonitor.IsOutage)
+        {
+            // 2026-10-04: но шапку пересчитываем — к остатку прибавляются наличные чеков офлайн-очереди
+            // (EffectiveShiftCashBalance); раньше «Касса: N сом» без сервера не менялось после продаж.
+            if (_session.IsShiftOpen)
+                UpdateShiftBalanceUi();
             return;
+        }
 
         // Внесения/изъятия, ещё не записанные на сервер (не было сети), — до запроса остатка:
         // иначе остаток пришёл бы без них. Повтор идёт после каждой продажи.
@@ -1250,21 +1257,35 @@ public partial class MainWindow : Window
 
         try
         {
+            // 2026-10-04: чеки очереди, которых ещё нет на сервере, — снимок ДО запроса остатка
+            // (см. OfflineQueueCash: так отправленные чеки не считаются дважды).
+            var queueAtBalance = OfflineQueueCash.Snapshot(_session.ActiveShiftId);
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
             cts.CancelAfter(TimeSpan.FromSeconds(8));
             var list = await App.ShiftApi.ConstructionShiftsListAsync(openOnly: true, ct: cts.Token).ConfigureAwait(true);
             if (ShiftBalanceHelper.FindOpenShiftBalance(list, App.PosCashboxId) is not { } balance)
+            {
+                // 2026-10-04: остатка нет (офлайн-смена) — шапка всё равно учитывает новые чеки очереди.
+                UpdateShiftBalanceUi();
                 return;
+            }
 
             _shiftCashBalance = balance;
+            _queueCashAtBalance = queueAtBalance;
             _shiftTotals = ShiftBalanceHelper.FindOpenShiftTotals(list, App.PosCashboxId) ?? _shiftTotals;
             UpdateShiftBalanceUi();
         }
         catch (Exception ex) when (!_windowCts.IsCancellationRequested)
         {
             PosLogger.Log($"Остаток смены после оплаты не обновлён: {ex.Message}", "DEBUG");
+            // 2026-10-04: без связи — прежний остаток + чеки офлайн-очереди (см. EffectiveShiftCashBalance).
+            UpdateShiftBalanceUi();
         }
     }
+
+    /// <summary>2026-10-04: наличные чеков офлайн-очереди, которых не было в остатке смены, когда
+    /// его получили (см. OfflineQueueCash) — чтобы отправленные потом чеки не считались дважды.</summary>
+    private OfflineQueueCashSnapshot _queueCashAtBalance = OfflineQueueCashSnapshot.Empty;
 
     private decimal? EffectiveShiftCashBalance
     {
@@ -1274,10 +1295,14 @@ public partial class MainWindow : Window
                 return _shiftCashBalance;
 
             var net = ShiftCashOperationsStore.NetForShift(_session.ActiveShiftId);
-            if (_shiftCashBalance is null && net == 0m)
+            // 2026-10-04, живой тест 04.10: без сервера шапка стояла на 10181.50, хотя прошла продажа
+            // 42.50 наличными, — остаток смены знает только проведённые на сервере чеки. Прибавляем
+            // наличные офлайн-очереди этой смены, которых в остатке ещё нет.
+            var queued = OfflineQueueCash.NotInServerBalance(_queueCashAtBalance, _session.ActiveShiftId);
+            if (_shiftCashBalance is null && net == 0m && queued == 0m)
                 return null;
 
-            return (_shiftCashBalance ?? 0m) + net;
+            return (_shiftCashBalance ?? 0m) + net + queued;
         }
     }
 
@@ -1908,6 +1933,7 @@ public partial class MainWindow : Window
     {
         _applicationStateService.CancelPendingSave();
         ServerOutageMonitor.Recovered -= OnServerRecovered;
+        ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
@@ -1947,6 +1973,14 @@ public partial class MainWindow : Window
     /// уходят на сервер, остаток смены в шапке обновляется (продажи досылает SyncService).</summary>
     private void OnServerRecovered() =>
         Dispatcher.UIThread.Post(() => _ = RefreshShiftBalanceQuietAsync());
+
+    /// <summary>2026-10-04: очередь дослана после аварии — остаток смены с сервера уже включает эти
+    /// чеки; новый запрос остатка заменяет их учёт в шапке (см. OfflineQueueCash).</summary>
+    private void OnQueueFlushed(int sent, int left)
+    {
+        if (sent > 0)
+            Dispatcher.UIThread.Post(() => _ = RefreshShiftBalanceQuietAsync());
+    }
     private void OnViewModelStateChanged(object? sender, EventArgs e) =>
         ScheduleApplicationStateSave();
 
@@ -2181,6 +2215,9 @@ public partial class MainWindow : Window
             // просто открыл смену без сети в моменте.
             if (_session.IsShiftOpen)
             {
+                // 2026-10-04: чеки офлайн-очереди, которых нет в остатке, — снимок ДО запроса остатка
+                // (см. OfflineQueueCash и EffectiveShiftCashBalance).
+                _queueCashAtBalance = OfflineQueueCash.Snapshot(_session.ActiveShiftId);
                 if (App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
                 {
                     _shiftCashBalance = OfflinePosStateStore.ReadShiftCashBalance();

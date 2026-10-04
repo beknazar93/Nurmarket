@@ -9,6 +9,10 @@ public interface IClientsApiService
     /// <summary>GET /api/main/clients/ (?search=, постранично до конца списка).</summary>
     Task<List<JsonElement>> GetClientsAsync(string? search, CancellationToken ct = default);
 
+    /// <summary>2026-10-04: одна страница GET /api/main/clients/ и есть ли следующая — окно оплаты
+    /// долга показывает первую страницу сразу, остальные догружает фоном.</summary>
+    Task<(List<JsonElement> Items, bool HasNext)> GetClientsPageAsync(int page, string? search, CancellationToken ct = default);
+
     /// <summary>POST /api/main/clients/ (type=client).</summary>
     /// <param name="address">Адрес клиента — необязателен. Нужен прежде всего долгам: если
     /// покупатель перестал приходить, по телефону его не всегда найти, а по адресу можно.

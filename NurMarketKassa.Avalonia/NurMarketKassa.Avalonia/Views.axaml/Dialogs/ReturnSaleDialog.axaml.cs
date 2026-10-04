@@ -86,7 +86,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         Opened -= OnFirstOpened;
         UpdateWindowStateUI();
-        await LoadSalesAsync(true).ConfigureAwait(true);
+        // 2026-10-04: сервер не ответил на список (авария объявлена, текст уже в окне) — чек из
+        // «Истории чеков» тоже не открываем: это ещё один запрос к молчащему серверу.
+        if (!await LoadSalesAsync(true).ConfigureAwait(true) && _serverDown)
+            return;
 
         if (!string.IsNullOrWhiteSpace(InitialSaleId))
         {
@@ -142,29 +145,70 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private async void MoreSales_Click(object? sender, RoutedEventArgs e) =>
         await LoadSalesAsync(false).ConfigureAwait(true);
 
-    private async Task LoadSalesAsync(bool reset)
+    /// <summary>2026-10-04: подпись сбоя для журнала аварии (ServerOutageMonitor).</summary>
+    private static string ReturnContext => Tr.T("возврат", "кайтаруу", "return", "iade", "qaytarish");
+
+    /// <summary>2026-10-04: сервер не ответил на первую порцию данных окна — авария объявлена,
+    /// в окне текст «возврат недоступен».</summary>
+    private bool _serverDown;
+
+    /// <summary>2026-10-04: идёт фоновая подгрузка следующей страницы («Ещё»).</summary>
+    private bool _loadingMore;
+
+    /// <summary>2026-10-04: «Обновить» во время фоновой подгрузки «Ещё» — её страница уже не к месту.</summary>
+    private int _salesLoadGeneration;
+
+    /// <summary>true — список загружен. 2026-10-04, отчёт «офлайн и сбои сервера»: первая страница
+    /// ждёт сервер не дольше ServerAnswerWait.FirstPortionBudget (5 с с последнего ответа; раньше —
+    /// до 55 с, пока касса ещё «Онлайн», а сервер уже молчит), сбой — авария и понятный текст в окне.
+    /// Следующие страницы («Ещё») грузятся фоном: окно не блокируется, кнопки возврата доступны.</summary>
+    private async Task<bool> LoadSalesAsync(bool reset)
     {
+        if (!reset && _loadingMore)
+            return false;
+
         ErrorText.IsVisible = false;
         ErrorText.Text = "";
-        IsBusy = true;
+        _serverDown = false;
+
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            // Касса уже знает, что сервер лежит, — не ждём его ещё раз.
+            _serverDown = true;
+            ShowErr(OfflineModeHelper.ReturnUnavailableInOutage);
+            return false;
+        }
 
         if (reset)
         {
+            IsBusy = true;
+            _salesLoadGeneration++;
             _salesPage = 1;
             Sales.Clear();
             _salesSeenIds.Clear();
         }
         else
         {
+            _loadingMore = true;
+            MoreSalesButton.IsEnabled = false;
             _salesPage++;
         }
 
         var page = reset ? 1 : _salesPage;
+        var generation = _salesLoadGeneration;
 
         try
         {
-            var jsonElementList = await App.SalesApi.PosSalesListAsync(page, SalesPageSize, App.PosCashboxId)
-                .ConfigureAwait(true);
+            var jsonElementList = reset
+                ? await ServerAnswerWait.FirstPortionAsync(ReturnContext,
+                        ct => App.SalesApi.PosSalesListAsync(page, SalesPageSize, App.PosCashboxId, ct))
+                    .ConfigureAwait(true)
+                : await App.SalesApi.PosSalesListAsync(page, SalesPageSize, App.PosCashboxId)
+                    .ConfigureAwait(true);
+
+            // Пока шла фоновая страница, кассир нажал «Обновить» — список уже другой.
+            if (!reset && generation != _salesLoadGeneration)
+                return false;
 
             var hasCustomerId = jsonElementList.Any(el => el.TryGetProperty("customer_id", out _));
             var added = 0;
@@ -233,6 +277,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 _salesPage = Math.Max(1, _salesPage - 1);
             }
+
+            return true;
+        }
+        catch (ServerNotAnsweringException ex)
+        {
+            // 2026-10-04: первая страница — сервер не ответил за 5 с или ответил сбоем: авария уже
+            // объявлена (ServerAnswerWait), кассиру — что делать, а не «Превышено время ожидания» через 55 с.
+            _serverDown = !ex.Throttled;
+            ShowErr(ex.Throttled ? ServerAnswerWait.ThrottledMessage : OfflineModeHelper.ReturnUnavailableInOutage);
         }
         catch (ApiException ex)
         {
@@ -262,8 +315,18 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
         finally
         {
-            IsBusy = false;
+            if (reset)
+            {
+                IsBusy = false;
+            }
+            else
+            {
+                _loadingMore = false;
+                MoreSalesButton.IsEnabled = true;
+            }
         }
+
+        return false;
     }
 
     private void ApplySalesFilter()
@@ -357,7 +420,14 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             JsonElement? found;
             try
             {
-                found = await NurCrmReportsApi.FindSaleByNumberAsync(saleNumber).ConfigureAwait(true);
+                // 2026-10-04: не дольше 5 с без ответа сервера (раньше — до 55 с), сбой — авария и текст.
+                found = await ServerAnswerWait.FirstPortionAsync(ReturnContext,
+                    ct => NurCrmReportsApi.FindSaleByNumberAsync(saleNumber, ct)).ConfigureAwait(true);
+            }
+            catch (ServerNotAnsweringException ex)
+            {
+                ShowErr(ex.Throttled ? ServerAnswerWait.ThrottledMessage : OfflineModeHelper.ReturnUnavailableInOutage);
+                return;
             }
             finally
             {
@@ -439,10 +509,18 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         ErrorText.IsVisible = false;
         ErrorText.Text = "";
+        if (OfflineModeHelper.IsServerOutage)
+        {
+            ShowErr(OfflineModeHelper.ReturnUnavailableInOutage);
+            return;
+        }
+
         IsBusy = true;
         try
         {
-            var sale = await App.SalesApi.PosSaleGetAsync(saleId).ConfigureAwait(true);
+            // 2026-10-04: не дольше 5 с без ответа сервера (раньше — до 55 с), сбой — авария и текст.
+            var sale = await ServerAnswerWait.FirstPortionAsync(ReturnContext,
+                ct => App.SalesApi.PosSaleGetAsync(saleId, ct)).ConfigureAwait(true);
             _currentSaleId = saleId;
             // Чека нет в загруженном списке (открыт из «Истории чеков» или по ID) — постоянный
             // номер берём из самой продажи (2026-09-28, BE-08): он же печатается на чеке возврата.
@@ -456,6 +534,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     "The server response has no items with a line ID that can be returned.",
                     "Sunucu yanıtında iade için satır kimliği olan kalem yok.",
                     "Server javobida qaytarish uchun qator identifikatoriga ega pozitsiyalar yo'q."));
+        }
+        catch (ServerNotAnsweringException ex)
+        {
+            ShowErr(ex.Throttled ? ServerAnswerWait.ThrottledMessage : OfflineModeHelper.ReturnUnavailableInOutage);
+            _currentSaleId = null;
+            Lines.Clear();
+            UpdateReceiptChrome();
         }
         catch (ApiException ex)
         {

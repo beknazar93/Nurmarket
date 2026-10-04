@@ -21,6 +21,75 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
     {
         _api = api;
         _storage = storage;
+        // 2026-10-04: токены, обновлённые посреди работы, — в auth.dat (см. NurMarketApiClient.SessionTokensRefreshed).
+        NurMarketApiClient.SessionTokensRefreshed += OnSessionTokensRefreshed;
+    }
+
+    /// <summary>2026-10-04: запись auth.dat из этого сервиса — по одной: обновление токенов посреди
+    /// работы (из события) и сохранение сессии входом/автовходом не перетирают друг друга.
+    /// SemaphoreSlim отпускает ждущих по очереди — сохранения идут в порядке обновлений. Общий на
+    /// процесс: событие обновления статическое, и при двух экземплярах сервиса (проверочная обвязка)
+    /// раздельные замки давали одновременную запись одного файла (IOException на auth.dat.tmp).</summary>
+    private static readonly SemaphoreSlim _persistGate = new(1, 1);
+
+    private async Task SaveSessionGatedAsync(UserSession session)
+    {
+        await _persistGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await _storage.SaveSessionAsync(session).ConfigureAwait(false);
+        }
+        finally
+        {
+            _persistGate.Release();
+        }
+    }
+
+    private void OnSessionTokensRefreshed(string? usedRefresh, string? access, string? refresh) =>
+        _ = PersistRefreshedTokensAsync(usedRefresh, access, refresh);
+
+    /// <summary>2026-10-04, отчёт «офлайн и сбои сервера», раздел «Риски»: обновлённые посреди работы
+    /// токены не попадали в auth.dat, откуда их берёт автовход (подробно — у
+    /// NurMarketApiClient.SessionTokensRefreshed). Переписываем сохранённую сессию (токены, срок,
+    /// отметку связи), только если она та самая, чей refresh-токен только что обменяли: после выхода
+    /// (auth.dat удалён), без «Запомнить меня» или при сохранённом входе другого кассира файл не трогаем.</summary>
+    private async Task PersistRefreshedTokensAsync(string? usedRefresh, string? access, string? refresh)
+    {
+        if (string.IsNullOrWhiteSpace(usedRefresh) || string.IsNullOrWhiteSpace(access))
+            return;
+
+        await _persistGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var saved = await _storage.LoadSessionAsync().ConfigureAwait(false);
+            if (saved is null || !string.Equals(saved.RefreshToken, usedRefresh, StringComparison.Ordinal))
+                return;
+
+            var updated = new UserSession
+            {
+                AccessToken = access!,
+                RefreshToken = string.IsNullOrWhiteSpace(refresh) ? saved.RefreshToken : refresh!,
+                ExpiresAt = ReadJwtExpiration(access!)?.ToUniversalTime() ?? saved.ExpiresAt,
+                UserId = saved.UserId,
+                Login = saved.Login,
+                DisplayName = saved.DisplayName,
+                Role = saved.Role,
+                BranchId = saved.BranchId,
+                Permissions = saved.Permissions,
+                // Обновление токена — успешный ответ сервера.
+                LastOnlineContactAt = DateTimeOffset.UtcNow,
+            };
+            await _storage.SaveSessionAsync(updated).ConfigureAwait(false);
+            PosLogger.Log("Обновлённые токены сохранены для автовхода (auth.dat).", "AUTH");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обновлённые токены не сохранены в auth.dat: {ex.GetType().Name}", "AUTH");
+        }
+        finally
+        {
+            _persistGate.Release();
+        }
     }
 
     public async Task<AuthenticationResult> LoginAsync(
@@ -37,18 +106,28 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                 Tr.T("Введите логин и пароль.", "Логин менен сырсөздү киргизиңиз.", "Enter your login and password.", "Kullanıcı adı ve şifrenizi girin.", "Login va parolni kiriting."));
         }
 
+        // 2026-10-04, отчёт «офлайн и сбои сервера», раздел «Не сделано»: ручной вход по паролю при
+        // «чёрной дыре» ждал сервер до 55 с (таймаут HttpClient) на запрос входа и ещё до 55 с на
+        // профиль. Теперь каждый шаг ждёт ответа не дольше ManualLoginServerBudget (окно отсчитывается
+        // заново после ответа на вход): живой сервер отвечает за доли секунды, медленный (3–4 с) —
+        // укладывается; молчащий — понятный текст через 8 с, а если на этом ПК есть сохранённый вход
+        // этим логином — предложение войти автономно (ContinueOfflineAsync, как автовход).
+        using var serverBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        serverBudget.CancelAfter(ManualLoginServerBudget);
         try
         {
-            var loginPayload = await _api.LoginAsync(username, password, cancellationToken)
+            var loginPayload = await _api.LoginAsync(username, password, serverBudget.Token)
                 .ConfigureAwait(false);
-            var profile = await LoadAndApplyProfileAsync(cancellationToken).ConfigureAwait(false);
+            serverBudget.CancelAfter(ManualLoginServerBudget);
+            var profile = await LoadAndApplyProfileAsync(serverBudget.Token).ConfigureAwait(false);
+            serverBudget.CancelAfter(Timeout.InfiniteTimeSpan);
             var session = CreateSession(username, loginPayload, profile);
 
             // Never keep a second token copy in the legacy session file.
             OfflineAuthSessionStore.Clear();
 
             if (rememberMe)
-                await _storage.SaveSessionAsync(session).ConfigureAwait(false);
+                await SaveSessionGatedAsync(session).ConfigureAwait(false);
             else
                 await _storage.ClearSessionAsync(cancellationToken).ConfigureAwait(false);
 
@@ -63,24 +142,89 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         }
         catch (Exception ex) when (IsNetworkFailure(ex, cancellationToken))
         {
-            return AuthenticationResult.Failed(
-                AuthenticationFailure.NetworkUnavailable,
-                Tr.T("Нет связи с сервером. Первый вход требует интернет-соединения.",
-                    "Сервер менен байланыш жок. Биринчи кирүү үчүн интернет керек.",
-                    "No connection to the server. The first sign-in requires an internet connection.",
-                    "Sunucuyla bağlantı yok. İlk giriş için internet bağlantısı gerekir.",
-                    "Server bilan aloqa yo'q. Birinchi kirish uchun internet aloqasi kerak."));
+            var offline = await CanContinueOfflineAsync(username).ConfigureAwait(false);
+            PosLogger.Log($"Вход по паролю: сервер не ответил ({ServerOutageMonitor.Describe(ex)}){(offline ? ", есть сохранённый вход этим логином — предложен автономный вход" : "")}.", "AUTH");
+            return new AuthenticationResult
+            {
+                Failure = AuthenticationFailure.NetworkUnavailable,
+                CanContinueOffline = offline,
+                ErrorMessage = Tr.T(
+                    "Сервер NurCRM не отвечает. Проверьте интернет и повторите вход позже.",
+                    "NurCRM сервери жооп бербей жатат. Интернетти текшерип, кийинчерээк кайра кириңиз.",
+                    "The NurCRM server is not responding. Check the internet and sign in again later.",
+                    "NurCRM sunucusu yanıt vermiyor. İnterneti kontrol edin ve daha sonra tekrar giriş yapın.",
+                    "NurCRM serveri javob bermayapti. Internetni tekshiring va keyinroq qayta kiring."),
+            };
         }
-        catch (ApiException)
+        catch (ApiException ex)
         {
-            return AuthenticationResult.Failed(
-                AuthenticationFailure.ServerError,
-                Tr.T("Сервер временно недоступен. Повторите попытку позже.",
+            // 2026-10-04: сбой сервера (5xx, HTML вместо JSON) — тоже можно продолжить автономно
+            // (429 — сервер жив и просит паузу: не предлагаем).
+            var offline = ex.StatusCode is >= 500 and <= 599
+                          && await CanContinueOfflineAsync(username).ConfigureAwait(false);
+            return new AuthenticationResult
+            {
+                Failure = AuthenticationFailure.ServerError,
+                CanContinueOffline = offline,
+                ErrorMessage = Tr.T("Сервер временно недоступен. Повторите попытку позже.",
                     "Сервер убактылуу жеткиликсиз. Кийинчерээк кайра аракет кылыңыз.",
                     "The server is temporarily unavailable. Try again later.",
                     "Sunucu geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
-                    "Server vaqtincha mavjud emas. Keyinroq qayta urinib ko'ring."));
+                    "Server vaqtincha mavjud emas. Keyinroq qayta urinib ko'ring."),
+            };
         }
+    }
+
+    /// <summary>2026-10-04: сколько ручной вход по паролю ждёт сервер на каждом шаге (вход, затем
+    /// профиль), прежде чем сказать «сервер не отвечает». Владелец: «8–10 с, не больше».</summary>
+    internal static readonly TimeSpan ManualLoginServerBudget = TimeSpan.FromSeconds(8);
+
+    /// <summary>2026-10-04: на этом ПК есть сохранённый вход (auth.dat) этим логином, по которому
+    /// автовход пустил бы кассу автономно: токен доступа жив или его можно продлить refresh-токеном,
+    /// и не вышли 60 часов без связи. Тогда при молчащем сервере окно входа предлагает войти
+    /// автономно — без этого кассир, введший пароль, ждал бы сервер, хотя перезапуск кассы пустил бы
+    /// его сразу.</summary>
+    private async Task<bool> CanContinueOfflineAsync(string username)
+    {
+        try
+        {
+            var saved = await _storage.LoadSessionAsync().ConfigureAwait(false);
+            return saved is not null
+                   && string.Equals(saved.Login.Trim(), username.Trim(), StringComparison.OrdinalIgnoreCase)
+                   && (IsLocallyValid(saved) || IsRefreshLocallyValid(saved))
+                   && IsWithinOfflineGracePeriod(saved);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сохранённый вход не прочитан: {ex.GetType().Name}", "AUTH");
+            return false;
+        }
+    }
+
+    /// <summary>2026-10-04: «Войти автономно» в окне входа после того, как сервер не ответил на вход по
+    /// паролю (см. <see cref="AuthenticationResult.CanContinueOffline"/>): вход по сохранённой сессии
+    /// этого логина — тем же путём, что автовход при сбое сервера (авария объявляется, проверку
+    /// «сервер снова жив» ведёт ServerOutageMonitor, сессия не стирается).</summary>
+    public async Task<AuthenticationResult> ContinueOfflineAsync(string username, CancellationToken cancellationToken = default)
+    {
+        var saved = await _storage.LoadSessionAsync().ConfigureAwait(false);
+        if (saved is null || !string.Equals(saved.Login.Trim(), (username ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+            return AuthenticationResult.Failed(
+                AuthenticationFailure.SessionExpired,
+                Tr.T("На этом компьютере нет сохранённого входа для этого логина. Войдите, когда сервер заработает.",
+                    "Бул компьютерде бул логин үчүн сакталган кирүү жок. Сервер иштегенде кириңиз.",
+                    "There is no saved sign-in for this login on this computer. Sign in once the server is back.",
+                    "Bu bilgisayarda bu kullanıcı adı için kayıtlı oturum yok. Sunucu çalışınca giriş yapın.",
+                    "Bu kompyuterda ushbu login uchun saqlangan kirish yo'q. Server ishlaganda kiring."));
+
+        _api.RestoreOfflineSession(ToLegacySession(saved));
+        return await ContinueOfflineAfterServerFailureAsync(
+                saved,
+                new HttpRequestException(Tr.T("сервер не ответил на вход по паролю", "сервер сырсөз менен кирүүгө жооп берген жок",
+                    "the server did not answer the password sign-in", "sunucu şifreyle girişe yanıt vermedi",
+                    "server parol bilan kirishga javob bermadi")),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<AuthenticationResult> AutoLoginAsync(
@@ -120,14 +264,14 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
 
                 var refreshedProfile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, refreshedProfile, saved);
-                await _storage.SaveSessionAsync(refreshed).ConfigureAwait(false);
+                await SaveSessionGatedAsync(refreshed).ConfigureAwait(false);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
 
             // This request is the authoritative server-side validation.
             var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
             var validated = CreateSession(saved.Login, default, profile, saved);
-            await _storage.SaveSessionAsync(validated).ConfigureAwait(false);
+            await SaveSessionGatedAsync(validated).ConfigureAwait(false);
             return AuthenticationResult.Success(validated, AuthenticationMode.Online);
         }
         catch (ApiException ex) when (ex.StatusCode == 401)
@@ -142,7 +286,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
 
                 var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, profile, saved);
-                await _storage.SaveSessionAsync(refreshed).ConfigureAwait(false);
+                await SaveSessionGatedAsync(refreshed).ConfigureAwait(false);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
             catch (Exception refreshError) when (IsNetworkFailure(refreshError, cancellationToken)
@@ -229,7 +373,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
     {
         var session = WithCurrentTokens(saved);
         if (!ReferenceEquals(session, saved))
-            await _storage.SaveSessionAsync(session).ConfigureAwait(false);
+            await SaveSessionGatedAsync(session).ConfigureAwait(false);
         if (IsLocallyValid(session) || IsRefreshLocallyValid(session))
         {
             PosLogger.Log($"Автовход: сервер не отвечает ({ServerOutageMonitor.Describe(failure)}) — вход по сохранённой сессии, касса работает автономно.", "OUTAGE");
