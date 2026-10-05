@@ -66,6 +66,7 @@ public static class UpsellServerSync
         {
             var lastSent = Read().LastSentId;
             var sent = 0;
+            int accepted = 0, duplicates = 0, rejected = 0;
             while (true)
             {
                 var rows = DatabaseService.Instance.LoadUpsellEventsAfter(lastSent, Batch);
@@ -85,7 +86,12 @@ public static class UpsellServerSync
                     ["device_id"] = device,
                     ["occurred_at"] = OccurredAt(r.CreatedAt),
                 }).ToList();
-                await api.SendEventsAsync(events).ConfigureAwait(false);
+                var answer = await api.SendEventsAsync(events).ConfigureAwait(false);
+                // 2026-10-05, проверка схемы сервера: ответ {"accepted", "duplicates", "rejected"}; rejected — события
+                // с товаром, которого нет в компании (сервер их не хранит) — видно в журнале.
+                accepted += Count(answer, "accepted");
+                duplicates += Count(answer, "duplicates");
+                rejected += Count(answer, "rejected");
                 lastSent = rows[^1].Id;
                 sent += rows.Count;
                 Update(s => s.LastSentId = Math.Max(s.LastSentId, lastSent));
@@ -101,7 +107,8 @@ public static class UpsellServerSync
                 linked++;
             }
             if (sent > 0 || linked > 0)
-                PosLogger.Log($"Допродажа: на сервер отправлено событий {sent}, привязано продаж {linked}.", "SYNC");
+                PosLogger.Log($"Допродажа: на сервер отправлено событий {sent} (принято {accepted}, повторы {duplicates}, отклонено {rejected}), "
+                    + $"привязано продаж {linked}.", "SYNC");
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
         {
@@ -118,6 +125,9 @@ public static class UpsellServerSync
             Gate.Release();
         }
     }
+
+    private static int Count(JsonElement answer, string name) =>
+        answer.ValueKind == JsonValueKind.Object && answer.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
 
     private static string OccurredAt(string createdAtUtc) =>
         DateTimeOffset.TryParse(createdAtUtc, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
