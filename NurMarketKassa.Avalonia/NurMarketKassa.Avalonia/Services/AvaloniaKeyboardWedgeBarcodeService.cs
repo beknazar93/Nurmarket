@@ -38,14 +38,16 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     /// <summary>2026-10-04, владелец: «доступ к камере в Android, чтобы её как сканер можно было использовать
     /// в кассе, при создании товаров, приёмке». Код, считанный камерой (CameraScan), — как скан
     /// USB-сканера: те же обработчики в кассе, карточке товара и на складе.</summary>
-    public void Inject(string code)
+    public void Inject(string code) => InjectFrom(code, ScanSource.Other);
+
+    private void InjectFrom(string code, ScanSource source)
     {
         var trimmed = code?.Trim();
         if (string.IsNullOrEmpty(trimmed))
             return;
         _barcodeBuf = "";
         _fastRunLength = 0;
-        Remember(trimmed);
+        Remember(trimmed, source);
         BarcodeScanned?.Invoke(trimmed);
     }
 
@@ -56,23 +58,34 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     public void InjectDeviceScan(string code)
     {
         var trimmed = code?.Trim();
-        if (string.IsNullOrEmpty(trimmed) || IsDuplicate(trimmed))
+        if (string.IsNullOrEmpty(trimmed) || IsEcho(trimmed, ScanSource.Device))
             return;
-        Inject(trimmed);
+        InjectFrom(trimmed, ScanSource.Device);
     }
 
     private const int DuplicateWindowMs = 800;
     private string? _lastCode;
     private long _lastCodeTick;
+    private ScanSource _lastSource;
 
-    private void Remember(string code)
+    /// <summary>Откуда пришёл скан: клавиатурный ввод сканера, рассылка встроенного сканера терминала, камера и др.</summary>
+    private enum ScanSource { Keyboard, Device, Other }
+
+    private void Remember(string code, ScanSource source)
     {
         _lastCode = code;
         _lastCodeTick = Environment.TickCount64;
+        _lastSource = source;
     }
 
-    private bool IsDuplicate(string code) =>
-        string.Equals(_lastCode, code, StringComparison.Ordinal)
+    /// <summary>2026-10-05, проверка перед выпуском 1.17.50: «эхо» — тот же код за 0,8 с, но ДРУГИМ путём (терминал
+    /// отдал его и рассылкой, и как клавиатура). Раньше отсекался любой повтор — и на ПК два одинаковых товара,
+    /// отсканированных USB-сканером быстрее 0,8 с, засчитывались как один. Повтор тем же путём — всегда новый скан.</summary>
+    private bool IsEcho(string code, ScanSource source) =>
+        source != ScanSource.Other
+        && _lastSource != ScanSource.Other
+        && _lastSource != source
+        && string.Equals(_lastCode, code, StringComparison.Ordinal)
         && Environment.TickCount64 - _lastCodeTick < DuplicateWindowMs;
 
     public void ProcessKeyDown(KeyEventArgs e)
@@ -90,9 +103,9 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
                 _barcodeBuf = "";
                 _fastRunLength = 0;
                 // 2026-10-05: тот же код только что пришёл рассылкой встроенного сканера — второй раз не добавляем.
-                if (IsDuplicate(code))
+                if (IsEcho(code, ScanSource.Keyboard))
                     return;
-                Remember(code);
+                Remember(code, ScanSource.Keyboard);
                 BarcodeScanned?.Invoke(code);
             }
             else

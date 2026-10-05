@@ -13,52 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Программа владельца: новый раздел «ИИ-советник» — чат с ИИ о вашем магазине. Видит выручку и прибыль из «Сводки», ABC-анализ, склад (цены, закупка, остатки) и долги клиентов, отвечает по вашим данным и не выдумывает цифр",
-        "ИИ-советник показывает список должников с именами и телефонами, но в интернет уходят только суммы под кодами — имена и телефоны подставляет сама программа на вашем компьютере",
-        "Изъятие из кассы больше наличных, чем в ней есть, запрещено; перед изъятием касса пишет, сколько останется",
-        "«Пополнить склад?»: после «Нет» вопрос больше не открывается снова и возвращается прежнее количество; оплата не начинается, пока вопрос открыт",
-        "Если кассу закрыли сразу после оплаты, оплаченные товары больше не возвращаются в чек",
-        "«Тех. поддержка»: кнопка «Скопировать информацию об устройстве» — сведения о компьютере и кассе в буфер обмена, чтобы отправить их в поддержку",
+        "Программа владельца: новый раздел «Воронка» — сделки по этапам, карточку можно перетащить мышью, у сделки источник клиента (Telegram, WhatsApp, Instagram, звонок…), переписка в WhatsApp и Instagram прямо из карточки",
+        "Раздел «WhatsApp» — WhatsApp Web прямо в программе владельца (вход по QR-коду один раз)",
+        "ИИ-советник: можно спрашивать голосом (кнопка микрофона), сам находит фото товаров по штрихкоду и ставит их на склад, предлагает акции на проблемные товары, включает и выключает функции бота после вашего «Применить»",
+        "«Сводка»: карточка «План продаж на месяц» — цель, сколько продано, сколько нужно продавать в день и успеваете ли",
+        "Голосовое управление кассой: фразу, которую касса не поняла, разбирает ИИ; можно спросить цену и остаток («касса, сколько стоит пепси»)",
+        "Подсказки «С этим часто берут» со всех касс собираются на сервере; ошибки программы автоматически уходят в поддержку (без паролей и токенов)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Ээсинин программасы: жаңы «ИИ-кеңешчи» бөлүмү — дүкөнүңүз жөнүндө ИИ менен маек. «Жыйынтыктагы» кирешени жана пайданы, ABC-анализди, кампаны (баалар, сатып алуу, калдыктар) жана кардарлардын карыздарын көрөт, маалыматыңыз боюнча жооп берет жана сандарды ойлоп чыгарбайт",
-        "ИИ-кеңешчи карызкорлордун тизмесин аттары жана телефондору менен көрсөтөт, бирок интернетке коддор астындагы суммалар гана кетет — аттарды жана телефондорду программа өзү компьютериңизде коёт",
-        "Кассада бар накталай акчадан көп алуу тыюу салынды; алуунун алдында касса канча калаарын жазат",
-        "«Кампаны толуктайсызбы?»: «Жок» дегенден кийин суроо кайра ачылбайт жана мурунку сан кайтат; суроо ачык турганда төлөм башталбайт",
-        "Кассаны төлөмдөн кийин дароо жапса, төлөнгөн товарлар чекке кайра кайтпайт",
-        "«Тех колдоо»: «Түзмөк жөнүндө маалыматты көчүрүү» баскычы — компьютер жана касса жөнүндө маалымат алмашуу буферине, колдоого жиберүү үчүн",
+        "Ээсинин программасы: жаңы «Воронка» бөлүмү — этаптар боюнча келишимдер, карточканы чычкан менен сүйрөөгө болот, кардардын булагы (Telegram, WhatsApp, Instagram, чалуу…), карточкадан эле WhatsApp жана Instagram аркылуу кат алышуу",
+        "«WhatsApp» бөлүмү — WhatsApp Web ээсинин программасынын ичинде (QR-код менен бир жолу кирүү)",
+        "ИИ-кеңешчи: үн менен суроого болот (микрофон баскычы), товарлардын сүрөтүн штрихкод боюнча өзү таап, кампага коёт, көйгөйлүү товарларга акция сунуштайт, боттун функцияларын «Колдонуу» дегенден кийин күйгүзүп-өчүрөт",
+        "«Жыйынтык»: «Айлык сатуу планы» карточкасы — максат, канча сатылды, күнүнө канча сатуу керек жана үлгүрүп жатасызбы",
+        "Кассаны үн менен башкаруу: касса түшүнбөгөн сөздү ИИ талдайт; бааны жана калдыкты сурасаңыз болот («касса, пепси канча турат»)",
+        "Бардык кассалардын «Муну менен көп алышат» кеңештери серверге чогулат; программанын каталары колдоого өзү кетет (сырсөз жана токенсиз)",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Owner program: new “AI advisor” section — chat with AI about your shop. It sees revenue and profit from the Overview, the ABC analysis, the warehouse (prices, cost, stock) and customer debts, answers from your data and never makes numbers up",
-        "The AI advisor lists debtors with names and phones, but only amounts under codes go online — the program fills in names and phones on your computer",
-        "Taking more cash out of the till than it holds is no longer allowed; before a cash-out the till shows what will remain",
-        "“Restock?”: after “No” the question no longer reopens and the previous quantity comes back; payment won't start while the question is open",
-        "If the till is closed right after payment, the paid items no longer come back into the receipt",
-        "“Support”: a “Copy device information” button — computer and till details to the clipboard to send to support",
+        "Owner program: new “Funnel” section — deals by stage, drag a card with the mouse, client source on each deal (Telegram, WhatsApp, Instagram, phone call…), chat on WhatsApp and Instagram right from the card",
+        "“WhatsApp” section — WhatsApp Web inside the owner program (sign in with a QR code once)",
+        "AI advisor: ask by voice (microphone button), it finds product photos by barcode and puts them on the warehouse cards, suggests promotions for problem products, turns bot features on and off after you press “Apply”",
+        "Overview: “Monthly sales plan” card — the target, how much is sold, how much to sell per day and whether you are on track",
+        "Voice control of the till: a phrase the till did not understand is parsed by AI; you can ask for a price and stock (“till, how much is Pepsi”)",
+        "“Often bought with” suggestions from all tills are collected on the server; program errors are sent to support automatically (without passwords or tokens)",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "İşletme sahibi programı: yeni «Yapay zekâ danışmanı» bölümü — mağazanız hakkında yapay zekâ ile sohbet. Özet'teki ciro ve kârı, ABC analizini, depoyu (fiyatlar, maliyet, stok) ve müşteri borçlarını görür, verilerinize göre yanıtlar ve rakam uydurmaz",
-        "Yapay zekâ danışmanı borçluları ad ve telefonlarıyla listeler, ancak internete yalnızca kodlu tutarlar gider — ad ve telefonları program bilgisayarınızda yerleştirir",
-        "Kasadaki nakitten fazla para çıkışı artık yasak; çıkıştan önce kasa ne kadar kalacağını gösterir",
-        "«Stok eklensin mi?»: «Hayır»dan sonra soru tekrar açılmaz ve önceki miktar geri gelir; soru açıkken ödeme başlamaz",
-        "Kasa ödemeden hemen sonra kapatılırsa ödenen ürünler artık fişe geri gelmez",
-        "«Destek»: «Cihaz bilgilerini kopyala» düğmesi — bilgisayar ve kasa bilgileri panoya, desteğe göndermek için",
+        "Sahip programı: yeni «Huni» bölümü — aşamalara göre anlaşmalar, kart fareyle sürüklenebilir, her anlaşmada müşteri kaynağı (Telegram, WhatsApp, Instagram, telefon…), karttan doğrudan WhatsApp ve Instagram yazışması",
+        "«WhatsApp» bölümü — WhatsApp Web sahip programının içinde (QR koduyla bir kez giriş)",
+        "Yapay zekâ danışmanı: sesle sorulabilir (mikrofon düğmesi), ürün fotoğraflarını barkoddan kendisi bulup depoya koyar, sorunlu ürünler için kampanya önerir, «Uygula» dedikten sonra bot özelliklerini açıp kapatır",
+        "Özet: «Aylık satış planı» kartı — hedef, ne kadar satıldı, günde ne kadar satmak gerektiği ve yetişip yetişmediğiniz",
+        "Kasayı sesle yönetme: kasanın anlamadığı cümleyi yapay zekâ çözer; fiyat ve stok sorulabilir («kasa, Pepsi ne kadar»)",
+        "Tüm kasaların «Bununla sık alınır» önerileri sunucuda toplanır; program hataları desteğe kendiliğinden gider (şifre ve token olmadan)",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Ega dasturi: yangi «SI maslahatchi» bo'limi — do'koningiz haqida SI bilan suhbat. «Umumiy ko'rinish»dagi tushum va foydani, ABC-tahlilni, omborni (narxlar, tannarx, qoldiqlar) va mijozlar qarzlarini ko'radi, ma'lumotlaringiz bo'yicha javob beradi va raqamlarni o'ylab topmaydi",
-        "SI maslahatchi qarzdorlar ro'yxatini ism va telefonlari bilan ko'rsatadi, lekin internetga faqat kodlangan summalar ketadi — ism va telefonlarni dastur kompyuteringizda o'zi qo'yadi",
-        "Kassadagi naqd puldan ko'p chiqim endi taqiqlangan; chiqimdan oldin kassa qancha qolishini yozadi",
-        "«Omborni to'ldirasizmi?»: «Yo'q»dan keyin savol qayta ochilmaydi va oldingi miqdor qaytadi; savol ochiq turganda to'lov boshlanmaydi",
-        "Kassa to'lovdan so'ng darhol yopilsa, to'langan mahsulotlar endi chekka qaytmaydi",
-        "«Texnik yordam»: «Qurilma ma'lumotlarini nusxalash» tugmasi — kompyuter va kassa haqidagi ma'lumotlar buferga, yordamga yuborish uchun",
+        "Ega dasturi: yangi «Voronka» bo'limi — bosqichlar bo'yicha bitimlar, kartani sichqoncha bilan sudrash mumkin, bitimda mijoz manbasi (Telegram, WhatsApp, Instagram, qo'ng'iroq…), kartadan to'g'ridan-to'g'ri WhatsApp va Instagram yozishmasi",
+        "«WhatsApp» bo'limi — WhatsApp Web ega dasturining ichida (QR-kod bilan bir marta kirish)",
+        "SI maslahatchi: ovoz bilan so'rash mumkin (mikrofon tugmasi), mahsulot rasmlarini shtrix-kod bo'yicha o'zi topib omborga qo'yadi, muammoli mahsulotlarga aksiya taklif qiladi, «Qo'llash»dan keyin bot funksiyalarini yoqib-o'chiradi",
+        "«Umumiy ko'rinish»: «Oylik savdo rejasi» kartasi — maqsad, qancha sotildi, kuniga qancha sotish kerak va ulgurayapsizmi",
+        "Kassani ovoz bilan boshqarish: kassa tushunmagan gapni SI tahlil qiladi; narx va qoldiqni so'rash mumkin («kassa, pepsi qancha turadi»)",
+        "Barcha kassalarning «Bu bilan ko'p olishadi» tavsiyalari serverda yig'iladi; dastur xatolari yordamga o'zi ketadi (parol va tokensiz)",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
