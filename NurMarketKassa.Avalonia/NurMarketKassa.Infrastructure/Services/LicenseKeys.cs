@@ -41,14 +41,32 @@ public static class LicenseKeys
         ["export"] = "NMK-XPORT-6B47-PERM",
     };
 
+    /// <summary>2026-10-05: репозиторий на GitHub открытый — ключи новых пакетов «Стандарта» для «Старта» (TariffGate.Packs)
+    /// в коде только отпечатком SHA-256 (ключ без пробелов, заглавными); сами ключи — в docs/paid-serial-keys.md.</summary>
+    private static readonly Dictionary<string, string> PermanentSerialHashes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ai"] = "8faa08d8e70368c4b426a1ba8d3e3afabe307ad35005f4eb48ea78d3f5012069",
+        ["clients"] = "fbbd7add840561266f06e1f3a0060deb36ba38fa1f2dcf85408dc3d5e1c7597b",
+        ["salesanalytics"] = "bc22b938a7b8c9e49b4be8a587d9d2854aba7c917348ec8fe6fff8d29c6de549",
+        ["restock"] = "8f7ea5dbad447548d1111a123db5c809e23d2208add522eb8044e1b364954cd0",
+        ["salary"] = "1a75ff79e9573554d15a42343db5669f0dd9c30658c3a1e03e7fda2a14b0d42b",
+        ["debts"] = "5f8c91ba0448055e7ea187075de9c1d3a54d0b7a38ad279d59ce7bd587eeb484",
+        ["service"] = "7b7dc9e71de45517f0f6190d7adcb5bc8c8aeae9d0054285dec2a42eda1f6f33",
+    };
+
+    private static string Sha256Hex(string text) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+
     public static bool IsMasterSerial(string? serial) =>
         string.Equals(serial?.Trim(), MasterTestSerial, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Постоянный ключ для конкретной фичи (slug — "voice"/"loyalty"/"timesheet"/
     /// "analytics"/"language"/"pricetag"/"bulktag"/"theme").</summary>
     public static bool IsPermanentSerial(string featureSlug, string? serial) =>
-        PermanentSerials.TryGetValue(featureSlug, out var real) &&
-        string.Equals(serial?.Trim(), real, StringComparison.OrdinalIgnoreCase);
+        (PermanentSerials.TryGetValue(featureSlug, out var real) &&
+         string.Equals(serial?.Trim(), real, StringComparison.OrdinalIgnoreCase))
+        || (PermanentSerialHashes.TryGetValue(featureSlug, out var hash) && !string.IsNullOrWhiteSpace(serial) &&
+            string.Equals(Sha256Hex(serial.Trim().ToUpperInvariant()), hash, StringComparison.Ordinal));
 
     /// <summary>Мастер-ключ принят для этой фичи — включает её на 15 минут. Флаг фичи
     /// (UserPreferences.XxxUnlocked) выставляет вызывающий код, как и раньше — этот метод только
@@ -111,6 +129,7 @@ public static class LicenseKeys
         prefs.MasterUnlockedThemeIds.Clear();
         prefs.MasterAccessExpiresAtUtc = null;
         prefs.SaveToDisk();
+        TariffGate.RaisePacksChanged();
     }
 
     private static void RevertFeatureFlag(UserPreferences prefs, string slug)
@@ -129,6 +148,8 @@ public static class LicenseKeys
             case "telegram": prefs.TelegramBotUnlocked = false; break;
             case "shiftstats": prefs.ShiftAnalyticsUnlocked = false; break;
             case "export": prefs.AnalyticsExportUnlocked = false; break;
+            // 2026-10-05: пакеты «Стандарта» на «Старте» (TariffGate.Packs).
+            default: prefs.UnlockedPacks.RemoveAll(p => string.Equals(p, slug, StringComparison.OrdinalIgnoreCase)); break;
         }
     }
 }

@@ -85,7 +85,9 @@ public static class TestReceiptLineBuilder
             lines.Add(sep);
         }
 
-        lines.Add(ReceiptLineLayout.PadLine("Кириллица: АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ", w));
+        // 2026-10-05: при 42 символах (XP-80) строка обрезалась до «Кириллица:» и алфавит пропадал — переносим.
+        lines.Add(ReceiptLineLayout.PadLine("Кириллица:", w));
+        lines.Add(ReceiptLineLayout.PadLine("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ", w));
         lines.Add(ReceiptLineLayout.PadLine("Кыргызча: Салам дүйнө!", w));
         lines.Add(sep);
 

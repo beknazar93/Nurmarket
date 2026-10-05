@@ -320,17 +320,18 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
                 $"Vitrina ishlayapti · vitrinadagi mahsulotlar: {count}")
             : Tr.T("Витрина работает", "Витрина иштеп жатат", "The showcase is live", "Vitrin yayında", "Vitrina ishlayapti");
 
+        // 2026-10-05: NurCRM хранит заказы витрины (с сайта и из Telegram-бота) — они в списке ниже.
         var how = phone.Length > 0
-            ? Tr.T($"Покупатель собирает корзину на витрине и нажимает «Оформить заказ» — сайт NurCRM открывает WhatsApp с текстом заказа на номер {phone}. На сервер NurCRM такой заказ сейчас не записывается, поэтому в списке ниже его нет: отвечайте покупателю в WhatsApp. Ниже — заказы, сохранённые в NurCRM (на сайте — раздел «Закупки»).",
-                $"Кардар витринада себет түзүп, «Оформить заказ» («Заказ берүү») баскычын басат — NurCRM сайты заказдын тексти менен WhatsApp'ты {phone} номерине ачат. Азыр мындай заказ NurCRM серверине жазылбайт, ошондуктан төмөнкү тизмеде жок: кардарга WhatsApp'та жооп бериңиз. Төмөндө — NurCRMде сакталган заказдар (сайтта — «Сатып алуулар» бөлүмү).",
-                $"A customer fills a cart on the showcase and taps “Оформить заказ” (Place order) — the NurCRM site opens WhatsApp with the order text to {phone}. Such orders are not saved on the NurCRM server yet, so they are not in the list below: reply to the customer in WhatsApp. Below are the orders stored in NurCRM (the “Purchases” section on the website).",
-                $"Müşteri vitrinde sepetini doldurur ve «Оформить заказ» (Sipariş ver) düğmesine basar — NurCRM sitesi sipariş metniyle WhatsApp'ı {phone} numarasına açar. Bu tür siparişler henüz NurCRM sunucusuna kaydedilmiyor, bu yüzden aşağıdaki listede yok: müşteriye WhatsApp'tan yanıt verin. Aşağıda NurCRM'de kayıtlı siparişler var (sitede «Satın almalar» bölümü).",
-                $"Xaridor vitrinada savatni to'ldirib, «Оформить заказ» (Buyurtma berish) tugmasini bosadi — NurCRM sayti buyurtma matni bilan WhatsApp'ni {phone} raqamiga ochadi. Hozircha bunday buyurtma NurCRM serveriga yozilmaydi, shuning uchun quyidagi ro'yxatda yo'q: xaridorga WhatsApp'da javob bering. Quyida — NurCRMda saqlangan buyurtmalar (saytda — «Xaridlar» bo'limi).")
-            : Tr.T("Номер WhatsApp для заказов не задан — кнопка заказа на витрине не работает. Задайте номер в «Настройки сайта». Ниже — заказы, сохранённые в NurCRM (на сайте — раздел «Закупки»).",
-                "Заказдар үчүн WhatsApp номери коюлган эмес — витринадагы заказ баскычы иштебейт. Номерди «Сайттын жөндөөлөрү» бөлүмүндө коюңуз. Төмөндө — NurCRMде сакталган заказдар (сайтта — «Сатып алуулар» бөлүмү).",
-                "No WhatsApp number for orders is set — the order button on the showcase doesn't work. Set the number in “Website settings”. Below are the orders stored in NurCRM (the “Purchases” section on the website).",
-                "Siparişler için WhatsApp numarası belirlenmemiş — vitrindeki sipariş düğmesi çalışmıyor. Numarayı «Web sitesi ayarları»nda belirleyin. Aşağıda NurCRM'de kayıtlı siparişler var (sitede «Satın almalar» bölümü).",
-                "Buyurtmalar uchun WhatsApp raqami kiritilmagan — vitrinadagi buyurtma tugmasi ishlamaydi. Raqamni «Sayt sozlamalari»da kiriting. Quyida — NurCRMda saqlangan buyurtmalar (saytda — «Xaridlar» bo'limi).");
+            ? Tr.T($"Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже; номер WhatsApp для связи с покупателями — {phone}. Под заказ товар сразу резервируется: «Отменить» вернёт его на остаток.",
+                $"Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат; кардарлар менен байланыш үчүн WhatsApp номери — {phone}. Заказ үчүн товар дароо резервделет: «Жокко чыгаруу» аны калдыкка кайтарат.",
+                $"Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below; the WhatsApp number for customers is {phone}. Stock is reserved for an order right away: “Cancel” returns it to stock.",
+                $"Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür; müşteriler için WhatsApp numarası — {phone}. Sipariş için stok hemen ayrılır: «İptal» onu stoğa geri verir.",
+                $"Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi; xaridorlar bilan aloqa uchun WhatsApp raqami — {phone}. Buyurtma uchun mahsulot darhol band qilinadi: «Bekor qilish» uni qoldiqqa qaytaradi.")
+            : Tr.T("Заказы с сайта и из Telegram-бота сохраняются на сервере NurCRM и появляются в списке ниже. Номер WhatsApp для связи с покупателями не задан — задайте его в «Настройки сайта».",
+                "Сайттан жана Telegram-боттон келген заказдар NurCRM серверинде сакталып, төмөнкү тизмеде чыгат. Кардарлар менен байланыш үчүн WhatsApp номери коюлган эмес — аны «Сайттын жөндөөлөрү» бөлүмүндө коюңуз.",
+                "Orders from the website and the Telegram bot are saved on the NurCRM server and appear in the list below. No WhatsApp number for customers is set — set it in “Website settings”.",
+                "Web sitesinden ve Telegram botundan gelen siparişler NurCRM sunucusunda saklanır ve aşağıdaki listede görünür. Müşteriler için WhatsApp numarası belirlenmemiş — «Web sitesi ayarları»nda belirleyin.",
+                "Saytdan va Telegram-botdan kelgan buyurtmalar NurCRM serverida saqlanadi va quyidagi ro'yxatda chiqadi. Xaridorlar bilan aloqa uchun WhatsApp raqami kiritilmagan — uni «Sayt sozlamalari»da kiriting.");
         var phoneCheck = ShowcaseApiService.CheckShowcasePhone(phone);
         if (phone.Length > 0 && (phoneCheck.Warning ?? phoneCheck.Error) is { } problem)
         {
@@ -346,8 +347,8 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     {
         var all = _orders.Count;
         var n = _orders.Count(o => o.Status == ShowcaseApiService.StatusNew);
-        var p = _orders.Count(o => o.Status == ShowcaseApiService.StatusPending);
-        var c = _orders.Count(o => o.Status == ShowcaseApiService.StatusCompleted);
+        var p = _orders.Count(o => ShowcaseApiService.IsInProgress(o.Status));
+        var c = _orders.Count(o => ShowcaseApiService.IsFinished(o.Status));
         FilterAllButton.Content = Tr.T("Все", "Баары", "All", "Tümü", "Barchasi") + $" · {all}";
         FilterNewButton.Content = Tr.T("Новые", "Жаңылар", "New", "Yeni", "Yangi") + $" · {n}";
         FilterPendingButton.Content = Tr.T("В процессе", "Иштелүүдө", "In progress", "İşlemde", "Jarayonda") + $" · {p}";
@@ -357,7 +358,13 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     }
 
     private IEnumerable<SiteOrder> Filtered() =>
-        _filter == "all" ? _orders : _orders.Where(o => o.Status == _filter);
+        _filter switch
+        {
+            "all" => _orders,
+            ShowcaseApiService.StatusPending => _orders.Where(o => ShowcaseApiService.IsInProgress(o.Status)),
+            ShowcaseApiService.StatusCompleted => _orders.Where(o => ShowcaseApiService.IsFinished(o.Status)),
+            _ => _orders.Where(o => o.Status == _filter),
+        };
 
     private void RenderList()
     {
@@ -535,12 +542,18 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         DetailPanel.Children.Add(actions);
         DetailPanel.Children.Add(new TextBlock
         {
-            Text = Tr.T("В NurCRM у заказа три статуса: «Новый», «В процессе», «Завершён» — отдельной отмены нет.",
-                "NurCRMде заказдын үч статусу бар: «Жаңы», «Иштелүүдө», «Аякталды» — өзүнчө жокко чыгаруу жок.",
-                "Orders in NurCRM have three statuses: “New”, “In progress”, “Completed” — there is no separate cancel.",
-                "NurCRM'de siparişin üç durumu vardır: «Yeni», «İşlemde», «Tamamlandı» — ayrı bir iptal yoktur.",
-                "NurCRMda buyurtmaning uchta holati bor: «Yangi», «Jarayonda», «Yakunlangan» — alohida bekor qilish yo'q."),
+            // 2026-10-05: заказ витрины — правила резерва остатка (PATCH showcase/orders/).
+            Text = order.StockReserved
+                ? Tr.T("Товар зарезервирован под заказ (снят с остатка). «Выдан» — списание окончательное, «Отменить» — товар вернётся на остаток. Выданный или отменённый заказ изменить нельзя.",
+                    "Товар заказ үчүн резервделди (калдыктан алынды). «Берилди» — акыркы чегерүү, «Жокко чыгаруу» — товар калдыкка кайтат. Берилген же жокко чыгарылган заказды өзгөртүүгө болбойт.",
+                    "Stock is reserved for the order (taken off stock). “Handed over” makes it final, “Cancel” returns it to stock. A handed-over or canceled order can't be changed.",
+                    "Ürün sipariş için ayrıldı (stoktan düşüldü). «Teslim edildi» kesinleştirir, «İptal» stoğa geri verir. Teslim edilen veya iptal edilen sipariş değiştirilemez.",
+                    "Mahsulot buyurtma uchun band qilindi (qoldiqdan olindi). «Berildi» — yakuniy hisobdan chiqarish, «Bekor qilish» — mahsulot qoldiqqa qaytadi. Berilgan yoki bekor qilingan buyurtmani o'zgartirib bo'lmaydi.")
+                : Tr.T("Выданный или отменённый заказ изменить нельзя.", "Берилген же жокко чыгарылган заказды өзгөртүүгө болбойт.",
+                    "A handed-over or canceled order can't be changed.", "Teslim edilen veya iptal edilen sipariş değiştirilemez.",
+                    "Berilgan yoki bekor qilingan buyurtmani o'zgartirib bo'lmaydi."),
             Classes = { "soft" },
+            TextWrapping = TextWrapping.Wrap,
         });
 
         _ = LoadProductNamesAsync(order);
@@ -642,11 +655,27 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     {
         var accept = Tr.T("Принять в работу", "Ишке алуу", "Accept", "İşleme al", "Ishga qabul qilish");
         var complete = Tr.T("Завершить", "Аяктоо", "Complete", "Tamamla", "Yakunlash");
+        // 2026-10-05: заказы витрины — new → accepted → ready → done, или canceled (вернуть статус назад сервер не даёт).
+        var ready = Tr.T("Готов к выдаче", "Берүүгө даяр", "Ready for pickup", "Teslime hazır", "Berishga tayyor");
+        var done = Tr.T("Выдан покупателю", "Кардарга берилди", "Handed over", "Müşteriye teslim edildi", "Xaridorga berildi");
+        var cancel = Tr.T("Отменить заказ", "Заказды жокко чыгаруу", "Cancel order", "Siparişi iptal et", "Buyurtmani bekor qilish");
         switch (status)
         {
             case ShowcaseApiService.StatusNew:
-                yield return (accept, ShowcaseApiService.StatusPending, true);
-                yield return (complete, ShowcaseApiService.StatusCompleted, false);
+                yield return (accept, ShowcaseApiService.StatusAccepted, true);
+                yield return (cancel, ShowcaseApiService.StatusCanceled, false);
+                break;
+            case ShowcaseApiService.StatusAccepted:
+                yield return (ready, ShowcaseApiService.StatusReady, true);
+                yield return (done, ShowcaseApiService.StatusDone, false);
+                yield return (cancel, ShowcaseApiService.StatusCanceled, false);
+                break;
+            case ShowcaseApiService.StatusReady:
+                yield return (done, ShowcaseApiService.StatusDone, true);
+                yield return (cancel, ShowcaseApiService.StatusCanceled, false);
+                break;
+            case ShowcaseApiService.StatusDone:
+            case ShowcaseApiService.StatusCanceled:
                 break;
             case ShowcaseApiService.StatusPending:
                 yield return (complete, ShowcaseApiService.StatusCompleted, true);
@@ -656,9 +685,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
                 yield return (Tr.T("Вернуть в работу", "Ишке кайтаруу", "Back to in progress", "İşleme geri al", "Ishga qaytarish"), ShowcaseApiService.StatusPending, false);
                 break;
             default:
-                // Статус, которого нет в схеме сервера, — даём только «Принять» и «Завершить».
-                yield return (accept, ShowcaseApiService.StatusPending, true);
-                yield return (complete, ShowcaseApiService.StatusCompleted, false);
+                // Статус, которого нет в схеме сервера, — «Принять» и «Отменить».
+                yield return (accept, ShowcaseApiService.StatusAccepted, true);
+                yield return (cancel, ShowcaseApiService.StatusCanceled, false);
                 break;
         }
     }
@@ -892,6 +921,10 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         ShowcaseApiService.StatusNew => Tr.T("Новый", "Жаңы", "New", "Yeni", "Yangi"),
         ShowcaseApiService.StatusPending => Tr.T("В процессе", "Иштелүүдө", "In progress", "İşlemde", "Jarayonda"),
         ShowcaseApiService.StatusCompleted => Tr.T("Завершён", "Аякталды", "Completed", "Tamamlandı", "Yakunlangan"),
+        ShowcaseApiService.StatusAccepted => Tr.T("Принят", "Кабыл алынды", "Accepted", "Kabul edildi", "Qabul qilindi"),
+        ShowcaseApiService.StatusReady => Tr.T("Готов к выдаче", "Берүүгө даяр", "Ready", "Hazır", "Tayyor"),
+        ShowcaseApiService.StatusDone => Tr.T("Выдан", "Берилди", "Handed over", "Teslim edildi", "Berildi"),
+        ShowcaseApiService.StatusCanceled => Tr.T("Отменён", "Жокко чыгарылды", "Canceled", "İptal edildi", "Bekor qilindi"),
         "" => "—",
         var other => other,
     };
@@ -902,6 +935,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         ShowcaseApiService.StatusNew => Pill(StatusLabel(status), "BrushAccentSoft", "BrushText"),
         ShowcaseApiService.StatusPending => Pill(StatusLabel(status), "BrushWarningSoft", "BrushWarning"),
         ShowcaseApiService.StatusCompleted => Pill(StatusLabel(status), "BrushSuccessSoft", "BrushSuccess"),
+        ShowcaseApiService.StatusAccepted or ShowcaseApiService.StatusReady => Pill(StatusLabel(status), "BrushWarningSoft", "BrushWarning"),
+        ShowcaseApiService.StatusDone => Pill(StatusLabel(status), "BrushSuccessSoft", "BrushSuccess"),
+        ShowcaseApiService.StatusCanceled => Pill(StatusLabel(status), "BrushDangerSoft", "BrushDanger"),
         _ => Pill(StatusLabel(status), "BrushInputAlt", "BrushTextSoft"),
     };
 

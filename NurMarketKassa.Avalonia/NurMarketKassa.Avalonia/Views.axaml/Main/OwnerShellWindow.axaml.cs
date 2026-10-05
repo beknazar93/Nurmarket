@@ -167,6 +167,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
         // 2026-10-04, редизайн под Android-телефон: меню по «≡», без кнопок окна (OwnerShellWindow.Phone.cs).
         AttachPhoneLayout();
+        // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
+        TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(BuildNavigation);
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
@@ -381,7 +383,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         LowStockTitle.Text = Tr.T("Заканчивается на складе", "Кампада түгөнүп баратат", "Running low in stock", "Stokta azalanlar", "Omborda tugayapti");
         LowStockLinkText.Text = Tr.T("Пополнение", "Толуктоо", "Restock", "Stok yenileme", "To'ldirish");
         LowStockEmptyText.Text = Tr.T("Всего хватает — остатки в норме", "Баары жетиштүү — калдыктар нормада", "Everything is in stock", "Her şey stokta", "Hammasi yetarli — qoldiqlar me'yorida");
-        LowStockLink.IsVisible = !TariffGate.IsStartTariff;
+        LowStockLink.IsVisible = TariffGate.CanUseRestock;
         AbcTitle.Text = Tr.T("ABC-анализ по всем срезам", "Бардык кесилиштер боюнча ABC-анализ", "ABC analysis — all views", "Tüm kırılımlarda ABC analizi", "Barcha kesimlar bo'yicha ABC tahlili");
         AbcHint.Text = Tr.T(
             "За выбранный период: выручка, прибыль, количество, категории и бренды; склад по стоимости остатка — на сейчас. Нажмите на столбец, чтобы посмотреть разбор товара.",
@@ -413,7 +415,6 @@ public partial class OwnerShellWindow : Window, IMainShell
         _navButtons.Clear();
         _siteOrdersBadge = null;
         _rentalsBadge = null;
-        var isStart = TariffGate.IsStartTariff;
         var pendingGroup = (string?)null;
 
         // 2026-10-04: на телефоне меню открывается на весь экран — всегда с подписями (OwnerShellWindow.Phone.cs).
@@ -503,7 +504,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => ShowSection(null));
         // 2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
         // специальную вкладку». Видит выручку и лучшие товары — права как у «Аналитики».
-        Add("aiadvisor", "AiAdvisorIcon", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), true,
+        // 2026-10-05, владелец: «строго соблюдай разделение тарифов» — ИИ только на «Стандарте» (TariffGate.CanUseAi).
+        Add("aiadvisor", "AiAdvisorIcon", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), TariffGate.CanUseAi,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("aiadvisor", () => new AiAdvisorWindow()); });
 
         Group(Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
@@ -514,26 +516,27 @@ public partial class OwnerShellWindow : Window, IMainShell
         // Заказы с сайта — «Заказы». Раньше Склад — по «Закупкам», остальное открывалось всем.
         Add("calculator", "CalculatorIcon", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya"), true,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
-        Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), !isStart,
+        Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
 
         Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuvlar va pul"));
-        Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), !isStart,
+        Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
-        Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), !isStart,
+        Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()); });
         // Вся аналитика, кроме ABC (2026-09-27): выручка и оплаты, товары, сезонность, склад. Это
         // окно «Финансов» в режиме аналитики (FinanceWindow.AsAnalyticsSection); из самих
         // «Финансов», «Продаж» и «Склада» эти вкладки убраны. Права и тариф — как у «ABC-анализа».
-        Add("analytics", "AnalyticsIcon", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika"), !isStart,
+        Add("analytics", "AnalyticsIcon", Tr.T("Аналитика", "Талдоо", "Analytics", "Analiz", "Analitika"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("analytics", () => App.GetRequiredService<FinanceWindow>().AsAnalyticsSection()); });
-        Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), !isStart,
+        Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
         // 2026-10-01, ТЗ-BE-2026-04 (AN-11, AN-12 сделаны сервером): прибыль (P&L), движение денег и сверка отчётов.
-        Add("profitcash", "FinanceIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), !isStart,
+        Add("profitcash", "FinanceIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("profitcash", () => new ProfitCashReconcileWindow()); });
         // 2026-10-03, владелец: «если в убыток продаёт со скидкой — фиксировать в админке».
-        Add("losssales", "ReturnIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), true,
+        // 2026-10-05: аналитика — как «Аналитика» и «ABC», не на «Старте».
+        Add("losssales", "ReturnIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("losssales", () => new LossSalesWindow()); });
 
         // 2026-09-29, владелец: «заказы с сайта тоже должны падать в админку. Настройки сайта тоже».
@@ -549,23 +552,25 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
         // 2026-10-01, владелец: «в админке где аналитика по боту — обращения, клиенты, заказы?»
-        Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), true,
+        // 2026-10-05: бот на «Старте» — только если куплен в Маркетплейсе (TariffGate.CanUseTelegramBot).
+        Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), TariffGate.CanUseTelegramBot,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
         // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
         // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
         Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
             MarketSpheres.IsClothing || MarketSpheres.IsServices,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
-        Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), !isStart,
+        Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), TariffGate.CanUseSalary,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
 
         Group(Tr.T("Сервис", "Кызмат", "Tools", "Araçlar", "Xizmat"));
-        Add("crm", "CrmIcon", "NurCRM", !isStart,
+        Add("crm", "CrmIcon", "NurCRM", TariffGate.CanUseService,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         // 2026-10-05, владелец: «к десктопу добавь воронку и WhatsApp Web». WhatsApp Web — встроенный браузер
         // (только Windows: WebView2); на Android откроется приложение WhatsApp.
-        Add("whatsapp", "WhatsAppIcon", "WhatsApp", true, OpenWhatsApp);
-        Add("funnel", "FunnelIcon", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), true,
+        // 2026-10-05: воронка и WhatsApp — работа с клиентами, как раздел «Клиенты»: не на «Старте».
+        Add("whatsapp", "WhatsAppIcon", "WhatsApp", TariffGate.CanViewClients, OpenWhatsApp);
+        Add("funnel", "FunnelIcon", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("funnel", () => new FunnelWindow()); });
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
@@ -573,11 +578,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 
         Group(Tr.T("Помощь", "Жардам", "Help", "Yardım", "Yordam"));
-        Add("kb", "KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), !isStart,
+        Add("kb", "KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), TariffGate.CanUseService,
             () => OpenSection("kb", () => App.GetRequiredService<KnowledgeBaseWindow>()));
-        Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam"), !isStart,
+        Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam"), TariffGate.CanUseService,
             () => OpenSection("support", () => App.GetRequiredService<RemoteSupportWindow>()));
-        Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), !isStart,
+        Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), TariffGate.CanUseService,
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
 
         // Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).
@@ -1737,7 +1742,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void LowStockLink_Click(object? sender, RoutedEventArgs e)
     {
-        if (!TariffGate.IsStartTariff)
+        if (TariffGate.CanUseRestock)
             OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>());
     }
 
@@ -2050,7 +2055,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void AbcOpen_Click(object? sender, RoutedEventArgs e)
     {
-        if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewAnalytics))
+        if (TariffGate.CanUseSalesAnalytics && Authorize(PosPermissions.ViewAnalytics))
             OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>());
     }
 
@@ -2229,7 +2234,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// по-старому, вкладкой склада.</summary>
     public bool OpenAnalyticsStock()
     {
-        if (TariffGate.IsStartTariff)
+        if (!TariffGate.CanUseSalesAnalytics)
             return false;
         if (Authorize(PosPermissions.ViewAnalytics))
         {
@@ -2266,7 +2271,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         get
         {
-            if (TariffGate.IsStartTariff)
+            if (!TariffGate.CanUseSalesAnalytics)
                 return false;
             try
             {
@@ -2395,7 +2400,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void AllSales_Click(object? sender, RoutedEventArgs e)
     {
-        if (!TariffGate.IsStartTariff && Authorize(PosPermissions.ViewSales))
+        if (TariffGate.CanUseSalesAnalytics && Authorize(PosPermissions.ViewSales))
             OpenSection("sales", () => App.GetRequiredService<SalesWindow>());
     }
 

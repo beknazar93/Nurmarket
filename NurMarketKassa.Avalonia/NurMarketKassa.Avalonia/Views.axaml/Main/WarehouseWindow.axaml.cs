@@ -78,7 +78,7 @@ public partial class WarehouseWindow : Window, IOwnerSection
         // В программе владельца аналитика склада живёт в разделе «Аналитика» (вкладка «Склад»). На
         // тарифе «Старт» этого раздела нет (как и «ABC-анализа») — там купленная аналитика остаётся
         // вкладкой склада, иначе её было бы негде открыть.
-        AnalyticsTabItem.IsVisible = (!_isOwnerSection || TariffGate.IsStartTariff)
+        AnalyticsTabItem.IsVisible = (!_isOwnerSection || !TariffGate.CanUseSalesAnalytics)
                                      && UserPreferences.Instance.WarehouseAnalyticsUnlocked;
         BulkPriceTagButton.IsVisible = UserPreferences.Instance.BulkPriceTagUnlocked;
     }
@@ -1401,7 +1401,7 @@ public partial class WarehouseWindow : Window, IOwnerSection
     /// (она сама ушла в раздел «Аналитика»). Как и раздел «ABC-анализ», на тарифе «Старт» её нет.</summary>
     private void AddOwnerAbcTab()
     {
-        if (TariffGate.IsStartTariff)
+        if (!TariffGate.CanUseSalesAnalytics)
             return;
 
         _stockAbc = new AbcSectionView

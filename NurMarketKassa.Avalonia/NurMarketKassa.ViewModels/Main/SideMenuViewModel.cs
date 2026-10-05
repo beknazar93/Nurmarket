@@ -303,25 +303,27 @@ public sealed class SideMenuViewModel : ViewModelBase
     public void RefreshEntitlements()
     {
         OnPropertyChanged(nameof(ShowRental));
-        var isStart = NurMarketKassa.Services.TariffGate.IsStartTariff;
         // 2026-09-26, разделение программ: склад, продажи, финансы, зарплата, ABC, клиенты, CRM и
         // пополнение — в программе владельца. В кассе они остаются только в автономном режиме
         // (см. AppMode.OwnerSectionsInKassa).
         var owner = NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
         OnPropertyChanged(nameof(CanViewWarehouse));
         CanViewStaffTimesheet = NurMarketKassa.Services.UserPreferences.Instance.StaffTimesheetUnlocked;
-        CanViewReturn = (_permissions?.HasPermission(PosPermissions.EmployeeReturn) ?? true) && !isStart;
-        CanViewDeferredReceipts = !isStart;
-        CanViewRestock = !isStart && owner;
-        CanViewFinance = (_permissions?.HasPermission(PosPermissions.ViewAnalytics) ?? true) && !isStart && owner;
-        CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && !isStart && owner;
-        CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart && owner;
+        // 2026-10-05, владелец: «невозможно оформить возврат в тарифе Старт, а на сайте для Старта есть» —
+        // возврат на любом тарифе, нужно только право сотрудника.
+        CanViewReturn = _permissions?.HasPermission(PosPermissions.EmployeeReturn) ?? true;
+        // 2026-10-05, владелец: на «Старте» функции «Стандарта» подключаются пакетами (TariffGate.Packs).
+        CanViewDeferredReceipts = NurMarketKassa.Services.TariffGate.CanUseDebts;
+        CanViewRestock = NurMarketKassa.Services.TariffGate.CanUseRestock && owner;
+        CanViewFinance = (_permissions?.HasPermission(PosPermissions.ViewAnalytics) ?? true) && NurMarketKassa.Services.TariffGate.CanUseSalesAnalytics && owner;
+        CanViewSalary = (_permissions?.HasPermission(PosPermissions.ViewSettings) ?? true) && NurMarketKassa.Services.TariffGate.CanUseSalary && owner;
+        CanViewSales = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanUseSalesAnalytics && owner;
         CanViewClients = (_permissions?.HasPermission(PosPermissions.ViewClients) ?? true) && NurMarketKassa.Services.TariffGate.CanViewClients && owner;
-        CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && !isStart;
-        CanViewCrm = !isStart && owner;
-        CanViewErrorLogs = !isStart;
-        CanViewRemoteSupport = !isStart;
-        CanViewKnowledgeBase = !isStart;
+        CanViewPayDebt = (_permissions?.HasPermission(PosPermissions.ViewSales) ?? true) && NurMarketKassa.Services.TariffGate.CanUseDebts;
+        CanViewCrm = NurMarketKassa.Services.TariffGate.CanUseService && owner;
+        CanViewErrorLogs = NurMarketKassa.Services.TariffGate.CanUseService;
+        CanViewRemoteSupport = NurMarketKassa.Services.TariffGate.CanUseService;
+        CanViewKnowledgeBase = NurMarketKassa.Services.TariffGate.CanUseService;
         CanViewMarketplace = _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
     }
 

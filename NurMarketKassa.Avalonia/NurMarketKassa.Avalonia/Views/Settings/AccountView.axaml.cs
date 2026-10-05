@@ -161,6 +161,115 @@ public partial class AccountView : UserControl
 
         RenderExpiry(company.StartDate, company.EndDate);
         RenderServices(company);
+        RenderPlanCompare(company.SubscriptionPlanName);
+    }
+
+    /// <summary>2026-10-05, владелец: «добавь в тарифе Старт описание Стандарта и сравнение в аккаунте». Строки — те же
+    /// ограничения, что в программе (TariffGate, меню кассы и программы владельца).</summary>
+    private void RenderPlanCompare(string? planName)
+    {
+        var isStart = string.Equals(planName?.Trim(), TariffGate.StartPlanName, StringComparison.OrdinalIgnoreCase);
+        PlanCompareCard.IsVisible = isStart;
+        PlanCompareHost.Children.Clear();
+        if (!isStart)
+            return;
+
+        var text = ThemeBrush("BrushText", Brushes.Black);
+        var soft = ThemeBrush("BrushTextSoft", Brushes.Gray);
+        var ok = ThemeBrush("BrushSuccess", Brushes.Green);
+        PlanCompareHost.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Тариф «Стандарт» — всё для управления магазином", "«Стандарт» тарифи — дүкөндү башкаруу үчүн баары",
+                "The “Standard” plan — everything to run the shop", "«Standart» tarifesi — mağazayı yönetmek için her şey", "«Standart» tarifi — do'konni boshqarish uchun hammasi"),
+            FontSize = 15, FontWeight = FontWeight.SemiBold, Foreground = text, TextWrapping = TextWrapping.Wrap,
+        });
+        PlanCompareHost.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Сейчас у вас «Старт»: касса — продажи, чеки, возвраты, склад, печать. «Стандарт» добавляет клиентов, аналитику, финансы, "
+                        + "зарплату, ИИ-советника и Telegram-бота — чтобы видеть, где магазин зарабатывает и где теряет.",
+                "Азыр сизде «Старт»: касса — сатуу, чектер, кайтаруу, кампа, басып чыгаруу. «Стандарт» кардарларды, аналитиканы, каржыны, "
+                + "эмгек акыны, ИИ-кеңешчини жана Telegram-ботту кошот — дүкөн кайда тапканын жана кайда жоготконун көрүү үчүн.",
+                "You are on “Start”: the till — sales, receipts, returns, warehouse, printing. “Standard” adds customers, analytics, finance, "
+                + "salaries, the AI advisor and the Telegram bot — to see where the shop earns and where it loses.",
+                "Şu an «Start» tarifesindesiniz: kasa — satış, fişler, iadeler, depo, yazdırma. «Standart» müşterileri, analizleri, finansı, "
+                + "maaşları, yapay zekâ danışmanını ve Telegram botunu ekler — mağazanın nerede kazandığını ve nerede kaybettiğini görmek için.",
+                "Hozir sizda «Start»: kassa — sotuv, cheklar, qaytarish, ombor, chop etish. «Standart» mijozlar, analitika, moliya, "
+                + "ish haqi, SI maslahatchi va Telegram-botni qo'shadi — do'kon qayerda topayotganini va qayerda yo'qotayotganini ko'rish uchun."),
+            FontSize = 13, Foreground = soft, TextWrapping = TextWrapping.Wrap,
+        });
+
+        var paid = Tr.T($"+{TariffGate.PackMonthlyFee} сом/мес", $"+{TariffGate.PackMonthlyFee} сом/ай", $"+{TariffGate.PackMonthlyFee} som/mo",
+            $"+{TariffGate.PackMonthlyFee} som/ay", $"+{TariffGate.PackMonthlyFee} so'm/oy");
+        var rows = new (string Feature, string Start, string Standard)[]
+        {
+            (Tr.T("Продажи, чеки, возвраты, печать", "Сатуу, чектер, кайтаруу, басып чыгаруу", "Sales, receipts, returns, printing", "Satış, fişler, iadeler, yazdırma", "Sotuv, cheklar, qaytarish, chop etish"), "✓", "✓"),
+            (Tr.T("Склад, товары, калькуляция", "Кампа, товарлар, калькуляция", "Warehouse, products, pricing", "Depo, ürünler, hesaplama", "Ombor, mahsulotlar, kalkulyatsiya"), "✓", "✓"),
+            (Tr.T("Весы на кассе, дисплей покупателя", "Кассадагы тараза, сатып алуучунун дисплейи", "Scales at the till, customer display", "Kasadaki terazi, müşteri ekranı", "Kassadagi tarozi, xaridor displeyi"), "✓", "✓"),
+            (Tr.T("Отложенные чеки, оплата долгов", "Кийинкиге калтырылган чектер, карыз төлөө", "Parked receipts, debt payments", "Bekletilen fişler, borç ödemeleri", "Kechiktirilgan cheklar, qarz to'lovi"), paid, "✓"),
+            (Tr.T("Клиенты, воронка продаж, WhatsApp", "Кардарлар, сатуу воронкасы, WhatsApp", "Customers, sales funnel, WhatsApp", "Müşteriler, satış hunisi, WhatsApp", "Mijozlar, savdo voronkasi, WhatsApp"), paid, "✓"),
+            (Tr.T("Продажи, финансы, аналитика, ABC, прибыль, продажи в убыток, план продаж", "Сатуулар, каржы, аналитика, ABC, пайда, зыян менен сатуулар, сатуу планы",
+                "Sales, finance, analytics, ABC, profit, sales at a loss, sales plan", "Satışlar, finans, analiz, ABC, kâr, zararına satışlar, satış planı",
+                "Sotuvlar, moliya, analitika, ABC, foyda, zarariga sotuvlar, sotuv rejasi"), paid, "✓"),
+            (Tr.T("Пополнение и сроки годности", "Толуктоо жана жарактуулук мөөнөттөрү", "Restock and expiry dates", "Stok yenileme ve son kullanma tarihleri", "To'ldirish va yaroqlilik muddatlari"), paid, "✓"),
+            (Tr.T("Зарплата сотрудников", "Кызматкерлердин эмгек акысы", "Staff salaries", "Personel maaşları", "Xodimlar ish haqi"), paid, "✓"),
+            (Tr.T("ИИ-советник, ИИ в боте и голосовом управлении", "ИИ-кеңешчи, боттогу жана үн менен башкаруудагы ИИ", "AI advisor, AI in the bot and voice control",
+                "Yapay zekâ danışmanı, bot ve sesli kontroldeki yapay zekâ", "SI maslahatchi, botdagi va ovozli boshqaruvdagi SI"), paid, "✓"),
+            (Tr.T("Telegram-бот владельца", "Ээсинин Telegram-боту", "Owner's Telegram bot", "İşletme sahibinin Telegram botu", "Egasining Telegram-boti"), paid, "✓"),
+            (Tr.T("Расширенные итоги смены, выгрузка в Excel и Word", "Сменанын кеңейтилген жыйынтыктары, Excel жана Word'ко чыгаруу",
+                "Extended shift totals, export to Excel and Word", "Genişletilmiş vardiya sonuçları, Excel ve Word'e aktarma", "Smenaning kengaytirilgan yakunlari, Excel va Word'ga eksport"), paid, "✓"),
+            (Tr.T("Отправка товаров на весы по сети", "Товарларды таразага тармак аркылуу жөнөтүү", "Sending products to scales over the network",
+                "Ürünleri tartılara ağ üzerinden gönderme", "Mahsulotlarni taroziga tarmoq orqali yuborish"), paid, "✓"),
+            (Tr.T("NurCRM в программе, база знаний, тех. поддержка", "Программадагы NurCRM, билим базасы, тех колдоо", "NurCRM in the app, knowledge base, support",
+                "Programda NurCRM, bilgi bankası, destek", "Dasturdagi NurCRM, bilimlar bazasi, texnik yordam"), paid, "✓"),
+            (Tr.T("Сотрудники", "Кызматкерлер", "Employees", "Personel", "Xodimlar"),
+                Tr.T("до 3", "3кө чейин", "up to 3", "en fazla 3", "3 tagacha"), Tr.T("больше", "көбүрөөк", "more", "daha fazla", "ko'proq")),
+        };
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Avalonia.Thickness(0, 4, 0, 0) };
+        void Cell(string value, int row, int col, bool head = false, IBrush? brush = null)
+        {
+            var cell = new TextBlock
+            {
+                Text = value, FontSize = 13, TextWrapping = TextWrapping.Wrap,
+                FontWeight = head ? FontWeight.SemiBold : FontWeight.Normal,
+                Foreground = brush ?? (head ? text : soft),
+                HorizontalAlignment = col == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Center,
+                MinWidth = col == 0 ? 0 : 110,
+                TextAlignment = col == 0 ? TextAlignment.Left : TextAlignment.Center,
+                Margin = new Avalonia.Thickness(col == 0 ? 0 : 8, 3, 0, 3),
+            };
+            Grid.SetRow(cell, row);
+            Grid.SetColumn(cell, col);
+            grid.Children.Add(cell);
+        }
+
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        Cell(Tr.T("Возможность", "Мүмкүнчүлүк", "Feature", "Özellik", "Imkoniyat"), 0, 0, head: true);
+        Cell(Tr.T("Старт", "Старт", "Start", "Start", "Start"), 0, 1, head: true);
+        Cell(Tr.T("Стандарт", "Стандарт", "Standard", "Standart", "Standart"), 0, 2, head: true);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            Cell(rows[i].Feature, i + 1, 0, brush: text);
+            Cell(rows[i].Start, i + 1, 1);
+            Cell(rows[i].Standard, i + 1, 2, brush: rows[i].Standard == "✓" ? ok : text);
+        }
+        PlanCompareHost.Children.Add(grid);
+
+        PlanCompareHost.Children.Add(new TextBlock
+        {
+            Text = Tr.T($"На «Старте» любую функцию «Стандарта» можно подключить отдельно в Маркетплейс → Доп. функции: активация {TariffGate.PackActivationFee} сом "
+                        + $"и абонплата {TariffGate.PackMonthlyFee} сом в месяц за каждую. Перейти на «Стандарт» целиком можно через NurCRM.",
+                $"«Старт» тарифинде «Стандарттын» каалаган функциясын Маркетплейс → Кошумча функциялар бөлүмүндө өзүнчө туташтырса болот: активдештирүү {TariffGate.PackActivationFee} сом "
+                + $"жана ар бири үчүн айына {TariffGate.PackMonthlyFee} сом абонтөлөм. «Стандартка» толугу менен NurCRM аркылуу өтсө болот.",
+                $"On “Start”, any “Standard” feature can be connected separately in Marketplace → Extras: activation {TariffGate.PackActivationFee} som "
+                + $"and {TariffGate.PackMonthlyFee} som a month for each. You can switch to “Standard” entirely through NurCRM.",
+                $"«Start» tarifesinde herhangi bir «Standart» özelliği Marketplace → Ek özellikler bölümünden ayrıca bağlanabilir: etkinleştirme {TariffGate.PackActivationFee} som "
+                + $"ve her biri için ayda {TariffGate.PackMonthlyFee} som. «Standart»a tamamen NurCRM üzerinden geçebilirsiniz.",
+                $"«Start» tarifida «Standart»ning istalgan funksiyasini Marketpleys → Qo'shimcha funksiyalar bo'limida alohida ulash mumkin: faollashtirish {TariffGate.PackActivationFee} so'm "
+                + $"va har biri uchun oyiga {TariffGate.PackMonthlyFee} so'm. «Standart»ga to'liq NurCRM orqali o'tish mumkin."),
+            FontSize = 12, Foreground = soft, TextWrapping = TextWrapping.Wrap,
+        });
     }
 
     private void RenderExpiry(string? startDateRaw, string? endDateRaw)

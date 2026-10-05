@@ -25,6 +25,12 @@ public partial class OwnerShellWindow
 
     private async Task RefreshSalesPlanAsync(bool force = false)
     {
+        // 2026-10-05: план продаж — аналитика, на тарифе «Старт» его нет (как «Аналитики» и «ABC»).
+        if (!TariffGate.CanUseSalesAnalytics)
+        {
+            SalesPlanCard.IsVisible = false;
+            return;
+        }
         if (_salesPlanUnsupported || _salesPlanEditing || (!force && DateTime.UtcNow - _salesPlanAt < TimeSpan.FromMinutes(5)))
             return;
         _salesPlanAt = DateTime.UtcNow;

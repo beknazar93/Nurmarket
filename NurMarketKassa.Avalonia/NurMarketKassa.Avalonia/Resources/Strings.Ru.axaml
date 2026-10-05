@@ -291,6 +291,7 @@
   <x:String x:Key="bulkImport.startButton">Начать загрузку</x:String>
   <x:String x:Key="printSettings.width58">58 мм (32 симв.)</x:String>
   <x:String x:Key="printSettings.width80">80 мм (48 симв.)</x:String>
+  <x:String x:Key="printSettings.width80narrow">80 мм — 42 симв. (XP-80 и похожие)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (печатается как cp1251)</x:String>
   <x:String x:Key="printSettings.utf8Pos">UTF-8 — встроенный принтер Android-кассы (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (без кириллицы)</x:String>
@@ -1389,6 +1390,11 @@
     <x:String x:Key="loc.settings.telegram.aiHint">Бот и без ключа понимает обычные фразы: «сколько заработали сегодня», «кто должен», «цена кола». Чтобы он ещё и свободно общался и давал советы, получите бесплатный ключ Google (нужен Google-аккаунт, карта не нужна) и вставьте сюда. Точные цифры по-прежнему считает касса; нейросеть получает только короткую сводку магазина. На бесплатном уровне Google может использовать запросы для улучшения своих сервисов. Пустое поле — ИИ выключен.</x:String>
     <x:String x:Key="loc.settings.telegram.aiGetKey">Получить бесплатный ключ</x:String>
     <x:String x:Key="loc.settings.telegram.aiTest">Проверить ИИ</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTitle">Поиск в интернете для ИИ (бесплатно, Groq)</x:String>
+    <x:String x:Key="loc.settings.telegram.groqHint">Бесплатный ключ Google Gemini в интернете не ищет. С ключом Groq ИИ-советник находит в интернете курсы, цены, новости, а поиск фото — картинки товаров. Нажмите «Получить бесплатный ключ» → войдите через Google → «Create API Key», скопируйте ключ (gsk_…) и вставьте сюда (карта не нужна, 1000 запросов в день). Для поиска уходит только вопрос; если у Gemini кончился дневной лимит, Groq ответит сам — тогда уходит и сводка магазина. Пустое поле — поиск выключен.</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTest">Проверить поиск</x:String>
+    <x:String x:Key="loc.settings.telegram.routerTitle">Запасные модели ИИ (бесплатно, OpenRouter, необязательно)</x:String>
+    <x:String x:Key="loc.settings.telegram.routerHint">Если у Gemini кончился дневной лимит, ответит бесплатная модель OpenRouter (50 запросов в день). Нажмите «Получить бесплатный ключ» → войдите через Google → «Create API Key», скопируйте ключ (sk-or-…) и вставьте сюда. Вопрос и сводка магазина при этом уходят в OpenRouter. Пустое поле — выключено.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Показывать покупателю QR с суммой чека</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Вместо обычного QR банка на экране покупателя показывается код, в который уже вписана сумма чека — набирать её вручную не нужно. Реквизиты берутся из загруженного выше QR.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Перед включением отсканируйте пробный чек приложениями двух-трёх банков: формат сверен с QR MBank, на других банках не проверялся. Оплату кассир по-прежнему подтверждает вручную — касса не узнаёт о платеже сама.</x:String>

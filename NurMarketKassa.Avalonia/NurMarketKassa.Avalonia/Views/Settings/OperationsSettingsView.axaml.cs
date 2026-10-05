@@ -212,6 +212,14 @@ public partial class OperationsSettingsView : UserControl
         TelegramCommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
         OwnerPhoneBox.Text = prefs.OwnerPhone ?? "";
         TelegramAiKeyBox.Text = prefs.TelegramAiKey ?? "";
+        GroqKeyBox.Text = prefs.GroqApiKey ?? "";
+        OpenRouterKeyBox.Text = prefs.OpenRouterApiKey ?? "";
+        // 2026-10-05, владелец: «строго соблюдай разделение тарифов». Бот на «Старте» — только купленный в
+        // Маркетплейсе; ИИ (ключи Gemini, Groq, OpenRouter) — только «Стандарт».
+        TelegramCard.IsVisible = TariffGate.CanUseTelegramBot;
+        AiKeysPanel.IsVisible = TariffGate.CanUseAi;
+        AiTariffLockText.IsVisible = !TariffGate.CanUseAi;
+        AiTariffLockText.Text = TariffGate.AiLockedMessage;
         UpdateTelegramStatus();
 
         void AddBankRow(string bank, bool isCustom)
@@ -250,6 +258,17 @@ public partial class OperationsSettingsView : UserControl
     private void UpdateTelegramStatus()
     {
         var prefs = UserPreferences.Instance;
+        // 2026-10-05, владелец: «при подключении в админке бота касса тоже должна подключаться». Бот на сервере NurCRM —
+        // общий для компании: сводки и ответы идут с сервера, на кассе его подключать не нужно.
+        if (NurMarketKassa.Services.Api.ServerTelegramBotApi.LastKnownServerMode == true)
+        {
+            TelegramStatusText.Text = Tr.T("✓ Бот работает на сервере NurCRM для всей компании — на этой кассе подключать его не нужно.",
+                "✓ Бот NurCRM серверинде бүт компания үчүн иштейт — бул кассада аны туташтыруунун кереги жок.",
+                "✓ The bot runs on the NurCRM server for the whole company — no need to connect it on this till.",
+                "✓ Bot, tüm şirket için NurCRM sunucusunda çalışıyor — bu kasada bağlamaya gerek yok.",
+                "✓ Bot NurCRM serverida butun kompaniya uchun ishlaydi — bu kassada uni ulash shart emas.");
+            return;
+        }
         if (string.IsNullOrWhiteSpace(prefs.TelegramChatId))
         {
             TelegramStatusText.Text = Tr.T("Получатель не определён.", "Алуучу аныкталган жок.", "Recipient not set.", "Alıcı belirlenmedi.", "Qabul qiluvchi aniqlanmagan.");
@@ -458,6 +477,73 @@ public partial class OperationsSettingsView : UserControl
         finally
         {
             TelegramAiTestButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-10-05, владелец: «где вставить ключ ИИ? тут нету». Ключи Groq и OpenRouter — как ключ Gemini:
+    /// сохраняются при уходе из поля, «Проверить» — запрос к модели (AiProviders). Пустое поле — выключено.</summary>
+    private void GroqKey_LostFocus(object? sender, RoutedEventArgs e) => SaveProviderKey(GroqKeyBox, isGroq: true);
+
+    private void OpenRouterKey_LostFocus(object? sender, RoutedEventArgs e) => SaveProviderKey(OpenRouterKeyBox, isGroq: false);
+
+    private static void SaveProviderKey(TextBox box, bool isGroq)
+    {
+        var prefs = UserPreferences.Instance;
+        var key = (box.Text ?? "").Trim();
+        if (((isGroq ? prefs.GroqApiKey : prefs.OpenRouterApiKey) ?? "") == key)
+            return;
+        if (isGroq)
+            prefs.GroqApiKey = string.IsNullOrEmpty(key) ? null : key;
+        else
+            prefs.OpenRouterApiKey = string.IsNullOrEmpty(key) ? null : key;
+        prefs.SaveToDisk();
+    }
+
+    private void GroqGetKey_Click(object? sender, RoutedEventArgs e) => OpenKeyPage("https://console.groq.com/keys", GroqStatusText);
+
+    private void OpenRouterGetKey_Click(object? sender, RoutedEventArgs e) => OpenKeyPage("https://openrouter.ai/keys", OpenRouterStatusText);
+
+    private static void OpenKeyPage(string url, TextBlock status)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            status.Text = url + " — " + ex.Message;
+        }
+    }
+
+    private async void GroqTest_Click(object? sender, RoutedEventArgs e) =>
+        await TestProviderKeyAsync(GroqKeyBox, GroqTestButton, GroqStatusText, isGroq: true).ConfigureAwait(true);
+
+    private async void OpenRouterTest_Click(object? sender, RoutedEventArgs e) =>
+        await TestProviderKeyAsync(OpenRouterKeyBox, OpenRouterTestButton, OpenRouterStatusText, isGroq: false).ConfigureAwait(true);
+
+    private static async Task TestProviderKeyAsync(TextBox box, Button button, TextBlock status, bool isGroq)
+    {
+        SaveProviderKey(box, isGroq);
+        var key = isGroq ? UserPreferences.Instance.GroqApiKey : UserPreferences.Instance.OpenRouterApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            status.Text = Tr.T("Вставьте ключ.", "Ачкычты коюңуз.", "Paste the key.", "Anahtarı yapıştırın.", "Kalitni qo'ying.");
+            return;
+        }
+
+        button.IsEnabled = false;
+        status.Text = Tr.T("Проверяю…", "Текшерилүүдө…", "Checking…", "Kontrol ediliyor…", "Tekshirilmoqda…");
+        try
+        {
+            var (ok, message) = isGroq
+                ? await AiProviders.TestGroqAsync(key!, CancellationToken.None).ConfigureAwait(true)
+                : await AiProviders.TestOpenRouterAsync(key!, CancellationToken.None).ConfigureAwait(true);
+            status.Text = (ok ? "✓ " : Tr.T("Не получилось: ", "Болбоду: ", "Failed: ", "Olmadı: ", "Bo'lmadi: ")) + message;
+            PosLogger.Log($"Настройки: ключ {(isGroq ? "Groq" : "OpenRouter")} {(ok ? "работает" : "не подошёл")}.", "INFO");
+        }
+        finally
+        {
+            button.IsEnabled = true;
         }
     }
 

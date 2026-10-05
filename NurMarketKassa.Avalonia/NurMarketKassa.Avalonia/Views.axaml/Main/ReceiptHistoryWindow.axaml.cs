@@ -547,8 +547,8 @@ public partial class ReceiptHistoryWindow : Window
     {
         try
         {
-            return !TariffGate.IsStartTariff
-                && App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.EmployeeReturn);
+            // 2026-10-05, владелец: на сайте возврат есть и на «Старте» — тариф не проверяем, только право.
+            return App.GetRequiredService<IPermissionService>().HasPermission(PosPermissions.EmployeeReturn);
         }
         catch (Exception)
         {

@@ -36,7 +36,10 @@ public static class TelegramAiChat
 
     private const int HistoryTurns = 8;
 
-    public static bool IsConfigured => !string.IsNullOrWhiteSpace(UserPreferences.Instance.TelegramAiKey);
+    // 2026-10-05: на тарифе «Старт» ИИ нет (TariffGate.CanUseAi) — ключ как будто не задан.
+    public static bool IsConfigured => !string.IsNullOrWhiteSpace(AiKey);
+
+    internal static string? AiKey => TariffGate.CanUseAi ? UserPreferences.Instance.TelegramAiKey : null;
 
     private const string SystemPrompt =
         "Ты — ИИ-помощник владельца магазина в Кыргызстане и общаешься с ним в Telegram. "
@@ -63,11 +66,46 @@ public static class TelegramAiChat
     /// <param name="serverSummary">Цифры «Сводки» программы владельца (отчёт сервера NurCRM). Есть — выручка берётся
     /// из них, а не из локальной истории продаж (она бывает неполной или с повторами: живой случай 05.10 —
     /// 1 353 572 сом за 7 дней по локальной истории против 886 049 сом на сервере).</param>
-    public static Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct) =>
-        AskCoreAsync(OwnerAppHistoryKey, question,
-            OwnerAppPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
-            + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
-            + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary)), ct, raw: true, webSearch: true);
+    public static async Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct)
+    {
+        var system = OwnerAppPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+                     + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
+                     + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary));
+        // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (AiProviders): Gemini пишет строку
+        // «ПОИСК: запрос», программа ищет и отдаёт найденное Gemini для ответа (в Groq уходит только запрос, без сводки).
+        var groqSearch = WebSearchUnavailable && AiProviders.CanSearchWeb;
+        if (groqSearch)
+            system += "\n" + GroqSearchHint;
+        var (answer, error) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true, webSearch: !groqSearch).ConfigureAwait(false);
+        if (!groqSearch || answer is null || SearchRequest(answer) is not { } query)
+            return (answer, error);
+
+        // Промежуточный ответ «ПОИСК: …» в истории разговора не нужен.
+        lock (History)
+        {
+            if (History.TryGetValue(OwnerAppHistoryKey, out var list) && list.Count >= 2)
+                list.RemoveRange(list.Count - 2, 2);
+        }
+        var (found, sources, searchError) = await AiProviders.SearchWebAsync(query, ct).ConfigureAwait(false);
+        LastWebSources = sources;
+        var withResults = question + "\n\nРЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ по запросу «" + query + "»:\n"
+                          + (found ?? "не нашлось (" + searchError + ")")
+                          + "\n\nОтветь на вопрос по сводке магазина и этим результатам. Строку «ПОИСК:» больше не пиши.";
+        var (final, finalError) = await AskCoreAsync(OwnerAppHistoryKey, withResults, system.Replace(GroqSearchHint, ""), ct, raw: true).ConfigureAwait(false);
+        LastWebSources = sources;
+        return (final, finalError);
+    }
+
+    private const string GroqSearchHint =
+        "ПОИСК В ИНТЕРНЕТЕ: если для ответа нужны свежие сведения извне (цены у конкурентов и поставщиков, курсы валют, новости, законы и налоги, "
+        + "новинки, сезонный спрос), а в сводке их нет — ответь ТОЛЬКО одной строкой: ПОИСК: <короткий запрос для поиска на русском>. "
+        + "Программа найдёт в интернете и пришлёт результаты. Если интернет не нужен — отвечай как обычно.";
+
+    private static string? SearchRequest(string answer)
+    {
+        var m = Regex.Match(answer.Trim(), @"^\**\s*ПОИСК\s*:\s*(.+)$", RegexOptions.Multiline);
+        return m.Success && answer.Trim().Length < 300 ? m.Groups[1].Value.Trim().Trim('*', '"', '«', '»') : null;
+    }
 
     /// <summary>Источник из интернета, на который опирался ответ (поиск Google в Gemini).</summary>
     public sealed record WebSource(string Title, string Uri);
@@ -86,7 +124,13 @@ public static class TelegramAiChat
     /// <summary>Один вопрос с поиском Google, без истории (поиск фото товара в интернете — ProductPhotoFinder).</summary>
     public static async Task<(string? Answer, IReadOnlyList<WebSource> Sources, string? Error)> AskWebAsync(string system, string question, CancellationToken ct)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
+        var key = AiKey;
+        // 2026-10-05: у Gemini поиска нет (бесплатный ключ) — ищет Groq (AiProviders), если задан его ключ.
+        if ((string.IsNullOrWhiteSpace(key) || WebSearchUnavailable) && AiProviders.CanSearchWeb)
+        {
+            var (text, found, err) = await AiProviders.SearchWebAsync(question, ct).ConfigureAwait(false);
+            return (text, found, err);
+        }
         if (string.IsNullOrWhiteSpace(key))
             return (null, Array.Empty<WebSource>(), "ключ ИИ не задан");
         if (WebSearchUnavailable)
@@ -101,6 +145,13 @@ public static class TelegramAiChat
     {
         lock (History)
             History.Remove(OwnerAppHistoryKey);
+    }
+
+    /// <summary>2026-10-05: продолжить сохранённый разговор ИИ-советника — его вопросы и ответы снова в памяти разговора.</summary>
+    public static void RestoreOwnerAppHistory(IEnumerable<(string Role, string Text)> turns)
+    {
+        lock (History)
+            History[OwnerAppHistoryKey] = turns.TakeLast(HistoryTurns * 2).ToList();
     }
 
     private const string OwnerAppHistoryKey = "ownerapp";
@@ -351,7 +402,7 @@ public static class TelegramAiChat
 
     private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false, bool webSearch = false)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
+        var key = AiKey;
         if (string.IsNullOrWhiteSpace(key))
             return (null, "ключ ИИ не задан");
 
@@ -385,7 +436,7 @@ public static class TelegramAiChat
     /// <summary>2026-10-05: один вопрос без истории разговора (голосовое управление кассы — VoiceAi).</summary>
     public static async Task<(string? Answer, string? Error)> AskOnceAsync(string system, string question, CancellationToken ct)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
+        var key = AiKey;
         if (string.IsNullOrWhiteSpace(key))
             return (null, "ключ ИИ не задан");
         return await GenerateAsync(key!, system, new List<(string, string)>(), question, ct).ConfigureAwait(false);
@@ -394,8 +445,8 @@ public static class TelegramAiChat
     /// <summary>Проверка ключа из настроек: короткий запрос без данных магазина.</summary>
     public static async Task<(bool Ok, string Message)> TestKeyAsync(string key, CancellationToken ct)
     {
-        var (answer, error) = await GenerateAsync(key.Trim(), "Отвечай одним коротким предложением.",
-            new List<(string, string)>(), "Скажи по-русски, что ты на связи.", ct).ConfigureAwait(false);
+        var (answer, error, _) = await GenerateGeminiAsync(key.Trim(), "Отвечай одним коротким предложением.",
+            new List<(string, string)>(), "Скажи по-русски, что ты на связи.", ct, webSearch: false).ConfigureAwait(false);
         return answer != null ? (true, $"{answer.Trim()} ({_workingModel})") : (false, error ?? "нет ответа");
     }
 
@@ -406,9 +457,22 @@ public static class TelegramAiChat
         return (answer, error);
     }
 
+    /// <summary>2026-10-05, владелец: «настрой несколько моделей». Gemini не ответил (лимит, перегрузка, нет модели, нет
+    /// связи) — отвечает запасная модель (AiProviders: OpenRouter, Groq), если владелец задал их ключи.</summary>
+    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> GenerateCoreAsync(
+        string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct, bool webSearch,
+        bool fallbackWithoutSearch = true)
+    {
+        var result = await GenerateGeminiAsync(key, system, history, question, ct, webSearch, fallbackWithoutSearch).ConfigureAwait(false);
+        if (result.Answer is not null || !AiProviders.HasFallback || ct.IsCancellationRequested || !fallbackWithoutSearch)
+            return result;
+        var (answer, error) = await AiProviders.ChatFallbackAsync(system, history, question, ct).ConfigureAwait(false);
+        return answer is not null ? (answer, null, result.Sources) : (null, result.Error + "; запасные модели: " + error, result.Sources);
+    }
+
     /// <summary>2026-10-05, владелец: «включи поиск по интернету для ИИ» — webSearch добавляет инструмент google_search
     /// (Gemini сам решает, когда искать). Модель без поддержки поиска (400 про tool) — тот же запрос без поиска.</summary>
-    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> GenerateCoreAsync(
+    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> GenerateGeminiAsync(
         string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct, bool webSearch,
         bool fallbackWithoutSearch = true)
     {

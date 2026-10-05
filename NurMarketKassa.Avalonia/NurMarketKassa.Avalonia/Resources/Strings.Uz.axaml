@@ -291,6 +291,7 @@
   <x:String x:Key="bulkImport.startButton">Yuklashni boshlash</x:String>
   <x:String x:Key="printSettings.width58">58 mm (32 belgi)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 belgi)</x:String>
+  <x:String x:Key="printSettings.width80narrow">80 mm — 42 belgi (XP-80 va o'xshashlari)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 sifatida chop etiladi)</x:String>
   <x:String x:Key="printSettings.utf8Pos">UTF-8 — Android kassaning ichki printeri (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (kirillitsasiz)</x:String>
@@ -1389,6 +1390,11 @@
     <x:String x:Key="loc.settings.telegram.aiHint">Bot kalitsiz ham oddiy iboralarni tushunadi: «bugun qancha ishladik», «kim qarzdor», «kola narxi». U erkin suhbatlashib, maslahat berishi uchun bepul Google kalitini oling (Google akkaunti kerak, karta kerak emas) va shu yerga qo'ying. Aniq raqamlarni avvalgidek kassa hisoblaydi; SI faqat do'konning qisqa xulosasini oladi. Bepul darajada Google so'rovlardan o'z xizmatlarini yaxshilash uchun foydalanishi mumkin. Bo'sh maydon — SI o'chirilgan.</x:String>
     <x:String x:Key="loc.settings.telegram.aiGetKey">Bepul kalit olish</x:String>
     <x:String x:Key="loc.settings.telegram.aiTest">SIni tekshirish</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTitle">SI uchun internetda qidirish (bepul, Groq)</x:String>
+    <x:String x:Key="loc.settings.telegram.groqHint">Bepul Google Gemini kaliti internetda qidira olmaydi. Groq kaliti bilan SI-maslahatchi internetdan kurslar, narxlar, yangiliklarni, rasm qidiruvi esa mahsulot rasmlarini topadi. «Bepul kalit olish» ni bosing → Google orqali kiring → «Create API Key», kalitni (gsk_…) nusxalab shu yerga joylang (karta kerak emas, kuniga 1000 so'rov). Qidiruv uchun faqat savol ketadi; Gemini kunlik limiti tugasa, Groq o'zi javob beradi — unda do'kon xulosasi ham ketadi. Bo'sh maydon — qidiruv o'chiq.</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTest">Qidiruvni tekshirish</x:String>
+    <x:String x:Key="loc.settings.telegram.routerTitle">SI zaxira modellari (bepul, OpenRouter, ixtiyoriy)</x:String>
+    <x:String x:Key="loc.settings.telegram.routerHint">Gemini kunlik limiti tugasa, OpenRouter bepul modeli javob beradi (kuniga 50 so'rov). «Bepul kalit olish» ni bosing → Google orqali kiring → «Create API Key», kalitni (sk-or-…) nusxalab shu yerga joylang. Savol va do'kon xulosasi shunda OpenRouter'ga ketadi. Bo'sh maydon — o'chiq.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Xaridorga chek summasi kiritilgan QR-kodni ko'rsatish</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Xaridor ekranida bankning oddiy QR-kodi o'rniga chek summasi allaqachon kiritilgan kod ko'rsatiladi — summani qo'lda terish shart emas. Rekvizitlar yuqorida yuklangan QR-koddan olinadi.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Yoqishdan oldin sinov chekini ikki-uch bankning ilovasi bilan skanerlab ko'ring: format MBank QR-kodi bilan solishtirilgan, boshqa banklarda tekshirilmagan. To'lovni kassir avvalgidek qo'lda tasdiqlaydi — kassa to'lov haqida o'zi bilmaydi.</x:String>

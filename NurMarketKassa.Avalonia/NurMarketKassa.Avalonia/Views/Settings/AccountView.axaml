@@ -118,6 +118,11 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-10-05, владелец: «добавь в тарифе Старт описание Стандарта и сравнение в аккаунте». Только на «Старте». -->
+        <Border x:Name="PlanCompareCard" Classes="SettingsCard" Padding="18" IsVisible="False">
+          <StackPanel x:Name="PlanCompareHost" Spacing="10"/>
+        </Border>
+
         <!-- Срок действия -->
         <Border Classes="SettingsCard" Padding="18">
           <StackPanel Spacing="8">

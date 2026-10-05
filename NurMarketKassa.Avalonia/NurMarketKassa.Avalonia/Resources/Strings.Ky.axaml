@@ -291,6 +291,7 @@
   <x:String x:Key="bulkImport.startButton">Жүктөөнү баштоо</x:String>
   <x:String x:Key="printSettings.width58">58 мм (32 белги)</x:String>
   <x:String x:Key="printSettings.width80">80 мм (48 белги)</x:String>
+  <x:String x:Key="printSettings.width80narrow">80 мм — 42 белги (XP-80 жана окшоштору)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 катары басылат)</x:String>
   <x:String x:Key="printSettings.utf8Pos">UTF-8 — Android-кассанын ичиндеги принтер (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (кириллицасыз)</x:String>
@@ -1389,6 +1390,11 @@
     <x:String x:Key="loc.settings.telegram.aiHint">Бот ачкычсыз эле кадимки сөздөрдү түшүнөт: «бүгүн канча түшүм», «ким карыз», «кола баасы». Ал эркин баарлашып, кеңеш бериши үчүн Google'дун акысыз ачкычын алып (Google аккаунту керек, карта керек эмес), бул жерге коюңуз. Так сандарды мурдагыдай касса эсептейт; нейросеть дүкөндүн кыскача жыйынтыгын гана алат. Акысыз деңгээлде Google суроолорду өз кызматтарын жакшыртуу үчүн колдонушу мүмкүн. Бош талаа — ЖИ өчүк.</x:String>
     <x:String x:Key="loc.settings.telegram.aiGetKey">Акысыз ачкыч алуу</x:String>
     <x:String x:Key="loc.settings.telegram.aiTest">ЖИни текшерүү</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTitle">ИИ үчүн интернеттен издөө (акысыз, Groq)</x:String>
+    <x:String x:Key="loc.settings.telegram.groqHint">Google Gemini акысыз ачкычы интернеттен издебейт. Groq ачкычы менен ИИ-кеңешчи интернеттен курстарды, бааларды, жаңылыктарды, ал эми сүрөт издөө — товардын сүрөттөрүн табат. «Акысыз ачкыч алуу» басыңыз → Google аркылуу кириңиз → «Create API Key», ачкычты (gsk_…) көчүрүп, бул жерге чаптаңыз (карта керек эмес, күнүнө 1000 суроо). Издөө үчүн суроо гана кетет; Gemini'нин күндүк лимити бүтсө, Groq өзү жооп берет — анда дүкөндүн жыйынтыгы да кетет. Бош талаа — издөө өчүк.</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTest">Издөөнү текшерүү</x:String>
+    <x:String x:Key="loc.settings.telegram.routerTitle">ИИнин запастагы моделдери (акысыз, OpenRouter, милдеттүү эмес)</x:String>
+    <x:String x:Key="loc.settings.telegram.routerHint">Gemini'нин күндүк лимити бүтсө, OpenRouter'дин акысыз модели жооп берет (күнүнө 50 суроо). «Акысыз ачкыч алуу» басыңыз → Google аркылуу кириңиз → «Create API Key», ачкычты (sk-or-…) көчүрүп, бул жерге чаптаңыз. Анда суроо жана дүкөндүн жыйынтыгы OpenRouter'ге кетет. Бош талаа — өчүк.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Сатып алуучуга чектин суммасы жазылган QR көрсөтүү</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Сатып алуучунун экранында банктын кадимки QR-кодунун ордуна чектин суммасы жазылган код көрсөтүлөт — сумманы кол менен терүүнүн кереги жок. Реквизиттер жогоруда жүктөлгөн QR-коддон алынат.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Күйгүзөрдөн мурун сынамык чекти эки-үч банктын тиркемеси менен скандап көрүңүз: формат MBank QR-коду менен салыштырылган, башка банктарда текшерилген эмес. Төлөмдү кассир мурдагыдай эле кол менен ырастайт — касса төлөм тууралуу өзү билбейт.</x:String>

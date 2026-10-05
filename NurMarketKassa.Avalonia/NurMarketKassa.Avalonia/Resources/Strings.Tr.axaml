@@ -291,6 +291,7 @@
   <x:String x:Key="bulkImport.startButton">Yüklemeyi başlat</x:String>
   <x:String x:Key="printSettings.width58">58 mm (32 karakter)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 karakter)</x:String>
+  <x:String x:Key="printSettings.width80narrow">80 mm — 42 karakter (XP-80 ve benzerleri)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (cp1251 olarak yazdırılır)</x:String>
   <x:String x:Key="printSettings.utf8Pos">UTF-8 — Android kasanın dahili yazıcısı (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (Kiril harfleri yok)</x:String>
@@ -1389,6 +1390,11 @@
     <x:String x:Key="loc.settings.telegram.aiHint">Bot anahtar olmadan da sade cümleleri anlar: «bugün ne kadar kazandık», «kim borçlu», «kola fiyatı». Serbestçe sohbet edip öneri vermesi için ücretsiz Google anahtarı alın (Google hesabı gerekir, kart gerekmez) ve buraya yapıştırın. Kesin rakamları yine kasa hesaplar; YZ yalnızca kısa bir mağaza özeti alır. Ücretsiz katmanda Google istekleri hizmetlerini geliştirmek için kullanabilir. Boş alan — YZ kapalı.</x:String>
     <x:String x:Key="loc.settings.telegram.aiGetKey">Ücretsiz anahtar al</x:String>
     <x:String x:Key="loc.settings.telegram.aiTest">YZ'yi test et</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTitle">Yapay zekâ için internet araması (ücretsiz, Groq)</x:String>
+    <x:String x:Key="loc.settings.telegram.groqHint">Ücretsiz Google Gemini anahtarı internette arama yapamaz. Groq anahtarıyla yapay zekâ danışmanı internette kurları, fiyatları, haberleri; fotoğraf araması ise ürün resimlerini bulur. «Ücretsiz anahtar al»a basın → Google ile giriş yapın → «Create API Key», anahtarı (gsk_…) kopyalayıp buraya yapıştırın (kart gerekmez, günde 1000 istek). Arama için yalnızca soru gider; Gemini'nin günlük limiti biterse Groq kendisi yanıtlar — o zaman mağaza özeti de gider. Boş alan — arama kapalı.</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTest">Aramayı test et</x:String>
+    <x:String x:Key="loc.settings.telegram.routerTitle">Yedek yapay zekâ modelleri (ücretsiz, OpenRouter, isteğe bağlı)</x:String>
+    <x:String x:Key="loc.settings.telegram.routerHint">Gemini'nin günlük limiti biterse ücretsiz bir OpenRouter modeli yanıtlar (günde 50 istek). «Ücretsiz anahtar al»a basın → Google ile giriş yapın → «Create API Key», anahtarı (sk-or-…) kopyalayıp buraya yapıştırın. Soru ve mağaza özeti o zaman OpenRouter'a gider. Boş alan — kapalı.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Müşteriye fiş tutarını içeren QR kodu göster</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Müşteri ekranında bankanın normal QR kodu yerine fiş tutarının zaten girildiği bir kod gösterilir — tutarı elle girmeye gerek yoktur. Hesap bilgileri yukarıda yüklenen QR kodundan alınır.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Açmadan önce deneme fişini iki üç bankanın uygulamasıyla okutun: format MBank QR koduyla doğrulandı, diğer bankalarda test edilmedi. Ödemeyi kasiyer yine elle onaylar — kasa ödemeyi kendisi algılamaz.</x:String>

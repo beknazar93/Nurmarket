@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace NurMarketKassa.Services;
 
@@ -45,12 +46,54 @@ public static class TariffGate
         }
     }
 
-    /// <summary>Раздел «Клиенты» — на сайте скрыт для «Старт» в секторе «Магазин».</summary>
-    public static bool CanViewClients => !IsStartTariff;
+    /// <summary>2026-10-05, владелец: «всё, что есть на тарифе «Стандарт», можно подключить и на «Старт», но абонплата за
+    /// каждую услугу добавляется по 400 сом + подключение (активация) 1500 сом». Пакеты функций «Стандарта» — открываются на
+    /// «Старте» серийным ключом в Маркетплейс → Доп. функции (LicenseKeys, slug пакета), список — UserPreferences.UnlockedPacks.</summary>
+    public const int PackActivationFee = 1500, PackMonthlyFee = 400;
+
+    public static class Packs
+    {
+        public const string Ai = "ai", Clients = "clients", SalesAnalytics = "salesanalytics", Restock = "restock",
+            Salary = "salary", Debts = "debts", Service = "service";
+
+        public static readonly string[] All = { Ai, Clients, SalesAnalytics, Restock, Salary, Debts, Service };
+    }
+
+    public static bool HasPack(string slug) =>
+        !IsStartTariff || UserPreferences.Instance.UnlockedPacks.Contains(slug, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Пакет подключён или отключён (ключ, истёк тестовый доступ) — меню пересобирается.</summary>
+    public static event Action? PacksChanged;
+
+    public static void RaisePacksChanged() => PacksChanged?.Invoke();
+
+    public static string PackPriceLabel =>
+        Tr.T($"🔒 Подключить — {PackActivationFee} сом + {PackMonthlyFee} сом/мес", $"🔒 Туташтыруу — {PackActivationFee} сом + {PackMonthlyFee} сом/ай",
+             $"🔒 Connect — {PackActivationFee} som + {PackMonthlyFee} som/mo", $"🔒 Bağla — {PackActivationFee} som + {PackMonthlyFee} som/ay",
+             $"🔒 Ulash — {PackActivationFee} so'm + {PackMonthlyFee} so'm/oy");
+
+    /// <summary>Раздел «Клиенты» — на сайте скрыт для «Старт» в секторе «Магазин». 2026-10-05: подключается пакетом.</summary>
+    public static bool CanViewClients => HasPack(Packs.Clients);
+
+    /// <summary>Продажи, финансы, аналитика, ABC, прибыль и деньги, продажи в убыток, план продаж.</summary>
+    public static bool CanUseSalesAnalytics => HasPack(Packs.SalesAnalytics);
+
+    public static bool CanUseRestock => HasPack(Packs.Restock);
+
+    public static bool CanUseSalary => HasPack(Packs.Salary);
+
+    /// <summary>Оплата долгов и отложенные чеки на кассе.</summary>
+    public static bool CanUseDebts => HasPack(Packs.Debts);
+
+    /// <summary>NurCRM в программе, база знаний, тех. поддержка, журнал ошибок.</summary>
+    public static bool CanUseService => HasPack(Packs.Service);
 
     public static string ClientsLockedMessage =>
-        Tr.T("Раздел «Клиенты» доступен на тарифе «Стандарт» и выше.",
-             "«Кардарлар» бөлүмү «Стандарт» тарифинен баштап жеткиликтүү.", "The “Customers” section is available on the “Standard” plan and above.", "«Müşteriler» bölümü «Standart» ve üzeri tarifelerde kullanılabilir.", "«Mijozlar» bo'limi «Standart» va undan yuqori tarifda mavjud.");
+        Tr.T("Раздел «Клиенты» входит в тариф «Стандарт». На «Старт» его можно подключить в Маркетплейс → Доп. функции.",
+             "«Кардарлар» бөлүмү «Стандарт» тарифине кирет. «Старт» тарифинде аны Маркетплейс → Кошумча функциялар бөлүмүндө туташтырууга болот.",
+             "The “Customers” section is included in the “Standard” plan. On “Start”, it can be connected in Marketplace → Extras.",
+             "«Müşteriler» bölümü «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden bağlanabilir.",
+             "«Mijozlar» bo'limi «Standart» tarifiga kiradi. «Start» tarifida uni Marketpleys → Qo'shimcha funksiyalar bo'limida ulash mumkin.");
 
     /// <summary>Отправка PLU на сетевые весы (Штрих-М/Rongta, см. ScaleSettingsView "Выгрузка
     /// весовых товаров...") — на тарифе «Старт» платная доп. услуга, как остальные карточки в
@@ -72,6 +115,18 @@ public static class TariffGate
     public static string TelegramBotLockedMessage =>
         Tr.T("Телеграм-бот владельца входит в тариф «Стандарт». На «Старт» его можно активировать в Маркетплейс → Доп. функции.",
              "Ээсинин телеграм-боту «Стандарт» тарифине кирет. «Старт» тарифинде аны Маркетплейс → Кошумча функциялар бөлүмүндө иштетүүгө болот.", "The owner's Telegram bot is included in the “Standard” plan. On “Start”, it can be activated in Marketplace → Extras.", "İşletme sahibinin Telegram botu «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden etkinleştirilebilir.", "Egasining Telegram-boti «Standart» tarifiga kiradi. «Start» tarifida uni Marketpleys → Qo'shimcha funksiyalar bo'limida faollashtirish mumkin.");
+
+    /// <summary>2026-10-05, владелец: «почему на тарифе Старт отображаются ИИ-чаты и телеграм-боты — строго соблюдай
+    /// разделение тарифов». ИИ (советник в программе владельца, ИИ в Telegram-боте, голосовой ИИ, поиск в интернете
+    /// и фото товаров через ИИ) — «Стандарт» и выше; на «Старте» — пакет «ИИ» из Маркетплейса.</summary>
+    public static bool CanUseAi => HasPack(Packs.Ai);
+
+    public static string AiLockedMessage =>
+        Tr.T("ИИ-советник и ИИ в боте входят в тариф «Стандарт». На «Старт» их можно подключить в Маркетплейс → Доп. функции.",
+             "ИИ-кеңешчи жана боттогу ИИ «Стандарт» тарифине кирет. «Старт» тарифинде аларды Маркетплейс → Кошумча функциялар бөлүмүндө туташтырууга болот.",
+             "The AI advisor and the bot's AI are included in the “Standard” plan. On “Start”, they can be connected in Marketplace → Extras.",
+             "Yapay zekâ danışmanı ve bottaki yapay zekâ «Standart» tarifesine dahildir. «Start» tarifesinde Marketplace → Ek özellikler bölümünden bağlanabilir.",
+             "SI maslahatchi va botdagi SI «Standart» tarifiga kiradi. «Start» tarifida ularni Marketpleys → Qo'shimcha funksiyalar bo'limida ulash mumkin.");
 
     /// <summary>Расширенные итоги смены: возвраты, списания, расход, оплата долгов и скидки.</summary>
     public static bool CanUseShiftAnalytics => !IsStartTariff || UserPreferences.Instance.ShiftAnalyticsUnlocked;

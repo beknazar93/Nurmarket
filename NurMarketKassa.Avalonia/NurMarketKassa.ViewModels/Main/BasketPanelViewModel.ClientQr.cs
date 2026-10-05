@@ -42,15 +42,8 @@ public sealed partial class BasketPanelViewModel
                 return;
 
             case ClientQrKind.Token:
-                // Здесь будет обмен одноразового кода на клиента (GET …/clients/by-qr-token/?t=… — адрес
-                // появится у NurCRM позже); дальше — тот же путь, что и для телефона.
-                PosLogger.Log("Скан: QR клиента NurCRM с одноразовым кодом (NURCRMT…) — эта версия кассы его не обменивает.", "CART");
-                await RunOnUiThreadAsync(() => CartMessage = Tr.T(
-                    "Этот QR клиента (одноразовый код) касса пока не принимает — обновите кассу. Продажу можно продолжить без клиента.",
-                    "Кардардын бул QR коду (бир жолку код) кассада азырынча кабыл алынбайт — кассаны жаңыртыңыз. Сатууну кардарсыз улантсаңыз болот.",
-                    "This customer QR (one-time code) is not supported by the till yet — update the till. You can continue the sale without a customer.",
-                    "Bu müşteri QR'ı (tek kullanımlık kod) kasada henüz desteklenmiyor — kasayı güncelleyin. Satışa müşterisiz devam edebilirsiniz.",
-                    "Mijozning bu QR kodi (bir martalik kod) kassada hozircha qabul qilinmaydi — kassani yangilang. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+                // 2026-10-05: сервер NurCRM обменивает одноразовый код на клиента (POST clients/resolve-qr/).
+                await AttachClientFromTokenAsync(qr.Token!).ConfigureAwait(false);
                 return;
 
             default:
@@ -167,6 +160,90 @@ public sealed partial class BasketPanelViewModel
             var session = _sessions.FirstOrDefault(s => s.Id == sessionId) ?? GetActiveSession();
             if (session != null)
                 session.Client = attached;
+            CartMessage = message;
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>2026-10-05: одноразовый QR «NURCRMT…» из приложения покупателя → сервер возвращает клиента компании (нет —
+    /// заводит из профиля приложения) → клиент в текущем чеке, как при QR с телефоном. Без связи код не проверить.</summary>
+    private async Task AttachClientFromTokenAsync(string token)
+    {
+        PosLogger.Log("Скан: QR клиента NurCRM с одноразовым кодом (NURCRMT…) — спрашиваю сервер.", "CART");
+        if (_clientsApi is null || OfflineModeHelper.SellLocally)
+        {
+            await RunOnUiThreadAsync(() => CartMessage = Tr.T(
+                "Без интернета одноразовый QR клиента не проверить. Продажу можно продолжить без клиента.",
+                "Интернетсиз кардардын бир жолку QR кодун текшерүүгө болбойт. Сатууну кардарсыз улантсаңыз болот.",
+                "A one-time customer QR can't be checked offline. You can continue the sale without a customer.",
+                "Tek kullanımlık müşteri QR'ı çevrimdışı kontrol edilemez. Satışa müşterisiz devam edebilirsiniz.",
+                "Mijozning bir martalik QR kodini internetsiz tekshirib bo'lmaydi. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+            return;
+        }
+
+        var sessionId = _activeSessionId;
+        System.Text.Json.JsonElement data;
+        try
+        {
+            using var cts = new CancellationTokenSource(ClientQrLookupTimeout + TimeSpan.FromSeconds(3));
+            data = await _clientsApi.ResolveQrAsync(ClientQrCode.TokenPrefix + token, cts.Token).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+        {
+            PosLogger.Log($"QR клиента (одноразовый): сервер отказал ({ex.StatusCode}): {ex.Message}", "WARNING");
+            await RunOnUiThreadAsync(() => CartMessage = Tr.T(
+                // Сервер сам пишет «попросите клиента обновить QR» — свою такую же фразу не добавляем.
+                $"QR клиента не принят: {ex.Message} Продажу можно продолжить без клиента.",
+                $"Кардардын QR коду кабыл алынган жок: {ex.Message} Сатып алуучудан тиркемеде кодду жаңыртууну сураныңыз. Сатууну кардарсыз улантсаңыз болот.",
+                $"Customer QR not accepted: {ex.Message} Ask the customer to refresh the code in the app. You can continue the sale without a customer.",
+                $"Müşteri QR'ı kabul edilmedi: {ex.Message} Müşteriden uygulamada kodu yenilemesini isteyin. Satışa müşterisiz devam edebilirsiniz.",
+                $"Mijoz QR kodi qabul qilinmadi: {ex.Message} Xaridordan ilovada kodni yangilashini so'rang. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+            return;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"QR клиента (одноразовый): нет ответа сервера ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            await RunOnUiThreadAsync(() => CartMessage = Tr.T(
+                "Сервер не ответил — одноразовый QR клиента не проверен. Продажу можно продолжить без клиента.",
+                "Сервер жооп берген жок — кардардын бир жолку QR коду текшерилген жок. Сатууну кардарсыз улантсаңыз болот.",
+                "The server didn't respond — the one-time customer QR wasn't checked. You can continue the sale without a customer.",
+                "Sunucu yanıt vermedi — tek kullanımlık müşteri QR'ı kontrol edilmedi. Satışa müşterisiz devam edebilirsiniz.",
+                "Server javob bermadi — mijozning bir martalik QR kodi tekshirilmadi. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+            return;
+        }
+
+        // Ответ: клиент целиком или {"client": {...}, "created": true}.
+        var c = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("client", out var inner)
+                && inner.ValueKind == System.Text.Json.JsonValueKind.Object ? inner : data;
+        static string? Str(System.Text.Json.JsonElement e, string name) =>
+            e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind is System.Text.Json.JsonValueKind.String or System.Text.Json.JsonValueKind.Number
+                ? v.ToString() : null;
+        var id = Str(c, "id") ?? Str(c, "client_id");
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            PosLogger.Log("QR клиента (одноразовый): в ответе сервера нет клиента.", "WARNING");
+            await RunOnUiThreadAsync(() => CartMessage = Tr.T(
+                "Сервер не вернул клиента по QR. Продажу можно продолжить без клиента.",
+                "Сервер QR боюнча кардарды кайтарган жок. Сатууну кардарсыз улантсаңыз болот.",
+                "The server returned no customer for the QR. You can continue the sale without a customer.",
+                "Sunucu QR için müşteri döndürmedi. Satışa müşterisiz devam edebilirsiniz.",
+                "Server QR bo'yicha mijozni qaytarmadi. Sotuvni mijozsiz davom ettirish mumkin.")).ConfigureAwait(false);
+            return;
+        }
+        var name = Str(c, "full_name") ?? Str(c, "name") ?? "";
+        var phone = Str(c, "phone") ?? "";
+        var created = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("created", out var cr) && cr.ValueKind == System.Text.Json.JsonValueKind.True;
+        var client = ToClientOption(new ClientPhoneMatch(id, name, phone));
+        (_clientPhoneLookup ??= new ClientPhoneLookup(_clientsApi)).Remember(id, name, phone);
+
+        var loyaltyOn = UserPreferences.Instance.LoyaltyEnabled;
+        var balance = loyaltyOn ? ClientLoyaltyStore.GetBalance(id) : 0;
+        var message = BuildClientQrMessage(client, string.IsNullOrWhiteSpace(phone) ? name : phone, created, fromMemory: false, loyaltyOn, balance);
+        PosLogger.Log($"QR клиента (одноразовый): клиент выбран в чеке (новый={created}, {ClientQrCode.MaskPhone(ClientQrCode.NationalDigits(phone))}).", "CART");
+        await RunOnUiThreadAsync(() =>
+        {
+            var session = _sessions.FirstOrDefault(s => s.Id == sessionId) ?? GetActiveSession();
+            if (session != null)
+                session.Client = client;
             CartMessage = message;
         }).ConfigureAwait(false);
     }

@@ -83,6 +83,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // здесь, пока кассир переключает ширину ленты, и сохраняем вместе с остальными настройками.
         private int _charWidth58, _charWidth80, _dots58, _dots80;
         private int _shownPaperMm;
+        // 2026-10-05, владелец: «XP-80 — невозможно настроить ширину». Вариант списка «80 мм — 42 симв.» (XP-80 и похожие).
+        private const string Narrow80Tag = "80n";
+        private const int Narrow80Chars = 42, Narrow80Dots = 512;
+        private bool _shownNarrow80;
         private RadioButton TextModeRadio => _printView.TextModeRadio;
         private RadioButton GraphicModeRadio => _printView.GraphicModeRadio;
         private ComboBox ReceiptEncCombo => _printView.ReceiptEncCombo;
@@ -263,7 +267,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _dots58 = prefs.ReceiptDots58;
             _dots80 = prefs.ReceiptDots80;
             _shownPaperMm = 0;
-            SelectComboByTag(ReceiptPaperWidthCombo, prefs.ReceiptPaperWidthMm.ToString(CultureInfo.InvariantCulture));
+            _shownNarrow80 = ReceiptPaperProfile.NormalizePaperWidthMm(prefs.ReceiptPaperWidthMm) >= ReceiptPaperProfile.Paper80mm
+                             && _charWidth80 == Narrow80Chars && _dots80 is 0 or Narrow80Dots;
+            SelectComboByTag(ReceiptPaperWidthCombo, _shownNarrow80 ? Narrow80Tag : prefs.ReceiptPaperWidthMm.ToString(CultureInfo.InvariantCulture));
             ApplyPaperWidthToUi(prefs.ReceiptPaperWidthMm);
 
             FullscreenCheck.IsChecked = prefs.Fullscreen;
@@ -582,9 +588,30 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void ReceiptPaperWidthCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            if (ReceiptPaperWidthCombo?.SelectedItem is ComboBoxItem item
-                && int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
+            if (ReceiptPaperWidthCombo?.SelectedItem is not ComboBoxItem item)
+                return;
+            var tag = item.Tag?.ToString();
+            var narrow = tag == Narrow80Tag;
+            if (narrow || int.TryParse(tag, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
             {
+                mm = narrow ? ReceiptPaperProfile.Paper80mm : int.Parse(tag!, CultureInfo.InvariantCulture);
+                // Переход на «80 мм — 42» или обратно на обычные 80 мм: ширину ставит сам вариант (поля можно поправить).
+                if (narrow != _shownNarrow80 && _shownPaperMm != 0)
+                {
+                    StashPrintWidthFromUi();
+                    if (narrow)
+                    {
+                        _charWidth80 = Narrow80Chars;
+                        _dots80 = Narrow80Dots;
+                    }
+                    else if (mm >= ReceiptPaperProfile.Paper80mm)
+                    {
+                        _charWidth80 = 0;
+                        _dots80 = 0;
+                    }
+                    _shownPaperMm = 0;
+                }
+                _shownNarrow80 = narrow;
                 ApplyPaperWidthToUi(mm);
             }
         }
@@ -635,6 +662,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private static int ReadPaperWidthMmFromUi(ComboBox combo)
         {
+            if (combo.SelectedItem is ComboBoxItem { Tag: Narrow80Tag })
+                return ReceiptPaperProfile.Paper80mm;
             if (combo.SelectedItem is ComboBoxItem item
                 && int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
             {

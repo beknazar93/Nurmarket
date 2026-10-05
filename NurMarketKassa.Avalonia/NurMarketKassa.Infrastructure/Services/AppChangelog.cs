@@ -13,52 +13,62 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Программа владельца: новый раздел «Воронка» — сделки по этапам, карточку можно перетащить мышью, у сделки источник клиента (Telegram, WhatsApp, Instagram, звонок…), переписка в WhatsApp и Instagram прямо из карточки",
-        "Раздел «WhatsApp» — WhatsApp Web прямо в программе владельца (вход по QR-коду один раз)",
-        "ИИ-советник: можно спрашивать голосом (кнопка микрофона), сам находит фото товаров по штрихкоду и ставит их на склад, предлагает акции на проблемные товары, включает и выключает функции бота после вашего «Применить»",
-        "«Сводка»: карточка «План продаж на месяц» — цель, сколько продано, сколько нужно продавать в день и успеваете ли",
-        "Голосовое управление кассой: фразу, которую касса не поняла, разбирает ИИ; можно спросить цену и остаток («касса, сколько стоит пепси»)",
-        "Подсказки «С этим часто берут» со всех касс собираются на сервере; ошибки программы автоматически уходят в поддержку (без паролей и токенов)",
+        "Чековый принтер: в «Ширина ленты» есть вариант «80 мм — 42 симв. (XP-80 и похожие)» — линии и суммы больше не переносятся на следующую строку",
+        "Возврат чека работает и на тарифе «Старт»",
+        "Тариф «Старт»: функции «Стандарта» (ИИ, Telegram-бот, клиенты и воронка, аналитика, пополнение, зарплата, долги, поддержка) подключаются по отдельности в Маркетплейс → Доп. функции; во вкладке «Аккаунт» — сравнение «Старт» и «Стандарт»",
+        "ИИ ищет в интернете бесплатно — с ключом Groq; запасные модели OpenRouter отвечают, когда у Gemini кончился лимит. Ключи — в Настройки → Операции рядом с ключом Gemini или в ИИ-советнике",
+        "ИИ-советник: кнопка «■ Стоп», «Новый разговор» сохраняет прежний, прошлые разговоры — в «Истории»; голосом отвечает быстрее; находит фото товара по названию и в интернете",
+        "Касса и программа владельца на одном компьютере сами берут друг у друга ключи ИИ и Telegram-бота",
+        "QR покупателя из приложения NurCRM: касса находит клиента через сервер, нового заводит сама",
+        "«Заказы с сайта»: заказы витрины и Telegram-бота с сервера NurCRM, статусы «Принят → Готов → Выдан / Отменён»",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Ээсинин программасы: жаңы «Воронка» бөлүмү — этаптар боюнча келишимдер, карточканы чычкан менен сүйрөөгө болот, кардардын булагы (Telegram, WhatsApp, Instagram, чалуу…), карточкадан эле WhatsApp жана Instagram аркылуу кат алышуу",
-        "«WhatsApp» бөлүмү — WhatsApp Web ээсинин программасынын ичинде (QR-код менен бир жолу кирүү)",
-        "ИИ-кеңешчи: үн менен суроого болот (микрофон баскычы), товарлардын сүрөтүн штрихкод боюнча өзү таап, кампага коёт, көйгөйлүү товарларга акция сунуштайт, боттун функцияларын «Колдонуу» дегенден кийин күйгүзүп-өчүрөт",
-        "«Жыйынтык»: «Айлык сатуу планы» карточкасы — максат, канча сатылды, күнүнө канча сатуу керек жана үлгүрүп жатасызбы",
-        "Кассаны үн менен башкаруу: касса түшүнбөгөн сөздү ИИ талдайт; бааны жана калдыкты сурасаңыз болот («касса, пепси канча турат»)",
-        "Бардык кассалардын «Муну менен көп алышат» кеңештери серверге чогулат; программанын каталары колдоого өзү кетет (сырсөз жана токенсиз)",
+        "Чек принтери: «Тасманын туурасы» тизмесинде «80 мм — 42 белги (XP-80 жана окшоштору)» варианты бар — сызыктар жана суммалар кийинки сапка өтпөйт",
+        "Чекти кайтаруу «Старт» тарифинде да иштейт",
+        "«Старт» тарифи: «Стандарттын» функциялары (ИИ, Telegram-бот, кардарлар жана воронка, аналитика, толуктоо, эмгек акы, карыздар, колдоо) Маркетплейс → Кошумча функциялар бөлүмүндө өзүнчө туташтырылат; «Аккаунт» өтмөгүндө «Старт» менен «Стандарттын» салыштыруусу",
+        "ИИ интернеттен акысыз издейт — Groq ачкычы менен; Gemini'нин лимити бүткөндө OpenRouter'дин запастагы моделдери жооп берет. Ачкычтар — Жөндөөлөр → Операциялар бөлүмүндө Gemini ачкычынын жанында же ИИ-кеңешчиде",
+        "ИИ-кеңешчи: «■ Токтотуу» баскычы, «Жаңы маек» мурункусун сактайт, мурунку маектер — «Тарыхта»; үн менен тезирээк жооп берет; товардын сүрөтүн аталышы боюнча жана интернеттен табат",
+        "Бир компьютердеги касса жана ээсинин программасы ИИ жана Telegram-бот ачкычтарын бири-биринен өзү алат",
+        "NurCRM тиркемесиндеги сатып алуучунун QR коду: касса кардарды сервер аркылуу табат, жаңысын өзү кошот",
+        "«Сайттан заказдар»: витринанын жана Telegram-боттун заказдары NurCRM серверинен, статустар «Кабыл алынды → Даяр → Берилди / Жокко чыгарылды»",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Owner program: new “Funnel” section — deals by stage, drag a card with the mouse, client source on each deal (Telegram, WhatsApp, Instagram, phone call…), chat on WhatsApp and Instagram right from the card",
-        "“WhatsApp” section — WhatsApp Web inside the owner program (sign in with a QR code once)",
-        "AI advisor: ask by voice (microphone button), it finds product photos by barcode and puts them on the warehouse cards, suggests promotions for problem products, turns bot features on and off after you press “Apply”",
-        "Overview: “Monthly sales plan” card — the target, how much is sold, how much to sell per day and whether you are on track",
-        "Voice control of the till: a phrase the till did not understand is parsed by AI; you can ask for a price and stock (“till, how much is Pepsi”)",
-        "“Often bought with” suggestions from all tills are collected on the server; program errors are sent to support automatically (without passwords or tokens)",
+        "Receipt printer: “Tape width” has the option “80 mm — 42 chars (XP-80 and similar)” — lines and totals no longer wrap to the next line",
+        "Receipt returns now work on the “Start” plan too",
+        "“Start” plan: “Standard” features (AI, Telegram bot, customers and funnel, analytics, restock, salaries, debts, support) can be connected one by one in Marketplace → Extras; the “Account” tab compares “Start” and “Standard”",
+        "AI searches the web for free with a Groq key; OpenRouter backup models answer when Gemini's limit runs out. Keys go in Settings → Operations next to the Gemini key or in the AI advisor",
+        "AI advisor: a “■ Stop” button, “New chat” keeps the previous one, past chats are in “History”; voice answers come faster; finds product photos by name and on the web",
+        "The till and the owner program on one computer pick up each other's AI and Telegram bot keys automatically",
+        "Customer QR from the NurCRM app: the till finds the customer through the server and adds a new one by itself",
+        "“Website orders”: showcase and Telegram bot orders from the NurCRM server, statuses “Accepted → Ready → Handed over / Canceled”",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Sahip programı: yeni «Huni» bölümü — aşamalara göre anlaşmalar, kart fareyle sürüklenebilir, her anlaşmada müşteri kaynağı (Telegram, WhatsApp, Instagram, telefon…), karttan doğrudan WhatsApp ve Instagram yazışması",
-        "«WhatsApp» bölümü — WhatsApp Web sahip programının içinde (QR koduyla bir kez giriş)",
-        "Yapay zekâ danışmanı: sesle sorulabilir (mikrofon düğmesi), ürün fotoğraflarını barkoddan kendisi bulup depoya koyar, sorunlu ürünler için kampanya önerir, «Uygula» dedikten sonra bot özelliklerini açıp kapatır",
-        "Özet: «Aylık satış planı» kartı — hedef, ne kadar satıldı, günde ne kadar satmak gerektiği ve yetişip yetişmediğiniz",
-        "Kasayı sesle yönetme: kasanın anlamadığı cümleyi yapay zekâ çözer; fiyat ve stok sorulabilir («kasa, Pepsi ne kadar»)",
-        "Tüm kasaların «Bununla sık alınır» önerileri sunucuda toplanır; program hataları desteğe kendiliğinden gider (şifre ve token olmadan)",
+        "Fiş yazıcısı: «Rulo genişliği» listesinde «80 mm — 42 karakter (XP-80 ve benzerleri)» seçeneği var — çizgiler ve tutarlar artık alt satıra kaymıyor",
+        "Fiş iadesi «Start» tarifesinde de çalışıyor",
+        "«Start» tarifesi: «Standart» özellikleri (yapay zekâ, Telegram botu, müşteriler ve huni, analiz, stok yenileme, maaşlar, borçlar, destek) Marketplace → Ek özellikler bölümünden tek tek bağlanabilir; «Hesap» sekmesinde «Start» ve «Standart» karşılaştırması",
+        "Yapay zekâ Groq anahtarıyla internette ücretsiz arar; Gemini'nin limiti bitince OpenRouter yedek modelleri yanıtlar. Anahtarlar Ayarlar → İşlemler'de Gemini anahtarının yanında veya yapay zekâ danışmanında",
+        "Yapay zekâ danışmanı: «■ Durdur» düğmesi, «Yeni sohbet» öncekini saklar, geçmiş sohbetler «Geçmiş»te; sesli yanıtlar daha hızlı; ürün fotoğrafını adıyla ve internette bulur",
+        "Aynı bilgisayardaki kasa ve sahip programı yapay zekâ ve Telegram botu anahtarlarını birbirinden kendiliğinden alır",
+        "NurCRM uygulamasındaki müşteri QR'ı: kasa müşteriyi sunucu üzerinden bulur, yenisini kendisi ekler",
+        "«Web sitesi siparişleri»: vitrin ve Telegram botu siparişleri NurCRM sunucusundan, durumlar «Kabul edildi → Hazır → Teslim edildi / İptal edildi»",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Ega dasturi: yangi «Voronka» bo'limi — bosqichlar bo'yicha bitimlar, kartani sichqoncha bilan sudrash mumkin, bitimda mijoz manbasi (Telegram, WhatsApp, Instagram, qo'ng'iroq…), kartadan to'g'ridan-to'g'ri WhatsApp va Instagram yozishmasi",
-        "«WhatsApp» bo'limi — WhatsApp Web ega dasturining ichida (QR-kod bilan bir marta kirish)",
-        "SI maslahatchi: ovoz bilan so'rash mumkin (mikrofon tugmasi), mahsulot rasmlarini shtrix-kod bo'yicha o'zi topib omborga qo'yadi, muammoli mahsulotlarga aksiya taklif qiladi, «Qo'llash»dan keyin bot funksiyalarini yoqib-o'chiradi",
-        "«Umumiy ko'rinish»: «Oylik savdo rejasi» kartasi — maqsad, qancha sotildi, kuniga qancha sotish kerak va ulgurayapsizmi",
-        "Kassani ovoz bilan boshqarish: kassa tushunmagan gapni SI tahlil qiladi; narx va qoldiqni so'rash mumkin («kassa, pepsi qancha turadi»)",
-        "Barcha kassalarning «Bu bilan ko'p olishadi» tavsiyalari serverda yig'iladi; dastur xatolari yordamga o'zi ketadi (parol va tokensiz)",
+        "Chek printeri: «Lenta kengligi» ro'yxatida «80 mm — 42 belgi (XP-80 va o'xshashlari)» varianti bor — chiziqlar va summalar endi keyingi qatorga o'tmaydi",
+        "Chekni qaytarish «Start» tarifida ham ishlaydi",
+        "«Start» tarifi: «Standart» funksiyalari (SI, Telegram-bot, mijozlar va voronka, analitika, to'ldirish, ish haqi, qarzlar, yordam) Marketpleys → Qo'shimcha funksiyalar bo'limida alohida ulanadi; «Akkaunt» yorlig'ida «Start» va «Standart» taqqoslanadi",
+        "SI Groq kaliti bilan internetda bepul qidiradi; Gemini limiti tugaganda OpenRouter zaxira modellari javob beradi. Kalitlar — Sozlamalar → Operatsiyalar bo'limida Gemini kaliti yonida yoki SI maslahatchida",
+        "SI maslahatchi: «■ To'xtatish» tugmasi, «Yangi suhbat» oldingisini saqlaydi, oldingi suhbatlar «Tarix»da; ovoz bilan tezroq javob beradi; mahsulot rasmini nomi bo'yicha va internetdan topadi",
+        "Bir kompyuterdagi kassa va ega dasturi SI va Telegram-bot kalitlarini bir-biridan o'zi oladi",
+        "NurCRM ilovasidagi xaridor QR kodi: kassa mijozni server orqali topadi, yangisini o'zi qo'shadi",
+        "«Saytdan buyurtmalar»: vitrina va Telegram-bot buyurtmalari NurCRM serveridan, holatlar «Qabul qilindi → Tayyor → Berildi / Bekor qilindi»",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно

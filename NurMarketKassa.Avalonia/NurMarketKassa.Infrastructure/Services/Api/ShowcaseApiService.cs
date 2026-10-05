@@ -35,6 +35,9 @@ public sealed class SiteOrder
     public double Total { get; init; }
     public double TotalQuantity { get; init; }
     public IReadOnlyList<SiteOrderItem> Items { get; init; } = Array.Empty<SiteOrderItem>();
+    /// <summary>2026-10-05: заказ витрины — остаток зарезервирован (списан) под заказ; продажа кассы, если заказ пробит.</summary>
+    public bool StockReserved { get; init; }
+    public string? SaleId { get; init; }
     public string? Delivery { get; init; }
     public string? Address { get; init; }
     public string? Comment { get; init; }
@@ -66,6 +69,19 @@ public sealed class ShowcaseApiService
     public const string StatusNew = "new";
     public const string StatusPending = "pending";
     public const string StatusCompleted = "completed";
+    // 2026-10-05: статусы заказов витрины (GET/PATCH /api/main/showcase/orders/, ТЗ часть 3, 6.12).
+    public const string StatusAccepted = "accepted";
+    public const string StatusReady = "ready";
+    public const string StatusDone = "done";
+    public const string StatusCanceled = "canceled";
+
+    /// <summary>«В работе»: принят или готов (и старое «В процессе»).</summary>
+    public static bool IsInProgress(string status) => status is StatusAccepted or StatusReady or StatusPending;
+
+    /// <summary>Закрыт: выдан или отменён (и старое «Завершён»).</summary>
+    public static bool IsFinished(string status) => status is StatusDone or StatusCanceled or StatusCompleted;
+
+    private const string OrdersPath = "api/main/showcase/orders/";
 
     public const int SlugMinLength = 3;
     public const int SlugMaxLength = 50;
@@ -86,11 +102,10 @@ public sealed class ShowcaseApiService
 
     public static int? LastNewOrdersCount { get; private set; }
 
-    /// <summary>2026-09-30, решение владельца: список /api/main/orders/ пока НЕ показываем. Витрина NurCRM
-    /// заказ на сервер не пишет (только открывает WhatsApp), а /orders/ на сайте — раздел «Закупки»: там
-    /// оказались бы закупки у поставщиков под видом заказов с сайта. Включить (true), когда NurCRM начнёт
-    /// сохранять заказы с витрины (ТЗ бэкенду, часть 3) — окно и значок в меню уже готовы.</summary>
-    public static readonly bool OrdersListEnabled = false;
+    /// <summary>2026-09-30, решение владельца: список /api/main/orders/ («Закупки» на сайте) НЕ показываем.
+    /// 2026-10-05, владелец «да» на «заказы с сайта прямо с сервера»: NurCRM хранит заказы витрины (с сайта и из
+    /// Telegram-бота) — /api/main/showcase/orders/ (ТЗ часть 3, 6.12). Список включён и читает их.</summary>
+    public static readonly bool OrdersListEnabled = true;
 
     /// <summary>Число новых заказов изменилось без нового списка (владелец сменил статус в карточке).</summary>
     public static void PublishNewOrdersCount(int count)
@@ -207,7 +222,7 @@ public sealed class ShowcaseApiService
         for (var page = 1; page <= MaxOrderPages; page++)
         {
             var query = page > 1 ? new Dictionary<string, string> { ["page"] = page.ToString(CultureInfo.InvariantCulture) } : null;
-            var data = await GetRetryingAsync("api/main/orders/", query, ct).ConfigureAwait(false);
+            var data = await GetRetryingAsync(OrdersPath, query, ct).ConfigureAwait(false);
             var rows = data.ValueKind == JsonValueKind.Array
                 ? data
                 : data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array
@@ -245,15 +260,16 @@ public sealed class ShowcaseApiService
 
     public async Task<SiteOrder?> GetOrderAsync(string id, CancellationToken ct = default)
     {
-        var data = await GetRetryingAsync($"api/main/orders/{Uri.EscapeDataString(id.Trim())}/", null, ct).ConfigureAwait(false);
+        var data = await GetRetryingAsync($"{OrdersPath}{Uri.EscapeDataString(id.Trim())}/", null, ct).ConfigureAwait(false);
         return data.ValueKind == JsonValueKind.Object ? ParseOrder(data) : null;
     }
 
-    /// <summary>PATCH /api/main/orders/{id}/ {"status": …}. Сервер знает три статуса:
-    /// new «Новый», pending «В процессе», completed «Завершён»; отмены нет.</summary>
+    /// <summary>PATCH /api/main/showcase/orders/{id}/ {"status": …}: new → accepted → ready → done, или canceled.
+    /// Остаток резервируется при создании заказа: canceled — резерв вернётся на остаток; done без продажи кассы —
+    /// резерв становится окончательным списанием. Из done/canceled перевести нельзя.</summary>
     public async Task<SiteOrder> SetOrderStatusAsync(string id, string status, CancellationToken ct = default)
     {
-        var data = await _api.RequestAsync(HttpMethod.Patch, $"api/main/orders/{Uri.EscapeDataString(id.Trim())}/",
+        var data = await _api.RequestAsync(HttpMethod.Patch, $"{OrdersPath}{Uri.EscapeDataString(id.Trim())}/",
             new Dictionary<string, string> { ["status"] = status }, null, ct).ConfigureAwait(false);
         PosLogger.Log($"Заказ {id}: статус → {status}", "SHOWCASE");
         return data.ValueKind == JsonValueKind.Object && data.TryGetProperty("id", out _)
@@ -397,11 +413,16 @@ public sealed class ShowcaseApiService
                 var product = it.ValueKind == JsonValueKind.Object && it.TryGetProperty("product", out var p) && p.ValueKind == JsonValueKind.Object
                     ? Str(p, "id") ?? ""
                     : Str(it, "product") ?? "";
-                var qty = Num(it, "quantity") ?? 0;
+                var qty = Num(it, "quantity") ?? Num(it, "qty") ?? 0;
                 var price = Num(it, "price") ?? 0;
+                // Заказ витрины: размер и цвет варианта — к названию.
+                var name = FirstStr(it, "product_name", "name", "title");
+                var variant = string.Join(", ", new[] { Str(it, "variant_size"), Str(it, "variant_color") }.Where(v => !string.IsNullOrWhiteSpace(v)));
+                if (name is not null && variant.Length > 0)
+                    name += $" ({variant})";
                 items.Add(new SiteOrderItem(
                     product,
-                    FirstStr(it, "product_name", "name", "title"),
+                    name,
                     qty,
                     price,
                     Num(it, "total") ?? qty * price));
@@ -411,9 +432,9 @@ public sealed class ShowcaseApiService
         return new SiteOrder
         {
             Id = Str(row, "id") ?? "",
-            OrderNumber = Str(row, "order_number") ?? "",
+            OrderNumber = Str(row, "order_number") ?? Str(row, "number") ?? "",
             CustomerName = Str(row, "customer_name") ?? "",
-            Phone = Str(row, "phone") ?? "",
+            Phone = Str(row, "phone") ?? Str(row, "customer_phone") ?? "",
             Department = Str(row, "department") ?? "",
             Status = (Str(row, "status") ?? StatusNew).ToLowerInvariant(),
             DateOrdered = Str(row, "date_ordered") ?? "",
@@ -426,6 +447,8 @@ public sealed class ShowcaseApiService
             Address = FirstStr(row, "delivery_address", "address"),
             Comment = FirstStr(row, "comment", "customer_comment", "note", "notes"),
             Source = FirstStr(row, "source", "channel"),
+            StockReserved = row.ValueKind == JsonValueKind.Object && row.TryGetProperty("stock_reserved", out var reserved) && reserved.ValueKind == JsonValueKind.True,
+            SaleId = Str(row, "sale"),
         };
     }
 

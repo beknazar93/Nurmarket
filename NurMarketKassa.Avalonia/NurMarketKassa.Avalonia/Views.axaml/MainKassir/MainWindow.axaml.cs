@@ -1564,7 +1564,7 @@ public partial class MainWindow : Window
     {
         // Тариф «Старт» (2026-09-07): раздел «Клиенты» на сайте для магазина скрыт — см. TariffGate.
         // Пункт меню тоже спрятан (SideMenuViewModel.CanViewClients), это вторая линия защиты.
-        if (TariffGate.IsStartTariff)
+        if (!TariffGate.CanViewClients)
         {
             _prompts.ShowToast(TariffGate.ClientsLockedMessage, isWarning: true);
             return;

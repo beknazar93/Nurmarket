@@ -43,7 +43,7 @@ public static class TelegramVoice
     /// <summary>2026-10-05: то же для записи с микрофона компьютера (голосовой чат ИИ-советника — «audio/wav»).</summary>
     public static async Task<string?> TranscribeAsync(byte[] audio, string mimeType, CancellationToken ct)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
+        var key = TelegramAiChat.AiKey;
         if (string.IsNullOrWhiteSpace(key))
             return null;
 
@@ -98,7 +98,7 @@ public static class TelegramVoice
     /// сам. moreHint — фраза в конце, если длинный текст обрезан («Подробности — на экране.»).</summary>
     public static async Task<(short[]? Pcm, int Rate)> SynthesizePcmAsync(string htmlOrText, string moreHint, CancellationToken ct)
     {
-        var key = UserPreferences.Instance.TelegramAiKey;
+        var key = TelegramAiChat.AiKey;
         if (string.IsNullOrWhiteSpace(key))
             return (null, 0);
 

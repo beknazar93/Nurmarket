@@ -32,6 +32,7 @@ public partial class MarketplaceView : UserControl
         RefreshShiftAnalyticsCard();
         RefreshAnalyticsExportCard();
         RefreshScalesCard();
+        RefreshStandardPackCards();
 
         // Вкладка «Виды кассы» (2026-09-28): выбор вида обновляет карточку «1С» в «Доп. функциях»
         // и предпросмотр экрана покупателя — он меняется вместе с видом кассы.
@@ -1179,7 +1180,7 @@ public partial class MarketplaceView : UserControl
             var unlockButton = new Button
             {
                 Classes = { "btn-secondary" },
-                Content = Tr.T("🔒 Активировать — 1500 сом", "🔒 Активдештирүү — 1500 сом", "🔒 Activate — 1500 som", "🔒 Etkinleştir — 1500 som", "🔒 Faollashtirish — 1500 so'm"),
+                Content = TariffGate.PackPriceLabel, // 2026-10-05: функция «Стандарта» на «Старте» — 1500 сом + 400 сом/мес
                 Height = 32,
                 Padding = new Thickness(14, 4),
                 HorizontalAlignment = HorizontalAlignment.Left,
@@ -1468,7 +1469,8 @@ public partial class MarketplaceView : UserControl
                 return System.Threading.Tasks.Task.CompletedTask;
             },
             unlocked: TariffGate.CanUseAnalyticsExport,
-            onUnlockClick: AnalyticsExportUnlockButton_Click);
+            onUnlockClick: AnalyticsExportUnlockButton_Click,
+            priceLabel: TariffGate.PackPriceLabel);
 
         ExtrasWrapPanel.Children.Add(_analyticsExportCard);
     }
@@ -1508,6 +1510,115 @@ public partial class MarketplaceView : UserControl
             PosAlertKind.Success);
     }
 
+    // 2026-10-05, владелец: «всё, что есть на тарифе «Стандарт», можно подключить и на «Старт», но абонплата за каждую услугу
+    // добавляется по 400 сом + подключение (активация) 1500 сом». Карточки пакетов — только на «Старте» (на «Стандарте» всё
+    // уже входит в тариф). Подключение — серийным ключом, как остальные доп. функции (LicenseKeys, slug = TariffGate.Packs).
+    private readonly List<Border> _packCards = new();
+
+    private static IEnumerable<(string Slug, string Title, string Description)> StandardPacks()
+    {
+        yield return (TariffGate.Packs.Ai,
+            Tr.T("ИИ-советник и ИИ в боте", "ИИ-кеңешчи жана боттогу ИИ", "AI advisor and the bot's AI", "Yapay zekâ danışmanı ve bottaki yapay zekâ", "SI maslahatchi va botdagi SI"),
+            Tr.T("Советы по продажам и закупкам в программе владельца, ИИ в Telegram-боте и голосовом управлении, поиск фото товаров и поиск в интернете.",
+                "Ээсинин программасында сатуу жана сатып алуу боюнча кеңештер, Telegram-боттогу жана үн менен башкаруудагы ИИ, товардын сүрөтүн жана интернеттен издөө.",
+                "Sales and purchasing advice in the owner app, AI in the Telegram bot and voice control, product photo search and web search.",
+                "Sahip programında satış ve satın alma tavsiyeleri, Telegram botunda ve sesli kontrolde yapay zekâ, ürün fotoğrafı ve internet araması.",
+                "Egasi dasturida sotuv va xarid bo'yicha maslahatlar, Telegram-botda va ovozli boshqaruvda SI, mahsulot rasmi va internetda qidirish."));
+        yield return (TariffGate.Packs.Clients,
+            Tr.T("Клиенты, воронка и WhatsApp", "Кардарлар, воронка жана WhatsApp", "Customers, funnel and WhatsApp", "Müşteriler, huni ve WhatsApp", "Mijozlar, voronka va WhatsApp"),
+            Tr.T("База клиентов с долгами и скидками, воронка продаж, переписка в WhatsApp из программы.",
+                "Карыздары жана арзандатуулары менен кардарлардын базасы, сатуу воронкасы, программадан WhatsApp'та жазышуу.",
+                "A customer base with debts and discounts, a sales funnel, WhatsApp chats from the app.",
+                "Borç ve indirimli müşteri tabanı, satış hunisi, programdan WhatsApp yazışmaları.",
+                "Qarz va chegirmalar bilan mijozlar bazasi, savdo voronkasi, dasturdan WhatsApp yozishmalari."));
+        yield return (TariffGate.Packs.SalesAnalytics,
+            Tr.T("Продажи и аналитика", "Сатуулар жана аналитика", "Sales and analytics", "Satışlar ve analiz", "Sotuvlar va analitika"),
+            Tr.T("Продажи, финансы, аналитика, ABC-анализ, прибыль и деньги, продажи в убыток, план продаж.",
+                "Сатуулар, каржы, аналитика, ABC-анализ, пайда жана акча, зыян менен сатуулар, сатуу планы.",
+                "Sales, finance, analytics, ABC analysis, profit and cash, sales at a loss, sales plan.",
+                "Satışlar, finans, analiz, ABC analizi, kâr ve nakit, zararına satışlar, satış planı.",
+                "Sotuvlar, moliya, analitika, ABC tahlil, foyda va pul, zarariga sotuvlar, sotuv rejasi."));
+        yield return (TariffGate.Packs.Restock,
+            Tr.T("Пополнение и сроки годности", "Толуктоо жана жарактуулук мөөнөттөрү", "Restock and expiry dates", "Stok yenileme ve son kullanma tarihleri", "To'ldirish va yaroqlilik muddatlari"),
+            Tr.T("Что пора заказать и у каких товаров заканчивается срок годности.", "Эмнеге буйрутма берүү керек жана кайсы товарлардын мөөнөтү бүтүп баратат.",
+                "What to reorder and which products are about to expire.", "Neyin sipariş edilmesi gerektiği ve hangi ürünlerin son kullanma tarihinin dolmak üzere olduğu.",
+                "Nimani buyurtma qilish kerak va qaysi mahsulotlarning muddati tugayapti."));
+        yield return (TariffGate.Packs.Salary,
+            Tr.T("Зарплата сотрудников", "Кызматкерлердин эмгек акысы", "Staff salaries", "Personel maaşları", "Xodimlar ish haqi"),
+            Tr.T("Расчёт зарплаты сотрудников по продажам и сменам.", "Кызматкерлердин эмгек акысын сатуу жана сменалар боюнча эсептөө.",
+                "Staff salary calculation by sales and shifts.", "Satış ve vardiyalara göre personel maaşı hesaplama.", "Xodimlar ish haqini sotuv va smenalar bo'yicha hisoblash."));
+        yield return (TariffGate.Packs.Debts,
+            Tr.T("Долги и отложенные чеки", "Карыздар жана кийинкиге калтырылган чектер", "Debts and parked receipts", "Borçlar ve bekletilen fişler", "Qarzlar va kechiktirilgan cheklar"),
+            Tr.T("Оплата долгов покупателей на кассе и отложенные чеки.", "Кассада сатып алуучулардын карызын төлөө жана кийинкиге калтырылган чектер.",
+                "Customer debt payments at the till and parked receipts.", "Kasada müşteri borç ödemeleri ve bekletilen fişler.", "Kassada xaridorlar qarzini to'lash va kechiktirilgan cheklar."));
+        yield return (TariffGate.Packs.Service,
+            Tr.T("NurCRM, база знаний и поддержка", "NurCRM, билим базасы жана колдоо", "NurCRM, knowledge base and support", "NurCRM, bilgi bankası ve destek", "NurCRM, bilimlar bazasi va yordam"),
+            Tr.T("Сайт NurCRM внутри программы, база знаний, удалённая тех. поддержка и журнал ошибок.",
+                "Программанын ичинде NurCRM сайты, билим базасы, алыстан тех колдоо жана каталар журналы.",
+                "The NurCRM site inside the app, a knowledge base, remote support and an error log.",
+                "Program içinde NurCRM sitesi, bilgi bankası, uzaktan destek ve hata günlüğü.",
+                "Dastur ichida NurCRM sayti, bilimlar bazasi, masofaviy texnik yordam va xatolar jurnali."));
+    }
+
+    private void RefreshStandardPackCards()
+    {
+        foreach (var card in _packCards)
+            ExtrasWrapPanel.Children.Remove(card);
+        _packCards.Clear();
+        if (!TariffGate.IsStartTariff)
+            return;
+
+        foreach (var (slug, title, description) in StandardPacks())
+        {
+            var card = BuildPriceTagFeatureCard(title, description,
+                openButtonLabel: Tr.T("✓ Подключено — разделы в меню", "✓ Туташтырылды — бөлүмдөр менюда", "✓ Connected — sections are in the menu",
+                    "✓ Bağlandı — bölümler menüde", "✓ Ulandi — bo'limlar menyuda"),
+                openAction: () => System.Threading.Tasks.Task.CompletedTask,
+                unlocked: TariffGate.HasPack(slug),
+                onUnlockClick: (_, _) => UnlockPack(slug, title),
+                priceLabel: TariffGate.PackPriceLabel);
+            _packCards.Add(card);
+            ExtrasWrapPanel.Children.Add(card);
+        }
+    }
+
+    private void UnlockPack(string slug, string title)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var serial = SerialActivationDialog.Show(owner, title);
+        if (serial == null)
+            return;
+
+        if (!TryValidateSerial(serial, slug, out var isPermanent))
+        {
+            PosAlertDialog.Show(
+                owner,
+                Tr.T("Неверный серийный номер", "Сериялык номер туура эмес", "Invalid serial number",
+                     "Geçersiz seri numarası", "Seriya raqami noto'g'ri"),
+                Tr.T("Проверьте номер и попробуйте снова.", "Номерди текшерип, кайра аракет кылыңыз.",
+                     "Check the number and try again.", "Numarayı kontrol edip tekrar deneyin.",
+                     "Raqamni tekshirib, qaytadan urinib ko'ring."),
+                PosAlertKind.Error);
+            return;
+        }
+
+        var prefs = UserPreferences.Instance;
+        if (!prefs.UnlockedPacks.Contains(slug, StringComparer.OrdinalIgnoreCase))
+            prefs.UnlockedPacks.Add(slug);
+        if (isPermanent)
+            prefs.SaveToDisk();
+        else
+            LicenseKeys.ActivateMasterAccessFor(slug);
+        PosLogger.Log($"Маркетплейс: подключён пакет «Стандарта» {slug} ({(isPermanent ? "постоянный ключ" : "тестовый доступ")}).", "INFO");
+        TariffGate.RaisePacksChanged();
+        RefreshStandardPackCards();
+
+        PosAlertDialog.Show(owner, title,
+            Tr.T("Функция подключена. Разделы появились в меню.", "Функция туташтырылды. Бөлүмдөр менюда пайда болду.", "Feature connected. The sections are now in the menu.",
+                 "Özellik bağlandı. Bölümler menüde göründü.", "Funksiya ulandi. Bo'limlar menyuda paydo bo'ldi."),
+            PosAlertKind.Success);
+    }
+
     private Border? _telegramBotCard;
 
     /// <summary>«Телеграм-бот владельца» (2026-09-22). Правило владельца: новые функции входят
@@ -1532,7 +1643,8 @@ public partial class MarketplaceView : UserControl
                 return dialog.ShowDialog(TopLevel.GetTopLevel(this) as Window);
             },
             unlocked: TariffGate.CanUseTelegramBot,
-            onUnlockClick: TelegramBotUnlockButton_Click);
+            onUnlockClick: TelegramBotUnlockButton_Click,
+            priceLabel: TariffGate.PackPriceLabel);
 
         ExtrasWrapPanel.Children.Add(_telegramBotCard);
     }
@@ -1602,7 +1714,8 @@ public partial class MarketplaceView : UserControl
                 return System.Threading.Tasks.Task.CompletedTask;
             },
             unlocked: TariffGate.CanUseShiftAnalytics,
-            onUnlockClick: ShiftAnalyticsUnlockButton_Click);
+            onUnlockClick: ShiftAnalyticsUnlockButton_Click,
+            priceLabel: TariffGate.PackPriceLabel);
 
         ExtrasWrapPanel.Children.Add(_shiftAnalyticsCard);
     }
@@ -2015,7 +2128,8 @@ public partial class MarketplaceView : UserControl
         };
     }
 
-    private Border BuildPriceTagFeatureCard(string title, string description, string openButtonLabel, Func<System.Threading.Tasks.Task> openAction, bool unlocked, EventHandler<RoutedEventArgs> onUnlockClick)
+    private Border BuildPriceTagFeatureCard(string title, string description, string openButtonLabel, Func<System.Threading.Tasks.Task> openAction, bool unlocked, EventHandler<RoutedEventArgs> onUnlockClick,
+        string? priceLabel = null)
     {
         var titleText = new TextBlock
         {
@@ -2066,7 +2180,7 @@ public partial class MarketplaceView : UserControl
             var unlockButton = new Button
             {
                 Classes = { "btn-secondary" },
-                Content = Tr.T("🔒 Активировать — 1500 сом", "🔒 Активдештирүү — 1500 сом", "🔒 Activate — 1500 som", "🔒 Etkinleştir — 1500 som", "🔒 Faollashtirish — 1500 so'm"),
+                Content = priceLabel ?? Tr.T("🔒 Активировать — 1500 сом", "🔒 Активдештирүү — 1500 сом", "🔒 Activate — 1500 som", "🔒 Etkinleştir — 1500 som", "🔒 Faollashtirish — 1500 so'm"),
                 Height = 32,
                 Padding = new Thickness(14, 4),
                 HorizontalAlignment = HorizontalAlignment.Left,

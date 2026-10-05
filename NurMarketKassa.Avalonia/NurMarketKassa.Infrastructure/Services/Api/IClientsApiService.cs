@@ -24,4 +24,8 @@ public interface IClientsApiService
 
     /// <summary>DELETE /api/main/clients/{id}/.</summary>
     Task DeleteClientAsync(string id, CancellationToken ct = default);
+
+    /// <summary>2026-10-05, сервер NurCRM (появилось 05.10 в 14:44): POST /api/main/clients/resolve-qr/ {"token": "NURCRMT…"} —
+    /// QR из приложения покупателя → клиент этой компании; нет такого — сервер заводит его из профиля приложения.</summary>
+    Task<JsonElement> ResolveQrAsync(string qrText, CancellationToken ct = default);
 }

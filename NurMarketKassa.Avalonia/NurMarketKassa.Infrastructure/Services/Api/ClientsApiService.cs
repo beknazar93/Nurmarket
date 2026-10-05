@@ -104,4 +104,7 @@ public sealed class ClientsApiService : IClientsApiService
 
     public Task DeleteClientAsync(string id, CancellationToken ct = default) =>
         _client.RequestAsync(HttpMethod.Delete, $"api/main/clients/{id}/", null, null, ct);
+
+    public Task<JsonElement> ResolveQrAsync(string qrText, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Post, "api/main/clients/resolve-qr/", new Dictionary<string, string> { ["token"] = qrText.Trim() }, null, ct);
 }

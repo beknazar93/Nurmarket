@@ -154,6 +154,9 @@
                 <ComboBox x:Name="ReceiptPaperWidthCombo" x:FieldModifier="public" Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="36">
                   <ComboBoxItem Content="{DynamicResource printSettings.width58}" Tag="58"/>
                   <ComboBoxItem Content="{DynamicResource printSettings.width80}" Tag="80"/>
+                  <!-- 2026-10-05, владелец: «чековый принтер XP-80 — невозможно настроить ширину». У XP-80 и похожих
+                       в строке 42 символа (512 точек), а не 48: линии и суммы переносились. Готовый вариант в списке. -->
+                  <ComboBoxItem Content="{DynamicResource printSettings.width80narrow}" Tag="80n"/>
                 </ComboBox>
               </StackPanel>
 

@@ -53,8 +53,8 @@
           </StackPanel>
         </Border>
 
-        <!-- Телеграм-бот владельца -->
-        <Border Classes="SettingsCard" Padding="16">
+        <!-- Телеграм-бот владельца. 2026-10-05: на «Старте» — только если куплен в Маркетплейсе (TelegramCard, код). -->
+        <Border x:Name="TelegramCard" Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">
             <TextBlock Text="{DynamicResource loc.settings.telegram.title}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
@@ -106,6 +106,9 @@
 
             <!-- 2026-09-30, «добавь ИИ, чтобы бот отвечал и общался»: бесплатный ключ Google Gemini.
                  Есть ключ — на разговорные вопросы отвечает нейросеть (TelegramAiChat). -->
+            <!-- 2026-10-05: ключи ИИ — только на «Стандарте» (TariffGate.CanUseAi), на «Старте» — строка о тарифе. -->
+            <TextBlock x:Name="AiTariffLockText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Margin="0,8,0,0"/>
+            <StackPanel x:Name="AiKeysPanel" Spacing="10">
             <TextBlock Text="{DynamicResource loc.settings.telegram.aiTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
                        Text="{DynamicResource loc.settings.telegram.aiHint}"/>
@@ -116,6 +119,31 @@
               <Button x:Name="TelegramAiTestButton" Content="{DynamicResource loc.settings.telegram.aiTest}" Click="TelegramAiTest_Click"/>
             </StackPanel>
             <TextBlock x:Name="TelegramAiStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <!-- 2026-10-05, владелец: «где вставить ключ ИИ? тут нету» — ключи Groq (поиск в интернете, запасная модель)
+                 и OpenRouter (запасные модели) рядом с ключом Gemini, так же: поле, «Получить бесплатный ключ», «Проверить». -->
+            <TextBlock Text="{DynamicResource loc.settings.telegram.groqTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="{DynamicResource loc.settings.telegram.groqHint}"/>
+            <TextBox x:Name="GroqKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="gsk_..."
+                     LostFocus="GroqKey_LostFocus"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="GroqGetKey_Click"/>
+              <Button x:Name="GroqTestButton" Content="{DynamicResource loc.settings.telegram.groqTest}" Click="GroqTest_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="GroqStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+
+            <TextBlock Text="{DynamicResource loc.settings.telegram.routerTitle}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+            <TextBlock FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"
+                       Text="{DynamicResource loc.settings.telegram.routerHint}"/>
+            <TextBox x:Name="OpenRouterKeyBox" x:FieldModifier="public" PasswordChar="•" Watermark="sk-or-..."
+                     LostFocus="OpenRouterKey_LostFocus"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Content="{DynamicResource loc.settings.telegram.aiGetKey}" Click="OpenRouterGetKey_Click"/>
+              <Button x:Name="OpenRouterTestButton" Content="{DynamicResource loc.settings.telegram.aiTest}" Click="OpenRouterTest_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="OpenRouterStatusText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
           </StackPanel>
         </Border>
 

@@ -38,6 +38,20 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private VoiceChatRecorder? _recorder;
     private bool _voiceAnswer;
     private bool _webSearchNoteShown;
+
+    // 2026-10-05, владелец: «найди бесплатную модель, которая ищет в интернете», «настрой несколько моделей» — ключи
+    // запасных моделей и поиска в интернете (AiProviders): ⚙ в строке ввода.
+    private readonly Border _modelsCard = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 14), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 12), IsVisible = false };
+    private readonly Border _routerSection = new();
+
+    // 2026-10-05, владелец: «баг: при нажатии «Новый разговор» — где старый чат и почему новый чат завис?» Шёл поиск фото
+    // (долгий), «Новый разговор» стирал экран, но поиск не останавливал — ввод оставался выключенным. Теперь: _gen — номер
+    // текущей работы (старая после остановки UI не трогает), «Спросить» во время работы — «■ Стоп», прошлые разговоры
+    // сохраняются (ai-chats.json в папке данных компании) и открываются кнопкой «История».
+    private int _gen;
+    private string _chatId = Guid.NewGuid().ToString("N");
+    private readonly Border _historyCard = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 14), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 12), IsVisible = false };
+    private readonly StackPanel _historyList = new() { Spacing = 6 };
     private bool _busy;
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -128,8 +142,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         Use(_keyStatus, TextBlock.ForegroundProperty, "BrushTextSoft");
         keyStack.Children.Add(_keyStatus);
         _keyCard.Child = keyStack;
-        Grid.SetRow(_keyCard, 1);
-        _root.Children.Add(_keyCard);
+        // Ключ Gemini и «Модели ИИ» — друг под другом в одной строке разметки.
+        BuildModelsCard();
+        BuildHistoryCard();
+        var topCards = new StackPanel { Children = { _keyCard, _modelsCard, _historyCard } };
+        Grid.SetRow(topCards, 1);
+        _root.Children.Add(topCards);
 
         // Разговор.
         var chatCard = new Border { CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), Padding = new Thickness(12) };
@@ -166,7 +184,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _root.Children.Add(_quick);
 
         // Строка ввода.
-        var inputRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
+        var inputRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto") };
         _input = UiKit.Input(this, T("Напишите вопрос и нажмите Enter…", "Суроону жазып, Enter басыңыз…", "Type a question and press Enter…", "Sorunuzu yazıp Enter'a basın…", "Savolni yozib, Enter bosing…"), 48);
         _input.KeyDown += async (_, e) =>
         {
@@ -197,7 +215,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _send = UiKit.Primary(this, T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
         _send.Height = 48;
         _send.Margin = new Thickness(8, 0, 0, 0);
-        _send.Click += async (_, _) => await SendAsync(_input.Text).ConfigureAwait(true);
+        _send.Click += async (_, _) =>
+        {
+            if (_busy)
+                StopCurrent(showNote: true);
+            else
+                await SendAsync(_input.Text).ConfigureAwait(true);
+        };
         Grid.SetColumn(_send, 2);
         inputRow.Children.Add(_send);
         var reset = UiKit.Ghost(this, T("Новый разговор", "Жаңы маек", "New chat", "Yeni sohbet", "Yangi suhbat"));
@@ -206,6 +230,36 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         reset.Click += (_, _) => ResetChat();
         Grid.SetColumn(reset, 3);
         inputRow.Children.Add(reset);
+        var history = UiKit.Ghost(this, "🕘");
+        history.Height = 48;
+        history.Width = 52;
+        history.Padding = new Thickness(0);
+        history.FontSize = 18;
+        history.Margin = new Thickness(8, 0, 0, 0);
+        ToolTip.SetTip(history, T("Прошлые разговоры", "Мурунку маектер", "Past chats", "Geçmiş sohbetler", "Oldingi suhbatlar"));
+        history.Click += (_, _) =>
+        {
+            _historyCard.IsVisible = !_historyCard.IsVisible;
+            if (_historyCard.IsVisible)
+                RefreshHistoryList();
+        };
+        Grid.SetColumn(history, 4);
+        inputRow.Children.Add(history);
+        var models = UiKit.Ghost(this, "⚙");
+        models.Height = 48;
+        models.Width = 52;
+        models.Padding = new Thickness(0);
+        models.FontSize = 18;
+        models.Margin = new Thickness(8, 0, 0, 0);
+        ToolTip.SetTip(models, T("Модели ИИ и поиск в интернете", "ИИ моделдери жана интернеттен издөө", "AI models and web search", "Yapay zekâ modelleri ve internet araması", "SI modellari va internetda qidirish"));
+        models.Click += (_, _) =>
+        {
+            var show = !(_modelsCard.IsVisible && _routerSection.IsVisible);
+            _modelsCard.IsVisible = show;
+            _routerSection.IsVisible = show;
+        };
+        Grid.SetColumn(models, 5);
+        inputRow.Children.Add(models);
         Grid.SetRow(inputRow, 4);
         _root.Children.Add(inputRow);
 
@@ -260,6 +314,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         });
         Closed += (_, _) =>
         {
+            SaveCurrentChat();
             _cts?.Cancel();
             _recorder?.Dispose();
             _recorder = null;
@@ -276,7 +331,11 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     {
         _keyCard.IsVisible = !TelegramAiChat.IsConfigured;
         _input.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
-        _send.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
+        // Во время ответа или поиска фото — «■ Стоп» (раньше кнопка была просто серой, казалось — зависло).
+        _send.IsEnabled = TelegramAiChat.IsConfigured || _busy;
+        _send.Content = _busy
+            ? T("■ Стоп", "■ Токтотуу", "■ Stop", "■ Durdur", "■ To'xtatish")
+            : T("Спросить", "Суроо", "Ask", "Sor", "So'rash");
         // 2026-10-05, проверка на телефоне: без ключа ИИ не работала и кнопка «Найди фото…», хотя поиску фото
         // нейросеть не нужна (открытые базы товаров по штрихкоду) — она доступна всегда.
         foreach (var chip in _quick.Children.OfType<Button>())
@@ -306,7 +365,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private void ResetChat()
     {
-        VoiceChatPlayer.Stop();
+        StopCurrent(showNote: false);
+        SaveCurrentChat();
+        _chatId = Guid.NewGuid().ToString("N");
         TelegramAiChat.ResetOwnerAppHistory();
         _messages.Children.Clear();
         AddBubble(T("Начнём сначала. О чём посоветоваться?", "Башынан баштайлы. Эмне жөнүндө кеңешебиз?", "Let's start over. What would you like advice on?",
@@ -322,6 +383,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var speak = _voiceAnswer;
         _voiceAnswer = false;
         VoiceChatPlayer.Stop();
+        var gen = ++_gen;
         _busy = true;
         _input.Text = "";
         RefreshKeyCard();
@@ -336,8 +398,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             }
             finally
             {
-                _busy = false;
-                RefreshKeyCard();
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                }
             }
             return;
         }
@@ -355,6 +421,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 ? question + "\n(Вопрос задан голосом, ответ будет озвучен: ответь коротко — 2–3 предложения, без списков и таблиц.)"
                 : question;
             var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(askText, summary, _cts.Token).ConfigureAwait(true);
+            if (gen != _gen)
+                return;
             PosLogger.Log($"ИИ-советник: сводка {summaryMs} мс, ответ ИИ {watch.ElapsedMilliseconds - summaryMs} мс{(speak ? " (голосом)" : "")}.", "INFO");
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
@@ -370,19 +438,20 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             // 2026-10-05, владелец: «включи поиск по интернету для ИИ» — если ИИ искал в интернете, источники ссылками.
             if (answer is { Length: > 0 } && TelegramAiChat.LastWebSources.Count > 0)
                 AddWebSources(TelegramAiChat.LastWebSources);
-            else if (TelegramAiChat.WebSearchUnavailable && !_webSearchNoteShown)
+            else if (TelegramAiChat.WebSearchUnavailable && !AiProviders.HasGroq && !_webSearchNoteShown)
             {
                 _webSearchNoteShown = true;
-                AddBubble(T("Поиск в интернете для этого ключа ИИ недоступен: у бесплатного ключа Google Gemini нет квоты на поиск Google. "
-                            + "Включите оплату (Billing) для ключа в aistudio.google.com — поиск заработает сам. Пока отвечаю по данным магазина.",
-                        "Бул ИИ ачкычы үчүн интернеттен издөө жеткиликсиз: акысыз Google Gemini ачкычында Google издөөгө квота жок. "
-                            + "aistudio.google.com сайтында ачкычка төлөмдү (Billing) күйгүзүңүз — издөө өзү иштейт. Азырынча дүкөндүн маалыматы боюнча жооп берем.",
-                        "Web search is not available for this AI key: a free Google Gemini key has no Google Search quota. "
-                            + "Enable Billing for the key at aistudio.google.com and search will start working. For now I answer from the shop data.",
-                        "Bu yapay zekâ anahtarı için internet araması kullanılamıyor: ücretsiz Google Gemini anahtarında Google Arama kotası yok. "
-                            + "aistudio.google.com adresinde anahtar için faturalandırmayı açın — arama kendiliğinden çalışır. Şimdilik mağaza verileriyle yanıtlıyorum.",
-                        "Bu SI kaliti uchun internetda qidirish mavjud emas: bepul Google Gemini kalitida Google qidiruv kvotasi yo'q. "
-                            + "aistudio.google.com saytida kalit uchun to'lovni (Billing) yoqing — qidiruv o'zi ishlaydi. Hozircha do'kon ma'lumotlari bo'yicha javob beraman."), fromOwner: false);
+                _modelsCard.IsVisible = true;
+                AddBubble(T("Искать в интернете бесплатный ключ Google Gemini не умеет. Чтобы ИИ искал в интернете бесплатно, добавьте ключ Groq: "
+                            + "блок «Поиск в интернете» сверху → «Получить ключ» (бесплатно, карта не нужна). Пока отвечаю по данным магазина.",
+                        "Акысыз Google Gemini ачкычы интернеттен издей албайт. ИИ интернеттен акысыз издеши үчүн Groq ачкычын кошуңуз: "
+                            + "жогорудагы «Интернеттен издөө» блогу → «Ачкыч алуу» (акысыз, карта керек эмес). Азырынча дүкөндүн маалыматы боюнча жооп берем.",
+                        "A free Google Gemini key cannot search the web. To let the AI search the web for free, add a Groq key: "
+                            + "the “Web search” block at the top → “Get a key” (free, no card). For now I answer from the shop data.",
+                        "Ücretsiz Google Gemini anahtarı internette arama yapamaz. Yapay zekânın ücretsiz arama yapması için bir Groq anahtarı ekleyin: "
+                            + "üstteki «İnternet araması» bloğu → «Anahtar al» (ücretsiz, kart gerekmez). Şimdilik mağaza verileriyle yanıtlıyorum.",
+                        "Bepul Google Gemini kaliti internetda qidira olmaydi. SI internetda bepul qidirishi uchun Groq kalitini qo'shing: "
+                            + "yuqoridagi «Internetda qidirish» bloki → «Kalit olish» (bepul, karta kerak emas). Hozircha do'kon ma'lumotlari bo'yicha javob beraman."), fromOwner: false);
             }
             if (botChange is { Count: > 0 })
                 AddBotChangeCard(botChange);
@@ -402,11 +471,188 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         }
         finally
         {
-            _busy = false;
-            RefreshKeyCard();
+            if (gen == _gen)
+            {
+                _busy = false;
+                RefreshKeyCard();
+            }
         }
+        if (gen != _gen)
+            return;
+        SaveCurrentChat();
         ScrollToEnd();
         _input.Focus();
+    }
+
+    /// <summary>Остановить текущий ответ или поиск фото: ввод сразу доступен, старая работа UI больше не трогает.</summary>
+    private void StopCurrent(bool showNote)
+    {
+        var wasBusy = _busy;
+        _gen++;
+        _cts?.Cancel();
+        VoiceChatPlayer.Stop();
+        _busy = false;
+        RefreshKeyCard();
+        if (wasBusy)
+        {
+            PosLogger.Log("ИИ-советник: работа остановлена владельцем.", "INFO");
+            if (showNote)
+                AddBubble(T("Остановил.", "Токтоттум.", "Stopped.", "Durdurdum.", "To'xtatdim."), fromOwner: false);
+        }
+    }
+
+    // ── История разговоров (2026-10-05). Сохраняются реплики (вопросы и ответы текстом); карточки фото и кнопки — нет.
+    private sealed record SavedLine(bool Owner, string Text);
+
+    private sealed record SavedChat(string Id, DateTime At, string Title, List<SavedLine> Lines);
+
+    private static string ChatsPath => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "ai-chats.json");
+
+    private static List<SavedChat> LoadChats()
+    {
+        try
+        {
+            if (System.IO.File.Exists(ChatsPath))
+                return System.Text.Json.JsonSerializer.Deserialize<List<SavedChat>>(System.IO.File.ReadAllText(ChatsPath)) ?? new();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: история разговоров не прочитана ({ex.Message}).", "WARNING");
+        }
+        return new();
+    }
+
+    private static void StoreChats(List<SavedChat> chats)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ChatsPath)!);
+            System.IO.File.WriteAllText(ChatsPath, System.Text.Json.JsonSerializer.Serialize(chats.Take(30).ToList()));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: история разговоров не сохранена ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>Реплики текущего разговора с экрана (пузыри: справа — владелец, слева — советник).</summary>
+    private List<SavedLine> CurrentLines()
+    {
+        var thinking = T("Думаю…", "Ойлонуп жатам…", "Thinking…", "Düşünüyorum…", "O'ylayapman…");
+        var lines = new List<SavedLine>();
+        foreach (var child in _messages.Children)
+        {
+            if (child is Border { Child: SelectableTextBlock text } bubble && !string.IsNullOrWhiteSpace(text.Text) && text.Text != thinking)
+                lines.Add(new SavedLine(bubble.HorizontalAlignment == HorizontalAlignment.Right, text.Text!));
+        }
+        return lines;
+    }
+
+    private void SaveCurrentChat()
+    {
+        var lines = CurrentLines();
+        var first = lines.FirstOrDefault(l => l.Owner);
+        if (first is null)
+            return;
+        var title = first.Text.Length > 70 ? first.Text[..70] + "…" : first.Text;
+        var chats = LoadChats();
+        var at = chats.FirstOrDefault(c => c.Id == _chatId)?.At ?? DateTime.Now;
+        chats.RemoveAll(c => c.Id == _chatId);
+        chats.Insert(0, new SavedChat(_chatId, at, title, lines));
+        StoreChats(chats);
+        if (_historyCard.IsVisible)
+            RefreshHistoryList();
+    }
+
+    private void BuildHistoryCard()
+    {
+        Use(_historyCard, Border.BackgroundProperty, "BrushPanel");
+        Use(_historyCard, Border.BorderBrushProperty, "BrushBorder");
+        var title = new TextBlock
+        {
+            Text = T("Прошлые разговоры", "Мурунку маектер", "Past chats", "Geçmiş sohbetler", "Oldingi suhbatlar"),
+            FontSize = 15, FontWeight = FontWeight.Bold,
+        };
+        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        _historyCard.Child = new StackPanel
+        {
+            Spacing = 8,
+            Children = { title, new ScrollViewer { MaxHeight = 260, Content = _historyList } },
+        };
+    }
+
+    private void RefreshHistoryList()
+    {
+        _historyList.Children.Clear();
+        var chats = LoadChats();
+        if (chats.Count == 0)
+        {
+            var empty = new TextBlock
+            {
+                Text = T("Пока нет сохранённых разговоров. Разговор сохраняется сам после каждого ответа.",
+                    "Азырынча сакталган маектер жок. Маек ар бир жооптон кийин өзү сакталат.",
+                    "No saved chats yet. A chat is saved automatically after every answer.",
+                    "Henüz kayıtlı sohbet yok. Sohbet her yanıttan sonra otomatik kaydedilir.",
+                    "Hozircha saqlangan suhbatlar yo'q. Suhbat har bir javobdan keyin o'zi saqlanadi."),
+                FontSize = 13, TextWrapping = TextWrapping.Wrap,
+            };
+            Use(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
+            _historyList.Children.Add(empty);
+            return;
+        }
+        foreach (var chat in chats)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            var open = UiKit.Ghost(this, $"{chat.At:dd.MM HH:mm} · {chat.Title}" + (chat.Id == _chatId
+                ? T(" (сейчас)", " (азыр)", " (current)", " (şu an)", " (hozir)") : ""));
+            open.Height = 38;
+            open.HorizontalAlignment = HorizontalAlignment.Stretch;
+            open.HorizontalContentAlignment = HorizontalAlignment.Left;
+            open.Click += (_, _) => OpenChat(chat);
+            row.Children.Add(open);
+            var delete = UiKit.Ghost(this, "✕");
+            delete.Height = 38;
+            delete.Width = 44;
+            delete.Padding = new Thickness(0);
+            delete.Margin = new Thickness(6, 0, 0, 0);
+            ToolTip.SetTip(delete, T("Удалить разговор", "Маекти өчүрүү", "Delete chat", "Sohbeti sil", "Suhbatni o'chirish"));
+            delete.Click += (_, _) =>
+            {
+                var all = LoadChats();
+                all.RemoveAll(c => c.Id == chat.Id);
+                StoreChats(all);
+                RefreshHistoryList();
+            };
+            Grid.SetColumn(delete, 1);
+            row.Children.Add(delete);
+            row.Classes.Add("no-reflow");
+            _historyList.Children.Add(row);
+        }
+    }
+
+    /// <summary>Открыть прошлый разговор и продолжить его: реплики — на экран, вопросы и ответы — в память разговора ИИ.</summary>
+    private void OpenChat(SavedChat chat)
+    {
+        StopCurrent(showNote: false);
+        SaveCurrentChat();
+        _messages.Children.Clear();
+        foreach (var line in chat.Lines)
+            AddBubble(line.Text, line.Owner);
+        _chatId = chat.Id;
+        var turns = new List<(string Role, string Text)>();
+        for (var i = 0; i + 1 < chat.Lines.Count; i++)
+        {
+            if (chat.Lines[i].Owner && !chat.Lines[i + 1].Owner)
+            {
+                turns.Add(("user", chat.Lines[i].Text));
+                turns.Add(("model", chat.Lines[i + 1].Text));
+            }
+        }
+        TelegramAiChat.RestoreOwnerAppHistory(turns);
+        _historyCard.IsVisible = false;
+        PosLogger.Log($"ИИ-советник: открыт прошлый разговор ({chat.Lines.Count} реплик).", "INFO");
+        ScrollToEnd();
     }
 
     /// <summary>Реплика: вопрос владельца — справа, ответ советника — слева. Текст можно выделить и скопировать.</summary>
@@ -900,6 +1146,135 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         if (cut < 0)
             cut = t.LastIndexOf(' ', Math.Min(t.Length - 1, 100)) is var sp and > 20 ? sp : Math.Min(t.Length, 100);
         return (t[..cut].Trim(), t[cut..].Trim());
+    }
+
+    /// <summary>Блок «Модели ИИ»: ключи Groq (поиск в интернете, запасные ответы) и OpenRouter (запасные бесплатные модели).
+    /// 2026-10-05, владелец: «сделай как у Gemini кнопку на получение ключа» — каждый ключ своим блоком, как ключ Gemini:
+    /// заголовок, шаги, поле + «Получить ключ» + «Сохранить». Ключ проверяется до сохранения; пустое поле — прежний ключ остаётся.
+    /// Пока ключа Groq нет, блок Groq показывается сам; OpenRouter (необязательный) — по кнопке ⚙.</summary>
+    private void BuildModelsCard()
+    {
+        Use(_modelsCard, Border.BackgroundProperty, "BrushPanel");
+        Use(_modelsCard, Border.BorderBrushProperty, "BrushBorder");
+        var stack = new StackPanel { Spacing = 16 };
+        stack.Children.Add(ProviderKeySection("Groq",
+            T("Поиск в интернете — бесплатный ключ Groq", "Интернеттен издөө — Groq акысыз ачкычы", "Web search — a free Groq key",
+                "İnternet araması — ücretsiz Groq anahtarı", "Internetda qidirish — bepul Groq kaliti"),
+            T("Нажмите «Получить ключ» → войдите через Google → «Create API Key», скопируйте ключ (gsk_…) и вставьте ниже (карта не нужна, 1000 запросов в день). "
+              + "Для поиска в Groq уходит только вопрос. Если у Gemini кончился дневной лимит, Groq ответит сам — тогда туда уходит и сводка магазина.",
+                "«Ачкыч алуу» басыңыз → Google аркылуу кириңиз → «Create API Key», ачкычты (gsk_…) көчүрүп, төмөнгө чаптаңыз (карта керек эмес, күнүнө 1000 суроо). "
+                + "Издөө үчүн Groq'ко суроо гана кетет. Gemini'нин күндүк лимити бүтсө, Groq өзү жооп берет — анда дүкөндүн жыйынтыгы да кетет.",
+                "Press “Get a key” → sign in with Google → “Create API Key”, copy the key (gsk_…) and paste it below (no card, 1000 requests a day). "
+                + "For search only the question goes to Groq. If Gemini's daily limit runs out, Groq answers itself — then the shop summary goes there too.",
+                "«Anahtar al»a basın → Google ile giriş yapın → «Create API Key», anahtarı (gsk_…) kopyalayıp aşağıya yapıştırın (kart gerekmez, günde 1000 istek). "
+                + "Arama için Groq'a yalnızca soru gider. Gemini'nin günlük limiti biterse Groq kendisi yanıtlar — o zaman mağaza özeti de gider.",
+                "«Kalit olish» ni bosing → Google orqali kiring → «Create API Key», kalitni (gsk_…) nusxalab pastga joylang (karta kerak emas, kuniga 1000 so'rov). "
+                + "Qidiruv uchun Groq'ga faqat savol ketadi. Gemini kunlik limiti tugasa, Groq o'zi javob beradi — unda do'kon xulosasi ham ketadi."),
+            "gsk_…", AiProviders.HasGroq, "https://console.groq.com/keys", AiProviders.TestGroqAsync,
+            key => UserPreferences.Instance.GroqApiKey = key,
+            onSaved: () =>
+            {
+                AddBubble(T("✓ Поиск в интернете включён (Groq). Спросите, например: «Какой сейчас курс доллара?»",
+                    "✓ Интернеттен издөө күйгүзүлдү (Groq). Мисалы, сураңыз: «Доллардын курсу азыр канча?»",
+                    "✓ Web search is on (Groq). Ask, for example: “What is the dollar rate now?”",
+                    "✓ İnternet araması açık (Groq). Örneğin sorun: «Doların kuru şu an ne?»",
+                    "✓ Internetda qidirish yoqildi (Groq). Masalan, so'rang: «Dollar kursi hozir qancha?»"), fromOwner: false);
+                // Открылся сам (без ⚙) — после сохранения прячем, как блок ключа Gemini.
+                if (!_routerSection.IsVisible)
+                    _modelsCard.IsVisible = false;
+            }));
+        _routerSection.Child = ProviderKeySection("OpenRouter",
+            T("Запасные модели — бесплатный ключ OpenRouter (необязательно)", "Запастагы моделдер — OpenRouter акысыз ачкычы (милдеттүү эмес)",
+                "Backup models — a free OpenRouter key (optional)", "Yedek modeller — ücretsiz OpenRouter anahtarı (isteğe bağlı)",
+                "Zaxira modellar — bepul OpenRouter kaliti (ixtiyoriy)"),
+            T("Если у Gemini кончился дневной лимит, ответит бесплатная модель OpenRouter (50 запросов в день). Нажмите «Получить ключ» → войдите через Google → "
+              + "«Create API Key», скопируйте ключ (sk-or-…) и вставьте ниже. Вопрос и сводка магазина при этом уходят в OpenRouter.",
+                "Gemini'нин күндүк лимити бүтсө, OpenRouter'дин акысыз модели жооп берет (күнүнө 50 суроо). «Ачкыч алуу» басыңыз → Google аркылуу кириңиз → "
+                + "«Create API Key», ачкычты (sk-or-…) көчүрүп, төмөнгө чаптаңыз. Анда суроо жана дүкөндүн жыйынтыгы OpenRouter'ге кетет.",
+                "If Gemini's daily limit runs out, a free OpenRouter model answers (50 requests a day). Press “Get a key” → sign in with Google → "
+                + "“Create API Key”, copy the key (sk-or-…) and paste it below. The question and the shop summary then go to OpenRouter.",
+                "Gemini'nin günlük limiti biterse ücretsiz bir OpenRouter modeli yanıtlar (günde 50 istek). «Anahtar al»a basın → Google ile giriş yapın → "
+                + "«Create API Key», anahtarı (sk-or-…) kopyalayıp aşağıya yapıştırın. Soru ve mağaza özeti o zaman OpenRouter'a gider.",
+                "Gemini kunlik limiti tugasa, OpenRouter bepul modeli javob beradi (kuniga 50 so'rov). «Kalit olish» ni bosing → Google orqali kiring → "
+                + "«Create API Key», kalitni (sk-or-…) nusxalab pastga joylang. Savol va do'kon xulosasi shunda OpenRouter'ga ketadi."),
+            "sk-or-…", AiProviders.HasOpenRouter, "https://openrouter.ai/keys", AiProviders.TestOpenRouterAsync,
+            key => UserPreferences.Instance.OpenRouterApiKey = key, onSaved: null);
+        stack.Children.Add(_routerSection);
+        _modelsCard.Child = stack;
+        // Ключа Groq нет — блок Groq виден сразу (как блок ключа Gemini), OpenRouter — по ⚙.
+        _routerSection.IsVisible = false;
+        _modelsCard.IsVisible = !AiProviders.HasGroq;
+    }
+
+    /// <summary>Блок одного ключа в стиле ключа Gemini: заголовок, шаги, [поле][Получить ключ][Сохранить], строка состояния.</summary>
+    private StackPanel ProviderKeySection(string name, string titleText, string hintText, string sample, bool saved, string getUrl,
+        Func<string, CancellationToken, Task<(bool Ok, string Message)>> test, Action<string> store, Action? onSaved)
+    {
+        var savedWatermark = T("ключ сохранён — вставьте новый, чтобы заменить", "ачкыч сакталды — алмаштыруу үчүн жаңысын чаптаңыз",
+            "key saved — paste a new one to replace", "anahtar kaydedildi — değiştirmek için yenisini yapıştırın", "kalit saqlandi — almashtirish uchun yangisini joylang");
+        var section = new StackPanel { Spacing = 8 };
+        var title = new TextBlock { Text = titleText, FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
+        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        section.Children.Add(title);
+        var hint = new TextBlock { Text = hintText, FontSize = 13, TextWrapping = TextWrapping.Wrap };
+        Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
+        section.Children.Add(hint);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+        var box = UiKit.Input(this, saved ? savedWatermark
+            : T($"Ключ {name} ({sample})", $"{name} ачкычы ({sample})", $"{name} key ({sample})", $"{name} anahtarı ({sample})", $"{name} kaliti ({sample})"));
+        box.PasswordChar = '•';
+        row.Children.Add(box);
+        var status = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+        Use(status, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var get = UiKit.Ghost(this, T("Получить ключ", "Ачкыч алуу", "Get a key", "Anahtar al", "Kalit olish"));
+        get.Margin = new Thickness(8, 0, 0, 0);
+        get.Click += async (_, _) =>
+        {
+            try
+            {
+                if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
+                    await launcher.LaunchUriAsync(new Uri(getUrl)).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                status.Text = getUrl + " — " + ex.Message;
+            }
+        };
+        Grid.SetColumn(get, 1);
+        row.Children.Add(get);
+        var save = UiKit.Primary(this, T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
+        save.Margin = new Thickness(8, 0, 0, 0);
+        save.Click += async (_, _) =>
+        {
+            var key = (box.Text ?? "").Trim();
+            if (key.Length == 0)
+            {
+                status.Text = T("Вставьте ключ в поле слева.", "Ачкычты сол жактагы талаага чаптаңыз.", "Paste the key into the field on the left.",
+                    "Anahtarı soldaki alana yapıştırın.", "Kalitni chapdagi maydonga joylang.");
+                return;
+            }
+            save.IsEnabled = false;
+            status.Text = T("Проверяю ключ…", "Ачкычты текшерип жатам…", "Checking the key…", "Anahtar kontrol ediliyor…", "Kalit tekshirilmoqda…");
+            var (ok, message) = await test(key, CancellationToken.None).ConfigureAwait(true);
+            save.IsEnabled = true;
+            PosLogger.Log($"ИИ-советник: ключ {name} {(ok ? "проверен и сохранён" : "не подошёл")}.", "INFO");
+            if (!ok)
+            {
+                status.Text = T("Ключ не подошёл: ", "Ачкыч туура келген жок: ", "The key didn't work: ", "Anahtar çalışmadı: ", "Kalit ishlamadi: ") + message;
+                return;
+            }
+            store(key);
+            UserPreferences.Instance.SaveToDisk();
+            box.Text = "";
+            box.Watermark = savedWatermark;
+            status.Text = "✓ " + message;
+            onSaved?.Invoke();
+        };
+        Grid.SetColumn(save, 2);
+        row.Children.Add(save);
+        section.Children.Add(row);
+        section.Children.Add(status);
+        return section;
     }
 
     /// <summary>Источники из интернета под ответом: «🌐 Источники:» и кнопки-ссылки (открываются в браузере).</summary>

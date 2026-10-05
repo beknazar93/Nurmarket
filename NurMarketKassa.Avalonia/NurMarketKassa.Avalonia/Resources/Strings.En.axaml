@@ -291,6 +291,7 @@
   <x:String x:Key="bulkImport.startButton">Start import</x:String>
   <x:String x:Key="printSettings.width58">58 mm (32 chars)</x:String>
   <x:String x:Key="printSettings.width80">80 mm (48 chars)</x:String>
+  <x:String x:Key="printSettings.width80narrow">80 mm — 42 chars (XP-80 and similar)</x:String>
   <x:String x:Key="printSettings.utf8AsCp1251">utf-8 (prints as cp1251)</x:String>
   <x:String x:Key="printSettings.utf8Pos">UTF-8 — built-in printer of an Android till (Sunmi)</x:String>
   <x:String x:Key="printSettings.pc437NoCyrillic">0 — PC437 (no Cyrillic)</x:String>
@@ -1389,6 +1390,11 @@
     <x:String x:Key="loc.settings.telegram.aiHint">Even without a key the bot understands plain phrases: “how much did we make today”, “who owes”, “price of cola”. To let it chat freely and give advice, get a free Google key (a Google account is needed, no card) and paste it here. Exact figures are still calculated by the till; the AI only receives a short shop summary. On the free tier Google may use requests to improve its services. Empty field — AI is off.</x:String>
     <x:String x:Key="loc.settings.telegram.aiGetKey">Get a free key</x:String>
     <x:String x:Key="loc.settings.telegram.aiTest">Test AI</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTitle">Web search for the AI (free, Groq)</x:String>
+    <x:String x:Key="loc.settings.telegram.groqHint">A free Google Gemini key cannot search the web. With a Groq key the AI advisor finds rates, prices and news on the web, and photo search finds product pictures. Press “Get a free key” → sign in with Google → “Create API Key”, copy the key (gsk_…) and paste it here (no card, 1000 requests a day). For search only the question is sent; if Gemini's daily limit runs out, Groq answers itself — then the shop summary is sent too. Empty field — search is off.</x:String>
+    <x:String x:Key="loc.settings.telegram.groqTest">Test search</x:String>
+    <x:String x:Key="loc.settings.telegram.routerTitle">Backup AI models (free, OpenRouter, optional)</x:String>
+    <x:String x:Key="loc.settings.telegram.routerHint">If Gemini's daily limit runs out, a free OpenRouter model answers (50 requests a day). Press “Get a free key” → sign in with Google → “Create API Key”, copy the key (sk-or-…) and paste it here. The question and the shop summary then go to OpenRouter. Empty field — off.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.toggle">Show the customer a QR code with the receipt amount</x:String>
     <x:String x:Key="loc.settings.dynamicQr.desc">Instead of the bank's regular QR code, the customer display shows a code with the receipt amount already filled in — no need to type it manually. Payment details are taken from the QR code uploaded above.</x:String>
     <x:String x:Key="loc.settings.dynamicQr.warning">Before turning this on, scan a test receipt with the apps of two or three banks: the format has been checked against MBank's QR code but not tested with other banks. The cashier still confirms the payment manually — the till doesn't detect the payment on its own.</x:String>
