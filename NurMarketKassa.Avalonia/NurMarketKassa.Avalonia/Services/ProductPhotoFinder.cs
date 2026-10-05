@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
@@ -54,11 +55,44 @@ public static class ProductPhotoFinder
         return code.Length is >= 8 and <= 14 ? code : null;
     }
 
+    /// <summary>2026-10-05, владелец: «чтобы ИИ смог по команде найти фото по названию или штрихкоду товара». Товары,
+    /// названные в просьбе: штрихкод (8–14 цифр) или слова названия («найди фото для кока колы»). Пусто — просьба про все
+    /// товары без фото.</summary>
+    public static IReadOnlyList<CatalogProductTileVm> MatchRequest(string request)
+    {
+        IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
+        if (tiles.Count == 0)
+            tiles = CatalogCacheService.Products.ToList();
+        tiles = tiles.Where(t => !t.IsService).ToList();
+        var codes = Regex.Matches(request, @"\d{8,14}").Select(m => m.Value).ToHashSet();
+        if (codes.Count > 0)
+            return tiles.Where(t => SearchableBarcode(t) is { } c && codes.Contains(c)).ToList();
+        var lower = request.ToLowerInvariant();
+        if (new[] { "без фото", "всех", "все товары", "всем", "сүрөтсүз", "without", "all products", "fotoğrafsız", "rasmsiz" }.Any(lower.Contains))
+            return Array.Empty<CatalogProductTileVm>();
+        var stop = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "найди", "найти", "поищи", "ищи", "поставь", "поставить", "загрузи", "загрузить", "добавь", "фото", "фотку", "фотографию",
+            "фотография", "картинку", "для", "товара", "товару", "товар", "товаров", "интернете", "интернет", "в", "на", "по", "его", "её",
+            "сүрөт", "сүрөтүн", "тап", "кой", "photo", "picture", "image", "find", "for", "the", "set", "upload", "fotoğraf", "bul", "rasm", "top",
+        };
+        var words = Regex.Split(lower, @"[^\p{L}\p{N}]+").Where(w => w.Length >= 3 && !stop.Contains(w)).Distinct().ToList();
+        if (words.Count == 0)
+            return Array.Empty<CatalogProductTileVm>();
+        var scored = tiles.Select(t => (Tile: t, Score: words.Count(w => t.Title.Contains(w, StringComparison.OrdinalIgnoreCase))))
+            .Where(x => x.Score > 0).ToList();
+        if (scored.Count == 0)
+            return Array.Empty<CatalogProductTileVm>();
+        var best = scored.Max(x => x.Score);
+        return scored.Where(x => x.Score == best).Select(x => x.Tile).Take(10).ToList();
+    }
+
     /// <summary>Поиск фото для товаров — по два товара одновременно, с паузой (бережно к бесплатным базам: у Open Food
     /// Facts лимит ~100 запросов в минуту). progress(сделано, всего). Порядок результатов — как во входном списке.</summary>
     public static async Task<(List<Candidate> Found, List<CatalogProductTileVm> NotFound)> SearchAsync(
-        IReadOnlyList<CatalogProductTileVm> products, Action<int, int>? progress, CancellationToken ct)
+        IReadOnlyList<CatalogProductTileVm> products, Action<int, int>? progress, CancellationToken ct, int webLimit = 0)
     {
+        var webLeft = webLimit;
         PosLogger.Log($"Фото товаров: поиск по {products.Count} штрихкодам.", "CATALOG");
         var hits = new Candidate?[products.Count];
         var done = 0;
@@ -83,6 +117,10 @@ public static class ProductPhotoFinder
                     }
                     await Task.Delay(150, ct).ConfigureAwait(false);
                 }
+                // 2026-10-05, владелец: «найти фото по названию или штрихкоду в интернете, если в базе нет».
+                hits[index] ??= await TryFindByNameAsync(product, ct).ConfigureAwait(false);
+                if (hits[index] is null && Interlocked.Decrement(ref webLeft) >= 0)
+                    hits[index] = await TryFindOnWebAsync(product, ct).ConfigureAwait(false);
             }
             finally
             {
@@ -120,6 +158,123 @@ public static class ProductPhotoFinder
             // но не наша), неожиданный ответ — просто «не найдено».
         }
         return null;
+    }
+
+    /// <summary>Open Food Facts по названию товара (продукты питания). Берём первый найденный товар, у которого с нашим
+    /// совпадает хотя бы одно слово названия от 3 букв, — иначе «Банан» нашёл бы «банановые чипсы» другого бренда.</summary>
+    private static async Task<Candidate?> TryFindByNameAsync(CatalogProductTileVm product, CancellationToken ct)
+    {
+        var title = product.Title.Trim();
+        if (title.Length < 3)
+            return null;
+        try
+        {
+            var url = "https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=5"
+                      + "&fields=product_name,image_front_url&search_terms=" + Uri.EscapeDataString(title);
+            var json = await Http.GetStringAsync(url, ct).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("products", out var list) || list.ValueKind != JsonValueKind.Array)
+                return null;
+            var words = Regex.Split(title.ToLowerInvariant(), @"[^\p{L}\p{N}]+").Where(w => w.Length >= 3).ToList();
+            foreach (var p in list.EnumerateArray())
+            {
+                var name = p.TryGetProperty("product_name", out var n) ? (n.GetString() ?? "").ToLowerInvariant() : "";
+                if (p.TryGetProperty("image_front_url", out var img) && img.GetString() is { Length: > 10 } image
+                    && image.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && words.Any(name.Contains))
+                    return new Candidate(product, image, "Open Food Facts (по названию)");
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // не нашлось
+        }
+        return null;
+    }
+
+    /// <summary>Интернет: поиск Google через Gemini находит страницы товара, на странице берём его фото (og:image) или
+    /// прямую ссылку на картинку; картинка проверяется скачиванием (это действительно изображение, не меньше 3 КБ).</summary>
+    public static async Task<Candidate?> TryFindOnWebAsync(CatalogProductTileVm product, CancellationToken ct)
+    {
+        var code = SearchableBarcode(product);
+        var question = $"Найди в интернете фотографию товара «{product.Title}»" + (code is null ? "" : $" (штрихкод {code})")
+                       + ". Нужна страница интернет-магазина или производителя с фото именно этого товара. "
+                       + "Ответь только ссылками, по одной в строке: сначала прямые ссылки на изображения (jpg, png, webp), затем страницы товара. Без пояснений.";
+        try
+        {
+            var (answer, sources, error) = await NurMarketKassa.Services.TelegramAiChat.AskWebAsync(
+                "Ты помощник магазина: находишь в интернете фото товаров для карточек склада. Не выдумывай ссылки.", question, ct).ConfigureAwait(false);
+            if (answer is null && sources.Count == 0)
+            {
+                PosLogger.Log($"Фото товара «{product.Title}»: поиск в интернете не удался ({error}).", "CATALOG");
+                return null;
+            }
+            var urls = Regex.Matches(answer ?? "", @"https?://[^\s<>()""'\]]+").Select(m => m.Value.TrimEnd('.', ',', ';'))
+                .Concat(sources.Select(x => x.Uri)).Distinct().Take(8).ToList();
+            foreach (var url in urls)
+            {
+                ct.ThrowIfCancellationRequested();
+                var image = await ResolveImageAsync(url, ct).ConfigureAwait(false);
+                if (image is not null)
+                {
+                    var host = Uri.TryCreate(image.Value.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+                    return new Candidate(product, image.Value.ImageUrl, "интернет: " + host);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            PosLogger.Log($"Фото товара «{product.Title}»: поиск в интернете прерван ({ex.Message}).", "CATALOG");
+        }
+        return null;
+    }
+
+    /// <summary>Ссылка → картинка: если это изображение — оно; если страница — её og:image / twitter:image.</summary>
+    private static async Task<(string ImageUrl, string PageUrl)?> ResolveImageAsync(string url, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return null;
+            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? url;
+            var type = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return await IsRealImageAsync(finalUrl, ct).ConfigureAwait(false) ? (finalUrl, finalUrl) : null;
+            if (!type.Contains("html", StringComparison.OrdinalIgnoreCase))
+                return null;
+            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            var buffer = new char[400_000];
+            using var reader = new StreamReader(stream);
+            var read = await reader.ReadBlockAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+            var html = new string(buffer, 0, read);
+            foreach (var pattern in new[]
+                     {
+                         @"<meta[^>]+property=[""']og:image(?::secure_url)?[""'][^>]+content=[""']([^""']+)",
+                         @"<meta[^>]+content=[""']([^""']+)[""'][^>]+property=[""']og:image",
+                         @"<meta[^>]+name=[""']twitter:image[""'][^>]+content=[""']([^""']+)",
+                     })
+            {
+                var m = Regex.Match(html, pattern, RegexOptions.IgnoreCase);
+                if (!m.Success)
+                    continue;
+                var raw = System.Net.WebUtility.HtmlDecode(m.Groups[1].Value);
+                if (!Uri.TryCreate(new Uri(finalUrl), raw, out var abs) || abs.Scheme != Uri.UriSchemeHttps)
+                    continue;
+                if (await IsRealImageAsync(abs.ToString(), ct).ConfigureAwait(false))
+                    return (abs.ToString(), finalUrl);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // страница не открылась
+        }
+        return null;
+    }
+
+    private static async Task<bool> IsRealImageAsync(string url, CancellationToken ct)
+    {
+        var bytes = await DownloadAsync(url, ct).ConfigureAwait(false);
+        return bytes is { Length: > 3000 and < 8_000_000 };
     }
 
     /// <summary>Скачать картинку для предпросмотра (байты).</summary>

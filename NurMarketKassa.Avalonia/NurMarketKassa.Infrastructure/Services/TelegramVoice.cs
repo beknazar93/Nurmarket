@@ -23,7 +23,13 @@ public static class TelegramVoice
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(40) };
 
     // 30.09: проверено на ключе владельца — обе модели TTS отвечают за 2,5–3,5 с.
-    private static readonly string[] TtsModels = { "gemini-2.5-flash-preview-tts", "gemini-3.8-flash-tts" };
+    // 2026-10-05, владелец: «голос очень сильно тормозит». Замер на ключе владельца: короткая фраза — 2,6–4,3 с у всех
+    // моделей, 176 знаков — 6,5–10 с (время растёт с длиной текста; потоковой отдачи звука нет). У бесплатного ключа малый
+    // суточный лимит озвучки на КАЖДУЮ модель — при 429 теперь пробуем следующую, а не сдаёмся.
+    private static readonly string[] TtsModels = { "gemini-2.5-flash-preview-tts", "gemini-3.1-flash-tts-preview", "gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts" };
+
+    /// <summary>Модели, у которых кончился лимит (429): до этого времени их не спрашиваем — не тратим 0,2–0,5 с на отказ.</summary>
+    private static readonly Dictionary<string, DateTime> TtsQuotaUntil = new();
     private static readonly string[] SttModels = { "gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-flash-latest" };
 
     /// <summary>Сколько символов ответа озвучивать: длинные отчёты голосом слушать неудобно.</summary>
@@ -105,7 +111,8 @@ public static class TelegramVoice
             ["contents"] = new JsonArray(new JsonObject
             {
                 ["role"] = "user",
-                ["parts"] = new JsonArray(new JsonObject { ["text"] = "Прочитай спокойно и дружелюбно: " + spoken }),
+                // «Спокойно» растягивало речь: 43 знака звучали 5–6 с и дольше готовились. Обычный темп — короче и быстрее.
+                ["parts"] = new JsonArray(new JsonObject { ["text"] = "Прочитай естественно, в обычном темпе разговора: " + spoken }),
             }),
             ["generationConfig"] = new JsonObject
             {
@@ -119,22 +126,64 @@ public static class TelegramVoice
 
         foreach (var model in TtsModels)
         {
+            lock (TtsQuotaUntil)
+            {
+                if (TtsQuotaUntil.TryGetValue(model, out var until) && DateTime.UtcNow < until)
+                    continue;
+            }
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             var (json, status) = await PostAsync(model, key!, body, ct).ConfigureAwait(false);
             if (status is < 200 or >= 300)
             {
-                PosLogger.Log($"Голос в боте: озвучка {model} → HTTP {status}.", "TELEGRAM");
-                if (status is 400 or 401 or 403 or 429)
+                PosLogger.Log($"Голос в боте: озвучка {model} → HTTP {status} за {watch.ElapsedMilliseconds} мс.", "TELEGRAM");
+                if (status == 429)
+                {
+                    lock (TtsQuotaUntil)
+                        TtsQuotaUntil[model] = DateTime.UtcNow.AddMinutes(30);
+                    continue;
+                }
+                if (status is 400 or 401 or 403)
                     return (null, 0);
                 continue;
             }
 
             var (pcm, rate) = ReadAudio(json);
             if (pcm == null)
+            {
+                // 2026-10-05, владелец: «голос очень сильно тормозит» — модель ответила 200 без звука, и программа
+                // молча шла к следующей модели. Теперь видно, почему (finishReason) и сколько это стоило.
+                PosLogger.Log($"Голос: {model} ответила без звука за {watch.ElapsedMilliseconds} мс ({NoAudioReason(json)}), {spoken.Length} симв.", "TELEGRAM");
                 continue;
+            }
+            PosLogger.Log($"Голос: {model} озвучила {spoken.Length} симв. за {watch.ElapsedMilliseconds} мс ({pcm.Length / (double)rate:0.#} с звука).", "TELEGRAM");
             return (pcm, rate);
         }
 
         return (null, 0);
+    }
+
+    /// <summary>Почему в ответе озвучки нет звука: finishReason, blockReason или начало ответа (без ключа — его там нет).</summary>
+    private static string NoAudioReason(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("promptFeedback", out var fb) && fb.TryGetProperty("blockReason", out var br))
+                return "blockReason=" + br.GetString();
+            if (root.TryGetProperty("candidates", out var c) && c.ValueKind == JsonValueKind.Array && c.GetArrayLength() > 0)
+            {
+                var first = c[0];
+                var reason = first.TryGetProperty("finishReason", out var fr) ? fr.GetString() : "?";
+                var hasContent = first.TryGetProperty("content", out var content) && content.TryGetProperty("parts", out _);
+                return $"finishReason={reason}, content={(hasContent ? "есть, но без audio" : "нет")}";
+            }
+            return "нет candidates: " + (json.Length > 160 ? json[..160] : json);
+        }
+        catch
+        {
+            return "ответ не JSON";
+        }
     }
 
     /// <summary>Текст для озвучки: без разметки, ссылок и значков, не длиннее MaxSpokenChars (по предложению).</summary>

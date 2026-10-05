@@ -67,7 +67,34 @@ public static class TelegramAiChat
         AskCoreAsync(OwnerAppHistoryKey, question,
             OwnerAppPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
             + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
-            + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary)), ct, raw: true);
+            + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary)), ct, raw: true, webSearch: true);
+
+    /// <summary>Источник из интернета, на который опирался ответ (поиск Google в Gemini).</summary>
+    public sealed record WebSource(string Title, string Uri);
+
+    /// <summary>2026-10-05, владелец: «включи поиск по интернету для ИИ». Источники последнего ответа с поиском
+    /// (ИИ-советник показывает их ссылками под ответом). Пусто — ИИ ответил без поиска.</summary>
+    public static IReadOnlyList<WebSource> LastWebSources { get; private set; } = Array.Empty<WebSource>();
+
+    /// <summary>2026-10-05, проверка на ключе владельца: обычные запросы — 200, с поиском Google — 429 (у бесплатного ключа
+    /// Gemini квоты на поиск нет). До этого времени поиск не пробуем, отвечаем без него.</summary>
+    private static DateTime _webSearchBlockedUntilUtc = DateTime.MinValue;
+
+    /// <summary>Поиск в интернете сейчас недоступен для ключа (последний запрос с поиском получил 429).</summary>
+    public static bool WebSearchUnavailable => DateTime.UtcNow < _webSearchBlockedUntilUtc;
+
+    /// <summary>Один вопрос с поиском Google, без истории (поиск фото товара в интернете — ProductPhotoFinder).</summary>
+    public static async Task<(string? Answer, IReadOnlyList<WebSource> Sources, string? Error)> AskWebAsync(string system, string question, CancellationToken ct)
+    {
+        var key = UserPreferences.Instance.TelegramAiKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return (null, Array.Empty<WebSource>(), "ключ ИИ не задан");
+        if (WebSearchUnavailable)
+            return (null, Array.Empty<WebSource>(), "поиск в интернете недоступен для этого ключа ИИ");
+        var (answer, error, sources) = await GenerateCoreAsync(key!, system, new List<(string, string)>(), question, ct,
+            webSearch: true, fallbackWithoutSearch: false).ConfigureAwait(false);
+        return (answer, sources, error);
+    }
 
     /// <summary>«Новый разговор» в разделе «ИИ-советник».</summary>
     public static void ResetOwnerAppHistory()
@@ -94,6 +121,10 @@ public static class TelegramAiChat
         + "конкретные акции на конкретные товары: какой товар, какая скидка или комплект, на какой срок и почему; соблюдай правила "
         + "акций из анализа (не ниже закупки + 5 %, на товары с низкой наценкой — без скидки). "
         + "Фото товаров программа ищет и ставит сама: если просят загрузить или найти фото — скажи нажать «Найди фото для товаров без фото». "
+        // 2026-10-05, владелец: «включи поиск по интернету для ИИ».
+        + "У тебя есть поиск Google: используй его, когда нужны сведения извне — цены у конкурентов и поставщиков, новинки, "
+        + "законы и налоги Кыргызстана, курсы валют, праздники и сезонный спрос, как продавать тот или иной товар. Цифры своего магазина — "
+        + "только из сводки, не из интернета. Найденное в интернете называй как найденное и не выдумывай. "
         // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» (ответ «1 да»). Сам ИИ ничего не меняет:
         // он пишет строку БОТ: {...}, программа показывает её владельцу карточкой и применяет только по «Применить».
         + "Ты можешь включать и выключать функции Телеграм-бота магазина. Состояние бота — в сводке (раздел «БОТ»). "
@@ -318,7 +349,7 @@ public static class TelegramAiChat
         }
     }
 
-    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false)
+    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false, bool webSearch = false)
     {
         var key = UserPreferences.Instance.TelegramAiKey;
         if (string.IsNullOrWhiteSpace(key))
@@ -333,7 +364,9 @@ public static class TelegramAiChat
         }
 
         var chatId = historyKey;
-        var (answer, error) = await GenerateAsync(key!, system, history, question, ct).ConfigureAwait(false);
+        var (answer, error, sources) = await GenerateCoreAsync(key!, system, history, question, ct, webSearch).ConfigureAwait(false);
+        if (webSearch)
+            LastWebSources = sources;
         if (answer == null)
             return (null, error);
 
@@ -369,22 +402,43 @@ public static class TelegramAiChat
     private static async Task<(string? Answer, string? Error)> GenerateAsync(
         string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct)
     {
+        var (answer, error, _) = await GenerateCoreAsync(key, system, history, question, ct, webSearch: false).ConfigureAwait(false);
+        return (answer, error);
+    }
+
+    /// <summary>2026-10-05, владелец: «включи поиск по интернету для ИИ» — webSearch добавляет инструмент google_search
+    /// (Gemini сам решает, когда искать). Модель без поддержки поиска (400 про tool) — тот же запрос без поиска.</summary>
+    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> GenerateCoreAsync(
+        string key, string system, List<(string Role, string Text)> history, string question, CancellationToken ct, bool webSearch,
+        bool fallbackWithoutSearch = true)
+    {
+        if (webSearch && WebSearchUnavailable && fallbackWithoutSearch)
+            webSearch = false;
         var contents = new JsonArray();
         foreach (var (role, text) in history)
             contents.Add(new JsonObject { ["role"] = role, ["parts"] = new JsonArray(new JsonObject { ["text"] = text }) });
         contents.Add(new JsonObject { ["role"] = "user", ["parts"] = new JsonArray(new JsonObject { ["text"] = question }) });
 
-        var body = new JsonObject
+        string Body(bool search)
         {
-            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
-            ["contents"] = contents,
-            ["generationConfig"] = new JsonObject { ["temperature"] = 0.5, ["maxOutputTokens"] = 700 },
-        }.ToJsonString();
+            var b = new JsonObject
+            {
+                ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
+                ["contents"] = contents.DeepClone(),
+                ["generationConfig"] = new JsonObject { ["temperature"] = 0.5, ["maxOutputTokens"] = search ? 1200 : 700 },
+            };
+            if (search)
+                b["tools"] = new JsonArray(new JsonObject { ["google_search"] = new JsonObject() });
+            return b.ToJsonString();
+        }
+        var body = Body(webSearch);
+        var none = (IReadOnlyList<WebSource>)Array.Empty<WebSource>();
 
-        var models = _workingModel is { } known ? new[] { known }.Concat(Models.Where(m => m != known)) : Models;
+        var models = (_workingModel is { } known ? new[] { known }.Concat(Models.Where(m => m != known)) : Models).ToList();
         string? lastError = null;
-        foreach (var model in models)
+        for (var mi = 0; mi < models.Count; mi++)
         {
+            var model = models[mi];
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post,
@@ -400,7 +454,7 @@ public static class TelegramAiChat
                     if (!string.IsNullOrWhiteSpace(text))
                     {
                         _workingModel = model;
-                        return (text, null);
+                        return (text, null, webSearch ? ReadSources(json) : none);
                     }
 
                     lastError = "нейросеть вернула пустой ответ";
@@ -408,6 +462,28 @@ public static class TelegramAiChat
                 }
 
                 var message = ReadError(json);
+                if (webSearch && response.StatusCode == (HttpStatusCode)429)
+                {
+                    // Поиск Google не входит в квоту ключа — полчаса не пробуем; ответ без поиска (если можно).
+                    _webSearchBlockedUntilUtc = DateTime.UtcNow.AddMinutes(30);
+                    PosLogger.Log($"ИИ: поиск в интернете недоступен для ключа (429 у {model}) — {(fallbackWithoutSearch ? "отвечаю без поиска" : "пропускаю")}.", "TELEGRAM");
+                    if (!fallbackWithoutSearch)
+                        return (null, "поиск в интернете недоступен для этого ключа ИИ", none);
+                    webSearch = false;
+                    body = Body(false);
+                    mi--;
+                    continue;
+                }
+                if (webSearch && response.StatusCode == HttpStatusCode.BadRequest
+                    && (message.Contains("google_search", StringComparison.OrdinalIgnoreCase) || message.Contains("tool", StringComparison.OrdinalIgnoreCase)
+                        || message.Contains("grounding", StringComparison.OrdinalIgnoreCase)))
+                {
+                    PosLogger.Log($"ИИ: модель {model} не умеет поиск в интернете — отвечаю без поиска ({message}).", "TELEGRAM");
+                    webSearch = false;
+                    body = Body(false);
+                    mi--;
+                    continue;
+                }
                 // 2026-09-30 (живой случай): 503 «This model is currently experiencing high demand» —
                 // модель перегружена; раньше бот сразу сдавался. Теперь — следующая модель по списку.
                 if ((int)response.StatusCode >= 500)
@@ -428,22 +504,47 @@ public static class TelegramAiChat
                 }
 
                 if (response.StatusCode == (HttpStatusCode)429)
-                    return (null, "исчерпан бесплатный лимит запросов Google — попробуйте через минуту");
+                    return (null, "исчерпан бесплатный лимит запросов Google — попробуйте через минуту", none);
                 if (message.Contains("API key", StringComparison.OrdinalIgnoreCase) || response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
-                    return (null, "ключ Google не подходит — проверьте его в настройках бота");
-                return (null, $"ошибка Google {(int)response.StatusCode}: {message}");
+                    return (null, "ключ Google не подходит — проверьте его в настройках бота", none);
+                return (null, $"ошибка Google {(int)response.StatusCode}: {message}", none);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                return (null, "Google не ответил вовремя");
+                return (null, "Google не ответил вовремя", none);
             }
             catch (HttpRequestException ex)
             {
-                return (null, "нет связи с Google: " + ex.Message);
+                return (null, "нет связи с Google: " + ex.Message, none);
             }
         }
 
-        return (null, lastError ?? "нет подходящей модели");
+        return (null, lastError ?? "нет подходящей модели", none);
+    }
+
+    /// <summary>Источники ответа с поиском: candidates[0].groundingMetadata.groundingChunks[].web (uri, title).</summary>
+    private static IReadOnlyList<WebSource> ReadSources(string json)
+    {
+        var list = new List<WebSource>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0
+                && candidates[0].TryGetProperty("groundingMetadata", out var meta)
+                && meta.TryGetProperty("groundingChunks", out var chunks) && chunks.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var chunk in chunks.EnumerateArray())
+                {
+                    if (chunk.TryGetProperty("web", out var web) && web.TryGetProperty("uri", out var uri) && uri.GetString() is { Length: > 0 } u)
+                        list.Add(new WebSource(web.TryGetProperty("title", out var t) ? t.GetString() ?? u : u, u));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // без источников
+        }
+        return list.DistinctBy(x => x.Uri).Take(8).ToList();
     }
 
     private static string? ReadText(string json)

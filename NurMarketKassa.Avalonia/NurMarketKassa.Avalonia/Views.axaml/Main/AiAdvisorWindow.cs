@@ -37,6 +37,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private Button? _mic;
     private VoiceChatRecorder? _recorder;
     private bool _voiceAnswer;
+    private bool _webSearchNoteShown;
     private bool _busy;
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -249,6 +250,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             try
             {
                 await SalesHistoryBackfill.RunAsync().ConfigureAwait(false);
+                // 2026-10-05: сводку для ИИ — заранее, чтобы первый вопрос (особенно голосом) не ждал её сборки.
+                await Dispatcher.UIThread.InvokeAsync(() => _ = GetSummaryAsync());
             }
             catch (Exception ex)
             {
@@ -329,7 +332,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             try
             {
-                await RunPhotoAssistantAsync().ConfigureAwait(true);
+                await RunPhotoAssistantAsync(question).ConfigureAwait(true);
             }
             finally
             {
@@ -343,22 +346,16 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _cts = new CancellationTokenSource();
         try
         {
-            // 2026-10-05, владелец: «дай доступ ко всему для ИИ … к складу, к товарам» — цифры «Сводки» и склад.
-            var warehouse = await Task.Run(OwnerAiContext.BuildWarehouse, _cts.Token).ConfigureAwait(true);
-            // «Я должен кому-то или мне должны?» — обезличенные итоги долгов клиентов и поставщиков.
-            var debts = await OwnerAiContext.BuildDebtTotalsAsync(_cts.Token).ConfigureAwait(true);
-            // «Дай список клиентов-должников»: должники под кодами [Д1]…, имена и телефоны подставляются здесь.
-            var (debtors, debtorNames) = await OwnerAiContext.BuildDebtorsPseudonymousAsync(_cts.Token).ConfigureAwait(true);
-            // 2026-10-05, владелец: «дай доступ к ABC-анализу ИИ».
-            var abc = await OwnerAiContext.BuildAbcAsync(_cts.Token).ConfigureAwait(true);
-            // 2026-10-05, владелец: «анализ продаж, склада, клиентов, заказов — чтобы предлагать акции на проблемные товары».
-            var analysis = await OwnerAiContext.BuildAnalysisAsync(_cts.Token).ConfigureAwait(true);
-            // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» — состояние функций бота на сервере.
-            var bot = await BuildBotStateAsync(_cts.Token).ConfigureAwait(true);
-            // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
-            var upsell = await BuildUpsellAsync(_cts.Token).ConfigureAwait(true);
-            var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, bot, upsell, debts, debtors, analysis, abc, warehouse }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(question, summary, _cts.Token).ConfigureAwait(true);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var (summary, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
+            var summaryMs = watch.ElapsedMilliseconds;
+            // 2026-10-05, владелец: «голос очень сильно тормозит» — на вопрос голосом ответ короткий: быстрее и пишется,
+            // и озвучивается (длинный ответ на 8–10 предложений звучал полминуты и готовился долго).
+            var askText = speak
+                ? question + "\n(Вопрос задан голосом, ответ будет озвучен: ответь коротко — 2–3 предложения, без списков и таблиц.)"
+                : question;
+            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(askText, summary, _cts.Token).ConfigureAwait(true);
+            PosLogger.Log($"ИИ-советник: сводка {summaryMs} мс, ответ ИИ {watch.ElapsedMilliseconds - summaryMs} мс{(speak ? " (голосом)" : "")}.", "INFO");
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
             if (answer is { Length: > 0 })
@@ -370,6 +367,23 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             thinking.Text = answer is { Length: > 0 }
                 ? OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(answer), debtorNames)
                 : T("Не получилось ответить: ", "Жооп берүү мүмкүн болгон жок: ", "Couldn't answer: ", "Yanıt verilemedi: ", "Javob berib bo'lmadi: ") + (error ?? "нет ответа");
+            // 2026-10-05, владелец: «включи поиск по интернету для ИИ» — если ИИ искал в интернете, источники ссылками.
+            if (answer is { Length: > 0 } && TelegramAiChat.LastWebSources.Count > 0)
+                AddWebSources(TelegramAiChat.LastWebSources);
+            else if (TelegramAiChat.WebSearchUnavailable && !_webSearchNoteShown)
+            {
+                _webSearchNoteShown = true;
+                AddBubble(T("Поиск в интернете для этого ключа ИИ недоступен: у бесплатного ключа Google Gemini нет квоты на поиск Google. "
+                            + "Включите оплату (Billing) для ключа в aistudio.google.com — поиск заработает сам. Пока отвечаю по данным магазина.",
+                        "Бул ИИ ачкычы үчүн интернеттен издөө жеткиликсиз: акысыз Google Gemini ачкычында Google издөөгө квота жок. "
+                            + "aistudio.google.com сайтында ачкычка төлөмдү (Billing) күйгүзүңүз — издөө өзү иштейт. Азырынча дүкөндүн маалыматы боюнча жооп берем.",
+                        "Web search is not available for this AI key: a free Google Gemini key has no Google Search quota. "
+                            + "Enable Billing for the key at aistudio.google.com and search will start working. For now I answer from the shop data.",
+                        "Bu yapay zekâ anahtarı için internet araması kullanılamıyor: ücretsiz Google Gemini anahtarında Google Arama kotası yok. "
+                            + "aistudio.google.com adresinde anahtar için faturalandırmayı açın — arama kendiliğinden çalışır. Şimdilik mağaza verileriyle yanıtlıyorum.",
+                        "Bu SI kaliti uchun internetda qidirish mavjud emas: bepul Google Gemini kalitida Google qidiruv kvotasi yo'q. "
+                            + "aistudio.google.com saytida kalit uchun to'lovni (Billing) yoqing — qidiruv o'zi ishlaydi. Hozircha do'kon ma'lumotlari bo'yicha javob beraman."), fromOwner: false);
+            }
             if (botChange is { Count: > 0 })
                 AddBotChangeCard(botChange);
             if (scenario is not null)
@@ -430,6 +444,44 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private static ServerBotSettings? _botCache;
     private static DateTime _botCacheAt;
+
+    private Task<(string Summary, IReadOnlyDictionary<int, string> Names)>? _summaryTask;
+    private DateTime _summaryAtUtc = DateTime.MinValue;
+
+    /// <summary>2026-10-05, владелец: «голос очень сильно тормозит». Сводка магазина для ИИ — одна задача на минуту:
+    /// запускается заранее (при открытии раздела и как только нажали микрофон — пока владелец говорит), части
+    /// собираются одновременно, а не по очереди.</summary>
+    private Task<(string Summary, IReadOnlyDictionary<int, string> Names)> GetSummaryAsync()
+    {
+        if (_summaryTask is { IsFaulted: false, IsCanceled: false } && DateTime.UtcNow - _summaryAtUtc < TimeSpan.FromMinutes(1))
+            return _summaryTask;
+        _summaryAtUtc = DateTime.UtcNow;
+        return _summaryTask = BuildSummaryAsync();
+    }
+
+    private static async Task<(string Summary, IReadOnlyDictionary<int, string> Names)> BuildSummaryAsync()
+    {
+        var ct = CancellationToken.None;
+        // 2026-10-05, владелец: «дай доступ ко всему для ИИ … к складу, к товарам» — цифры «Сводки» и склад.
+        var warehouse = Task.Run(OwnerAiContext.BuildWarehouse);
+        // «Я должен кому-то или мне должны?» — обезличенные итоги долгов клиентов и поставщиков.
+        var debts = OwnerAiContext.BuildDebtTotalsAsync(ct);
+        // «Дай список клиентов-должников»: должники под кодами [Д1]…, имена и телефоны подставляются здесь.
+        var debtors = OwnerAiContext.BuildDebtorsPseudonymousAsync(ct);
+        // 2026-10-05, владелец: «дай доступ к ABC-анализу ИИ».
+        var abc = OwnerAiContext.BuildAbcAsync(ct);
+        // 2026-10-05, владелец: «анализ продаж, склада, клиентов, заказов — чтобы предлагать акции на проблемные товары».
+        var analysis = OwnerAiContext.BuildAnalysisAsync(ct);
+        // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» — состояние функций бота на сервере.
+        var bot = BuildBotStateAsync(ct);
+        // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
+        var upsell = BuildUpsellAsync(ct);
+        await Task.WhenAll(warehouse, debts, debtors, abc, analysis, bot, upsell).ConfigureAwait(false);
+        var (debtorsText, names) = debtors.Result;
+        var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, bot.Result, upsell.Result, debts.Result, debtorsText, analysis.Result, abc.Result, warehouse.Result }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+        return (summary, names);
+    }
 
     private static async Task<string> BuildUpsellAsync(CancellationToken ct)
     {
@@ -751,6 +803,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 return;
             }
             _recorder = recorder;
+            // Пока владелец говорит — собираем сводку магазина, к концу распознавания она уже готова.
+            _ = GetSummaryAsync();
             _mic.Content = MicGlyph(recording: true);
             Use(_mic, Button.BackgroundProperty, "BrushDanger");
             _input.Watermark = T("Говорите… нажмите ■, когда закончите", "Сүйлөңүз… бүткөндө ■ басыңыз", "Speak… press ■ when you finish",
@@ -773,6 +827,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _mic.IsEnabled = false;
         _input.Watermark = T("Распознаю речь…", "Сөздү таанып жатам…", "Recognising speech…", "Konuşma tanınıyor…", "Nutq tanilmoqda…");
         string? text = null;
+        var sttWatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -790,26 +845,95 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 "Duyamadım. Mikrofona daha yakın tekrar söyleyin.", "Eshitmadim. Mikrofonga yaqinroq qayta ayting."), fromOwner: false);
             return;
         }
-        PosLogger.Log($"ИИ-советник: вопрос голосом ({text.Length} симв.).", "INFO");
+        PosLogger.Log($"ИИ-советник: вопрос голосом ({text.Length} симв., запись {wav.Length / 32000.0:0.#} с, распознано за {sttWatch.ElapsedMilliseconds} мс).", "INFO");
         _voiceAnswer = true;
         await SendAsync(text).ConfigureAwait(true);
     }
 
+    /// <summary>Озвучка ответа: первая фраза — отдельным коротким запросом (звучит через 1–2 с), остальное готовится
+    /// одновременно и играет следом. Не больше двух запросов на ответ — у бесплатного ключа малый лимит озвучки.</summary>
     private async Task SpeakAsync(string text)
     {
+        VoiceChatPlayer.Stop();
+        var generation = VoiceChatPlayer.Generation;
+        var (first, rest) = SplitForSpeech(TelegramAiChat.ToPlainText(text));
+        var more = T("Подробности — на экране.", "Толугураак — экранда.", "More details are on the screen.", "Ayrıntılar ekranda.", "Batafsil — ekranda.");
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
-            var (pcm, rate) = await TelegramVoice.SynthesizePcmAsync(text,
-                T("Подробности — на экране.", "Толугураак — экранда.", "More details are on the screen.", "Ayrıntılar ekranda.", "Batafsil — ekranda."), cts.Token).ConfigureAwait(true);
-            if (pcm is null || !IsVisible)
-                return;
-            VoiceChatPlayer.Play(pcm, rate);
+            var firstTask = TelegramVoice.SynthesizePcmAsync(first, more, cts.Token);
+            var restTask = rest.Length > 0 ? TelegramVoice.SynthesizePcmAsync(rest, more, cts.Token) : null;
+            var (pcm, rate) = await firstTask.ConfigureAwait(true);
+            PosLogger.Log($"ИИ-советник: первая фраза озвучена за {watch.ElapsedMilliseconds} мс ({first.Length} симв.{(rest.Length > 0 ? $", дальше ещё {rest.Length}" : "")}).", "INFO");
+            if (pcm is not null && IsVisible)
+                VoiceChatPlayer.Enqueue(pcm, rate, generation);
+            if (restTask is not null)
+            {
+                var (pcm2, rate2) = await restTask.ConfigureAwait(true);
+                if (pcm2 is not null && IsVisible)
+                    VoiceChatPlayer.Enqueue(pcm2, rate2, generation);
+            }
         }
         catch (Exception ex)
         {
             PosLogger.Log($"ИИ-советник: ответ не озвучен ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>Первая фраза (до ~110 знаков) и остальное. Замер 05.10: короткая фраза озвучивается за 2,6–4,3 с,
+    /// 176 знаков — за 6,5–10 с, поэтому первая фраза идёт отдельным коротким запросом, остальное — параллельно.</summary>
+    private static (string Head, string Tail) SplitForSpeech(string text)
+    {
+        var t = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        if (t.Length <= 110)
+            return (t, "");
+        var cut = -1;
+        for (var i = 20; i < Math.Min(t.Length, 120); i++)
+        {
+            if (t[i] is '.' or '!' or '?' && (i + 1 == t.Length || t[i + 1] == ' '))
+            {
+                cut = i + 1;
+                break;
+            }
+        }
+        if (cut < 0)
+            cut = t.LastIndexOf(' ', Math.Min(t.Length - 1, 100)) is var sp and > 20 ? sp : Math.Min(t.Length, 100);
+        return (t[..cut].Trim(), t[cut..].Trim());
+    }
+
+    /// <summary>Источники из интернета под ответом: «🌐 Источники:» и кнопки-ссылки (открываются в браузере).</summary>
+    private void AddWebSources(IReadOnlyList<TelegramAiChat.WebSource> sources)
+    {
+        var panel = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };
+        var label = new TextBlock { Text = T("🌐 Найдено в интернете:", "🌐 Интернеттен табылды:", "🌐 Found on the web:", "🌐 İnternette bulundu:", "🌐 Internetdan topildi:"),
+            FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 6) };
+        Use(label, TextBlock.ForegroundProperty, "BrushTextSoft");
+        panel.Children.Add(label);
+        foreach (var source in sources.Take(5))
+        {
+            var title = source.Title.Length > 40 ? source.Title[..40] + "…" : source.Title;
+            var link = UiKit.Ghost(this, title);
+            link.Height = 28;
+            link.FontSize = 12;
+            link.Padding = new Thickness(10, 0);
+            link.Margin = new Thickness(0, 0, 6, 6);
+            ToolTip.SetTip(link, source.Uri);
+            link.Click += async (_, _) =>
+            {
+                try
+                {
+                    if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
+                        await launcher.LaunchUriAsync(new Uri(source.Uri)).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"ИИ-советник: ссылка не открылась ({ex.Message}).", "WARNING");
+                }
+            };
+            panel.Children.Add(link);
+        }
+        _messages.Children.Add(panel);
     }
 
     private static bool IsPhotoRequest(string text)
@@ -826,21 +950,33 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     /// <summary>2026-10-05: «загрузи фото к товарам, у которых нет фото». Товары без фото → поиск по штрихкоду в
     /// открытых базах (ProductPhotoFinder) → найденные показываются с «Поставить» / «Поставить все»; остальные —
     /// с «📷 Добавить фото» (файл или камера, как на складе). На сервер фото уходит только по нажатию владельца.</summary>
-    private async Task RunPhotoAssistantAsync()
+    private async Task RunPhotoAssistantAsync(string question)
     {
-        var withoutPhoto = ProductPhotoFinder.WithoutPhoto();
+        // 2026-10-05, владелец: «чтобы ИИ смог по команде найти фото по названию или штрихкоду товара в интернете, если в
+        // базе нет». Названы товары («найди фото для кока колы», штрихкод) — ищем для них; иначе — для всех без фото.
+        var named = ProductPhotoFinder.MatchRequest(question);
+        var withoutPhoto = named.Count > 0 ? named : ProductPhotoFinder.WithoutPhoto();
         if (withoutPhoto.Count == 0)
         {
             AddBubble(T("У всех товаров склада уже есть фото.", "Кампадагы бардык товарлардын сүрөтү бар.", "Every product in the warehouse already has a photo.",
                 "Depodaki tüm ürünlerin fotoğrafı var.", "Ombordagi barcha mahsulotlarning rasmi bor."), fromOwner: false);
             return;
         }
-        var searchable = withoutPhoto.Where(p => ProductPhotoFinder.SearchableBarcode(p) is not null).Take(80).ToList();
-        var status = AddBubble(T($"Без фото: {withoutPhoto.Count} товаров, из них со штрихкодом {searchable.Count}. Ищу фото по штрихкодам в открытых базах товаров…",
-            $"Сүрөтсүз: {withoutPhoto.Count} товар, штрихкоду барлары {searchable.Count}. Ачык базалардан штрихкод боюнча сүрөт издеп жатам…",
-            $"Without a photo: {withoutPhoto.Count} products, {searchable.Count} with a barcode. Searching open product databases by barcode…",
-            $"Fotoğrafsız: {withoutPhoto.Count} ürün, barkodlu {searchable.Count}. Açık ürün veritabanlarında barkodla arıyorum…",
-            $"Rasmsiz: {withoutPhoto.Count} ta mahsulot, shtrix-kodlisi {searchable.Count}. Ochiq bazalardan shtrix-kod bo'yicha qidiryapman…"), fromOwner: false);
+        // Штрихкод и название — для всех (до 80); в интернете (поиск Google, по 5–10 с на товар, лимит ключа) — для
+        // названных товаров или первых 10 без фото.
+        var searchable = withoutPhoto.Take(named.Count > 0 ? 10 : 80).ToList();
+        var webLimit = TelegramAiChat.IsConfigured ? (named.Count > 0 ? searchable.Count : 10) : 0;
+        var status = AddBubble(named.Count > 0
+            ? T($"Ищу фото: {string.Join(", ", named.Take(5).Select(p => p.Title))} — по штрихкоду, названию и в интернете…",
+                $"Сүрөт издеп жатам: {string.Join(", ", named.Take(5).Select(p => p.Title))} — штрихкод, аталыш жана интернет боюнча…",
+                $"Searching photos: {string.Join(", ", named.Take(5).Select(p => p.Title))} — by barcode, name and on the web…",
+                $"Fotoğraf arıyorum: {string.Join(", ", named.Take(5).Select(p => p.Title))} — barkod, ad ve internette…",
+                $"Rasm qidiryapman: {string.Join(", ", named.Take(5).Select(p => p.Title))} — shtrix-kod, nom va internet bo'yicha…")
+            : T($"Без фото: {withoutPhoto.Count} товаров. Ищу по штрихкоду и названию в открытых базах, в интернете — для первых {webLimit}…",
+                $"Сүрөтсүз: {withoutPhoto.Count} товар. Ачык базалардан штрихкод жана аталыш боюнча, интернеттен — алгачкы {webLimit} үчүн издеп жатам…",
+                $"Without a photo: {withoutPhoto.Count} products. Searching open databases by barcode and name, the web for the first {webLimit}…",
+                $"Fotoğrafsız: {withoutPhoto.Count} ürün. Açık veritabanlarında barkod ve adla, internette ilk {webLimit} için arıyorum…",
+                $"Rasmsiz: {withoutPhoto.Count} ta mahsulot. Ochiq bazalardan shtrix-kod va nom bo'yicha, internetdan — birinchi {webLimit} tasi uchun qidiryapman…"), fromOwner: false);
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -850,7 +986,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             (found, notFound) = await Task.Run(() => ProductPhotoFinder.SearchAsync(searchable,
                 (done, total) => Dispatcher.UIThread.Post(() => status.Text = T($"Ищу фото… {done} из {total}", $"Сүрөт издеп жатам… {done} / {total}",
-                    $"Searching… {done} of {total}", $"Aranıyor… {done} / {total}", $"Qidiryapman… {done} / {total}")), ct), ct).ConfigureAwait(true);
+                    $"Searching… {done} of {total}", $"Aranıyor… {done} / {total}", $"Qidiryapman… {done} / {total}")), ct, webLimit), ct).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
