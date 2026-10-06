@@ -130,6 +130,10 @@ public static class ProductInfoResearch
     }
 
     /// <summary>Поиск DuckDuckGo (html-версия): «1. заголовок — выдержка (сайт)» для первых 6 результатов и ссылки.</summary>
+    /// <summary>2026-10-06: адреса страниц из поиска DuckDuckGo (без ключа) — например, чтобы взять с них фото товара.</summary>
+    public static async Task<IReadOnlyList<string>> SearchPageUrlsAsync(string query, CancellationToken ct) =>
+        (await DuckDuckGoAsync(query, ct).ConfigureAwait(false)).Sources.Select(s => s.Uri).ToList();
+
     private static async Task<(string Text, List<TelegramAiChat.WebSource> Sources)> DuckDuckGoAsync(string query, CancellationToken ct)
     {
         var sources = new List<TelegramAiChat.WebSource>();

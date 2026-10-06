@@ -182,13 +182,17 @@ public static class TelegramAiChat
     /// <summary>2026-10-05, владелец: «постоянное голосовое общение как ChatGPT» (ответ «да»). Инструкция для живого разговора
     /// (GeminiLiveVoice): та же сводка магазина, что у чата советника, но ответы — короткие и для слуха; в конце — последние
     /// реплики текстового разговора, чтобы голосом можно было продолжить начатое.</summary>
-    public static string BuildOwnerVoiceInstruction(string? serverSummary, IEnumerable<(bool Owner, string Text)> recent)
+    public static string BuildOwnerVoiceInstruction(string? serverSummary, IEnumerable<(bool Owner, string Text)> recent, string? staff = null)
     {
         var sb = new StringBuilder(OwnerVoicePrompt);
         sb.Append("\n\nСВОДКА МАГАЗИНА на ").Append(DateTime.Now.ToString("dd.MM.yyyy HH:mm")).Append(":\n");
         if (!string.IsNullOrWhiteSpace(serverSummary))
             sb.Append(serverSummary.Trim()).Append('\n');
         sb.Append(BuildShopContext("", localRevenue: string.IsNullOrWhiteSpace(serverSummary)));
+        // 2026-10-06, владелец (снимок звонка: «В этой сводке нет данных по сотрудникам и зарплатам», «не могу показать табель»):
+        // «исправь это, дай доступ». В звонке сводка собирается один раз — сотрудники, ставки, начисления и табель кладутся сюда.
+        if (!string.IsNullOrWhiteSpace(staff))
+            sb.Append('\n').Append(staff.Trim()).Append('\n');
         var lines = recent.TakeLast(HistoryTurns * 2).ToList();
         if (lines.Count > 0)
         {
@@ -206,9 +210,14 @@ public static class TelegramAiChat
         + "(русский, кыргызский, английский, турецкий или узбекский). Хочет подробностей — расскажи следующую часть или предложи посмотреть раздел программы. "
         + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи раздел программы: "
         + "«Продажи», «Аналитика», «ABC-анализ», «Пополнение и сроки», «Прибыль и деньги», «Долги клиентов», «Склад». "
+        + "Про сотрудников — кто работает, их ставки (схема оплаты: оклад, процент от продаж, сумма за товар), начисленная зарплата, продажи и табель "
+        + "(смены, дни, часы, кто сейчас на смене) — бери из раздела «СОТРУДНИКИ» и «ТАБЕЛЬ» сводки ниже; данные там есть, не говори, что их нет. "
+        + "Если спрашивают за другой период — скажи «Сейчас посмотрю»: программа пришлёт данные сообщением «[Программа]». "
         + "Должники в сводке обозначены кодами [Д1], [Д2] — коды вслух не произноси: назови, сколько должников и на какую сумму, "
         + "а имена владелец увидит в разделе «Долги клиентов». Никогда не выдумывай суммы, остатки и цены. "
         + "Давай конкретные советы: что заказать, что продвигать, где теряются деньги, как поднять продажи; акции — не ниже закупки плюс пять процентов. "
+        + "Фото товаров, которые ты или владелец называете в разговоре, программа сама показывает в чате на экране — "
+        + "не говори, что фото здесь показать нельзя; просят показать фото — назови товары по их названиям из сводки. "
         + "Функции Телеграм-бота, сценарии бота и фото товаров голосом не меняются — для этого предложи написать в чат советника. "
         // 2026-10-06, владелец спросил голосом «пополни товары»: в звонке действий с товарами нет — честно направляем в чат.
         // 2026-10-06, владелец: «дай возможность голосом менять информацию, открывать товар на складе, добавлять и удалять информацию».
@@ -228,9 +237,15 @@ public static class TelegramAiChat
         + "В сводке есть итоги долгов и список должников: каждый должник обозначен кодом вида [Д1], [Д2]. Называя должника, "
         + "пиши его код в квадратных скобках ровно так, как в сводке, — программа сама покажет владельцу вместо кода имя и телефон. "
         + "Никогда не пиши, что имена или телефоны скрыты, недоступны или конфиденциальны — владелец видит их вместо кодов. "
-        + "Просят список должников — перечисли ВСЕХ из сводки, каждого с новой строки: «• [Д1] — 1 000 сом, чеков: 2, долг с 01.09.2026», "
+        // 2026-10-06, владелец: «сделай отображение должников в виде таблицы» (таблица разваливалась: «•» внутри строк).
+        + "Просят список должников — перечисли ВСЕХ из сводки ТАБЛИЦЕЙ: | Должник | Долг, сом | Чеков | Долг с |, в колонке «Должник» — "
+        + "только код [Д1] ровно как в сводке, без «•» и без «№» в строках таблицы, "
         + "в конце — итог. "
-        + "В сводке есть «АНАЛИЗ ДЛЯ АКЦИЙ»: товары без продаж, затоваренные, с падающими продажами, с низкой наценкой, растущие, "
+        // 2026-10-06, владелец: «если открыт WhatsApp, по номеру находи должников и пиши им вернуть долг, напомни о долге».
+        + "Если владелец просит напомнить должникам о долге (написать, отправить напоминание в WhatsApp), коротко скажи, кому напоминаешь, "
+        + "и ПОСЛЕДНЕЙ строкой напиши ровно: НАПОМНИТЬ: [Д1], [Д2] — коды из сводки (всем — НАПОМНИТЬ: все). Программа покажет кнопки "
+        + "«Написать в WhatsApp» с готовым текстом — отправляет владелец, поэтому не пиши, что уже отправил. "
+        + "В сводке есть «АНАЛИЗ ТОВАРОВ И АКЦИЙ»: хорошо продававшиеся, но закончившиеся товары; популярные, которых осталось мало (с количеством к заказу); товары без продаж, затоваренные, с падающими продажами, с низкой наценкой, растущие, "
         + "клиенты и заказы через бота. Когда спрашивают про акции, проблемные товары или «что делать со складом» — предлагай "
         + "конкретные акции на конкретные товары: какой товар, какая скидка или комплект, на какой срок и почему; соблюдай правила "
         + "акций из анализа (не ниже закупки + 5 %, на товары с низкой наценкой — без скидки). "
@@ -261,17 +276,33 @@ public static class TelegramAiChat
         + "замороженные в остатках деньги, что закончилось и что заказать. "
         + "Никогда не выдумывай суммы, остатки и цены. Давай конкретные советы: что заказать, что продвигать, где теряются деньги, "
         + "как поднять продажи, как работать с покупателями и выкладкой. Валюта — сом. "
-        + "Оформление — простой текст: без таблиц, решёток (#) и звёздочек; список — каждый пункт с новой строки и начинается с «• », "
-        + "не больше 10–15 пунктов.";
+        // 2026-10-06, владелец (снимок: табель и зарплаты сплошным текстом): «выводи данные нормально, как таблицу, если это данные магазина».
+        + "Оформление. Данные магазина из нескольких однотипных строк (сотрудники, табель, зарплата и ставки, товары, остатки, наценка, "
+        + "продажи по дням, должники, итоги по категориям) — ТАБЛИЦЕЙ Markdown: строка заголовков, под ней строка вида |---|---|, дальше строки; "
+        + "2–7 колонок, короткие заголовки, числа с пробелами между разрядами и единицей (сом, шт, ч), без звёздочек внутри таблицы; "
+        + "итог — последней строкой «Итого». Перед таблицей — одна короткая фраза, после — 1–2 предложения вывода или совета. "
+        + "Остальное — простой текст без решёток (#) и звёздочек; список — каждый пункт с новой строки, начинается с «• », не больше 10–15 пунктов.";
 
     /// <summary>2026-10-05: ответ нейросети для окна программы (не Telegram): единые «• », без разметки Markdown.</summary>
     public static string ToPlainText(string text)
     {
-        var s = text.Replace("\r\n", "\n");
-        s = Regex.Replace(s, @"(?<=\S)[ \t]+[\*•][ \t]+(?=\S)", "\n• ");
-        s = Regex.Replace(s, @"(?m)^[ \t]*[\*\-\+•][ \t]+", "• ");
-        s = Regex.Replace(s, @"(?m)^[ \t]*#{1,6}[ \t]*", "");
-        s = s.Replace("**", "").Replace("__", "").Replace("`", "");
+        // 2026-10-06: строки таблиц Markdown («| … |») не разбиваем — «•» внутри строки таблицы превращался в новую строку списка,
+        // и таблица должников разваливалась. В ячейках «•», «*» и «-» в начале просто убираются.
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var l = lines[i].Replace("**", "").Replace("__", "").Replace("`", "");
+            if (Regex.IsMatch(l, @"^\s*[\*•\-]?\s*\|"))
+            {
+                l = Regex.Replace(l, @"^\s*[\*•\-]\s*(?=\|)", "");
+                lines[i] = Regex.Replace(l, @"(?<=\|)\s*[\*•]\s+(?=\S)", " ");
+                continue;
+            }
+            l = Regex.Replace(l, @"(?<=\S)[ \t]+[\*•][ \t]+(?=\S)", "\n• ");
+            l = Regex.Replace(l, @"(?m)^[ \t]*[\*\-\+•][ \t]+", "• ");
+            lines[i] = Regex.Replace(l, @"(?m)^[ \t]*#{1,6}[ \t]*", "");
+        }
+        var s = string.Join("\n", lines);
         s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
         return s;
     }
@@ -304,12 +335,25 @@ public static class TelegramAiChat
         "кызматкер", "айлык", "иштеген", "кто продал", "кто больше продал", "персонал",
         // 2026-10-06, владелец: «дай доступ ИИ к списку сотрудников, их зарплате, к табелю».
         "табел", "смен", "отработ", "кто работал", "на смене", "график", "часов", "иштеди", "табель",
+        "архив", "z-отч", "z отч", "зет", "отчёт", "отчет", "касс",
     };
+
+    /// <summary>2026-10-06, владелец: «архив смен тоже показывай в Телеграм-боте». Последние закрытые смены (Z-отчёты) —
+    /// подставляется в App.axaml.cs (тот же список смен, что табель).</summary>
+    public static Func<CancellationToken, Task<string>>? ShiftArchiveProvider { get; set; }
 
     /// <summary>2026-10-06, владелец: «дай доступ нашему ИИ к списку сотрудников, их зарплате, доступ к табелю». Табель — те же смены
     /// и тот же расчёт, что окно «Табель» (ShiftHistoryService живёт в проекте программы, подставляется в App.axaml.cs).
     /// Параметры: начало и конец периода (дни включительно).</summary>
     public static Func<DateTime, DateTime, CancellationToken, Task<string>>? TimesheetProvider { get; set; }
+
+    /// <summary>2026-10-06: вопрос про сотрудников, зарплату или табель (для звонка — догрузить данные за названный период).</summary>
+    public static bool LooksLikeStaffQuestion(string? question) =>
+        (question ?? "").ToLowerInvariant() is { Length: > 0 } q && StaffWords.Any(q.Contains);
+
+    /// <summary>2026-10-06: сведения о сотрудниках (список, ставки и начисления, табель) за период из вопроса; без периода — с начала месяца.</summary>
+    public static Task<string> StaffContextForAsync(string question, CancellationToken ct) =>
+        StaffContextAsync(LooksLikeStaffQuestion(question) ? question : question + " сотрудники зарплата табель", ct);
 
     /// <summary>2026-10-06, владелец: «дай доступ ИИ к сотрудникам, чтобы ИИ мог считать зарплату и их продажи». Зарплату считает
     /// сервер, как на сайте (analytics/market/?tab=salary): по каждому — схема, оклад, процент, продажи (кассиром и консультантом),
@@ -326,10 +370,24 @@ public static class TelegramAiChat
             : q.Contains("прошл") && q.Contains("месяц") ? (new DateTime(today.Year, today.Month, 1).AddMonths(-1), new DateTime(today.Year, today.Month, 1).AddDays(-1), "прошлый месяц")
             : (new DateTime(today.Year, today.Month, 1), today, "с начала месяца");
         var sb = new StringBuilder();
+        // 2026-10-06: три запроса сразу, а не по очереди (по очереди — 5–8 с, звонок не дожидался).
+        static Task<TR> Start<TR>(Func<Task<TR>> f)
+        {
+            try { return f(); }
+            catch (Exception ex) { return Task.FromException<TR>(ex); }
+        }
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        long msPeople = -1, msTimesheet = -1, msSalary = -1;
+        var peopleTask = Start(async () => { var r = await PosApp.SalesApi.ListConsultantsAsync(ct).ConfigureAwait(false); msPeople = watch.ElapsedMilliseconds; return r; });
+        var timesheetTask = TimesheetProvider is { } provider
+            ? Start(async () => { var r = await provider(from, to, ct).ConfigureAwait(false); msTimesheet = watch.ElapsedMilliseconds; return r; })
+            : null;
+        var salaryTask = Start(async () => { var r = await PosApp.SalesApi.MarketSalaryReportAsync(from, to, ct).ConfigureAwait(false); msSalary = watch.ElapsedMilliseconds; return r; });
+        var archiveTask = ShiftArchiveProvider is { } archiveProvider ? Start(() => archiveProvider(ct)) : null;
         // Список сотрудников — как у сайта (api/users/employees/), тот же, что выбор консультанта при оплате.
         try
         {
-            var people = await PosApp.SalesApi.ListConsultantsAsync(ct).ConfigureAwait(false);
+            var people = await peopleTask.ConfigureAwait(false);
             if (people.Count > 0)
                 sb.Append($"СПИСОК СОТРУДНИКОВ (сервер NurCRM, всего {people.Count}): ").Append(string.Join(", ", people.Select(p => p.Name))).Append(".\n");
         }
@@ -338,11 +396,24 @@ public static class TelegramAiChat
             PosLogger.Log($"ИИ: список сотрудников не получен ({ex.Message}).", "WARNING");
         }
         // Табель — смены кассы за тот же период.
-        if (TimesheetProvider is { } timesheet)
+        if (archiveTask is not null)
         {
             try
             {
-                var text = await timesheet(from, to, ct).ConfigureAwait(false);
+                var text = await archiveTask.ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(text))
+                    sb.Append(text.TrimEnd()).Append('\n');
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"ИИ: архив смен не получен ({ex.Message}).", "WARNING");
+            }
+        }
+        if (timesheetTask is not null)
+        {
+            try
+            {
+                var text = await timesheetTask.ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(text))
                     sb.Append(text.TrimEnd()).Append('\n');
             }
@@ -353,7 +424,7 @@ public static class TelegramAiChat
         }
         try
         {
-            var report = await PosApp.SalesApi.MarketSalaryReportAsync(from, to, ct).ConfigureAwait(false);
+            var report = await salaryTask.ConfigureAwait(false);
             string S(JsonElement e, string n) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(n, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : "";
             sb.Append($"СОТРУДНИКИ И ЗАРПЛАТА (сервер NurCRM, {label}: {from:dd.MM}–{to:dd.MM}; считает сервер по схемам из раздела «Зарплата»):\n");
             if (report.TryGetProperty("cards", out var cards))
@@ -369,6 +440,7 @@ public static class TelegramAiChat
                               + $", продано {S(r, "items_sold_period")} шт | начислено {S(r, "total")} сом (оклад {S(r, "base_prorated")} + процент {S(r, "percent_bonus")} + за товар {S(r, "per_item_bonus")}"
                               + (S(r, "consultant_commission_period") is { Length: > 0 } cc && cc != "0.00" ? $" + консультант {cc}" : "") + ")\n");
             sb.Append("Отвечая про сотрудников, их зарплату, продажи и табель (смены, дни, часы), бери цифры только отсюда; схемы меняются в разделе «Зарплата», табель — раздел «Табель».");
+            PosLogger.Log($"ИИ: сотрудники ({label}) — список {msPeople} мс, табель {msTimesheet} мс, зарплата {msSalary} мс.", "INFO");
             return sb.ToString();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

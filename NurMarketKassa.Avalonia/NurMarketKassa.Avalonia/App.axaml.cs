@@ -197,9 +197,53 @@ public partial class App : Application
         // кнопка «±» склада, ИИ-советник и бот меняют остаток тем же документом ревизии, что и «Списание».
         ProductActions.InventoryApi = AppHost.Services.GetService<NurMarketKassa.Services.Api.IInventoryApiService>();
         // 2026-10-06, владелец: «дай доступ ИИ к табелю сотрудников» — те же смены и тот же расчёт, что окно «Табель».
+        // 2026-10-06, владелец «почему долго??»: список смен сервер отдаёт 3–7 с — для ИИ он держится 10 минут, загрузка одна
+        // на все запросы (чат, звонок, заранее при открытии советника).
+        var shiftsLock = new object();
+        Task<IReadOnlyList<NurMarketKassa.Models.ShiftHistoryEntry>>? shiftsLoad = null;
+        var shiftsAt = DateTime.MinValue;
+        async Task<IReadOnlyList<NurMarketKassa.Models.ShiftHistoryEntry>> LoadShiftsCachedAsync(CancellationToken token)
+        {
+            Task<IReadOnlyList<NurMarketKassa.Models.ShiftHistoryEntry>> load;
+            lock (shiftsLock)
+            {
+                // 3 минуты: только что закрытая смена должна быстро попасть в архив для ИИ.
+                if (shiftsLoad is null || shiftsLoad.IsFaulted || (shiftsLoad.IsCompleted && DateTime.UtcNow - shiftsAt > TimeSpan.FromMinutes(3)))
+                {
+                    shiftsAt = DateTime.UtcNow;
+                    shiftsLoad = ShiftHistoryService.LoadAsync(CancellationToken.None);
+                }
+                load = shiftsLoad;
+            }
+            var list = await load.WaitAsync(token).ConfigureAwait(false);
+            if (list.Count == 0)
+                lock (shiftsLock)
+                    if (shiftsLoad == load)
+                        shiftsLoad = null; // пусто — скорее всего, сервер не ответил: в следующий раз загрузить заново
+            return list;
+        }
+        // 2026-10-06, владелец (снимок бота: «закрытых архивных Z-отчётов по прошлым сменам зафиксировано не было»):
+        // «архив смен тоже показывай в Телеграм-боте». Последние закрытые смены — для ИИ в боте и в программе владельца.
+        TelegramAiChat.ShiftArchiveProvider = async token =>
+        {
+            var shifts = await LoadShiftsCachedAsync(token).ConfigureAwait(false);
+            var closed = shifts.Where(s => s.ClosedAt is not null).OrderByDescending(s => s.ClosedAt).Take(10).ToList();
+            var sb = new System.Text.StringBuilder("АРХИВ СМЕН (Z-отчёты, последние закрытые смены с сервера NurCRM):\n");
+            foreach (var s in closed)
+                sb.Append($"• Смена {s.ShiftNumber}, кассир {s.Cashier}: открыта {s.OpenedAt:dd.MM.yyyy HH:mm}, закрыта {s.ClosedAt:dd.MM.yyyy HH:mm}; выручка {s.Revenue:0.##} сом"
+                          + (s.CashSales is { } cash ? $" (наличные {cash:0.##}" + (s.NonCashSales is { } nc ? $", безнал {nc:0.##})" : ")") : "")
+                          + (s.SalesCount is { } n ? $", чеков {n}" : "")
+                          + (s.OpeningCash is { } op ? $", в кассе на начало {op:0.##}" : "")
+                          + (s.ClosingCash is { } cl ? $", при закрытии {cl:0.##}" : "") + " сом\n");
+            if (closed.Count == 0)
+                sb.Append("Закрытых смен на сервере нет.\n");
+            foreach (var open in shifts.Where(s => s.ClosedAt is null && s.OpenedAt is not null))
+                sb.Append($"Открыта сейчас: смена {open.ShiftNumber}, кассир {open.Cashier}, с {open.OpenedAt:dd.MM.yyyy HH:mm}, выручка {open.Revenue:0.##} сом.\n");
+            return sb.ToString();
+        };
         TelegramAiChat.TimesheetProvider = async (from, to, token) =>
         {
-            var shifts = await ShiftHistoryService.LoadAsync(token, fresh: true).ConfigureAwait(false);
+            var shifts = await LoadShiftsCachedAsync(token).ConfigureAwait(false);
             var rows = StaffTimesheetService.Aggregate(shifts, from, to);
             static string H(TimeSpan t) => $"{(int)t.TotalHours} ч {t.Minutes:00} мин";
             var sb = new System.Text.StringBuilder($"ТАБЕЛЬ (смены кассы {from:dd.MM}–{to:dd.MM}; часы — по закрытым сменам):\n");

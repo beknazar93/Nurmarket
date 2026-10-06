@@ -442,7 +442,12 @@ public sealed class GeminiLiveVoice
 
     /// <summary>2026-10-06, владелец: «дай возможность голосом менять информацию о товарах». Программа сообщает советнику
     /// в звонке текстом (что подготовлено или выполнено) — он коротко озвучивает это владельцу.</summary>
-    public async Task SendTextAsync(string text)
+    /// <summary>Соединение со звонком открыто — можно слать текст.</summary>
+    public bool IsOpen => _ws is { State: WebSocketState.Open } && Model is not null;
+
+    /// <param name="respond">false — только добавить в память разговора (2026-10-06: справка о сотрудниках, пришедшая
+    /// после начала звонка), советник не отвечает на неё вслух.</param>
+    public async Task SendTextAsync(string text, bool respond = true)
     {
         if (_ws is not { State: WebSocketState.Open } || Model is null || string.IsNullOrWhiteSpace(text))
             return;
@@ -455,7 +460,7 @@ public sealed class GeminiLiveVoice
                     ["role"] = "user",
                     ["parts"] = new JsonArray(new JsonObject { ["text"] = text }),
                 }),
-                ["turnComplete"] = true,
+                ["turnComplete"] = respond,
             },
         };
         try

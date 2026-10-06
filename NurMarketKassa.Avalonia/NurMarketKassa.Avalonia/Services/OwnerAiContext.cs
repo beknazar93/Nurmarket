@@ -165,7 +165,7 @@ public static class OwnerAiContext
             if (_analysisCached is not null && DateTime.UtcNow - _analysisCachedAtUtc < TimeSpan.FromMinutes(10))
                 return _analysisCached;
             var sb = new StringBuilder();
-            sb.AppendLine("АНАЛИЗ ДЛЯ АКЦИЙ (30 дней; используй его, чтобы предлагать акции на проблемные товары):");
+            sb.AppendLine("АНАЛИЗ ТОВАРОВ И АКЦИЙ (30 дней; используй его для акций на проблемные товары и для заказа: что закончилось и что заканчивается):");
             try
             {
                 await AppendProductAnalysisAsync(sb, ct).ConfigureAwait(false);
@@ -229,6 +229,16 @@ public static class OwnerAiContext
         sb.AppendLine($"• Не продавались 30 дней, но лежат на складе — {rows.Count(r => r.Stock > 0 && r.Sold30 <= 0)} поз., " +
                       $"заморожено {Money(dead.Sum(r => r.Frozen))} (по закупке): " +
                       (dead.Count == 0 ? "нет." : string.Join("; ", dead.Select(r => $"{r.Name} — остаток {r.Stock:0.###}, {Money(r.Frozen)}"))));
+
+        // 2026-10-06, владелец: «хорошо проданные товары, архив — что закончилось, и какие популярные остались в малом количестве — добавь в ИИ».
+        var soldOut = rows.Where(r => r.Stock <= 0 && r.Sold30 > 0).OrderByDescending(r => r.Sold30).Take(15).ToList();
+        sb.AppendLine("• ХОРОШО ПРОДАВАЛИСЬ, НО ЗАКОНЧИЛИСЬ (остаток 0, продажи за 30 дней): " +
+                      (soldOut.Count == 0 ? "нет." : string.Join("; ", soldOut.Select(r =>
+                          $"{r.Name} — продано {r.Sold30:0.###} за 30 дн. (≈{r.PerDay:0.#} в день), теряется ≈{Money(r.PerDay * r.Price)} выручки в день, на 14 дней заказать ≈{Math.Ceiling(r.PerDay * 14):0}"))));
+        var lowPopular = rows.Where(r => r.Stock > 0 && r.PerDay > 0 && r.Stock / r.PerDay < 7).OrderByDescending(r => r.Sold30).Take(15).ToList();
+        sb.AppendLine("• ПОПУЛЯРНЫЕ, НО ОСТАЛОСЬ МАЛО (запаса меньше чем на 7 дней продаж): " +
+                      (lowPopular.Count == 0 ? "нет." : string.Join("; ", lowPopular.Select(r =>
+                          $"{r.Name} — остаток {r.Stock:0.###}, хватит ≈{r.Stock / r.PerDay:0.#} дн., продаётся ≈{r.PerDay:0.#} в день, на 14 дней заказать ≈{Math.Max(0, Math.Ceiling(r.PerDay * 14 - r.Stock)):0}"))));
 
         var overstock = rows.Where(r => r.PerDay > 0 && r.Stock / r.PerDay > 60).OrderByDescending(r => r.Stock / r.PerDay).Take(12).ToList();
         sb.AppendLine("• Затоварено (запаса больше чем на 60 дней продаж): " +
@@ -296,9 +306,15 @@ public static class OwnerAiContext
     /// <summary>2026-10-05, владелец: «дай список клиентов-должников». Имена и телефоны клиентов в Google не уходят:
     /// нейросеть видит должников под кодами [Д1], [Д2]… (сумма, число чеков, с какой даты), а настоящие имя и
     /// телефон подставляет в её ответ сама программа (<see cref="RevealDebtors"/>) — на этом компьютере.</summary>
+    /// <summary>2026-10-06, владелец: «дай ИИ доступ, чтобы по номеру находил должников и писал им вернуть долг». Должники последней
+    /// сводки по кодам [Д1]… — имя, телефон, сумма (только на этом компьютере, для кнопок «Написать в WhatsApp»).</summary>
+    public static IReadOnlyDictionary<int, (string Name, string? Phone, double Amount)> LastDebtors { get; private set; }
+        = new Dictionary<int, (string Name, string? Phone, double Amount)>();
+
     public static async Task<(string AiText, IReadOnlyDictionary<int, string> Names)> BuildDebtorsPseudonymousAsync(CancellationToken ct)
     {
         var names = new Dictionary<int, string>();
+        var debtors = new Dictionary<int, (string Name, string? Phone, double Amount)>();
         try
         {
             var debts = await App.GetRequiredService<NurMarketKassa.Services.Api.ISalesApiService>()
@@ -348,9 +364,11 @@ public static class OwnerAiContext
             {
                 n++;
                 names[n] = info.Name + (phones.TryGetValue(id, out var phone) ? $" (тел. {phone})" : "");
+                debtors[n] = (info.Name, phones.TryGetValue(id, out var ph) ? ph : null, info.Amount);
                 sb.AppendLine($"• [Д{n}] — {info.Amount.ToString("N2", Ru)} сом, чеков в долг: {info.Count}" +
                               (info.Oldest is { } o ? $", долг с {o.ToLocalTime():dd.MM.yyyy}" : ""));
             }
+            LastDebtors = debtors;
             return (sb.ToString().TrimEnd(), names);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

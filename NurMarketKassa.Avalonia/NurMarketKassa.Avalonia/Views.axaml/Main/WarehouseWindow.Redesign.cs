@@ -35,6 +35,31 @@ public partial class WarehouseWindow
         if (_redesignReady)
             return;
         _redesignReady = true;
+        // 2026-10-06, владелец (снимок: значок-коробка вместо фото): «где фотки, которые поставил? на складе отображай фотки спереди, если есть».
+        // Фото товаров качал только каталог кассы — в программе владельца склад их не загружал. Теперь — для видимой страницы.
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(WarehouseViewModel.PagedProducts))
+                LoadPageThumbnails();
+        };
+        LoadPageThumbnails();
+        // 2026-10-06: склад, открытый в те доли секунды, пока каталог дозагружается после запуска, оставался пустым («Товаров 0»)
+        // до «Обновить». Каталог загрузился, а склад пуст — перестроить список.
+        CatalogCacheService.CacheUpdated += () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_viewModel.FilteredProducts.Count > 0 || CatalogCacheService.Products.Count == 0)
+                return;
+            _ = _viewModel.EnsureCatalogLoadedAsync();
+            RefreshWarehouseTotals();
+        });
+        // Синхронизация «без изменений» список в памяти не заполняет (его могли очистить при входе) — склад берёт каталог
+        // из базы этого компьютера сам: при открытии и при каждом показе окна (не чаще раза в 5 с).
+        LoadCatalogIfEmpty();
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty && IsVisible)
+                LoadCatalogIfEmpty();
+        };
         StockFilterPanel.Children.Clear();
         _stockFilterButtons.Clear();
         StockFilterPanel.Children.Add(new TextBlock
@@ -140,6 +165,53 @@ public partial class WarehouseWindow
         _viewModel.SetChangedFilter(null);
         if (_changedBanner is not null)
             _changedBanner.IsVisible = false;
+    }
+
+    private DateTime _catalogLoadTried = DateTime.MinValue;
+
+    private void LoadCatalogIfEmpty()
+    {
+        if (CatalogCacheService.Products.Count > 0 || DateTime.UtcNow - _catalogLoadTried < TimeSpan.FromSeconds(5))
+            return;
+        _catalogLoadTried = DateTime.UtcNow;
+        if (CatalogCacheService.LoadFromDatabase())
+            PosLogger.Log("Склад: каталог в памяти был пуст — загружен из базы этого компьютера.", "CATALOG");
+    }
+
+    // Не больше 4 загрузок фото сразу — страница склада до 50 товаров, сервер не дёргаем разом.
+    private static readonly SemaphoreSlim ThumbGate = new(4);
+
+    private void LoadPageThumbnails()
+    {
+        var services = App.AppHost?.Services;
+        var thumbs = services?.GetService(typeof(ProductThumbService)) as ProductThumbService;
+        var authApi = services?.GetService(typeof(NurMarketKassa.Services.Api.IAuthApiService)) as NurMarketKassa.Services.Api.IAuthApiService;
+        var apiBaseUrl = (services?.GetService(typeof(NurMarketKassa.Configuration.AppSettings)) as NurMarketKassa.Configuration.AppSettings)?.ApiBaseUrl;
+        if (thumbs is null || authApi is null || string.IsNullOrWhiteSpace(apiBaseUrl))
+            return;
+        foreach (var product in _viewModel.PagedProducts.ToList())
+        {
+            if (string.IsNullOrWhiteSpace(product.ImageUrl) || !string.IsNullOrEmpty(product.ProductImagePath))
+                continue;
+            _ = LoadThumbAsync(thumbs, authApi, apiBaseUrl!, product);
+        }
+    }
+
+    private static async Task LoadThumbAsync(ProductThumbService thumbs, NurMarketKassa.Services.Api.IAuthApiService authApi, string apiBaseUrl, CatalogProductTileVm product)
+    {
+        await ThumbGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await thumbs.SetThumbAsync(Avalonia.Threading.Dispatcher.UIThread, authApi, apiBaseUrl, product.ImageUrl!, product, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Склад: фото «{product.Title}» не загружено ({ex.Message}).", "WARNING");
+        }
+        finally
+        {
+            ThumbGate.Release();
+        }
     }
 
     private void ProductSearchClear_Click(object? sender, RoutedEventArgs e)

@@ -80,7 +80,11 @@ public static class AiProviders
                 for (var attempt = 0; attempt < 2; attempt++)
                 {
                     var watch = System.Diagnostics.Stopwatch.StartNew();
-                    var (json, status) = await PostAsync(GroqUrl, UserPreferences.Instance.GroqApiKey!, body, ct).ConfigureAwait(false);
+                    // 2026-10-06, стресс-тест: Groq не отвечал — поиск фото ждал 3 × 60 с. Не дольше 30 с на запрос.
+                    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    timeout.CancelAfter(TimeSpan.FromSeconds(30));
+                    var (json, status) = await PostAsync(GroqUrl, UserPreferences.Instance.GroqApiKey!, body, timeout.Token).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
                     if (status is >= 200 and < 300)
                     {
                         var (text, sources) = ReadAnswer(json);
@@ -91,6 +95,12 @@ public static class AiProviders
                     PosLogger.Log($"ИИ: поиск в интернете (Groq {model}) → HTTP {status} за {watch.ElapsedMilliseconds} мс ({message}).", "TELEGRAM");
                     if (status == 401)
                         return (null, none, "ключ Groq не подходит");
+                    if (status == 0)
+                    {
+                        // Нет ответа — Groq недоступен: не ждать следующую модель и повторы, поиск через Groq — через 10 минут.
+                        _groqSearchBlockedUntilUtc = DateTime.UtcNow.AddMinutes(10);
+                        return (null, none, "Groq не отвечает — поиск в интернете отложен на 10 минут");
+                    }
                     lastError = $"Groq: {message}";
                     if (status != 429)
                     {

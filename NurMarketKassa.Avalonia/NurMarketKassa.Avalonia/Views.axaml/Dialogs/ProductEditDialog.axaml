@@ -176,10 +176,11 @@
                 </Grid>
             </Border>
 
+            <!-- 2026-10-06, владелец «баг съедает низ»: последнее поле вкладки («Страна производства») уходило под край прокрутки — у содержимого вкладок запас 80 px снизу (вкладки переносятся на вторую строку, и низ области прокрутки уходит под край). -->
             <TabControl x:Name="ProductTabs" Grid.Row="2" Margin="20,4,16,4" Padding="4,0,0,0">
                 <TabItem Header="{DynamicResource product.tabMain}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <!-- 2026-10-03, владелец: «изучи веб — при скане, если товар есть в базе готовых наименований,
                                  сразу всё подставляется». Подсказка и результат поиска в базе NurCRM (только новый товар). -->
                             <Border IsVisible="{Binding ShowGlobalScanHint}" CornerRadius="10" Padding="12,10"
@@ -271,8 +272,8 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabCategory}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
                                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
@@ -407,8 +408,8 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabPackage}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
                                 <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
                                 <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
@@ -457,8 +458,8 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
                                  остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
                             <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
@@ -476,8 +477,8 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabMore}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
 
                                     <StackPanel Spacing="8">
@@ -556,8 +557,8 @@
                     </ScrollViewer>
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabHistory}" x:Name="HistoryTab" IsVisible="{Binding #PurchaseHistoryExpander.IsVisible}">
-                    <ScrollViewer Padding="0,14,10,6">
-                        <StackPanel Spacing="20">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,80">
                             <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
                                  Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
                                  первом раскрытии: это запрос к серверу, а карточку открывают часто. -->

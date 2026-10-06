@@ -32,6 +32,9 @@ public static class ProductPhotoFinder
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
         // Open Food Facts просит указывать программу в User-Agent.
         http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa/1.17 (+https://nurcrm.kg)");
+        // 2026-10-06, владелец (снимок: пустые варианты фото с lavka.yandex.ru): без Accept сайты отдают AVIF, который окно
+        // не показывает и который не годится для карточки. Просим форматы, которые программа понимает.
+        http.DefaultRequestHeaders.Accept.ParseAdd("image/webp,image/jpeg,image/png,image/*;q=0.8,text/html;q=0.7,*/*;q=0.5");
         return http;
     }
 
@@ -226,6 +229,39 @@ public static class ProductPhotoFinder
             PosLogger.Log($"Фото товара «{product.Title}»: поиск в интернете прерван ({ex.Message}).", "CATALOG");
         }
         return null;
+    }
+
+    /// <summary>2026-10-06, владелец: «при поиске в интернете отображай найденные фото товаров на выбор в чате». Несколько
+    /// вариантов фото одного товара: открытые базы по штрихкоду, поиск по названию и фото со страниц магазинов из поиска
+    /// DuckDuckGo (без ключа; картинка проверяется скачиванием). Ставит владелец — выбранное.</summary>
+    public static async Task<List<Candidate>> FindChoicesAsync(CatalogProductTileVm product, int max, CancellationToken ct)
+    {
+        var list = new List<Candidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(Candidate? c)
+        {
+            if (c is not null && list.Count < max && seen.Add(c.ImageUrl))
+                list.Add(c);
+        }
+        var code = SearchableBarcode(product);
+        if (code is not null)
+            foreach (var (name, host) in Sources)
+                if (await TryFindAsync(host, code, ct).ConfigureAwait(false) is { } url)
+                    Add(new Candidate(product, url, name));
+        Add(await TryFindByNameAsync(product, ct).ConfigureAwait(false));
+        var pages = await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync($"{product.Title} {code}".Trim(), ct).ConfigureAwait(false);
+        if (pages.Count < 3 && code is not null)
+            pages = pages.Concat(await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync(product.Title, ct).ConfigureAwait(false)).Distinct().ToList();
+        var resolved = await Task.WhenAll(pages.Take(10).Select(async page => await ResolveImageAsync(page, ct).ConfigureAwait(false))).ConfigureAwait(false);
+        foreach (var image in resolved)
+        {
+            if (image is not { } im)
+                continue;
+            var host = Uri.TryCreate(im.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+            Add(new Candidate(product, im.ImageUrl, "интернет: " + host));
+        }
+        PosLogger.Log($"Фото товара «{product.Title}»: вариантов на выбор {list.Count} (страниц в поиске {pages.Count}).", "CATALOG");
+        return list;
     }
 
     /// <summary>Ссылка → картинка: если это изображение — оно; если страница — её og:image / twitter:image.</summary>
