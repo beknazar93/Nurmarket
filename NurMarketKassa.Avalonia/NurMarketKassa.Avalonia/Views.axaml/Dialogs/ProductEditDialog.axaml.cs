@@ -187,6 +187,20 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        // 2026-10-06, владелец (фото моноблока клиента): «там поля для цены не видны». Окно ужато под экран (DialogScreenFit),
+        // а поля цены оставались ниже видимой части вкладки — на сенсоре прокрутку не найти. На невысоком окне поля плотнее
+        // (цены помещаются), а поле, получившее фокус (касание, Tab), прокручивается в вид.
+        // Совсем низкое окно (< 700: моноблок 1366×768 с масштабом 125 %) — ещё плотнее и без подсказки про скан.
+        SizeChanged += (_, e) =>
+        {
+            MainTabStack.Spacing = e.NewSize.Height < 700 ? 6 : e.NewSize.Height < 820 ? 10 : 20;
+            ScanHintHost.IsVisible = e.NewSize.Height >= 700;
+        };
+        MainTabStack.AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e.Source is TextBox box)
+                box.BringIntoView();
+        }, Avalonia.Interactivity.RoutingStrategies.Bubble);
         // 2026-10-04, владелец (Android, телефон): «видишь модалку — там ничего не видно при добавлении нового
         // товара». Окно на 660 точек на телефоне обрезалось справа. На узком экране ряды полей — столбиком
         // (артикул/штрихкод, остаток/единица/PLU, цены, категория/бренд, упаковка), окно — во всю ширину.

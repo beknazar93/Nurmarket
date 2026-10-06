@@ -286,6 +286,8 @@ public partial class App : Application
         NurMarketKassa.AvaloniaHost.Views.Dialogs.DialogScreenFit.RegisterForAllWindows();
         // 2026-10-04: два пальца на сенсоре — прокрутка, а не два нажатия сразу (см. TouchGuard).
         TouchGuard.Register();
+        // 2026-10-06, моноблоки клиентов: касание поля ввода пальцем — клавиатура Windows (TouchKeyboardAuto).
+        TouchKeyboardAuto.Register();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

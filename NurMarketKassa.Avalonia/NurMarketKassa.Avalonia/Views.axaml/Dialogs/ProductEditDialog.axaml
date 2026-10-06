@@ -179,11 +179,15 @@
             <!-- 2026-10-06, владелец «баг съедает низ»: последнее поле вкладки («Страна производства») уходило под край прокрутки — у содержимого вкладок запас 80 px снизу (вкладки переносятся на вторую строку, и низ области прокрутки уходит под край). -->
             <TabControl x:Name="ProductTabs" Grid.Row="2" Margin="20,4,16,4" Padding="4,0,0,0">
                 <TabItem Header="{DynamicResource product.tabMain}">
-                    <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
+                    <!-- 2026-10-06, моноблок клиента: поля цены уходили под край, прокрутку пальцем не найти — полоса видна всегда,
+                         на невысоком экране поля плотнее (ProductEditDialog.CompactForShortScreen). -->
+                    <ScrollViewer x:Name="MainTabScroll" Padding="0,14,16,6" AllowAutoHide="False">
+                        <StackPanel x:Name="MainTabStack" Spacing="20" Margin="0,0,0,80">
                             <!-- 2026-10-03, владелец: «изучи веб — при скане, если товар есть в базе готовых наименований,
                                  сразу всё подставляется». Подсказка и результат поиска в базе NurCRM (только новый товар). -->
-                            <Border IsVisible="{Binding ShowGlobalScanHint}" CornerRadius="10" Padding="12,10"
+                            <!-- 2026-10-06: на очень низком окне (< 700) подсказка прячется, чтобы цены были видны (ScanHintHost). -->
+                            <Panel IsVisible="{Binding ShowGlobalScanHint}">
+                            <Border x:Name="ScanHintHost" CornerRadius="10" Padding="12,10"
                                     Background="{DynamicResource BrushAccentSoft}">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="{DynamicResource product.globalScanHint}" TextWrapping="Wrap" FontSize="12.5"
@@ -192,6 +196,7 @@
                                                FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
                                 </StackPanel>
                             </Border>
+                            </Panel>
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
                                 <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>

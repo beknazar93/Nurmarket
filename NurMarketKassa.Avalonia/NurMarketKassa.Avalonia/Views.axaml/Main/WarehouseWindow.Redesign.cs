@@ -45,13 +45,16 @@ public partial class WarehouseWindow
         LoadPageThumbnails();
         // 2026-10-06: склад, открытый в те доли секунды, пока каталог дозагружается после запуска, оставался пустым («Товаров 0»)
         // до «Обновить». Каталог загрузился, а склад пуст — перестроить список.
-        CatalogCacheService.CacheUpdated += () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        // Отписка при закрытии окна: в кассе окно склада создаётся заново при каждом открытии.
+        _catalogUpdatedHandler = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (_viewModel.FilteredProducts.Count > 0 || CatalogCacheService.Products.Count == 0)
                 return;
             _ = _viewModel.EnsureCatalogLoadedAsync();
             RefreshWarehouseTotals();
         });
+        CatalogCacheService.CacheUpdated += _catalogUpdatedHandler;
+        Closed += (_, _) => CatalogCacheService.CacheUpdated -= _catalogUpdatedHandler;
         // Синхронизация «без изменений» список в памяти не заполняет (его могли очистить при входе) — склад берёт каталог
         // из базы этого компьютера сам: при открытии и при каждом показе окна (не чаще раза в 5 с).
         LoadCatalogIfEmpty();
@@ -168,6 +171,7 @@ public partial class WarehouseWindow
     }
 
     private DateTime _catalogLoadTried = DateTime.MinValue;
+    private Action? _catalogUpdatedHandler;
 
     private void LoadCatalogIfEmpty()
     {

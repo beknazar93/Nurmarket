@@ -1566,7 +1566,21 @@ public sealed class UserPreferences
                 UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
+            // 2026-10-06, лог (11:32, IOException): файл на миг занят другой записью (касса и программа владельца, антивирус) —
+            // настройка терялась. Три попытки с короткой паузой.
+            var json = JsonSerializer.Serialize(dto, JsonOpt);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.WriteAllText(FilePath, json);
+                    break;
+                }
+                catch (IOException) when (attempt < 3)
+                {
+                    Thread.Sleep(80 * attempt);
+                }
+            }
             // 2026-10-05, владелец: «при открытии на другом устройстве все настройки аккаунта подтягивались» — на сервер.
             SettingsCloudSync.OnSaved();
         }

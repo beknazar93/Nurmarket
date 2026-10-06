@@ -460,6 +460,28 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _input.Text = "";
         RefreshKeyCard();
         AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
+        // 2026-10-06: «поставь фото 4» / «четвёртое» — вариант из последнего поиска фото ставит программа, без нейросети.
+        // Короткая команда «открой …» (до 6 слов) — сразу; длинный вопрос со словом «открой» отвечает ИИ (он тоже умеет открывать).
+        var quickOpen = image is null && PhotoChoiceNumber(question) is null && !HasActionBesidesOpen(question)
+                        && question.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 6 ? TryQuickOpen(question) : null;
+        if (image is null && (PhotoChoiceNumber(question) is not null || quickOpen is not null))
+        {
+            var status = AddBubble("…", fromOwner: false);
+            try
+            {
+                status.Text = quickOpen ?? await ApplyPhotoChoiceAsync(PhotoChoiceNumber(question)!.Value).ConfigureAwait(true);
+            }
+            finally
+            {
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                }
+            }
+            return;
+        }
         // 2026-10-05, владелец: «добавь техническую возможность к ИИ для загрузки фото на склад» — просьба про фото
         // товаров выполняется программой сама (поиск по штрихкоду, загрузка после подтверждения), без нейросети.
         if (image is null && IsPhotoRequest(question))
@@ -1161,9 +1183,17 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         if (OperatingSystem.IsWindows())
         {
             // Встроенный WhatsApp Web (вход по QR-коду сохраняется) — одно окно, следующий должник открывается в нём же.
-            _whatsAppWindow?.Close();
-            _whatsAppWindow = new CrmWebViewWindow(CrmWebViewWindow.WhatsAppWebUrl + "/send?" + query, "WhatsApp Web");
-            _whatsAppWindow.Show();
+            // Владелец мог уже закрыть окно сам — закрываем только открытое.
+            if (_whatsAppWindow is { IsVisible: true } previous)
+                previous.Close();
+            var window = new CrmWebViewWindow(CrmWebViewWindow.WhatsAppWebUrl + "/send?" + query, "WhatsApp Web");
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_whatsAppWindow, window))
+                    _whatsAppWindow = null;
+            };
+            _whatsAppWindow = window;
+            window.Show();
         }
         else
             SiteOrdersWindow.OpenUrl("https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text));
@@ -1321,9 +1351,34 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var bot = BuildBotStateAsync(ct);
         // 2026-10-05, ТЗ часть 7: итоги допродажи по всем кассам компании (сервер выложил 05.10).
         var upsell = BuildUpsellAsync(ct);
-        await Task.WhenAll(warehouse, debts, debtors, abc, analysis, bot, upsell).ConfigureAwait(false);
-        var (debtorsText, names) = debtors.Result;
-        var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, bot.Result, upsell.Result, debts.Result, debtorsText, analysis.Result, abc.Result, warehouse.Result }
+        // 2026-10-06, лог владельца (23:10, сервер не отвечал после запуска): одна упавшая часть роняла всю сводку — ИИ
+        // оставался без данных магазина. Теперь упавшая часть пропускается, остальные идут в сводку.
+        static async Task<string> Part(Task<string> task, string name)
+        {
+            try
+            {
+                return await task.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"ИИ-советник: часть сводки «{name}» не собрана ({ex.Message}).", "WARNING");
+                return "";
+            }
+        }
+        var parts = await Task.WhenAll(Part(bot, "бот"), Part(upsell, "допродажа"), Part(debts, "долги"), Part(analysis, "анализ"),
+            Part(abc, "ABC"), Part(warehouse, "склад")).ConfigureAwait(false);
+        string debtorsText;
+        IReadOnlyDictionary<int, string> names;
+        try
+        {
+            (debtorsText, names) = await debtors.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: часть сводки «должники» не собрана ({ex.Message}).", "WARNING");
+            (debtorsText, names) = ("", new Dictionary<int, string>());
+        }
+        var summary = string.Join("\n", new[] { OwnerOverviewSnapshot.Text, parts[0], parts[1], parts[2], debtorsText, parts[3], parts[4], parts[5] }
             .Where(x => !string.IsNullOrWhiteSpace(x)));
         return (summary, names);
     }
@@ -1948,6 +2003,27 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         PosLogger.Log("ИИ-советник: сотрудники переданы в звонок после его начала.", "INFO");
     }
 
+    /// <summary>2026-10-06: сводка магазина собралась после начала звонка — в память разговора, без ответа вслух.</summary>
+    private async Task SendSummaryWhenReadyAsync(Task<(string Summary, IReadOnlyDictionary<int, string> Names)> summaryTask, GeminiLiveVoice live)
+    {
+        try
+        {
+            var (summary, names) = await summaryTask.ConfigureAwait(true);
+            for (var i = 0; i < 60 && _live == live && !live.IsOpen; i++)
+                await Task.Delay(250).ConfigureAwait(true);
+            if (_live != live || summary.Length == 0 || !live.IsOpen)
+                return;
+            _liveDebtors = names;
+            await live.SendTextAsync("[Программа] Данные магазина для ответов владельцу (сейчас вслух ничего не говори, просто запомни; "
+                                     + "раньше этих данных у тебя не было — теперь отвечай по ним): " + summary, respond: false).ConfigureAwait(true);
+            PosLogger.Log($"ИИ-советник: сводка ({summary.Length} симв.) передана в звонок после его начала.", "INFO");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: сводка для звонка не собрана ({ex.Message}).", "WARNING");
+        }
+    }
+
     private async Task LiveStaffPassAsync(string utterance, GeminiLiveVoice live)
     {
         var staff = await LiveStaffContextAsync(utterance).ConfigureAwait(true);
@@ -2099,9 +2175,18 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         // не успели — программа пришлёт их в звонок, как только будут готовы (SendStaffWhenReadyAsync).
         var staffTask = LiveStaffContextAsync("");
         string? staffNow = null;
+        // 2026-10-06, владелец: «долгое подключение звонка» (лог 23:10: сервер не отвечал, «Подключаюсь…» ~40 с). Сводку ждём
+        // не дольше 6 с; не успела — звонок начинается без неё, сводка уходит в разговор, как только соберётся.
+        var summaryTask = GetSummaryAsync();
+        var summaryLate = false;
         try
         {
-            var (summary, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
+            if (await Task.WhenAny(summaryTask, Task.Delay(6000)).ConfigureAwait(true) != summaryTask)
+            {
+                summaryLate = true;
+                throw new TimeoutException("сводка не готова за 6 с — дошлю в разговор");
+            }
+            var (summary, debtorNames) = await summaryTask.ConfigureAwait(true);
             names = debtorNames;
             await Task.WhenAny(staffTask, Task.Delay(1500)).ConfigureAwait(true);
             staffNow = staffTask.IsCompletedSuccessfully ? staffTask.Result : null;
@@ -2170,6 +2255,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _liveStaffDelivered = staffNow is { Length: > 0 };
             if (staffNow is null)
                 _ = SendStaffWhenReadyAsync(staffTask, live);
+            if (summaryLate)
+                _ = SendSummaryWhenReadyAsync(summaryTask, live);
         }
         catch (Exception ex)
         {
@@ -2229,7 +2316,21 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var spoken = _liveUserText.ToString().Trim();
         if (!interrupted && spoken.Length > 0 && _live is { } liveNow)
         {
-            if (_pendingProductApply is { } apply && ProductActionPlan.IsVoiceYes(spoken))
+            // 2026-10-06, владелец в звонке: «Да, поставь четвёртое фото по счёту» — теперь программа ставит его сама.
+            if (PhotoChoiceNumber(spoken) is { } photoNumber)
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var result = await ApplyPhotoChoiceAsync(photoNumber).ConfigureAwait(true);
+                    if (_live == liveNow)
+                        await liveNow.SendTextAsync("[Программа] " + result + " Коротко скажи владельцу результат.").ConfigureAwait(true);
+                });
+            else if (TryQuickOpen(spoken) is { } opened)
+            {
+                _ = liveNow.SendTextAsync("[Программа] " + opened + " Скажи об этом одной короткой фразой; владелец видит раздел на экране.");
+                if (HasActionBesidesOpen(spoken))
+                    _ = LiveProductPassAsync(spoken, liveNow);
+            }
+            else if (_pendingProductApply is { } apply && ProductActionPlan.IsVoiceYes(spoken))
                 _ = Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     var done = await apply().ConfigureAwait(true);
@@ -2609,6 +2710,143 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _messages.Children.Add(panel);
     }
 
+    /// <summary>2026-10-06, владелец в звонке: «Да, поставь четвёртое фото по счёту» — советник обещал, программа не делала.
+    /// Варианты последнего поиска фото (видимые, по порядку на экране, с номерами №1…), выбор — голосом или текстом.</summary>
+    private readonly List<(ProductPhotoFinder.Candidate Candidate, Button Button, Border Card, TextBlock Label)> _photoChoices = new();
+
+    private static readonly string[][] OrdinalStems =
+    {
+        new[] { "перв", "биринчи", "first", "birinci", "birinchi" },
+        new[] { "втор", "экинчи", "second", "ikinci", "ikkinchi" },
+        new[] { "трет", "үчүнчү", "third", "üçüncü", "uchinchi" },
+        new[] { "четв", "төртүнчү", "fourth", "dördüncü", "to'rtinchi" },
+        new[] { "пят", "бешинчи", "fifth", "beşinci", "beshinchi" },
+        new[] { "шест", "алтынчы", "sixth", "altıncı", "oltinchi" },
+        new[] { "седьм", "жетинчи", "seventh", "yedinci", "yettinchi" },
+        new[] { "восьм", "сегизинчи", "eighth", "sekizinci", "sakkizinchi" },
+    };
+
+    /// <summary>Номер фото из просьбы «поставь фото 4», «четвёртое фото», «№3»; null — это не выбор варианта.</summary>
+    private int? PhotoChoiceNumber(string text)
+    {
+        var visible = _photoChoices.Count(c => c.Card.IsVisible);
+        if (visible == 0 || text.Length > 90)
+            return null;
+        var t = text.ToLowerInvariant();
+        var words = System.Text.RegularExpressions.Regex.Split(t, @"[^\p{L}\p{N}']+").Where(w => w.Length > 0).ToList();
+        var aboutPhoto = new[] { "фото", "фотк", "вариант", "сүрөт", "photo", "picture", "option", "fotoğraf", "rasm", "surat", "№" }.Any(t.Contains);
+        var act = words.Any(w => new[] { "постав", "став", "выбер", "бери", "давай", "кой", "танда", "use", "set", "pick", "take", "kullan", "seç", "qo'y", "tanla" }.Any(w.StartsWith));
+        if (!aboutPhoto || !act)
+            return null;
+        int? n = null;
+        if (System.Text.RegularExpressions.Regex.Match(t, @"(?:№|номер|number|nomer|фото|photo|сүрөт|вариант)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:-?(?:е|ое|й|ий|ю|th|st|nd|rd)\b|\s*(?:фото|photo|сүрөт|вариант))") is { Success: true } m)
+            n = int.Parse(m.Groups[1].Success && m.Groups[1].Value.Length > 0 ? m.Groups[1].Value : m.Groups[2].Value);
+        else
+            for (var i = 0; i < OrdinalStems.Length && n is null; i++)
+                if (words.Any(w => OrdinalStems[i].Any(w.StartsWith)))
+                    n = i + 1;
+        return n is >= 1 && n <= visible ? n : null;
+    }
+
+    /// <summary>Поставить вариант №n (по видимым на экране); текст результата для чата и звонка.</summary>
+    private async Task<string> ApplyPhotoChoiceAsync(int n)
+    {
+        var choice = _photoChoices.Where(c => c.Card.IsVisible).ElementAt(n - 1);
+        if (!choice.Button.IsEnabled)
+            return T($"Фото №{n} уже поставлено или недоступно.", $"№{n} сүрөт коюлган же жеткиликсиз.", $"Photo #{n} is already set or unavailable.",
+                $"{n} numaralı fotoğraf zaten ayarlı veya kullanılamıyor.", $"№{n} rasm allaqachon qo'yilgan yoki mavjud emas.");
+        foreach (var other in _photoChoices.Where(c => c.Button != choice.Button))
+            other.Button.IsEnabled = false;
+        await ApplyPhotoAsync(choice.Button, choice.Candidate).ConfigureAwait(true);
+        var ok = !choice.Button.IsEnabled;
+        return ok
+            ? T($"Фото №{n} поставлено товару «{choice.Candidate.Product.Title}».", $"№{n} сүрөт «{choice.Candidate.Product.Title}» товарына коюлду.",
+                $"Photo #{n} set for “{choice.Candidate.Product.Title}”.", $"{n} numaralı fotoğraf «{choice.Candidate.Product.Title}» ürününe ayarlandı.",
+                $"№{n} rasm «{choice.Candidate.Product.Title}» mahsulotiga qo'yildi.")
+            : T($"Фото №{n} поставить не получилось — выберите другое.", $"№{n} сүрөттү коюу болбой калды — башкасын тандаңыз.",
+                $"Couldn't set photo #{n} — choose another.", $"{n} numaralı fotoğraf ayarlanamadı — başka birini seçin.",
+                $"№{n} rasmni qo'yib bo'lmadi — boshqasini tanlang.");
+    }
+
+    /// <summary>Товар, которому последним поставили фото (для «открой склад, проверь, поставилось ли фото»).</summary>
+    private NurMarketKassa.Models.Pos.CatalogProductTileVm? _lastPhotoProduct;
+
+    /// <summary>2026-10-06, владелец (снимок звонка: «открой склад и проверь, поставилась ли фото» — «Программа не открывает, где
+    /// она?»; склад открылся через 17 с — шёл полный запрос к ИИ): «дай ИИ звонку полный доступ к программе — открывать вкладки
+    /// и разделы и искать товары». «Открой …» программа выполняет сама и сразу: товар — на складе, иначе раздел меню.
+    /// Ответ — что открыто; null — это не команда «открыть» или открыть нечего.</summary>
+    private string? TryQuickOpen(string text)
+    {
+        var t = text.ToLowerInvariant();
+        if (t.Length > 160)
+            return null;
+        var words = System.Text.RegularExpressions.Regex.Split(t, @"[^\p{L}\p{N}']+").Where(w => w.Length > 0).ToList();
+        var open = words.Any(w => new[] { "откр", "перей", "зайди", "зайти", "ачып", "ачкыла", "open", "aç", "och" }.Any(w.StartsWith) || w == "ач")
+                   || (words.Any(w => w.StartsWith("покаж")) && new[] { "раздел", "вкладк", "склад", "на экран" }.Any(t.Contains));
+        if (!open)
+            return null;
+        // Проверить фото — товар, которому его только что поставили. Иначе товар по целым словам названия (не подстрокой:
+        // «финансы» находили товар «Нан»); раздел меню важнее товара, если не сказано «товар» и совпало одно слово.
+        var section = ProductActionPlan.NavigateByWords?.Invoke(text, false);
+        var (named, score) = QuickOpenProduct(words);
+        var product = new[] { "фото", "фотк", "сүрөт", "photo" }.Any(t.Contains) && _lastPhotoProduct is { } photoProduct
+            ? photoProduct
+            : named is not null && (section is null || score >= 2 || words.Any(w => w.StartsWith("товар")))
+                ? named
+                : null;
+        if (product is not null && ProductActionPlan.OpenProduct is { } openProduct)
+        {
+            openProduct(product);
+            PosLogger.Log($"ИИ-советник: открыт товар «{product.Title}» на складе по фразе владельца.", "INFO");
+            return T($"Открыт склад, товар «{product.Title}».", $"Кампа ачылды, товар «{product.Title}».", $"Warehouse opened at “{product.Title}”.",
+                $"Depo açıldı, ürün «{product.Title}».", $"Ombor ochildi, mahsulot «{product.Title}».");
+        }
+        return section is not null && ProductActionPlan.NavigateByWords?.Invoke(text, true) is { } opened
+            ? T($"Открыт раздел «{opened}».", $"«{opened}» бөлүмү ачылды.", $"Opened “{opened}”.", $"«{opened}» açıldı.", $"«{opened}» ochildi.")
+            : null;
+    }
+
+    /// <summary>Товар для «открой …»: слова фразы (кроме команд) совпадают с началом слов названия; лучший по числу совпадений.</summary>
+    private static (NurMarketKassa.Models.Pos.CatalogProductTileVm? Product, int Score) QuickOpenProduct(List<string> words)
+    {
+        string[] skip = { "откр", "перей", "зайд", "зайт", "покаж", "товар", "склад", "раздел", "вкладк", "провер", "постав", "фото", "фотк",
+            "пожалуйста", "мне", "его", "это", "там", "где", "ачып", "ачкыла", "open", "show" };
+        var said = words.Where(w => w.Length >= 3 && !skip.Any(w.StartsWith)).Distinct().ToList();
+        if (said.Count == 0)
+            return (null, 0);
+        IReadOnlyList<NurMarketKassa.Models.Pos.CatalogProductTileVm> tiles;
+        try
+        {
+            tiles = CatalogCacheService.Products.ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return (null, 0);
+        }
+        NurMarketKassa.Models.Pos.CatalogProductTileVm? best = null;
+        var bestScore = 0;
+        foreach (var tile in tiles)
+        {
+            var titleWords = System.Text.RegularExpressions.Regex.Split(tile.Title.ToLowerInvariant(), @"[^\p{L}\p{N}]+").Where(w => w.Length > 0).ToList();
+            var score = said.Count(w => titleWords.Any(tw => tw.StartsWith(w) || (w.Length >= 4 && tw.Length >= 4 && w.StartsWith(tw))));
+            if (score > bestScore)
+                (best, bestScore) = (tile, score);
+        }
+        return (best, bestScore);
+    }
+
+    /// <summary>Кроме «открой» во фразе есть действие с товаром («открой склад и спиши 1 Марс») — его разбирает ИИ.</summary>
+    private static bool HasActionBesidesOpen(string text) =>
+        ProductActionPlan.LooksLikeAction(System.Text.RegularExpressions.Regex.Replace(text.ToLowerInvariant(), @"откр\w*|ачып|ачкыла\w*|покажи товар", " "));
+
+    /// <summary>Номера «№1 · сайт» по видимым вариантам — после скрытия тех, что не открылись.</summary>
+    private void RenumberPhotoChoices()
+    {
+        var i = 0;
+        foreach (var c in _photoChoices.Where(c => c.Card.IsVisible))
+            c.Label.Text = $"№{++i} · {c.Candidate.Source.Replace("интернет: ", "")}";
+    }
+
     private static bool IsPhotoRequest(string text)
     {
         var t = text.ToLowerInvariant();
@@ -2760,6 +2998,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         var total = 0;
+        _photoChoices.Clear();
         foreach (var product in products)
         {
             List<ProductPhotoFinder.Candidate> choices;
@@ -2816,15 +3055,28 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 Use(card, Border.BorderBrushProperty, "BrushBorder");
                 strip.Children.Add(card);
                 choiceCard = card;
+                _photoChoices.Add((candidate, set, card, source));
                 // Картинка в формате, который окно не показывает (avif и т. п.), — вариант убираем, а не оставляем пустую рамку.
                 _ = LoadPreviewAsync(image, candidate.ImageUrl).ContinueWith(t =>
                 {
                     if (!t.Result && choiceCard is not null)
+                    {
                         choiceCard.IsVisible = false;
+                        RenumberPhotoChoices();
+                    }
                 }, TaskScheduler.FromCurrentSynchronizationContext());
             }
             _messages.Children.Add(strip);
+            RenumberPhotoChoices();
             ScrollToEnd();
+        }
+        // 2026-10-06: при 0 вариантов не писать «Нашёл вариантов фото: 0. Нажмите «Поставить…»» — нечего нажимать.
+        if (total == 0)
+        {
+            status.Text = T("Фото в интернете не нашлось.", "Интернеттен сүрөт табылган жок.", "No photos found online.",
+                "Internette fotoğraf bulunamadı.", "Internetda rasm topilmadi.");
+            ScrollToEnd();
+            return;
         }
         status.Text = T($"Нашёл вариантов фото: {total}. Нажмите «Поставить это фото» под подходящим — фото уйдёт в карточку товара на сервере.",
             $"Сүрөт варианттары: {total}. Ылайыктуусунун астындагы «Ушул сүрөттү коюу» басыңыз — сүрөт сервердеги товар карточкасына кетет.",
@@ -2860,6 +3112,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         try
         {
             ok = await ProductPhotoFinder.ApplyAsync(candidate, CancellationToken.None).ConfigureAwait(true);
+            if (ok)
+                _lastPhotoProduct = candidate.Product;
         }
         catch (Exception ex)
         {

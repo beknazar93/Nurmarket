@@ -20,6 +20,8 @@ public static class ProductPhotoFinder
 
     private static readonly HttpClient Http = CreateHttp();
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> RecentImages = new();
+
     private static readonly (string Name, string Host)[] Sources =
     {
         ("Open Food Facts", "world.openfoodfacts.org"),
@@ -122,6 +124,17 @@ public static class ProductPhotoFinder
                 }
                 // 2026-10-05, владелец: «найти фото по названию или штрихкоду в интернете, если в базе нет».
                 hits[index] ??= await TryFindByNameAsync(product, ct).ConfigureAwait(false);
+                // 2026-10-06: первое скачиваемое фото из Яндекс.Картинок (магазины — первыми), с паузой — бережно к Яндексу.
+                if (hits[index] is null && product.Title.Trim().Length >= 3)
+                {
+                    foreach (var y in (await YandexImagesAsync(product.Title, ct).ConfigureAwait(false)).Take(4))
+                        if (await IsRealImageAsync(y.ImageUrl, ct).ConfigureAwait(false))
+                        {
+                            hits[index] = new Candidate(product, y.ImageUrl, "интернет: " + y.Host);
+                            break;
+                        }
+                    await Task.Delay(400, ct).ConfigureAwait(false);
+                }
                 if (hits[index] is null && Interlocked.Decrement(ref webLeft) >= 0)
                     hits[index] = await TryFindOnWebAsync(product, ct).ConfigureAwait(false);
             }
@@ -248,20 +261,77 @@ public static class ProductPhotoFinder
             foreach (var (name, host) in Sources)
                 if (await TryFindAsync(host, code, ct).ConfigureAwait(false) is { } url)
                     Add(new Candidate(product, url, name));
+        // 2026-10-06, владелец (снимок: «Aos Extra pover 450гр бальзам» — вариантов 0, а в интернете фото много): DuckDuckGo
+        // стал отвечать проверкой «вы не робот» (202, anomaly) — страниц 0. Основной источник теперь Яндекс.Картинки: прямые
+        // ссылки на фото магазинов (Ozon, Маркет…), каждая проверяется скачиванием.
+        var yandex = await YandexImagesAsync(product.Title, ct).ConfigureAwait(false);
+        if (yandex.Count < 4 && code is not null)
+            yandex = yandex.Concat(await YandexImagesAsync(code, ct).ConfigureAwait(false)).DistinctBy(x => x.ImageUrl).ToList();
+        var checkedImages = await Task.WhenAll(yandex.Take(max + 6).Select(async y =>
+            await IsRealImageAsync(y.ImageUrl, ct).ConfigureAwait(false) ? y : ((string ImageUrl, string Host)?)null)).ConfigureAwait(false);
+        foreach (var y in checkedImages)
+            if (y is { } ok)
+                Add(new Candidate(product, ok.ImageUrl, "интернет: " + ok.Host));
         Add(await TryFindByNameAsync(product, ct).ConfigureAwait(false));
-        var pages = await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync($"{product.Title} {code}".Trim(), ct).ConfigureAwait(false);
-        if (pages.Count < 3 && code is not null)
-            pages = pages.Concat(await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync(product.Title, ct).ConfigureAwait(false)).Distinct().ToList();
-        var resolved = await Task.WhenAll(pages.Take(10).Select(async page => await ResolveImageAsync(page, ct).ConfigureAwait(false))).ConfigureAwait(false);
-        foreach (var image in resolved)
+        var pages = (IReadOnlyList<string>)Array.Empty<string>();
+        if (list.Count < max)
         {
-            if (image is not { } im)
-                continue;
-            var host = Uri.TryCreate(im.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
-            Add(new Candidate(product, im.ImageUrl, "интернет: " + host));
+            pages = await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync($"{product.Title} {code}".Trim(), ct).ConfigureAwait(false);
+            if (pages.Count < 3 && code is not null)
+                pages = pages.Concat(await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync(product.Title, ct).ConfigureAwait(false)).Distinct().ToList();
+            var resolved = await Task.WhenAll(pages.Take(10).Select(async page => await ResolveImageAsync(page, ct).ConfigureAwait(false))).ConfigureAwait(false);
+            foreach (var image in resolved)
+            {
+                if (image is not { } im)
+                    continue;
+                var host = Uri.TryCreate(im.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+                Add(new Candidate(product, im.ImageUrl, "интернет: " + host));
+            }
         }
-        PosLogger.Log($"Фото товара «{product.Title}»: вариантов на выбор {list.Count} (страниц в поиске {pages.Count}).", "CATALOG");
+        // Мало вариантов — поиск Google через Gemini (ключ ИИ уже есть; страница картинок Google без браузера фото не отдаёт).
+        if (list.Count < 2)
+            Add(await TryFindOnWebAsync(product, ct).ConfigureAwait(false));
+        PosLogger.Log($"Фото товара «{product.Title}»: вариантов на выбор {list.Count} (Яндекс.Картинки {yandex.Count}, страниц в поиске {pages.Count}).", "CATALOG");
         return list;
+    }
+
+    /// <summary>2026-10-06: Яндекс.Картинки — прямые ссылки на фото (origUrl) и сайт, где фото нашлось. Фото из отзывов
+    /// (otzovik, irecommend — снято в руке, с фоном) — в конец списка, магазины — первыми. Капча или ошибка — пусто.</summary>
+    private static async Task<List<(string ImageUrl, string Host)>> YandexImagesAsync(string query, CancellationToken ct)
+    {
+        var result = new List<(string ImageUrl, string Host)>();
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://yandex.ru/images/search?text=" + Uri.EscapeDataString(query));
+            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+            request.Headers.AcceptLanguage.ParseAdd("ru,en;q=0.8");
+            using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                PosLogger.Log($"Фото товара: Яндекс.Картинки ответили {(int)response.StatusCode}.", "CATALOG");
+                return result;
+            }
+            var html = System.Net.WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            foreach (Match m in Regex.Matches(html, @"""origUrl"":""(https://[^""]+)"""))
+            {
+                var image = Regex.Unescape(m.Groups[1].Value);
+                // Сайт, где нашлось фото, — «snippet.url» сразу после origUrl.
+                var tail = html.Substring(m.Index, Math.Min(1500, html.Length - m.Index));
+                var page = Regex.Match(tail, @"""snippet"":\{.*?""url"":""(https?://[^""]+)""", RegexOptions.Singleline);
+                var hostUrl = page.Success ? page.Groups[1].Value : image;
+                var host = Uri.TryCreate(hostUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+                if (result.All(r => r.ImageUrl != image))
+                    result.Add((image, host));
+            }
+            if (result.Count == 0 && html.Contains("captcha", StringComparison.OrdinalIgnoreCase))
+                PosLogger.Log("Фото товара: Яндекс.Картинки просят капчу.", "CATALOG");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            PosLogger.Log($"Фото товара: Яндекс.Картинки не ответили ({ex.Message}).", "CATALOG");
+        }
+        static bool Review(string host) => host.Contains("otzovik") || host.Contains("irecommend") || host.Contains("pinterest");
+        return result.OrderBy(r => Review(r.Host) || Review(r.ImageUrl) ? 1 : 0).ToList();
     }
 
     /// <summary>Ссылка → картинка: если это изображение — оно; если страница — её og:image / twitter:image.</summary>
@@ -316,9 +386,20 @@ public static class ProductPhotoFinder
     /// <summary>Скачать картинку для предпросмотра (байты).</summary>
     public static async Task<byte[]?> DownloadAsync(string url, CancellationToken ct)
     {
+        // 2026-10-06 (снимок владельца: часть вариантов — пустые рамки): картинку скачивали дважды — при проверке и для
+        // показа; второй раз сайты (otzovik, ozon) отвечали медленно. Последние скачанные — из памяти.
+        if (RecentImages.TryGetValue(url, out var cached))
+            return cached;
         try
         {
-            return await Http.GetByteArrayAsync(url, ct).ConfigureAwait(false);
+            var bytes = await Http.GetByteArrayAsync(url, ct).ConfigureAwait(false);
+            if (bytes.Length is > 0 and < 8_000_000)
+            {
+                if (RecentImages.Count > 60)
+                    RecentImages.Clear();
+                RecentImages[url] = bytes;
+            }
+            return bytes;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
@@ -336,7 +417,26 @@ public static class ProductPhotoFinder
         var dir = Path.Combine(Path.GetTempPath(), "nurmarket-photos");
         Directory.CreateDirectory(dir);
         var file = Path.Combine(dir, candidate.Product.Id + ext);
-        await File.WriteAllBytesAsync(file, bytes, ct).ConfigureAwait(false);
+        // 2026-10-06: фото Яндекс.Маркета приходят в WebP (ссылка без расширения) — на сервер отдаём PNG, а не WebP под именем .jpg.
+        var isWebp = bytes.Length > 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                     && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
+        if (isWebp)
+        {
+            try
+            {
+                file = Path.Combine(dir, candidate.Product.Id + ".png");
+                using var input = new MemoryStream(bytes);
+                using var bitmap = new Avalonia.Media.Imaging.Bitmap(input);
+                bitmap.Save(file);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Фото товара: WebP не перевёлся в PNG ({ex.Message}).", "CATALOG");
+                return false;
+            }
+        }
+        else
+            await File.WriteAllBytesAsync(file, bytes, ct).ConfigureAwait(false);
         return await UploadAsync(candidate.Product, file, $"найдено в {candidate.Source}", ct).ConfigureAwait(false);
     }
 

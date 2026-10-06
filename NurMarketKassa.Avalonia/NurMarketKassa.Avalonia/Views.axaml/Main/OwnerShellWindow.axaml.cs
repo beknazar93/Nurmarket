@@ -1110,6 +1110,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             var returnsTask = NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct);
             // 2026-10-06: «Сегодня» сравнивается со вчера до того же часа (OwnerShellWindow.SameTime.cs).
             var yesterdayTask = EnsureYesterdaySalesAsync(ct);
+            // 2026-10-06, лог владельца (17:12, сбой SSL): если отчёт падает раньше, остальные запросы никто не ждёт — их
+            // ошибки уходили в «UnobservedTaskException». Ошибку помечаем просмотренной; await ниже бросает её как раньше.
+            foreach (var started in new Task?[] { previousTask, chartTask, rowsTask, returnsTask, yesterdayTask })
+                _ = started?.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
             var report = await reportTask.ConfigureAwait(true);
 

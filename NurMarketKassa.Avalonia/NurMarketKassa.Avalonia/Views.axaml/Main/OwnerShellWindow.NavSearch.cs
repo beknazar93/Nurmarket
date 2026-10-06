@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -165,6 +165,7 @@ public partial class OwnerShellWindow
             if (_navEntries.FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase)) is { } entry)
                 entry.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         });
+        ProductActionPlan.NavigateByWords = NavigateByWords;
         ProductActionPlan.ShowChangedProducts = (keys, summary) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (_navEntries.FirstOrDefault(x => x.Key == "warehouse") is not { } entry)
@@ -173,6 +174,36 @@ public partial class OwnerShellWindow
             if (_sections.FirstOrDefault(x => x.Key == "warehouse")?.Window is WarehouseWindow warehouse)
                 warehouse.ShowChanged(keys, summary);
         });
+    }
+
+    /// <summary>2026-10-06, владелец: «дай ИИ звонку полный доступ к программе — открывать вкладки и разделы». Раздел меню по
+    /// словам фразы: название пункта (вес 2) и привычные слова NavKeywords (вес 1), по основе слова (первые 5 букв), чтобы
+    /// «складе», «зарплату», «финансах» узнавались. Открывает найденный пункт, как щелчок в меню; ответ — его название.</summary>
+    private string? NavigateByWords(string phrase, bool open)
+    {
+        static string Stem(string w) => w.Length > 5 ? w[..5] : w;
+        static List<string> Words(string s) => System.Text.RegularExpressions.Regex.Split(s.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Where(w => w.Length >= 3).ToList();
+        var skip = new HashSet<string> { "откро", "откры", "перей", "зайди", "покаж", "разде", "вклад", "экран", "прогр", "пожал", "давай", "тепер", "прове", "фото", "ачып", "ачкыл" };
+        var said = Words(phrase).Select(Stem).Where(w => !skip.Contains(w)).Distinct().ToList();
+        if (said.Count == 0)
+            return null;
+        static bool Same(string a, string b) => a.Length >= 4 && b.Length >= 4 && (a.StartsWith(Stem(b)) || b.StartsWith(a));
+        NavEntry? best = null;
+        var bestScore = 0;
+        foreach (var entry in _navEntries)
+        {
+            var title = Words(entry.Title).Select(Stem).ToList();
+            var extra = NavKeywords.TryGetValue(entry.Key, out var k) ? Words(k).Select(Stem).ToList() : new List<string>();
+            var score = said.Sum(w => title.Any(t => Same(w, t)) ? 2 : extra.Any(x => Same(w, x)) ? 1 : 0);
+            if (score > bestScore)
+                (best, bestScore) = (entry, score);
+        }
+        if (best is null || !open)
+            return best?.Title;
+        best.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        PosLogger.Log($"Owner app: ИИ-советник открыл раздел «{best.Title}» по фразе владельца.", "UI");
+        return best.Title;
     }
 
     private void UpdateNavSearchLook()

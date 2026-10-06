@@ -49,6 +49,8 @@ public sealed class ServerSalesSummary
         {
             // 2026-09-28: список возвратов запрашивается одновременно со сводкой, а не после неё.
             var returnsTask = NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from.Date, to.Date, ct);
+            // 2026-10-06: сводка упала или пустая — возвраты никто не ждёт; их ошибку помечаем просмотренной.
+            _ = returnsTask.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             var data = await App.SalesApi.MarketSalesReportAsync(from.Date, to.Date, ct).ConfigureAwait(false);
             if (data.ValueKind != JsonValueKind.Object)
                 return null;

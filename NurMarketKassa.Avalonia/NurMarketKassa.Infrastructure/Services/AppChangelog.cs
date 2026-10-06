@@ -13,67 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "ИИ-советник меняет товары после вашего «Выполнить»: приход, списание, остаток, цены, срок годности, описание, страна, бренд, категория, штрихкод, фото; сам находит сведения о товаре в интернете и показывает на складе, что изменил. То же — в Telegram-боте и голосом",
-        "Накладная по фото: 📎 в ИИ-советнике — советник читает товары и закупку, ставит цены с наценкой не ниже 20 % и оприходует на склад; у новых товаров штрихкод — сканером",
-        "Склад: плитки сводки с фильтрами, фильтр «Наличие», срок годности и фото товара в строке, кнопка «±» — приход, списание, точное количество",
-        "Программа владельца: поиск раздела (Ctrl+K), группы меню сворачиваются, в «Сводке» — «к вчера на это время»; ИИ знает список сотрудников, их ставки, зарплату, продажи и табель (смены, часы) — и в разговоре голосом; данные магазина показывает таблицей",
-        "Отложенный чек больше не пропадает при закрытии смены; после досылки офлайн-продаж касса пишет, что очередь отправлена",
-        "Режим «Одежда и обувь»: обмен по чеку, срок обмена и брак, штрихкод размера, приёмка сеткой «цвет × размер», отчёт «Размеры и цвета». В «Продуктах» всё как раньше",
-        "Перемещение в филиал со склада — на сервере NurCRM, с отменой; раздел «Филиалы»",
-        "Долг со сроком или рассрочкой, прокат с датами и штрафом в чеке; бонусы покупателей и настройки аккаунта — на сервере NurCRM, общие для всех касс",
-        "«Финансы» и «Продажи» у владельца снова загружаются (было «Нет связи с сервером»)",
+        "Сенсорные моноблоки: касание поля ввода пальцем открывает экранную клавиатуру Windows; в окне «Новый товар» поля цены видны и на небольшом экране",
+        "Фото товара из интернета: ИИ-советник находит варианты через Яндекс.Картинки (Ozon, Маркет и другие магазины) — раньше часто писал «вариантов 0»; варианты пронумерованы, «поставь фото 4» — ставит сам",
+        "Разговор с ИИ-советником: «открой склад», «перейди в зарплату», «открой товар …» — программа сразу открывает любой раздел меню или товар на складе",
+        "Звонок с ИИ-советником подключается за секунды, даже когда сервер отвечает медленно: данные магазина приходят в разговор, как только соберутся",
+        "Если часть данных для ИИ не загрузилась, остальное всё равно доходит до советника (раньше пропадало всё)",
+        "Исправлено: настройки иногда не сохранялись, если файл был на миг занят; лишние ошибки в журнале программы владельца при сбое связи",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "ИИ-кеңешчи товарларды сиздин «Аткаруу» баскычыңыздан кийин өзгөртөт: кириш, эсептен чыгаруу, калдык, баалар, жарамдуулук мөөнөтү, сүрөттөмө, өлкө, бренд, категория, штрихкод, сүрөт; товар тууралуу маалыматты интернеттен өзү табат жана эмнени өзгөрткөнүн кампада көрсөтөт. Ошол эле — Telegram-ботто жана үн менен",
-        "Накладнойду сүрөт менен: ИИ-кеңешчидеги 📎 — кеңешчи товарларды жана сатып алуу баасын окуйт, баасын 20 %дан кем эмес үстөк менен коюп, кампага кириштейт; жаңы товарлардын штрихкоду — сканер менен",
-        "Кампа: чыпкалуу жыйынтык плиткалары, «Бар болушу» чыпкасы, сапта жарамдуулук мөөнөтү жана товардын сүрөтү, «±» баскычы — кириш, эсептен чыгаруу, так саны",
-        "Ээсинин программасы: бөлүмдү издөө (Ctrl+K), меню топтору жыйналат, «Жыйынтыкта» — «кечээ ушул убакка салыштырмалуу»; ИИ кызматкерлердин тизмесин, ставкаларын, эмгек акысын, сатууларын жана табелин (сменалар, сааттар) билет — үн менен сүйлөшүүдө да; дүкөндүн маалыматын таблица менен көрсөтөт",
-        "Калтырылган чек сменаны жапканда жоголбойт; офлайн сатуулар жөнөтүлгөндөн кийин касса кезек жөнөтүлдү деп жазат",
-        "«Кийим жана бут кийим» режими: чек боюнча алмаштыруу, алмаштыруу мөөнөтү жана брак, өлчөмдүн штрихкоду, «түс × өлчөм» торчосу менен кабыл алуу, «Өлчөмдөр жана түстөр» отчету. «Азык-түлүктө» баары мурункудай",
-        "Кампадан филиалга жылдыруу — NurCRM серверинде, жокко чыгаруу менен; «Филиалдар» бөлүмү",
-        "Мөөнөтү же бөлүп төлөөсү бар карыз, чекте даталары жана айыбы менен прокат; сатып алуучулардын бонустары жана аккаунттун жөндөөлөрү — NurCRM серверинде, бардык кассаларга жалпы",
-        "Ээсинин программасындагы «Финансы» жана «Сатуулар» кайра жүктөлөт (мурда «Сервер менен байланыш жок» болчу)",
+        "Сенсордук моноблоктор: киргизүү талаасын манжа менен басканда Windows экрандык клавиатурасы ачылат; «Жаңы товар» терезесинде баа талаалары кичине экранда да көрүнөт",
+        "Интернеттен товардын сүрөтү: ИИ-кеңешчи варианттарды Яндекс.Сүрөттөр аркылуу табат (Ozon, Маркет жана башка дүкөндөр) — мурда көп учурда «варианттар 0» деп жазчу; варианттар номерленген, «4-сүрөттү кой» — өзү коёт",
+        "ИИ-кеңешчи менен маек: «кампаны ач», «эмгек акыга өт», «… товарын ач» — программа ошол замат каалаган бөлүмдү же кампадагы товарды ачат",
+        "ИИ-кеңешчи менен чалуу сервер жай жооп бергенде да бир нече секундда туташат: дүкөндүн маалыматы даяр болгондо маекке келет",
+        "ИИ үчүн маалыматтын бир бөлүгү жүктөлбөсө, калганы баары бир кеңешчиге жетет (мурда баары жоголчу)",
+        "Оңдолду: файл бир саамга бош эмес болсо жөндөөлөр кээде сакталчу эмес; байланыш үзүлгөндө ээсинин программасынын журналындагы ашыкча каталар",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "The AI advisor changes products after you press “Do it”: receipt, write-off, stock, prices, expiry date, description, country, brand, category, barcode, photo; it finds product details on the web itself and shows in the warehouse what it changed. The same works in the Telegram bot and by voice",
-        "Invoice by photo: 📎 in the AI advisor — the advisor reads the items and purchase prices, sets prices with a markup of at least 20% and receives them into stock; barcodes of new products — with the scanner",
-        "Warehouse: summary tiles with filters, a “Stock” filter, expiry date and product photo in the row, a “±” button — receive, write off, exact quantity",
-        "Owner program: section search (Ctrl+K), collapsible menu groups, “vs yesterday at this time” in “Overview”; the AI knows the staff list, their pay rates, salaries, sales and timesheet (shifts, hours) — in voice calls too; shop data is shown as tables",
-        "A held receipt is no longer lost when the shift is closed; after offline sales are sent the till says the queue has been sent",
-        "“Clothing and shoes” mode: exchange by receipt, exchange period and defects, size barcodes, receiving by a “color × size” grid, the “Sizes and colors” report. In “Groceries” everything stays as before",
-        "Transfer to a branch from the warehouse — on the NurCRM server, with cancel; a “Branches” section",
-        "Debt with a due date or installments, rentals with dates and a late fee on the receipt; customer bonuses and account settings are on the NurCRM server, shared by all tills",
-        "“Finance” and “Sales” in the owner program load again (they showed “No connection to the server”)",
+        "Touchscreen all-in-ones: tapping an input field opens the Windows on-screen keyboard; price fields in the “New product” window are visible on small screens too",
+        "Product photos from the web: the AI advisor finds options via Yandex Images (Ozon, Market and other shops) — before it often said “0 options”; options are numbered, “set photo 4” sets it by itself",
+        "Talking to the AI advisor: “open the warehouse”, “go to salary”, “open product …” — the program opens any menu section or the product in the warehouse right away",
+        "A call with the AI advisor connects in seconds even when the server is slow: shop data joins the conversation as soon as it is ready",
+        "If part of the data for the AI fails to load, the rest still reaches the advisor (before, everything was lost)",
+        "Fixed: settings were sometimes not saved when the file was busy for a moment; extra errors in the owner program log when the connection failed",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Yapay zekâ danışmanı ürünleri sizin «Uygula» onayınızdan sonra değiştirir: giriş, düşüm, stok, fiyatlar, son kullanma tarihi, açıklama, ülke, marka, kategori, barkod, fotoğraf; ürün bilgisini internette kendisi bulur ve neyi değiştirdiğini depoda gösterir. Aynısı Telegram botunda ve sesle",
-        "Fotoğraftan fatura: yapay zekâ danışmanında 📎 — danışman ürünleri ve alış fiyatlarını okur, fiyatları en az %20 kâr payıyla koyar ve stoğa alır; yeni ürünlerin barkodu — okuyucuyla",
-        "Depo: filtreli özet kutucukları, «Stok» filtresi, satırda son kullanma tarihi ve ürün fotoğrafı, «±» düğmesi — giriş, düşüm, tam miktar",
-        "Sahip programı: bölüm arama (Ctrl+K), menü grupları daraltılır, «Özet»te «dün bu saate göre»; yapay zekâ çalışan listesini, ücret oranlarını, maaşlarını, satışlarını ve puantajını (vardiyalar, saatler) bilir — sesli görüşmede de; mağaza verilerini tablo olarak gösterir",
-        "Bekleyen fiş vardiya kapatılınca artık kaybolmaz; çevrimdışı satışlar gönderilince kasa sıranın gönderildiğini yazar",
-        "«Giyim ve ayakkabı» modu: fişle değişim, değişim süresi ve kusurlu ürün, beden barkodu, «renk × beden» tablosuyla mal kabul, «Bedenler ve renkler» raporu. «Gıda» modunda her şey eskisi gibi",
-        "Depodan şubeye transfer — NurCRM sunucusunda, iptal edilebilir; «Şubeler» bölümü",
-        "Vadeli veya taksitli borç, fişte tarihleri ve gecikme cezasıyla kiralama; müşteri bonusları ve hesap ayarları NurCRM sunucusunda, tüm kasalarda ortak",
-        "Sahip programındaki «Finans» ve «Satışlar» yeniden yükleniyor (önce «Sunucuyla bağlantı yok» gösteriyordu)",
+        "Dokunmatik ekranlı hepsi bir arada bilgisayarlar: giriş alanına parmakla dokunmak Windows ekran klavyesini açar; «Yeni ürün» penceresindeki fiyat alanları küçük ekranda da görünür",
+        "İnternetten ürün fotoğrafı: yapay zekâ danışmanı seçenekleri Yandex Görseller üzerinden bulur (Ozon, Market ve diğer mağazalar) — önce sık sık «0 seçenek» diyordu; seçenekler numaralı, «4. fotoğrafı koy» — kendisi koyar",
+        "Yapay zekâ danışmanıyla konuşma: «depoyu aç», «maaşa geç», «… ürününü aç» — program istenen menü bölümünü veya depodaki ürünü hemen açar",
+        "Yapay zekâ danışmanıyla görüşme sunucu yavaş olsa da saniyeler içinde bağlanır: mağaza verileri hazır olunca görüşmeye gelir",
+        "Yapay zekâ için verilerin bir kısmı yüklenmezse geri kalanı yine danışmana ulaşır (önce hepsi kayboluyordu)",
+        "Düzeltildi: dosya bir anlığına meşgulse ayarlar bazen kaydedilmiyordu; bağlantı kesilince sahip programı günlüğünde gereksiz hatalar",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "SI maslahatchi mahsulotlarni sizning «Bajarish» tasdig'ingizdan keyin o'zgartiradi: kirim, hisobdan chiqarish, qoldiq, narxlar, yaroqlilik muddati, tavsif, mamlakat, brend, kategoriya, shtrix-kod, rasm; mahsulot haqidagi ma'lumotni internetdan o'zi topadi va nimani o'zgartirganini omborda ko'rsatadi. Xuddi shunday — Telegram-botda va ovoz bilan",
-        "Yuk xati rasm orqali: SI maslahatchidagi 📎 — maslahatchi mahsulotlar va xarid narxini o'qiydi, narxni kamida 20 % ustama bilan qo'yadi va omborga kirim qiladi; yangi mahsulotlar shtrix-kodi — skaner bilan",
-        "Ombor: filtrli xulosa plitkalari, «Mavjudlik» filtri, qatorda yaroqlilik muddati va mahsulot rasmi, «±» tugmasi — kirim, hisobdan chiqarish, aniq miqdor",
-        "Ega dasturi: bo'limni qidirish (Ctrl+K), menyu guruhlari yig'iladi, «Umumiy ko'rinish»da «kechagi shu vaqtga nisbatan»; SI xodimlar ro'yxati, stavkalari, ish haqi, sotuvlari va tabelini (smenalar, soatlar) biladi — ovozli suhbatda ham; do'kon ma'lumotlarini jadval qilib ko'rsatadi",
-        "Kutishdagi chek smena yopilganda endi yo'qolmaydi; oflayn sotuvlar yuborilgach kassa navbat yuborilganini yozadi",
-        "«Kiyim va poyabzal» rejimi: chek bo'yicha almashtirish, almashtirish muddati va nuqsonli tovar, o'lcham shtrix-kodi, «rang × o'lcham» jadvali bilan qabul, «O'lchamlar va ranglar» hisoboti. «Oziq-ovqat»da hammasi avvalgidek",
-        "Ombordan filialga ko'chirish — NurCRM serverida, bekor qilish bilan; «Filiallar» bo'limi",
-        "Muddatli yoki bo'lib to'lanadigan qarz, chekda sanalar va jarima bilan ijara; xaridorlar bonuslari va akkaunt sozlamalari — NurCRM serverida, barcha kassalar uchun umumiy",
-        "Ega dasturidagi «Moliya» va «Sotuvlar» yana yuklanadi (avval «Server bilan aloqa yo'q» chiqardi)",
+        "Sensorli monobloklar: kiritish maydoniga barmoq bilan tegilsa Windows ekran klaviaturasi ochiladi; «Yangi mahsulot» oynasida narx maydonlari kichik ekranda ham ko'rinadi",
+        "Internetdan mahsulot rasmi: SI maslahatchi variantlarni Yandex Rasmlar orqali topadi (Ozon, Market va boshqa do'konlar) — avval ko'pincha «0 variant» derdi; variantlar raqamlangan, «4-rasmni qo'y» — o'zi qo'yadi",
+        "SI maslahatchi bilan suhbat: «omborni och», «ish haqiga o't», «… mahsulotini och» — dastur istalgan menyu bo'limini yoki ombordagi mahsulotni darhol ochadi",
+        "SI maslahatchi bilan qo'ng'iroq server sekin bo'lsa ham bir necha soniyada ulanadi: do'kon ma'lumotlari tayyor bo'lishi bilan suhbatga keladi",
+        "SI uchun ma'lumotlarning bir qismi yuklanmasa, qolgani baribir maslahatchiga yetadi (avval hammasi yo'qolardi)",
+        "Tuzatildi: fayl bir lahzaga band bo'lsa sozlamalar ba'zan saqlanmasdi; aloqa uzilganda ega dasturi jurnalidagi ortiqcha xatolar",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно

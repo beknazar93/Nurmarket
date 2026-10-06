@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -50,6 +50,11 @@ public static class ProductActionPlan
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». Открыть товар на складе программы владельца
     /// (задаёт окно программы владельца). Нет — операция «open» недоступна (бот).</summary>
     public static Action<CatalogProductTileVm>? OpenProduct { get; set; }
+
+    /// <summary>2026-10-06, владелец: «дай нашему ИИ звонку полный доступ к программе, чтобы он мог открывать разные вкладки и
+    /// разделы». Открыть раздел меню программы владельца по словам («открой зарплату», «перейди в финансы») — сразу, без
+    /// нейросети. Ответ — название открытого раздела; null — раздел не узнан (или это не программа владельца).</summary>
+    public static Func<string, bool, string?>? NavigateByWords { get; set; }
 
     /// <summary>2026-10-06, владелец: «сделай так, чтобы наш ИИ напрямую открывал программу и показывал наглядно изменения».
     /// Открыть раздел программы владельца по ключу (warehouse, sales, finance, salary…).</summary>
