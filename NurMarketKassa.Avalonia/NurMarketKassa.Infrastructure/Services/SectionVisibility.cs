@@ -1,4 +1,4 @@
-namespace NurMarketKassa.Services;
+﻿namespace NurMarketKassa.Services;
 
 /// <summary>2026-10-05, владелец: «в настройках сделай скрытие вкладок, чтобы клиент мог скрыть ненужные функции».
 /// Разделы меню программы владельца и пункты меню кассы, которые можно убрать (Настройки → Экран → «Разделы меню»).
@@ -38,7 +38,7 @@ public static class SectionVisibility
 
     private static List<(string, string)> OwnerCatalog() => new()
     {
-        ("aiadvisor", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi")),
+        ("aiadvisor", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi")),
         ("warehouse", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor")),
         ("calculator", Tr.T("Калькуляция", "Калькуляция", "Pricing calculator", "Hesaplama", "Kalkulyatsiya")),
         ("restock", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar")),

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -99,13 +99,27 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         titles.Children.Add(_title);
         titles.Children.Add(_status);
+        // 2026-10-07, владелец: «добавь смотреть сайт, адрес https://market.nurcrm.kg/catalog/nurmarket» — адрес витрины с оформлением
+        // под строкой состояния, нажатие открывает сайт в браузере.
+        _siteLinkText = new TextBlock { FontSize = 12.5, TextDecorations = TextDecorations.Underline };
+        Use(_siteLinkText, TextBlock.ForegroundProperty, "BrushAccentStrong");
+        _siteLink = new Button { Content = _siteLinkText, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2, 0, 0),
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand), IsVisible = false };
+        _siteLink.Click += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(_slug))
+                SiteOrdersWindow.OpenUrl(ShowcaseApiService.DesignCatalogUrl(_slug));
+        };
+        titles.Children.Add(_siteLink);
         head.Children.Add(titles);
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        var open = UiKit.Ghost(this, T("Открыть сайт", "Сайтты ачуу", "Open website", "Siteyi aç", "Saytni ochish"));
+        var open = UiKit.Ghost(this, T("Смотреть сайт", "Сайтты көрүү", "View website", "Siteyi gör", "Saytni ko'rish"));
         open.Click += (_, _) =>
         {
             if (!string.IsNullOrWhiteSpace(_slug))
-                SiteOrdersWindow.OpenUrl(ShowcaseApiService.CatalogUrl(_slug));
+                // 2026-10-07, владелец: «даже после «Опубликовать» не публикуется» (смотрел nurcrm.kg/catalog — там вид прежний).
+                // Оформление видно на market.nurcrm.kg — туда и открываем.
+                SiteOrdersWindow.OpenUrl(ShowcaseApiService.DesignCatalogUrl(_slug));
         };
         _versionsButton = UiKit.Ghost(this, T("История версий", "Версиялар тарыхы", "Version history", "Sürüm geçmişi", "Versiyalar tarixi"));
         _versionsButton.Click += async (_, _) => await ToggleVersionsAsync().ConfigureAwait(true);
@@ -151,8 +165,8 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
         }
         else
         {
-            _previewBox.Child = PreviewNote(T("Как выглядит сайт — кнопка «Открыть сайт» сверху.", "Сайт кандай көрүнөт — жогорудагы «Сайтты ачуу» баскычы.",
-                "To see the website, use “Open website” at the top.", "Sitenin görünümü için üstteki «Siteyi aç» düğmesi.", "Sayt ko'rinishi — yuqoridagi «Saytni ochish» tugmasi."));
+            _previewBox.Child = PreviewNote(T("Как выглядит сайт — кнопка «Смотреть сайт» сверху.", "Сайт кандай көрүнөт — жогорудагы «Сайтты көрүү» баскычы.",
+                "To see the website, use “View website” at the top.", "Sitenin görünümü için üstteki «Siteyi gör» düğmesi.", "Sayt ko'rinishi — yuqoridagi «Saytni ko'rish» tugmasi."));
         }
 
         // Телефон и узкое окно: предпросмотр не помещается — только настройки на всю ширину.
@@ -167,8 +181,18 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             _saveTimer.Stop();
             await SaveDraftAsync().ConfigureAwait(true);
         };
-        Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
-        Closed += (_, _) => _saveTimer.Stop();
+        Opened += async (_, _) =>
+        {
+            Current = this;
+            await LoadAsync().ConfigureAwait(true);
+            _loadedOnce = true;
+        };
+        Closed += (_, _) =>
+        {
+            _saveTimer.Stop();
+            if (ReferenceEquals(Current, this))
+                Current = null;
+        };
     }
 
     public void AsOwnerSection()
@@ -268,8 +292,17 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             ? JsonNode.Parse(part.GetRawText()) as JsonObject
             : null;
 
+    private Button? _siteLink;
+    private TextBlock? _siteLinkText;
+
     private void RefreshState()
     {
+        if (_siteLink is not null && _siteLinkText is not null && !string.IsNullOrWhiteSpace(_slug))
+        {
+            _siteLinkText.Text = T("Смотреть сайт: ", "Сайтты көрүү: ", "View website: ", "Siteyi gör: ", "Saytni ko'rish: ")
+                                 + ShowcaseApiService.DesignCatalogUrl(_slug).Replace("https://", "");
+            _siteLink.IsVisible = true;
+        }
         var saving = _saving || _saveTimer.IsEnabled;
         if (_locked)
             _status.Text = T("Только просмотр", "Көрүү гана", "View only", "Yalnızca görüntüleme", "Faqat ko'rish");
@@ -449,8 +482,14 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
                 _version = n;
             _publishedAt = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("published_at", out var pa) ? pa.GetString() ?? "" : DateTimeOffset.Now.ToString("o");
             _hasUnpublished = false;
-            ShowBanner(T("Опубликовано — покупатели уже видят новый вид сайта.", "Жарыяланды — кардарлар сайттын жаңы көрүнүшүн көрүп жатышат.",
-                "Published — customers already see the new design.", "Yayınlandı — müşteriler yeni görünümü görüyor.", "E'lon qilindi — xaridorlar saytning yangi ko'rinishini ko'rmoqda."), warning: false);
+            // 2026-10-06, владелец: «редактор сайта вообще не работает» — баннер обещал «покупатели уже видят», а витрина NurCRM
+            // оформление пока не читает (ТЗ фронтенду от 05.10). Пишем, что опубликовано на сервере, и почему сайт может быть прежним.
+            var site = string.IsNullOrWhiteSpace(_slug) ? ShowcaseApiService.DesignSiteBase : ShowcaseApiService.DesignCatalogUrl(_slug);
+            ShowBanner(T($"Опубликовано (версия {_version}) — новый вид на {site} («Смотреть сайт»). На nurcrm.kg/catalog оформление появится, когда NurCRM обновит и этот адрес.",
+                $"Жарыяланды (версия {_version}) — жаңы көрүнүш {site} дарегинде («Сайтты көрүү»). nurcrm.kg/catalog дарегинде NurCRM аны да жаңыртканда көрүнөт.",
+                $"Published (version {_version}) — the new look is at {site} (“View website”). On nurcrm.kg/catalog it appears once NurCRM updates that address too.",
+                $"Yayınlandı (sürüm {_version}) — yeni görünüm {site} adresinde («Siteyi gör»). nurcrm.kg/catalog adresinde NurCRM orayı da güncelleyince görünür.",
+                $"E'lon qilindi (versiya {_version}) — yangi ko'rinish {site} manzilida («Saytni ko'rish»). nurcrm.kg/catalog manzilida NurCRM uni ham yangilaganda ko'rinadi."), warning: false);
             PosLogger.Log($"Редактор сайта: опубликована версия {_version}.", "INFO");
         }
         catch (Exception ex)
@@ -879,6 +918,77 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     }
 
     /// <summary>Галерея тем: превью, название, для какого магазина, «Применить»; нынешняя тема отмечена.</summary>
+    // ── 2026-10-06, владелец: «добавь редактор к нашему ИИ звонку» — команды голосом или текстом из Нур Советника ──
+
+    /// <summary>Открытый редактор сайта (раздел программы владельца); null — не открыт.</summary>
+    public static SiteEditorWindow? Current { get; private set; }
+
+    private bool _loadedOnce;
+
+    /// <summary>Редактор загрузил черновик с сервера — команды можно выполнять.</summary>
+    public bool IsReady => _loadedOnce;
+
+    private static readonly Dictionary<string, string[]> ThemeWords = new()
+    {
+        ["sunny"] = new[] { "солнеч", "күн", "sunny", "güneş", "quyosh" },
+        ["midnight"] = new[] { "ночн", "түн", "midnight", "night", "gece", "tun" },
+        ["fresh"] = new[] { "свеж", "рынок", "базар", "fresh", "taze", "yangi" },
+        ["boutique"] = new[] { "бутик", "boutique", "butik" },
+        ["alatoo"] = new[] { "ала-тоо", "ала тоо", "алатоо", "ala-too", "alatoo", "ala too" },
+        ["clean"] = new[] { "чист", "таза", "clean", "temiz", "toza" },
+    };
+
+    /// <summary>Похоже на команду редактору сайта (тема, стиль, опубликовать) — для звонка и чата советника.</summary>
+    public static bool LooksLikeCommand(string phrase)
+    {
+        var t = phrase.ToLowerInvariant();
+        var site = new[] { "сайт", "витрин", "тем", "стил", "оформлен", "дизайн", "website", "theme", "style", "site", "tema", "stil", "mavzu", "uslub", "sayt" }.Any(t.Contains);
+        var publish = new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains);
+        return site && (publish || ThemeWords.Values.Any(w => w.Any(t.Contains)) || new[] { "тёмн", "темн", "светл", "dark", "light", "караңгы", "жарык" }.Any(t.Contains));
+    }
+
+    /// <summary>Выполнить команду: «поставь тему Ала-Тоо» — тема в черновик (без вопроса: голос — уже подтверждение),
+    /// «тёмный стиль» — стиль, «опубликуй сайт» — публикация. Ответ — что сделано; null — команда не понята.</summary>
+    public async Task<string?> VoiceCommandAsync(string phrase)
+    {
+        var t = phrase.ToLowerInvariant();
+        if (_locked)
+            return T("Редактор сайта сейчас только для просмотра — сохранять изменения сервер не разрешает.", "Сайттын редактору азыр көрүү үчүн гана — сервер өзгөртүүнү сактоого уруксат бербейт.",
+                "The website editor is view-only right now — the server doesn't allow saving.", "Site düzenleyici şu an yalnızca görüntüleme modunda — sunucu kaydetmeye izin vermiyor.",
+                "Sayt muharriri hozir faqat ko'rish uchun — server saqlashga ruxsat bermaydi.");
+        var done = new List<string>();
+        if (LoadThemes().FirstOrDefault(th => ThemeWords.TryGetValue(th.Code, out var words) && words.Any(t.Contains)
+                                              || t.Contains(th.Name.ToLowerInvariant())) is { } theme)
+        {
+            done.Add(await ApplyThemeAsync(theme, confirm: false).ConfigureAwait(true)
+                ? T($"Тема «{theme.Name}» поставлена в черновик.", $"«{theme.Name}» темасы долбоорго коюлду.", $"The “{theme.Name}” theme is in the draft.",
+                    $"«{theme.Name}» teması taslağa kondu.", $"«{theme.Name}» mavzusi qoralamaga qo'yildi.")
+                : T($"Тему «{theme.Name}» поставить не получилось.", $"«{theme.Name}» темасын коюу болбой калды.", $"Couldn't apply the “{theme.Name}” theme.",
+                    $"«{theme.Name}» teması uygulanamadı.", $"«{theme.Name}» mavzusini qo'yib bo'lmadi."));
+        }
+        else if (new[] { "стил", "style", "stil", "uslub" }.Any(t.Contains)
+                 && Presets().FirstOrDefault(p => t.Contains(p.Name.ToLowerInvariant()) || t.Contains(p.Code)
+                                                  || (p.Code == "dark" && new[] { "тёмн", "темн", "караңгы" }.Any(t.Contains))) is { Code.Length: > 0 } preset)
+        {
+            await ApplyPresetAsync(preset.Code).ConfigureAwait(true);
+            done.Add(T($"Стиль «{preset.Name}» поставлен в черновик.", $"«{preset.Name}» стили долбоорго коюлду.", $"The “{preset.Name}” style is in the draft.",
+                $"«{preset.Name}» stili taslağa kondu.", $"«{preset.Name}» uslubi qoralamaga qo'yildi."));
+        }
+        if (new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains))
+        {
+            await PublishAsync().ConfigureAwait(true);
+            done.Add(_hasUnpublished
+                ? T("Опубликовать не получилось — сообщение в редакторе.", "Жарыялоо болбой калды — билдирүү редактордо.", "Publishing failed — see the editor message.",
+                    "Yayınlanamadı — düzenleyicideki mesaja bakın.", "E'lon qilib bo'lmadi — muharrirdagi xabarga qarang.")
+                : T($"Опубликовано (версия {_version}); новый вид — на market.nurcrm.kg.", $"Жарыяланды (версия {_version}); жаңы көрүнүш — market.nurcrm.kg дарегинде.",
+                    $"Published (version {_version}); the new look is on market.nurcrm.kg.", $"Yayınlandı (sürüm {_version}); yeni görünüm market.nurcrm.kg'de.",
+                    $"E'lon qilindi (versiya {_version}); yangi ko'rinish market.nurcrm.kg da."));
+        }
+        if (done.Count > 0)
+            PosLogger.Log($"Редактор сайта: команда Нур Советника выполнена ({done.Count}).", "INFO");
+        return done.Count > 0 ? string.Join(" ", done) : null;
+    }
+
     private void BuildThemes(StackPanel host)
     {
         host.Children.Add(Hint(T("Весь вид сайта одним нажатием: цвета, шрифт, шапка, главный блок с картинкой, карточки товаров, подвал. "
@@ -937,11 +1047,11 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
     }
 
     /// <summary>Применить тему: картинки темы — на сервер (showcase/media/), весь набор настроек — в черновик одним запросом.</summary>
-    private async Task ApplyThemeAsync(SiteTheme theme)
+    private async Task<bool> ApplyThemeAsync(SiteTheme theme, bool confirm = true)
     {
         if (_locked)
-            return;
-        var ok = await ConfirmAsync(T($"Применить тему «{theme.Name}»? Поменяются цвета, шрифт, вид блоков и картинки. Название, телефон и товары останутся. "
+            return false;
+        var ok = !confirm || await ConfirmAsync(T($"Применить тему «{theme.Name}»? Поменяются цвета, шрифт, вид блоков и картинки. Название, телефон и товары останутся. "
                                       + "Покупатели увидят после «Опубликовать»; до этого можно всё подправить или нажать «Отменить изменения».",
             $"«{theme.Name}» темасын колдоносузбу? Түстөр, шрифт, блоктордун көрүнүшү жана сүрөттөр өзгөрөт. Аты, телефону жана товарлар калат. "
             + "Кардарлар «Жарыялоодон» кийин көрүшөт; ага чейин баарын оңдосо же «Өзгөртүүлөрдү жокко чыгаруу» басса болот.",
@@ -952,7 +1062,7 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             $"«{theme.Name}» mavzusi qo'llansinmi? Ranglar, shrift, bloklar ko'rinishi va rasmlar o'zgaradi. Nomi, telefoni va mahsulotlar qoladi. "
             + "Xaridorlar «E'lon qilish»dan keyin ko'radi; ungacha hammasini tuzatish yoki «O'zgarishlarni bekor qilish»ni bosish mumkin.")).ConfigureAwait(true);
         if (!ok)
-            return;
+            return false;
         _saveTimer.Stop();
         await SaveDraftAsync().ConfigureAwait(true);
         ShowBanner(T("Применяю тему…", "Тема колдонулууда…", "Applying the theme…", "Tema uygulanıyor…", "Mavzu qo'llanmoqda…"), warning: false);
@@ -990,17 +1100,20 @@ public sealed class SiteEditorWindow : Window, IOwnerSection
             await LoadAsync().ConfigureAwait(true);
             // 2026-10-05, владелец: «темы не применяются» — сервер тему сохраняет, а сайт витрины NurCRM оформление пока не читает
             // (docs/ТЗ для фронтенда NurCRM - витрина должна показывать оформление из редактора). Говорим об этом прямо.
-            ShowBanner(T($"Тема «{theme.Name}» сохранена в черновике. Нравится — «Опубликовать». Если справа вид не изменился — сайт витрины NurCRM пока не показывает оформление: тема хранится на сервере и появится у покупателей, когда NurCRM обновит витрину.",
-                $"«{theme.Name}» темасы долбоордо сакталды. Жакса — «Жарыялоо». Оң жакта көрүнүш өзгөрбөсө — NurCRM витринасы азырынча жасалгалоону көрсөтпөйт: тема серверде сакталат жана NurCRM витринаны жаңыртканда кардарларга көрүнөт.",
-                $"The “{theme.Name}” theme is saved in the draft. Like it — “Publish”. If the preview on the right didn't change, the NurCRM showcase site doesn't display designs yet: the theme is stored on the server and customers will see it once NurCRM updates the showcase.",
-                $"«{theme.Name}» teması taslağa kaydedildi. Beğendiyseniz — «Yayınla». Sağdaki görünüm değişmediyse NurCRM vitrin sitesi henüz tasarımı göstermiyor: tema sunucuda saklanır ve NurCRM vitrini güncellediğinde müşteriler görür.",
-                $"«{theme.Name}» mavzusi qoralamada saqlandi. Yoqsa — «E'lon qilish». O'ngda ko'rinish o'zgarmasa — NurCRM vitrina sayti hozircha bezakni ko'rsatmaydi: mavzu serverda saqlanadi va NurCRM vitrinani yangilaganda xaridorlar ko'radi."), warning: false);
+            // 2026-10-07: market.nurcrm.kg оформление уже показывает (предпросмотр справа — тоже).
+            ShowBanner(T($"Тема «{theme.Name}» сохранена в черновике — справа предпросмотр. Нравится — «Опубликовать»: покупатели увидят на market.nurcrm.kg.",
+                $"«{theme.Name}» темасы долбоордо сакталды — оң жакта алдын ала көрүү. Жакса — «Жарыялоо»: кардарлар market.nurcrm.kg дарегинде көрүшөт.",
+                $"The “{theme.Name}” theme is saved in the draft — preview on the right. Like it — “Publish”: customers will see it on market.nurcrm.kg.",
+                $"«{theme.Name}» teması taslağa kaydedildi — sağda önizleme. Beğendiyseniz — «Yayınla»: müşteriler market.nurcrm.kg'de görür.",
+                $"«{theme.Name}» mavzusi qoralamada saqlandi — o'ngda oldindan ko'rish. Yoqsa — «E'lon qilish»: xaridorlar market.nurcrm.kg da ko'radi."), warning: false);
             ShowWarningsAppend(result);
+            return true;
         }
         catch (Exception ex)
         {
             ShowBanner(T("Тема не применилась: ", "Тема колдонулган жок: ", "The theme wasn't applied: ", "Tema uygulanmadı: ", "Mavzu qo'llanmadi: ") + ServerTelegramBotApi.DescribeFields(ex), warning: true);
             PosLogger.Log($"Редактор сайта: тема {theme.Code} не применилась ({ex.Message}).", "WARNING");
+            return false;
         }
     }
 

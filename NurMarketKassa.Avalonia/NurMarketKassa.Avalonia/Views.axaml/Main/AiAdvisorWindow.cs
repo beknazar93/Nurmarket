@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -94,7 +94,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     public AiAdvisorWindow()
     {
-        Title = T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi");
+        Title = T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi");
         // 2026-10-06, владелец «почему долго??»: табель (список смен с сервера, 3–7 с) подгружается заранее — к вопросу или звонку готов.
         try
         {
@@ -462,6 +462,30 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
         // 2026-10-06: «поставь фото 4» / «четвёртое» — вариант из последнего поиска фото ставит программа, без нейросети.
         // Короткая команда «открой …» (до 6 слов) — сразу; длинный вопрос со словом «открой» отвечает ИИ (он тоже умеет открывать).
+        // 2026-10-06: команды редактору сайта из чата — «поставь тему Ала-Тоо», «опубликуй сайт».
+        if (image is null && SiteEditorWindow.LooksLikeCommand(question) && ProductActionPlan.OpenSection is not null)
+        {
+            var status = AddBubble("…", fromOwner: false);
+            try
+            {
+                status.Text = await SiteEditorCommandAsync(question).ConfigureAwait(true)
+                              ?? T("Не понял, что изменить на сайте: назовите тему (Солнечный, Ночной, Свежий рынок, Бутик, Ала-Тоо, Чистый) или скажите «опубликуй сайт».",
+                                  "Сайтта эмнени өзгөртүүнү түшүнгөн жокмун: теманы атаңыз же «сайтты жарыяла» деңиз.",
+                                  "I didn't get what to change on the website: name a theme or say “publish the website”.",
+                                  "Sitede neyin değişeceğini anlamadım: bir tema adı söyleyin veya «siteyi yayınla» deyin.",
+                                  "Saytda nimani o'zgartirishni tushunmadim: mavzu nomini ayting yoki «saytni e'lon qil» deng.");
+            }
+            finally
+            {
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                }
+            }
+            return;
+        }
         var quickOpen = image is null && PhotoChoiceNumber(question) is null && !HasActionBesidesOpen(question)
                         && question.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 6 ? TryQuickOpen(question) : null;
         if (image is null && (PhotoChoiceNumber(question) is not null || quickOpen is not null))
@@ -532,13 +556,18 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 if (answer.Length == 0 && productSteps.Count > 0)
                     answer = T("Предлагаю изменения — подтвердите:", "Өзгөртүүлөрдү сунуштайм — ырастаңыз:", "I suggest these changes — please confirm:",
                         "Şu değişiklikleri öneriyorum — onaylayın:", "Quyidagi o'zgarishlarni taklif qilaman — tasdiqlang:");
-                AddProductPhotos(answer);
+                // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM» — фото склада под ответом больше не подставляются
+                // (находили «Нан» внутри «бананды»); фото — только поиском в интернете по просьбе.
             }
             thinking.Text = answer is { Length: > 0 }
                 ? OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(answer), debtorNames)
                 : T("Не получилось ответить: ", "Жооп берүү мүмкүн болгон жок: ", "Couldn't answer: ", "Yanıt verilemedi: ", "Javob berib bo'lmadi: ") + (error ?? "нет ответа");
             // 2026-10-05, владелец: «включи поиск по интернету для ИИ» — если ИИ искал в интернете, источники ссылками.
-            if (answer is { Length: > 0 } && TelegramAiChat.LastWebSources.Count > 0)
+            // 2026-10-07: Gemini сам ищет в Google и по вопросам о магазине (по старым репликам разговора) — ссылки показываем,
+            // только если владелец просил поиск или сведения о товаре.
+            if (answer is { Length: > 0 } && TelegramAiChat.LastWebSources.Count > 0
+                && (ProductInfoResearch.LooksLikeInfoRequest(question)
+                    || new[] { "интернет", "найди", "поищи", "google", "гугл", "сайт", "internet", "интернеттен" }.Any(question.ToLowerInvariant().Contains)))
                 AddWebSources(TelegramAiChat.LastWebSources);
             else if (TelegramAiChat.WebSearchUnavailable && !AiProviders.HasGroq && !_webSearchNoteShown)
             {
@@ -560,7 +589,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             if (scenario is not null)
                 AddScenarioCard(scenario);
             if (productSteps is { Count: > 0 })
-                ShowProductSteps(productSteps);
+                ShowProductSteps(productSteps, question);
             if (debtReminders is { Count: > 0 })
                 AddDebtReminderCard(debtReminders);
             // 2026-10-06: строки, которые не стали действиями, — не молча, а списком (раньше накладная на 20 позиций давала «ничего»).
@@ -1692,10 +1721,17 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private Action? _pendingProductSupersede;
 
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». «Открыть» — сразу, остальное — карточкой с подтверждением.</summary>
-    private void ShowProductSteps(List<ProductActionPlan.Step> steps)
+    /// <summary>2026-10-07, владелец: «открывай вкладки только после команды открыть что-то из программы». Явное «открой / перейди /
+    /// зайди / ач / кир» во фразе владельца.</summary>
+    private static bool HasOpenCommand(string text) =>
+        System.Text.RegularExpressions.Regex.Split((text ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}']+")
+            .Any(w => new[] { "откр", "перей", "зайди", "зайти", "ачып", "ачкыла", "аччы", "кирип", "open", "aç", "och" }.Any(w.StartsWith) || w is "ач" or "кир");
+
+    private void ShowProductSteps(List<ProductActionPlan.Step> steps, string request)
     {
-        foreach (var open in steps.Where(st => st.Op is "open" or "open_section").Take(1))
-            _ = ProductActionPlan.ExecuteAsync(open, T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"));
+        // Открыть раздел или товар — только если владелец сам сказал «открой» (ИИ по своей воле вкладки не переключает).
+        foreach (var open in steps.Where(st => st.Op is "open" or "open_section" && HasOpenCommand(request)).Take(1))
+            _ = ProductActionPlan.ExecuteAsync(open, T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"));
         // 2026-10-06: «найди фото» от ИИ — не ставим первое найденное, а показываем варианты на выбор.
         var photos = steps.Where(st => st.Op == "photo").Select(st => st.Product).DistinctBy(p => p.Id).Take(3).ToList();
         if (photos.Count > 0)
@@ -1831,6 +1867,37 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             barcodeBoxes[i] = (box, note);
             body.Children.Add(box);
             body.Children.Add(note);
+            // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить с товаром».
+            // Под полем — варианты из базы с их названием; нажатие вписывает штрихкод в поле (поле можно поправить до «Выполнить»).
+            var suggest = new WrapPanel { Margin = new Thickness(14, 0, 0, 4), IsVisible = false };
+            body.Children.Add(suggest);
+            var stepTitle = steps[i].Product.Title;
+            _ = Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                var found = await BarcodeListLookup.FindByNameAsync(stepTitle, CancellationToken.None).ConfigureAwait(true);
+                if (found.Count == 0 || !string.IsNullOrWhiteSpace(box.Text))
+                    return;
+                var hint = new TextBlock
+                {
+                    Text = T("Штрихкод из barcode-list.ru — сверьте с товаром:", "barcode-list.ru'дан штрихкод — товар менен салыштырыңыз:",
+                        "Barcode from barcode-list.ru — check against the product:", "barcode-list.ru'dan barkod — ürünle karşılaştırın:",
+                        "barcode-list.ru'dan shtrix-kod — mahsulot bilan solishtiring:"),
+                    FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 4),
+                };
+                Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
+                suggest.Children.Add(hint);
+                foreach (var s in found)
+                {
+                    var pick = UiKit.Ghost(this, $"{s.Barcode} · {s.Name}");
+                    pick.Height = 30;
+                    pick.FontSize = 12;
+                    pick.Padding = new Thickness(10, 0);
+                    pick.Margin = new Thickness(0, 0, 6, 4);
+                    pick.Click += (_, _) => box.Text = s.Barcode;
+                    suggest.Children.Add(pick);
+                }
+                suggest.IsVisible = true;
+            });
         }
 
         // Шаги с отсканированными штрихкодами (или приход к уже существующему товару с этим штрихкодом).
@@ -1898,7 +1965,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             buttons.IsVisible = false;
             result.IsVisible = true;
             result.Text = T("Выполняю…", "Аткарып жатам…", "Working…", "Uygulanıyor…", "Bajarilmoqda…");
-            var done = await ProductActionPlan.ExecuteAllAsync(ResolveSteps(), T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), CancellationToken.None).ConfigureAwait(true);
+            var done = await ProductActionPlan.ExecuteAllAsync(ResolveSteps(), T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), CancellationToken.None).ConfigureAwait(true);
             foreach (var (box, _) in barcodeBoxes.Values)
                 box.IsEnabled = false;
             result.Text = done;
@@ -1948,11 +2015,11 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 if (TelegramAiChat.LastWebSources.Count > 0)
                     AddWebSources(TelegramAiChat.LastWebSources);
             }
-            ShowProductSteps(steps);
+            ShowProductSteps(steps, utterance);
             var note = changes.Count > 0
                 ? "[Программа] На экране список изменений: " + string.Join("; ", changes.Select(ProductActionPlan.Describe))
                   + ". Коротко скажи владельцу, что подготовлено, и спроси: выполнить? (ответ «да, выполни» или кнопка)."
-                : steps.Any(st => st.Op == "open")
+                : steps.Any(st => st.Op == "open") && HasOpenCommand(utterance)
                     ? "[Программа] Товар открыт на складе: " + string.Join(", ", steps.Where(st => st.Op == "open").Select(st => st.Product.Title)) + ". Скажи об этом одной фразой."
                     : text.Length > 0
                         ? "[Программа] Найдено о товаре: " + (text.Length > 600 ? text[..600] : text) + ". Коротко перескажи главное."
@@ -1986,6 +2053,61 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             PosLogger.Log($"ИИ-советник: сотрудники для звонка не получены ({ex.Message}).", "WARNING");
             return "";
+        }
+    }
+
+    private static readonly string[] DataWords =
+    {
+        "продаж", "продал", "выручк", "чек", "остат", "товар", "долг", "должник", "зарплат", "табел", "смен", "прибыл", "топ", "сколько",
+        "отчёт", "отчет", "аналит", "наценк", "касс", "клиент", "покупател", "поставщ", "расход", "доход", "закончил", "заканчива", "срок",
+        "сатуу", "саттык", "калдык", "карыз", "айлык", "эмгек", "канча", "пайда", "киреше", "кардар", "сотрудник", "кызматкер", "сумм",
+        "sales", "revenue", "stock", "debt", "salary", "how much", "satış", "borç", "sotuv", "qarz",
+    };
+
+    /// <summary>Вопрос с цифрами магазина (продажи, чеки, остатки, долги, сотрудники…) или «найди Mars» — ответ таблицей в чат.</summary>
+    private static bool LooksLikeDataQuestion(string spoken)
+    {
+        var t = spoken.ToLowerInvariant();
+        if (DataWords.Any(t.Contains) || OwnerSalesData.LooksLikeQuestion(spoken))
+            return true;
+        var find = new[] { "найд", "найт", "поищ", "тап", "таап", "покаж", "көрсөт", "find", "show" }.Any(t.Contains);
+        return find && ProductsByWords(spoken, 1).Count > 0;
+    }
+
+    /// <summary>2026-10-07, владелец: «баг — ИИ должен сам собирать информацию и выводить в чате таблицей, и на звонок добавь».
+    /// В звонке голосом таблицу не покажешь: параллельно программа спрашивает ИИ тем же путём, что и чат (сводка, сотрудники,
+    /// чеки за период с сервера, карточки товаров), просит ответ таблицей и показывает его в чате; советнику — итог для голоса.</summary>
+    private async Task LiveTablePassAsync(string utterance, GeminiLiveVoice live, bool speak)
+    {
+        var bubble = AddBubble(T("◐ Собираю данные для таблицы…", "◐ Таблица үчүн маалымат чогултуп жатам…", "◐ Collecting data for a table…",
+            "◐ Tablo için veriler toplanıyor…", "◐ Jadval uchun ma'lumot yig'ilmoqda…"), fromOwner: false);
+        try
+        {
+            var (summary, names) = await GetSummaryAsync().ConfigureAwait(true);
+            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(
+                utterance + "\n(Вопрос задан голосом во время звонка. Ответь ТАБЛИЦЕЙ Markdown по данным магазина: перед таблицей одна короткая "
+                + "строка, в таблице — заголовок, строки и строка «Итого», где уместно. Без вступлений и советов. Данных нет — одной строкой честно.)",
+                summary, CancellationToken.None).ConfigureAwait(true);
+            if (answer is not { Length: > 0 })
+            {
+                bubble.Text = T("Не получилось собрать данные: ", "Маалымат чогултулган жок: ", "Couldn't collect the data: ", "Veriler toplanamadı: ", "Ma'lumot yig'ilmadi: ")
+                              + (error ?? "нет ответа");
+                return;
+            }
+            var (clean, _) = ProductActionPlan.Extract(answer);
+            var text = OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(clean), names);
+            bubble.Text = text;
+            ScrollToEnd();
+            PosLogger.Log($"ИИ-советник: таблица к вопросу в звонке ({text.Length} симв.).", "INFO");
+            if (_live == live && live.IsOpen)
+                await live.SendTextAsync("[Программа] На экране таблица по вопросу владельца. Данные таблицы: "
+                                         + (text.Length > 900 ? text[..900] + "…" : text)
+                                         + (speak ? " Коротко скажи голосом главный итог (одна-две фразы), таблицу не зачитывай." : " Просто запомни."),
+                    respond: speak).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            bubble.Text = T("Не получилось собрать данные: ", "Маалымат чогултулган жок: ", "Couldn't collect the data: ", "Veriler toplanamadı: ", "Ma'lumot yig'ilmadi: ") + ex.Message;
         }
     }
 
@@ -2324,6 +2446,17 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                     if (_live == liveNow)
                         await liveNow.SendTextAsync("[Программа] " + result + " Коротко скажи владельцу результат.").ConfigureAwait(true);
                 });
+            // 2026-10-06: «найди / покажи фото Mars», «поищи в интернете» — фото в чате или варианты из интернета (LivePhotoPass).
+            else if (LivePhotoPass(spoken, _liveAiText.ToString(), liveNow))
+            {
+            }
+            else if (SiteEditorWindow.LooksLikeCommand(spoken) && ProductActionPlan.OpenSection is not null)
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var result = await SiteEditorCommandAsync(spoken).ConfigureAwait(true);
+                    if (result is not null && _live == liveNow)
+                        await liveNow.SendTextAsync("[Программа] " + result + " Коротко скажи владельцу результат.").ConfigureAwait(true);
+                });
             else if (TryQuickOpen(spoken) is { } opened)
             {
                 _ = liveNow.SendTextAsync("[Программа] " + opened + " Скажи об этом одной короткой фразой; владелец видит раздел на экране.");
@@ -2344,7 +2477,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             // Сотрудники: за другой период (с начала месяца уже в звонке) или сведения ещё не дошли до звонка — программа
             // присылает данные, и советник сразу отвечает (владелец, 06.10: «почему долго??» — советник ждал, данные не приходили).
             else if (TelegramAiChat.LooksLikeStaffQuestion(spoken) && (!_liveStaffDelivered || LiveStaffPeriodWords.Any(spoken.ToLowerInvariant().Contains)))
+            {
                 _ = LiveStaffPassAsync(spoken, liveNow);
+                _ = LiveTablePassAsync(spoken, liveNow, speak: false);
+            }
+            // 2026-10-07, владелец: «всю информацию выводи в чат красивой таблицей» — вопрос с цифрами в звонке: таблица в чате.
+            else if (LooksLikeDataQuestion(spoken))
+                _ = LiveTablePassAsync(spoken, liveNow, speak: true);
+            // 2026-10-07: речь владельца распознана плохо (кыргызская фраза пришла корейскими буквами), а советник сам сказал
+            // «Открываю склад» / «ачып жатам» — выполняем по его словам (его речь программа знает точно).
+            else if (_liveAiText.ToString() is { Length: > 0 } aiSaid
+                     && new[] { "открыва", "открою", "ачып жатам", "ачам", "opening", "açıyorum", "ochyapman" }.Any(aiSaid.ToLowerInvariant().Contains)
+                     && TryQuickOpen(aiSaid.Length > 160 ? aiSaid[..160] : aiSaid) is { } openedByAi)
+                _ = liveNow.SendTextAsync("[Программа] " + openedByAi + " Владелец видит это на экране.", respond: false);
         }
         if (_liveAi is not null)
         {
@@ -2352,10 +2497,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _liveAi.Text = text.Length == 0
                 ? (interrupted ? "…" : "")
                 : OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(text), _liveDebtors) + (interrupted ? " …" : "");
-            // 2026-10-06, владелец (снимок звонка: «Отобрази фотки здесь прямо» — «в этом разговоре фото не покажутся»):
-            // «сделай отображение фото прямо в чате». Товары, названные в реплике, — фото в чате, как в текстовом ответе.
-            if (!interrupted && (text.Length > 0 || spoken.Length > 0))
-                AddProductPhotos(spoken + " " + text);
+            // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM, ищи прямо в интернете» — фото склада к репликам
+            // больше не подставляются (раньше «бананды» показывало товар «Нан»); просьба о фото — поиск в интернете (LivePhotoPass).
         }
         var had = _liveUser is not null || _liveAi is not null;
         _liveUser = null;
@@ -2781,8 +2924,12 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         if (t.Length > 160)
             return null;
         var words = System.Text.RegularExpressions.Regex.Split(t, @"[^\p{L}\p{N}']+").Where(w => w.Length > 0).ToList();
-        var open = words.Any(w => new[] { "откр", "перей", "зайди", "зайти", "ачып", "ачкыла", "open", "aç", "och" }.Any(w.StartsWith) || w == "ач")
-                   || (words.Any(w => w.StartsWith("покаж")) && new[] { "раздел", "вкладк", "склад", "на экран" }.Any(t.Contains));
+        // 2026-10-07, владелец (звонок по-кыргызски: «почему ИИ не смог открыть склад и найти товар»): кыргызские «ач», «аччы»,
+        // «кир». Только явная команда «открыть»: «покажи остатки на складе» — это вопрос, ответ таблицей в чат.
+        var open = words.Any(w => new[] { "откр", "перей", "зайди", "зайти", "ачып", "ачкыла", "аччы", "кирип", "open", "aç", "och" }.Any(w.StartsWith)
+                                  || w is "ач" or "кир" or "ачып");
+        // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — «найди / тап товар» больше не открывает склад:
+        // сведения о товаре идут таблицей в чат (LiveTablePassAsync).
         if (!open)
             return null;
         // Проверить фото — товар, которому его только что поставили. Иначе товар по целым словам названия (не подстрокой:
@@ -2833,6 +2980,105 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 (best, bestScore) = (tile, score);
         }
         return (best, bestScore);
+    }
+
+    /// <summary>2026-10-06, владелец: «добавь редактор к нашему ИИ звонку». «Поставь тему Ала-Тоо», «тёмный стиль сайта»,
+    /// «опубликуй сайт» — программа открывает «Редактор сайта» и выполняет сама. null — это не команда редактору.</summary>
+    private async Task<string?> SiteEditorCommandAsync(string text)
+    {
+        if (!SiteEditorWindow.LooksLikeCommand(text) || ProductActionPlan.OpenSection is not { } openSection)
+            return null;
+        openSection("siteeditor");
+        for (var i = 0; i < 60 && SiteEditorWindow.Current is not { IsReady: true }; i++)
+            await Task.Delay(250).ConfigureAwait(true);
+        if (SiteEditorWindow.Current is not { IsReady: true } editor)
+            return T("Редактор сайта не открылся — попробуйте ещё раз.", "Сайттын редактору ачылган жок — дагы аракет кылыңыз.", "The website editor didn't open — try again.",
+                "Site düzenleyici açılmadı — tekrar deneyin.", "Sayt muharriri ochilmadi — qayta urinib ko'ring.");
+        var result = await editor.VoiceCommandAsync(text).ConfigureAwait(true);
+        // 2026-10-07: «открывай вкладки только после команды открыть» — сделали и вернулись к советнику, если «открой» не говорили.
+        if (!HasOpenCommand(text))
+            openSection("aiadvisor");
+        return result;
+    }
+
+    /// <summary>Товары, о которых говорили в звонке последними (для «поищи в интернете» без названия).</summary>
+    private List<NurMarketKassa.Models.Pos.CatalogProductTileVm> _liveLastProducts = new();
+    private DateTime _liveLastPhotoTalkUtc = DateTime.MinValue;
+
+    /// <summary>Товары по словам фразы: слово — начало слова названия («батончика» → «Батончик Mars 50г»), не подстрока
+    /// («нас» не находит «Ананас»); только лучшие совпадения, до <paramref name="max"/>.</summary>
+    private static List<NurMarketKassa.Models.Pos.CatalogProductTileVm> ProductsByWords(string phrase, int max)
+    {
+        string[] skip = { "найд", "найт", "поищ", "ищи", "покаж", "показ", "интернет", "котор", "есть", "мне", "нас", "наш", "склад", "фот", "сүрөт",
+            "картин", "изображ", "пожалуйста", "это", "там", "где", "товар", "откр", "постав", "photo", "find", "show", "нету", "никак", "нет" };
+        var words = System.Text.RegularExpressions.Regex.Split(phrase.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Where(w => w.Length >= 3 && !skip.Any(w.StartsWith)).Distinct().ToList();
+        if (words.Count == 0)
+            return new();
+        List<NurMarketKassa.Models.Pos.CatalogProductTileVm> tiles;
+        try
+        {
+            tiles = CatalogCacheService.Products.Where(t => !t.IsService).ToList();
+        }
+        catch (InvalidOperationException)
+        {
+            return new();
+        }
+        var scored = tiles.Select(tile =>
+        {
+            var titleWords = System.Text.RegularExpressions.Regex.Split(tile.Title.ToLowerInvariant(), @"[^\p{L}\p{N}]+").Where(w => w.Length > 0).ToList();
+            return (Tile: tile, Score: words.Count(w => titleWords.Any(tw => tw.StartsWith(w) || (w.Length >= 4 && tw.Length >= 4 && w.StartsWith(tw[..Math.Min(tw.Length, 6)])))));
+        }).Where(x => x.Score > 0).ToList();
+        if (scored.Count == 0)
+            return new();
+        var best = scored.Max(x => x.Score);
+        return scored.Where(x => x.Score == best).Select(x => x.Tile).Take(max).ToList();
+    }
+
+    /// <summary>2026-10-06/07, владелец (снимки звонка): «найди мне фотки батончика Mars» — советник сказал «программа нашла», в чате
+    /// ничего; «перестань выдавать фото из базы NurCRM, ищи прямо в интернете». Любая просьба о фото в звонке — сразу поиск в
+    /// интернете с индикатором в чате: товар склада по словам (или тот, о котором говорили только что); такого товара на складе
+    /// нет — ищем по словам фразы (без кнопки «Поставить»). Речь владельца распознана криво («non bolotat»), а советник сам сказал,
+    /// что ищет фото, — товар берём из слов советника. true — просьба о фото обработана.</summary>
+    private bool LivePhotoPass(string spoken, string aiSaid, GeminiLiveVoice live)
+    {
+        static bool OpenWords(string x) => new[] { "откр", "перейд", "зайди", "ачып" }.Any(x.Contains);
+        static bool PhotoWords(string x) => new[] { "фото", "фотк", "сүрөт", "photo", "картинк", "изображен", "rasm", "fotoğraf" }.Any(x.Contains);
+        static bool WebWords(string x) => new[] { "интернет", "поищи", "поиск", "internet", "online" }.Any(x.Contains);
+        var t = spoken.ToLowerInvariant();
+        var ai = aiSaid.ToLowerInvariant();
+        // «Открой склад, проверь фото» — это открыть товар (TryQuickOpen), не поиск фото.
+        if (OpenWords(t))
+            return false;
+        var recentPhotoTalk = DateTime.UtcNow - _liveLastPhotoTalkUtc < TimeSpan.FromMinutes(3);
+        var fromOwner = PhotoWords(t) || (WebWords(t) && recentPhotoTalk);
+        var fromAi = !fromOwner && PhotoWords(ai) && (WebWords(ai) || new[] { "ищу", "издей", "издеп", "табат", "searching" }.Any(ai.Contains));
+        if (!fromOwner && !fromAi)
+            return false;
+        var source = fromOwner ? spoken : aiSaid;
+        var products = ProductsByWords(source, 3);
+        if (products.Count == 0 && fromOwner && recentPhotoTalk)
+            products = _liveLastProducts;
+        if (products.Count == 0)
+        {
+            // Товара на складе нет — ищем по словам фразы (посмотреть можно, поставить некуда).
+            string[] skip = { "найд", "найт", "поищ", "ищи", "покаж", "интернет", "фот", "сүрөт", "картин", "мне", "пожалуйста", "тап", "изде",
+                "көрсөт", "из", "в", "на", "для", "photo", "find", "show", "программ", "экран" };
+            var query = string.Join(" ", System.Text.RegularExpressions.Regex.Split(source, @"[^\p{L}\p{N}]+")
+                .Where(w => w.Length >= 3 && !skip.Any(w.ToLowerInvariant().StartsWith)).Take(5));
+            if (query.Length < 3)
+                return false;
+            products = new() { new NurMarketKassa.Models.Pos.CatalogProductTileVm("", query, "", false) };
+        }
+        _liveLastProducts = products;
+        _liveLastPhotoTalkUtc = DateTime.UtcNow;
+        var names = string.Join(", ", products.Select(p => p.Title));
+        _ = ShowPhotoChoicesAsync(products);
+        PosLogger.Log($"ИИ-советник: в звонке поиск фото в интернете — {names}{(fromAi ? " (по словам советника)" : "")}.", "INFO");
+        _ = live.SendTextAsync($"[Программа] Ищу фото в интернете для: {names}. На экране крутится индикатор поиска, через несколько секунд появятся "
+                               + "варианты с номерами; владелец выберет словами «поставь фото номер N». Фото из склада программы не показывай и не обещай. "
+                               + "Скажи одной фразой, что ищешь.", respond: !fromAi);
+        return true;
     }
 
     /// <summary>Кроме «открой» во фразе есть действие с товаром («открой склад и спиши 1 Марс») — его разбирает ИИ.</summary>
@@ -2999,15 +3245,27 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var ct = _cts.Token;
         var total = 0;
         _photoChoices.Clear();
-        foreach (var product in products)
+        // 2026-10-06, владелец: «очень долго ищет фото, добавь индикатор загрузки в чат». Пока ищем — крутится значок и идут
+        // секунды; товары ищутся одновременно, а не по очереди.
+        var searchText = status.Text;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var frame = 0;
+        string[] frames = { "◐", "◓", "◑", "◒" };
+        var spinner = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        spinner.Tick += (_, _) => status.Text = $"{frames[frame++ % frames.Length]} {searchText} {watch.Elapsed.TotalSeconds:0} "
+                                                + T("с", "сек", "s", "sn", "s");
+        spinner.Start();
+        var searches = products.Select(p => Task.Run(() => ProductPhotoFinder.FindChoicesAsync(p, 8, ct), ct)).ToList();
+        foreach (var (product, search) in products.Zip(searches))
         {
             List<ProductPhotoFinder.Candidate> choices;
             try
             {
-                choices = await Task.Run(() => ProductPhotoFinder.FindChoicesAsync(product, 8, ct), ct).ConfigureAwait(true);
+                choices = await search.ConfigureAwait(true);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                spinner.Stop();
                 return;
             }
             total += choices.Count;
@@ -3039,6 +3297,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 set.Height = 32;
                 set.FontSize = 12;
                 set.Padding = new Thickness(8, 0);
+                // 2026-10-07: товара нет на складе (поиск по словам фразы) — фото только посмотреть, ставить некуда.
+                set.IsVisible = candidate.Product.Id.Length > 0;
                 buttons.Add(set);
                 set.Click += async (_, _) =>
                 {
@@ -3055,7 +3315,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 Use(card, Border.BorderBrushProperty, "BrushBorder");
                 strip.Children.Add(card);
                 choiceCard = card;
-                _photoChoices.Add((candidate, set, card, source));
+                if (candidate.Product.Id.Length > 0)
+                    _photoChoices.Add((candidate, set, card, source));
                 // Картинка в формате, который окно не показывает (avif и т. п.), — вариант убираем, а не оставляем пустую рамку.
                 _ = LoadPreviewAsync(image, candidate.ImageUrl).ContinueWith(t =>
                 {
@@ -3070,6 +3331,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             RenumberPhotoChoices();
             ScrollToEnd();
         }
+        spinner.Stop();
+        PosLogger.Log($"ИИ-советник: фото на выбор — {total} вар. за {watch.ElapsedMilliseconds} мс.", "INFO");
         // 2026-10-06: при 0 вариантов не писать «Нашёл вариантов фото: 0. Нажмите «Поставить…»» — нечего нажимать.
         if (total == 0)
         {
@@ -3151,9 +3414,11 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     /// <summary>2026-10-05, владелец: «добавь ИИ отправлять фото товара, если есть». Под ответом — фото товаров,
     /// которые советник назвал (до 4), из того же кэша фото, что у плиток каталога.</summary>
-    private void AddProductPhotos(string answer)
+    private void AddProductPhotos(string answer) => AddProductPhotoStrip(OwnerAiContext.FindMentionedProducts(answer));
+
+    /// <summary>Фото товаров склада в чате (2026-10-06: и по списку — для «покажи фото Mars» голосом).</summary>
+    private void AddProductPhotoStrip(IReadOnlyList<NurMarketKassa.Models.Pos.CatalogProductTileVm> products)
     {
-        var products = OwnerAiContext.FindMentionedProducts(answer);
         if (products.Count == 0)
             return;
         var strip = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };

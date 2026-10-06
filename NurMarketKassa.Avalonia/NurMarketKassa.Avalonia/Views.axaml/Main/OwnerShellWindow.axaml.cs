@@ -522,7 +522,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
         // специальную вкладку». Видит выручку и лучшие товары — права как у «Аналитики».
         // 2026-10-05, владелец: «строго соблюдай разделение тарифов» — ИИ только на «Стандарте» (TariffGate.CanUseAi).
-        Add("aiadvisor", "AiAdvisorIcon", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), TariffGate.CanUseAi,
+        Add("aiadvisor", "AiAdvisorIcon", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), TariffGate.CanUseAi,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("aiadvisor", () => new AiAdvisorWindow()); });
 
         Group("products", Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));

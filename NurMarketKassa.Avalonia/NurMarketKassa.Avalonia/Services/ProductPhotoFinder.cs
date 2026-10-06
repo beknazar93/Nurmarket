@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -256,30 +256,37 @@ public static class ProductPhotoFinder
             if (c is not null && list.Count < max && seen.Add(c.ImageUrl))
                 list.Add(c);
         }
+        // 2026-10-06, владелец: «очень долго ищет фото». Раньше шаги шли по очереди (три базы по штрихкоду — до 12 с каждая,
+        // затем Яндекс, проверка картинок, поиск по названию, DuckDuckGo). Теперь Яндекс и базы — одновременно, на проверку
+        // картинок не больше 6 с (что успело — то и показываем), медленные источники — только если вариантов мало.
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         var code = SearchableBarcode(product);
-        if (code is not null)
-            foreach (var (name, host) in Sources)
-                if (await TryFindAsync(host, code, ct).ConfigureAwait(false) is { } url)
-                    Add(new Candidate(product, url, name));
+        var barcodeTasks = code is null
+            ? new List<(string Name, Task<string?> Task)>()
+            : Sources.Select(s => (Name: s.Name, Task: TryFindAsync(s.Host, code, ct))).ToList();
         // 2026-10-06, владелец (снимок: «Aos Extra pover 450гр бальзам» — вариантов 0, а в интернете фото много): DuckDuckGo
         // стал отвечать проверкой «вы не робот» (202, anomaly) — страниц 0. Основной источник теперь Яндекс.Картинки: прямые
         // ссылки на фото магазинов (Ozon, Маркет…), каждая проверяется скачиванием.
         var yandex = await YandexImagesAsync(product.Title, ct).ConfigureAwait(false);
         if (yandex.Count < 4 && code is not null)
             yandex = yandex.Concat(await YandexImagesAsync(code, ct).ConfigureAwait(false)).DistinctBy(x => x.ImageUrl).ToList();
-        var checkedImages = await Task.WhenAll(yandex.Take(max + 6).Select(async y =>
-            await IsRealImageAsync(y.ImageUrl, ct).ConfigureAwait(false) ? y : ((string ImageUrl, string Host)?)null)).ConfigureAwait(false);
-        foreach (var y in checkedImages)
-            if (y is { } ok)
-                Add(new Candidate(product, ok.ImageUrl, "интернет: " + ok.Host));
-        Add(await TryFindByNameAsync(product, ct).ConfigureAwait(false));
+        var checks = yandex.Take(max + 4).Select(y => (Image: y, Ok: IsRealImageAsync(y.ImageUrl, ct))).ToList();
+        await Task.WhenAny(Task.WhenAll(checks.Select(c => c.Ok)), Task.Delay(6000, ct)).ConfigureAwait(false);
+        if (barcodeTasks.Count > 0)
+            await Task.WhenAny(Task.WhenAll(barcodeTasks.Select(b => b.Task)), Task.Delay(1500, ct)).ConfigureAwait(false);
+        // Фото из базы по штрихкоду — точно этот товар, поэтому первыми.
+        foreach (var (name, task) in barcodeTasks)
+            if (task.IsCompletedSuccessfully && task.Result is { } url)
+                Add(new Candidate(product, url, name));
+        foreach (var (image, ok) in checks)
+            if (ok.IsCompletedSuccessfully && ok.Result)
+                Add(new Candidate(product, image.ImageUrl, "интернет: " + image.Host));
         var pages = (IReadOnlyList<string>)Array.Empty<string>();
-        if (list.Count < max)
+        if (list.Count < 3)
         {
+            Add(await TryFindByNameAsync(product, ct).ConfigureAwait(false));
             pages = await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync($"{product.Title} {code}".Trim(), ct).ConfigureAwait(false);
-            if (pages.Count < 3 && code is not null)
-                pages = pages.Concat(await NurMarketKassa.Services.ProductInfoResearch.SearchPageUrlsAsync(product.Title, ct).ConfigureAwait(false)).Distinct().ToList();
-            var resolved = await Task.WhenAll(pages.Take(10).Select(async page => await ResolveImageAsync(page, ct).ConfigureAwait(false))).ConfigureAwait(false);
+            var resolved = await Task.WhenAll(pages.Take(8).Select(async page => await ResolveImageAsync(page, ct).ConfigureAwait(false))).ConfigureAwait(false);
             foreach (var image in resolved)
             {
                 if (image is not { } im)
@@ -291,7 +298,7 @@ public static class ProductPhotoFinder
         // Мало вариантов — поиск Google через Gemini (ключ ИИ уже есть; страница картинок Google без браузера фото не отдаёт).
         if (list.Count < 2)
             Add(await TryFindOnWebAsync(product, ct).ConfigureAwait(false));
-        PosLogger.Log($"Фото товара «{product.Title}»: вариантов на выбор {list.Count} (Яндекс.Картинки {yandex.Count}, страниц в поиске {pages.Count}).", "CATALOG");
+        PosLogger.Log($"Фото товара «{product.Title}»: вариантов на выбор {list.Count} за {watch.ElapsedMilliseconds} мс (Яндекс.Картинки {yandex.Count}, страниц в поиске {pages.Count}).", "CATALOG");
         return list;
     }
 
@@ -300,6 +307,13 @@ public static class ProductPhotoFinder
     private static async Task<List<(string ImageUrl, string Host)>> YandexImagesAsync(string query, CancellationToken ct)
     {
         var result = new List<(string ImageUrl, string Host)>();
+        var scores = new Dictionary<string, int>();
+        // 2026-10-07, владелец: «неточность в поиске в интернете — не находит или неправильно показывает фото». Слова названия
+        // (без веса и объёма вроде «50г», «450гр»); фото, у которого в подписи и адресе страницы нет ни одного из них, — отбрасываем,
+        // остальные — по числу совпавших слов. Слово сравнивается по основе (первые 5 букв), чтобы «батончик» = «батончики».
+        var keyWords = Regex.Split(query.ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Where(w => w.Length >= 3 && !Regex.IsMatch(w, @"^\d+([.,]\d+)?(г|гр|кг|мл|л|шт|g|kg|ml|l)?$"))
+            .Select(w => w.Length > 5 ? w[..5] : w).Distinct().ToList();
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "https://yandex.ru/images/search?text=" + Uri.EscapeDataString(query));
@@ -320,8 +334,20 @@ public static class ProductPhotoFinder
                 var page = Regex.Match(tail, @"""snippet"":\{.*?""url"":""(https?://[^""]+)""", RegexOptions.Singleline);
                 var hostUrl = page.Success ? page.Groups[1].Value : image;
                 var host = Uri.TryCreate(hostUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+                // Подпись фото: «snippet.title» после origUrl и «alt» перед ним.
+                var title = Regex.Match(tail, @"""snippet"":\{""title"":""([^""]*)""").Groups[1].Value;
+                var head = html.Substring(Math.Max(0, m.Index - 700), Math.Min(700, m.Index));
+                var alt = Regex.Matches(head, @"""alt"":""([^""]*)""").Select(x => x.Groups[1].Value).LastOrDefault() ?? "";
+                var about = (title + " " + alt + " " + Uri.UnescapeDataString(hostUrl) + " " + image).ToLowerInvariant();
                 if (result.All(r => r.ImageUrl != image))
+                {
                     result.Add((image, host));
+                    // Магазин («купить», Ozon, Маркет) — выше; фотобанк (рисунки, силуэты, «работ на тему») — ниже.
+                    var shop = new[] { "купить", "магазин", "ozon", "market", "wildberries", "lavka", "korzinka", "globus", "цена" }.Any(about.Contains) ? 1 : 0;
+                    var stock = new[] { "freepik", "shutterstock", "depositphotos", "istock", "vecteezy", "pngtree", "dreamstime", "работ на тему", "вектор", "силуэт", "clipart" }.Any(about.Contains) ? 2 : 0;
+                    var hits = keyWords.Count(about.Contains);
+                    scores[image] = hits == 0 ? 0 : Math.Max(1, hits * 2 + shop - stock);
+                }
             }
             if (result.Count == 0 && html.Contains("captcha", StringComparison.OrdinalIgnoreCase))
                 PosLogger.Log("Фото товара: Яндекс.Картинки просят капчу.", "CATALOG");
@@ -331,7 +357,10 @@ public static class ProductPhotoFinder
             PosLogger.Log($"Фото товара: Яндекс.Картинки не ответили ({ex.Message}).", "CATALOG");
         }
         static bool Review(string host) => host.Contains("otzovik") || host.Contains("irecommend") || host.Contains("pinterest");
-        return result.OrderBy(r => Review(r.Host) || Review(r.ImageUrl) ? 1 : 0).ToList();
+        if (keyWords.Count > 0 && scores.Values.Any(v => v > 0))
+            result = result.Where(r => scores[r.ImageUrl] > 0).ToList();
+        return result.OrderByDescending(r => scores.TryGetValue(r.ImageUrl, out var sc) ? sc : 0)
+            .ThenBy(r => Review(r.Host) || Review(r.ImageUrl) ? 1 : 0).ToList();
     }
 
     /// <summary>Ссылка → картинка: если это изображение — оно; если страница — её og:image / twitter:image.</summary>

@@ -190,6 +190,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         // 2026-10-06, владелец (фото моноблока клиента): «там поля для цены не видны». Окно ужато под экран (DialogScreenFit),
         // а поля цены оставались ниже видимой части вкладки — на сенсоре прокрутку не найти. На невысоком окне поля плотнее
         // (цены помещаются), а поле, получившее фокус (касание, Tab), прокручивается в вид.
+        // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».
+        NameBox.LostFocus += (_, _) => _ = BarcodeSuggestAsync();
         // Совсем низкое окно (< 700: моноблок 1366×768 с масштабом 125 %) — ещё плотнее и без подсказки про скан.
         SizeChanged += (_, e) =>
         {
@@ -295,6 +297,61 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// добавлении товара (2026-09-24). Только для нового товара и только если название ещё
     /// пустое: вписанное руками не перетираем. Если такой штрихкод уже есть на складе —
     /// говорим об этом сразу, а не после «Сохранить».</summary>
+    private string? _barcodeSuggestFor;
+
+    /// <summary>2026-10-07: новый товар без штрихкода, название введено — до 3 штрихкодов из barcode-list.ru с названием из базы.
+    /// Владелец сверяет с товаром (название, вес) и нажимает «Поставить»; сам штрихкод не ставится.</summary>
+    private async Task BarcodeSuggestAsync()
+    {
+        var name = (ProductName ?? "").Trim();
+        if (_existing is not null || IsQuickAddMode || !string.IsNullOrWhiteSpace(Barcode) || name.Length < 4 || name == _barcodeSuggestFor)
+            return;
+        _barcodeSuggestFor = name;
+        BarcodeSuggestPanel.Children.Clear();
+        var status = new TextBlock
+        {
+            Text = Tr.T("Ищу штрихкод по названию в базе barcode-list.ru…", "barcode-list.ru базасынан аталышы боюнча штрихкод издеп жатам…",
+                "Looking up the barcode by name on barcode-list.ru…", "barcode-list.ru'da ada göre barkod aranıyor…", "barcode-list.ru bazasidan nomi bo'yicha shtrix-kod qidirilmoqda…"),
+            FontSize = 12.5, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Opacity = 0.8,
+        };
+        BarcodeSuggestPanel.Children.Add(status);
+        BarcodeSuggestPanel.IsVisible = true;
+        var found = await NurMarketKassa.AvaloniaHost.Services.BarcodeListLookup.FindByNameAsync(name, CancellationToken.None).ConfigureAwait(true);
+        if (_barcodeSuggestFor != name || !string.IsNullOrWhiteSpace(Barcode))
+        {
+            BarcodeSuggestPanel.IsVisible = false;
+            return;
+        }
+        if (found.Count == 0)
+        {
+            BarcodeSuggestPanel.IsVisible = false;
+            return;
+        }
+        status.Text = Tr.T("Штрихкод из базы barcode-list.ru — сверьте название и вес с товаром и нажмите нужный:",
+            "barcode-list.ru базасынан штрихкод — аталышын жана салмагын товар менен салыштырып, керектүүсүн басыңыз:",
+            "Barcode from barcode-list.ru — check the name and weight against the product and press the right one:",
+            "barcode-list.ru'dan barkod — adı ve ağırlığı ürünle karşılaştırıp doğru olana basın:",
+            "barcode-list.ru bazasidan shtrix-kod — nomi va og'irligini mahsulot bilan solishtirib, keraklisini bosing:");
+        status.Opacity = 1;
+        foreach (var s in found)
+        {
+            var button = new Button
+            {
+                Classes = { "SecondaryButton" }, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                Content = new TextBlock { Text = $"{s.Barcode}  ·  {s.Name}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+            };
+            ToolTip.SetTip(button, Tr.T("Поставить этот штрихкод", "Ушул штрихкодду коюу", "Use this barcode", "Bu barkodu kullan", "Shu shtrix-kodni qo'yish"));
+            button.Click += (_, _) =>
+            {
+                Barcode = s.Barcode;
+                BarcodeSuggestPanel.IsVisible = false;
+                PosLogger.Log($"Новый товар «{name}»: штрихкод {s.Barcode} из barcode-list.ru поставлен владельцем («{s.Name}»).", "CATALOG");
+            };
+            BarcodeSuggestPanel.Children.Add(button);
+        }
+    }
+
     private async Task FillNameFromGlobalBaseAsync(string? barcode)
     {
         var code = barcode?.Trim() ?? "";

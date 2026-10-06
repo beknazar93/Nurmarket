@@ -241,6 +241,9 @@ public partial class App : Application
                 sb.Append($"Открыта сейчас: смена {open.ShiftNumber}, кассир {open.Cashier}, с {open.OpenedAt:dd.MM.yyyy HH:mm}, выручка {open.Revenue:0.##} сом.\n");
             return sb.ToString();
         };
+        // 2026-10-07, владелец: «ИИ сам собирает информацию и выводит таблицей» — чеки за период по вопросу.
+        TelegramAiChat.SalesDetailMatcher = OwnerSalesData.LooksLikeQuestion;
+        TelegramAiChat.SalesDetailProvider = async (question, token) => (await OwnerSalesData.BuildAsync(question, token).ConfigureAwait(false)).Table;
         TelegramAiChat.TimesheetProvider = async (from, to, token) =>
         {
             var shifts = await LoadShiftsCachedAsync(token).ConfigureAwait(false);

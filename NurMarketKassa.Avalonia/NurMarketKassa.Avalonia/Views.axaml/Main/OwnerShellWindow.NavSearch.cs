@@ -29,26 +29,29 @@ public partial class OwnerShellWindow
     /// <summary>Привычные слова, по которым ищут раздел (кроме названия и группы).</summary>
     private static readonly Dictionary<string, string> NavKeywords = new()
     {
-        ["warehouse"] = "товар остаток остатки приёмка приемка ревизия инвентаризация списание перемещение этикетка ценник штрихкод",
+        // 2026-10-07: кыргызские слова — «кампаны ач», «карыздарды көрсөт» в разговоре с Нур Советником (NavigateByWords).
+        // 2026-10-06: советник теперь «Нур Советник» / «Нур Кеңешчи» — по старым словам тоже находится.
+        ["aiadvisor"] = "ии ai советник кеңешчи нур помощник",
+        ["warehouse"] = "товар остаток остатки приёмка приемка ревизия инвентаризация списание перемещение этикетка ценник штрихкод кампа кампаны товарлар калдык",
         ["calculator"] = "наценка цена себестоимость",
-        ["restock"] = "заказать закупка срок годности просрочка",
+        ["restock"] = "заказать закупка срок годности просрочка толуктоо мөөнөт",
         ["supplierreturns"] = "поставщик брак",
-        ["branches"] = "филиал перемещение склад",
-        ["sales"] = "чек чеки история возврат",
-        ["debts"] = "долг долги рассрочка должник",
-        ["rentals"] = "прокат аренда",
-        ["finance"] = "выручка касса смена смены отчёт",
-        ["analytics"] = "отчёт сезонность график",
+        ["branches"] = "филиал перемещение склад филиалдар",
+        ["sales"] = "чек чеки история возврат сатуу сатуулар",
+        ["debts"] = "долг долги рассрочка должник карыз карыздар карызкор",
+        ["rentals"] = "прокат аренда ижара",
+        ["finance"] = "выручка касса смена смены отчёт каржы финансы",
+        ["analytics"] = "отчёт сезонность график аналитика талдоо",
         ["abc"] = "abc авс",
-        ["profitcash"] = "прибыль доход расход деньги",
+        ["profitcash"] = "прибыль доход расход деньги пайда киреше акча",
         ["losssales"] = "убыток скидка минус",
         ["sizesreport"] = "размер цвет одежда",
         ["siteorders"] = "заказ интернет магазин",
-        ["clients"] = "покупатель бонус баллы",
-        ["telegrambot"] = "бот телеграм",
-        ["salary"] = "сотрудник кассир зарплата",
+        ["clients"] = "покупатель бонус баллы кардар кардарлар клиент",
+        ["telegrambot"] = "бот телеграм телеграм",
+        ["salary"] = "сотрудник кассир зарплата эмгек айлык кызматкер табель",
         ["marketplace"] = "купить функция тариф",
-        ["settings"] = "принтер весы язык тема тариф аккаунт",
+        ["settings"] = "принтер весы язык тема тариф аккаунт жөндөө жөндөөлөр",
         ["support"] = "помощь anydesk",
         ["logs"] = "ошибка журнал",
     };
@@ -166,11 +169,10 @@ public partial class OwnerShellWindow
                 entry.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         });
         ProductActionPlan.NavigateByWords = NavigateByWords;
+        // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — после «Выполнить» склад сам не открывается:
+        // итог — в чате советника, а отметка «Изменено ИИ» ставится на складе, если он уже открыт (увидите, когда перейдёте).
         ProductActionPlan.ShowChangedProducts = (keys, summary) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            if (_navEntries.FirstOrDefault(x => x.Key == "warehouse") is not { } entry)
-                return;
-            entry.Button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             if (_sections.FirstOrDefault(x => x.Key == "warehouse")?.Window is WarehouseWindow warehouse)
                 warehouse.ShowChanged(keys, summary);
         });

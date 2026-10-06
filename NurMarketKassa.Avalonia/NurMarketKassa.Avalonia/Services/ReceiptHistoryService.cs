@@ -433,6 +433,48 @@ public static class ReceiptHistoryService
 
     /// <summary>Полный чек для состава и печати: с сервера — свежий (после возврата статус и
     /// строки меняются, поэтому не из кэша отчётов), из офлайн-очереди — его снимок корзины.</summary>
+    /// <summary>2026-10-07, владелец (снимок: «по чекам за вчера в сводке только общая выручка… предлагаю зайти в NurMarket»):
+    /// «дай ИИ полный доступ — пусть сам собирает информацию и выводит таблицей». Чеки ВСЕХ касс компании за [from; toExclusive)
+    /// с сервера — для Нур Советника (OwnerSalesData). Не больше <paramref name="maxPages"/> страниц по 80; новые первыми.</summary>
+    public static async Task<List<ReceiptHistoryEntry>> LoadRangeAsync(DateTime from, DateTime toExclusive, int maxPages, CancellationToken ct)
+    {
+        var result = new List<ReceiptHistoryEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var page = 1; page <= maxPages; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var items = await App.SalesApi.PosSalesListAsync(page, PageSize, null, ct, dateFrom: from, dateToExclusive: toExclusive).ConfigureAwait(false);
+            if (items.Count == 0)
+                break;
+            var added = 0;
+            foreach (var row in items)
+            {
+                var id = PosSaleRowFormatter.TrySaleId(row) ?? "";
+                if (id.Length == 0 || !seen.Add(id))
+                    continue;
+                added++;
+                var status = (Str(row, "status") ?? "").ToLowerInvariant();
+                if (status == "new" || SaleTime(row) is not { } createdAt || createdAt < from || createdAt >= toExclusive)
+                    continue;
+                result.Add(new ReceiptHistoryEntry
+                {
+                    Id = id,
+                    CreatedAt = createdAt,
+                    ReceiptNumber = SalesWindow.TryReceiptNumber(row) ?? "",
+                    Total = RowTotal(row),
+                    PaymentMethod = Str(row, "payment_method") ?? "",
+                    Status = status,
+                    Cashier = CartDisplayHelper.TryCashierName(row),
+                    FirstItemName = Str(row, "first_item_name") ?? "",
+                });
+            }
+            if (added == 0 || items.Count < PageSize)
+                break;
+        }
+        result.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        return result;
+    }
+
     public static async Task<JsonElement> LoadDetailAsync(ReceiptHistoryEntry entry, CancellationToken ct = default)
     {
         if (entry.Local is { } local)

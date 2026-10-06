@@ -13,52 +13,52 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Сенсорные моноблоки: касание поля ввода пальцем открывает экранную клавиатуру Windows; в окне «Новый товар» поля цены видны и на небольшом экране",
-        "Фото товара из интернета: ИИ-советник находит варианты через Яндекс.Картинки (Ozon, Маркет и другие магазины) — раньше часто писал «вариантов 0»; варианты пронумерованы, «поставь фото 4» — ставит сам",
-        "Разговор с ИИ-советником: «открой склад», «перейди в зарплату», «открой товар …» — программа сразу открывает любой раздел меню или товар на складе",
-        "Звонок с ИИ-советником подключается за секунды, даже когда сервер отвечает медленно: данные магазина приходят в разговор, как только соберутся",
-        "Если часть данных для ИИ не загрузилась, остальное всё равно доходит до советника (раньше пропадало всё)",
-        "Исправлено: настройки иногда не сохранялись, если файл был на миг занят; лишние ошибки в журнале программы владельца при сбое связи",
+        "ИИ-советник теперь «Нур Советник»: сам загружает данные с сервера и показывает таблицей — «чеки за вчера», «продажи за 6.10», «чеки за неделю»; в звонке таблица появляется в чате, итог — голосом",
+        "Фото товара — сразу из интернета и точнее: подпись фото сверяется с названием товара, магазины первыми; в чате индикатор поиска; фото со склада к ответам больше не подставляются",
+        "Разделы программы открываются только по команде «открой»; понимает кыргызские команды («кампаны ач»)",
+        "Редактор сайта: голосом или текстом «поставь тему Ала-Тоо», «опубликуй сайт»; «Смотреть сайт» открывает market.nurcrm.kg — там видно новое оформление",
+        "Новый товар: штрихкод по названию из открытой базы barcode-list.ru — несколько вариантов с названием из базы, сверяете и нажимаете нужный",
+        "Исправлено: под ответом ИИ больше нет чужих ссылок «Найдено в интернете»",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Сенсордук моноблоктор: киргизүү талаасын манжа менен басканда Windows экрандык клавиатурасы ачылат; «Жаңы товар» терезесинде баа талаалары кичине экранда да көрүнөт",
-        "Интернеттен товардын сүрөтү: ИИ-кеңешчи варианттарды Яндекс.Сүрөттөр аркылуу табат (Ozon, Маркет жана башка дүкөндөр) — мурда көп учурда «варианттар 0» деп жазчу; варианттар номерленген, «4-сүрөттү кой» — өзү коёт",
-        "ИИ-кеңешчи менен маек: «кампаны ач», «эмгек акыга өт», «… товарын ач» — программа ошол замат каалаган бөлүмдү же кампадагы товарды ачат",
-        "ИИ-кеңешчи менен чалуу сервер жай жооп бергенде да бир нече секундда туташат: дүкөндүн маалыматы даяр болгондо маекке келет",
-        "ИИ үчүн маалыматтын бир бөлүгү жүктөлбөсө, калганы баары бир кеңешчиге жетет (мурда баары жоголчу)",
-        "Оңдолду: файл бир саамга бош эмес болсо жөндөөлөр кээде сакталчу эмес; байланыш үзүлгөндө ээсинин программасынын журналындагы ашыкча каталар",
+        "ИИ-кеңешчи эми «Нур Кеңешчи»: маалыматты серверден өзү жүктөп, таблица менен көрсөтөт — «кечээки чектер», «6.10 сатуулар», «жумалык чектер»; чалууда таблица чатта чыгат, жыйынтыгы — үн менен",
+        "Товардын сүрөтү — дароо интернеттен жана тагыраак: сүрөттүн жазуусу товардын аты менен салыштырылат, дүкөндөр биринчи; чатта издөө белгиси; кампадагы сүрөттөр жоопко кошулбайт",
+        "Программанын бөлүмдөрү «ач» деген буйрук менен гана ачылат; кыргызча буйруктарды түшүнөт («кампаны ач»)",
+        "Сайттын редактору: үн же текст менен «Ала-Тоо темасын кой», «сайтты жарыяла»; «Сайтты көрүү» market.nurcrm.kg ачат — жаңы жасалгалоо ошол жерде көрүнөт",
+        "Жаңы товар: аталышы боюнча barcode-list.ru ачык базасынан штрихкод — базадагы аталышы менен бир нече вариант, салыштырып керектүүсүн басасыз",
+        "Оңдолду: ИИнин жообунун астында башка «Интернеттен табылды» шилтемелери чыкпайт",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Touchscreen all-in-ones: tapping an input field opens the Windows on-screen keyboard; price fields in the “New product” window are visible on small screens too",
-        "Product photos from the web: the AI advisor finds options via Yandex Images (Ozon, Market and other shops) — before it often said “0 options”; options are numbered, “set photo 4” sets it by itself",
-        "Talking to the AI advisor: “open the warehouse”, “go to salary”, “open product …” — the program opens any menu section or the product in the warehouse right away",
-        "A call with the AI advisor connects in seconds even when the server is slow: shop data joins the conversation as soon as it is ready",
-        "If part of the data for the AI fails to load, the rest still reaches the advisor (before, everything was lost)",
-        "Fixed: settings were sometimes not saved when the file was busy for a moment; extra errors in the owner program log when the connection failed",
+        "The AI advisor is now “Nur Advisor”: it loads data from the server itself and shows tables — “receipts for yesterday”, “sales on 6.10”, “receipts for the week”; in a call the table appears in the chat and the total is spoken",
+        "Product photos — straight from the web and more accurate: the photo caption is checked against the product name, shops first; a search indicator in the chat; warehouse photos are no longer added to answers",
+        "Program sections open only on an “open” command; Kyrgyz commands are understood (“кампаны ач”)",
+        "Website editor: by voice or text “apply the Ala-Too theme”, “publish the website”; “View website” opens market.nurcrm.kg, where the new design is visible",
+        "New product: barcode by name from the open barcode-list.ru database — a few options with the database name; you check and press the right one",
+        "Fixed: unrelated “Found online” links no longer appear under AI answers",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Dokunmatik ekranlı hepsi bir arada bilgisayarlar: giriş alanına parmakla dokunmak Windows ekran klavyesini açar; «Yeni ürün» penceresindeki fiyat alanları küçük ekranda da görünür",
-        "İnternetten ürün fotoğrafı: yapay zekâ danışmanı seçenekleri Yandex Görseller üzerinden bulur (Ozon, Market ve diğer mağazalar) — önce sık sık «0 seçenek» diyordu; seçenekler numaralı, «4. fotoğrafı koy» — kendisi koyar",
-        "Yapay zekâ danışmanıyla konuşma: «depoyu aç», «maaşa geç», «… ürününü aç» — program istenen menü bölümünü veya depodaki ürünü hemen açar",
-        "Yapay zekâ danışmanıyla görüşme sunucu yavaş olsa da saniyeler içinde bağlanır: mağaza verileri hazır olunca görüşmeye gelir",
-        "Yapay zekâ için verilerin bir kısmı yüklenmezse geri kalanı yine danışmana ulaşır (önce hepsi kayboluyordu)",
-        "Düzeltildi: dosya bir anlığına meşgulse ayarlar bazen kaydedilmiyordu; bağlantı kesilince sahip programı günlüğünde gereksiz hatalar",
+        "Yapay zekâ danışmanı artık «Nur Danışman»: verileri sunucudan kendisi yükler ve tablo olarak gösterir — «dünün fişleri», «6.10 satışları», «haftanın fişleri»; görüşmede tablo sohbette çıkar, özet sesle söylenir",
+        "Ürün fotoğrafı — doğrudan internetten ve daha doğru: fotoğraf açıklaması ürün adıyla karşılaştırılır, mağazalar önce; sohbette arama göstergesi; depo fotoğrafları yanıtlara artık eklenmez",
+        "Program bölümleri yalnızca «aç» komutuyla açılır; Kırgızca komutlar anlaşılır («кампаны ач»)",
+        "Site düzenleyici: sesle veya yazıyla «Ala-Too temasını koy», «siteyi yayınla»; «Siteyi gör» market.nurcrm.kg'yi açar — yeni tasarım orada görünür",
+        "Yeni ürün: ada göre açık barcode-list.ru veritabanından barkod — veritabanındaki adıyla birkaç seçenek; karşılaştırıp doğru olana basarsınız",
+        "Düzeltildi: yapay zekâ yanıtlarının altında ilgisiz «İnternette bulundu» bağlantıları artık çıkmıyor",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Sensorli monobloklar: kiritish maydoniga barmoq bilan tegilsa Windows ekran klaviaturasi ochiladi; «Yangi mahsulot» oynasida narx maydonlari kichik ekranda ham ko'rinadi",
-        "Internetdan mahsulot rasmi: SI maslahatchi variantlarni Yandex Rasmlar orqali topadi (Ozon, Market va boshqa do'konlar) — avval ko'pincha «0 variant» derdi; variantlar raqamlangan, «4-rasmni qo'y» — o'zi qo'yadi",
-        "SI maslahatchi bilan suhbat: «omborni och», «ish haqiga o't», «… mahsulotini och» — dastur istalgan menyu bo'limini yoki ombordagi mahsulotni darhol ochadi",
-        "SI maslahatchi bilan qo'ng'iroq server sekin bo'lsa ham bir necha soniyada ulanadi: do'kon ma'lumotlari tayyor bo'lishi bilan suhbatga keladi",
-        "SI uchun ma'lumotlarning bir qismi yuklanmasa, qolgani baribir maslahatchiga yetadi (avval hammasi yo'qolardi)",
-        "Tuzatildi: fayl bir lahzaga band bo'lsa sozlamalar ba'zan saqlanmasdi; aloqa uzilganda ega dasturi jurnalidagi ortiqcha xatolar",
+        "SI maslahatchi endi «Nur Maslahatchi»: ma'lumotlarni serverdan o'zi yuklaydi va jadval qilib ko'rsatadi — «kechagi cheklar», «6.10 sotuvlari», «haftalik cheklar»; qo'ng'iroqda jadval chatda chiqadi, yakuni — ovozda",
+        "Mahsulot rasmi — to'g'ridan-to'g'ri internetdan va aniqroq: rasm izohi mahsulot nomi bilan solishtiriladi, do'konlar birinchi; chatda qidiruv belgisi; ombordagi rasmlar javoblarga endi qo'shilmaydi",
+        "Dastur bo'limlari faqat «och» buyrug'i bilan ochiladi; qirg'izcha buyruqlarni tushunadi («кампаны ач»)",
+        "Sayt muharriri: ovoz yoki matn bilan «Ala-Too mavzusini qo'y», «saytni e'lon qil»; «Saytni ko'rish» market.nurcrm.kg ni ochadi — yangi bezak o'sha yerda ko'rinadi",
+        "Yangi mahsulot: nomi bo'yicha ochiq barcode-list.ru bazasidan shtrix-kod — bazadagi nomi bilan bir nechta variant; solishtirib keraklisini bosasiz",
+        "Tuzatildi: SI javobi ostida begona «Internetda topildi» havolalari endi chiqmaydi",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно

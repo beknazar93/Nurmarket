@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -115,6 +115,12 @@ public sealed class ShowcaseApiService
     }
 
     public static string CatalogUrl(string slug) => $"{PublicSiteBase}/catalog/{Uri.EscapeDataString(slug.Trim())}";
+
+    /// <summary>2026-10-07: оформление из редактора (темы, цвета, баннер) NurCRM включил на витрине market.nurcrm.kg (сборка
+    /// catalog-Ccmz2ht8.js, проверено: опубликованная тема видна); nurcrm.kg/catalog пока показывает прежний вид.</summary>
+    public const string DesignSiteBase = "https://market.nurcrm.kg";
+
+    public static string DesignCatalogUrl(string slug) => $"{DesignSiteBase}/catalog/{Uri.EscapeDataString(slug.Trim())}";
 
     /// <summary>Правило сайта NurCRM (Settings → ссылка на витрину): на «Старте» в секторе «Магазин»
     /// витрина — платная доп. услуга «Онлайн витрина» (can_view_showcase у компании); на остальных

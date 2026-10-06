@@ -199,7 +199,7 @@
                             </Panel>
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="FieldLabel" Text="{DynamicResource product.nameLabel}"/>
-                                <TextBox Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
+                                <TextBox x:Name="NameBox" Text="{Binding ProductName}" Watermark="{DynamicResource product.nameWatermark}"/>
                             </StackPanel>
 
                             <Grid x:Name="NarrowRowMain" ColumnDefinitions="*,18,*">
@@ -228,6 +228,8 @@
                                     </Grid>
                                 </StackPanel>
                             </Grid>
+                            <!-- 2026-10-07, владелец: штрихкод по названию из barcode-list.ru — варианты для сверки (ProductEditDialog.BarcodeSuggest). -->
+                            <StackPanel x:Name="BarcodeSuggestPanel" Spacing="6" IsVisible="False"/>
 
                             <!-- 2026-10-04, клиент: «включил весовой — поле PLU выталкивает цену вниз, полстроки не видно».
                                  PLU теперь в той же строке, что и тумблер «Весовой»: высота вкладки не меняется. -->
