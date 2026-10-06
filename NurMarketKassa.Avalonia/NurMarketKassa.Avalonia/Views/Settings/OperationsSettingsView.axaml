@@ -53,6 +53,12 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-10-06, исследование «Кассы для одежды» (О-31, О-32): срок обмена и возврата и категории «без обмена».
+             Видна в сфере «Одежда»; содержимое — в коде (OperationsSettingsView.Exchange.cs). -->
+        <Border x:Name="ExchangeRulesCard" Classes="SettingsCard" Padding="16" IsVisible="False">
+          <StackPanel x:Name="ExchangeRulesPanel" Spacing="10"/>
+        </Border>
+
         <!-- Телеграм-бот владельца. 2026-10-05: на «Старте» — только если куплен в Маркетплейсе (TelegramCard, код). -->
         <Border x:Name="TelegramCard" Classes="SettingsCard" Padding="16">
           <StackPanel Spacing="10">

@@ -816,9 +816,43 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public string Category { get => _category; set { _category = value; OnPropertyChanged(); } }
     public string Brand { get => _brand; set { _brand = value; OnPropertyChanged(); } }
     public string Unit { get => _unit; set { _unit = value; OnPropertyChanged(); } }
-    public bool IsWeight { get => _isWeight; set { _isWeight = value; OnPropertyChanged(); } }
+    public bool IsWeight { get => _isWeight; set { _isWeight = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowWeightToggle)); } }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-13): в сфере «Одежда» переключатель «Весовой» (и PLU) не нужен —
+    /// одежду не взвешивают, а случайно включённый «Весовой» ломал продажу. Если товар уже весовой — переключатель остаётся,
+    /// чтобы его можно было выключить.</summary>
+    public bool ShowWeightToggle => !IsQuickAddMode && (!MarketSpheres.IsClothing || _isWeight);
     public string Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); } }
-    public string PurchasePrice { get => _purchasePrice; set { _purchasePrice = value; OnPropertyChanged(); } }
+    public string PurchasePrice { get => _purchasePrice; set { _purchasePrice = value; OnPropertyChanged(); RaisePriceWarning(); } }
+
+    /// <summary>2026-10-05, владелец: «если во время редактирования или создания товара закупочная цена превышает
+    /// продажную — там должно быть красное предупреждение». Пусто — цены в порядке (или одна из них не введена).</summary>
+    public string PriceWarning
+    {
+        get
+        {
+            var purchase = TryParseNumber(_purchasePrice);
+            var sale = TryParseNumber(_price);
+            if (purchase is not > 0 || sale is not > 0 || purchase.Value <= sale.Value)
+                return "";
+            var p = purchase.Value.ToString("0.##", CultureInfo.InvariantCulture);
+            var s = sale.Value.ToString("0.##", CultureInfo.InvariantCulture);
+            var loss = (purchase.Value - sale.Value).ToString("0.##", CultureInfo.InvariantCulture);
+            return Tr.T($"⚠ Закупочная цена ({p} сом) больше цены продажи ({s} сом) — каждая продажа в убыток {loss} сом.",
+                $"⚠ Сатып алуу баасы ({p} сом) сатуу баасынан ({s} сом) жогору — ар бир сатуу {loss} сом зыян.",
+                $"⚠ The purchase price ({p} som) is higher than the sale price ({s} som) — each sale loses {loss} som.",
+                $"⚠ Alış fiyatı ({p} som) satış fiyatından ({s} som) yüksek — her satış {loss} som zarar.",
+                $"⚠ Xarid narxi ({p} so'm) sotuv narxidan ({s} so'm) yuqori — har bir sotuv {loss} so'm zarar.");
+        }
+    }
+
+    public bool HasPriceWarning => PriceWarning.Length > 0;
+
+    private void RaisePriceWarning()
+    {
+        OnPropertyChanged(nameof(PriceWarning));
+        OnPropertyChanged(nameof(HasPriceWarning));
+    }
 
     /// <summary>2026-09-07, по просьбе пользователя: цена продажи и наценка держатся в
     /// синхроне друг с другом — ввод одного пересчитывает другое от текущей цены закупки.
@@ -842,6 +876,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         {
             _price = value;
             OnPropertyChanged();
+            RaisePriceWarning();
             if (!_suppressPriceSync)
                 RecalculateMarkupFromSale();
         }

@@ -1,0 +1,110 @@
+{
+ "code": "fresh",
+ "name": {
+  "ru": "Свежий рынок",
+  "ky": "Жаңы базар",
+  "en": "Fresh market",
+  "tr": "Taze pazar",
+  "uz": "Yangi bozor"
+ },
+ "description": {
+  "ru": "Зелёный, мягкие углы. Для продуктов, овощей и фруктов.",
+  "ky": "Жашыл, жумшак бурчтар. Азык-түлүк, жашылча-жемиш үчүн.",
+  "en": "Green with soft corners. For groceries, fruit and vegetables.",
+  "tr": "Yeşil, yumuşak köşeler. Gıda, meyve ve sebze için.",
+  "uz": "Yashil, yumshoq burchaklar. Oziq-ovqat, meva va sabzavot uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "fresh_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "fresh_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F3FAF4",
+    "surface": "#FFFFFF",
+    "text": "#14361F",
+    "text_muted": "#4B6B55",
+    "accent": "#15803D",
+    "accent_text": "#FFFFFF",
+    "border": "#D7EEDC",
+    "header_bg": "#FFFFFF",
+    "header_text": "#14361F",
+    "footer_bg": "#14532D",
+    "footer_text": "#ECFDF3",
+    "price": "#166534",
+    "old_price": "#8AA394",
+    "badge_new_bg": "#F59E0B",
+    "badge_new_text": "#1F2937",
+    "badge_sale_bg": "#DC2626",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Nunito",
+    "base_size": 16,
+    "heading_weight": 700
+   },
+   "radius": 20,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "split",
+   "overlay": 0.0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 5,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "compact",
+   "photo_ratio": "1:1",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": true,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

@@ -22,7 +22,9 @@ public sealed record CartItem(
     string? SalePackageId = null,
     /// <summary>2026-10-02: обычная цена товара, если вариант (размер/цвет) продаётся по акционной
     /// цене ниже неё, — для подписи «было … (−N%)» в корзине и строки акции в чеке.</summary>
-    double? PromoBasePrice = null);
+    double? PromoBasePrice = null,
+    /// <summary>2026-10-06 (О-03, магазин одежды): вариант NurCRM (размер/цвет) строки — для кнопки «Размер» в чеке.</summary>
+    string? VariantId = null);
 
 /// <summary>
 /// Этот файл описывает контракт работы с корзиной покупателя:

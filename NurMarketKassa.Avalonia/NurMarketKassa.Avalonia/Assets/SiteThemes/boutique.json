@@ -1,0 +1,110 @@
+{
+ "code": "boutique",
+ "name": {
+  "ru": "Бутик",
+  "ky": "Бутик",
+  "en": "Boutique",
+  "tr": "Butik",
+  "uz": "Butik"
+ },
+ "description": {
+  "ru": "Чёрно-белый, строгий, большие фото. Для одежды, обуви, аксессуаров.",
+  "ky": "Ак-кара, катаал, чоң сүрөттөр. Кийим, бут кийим, аксессуарлар үчүн.",
+  "en": "Black and white, clean, big photos. For clothing, shoes, accessories.",
+  "tr": "Siyah-beyaz, sade, büyük fotoğraflar. Giyim, ayakkabı, aksesuar için.",
+  "uz": "Oq-qora, qat'iy, katta rasmlar. Kiyim, poyabzal, aksessuarlar uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "boutique_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "boutique_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FFFFFF",
+    "surface": "#FFFFFF",
+    "text": "#111111",
+    "text_muted": "#6B6B6B",
+    "accent": "#111111",
+    "accent_text": "#FFFFFF",
+    "border": "#EAEAEA",
+    "header_bg": "#FFFFFF",
+    "header_text": "#111111",
+    "footer_bg": "#F5F5F4",
+    "footer_text": "#111111",
+    "price": "#111111",
+    "old_price": "#9A9A9A",
+    "badge_new_bg": "#111111",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#B91C1C",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Montserrat",
+    "base_size": 15,
+    "heading_weight": 700
+   },
+   "radius": 2,
+   "shadow": "none",
+   "button_style": "outline",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_center",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.1,
+   "align": "center"
+  },
+  "categories": {
+   "style": "list",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 3,
+    "tablet": 2,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "large",
+   "photo_ratio": "3:4",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": false,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

@@ -19,6 +19,11 @@ public interface IPosQuickCheckoutApi
         string idempotencyKey,
         TimeSpan timeout,
         CancellationToken ct = default);
+
+    /// <summary>2026-10-06, ТЗ ч.12, п. 3.6: POST api/main/pos/checkout/batch/ — до 50 продаж одним запросом,
+    /// {"items": [{"idempotency_key", "body"}]} → {"results": [{"idempotency_key", "status", "sale" | "detail"}]}.
+    /// Каждая продажа проводится отдельно (своя транзакция); повтор с тем же ключом — status 200 и прежняя продажа.</summary>
+    Task<JsonElement> PosCheckoutBatchAsync(JsonObject body, TimeSpan timeout, CancellationToken ct = default);
 }
 
 public sealed partial class SalesApiService : IPosQuickCheckoutApi
@@ -42,4 +47,7 @@ public sealed partial class SalesApiService : IPosQuickCheckoutApi
             .ConfigureAwait(false);
         return response;
     }
+
+    public Task<JsonElement> PosCheckoutBatchAsync(JsonObject body, TimeSpan timeout, CancellationToken ct = default) =>
+        _client.RequestAsync(HttpMethod.Post, "api/main/pos/checkout/batch/", body, null, ct, timeout);
 }

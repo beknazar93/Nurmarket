@@ -14,12 +14,18 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// остаток, штрихкод, продаётся ли). На сайте NurCRM такого редактора нет, поэтому он здесь, в
 /// карточке товара склада. Пустая цена = цена товара; цена ниже — касса покажет «Скидка −N%».
 /// «Быстро заполнить»: размеры × цвета → все сочетания. Сохранение — POST/PATCH/DELETE вариантов.
+///
+/// 2026-10-06, исследование «Кассы для одежды» (О-23, О-25), владелец: «делай всё по этапно». «Создать штрихкоды» —
+/// размерам без штрихкода внутренние EAN-13 (на «29», без повторов с товарами и другими размерами); «Этикетки» —
+/// этикетка на каждый размер (название, размер и цвет, цена, штрихкод) по остатку или по одной. Скан такой этикетки
+/// в кассе сразу добавляет этот размер (VariantBarcodeIndex).
 /// </summary>
 public sealed class VariantEditorWindow : Window
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
     private readonly ICatalogApiService _api;
     private readonly string _productId;
+    private readonly string _productTitle;
     private readonly double _basePrice;
     private readonly StackPanel _rows = new() { Spacing = 6 };
     private readonly TextBlock _status = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
@@ -45,6 +51,7 @@ public sealed class VariantEditorWindow : Window
     {
         _api = api;
         _productId = productId;
+        _productTitle = productTitle;
         _basePrice = basePrice;
         Title = Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colors", "Bedenler ve renkler", "O'lchamlar va ranglar") + " — " + productTitle;
         Width = 900;
@@ -78,6 +85,25 @@ public sealed class VariantEditorWindow : Window
         quick.Children.Add(gen);
         top.Children.Add(quick);
 
+        // 2026-10-06, исследование «Кассы для одежды» (О-20): готовые размерные сетки — одной кнопкой в поле размеров.
+        var presets = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+        presets.Children.Add(Soft(Tr.T("Сетки:", "Торчолор:", "Size sets:", "Beden setleri:", "O'lcham to'plamlari:"), center: true));
+        foreach (var (name, sizes) in new[]
+                 {
+                     ("XS–XXL", "XS, S, M, L, XL, XXL"),
+                     (Tr.T("Женская 40–54", "Аялдарга 40–54", "Women 40–54", "Kadın 40–54", "Ayollar 40–54"), "40, 42, 44, 46, 48, 50, 52, 54"),
+                     (Tr.T("Мужская 44–60", "Эркектерге 44–60", "Men 44–60", "Erkek 44–60", "Erkaklar 44–60"), "44, 46, 48, 50, 52, 54, 56, 58, 60"),
+                     (Tr.T("Обувь 35–46", "Бут кийим 35–46", "Shoes 35–46", "Ayakkabı 35–46", "Poyabzal 35–46"), "35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46"),
+                     (Tr.T("Детская по росту", "Балдарга бою боюнча", "Kids by height", "Çocuk boya göre", "Bolalar bo'yi bo'yicha"), "86, 92, 98, 104, 110, 116, 122, 128, 134, 140, 146, 152, 158, 164"),
+                     (Tr.T("Джинсы W26–W36", "Джинсы W26–W36", "Jeans W26–W36", "Kot W26–W36", "Jinsi W26–W36"), "W26, W27, W28, W29, W30, W31, W32, W33, W34, W36"),
+                 })
+        {
+            var b = new Button { Content = name, Margin = new Thickness(6, 0, 0, 4), Padding = new Thickness(10, 4) };
+            b.Click += (_, _) => _quickSizes.Text = sizes;
+            presets.Children.Add(b);
+        }
+        top.Children.Add(presets);
+
         // Заголовки колонок.
         var head = RowGrid();
         AddCell(head, Soft(Tr.T("Размер", "Өлчөм", "Size", "Beden", "O'lcham")), 0);
@@ -89,7 +115,7 @@ public sealed class VariantEditorWindow : Window
         top.Children.Add(head);
         root.Children.Add(top);
 
-        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 10, 0, 0) };
+        var bottom = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 10, 0, 0) };
         DockPanel.SetDock(bottom, Dock.Bottom);
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         bottom.Children.Add(_status);
@@ -97,14 +123,25 @@ public sealed class VariantEditorWindow : Window
         addRow.Click += (_, _) => AddRow(new ProductVariantDto());
         Grid.SetColumn(addRow, 1);
         bottom.Children.Add(addRow);
+        // 2026-10-06 (О-23, О-25): штрихкоды размеров и этикетки.
+        var makeCodes = new Button { Content = Tr.T("Создать штрихкоды", "Штрихкоддорду түзүү", "Create barcodes", "Barkod oluştur", "Shtrix-kodlar yaratish"), Margin = new Thickness(0, 0, 10, 0) };
+        ToolTip.SetTip(makeCodes, Tr.T("Размерам без штрихкода — свои штрихкоды для этикеток", "Штрихкоду жок өлчөмдөргө — этикетка үчүн өз штрихкоддору",
+            "Own barcodes for sizes without one — for labels", "Barkodu olmayan bedenlere etiket için barkod", "Shtrix-kodi yo'q o'lchamlarga — yorliq uchun shtrix-kodlar"));
+        makeCodes.Click += (_, _) => GenerateBarcodes();
+        Grid.SetColumn(makeCodes, 2);
+        bottom.Children.Add(makeCodes);
+        var labels = new Button { Content = Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), Margin = new Thickness(0, 0, 10, 0) };
+        labels.Click += async (_, _) => await PrintLabelsAsync().ConfigureAwait(true);
+        Grid.SetColumn(labels, 3);
+        bottom.Children.Add(labels);
         var close = new Button { Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), Margin = new Thickness(0, 0, 10, 0), Padding = new Thickness(18, 10) };
         close.Click += (_, _) => Close();
-        Grid.SetColumn(close, 2);
+        Grid.SetColumn(close, 4);
         bottom.Children.Add(close);
         _save.Content = Tr.T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash");
         _save.Classes.Add("btn-primary");
         _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        Grid.SetColumn(_save, 3);
+        Grid.SetColumn(_save, 5);
         bottom.Children.Add(_save);
         root.Children.Add(bottom);
 
@@ -255,6 +292,18 @@ public sealed class VariantEditorWindow : Window
             }
 
             PosLogger.Log($"Размеры/цвета товара {_productId}: сохранено {saved}, ошибок {errors.Count}.", "CATALOG");
+            // 2026-10-06 (О-01): свежие размеры — в кеш кассы и справочник штрихкодов (скан этикетки размера).
+            if (saved > 0)
+            {
+                try
+                {
+                    ProductVariantCache.Put(_productId, await _api.GetProductVariantsAsync(_productId).ConfigureAwait(true));
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Размеры товара {_productId} после сохранения не перечитаны: {ex.Message}", "CATALOG");
+                }
+            }
             _status.Text = errors.Count == 0
                 ? Tr.T($"Сохранено изменений: {saved}.", $"Сакталды: {saved}.", $"Saved changes: {saved}.", $"Kaydedilen değişiklik: {saved}.", $"Saqlangan o'zgarishlar: {saved}.")
                 : Tr.T("Не всё сохранилось: ", "Баары сакталган жок: ", "Not everything was saved: ", "Hepsi kaydedilmedi: ", "Hammasi saqlanmadi: ") + string.Join("; ", errors);
@@ -263,6 +312,155 @@ public sealed class VariantEditorWindow : Window
         {
             _save.IsEnabled = true;
         }
+    }
+
+    /// <summary>2026-10-06 (О-23): внутренний EAN-13 на «29» (диапазон 20–29 — для своих штрихкодов магазина) без
+    /// повторов: ни с товарами каталога, ни с известными кассе размерами, ни со строками этого окна. В сфере «Одежда»
+    /// касса не читает такие коды как весовые (Р-08), а знакомый размер находит раньше весового разбора.</summary>
+    private void GenerateBarcodes()
+    {
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var p in CatalogCacheService.Products.ToList())
+            {
+                if (!string.IsNullOrWhiteSpace(p.Barcode))
+                    taken.Add(p.Barcode.Trim());
+                foreach (var a in p.AlternateBarcodeVariants ?? new List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>())
+                    if (!string.IsNullOrWhiteSpace(a.Barcode))
+                        taken.Add(a.Barcode.Trim());
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // каталог обновлялся в этот момент — проверка по справочнику размеров и строкам окна всё равно есть
+        }
+        foreach (var r in _items)
+            if (!string.IsNullOrWhiteSpace(r.Barcode.Text))
+                taken.Add(r.Barcode.Text.Trim());
+
+        var made = 0;
+        foreach (var row in _items)
+        {
+            if (!string.IsNullOrWhiteSpace(row.Barcode.Text) || (string.IsNullOrWhiteSpace(row.Size.Text) && string.IsNullOrWhiteSpace(row.Color.Text)))
+                continue;
+            string code;
+            do
+            {
+                var first12 = "29" + string.Concat(Enumerable.Range(0, 10).Select(_ => System.Security.Cryptography.RandomNumberGenerator.GetInt32(10)));
+                var sum = 0;
+                for (var i = 0; i < 12; i++)
+                    sum += (first12[i] - '0') * (i % 2 == 0 ? 1 : 3);
+                code = first12 + ((10 - sum % 10) % 10).ToString(Inv);
+            }
+            while (taken.Contains(code) || VariantBarcodeIndex.Contains(code));
+            taken.Add(code);
+            row.Barcode.Text = code;
+            made++;
+        }
+        _status.Text = made == 0
+            ? Tr.T("Штрихкоды есть у всех размеров.", "Бардык өлчөмдөрдө штрихкод бар.", "All sizes already have barcodes.", "Tüm bedenlerin barkodu var.", "Barcha o'lchamlarda shtrix-kod bor.")
+            : Tr.T($"Создано штрихкодов: {made}. Нажмите «Сохранить».", $"Түзүлгөн штрихкоддор: {made}. «Сактоо» басыңыз.", $"Barcodes created: {made}. Press Save.",
+                $"Oluşturulan barkod: {made}. Kaydet'e basın.", $"Yaratilgan shtrix-kodlar: {made}. «Saqlash»ni bosing.");
+        PosLogger.Log($"Размеры товара {_productId}: создано штрихкодов {made}.", "CATALOG");
+    }
+
+    /// <summary>2026-10-06 (О-25): этикетки размеров — сначала сохраняет правки (чтобы штрихкоды знали сервер и касса),
+    /// потом спрашивает «по остатку» или «по одной» и печатает на принтер этикеток из настроек.</summary>
+    private async Task PrintLabelsAsync()
+    {
+        await SaveAsync().ConfigureAwait(true);
+        var rows = _items.Where(r => !string.IsNullOrWhiteSpace(r.Barcode.Text)).ToList();
+        if (rows.Count == 0)
+        {
+            _status.Text = Tr.T("Нет штрихкодов — нажмите «Создать штрихкоды» и «Сохранить».", "Штрихкоддор жок — «Штрихкоддорду түзүү» жана «Сактоо» басыңыз.",
+                "No barcodes — press “Create barcodes” and Save.", "Barkod yok — «Barkod oluştur» ve Kaydet'e basın.", "Shtrix-kodlar yo'q — «Shtrix-kodlar yaratish» va «Saqlash»ni bosing.");
+            return;
+        }
+        var printer = UserPreferences.Instance.LabelPrinterDevicePath;
+        if (string.IsNullOrWhiteSpace(printer))
+        {
+            _status.Text = Tr.T("Принтер этикеток не выбран — выберите его один раз в окне «Этикетка» любого товара на складе.",
+                "Этикетка принтери тандалган эмес — аны кампадагы каалаган товардын «Этикетка» терезесинен бир жолу тандаңыз.",
+                "No label printer selected — choose it once in the “Label” window of any product in the warehouse.",
+                "Etiket yazıcısı seçilmedi — depodaki herhangi bir ürünün «Etiket» penceresinden bir kez seçin.",
+                "Yorliq printeri tanlanmagan — uni ombordagi istalgan mahsulotning «Yorliq» oynasida bir marta tanlang.");
+            return;
+        }
+
+        static double Qty(Row r) => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var q) && q > 0 ? Math.Ceiling(q) : 0;
+        var byStock = (int)rows.Sum(Qty);
+        var choice = await AskLabelCountAsync(byStock, rows.Count).ConfigureAwait(true);
+        if (choice is null)
+            return;
+
+        var template = LabelTemplateStore.Load();
+        var printed = 0;
+        var failed = 0;
+        foreach (var row in rows)
+        {
+            var copies = choice == true ? (int)Qty(row) : 1;
+            if (copies <= 0)
+                continue;
+            double price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.Any, Inv, out var p) && p > 0 ? p : _basePrice;
+            var variantText = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            while (copies > 0)
+            {
+                var batch = Math.Min(copies, 99);
+                var request = new LabelPrintRequest(_productTitle, row.Barcode.Text!.Trim(), price.ToString("0.00", Inv) + " сом", batch, printer, template,
+                    StoreName: UserPreferences.Instance.StoreName, VariantText: variantText);
+                var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
+                if (result == LabelPrintResult.Success)
+                    printed += batch;
+                else
+                    failed++;
+                copies -= batch;
+            }
+        }
+        PosLogger.Log($"Размеры товара {_productId}: напечатано этикеток {printed}, сбоев {failed}.", "CATALOG");
+        _status.Text = failed == 0
+            ? Tr.T($"Этикетки отправлены на печать: {printed} шт.", $"Этикеткалар басууга жөнөтүлдү: {printed} даана.", $"Labels sent to the printer: {printed}.",
+                $"Etiketler yazdırmaya gönderildi: {printed}.", $"Yorliqlar chop etishga yuborildi: {printed} dona.")
+            : Tr.T($"Напечатано {printed} шт., не напечаталось строк: {failed} — проверьте принтер этикеток.", $"{printed} даана басылды, басылбаган саптар: {failed} — этикетка принтерин текшериңиз.",
+                $"Printed {printed}, failed rows: {failed} — check the label printer.", $"{printed} yazdırıldı, yazdırılamayan satır: {failed} — etiket yazıcısını kontrol edin.",
+                $"{printed} dona chop etildi, chop etilmagan qatorlar: {failed} — yorliq printerini tekshiring.");
+    }
+
+    /// <summary>true — по остатку каждого размера, false — по одной на размер, null — отмена.</summary>
+    private async Task<bool?> AskLabelCountAsync(int byStock, int perSize)
+    {
+        bool? answer = null;
+        var dlg = new Window
+        {
+            Title = Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), Width = 440, SizeToContent = SizeToContent.Height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false,
+        };
+        Use(dlg, BackgroundProperty, "BrushDialogPanel");
+        var panel = new StackPanel { Margin = new Thickness(22), Spacing = 10 };
+        var head = new TextBlock { Text = Tr.T("Сколько этикеток напечатать?", "Канча этикетка басуу керек?", "How many labels to print?", "Kaç etiket yazdırılsın?", "Nechta yorliq chop etilsin?"), FontSize = 16, FontWeight = FontWeight.Bold };
+        Use(head, TextBlock.ForegroundProperty, "BrushText");
+        panel.Children.Add(head);
+        var stock = new Button
+        {
+            Content = Tr.T($"По остатку — {byStock} шт.", $"Калдык боюнча — {byStock} даана", $"By stock — {byStock}", $"Stoğa göre — {byStock}", $"Qoldiq bo'yicha — {byStock} dona"),
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(12, 10), IsEnabled = byStock > 0,
+        };
+        stock.Classes.Add("btn-primary");
+        stock.Click += (_, _) => { answer = true; dlg.Close(); };
+        var one = new Button
+        {
+            Content = Tr.T($"По одной на размер — {perSize} шт.", $"Ар бир өлчөмгө бирден — {perSize} даана", $"One per size — {perSize}", $"Beden başına bir — {perSize}", $"Har bir o'lchamga bittadan — {perSize} dona"),
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center, Padding = new Thickness(12, 10),
+        };
+        one.Click += (_, _) => { answer = false; dlg.Close(); };
+        var cancel = new Button { Content = Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(16, 8) };
+        cancel.Click += (_, _) => dlg.Close();
+        panel.Children.Add(stock);
+        panel.Children.Add(one);
+        panel.Children.Add(cancel);
+        dlg.Content = panel;
+        await dlg.ShowDialog(this).ConfigureAwait(true);
+        return answer;
     }
 
     private static Grid RowGrid() => new() { ColumnDefinitions = new ColumnDefinitions("100,160,120,90,180,90,44") };

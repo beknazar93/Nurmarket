@@ -1814,6 +1814,48 @@ public sealed class DatabaseService
     /// операцией и помечает всё как отменённое. Идемпотентно: повторный вызов для уже полностью
     /// отменённой продажи ничего не делает (remaining == 0). Возвращает false, если для этой
     /// продажи не было записи (лояльность была выключена, либо продажа без клиента).</summary>
+    /// <summary>2026-10-05: все локальные бонусные балансы — для разовой выгрузки на сервер (ServerLoyalty).</summary>
+    public List<(string ClientId, double Balance)> GetAllClientLoyaltyBalances()
+    {
+        var list = new List<(string, double)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT client_id, balance FROM ClientLoyalty WHERE balance > 0;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                list.Add((reader.GetString(0), reader.GetDouble(1)));
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+        return list;
+    }
+
+    /// <summary>2026-10-05: сколько баллов ещё не отменено по продаже (для отмены на сервере при возврате чека).</summary>
+    public (string ClientId, double Remaining)? GetRemainingClientLoyaltyForSale(string saleId)
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT client_id, delta, reversed_delta FROM ClientLoyaltyTransactions WHERE sale_id = $saleId;";
+            command.Parameters.AddWithValue("$saleId", saleId);
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+                return null;
+            return (reader.GetString(0), reader.GetDouble(1) - reader.GetDouble(2));
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
     public bool ReverseRemainingClientLoyaltyForSale(string saleId)
     {
         _dbLock.EnterWriteLock();

@@ -21,6 +21,13 @@ public sealed class SalarySchemeDialog : Window
     private readonly RadioButton _salaryRadio;
     private readonly RadioButton _percentRadio;
     private readonly RadioButton _bothRadio;
+    // 2026-10-05, владелец: «добавь в зарплату фиксированную стоимость от продаж, например за каждый проданный товар 10 сом»
+    // (сервер добавил по ТЗ ч.13, п. 3: per_item_amount и схемы per_item / salary_plus_per_item / percent_plus_per_item).
+    private readonly RadioButton _perItemRadio;
+    private readonly RadioButton _salaryPerItemRadio;
+    private readonly RadioButton _percentPerItemRadio;
+    private readonly StackPanel _perItemPanel;
+    private readonly TextBox _perItemBox;
     private readonly StackPanel _monthlyPanel;
     private readonly StackPanel _percentPanel;
     private readonly TextBox _monthlyBox;
@@ -59,6 +66,12 @@ public sealed class SalarySchemeDialog : Window
         panel.Children.Add(_salaryRadio);
         panel.Children.Add(_percentRadio);
         panel.Children.Add(_bothRadio);
+        _perItemRadio = SchemeRadio(SalaryWindow.SchemeName("per_item"));
+        _salaryPerItemRadio = SchemeRadio(SalaryWindow.SchemeName("salary_plus_per_item"));
+        _percentPerItemRadio = SchemeRadio(SalaryWindow.SchemeName("percent_plus_per_item"));
+        panel.Children.Add(_perItemRadio);
+        panel.Children.Add(_salaryPerItemRadio);
+        panel.Children.Add(_percentPerItemRadio);
 
         _monthlyBox = new TextBox { Watermark = "0" };
         _monthlyPanel = new StackPanel { Spacing = 4 };
@@ -84,6 +97,24 @@ public sealed class SalarySchemeDialog : Window
             TextWrapping = TextWrapping.Wrap,
         });
         panel.Children.Add(_percentPanel);
+
+        _perItemBox = new TextBox { Watermark = "10" };
+        _perItemPanel = new StackPanel { Spacing = 4 };
+        _perItemPanel.Children.Add(Label(Tr.T("За каждый проданный товар, сом", "Ар бир сатылган товар үчүн, сом", "Per item sold, som", "Satılan her ürün için, som", "Har bir sotilgan mahsulot uchun, so'm")));
+        _perItemPanel.Children.Add(_perItemBox);
+        _perItemPanel.Children.Add(new TextBlock
+        {
+            Text = Tr.T(
+                "Штучный товар — за каждую штуку в чеке, весовой — за строку чека. Возврат уменьшает начисление.",
+                "Даана товар — чектеги ар бир даана үчүн, салмак товар — чектин сабы үчүн. Кайтаруу эсептөөнү азайтат.",
+                "Piece goods — per unit on the receipt, weighed goods — per receipt line. Returns reduce the amount.",
+                "Adetli ürün — fişteki her adet için, tartılı ürün — fiş satırı için. İade tutarı azaltır.",
+                "Donali mahsulot — chekdagi har bir dona uchun, tortiladigan — chek qatori uchun. Qaytarish hisobni kamaytiradi."),
+            FontSize = 11,
+            Foreground = Brushes.Gray,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        panel.Children.Add(_perItemPanel);
 
         _errorText = new TextBlock { Foreground = Brushes.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         panel.Children.Add(_errorText);
@@ -126,14 +157,24 @@ public sealed class SalarySchemeDialog : Window
     private string Scheme =>
         _salaryRadio.IsChecked == true ? "salary"
         : _percentRadio.IsChecked == true ? "percent"
+        : _perItemRadio?.IsChecked == true ? "per_item"
+        : _salaryPerItemRadio?.IsChecked == true ? "salary_plus_per_item"
+        : _percentPerItemRadio?.IsChecked == true ? "percent_plus_per_item"
         : "salary_plus_percent";
+
+    private static bool HasSalary(string scheme) => scheme is "salary" or "salary_plus_percent" or "salary_plus_per_item";
+
+    private static bool HasPercent(string scheme) => scheme is "percent" or "salary_plus_percent" or "percent_plus_per_item";
+
+    private static bool HasPerItem(string scheme) => scheme is "per_item" or "salary_plus_per_item" or "percent_plus_per_item";
 
     private void UpdateFields()
     {
-        if (_monthlyPanel is null || _percentPanel is null)
+        if (_monthlyPanel is null || _percentPanel is null || _perItemPanel is null)
             return;
-        _monthlyPanel.IsVisible = Scheme != "percent";
-        _percentPanel.IsVisible = Scheme != "salary";
+        _monthlyPanel.IsVisible = HasSalary(Scheme);
+        _percentPanel.IsVisible = HasPercent(Scheme);
+        _perItemPanel.IsVisible = HasPerItem(Scheme);
         ShowError(null);
     }
 
@@ -152,11 +193,16 @@ public sealed class SalarySchemeDialog : Window
                 var scheme = SalaryWindow.Str(profile, "pay_scheme");
                 _salaryRadio.IsChecked = scheme == "salary";
                 _percentRadio.IsChecked = scheme == "percent";
-                _bothRadio.IsChecked = scheme is not ("salary" or "percent");
+                _perItemRadio.IsChecked = scheme == "per_item";
+                _salaryPerItemRadio.IsChecked = scheme == "salary_plus_per_item";
+                _percentPerItemRadio.IsChecked = scheme == "percent_plus_per_item";
+                _bothRadio.IsChecked = scheme is not ("salary" or "percent" or "per_item" or "salary_plus_per_item" or "percent_plus_per_item");
                 var monthly = SalaryWindow.Num(profile, "monthly_base_salary");
                 var percent = SalaryWindow.Num(profile, "sales_percent");
+                var perItem = SalaryWindow.Num(profile, "per_item_amount");
                 _monthlyBox.Text = monthly > 0 ? monthly.ToString("0.##", CultureInfo.InvariantCulture) : "";
                 _percentBox.Text = percent > 0 ? percent.ToString("0.##", CultureInfo.InvariantCulture) : "";
+                _perItemBox.Text = perItem > 0 ? perItem.ToString("0.##", CultureInfo.InvariantCulture) : "";
                 _statusText.IsVisible = false;
             }
             else
@@ -179,6 +225,28 @@ public sealed class SalarySchemeDialog : Window
         var scheme = Scheme;
         var monthly = Parse(_monthlyBox.Text);
         var percent = Parse(_percentBox.Text);
+        var perItem = Parse(_perItemBox.Text);
+        if (HasPerItem(scheme) && perItem <= 0)
+        {
+            ShowError(Tr.T("Укажите сумму за каждый проданный товар больше 0.", "Ар бир сатылган товар үчүн 0дөн чоң сумма көрсөтүңүз.",
+                "Enter an amount per item sold greater than 0.", "Satılan her ürün için 0'dan büyük tutar girin.",
+                "Har bir sotilgan mahsulot uchun 0 dan katta summa kiriting."));
+            return;
+        }
+        if (scheme == "salary_plus_per_item" && monthly <= 0)
+        {
+            ShowError(Tr.T("Для схемы «Оклад + за товар» укажите оклад больше 0.", "«Айлык + товар үчүн» схемасы үчүн 0дөн чоң айлык көрсөтүңүз.",
+                "For the “Salary + per item” scheme, enter a salary greater than 0.", "«Maaş + ürün başına» şeması için 0'dan büyük maaş girin.",
+                "«Maosh + mahsulot uchun» sxemasi uchun 0 dan katta maosh kiriting."));
+            return;
+        }
+        if (scheme == "percent_plus_per_item" && percent <= 0)
+        {
+            ShowError(Tr.T("Для схемы «Процент + за товар» укажите процент больше 0.", "«Пайыз + товар үчүн» схемасы үчүн 0дөн чоң пайыз көрсөтүңүз.",
+                "For the “Percentage + per item” scheme, enter a percentage greater than 0.", "«Yüzde + ürün başına» şeması için 0'dan büyük yüzde girin.",
+                "«Foiz + mahsulot uchun» sxemasi uchun 0 dan katta foiz kiriting."));
+            return;
+        }
         // Проверки сайта один в один.
         if (scheme == "salary" && monthly <= 0)
         {
@@ -208,14 +276,15 @@ public sealed class SalarySchemeDialog : Window
             return;
         }
 
-        var monthlyText = scheme == "percent" ? "0" : monthly.ToString("0.##", CultureInfo.InvariantCulture);
-        var percentText = scheme == "salary" ? "0" : percent.ToString("0.##", CultureInfo.InvariantCulture);
+        var monthlyText = !HasSalary(scheme) ? "0" : monthly.ToString("0.##", CultureInfo.InvariantCulture);
+        var percentText = !HasPercent(scheme) ? "0" : percent.ToString("0.##", CultureInfo.InvariantCulture);
+        var perItemText = !HasPerItem(scheme) ? "0" : perItem.ToString("0.##", CultureInfo.InvariantCulture);
         _saveButton.IsEnabled = false;
         ShowError(null);
         try
         {
-            await App.SalesApi.SavePayProfileAsync(_profileId, _userId, scheme, monthlyText, percentText);
-            PosLogger.Log($"Pay profile saved: user={_userId}, scheme={scheme}, base={monthlyText}, pct={percentText}", "INFO");
+            await App.SalesApi.SavePayProfileAsync(_profileId, _userId, scheme, monthlyText, percentText, perItemText);
+            PosLogger.Log($"Pay profile saved: user={_userId}, scheme={scheme}, base={monthlyText}, pct={percentText}, per_item={perItemText}", "INFO");
             Close(true);
         }
         catch (Exception ex)

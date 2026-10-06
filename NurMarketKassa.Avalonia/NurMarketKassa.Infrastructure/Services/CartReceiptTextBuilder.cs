@@ -88,6 +88,29 @@ public static class CartReceiptTextBuilder
             }
             Blank();
 
+            // ─── 2026-10-06, владелец: прокат и долг — крупной надписью и с условиями ───────
+            // «в чек при аренде/прокате — с надписью ПРОКАТ: сумма за день, итог, дата от и до, штраф за просрочку;
+            // и в долге тоже». Условия проката — RentalReceiptInfoStore, срок долга — снимок (debt_due_date).
+            var when = receiptTime ?? DateTime.Now;
+            var rentals = CartDisplayHelper.EnumerateItems(root)
+                .Select(it => (Info: RentalReceiptInfoStore.FromLineName(CartDisplayHelper.ItemName(it), when), Total: LineTotalDouble(it)))
+                .Where(x => x.Info != null)
+                // Условий на этой кассе нет (прокат оформлен на другой) — итог из строки чека, цена за сутки — итог / сутки.
+                .Select(x => x.Info!.Total > 0.004 || x.Total <= 0.004
+                    ? x.Info!
+                    : x.Info! with { Total = x.Total, PricePerDay = x.Info!.Days > 0 ? Math.Round(x.Total / x.Info!.Days, 2) : 0 })
+                .GroupBy(x => x.Number)
+                .Select(g => g.First())
+                .ToList();
+            foreach (var rental in rentals)
+                AppendRentalBlock(sb, rental);
+            var isDebtSale = (paymentMethodKey ?? "").Trim().StartsWith("debt", StringComparison.OrdinalIgnoreCase);
+            if (isDebtSale)
+            {
+                Line(ReceiptLineLayout.Center("*** ПРОДАЖА В ДОЛГ ***", W));
+                Blank();
+            }
+
             // ─── Items ────────────────────────────────────────────────
             if (prefs.ShowItems)
             {
@@ -164,10 +187,42 @@ public static class CartReceiptTextBuilder
                 AppendStackedAmountLine(sb, "НАЛИЧНЫМИ:", FormatMoney(cash.Value));
                 AppendStackedAmountLine(sb, "БЕЗНАЛИЧНЫМИ:", FormatMoney(Math.Max(0, totals.TotalDue - cash.Value)));
             }
-            else if (pm is "debt" && cash.HasValue)
+            else if (pm is "debt")
             {
-                AppendStackedAmountLine(sb, cash.Value > 0.005 && debtPrepaymentLabel != null ? debtPrepaymentLabel : "ВНЕСЕНО:", FormatMoney(cash.Value));
-                AppendStackedAmountLine(sb, "В ДОЛГ:", FormatMoney(Math.Max(0, totals.TotalDue - cash.Value)));
+                if (cash.HasValue)
+                    AppendStackedAmountLine(sb, cash.Value > 0.005 && debtPrepaymentLabel != null ? debtPrepaymentLabel : "ВНЕСЕНО:", FormatMoney(cash.Value));
+                AppendStackedAmountLine(sb, "В ДОЛГ:", FormatMoney(Math.Max(0, totals.TotalDue - (cash ?? 0))));
+                // 2026-10-06: дата долга, срок возврата (названный клиентом) и штраф за просрочку.
+                Line($"Дата долга: {when:dd.MM.yyyy}");
+                var schedule = root.TryGetProperty("debt_schedule", out var ds) && ds.ValueKind == JsonValueKind.Object
+                               && ds.TryGetProperty("payments", out var dp) && dp.ValueKind == JsonValueKind.Array ? dp : default;
+                if (schedule.ValueKind == JsonValueKind.Array && schedule.GetArrayLength() > 1)
+                {
+                    // Рассрочка: каждый платёж — дата и сумма.
+                    var months = ds.TryGetProperty("unit", out var unit) && unit.GetString() == "month";
+                    var interval = ds.TryGetProperty("interval", out var iv) && iv.TryGetInt32(out var ivn) ? ivn : 1;
+                    var every = months
+                        ? interval == 1 ? "каждый месяц" : $"каждые {interval} мес."
+                        : interval switch { 1 => "каждый день", 2 => "через день", 7 => "раз в неделю", _ => $"каждые {interval} дн." };
+                    var count = schedule.GetArrayLength();
+                    var word = count % 10 == 1 && count % 100 != 11 ? "платёж"
+                        : count % 10 is >= 2 and <= 4 && count % 100 is < 12 or > 14 ? "платежа" : "платежей";
+                    foreach (var part in WrapText($"Рассрочка: {count} {word}, {every}", W))
+                        Line(part);
+                    foreach (var pay in schedule.EnumerateArray())
+                    {
+                        var no = pay.TryGetProperty("number", out var nEl) ? nEl.ToString() : "";
+                        var date = pay.TryGetProperty("due_date", out var dEl) && DateTime.TryParseExact(dEl.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dd)
+                            ? dd.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "";
+                        var amount = pay.TryGetProperty("amount", out var aEl) && double.TryParse(aEl.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var av) ? av : 0;
+                        AppendStackedAmountLine(sb, $"{no}) {date}", FormatMoney(amount));
+                    }
+                }
+                else if (TryDebtDueDate(root) is { } dueDate)
+                    Line($"Вернуть до: {dueDate:dd.MM.yyyy} ({Math.Max(0, (dueDate.Date - when.Date).Days)} дн.)");
+                if (UserPreferences.Instance.DebtLatePenaltyText is { Length: > 0 } debtPenalty)
+                    foreach (var part in WrapText("Штраф за просрочку: " + debtPenalty.Trim(), W))
+                        Line(part);
             }
             else if (pm.Length > 0 && cash.HasValue)
             {
@@ -291,6 +346,42 @@ public static class CartReceiptTextBuilder
         if (text.Length > 0)
             yield return text;
     }
+
+    /// <summary>Блок «ПРОКАТ» в начале чека: номер, даты с/по, цена за сутки, итог, залог, штраф за просрочку.</summary>
+    private static void AppendRentalBlock(StringBuilder sb, RentalReceiptInfo rental)
+    {
+        void Line(string s = "") { sb.Append(s); sb.Append('\n'); }
+        Line(ReceiptLineLayout.Center("*** ПРОКАТ ***", W));
+        Line($"Прокат №{rental.Number}");
+        if (rental.To != default)
+        {
+            Line($"С:  {rental.From:dd.MM.yyyy}");
+            Line($"По: {rental.To:dd.MM.yyyy}" + (rental.Days > 0 ? $" ({rental.Days} сут.)" : ""));
+        }
+        if (rental.PricePerDay > 0.004)
+            AppendStackedAmountLine(sb, "Цена за сутки:", FormatMoney(rental.PricePerDay));
+        if (rental.Total > 0.004)
+            AppendStackedAmountLine(sb, "За прокат:", FormatMoney(rental.Total));
+        if (rental.DepositAmount > 0.004)
+            AppendStackedAmountLine(sb, "Залог:", FormatMoney(rental.DepositAmount));
+        else if (!string.IsNullOrWhiteSpace(rental.DepositDocument))
+            foreach (var part in WrapText("Залог: документ (" + rental.DepositDocument.Trim() + ")", W))
+                Line(part);
+        if (rental.LatePenaltyPerDay > 0.004)
+            foreach (var part in WrapText($"Штраф за просрочку: {FormatMoney(rental.LatePenaltyPerDay)} сом за каждые сутки", W))
+                Line(part);
+        if (rental.To != default)
+            Line($"Вернуть вещь до {rental.To:dd.MM.yyyy}");
+        Line(new string('-', W));
+        Line();
+    }
+
+    /// <summary>Срок возврата долга из снимка чека (PosCheckoutService кладёт debt_due_date).</summary>
+    private static DateTime? TryDebtDueDate(JsonElement root) =>
+        root.ValueKind == JsonValueKind.Object && root.TryGetProperty("debt_due_date", out var v) && v.ValueKind == JsonValueKind.String
+        && DateTime.TryParseExact(v.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d
+            : null;
 
     private static void AppendStackedAmountLine(StringBuilder sb, string label, string amount)
     {

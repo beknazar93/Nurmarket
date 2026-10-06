@@ -265,6 +265,20 @@ public sealed class StockTransferService
         return list;
     }
 
+    /// <summary>2026-10-06: примечание документа — сюда пишется номер и id перемещения на сервере NurCRM
+    /// (перемещение между главным складом и филиалами, см. StockTransferDialog.Branches).</summary>
+    public void SetNote(string transferId, string? note)
+    {
+        DatabaseService.Instance.WithConnection(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE StockTransfers SET note = $note WHERE id = $id;";
+            command.Parameters.AddWithValue("$note", (object?)note ?? DBNull.Value);
+            command.Parameters.AddWithValue("$id", transferId);
+            command.ExecuteNonQuery();
+        });
+    }
+
     // ------------------------------------------------------------------ статусы и хронология
 
     public void ChangeStatus(string transferId, string status, string? employee, string? note)

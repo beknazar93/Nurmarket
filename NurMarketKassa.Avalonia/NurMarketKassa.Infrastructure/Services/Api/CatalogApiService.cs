@@ -16,6 +16,50 @@ public sealed class CatalogApiService : ICatalogApiService
 
     public CatalogApiService(NurMarketApiClient client) => _client = client;
 
+    /// <summary>2026-10-06, владелец: «касса не видит товары на складе — при сканере, даже если товар есть на складе, говорит
+    /// нет». После перемещения в филиал сервер создаёт в филиале копию товара с тем же штрихкодом, и список товаров отдаёт
+    /// и её (проверено: 147 товаров вместо 144 основного склада). Касса основного склада показывала копии «нет в наличии»
+    /// рядом с настоящими товарами («Батончик Mars» 48 шт. и он же 0 шт.).
+    /// Сначала было ?branch=main для всего каталога — но владелец: «главное не трогай продуктовый, чтобы у клиентов потом
+    /// проблем не было», а у компании, где товары заведены в филиале, такой запрос дал бы пустой каталог. Теперь точечно:
+    /// убираются только копии филиалов, у которых тот же штрихкод есть на основном складе (их перечисляет
+    /// products/barcode-duplicates/ с полем branch), — только у пользователя основного склада и не в сфере «Продукты».</summary>
+    private async Task<List<JsonElement>> ExcludeBranchCopiesAsync(List<JsonElement> products, CancellationToken ct)
+    {
+        if ((!MarketSpheres.IsClothing && !MarketSpheres.IsServices) || !string.IsNullOrEmpty(_client.ActiveBranchId) || products.Count == 0)
+            return products;
+        try
+        {
+            var data = await _client.RequestAsync(HttpMethod.Get, "api/main/products/barcode-duplicates/", null, null, ct, TimeSpan.FromSeconds(20))
+                .ConfigureAwait(false);
+            var copies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (data.ValueKind == JsonValueKind.Array)
+                foreach (var group in data.EnumerateArray())
+                {
+                    if (!group.TryGetProperty("products", out var ps) || ps.ValueKind != JsonValueKind.Array)
+                        continue;
+                    var items = ps.EnumerateArray().Select(p => (
+                        Id: p.TryGetProperty("id", out var id) ? id.ToString() : "",
+                        Branch: p.TryGetProperty("branch", out var b) && b.ValueKind == JsonValueKind.String ? b.GetString() ?? "" : "")).ToList();
+                    if (!items.Any(i => i.Branch.Length == 0))
+                        continue;
+                    foreach (var i in items.Where(i => i.Branch.Length > 0 && i.Id.Length > 0))
+                        copies.Add(i.Id);
+                }
+            if (copies.Count == 0)
+                return products;
+            var kept = products.Where(p => !copies.Contains(TryProductIdString(p) ?? "")).ToList();
+            if (kept.Count != products.Count)
+                PosLogger.Log($"CATALOG: копий товаров филиалов убрано из каталога основного склада: {products.Count - kept.Count}.", "CATALOG");
+            return kept;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"CATALOG: список копий филиалов не получен ({ex.Message}) — каталог как есть.", "CATALOG");
+            return products;
+        }
+    }
+
     /// <summary>2026-10-04, отчёт о производительности (п. 5): адреса, которые всегда отвечают 404/405
     /// (catalog-meta, meta, catalog/version, products/version, products/agent-stock, agents/products —
     /// проверено на NBS), запоминаются как «нет» до перезапуска программы. Раньше каждая синхронизация
@@ -268,7 +312,7 @@ public sealed class CatalogApiService : ICatalogApiService
                 // результат ошибочно считался поводом пробовать запасной путь — а тот у
                 // части аккаунтов не существует (404), и этот чужой 404 в итоге выдавался
                 // наружу как "не удалось загрузить каталог" вместо честного "каталог пуст".
-                return outList;
+                return await ExcludeBranchCopiesAsync(outList, ct).ConfigureAwait(false);
             }
             catch (ApiException e)
             {

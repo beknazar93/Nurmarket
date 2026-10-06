@@ -999,7 +999,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // сброса чека; «чек не напечатан» кассир увидит по результату печати (ReceiptPrintTask).
         var printTask = request.PrintReceipt
             ? PrintReceiptInBackground(
-                WithConsultantForReceipt(cartJsonSnapshot, request),
+                WithDebtDueForReceipt(WithConsultantForReceipt(cartJsonSnapshot, request), request),
                 ReceiptPaymentMethodKey(request),
                 request.CashReceived,
                 offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)")
@@ -1192,6 +1192,13 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             cartJsonSnapshot = enrichedCart.ToJsonString();
         }
         cartJsonSnapshot = WithConsultantForReceipt(cartJsonSnapshot, request);
+        cartJsonSnapshot = WithDebtDueForReceipt(cartJsonSnapshot, request);
+
+        // 2026-10-06: срок долга, названный клиентом, или рассрочка — на сервер (сервер при продаже ставит 1 платёж через 30 дней).
+        if (request.DebtSchedule is { } debtPlan
+            && string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(request.ClientId) && !string.IsNullOrWhiteSpace(saleId))
+            _ = Task.Run(() => DebtDueDateSync.ApplyAsync(request.ClientId!, saleId!, debtPlan));
 
         var cartSnapshot = _cart.Root.Clone();
         try
@@ -1549,6 +1556,31 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             return cartJson;
         var cart = CartJsonHelper.ParseObjectOrEmpty(cartJson);
         cart["consultant_display"] = request.ConsultantName.Trim();
+        return cart.ToJsonString();
+    }
+
+    /// <summary>2026-10-06: график долга — в снимок для чека (CartReceiptTextBuilder печатает срок или платежи рассрочки).</summary>
+    private static string WithDebtDueForReceipt(string cartJson, PosCheckoutRequest request)
+    {
+        if (request.DebtSchedule is not { } plan || !string.Equals(request.PaymentMethod, "debt", StringComparison.OrdinalIgnoreCase))
+            return cartJson;
+        var cart = CartJsonHelper.ParseObjectOrEmpty(cartJson);
+        cart["debt_due_date"] = plan.LastDueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var payments = new System.Text.Json.Nodes.JsonArray();
+        foreach (var p in plan.Payments)
+            payments.Add(new System.Text.Json.Nodes.JsonObject
+            {
+                ["number"] = p.Number,
+                ["due_date"] = p.DueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["amount"] = p.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            });
+        cart["debt_schedule"] = new System.Text.Json.Nodes.JsonObject
+        {
+            ["unit"] = plan.Unit,
+            ["count"] = plan.Count,
+            ["interval"] = plan.Interval,
+            ["payments"] = payments,
+        };
         return cart.ToJsonString();
     }
 

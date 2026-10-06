@@ -604,6 +604,16 @@
                                                         CommandParameter="{Binding}">
                                                     <TextBlock Text="{Binding WholesaleButtonText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </Button>
+                                                <!-- 2026-10-06 (О-03, магазин одежды): «Размер» — сменить размер/цвет строки. Видна у строк с вариантом. -->
+                                                <Button Classes="cart-qty"
+                                                        Focusable="False"
+                                                        IsVisible="{Binding CanChangeVariant}"
+                                                        Width="NaN" MinWidth="44" Padding="10,0"
+                                                        ToolTip.Tip="{Binding ChangeVariantTooltip}"
+                                                        Command="{Binding ChangeVariantCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="{Binding ChangeVariantText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </Button>
                                                 <Button Classes="cart-qty"
                                                         Focusable="False"
                                                         ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}"

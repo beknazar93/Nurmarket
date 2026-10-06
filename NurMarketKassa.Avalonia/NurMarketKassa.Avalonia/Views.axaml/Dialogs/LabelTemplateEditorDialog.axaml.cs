@@ -43,6 +43,7 @@ public partial class LabelTemplateEditorDialog : Window
         LabelElementKind.Sku => Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul"),
         LabelElementKind.Unit => Tr.T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov birligi"),
         LabelElementKind.StoreName => Tr.T("Магазин", "Дүкөн", "Store", "Mağaza", "Do'kon"),
+        LabelElementKind.Variant => Tr.T("Размер и цвет", "Өлчөм жана түс", "Size and colour", "Beden ve renk", "O'lcham va rang"),
         _ => "",
     };
 
@@ -50,7 +51,12 @@ public partial class LabelTemplateEditorDialog : Window
 
     /// <summary>Какой из 6 элементов этикетки сейчас выбран в левой панели инструментов —
     /// определяет, что показывает панель свойств справа (2026-09-06, редизайн по макету).</summary>
-    private enum LabelElementKind { Barcode, ProductName, Price, Sku, Unit, StoreName }
+    // 2026-10-06 (О-25, магазин одежды): + «Размер и цвет».
+    private enum LabelElementKind { Barcode, ProductName, Price, Sku, Unit, StoreName, Variant }
+
+    /// <summary>2026-10-06 (О-25): образец размера и цвета для предпросмотра — только когда строка включена
+    /// (выключенная строка дописывается к названию, а у продуктового магазина размеров нет).</summary>
+    private string? SampleVariantText => _template.Variant is { Enabled: true } ? "44, " + Tr.T("Красный", "Кызыл", "Red", "Kırmızı", "Qizil") : null;
 
     private readonly LabelTemplate _template;
     private readonly string _sampleProductName;
@@ -212,10 +218,15 @@ public partial class LabelTemplateEditorDialog : Window
                 Tr.T("Магазин", "Дүкөн", "Store", "Mağaza", "Do'kon")),
             (LabelElementKind.Sku, "\U0001F522",
                 Tr.T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul")),
+            (LabelElementKind.Variant, "\U0001F455",
+                Tr.T("Размер и цвет", "Өлчөм жана түс", "Size and colour", "Beden ve renk", "O'lcham va rang")),
         };
 
         foreach (var (kind, icon, label) in tools)
         {
+            // 2026-10-06: «Размер и цвет» — для одежды; в «Продуктах» инструмента нет (владелец: «не трогай продуктовый»).
+            if (kind == LabelElementKind.Variant && !MarketSpheres.IsClothing && !_template.Variant.Enabled)
+                continue;
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             content.Children.Add(new TextBlock { Text = icon, FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
             content.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
@@ -260,6 +271,8 @@ public partial class LabelTemplateEditorDialog : Window
             AddElementBox(LabelElementKind.Unit, _template.Unit, ElementLabel(LabelElementKind.Unit), "#DDD6FE");
         if (_template.StoreName.Enabled)
             AddElementBox(LabelElementKind.StoreName, _template.StoreName, ElementLabel(LabelElementKind.StoreName), "#FED7AA");
+        if (_template.Variant.Enabled)
+            AddElementBox(LabelElementKind.Variant, _template.Variant, ElementLabel(LabelElementKind.Variant), "#FECACA");
 
         foreach (var (kind2, box) in _canvasBoxes)
         {
@@ -403,6 +416,7 @@ public partial class LabelTemplateEditorDialog : Window
         ClampLayout(_template.Sku);
         ClampLayout(_template.Unit);
         ClampLayout(_template.StoreName);
+        ClampLayout(_template.Variant);
 
         if (SizePresetCombo.SelectedItem is not string current || current != FindMatchingPresetLabel())
             SizePresetCombo.SelectedItem = FindMatchingPresetLabel();
@@ -450,6 +464,10 @@ public partial class LabelTemplateEditorDialog : Window
             case LabelElementKind.StoreName:
                 AddVisibilityCheckbox(_template.StoreName);
                 AddFontControls(_template.StoreName);
+                break;
+            case LabelElementKind.Variant:
+                AddVisibilityCheckbox(_template.Variant);
+                AddFontControls(_template.Variant);
                 break;
         }
     }
@@ -620,7 +638,7 @@ public partial class LabelTemplateEditorDialog : Window
         {
             using var bmp = BarcodeLabelService.GenerateLabelBitmap(
                 _sampleProductName, _sampleBarcode, _samplePriceText, _template,
-                sku: "SKU-001", unit: "шт", storeName: UserPreferences.Instance.StoreName);
+                sku: "SKU-001", unit: "шт", storeName: UserPreferences.Instance.StoreName, variantText: SampleVariantText);
             using var ms = new MemoryStream();
             bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
             ms.Position = 0;
@@ -666,7 +684,7 @@ public partial class LabelTemplateEditorDialog : Window
             var request = new LabelPrintRequest(
                 _sampleProductName, _sampleBarcode, _samplePriceText, Copies: 1,
                 PrinterName: printerPath, Template: _template,
-                Sku: "SKU-001", Unit: "шт", StoreName: UserPreferences.Instance.StoreName);
+                Sku: "SKU-001", Unit: "шт", StoreName: UserPreferences.Instance.StoreName, VariantText: SampleVariantText);
 
             var result = await System.Threading.Tasks.Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
             StatusText.Text = result switch
@@ -703,6 +721,7 @@ public partial class LabelTemplateEditorDialog : Window
         CopyLayout(defaults.Sku, _template.Sku);
         CopyLayout(defaults.Unit, _template.Unit);
         CopyLayout(defaults.StoreName, _template.StoreName);
+        CopyLayout(defaults.Variant, _template.Variant);
 
         LabelWidthBox.Value = (decimal)_template.WidthMm;
         LabelHeightBox.Value = (decimal)_template.HeightMm;

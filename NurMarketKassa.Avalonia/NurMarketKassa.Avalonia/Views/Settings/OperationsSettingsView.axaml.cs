@@ -182,6 +182,8 @@ public partial class OperationsSettingsView : UserControl
                 "Her zamanki mağaza kasası.",
                 "Oddiy do'kon kassasi, avvalgidek."),
         };
+        // 2026-10-06 (О-31, О-32): правила обмена — только у одежды.
+        RefreshExchangeRulesCard();
     }
 
     private void Sphere_Click(object? sender, RoutedEventArgs e)

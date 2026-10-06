@@ -154,6 +154,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         IncreaseQuantityCommand = new RelayCommand<CartLineItemVm>(IncreaseQuantity, CanChangeLineQuantity);
         DecreaseQuantityCommand = new RelayCommand<CartLineItemVm>(DecreaseQuantity, CanDecreaseLineQuantity);
         SetQuantityCommand = new RelayCommand<CartLineItemVm>(SetLineQuantity, CanChangeLineQuantity);
+        // 2026-10-06 (О-03): «Размер» на строке — окно выбора размера показывает главное окно (ChangeVariantLine).
+        ChangeVariantLineCommand = new AsyncRelayCommand<CartLineItemVm>(
+            line => line != null && ChangeVariantLine != null ? ChangeVariantLine(line) : Task.CompletedTask,
+            line => line != null && !string.IsNullOrWhiteSpace(line.VariantId) && !IsBusy);
         WeighLineCommand = new RelayCommand<CartLineItemVm>(WeighLine, line =>
             line is { IsWeight: true } && !string.IsNullOrEmpty(line.ItemId) && _reweighCartLine != null);
         LineDiscountCommand = new AsyncRelayCommand<CartLineItemVm>(ApplyLineDiscountAsync, line =>
@@ -400,6 +404,36 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     public ICommand DecreaseQuantityCommand { get; }
     public ICommand SetQuantityCommand { get; }
     public ICommand WeighLineCommand { get; }
+
+    /// <summary>2026-10-06 (О-03): «Размер» на строке чека.</summary>
+    public ICommand ChangeVariantLineCommand { get; }
+
+    /// <summary>Окно выбора другого размера/цвета для строки — ставит главное окно кассы.</summary>
+    public Func<CartLineItemVm, Task>? ChangeVariantLine { get; set; }
+
+    /// <summary>2026-10-06 (О-03): строка чека меняется на другой размер/цвет того же товара с тем же количеством.
+    /// Скидка строки не переносится — цена у другого варианта может быть своя.</summary>
+    public void ReplaceLineVariant(CartLineItemVm line, CatalogProductTileVm product, double unitPrice, string variantId, string label, string? size, string? color)
+    {
+        if (line is null || product is null || string.IsNullOrWhiteSpace(line.ItemId) || string.IsNullOrWhiteSpace(variantId))
+            return;
+        try
+        {
+            EnsureCartInitialized();
+            var qty = line.Quantity > 0 ? line.Quantity : 1;
+            _cart.RemoveItem(line.ItemId);
+            _cart.AddVariantItem(product, qty, unitPrice, variantId, label, size, color);
+            SyncLinesFromCart();
+            UpdateCartTotals();
+            CartMessage = Tr.T("Размер заменён.", "Өлчөм алмаштырылды.", "Size changed.", "Beden değiştirildi.", "O'lcham almashtirildi.");
+            PosLogger.Log($"CART: строка {line.ItemId} ({line.Title}) заменена на вариант {variantId} ({label}).", "CART");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CART change variant failed: {ex}", "CART");
+            _prompts.ShowError(Tr.T("Не удалось сменить размер.", "Өлчөмдү алмаштыруу мүмкүн болгон жок.", "Could not change the size.", "Beden değiştirilemedi.", "O'lchamni almashtirib bo'lmadi."));
+        }
+    }
     public ICommand LineDiscountCommand { get; }
     public ICommand WholesaleLineCommand { get; }
     public ICommand WholesaleAllCommand { get; }
@@ -975,12 +1009,28 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
 
     public void ClearAfterShiftClose()
     {
+        // 2026-10-06, стресс-тест перед 1.17.54: «Отложить чек» с 27.09 оставляет чек вкладкой «Отложен ЧЧ:ММ», а закрытие
+        // смены стирало все вкладки — отложенный чек пропадал молча (предупреждение спрашивает только про текущий чек).
+        // Теперь стирается только текущий чек; другие вкладки с товарами остаются, как раньше оставался список «Отложенные».
+        var kept = _sessions
+            .Where(s => s.Id != _activeSessionId && GetSessionSummary(s.CartJson).Lines > 0)
+            .ToList();
         _cart.Clear();
         _sessions.Clear();
         EnsurePrimarySession();
+        if (kept.Count > 0)
+        {
+            _sessions.AddRange(kept);
+            RenameReceiptSessions();
+            PosLogger.Log($"SHIFT: после закрытия смены сохранены вкладки с товарами: {kept.Count}.", "SHIFT");
+        }
         SyncLinesFromCart();
         UpdateCartTotals();
-        CartMessage = "";
+        CartMessage = kept.Count > 0
+            ? Tr.T($"Отложенные чеки сохранены: {kept.Count}.", $"Калтырылган чектер сакталды: {kept.Count}.", $"Held receipts kept: {kept.Count}.",
+                $"Bekleyen fişler korundu: {kept.Count}.", $"Kutishdagi cheklar saqlandi: {kept.Count}.")
+            : "";
+        RebuildReceiptTabs();
         PushCustomerDisplay();
         RaiseCartCommands();
     }
@@ -1186,9 +1236,29 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 return;
             }
 
+            // 2026-10-06, исследование «Кассы для одежды» (О-01): штрихкод размера (этикетка «Платье — 44, Красный»)
+            // — сразу этот размер, без окна выбора. Справочник ведёт касса (VariantBarcodeIndex): сервер такой
+            // штрихкод пока не находит. Проверяется до весового кода: внутренние штрихкоды размеров тоже бывают на «2».
+            if (MarketSpheres.IsClothing && VariantBarcodeIndex.Find(barcode) is { } variantHit)
+            {
+                var variantProduct = CatalogCacheService.Products.FirstOrDefault(p =>
+                    string.Equals(p.Id, variantHit.ProductId, StringComparison.OrdinalIgnoreCase));
+                if (variantProduct != null)
+                {
+                    PosLogger.Log($"[DEBUG] Barcode is a size/color label: product {variantHit.ProductId}, variant {variantHit.Variant.Id}.", "CART");
+                    _scannedVariant = (variantHit.ProductId, variantHit.Variant);
+                    await AddFoundCatalogProductAsync(variantProduct).ConfigureAwait(true);
+                    _scannedVariant = null;
+                    return;
+                }
+            }
+
             // Штрих-код весов (Штрих-М и совместимые) несёт вес прямо в самом коде — обычным
             // поиском по штрих-коду товар так не найти, код на каждое взвешивание уникален.
-            if (WeightBarcodeParser.TryParse(barcode, out var weighted))
+            // 2026-10-06 (Р-08, магазин одежды): в сфере «Одежда» весовых этикеток обычно нет, а внутренние
+            // штрихкоды одежды начинаются на «2» — незнакомый код на «2» открывал «сумма или вес?». Там весовой
+            // код разбираем, только если кассир явно настроил этот префикс (Настройки → Весы → «Штрих-код»).
+            if (WeightBarcodeAllowedHere(barcode) && WeightBarcodeParser.TryParse(barcode, out var weighted))
             {
                 PosLogger.Log(
                     $"[DEBUG] Barcode parsed as weight/amount code: productCode={weighted.ProductCode}, kind={weighted.Kind}",
@@ -1243,6 +1313,34 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
         {
             await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>2026-10-06 (О-01): отсканирован штрихкод размера — вариант уже известен; окно добавления товара
+    /// берёт его через <see cref="TakeScannedVariant"/> и не открывает выбор размера.</summary>
+    private (string ProductId, ProductVariantDto Variant)? _scannedVariant;
+
+    /// <summary>Вариант из скана штрихкода размера для этого товара (один раз); null — скана размера не было.</summary>
+    public ProductVariantDto? TakeScannedVariant(string productId)
+    {
+        if (_scannedVariant is not { } scanned || !string.Equals(scanned.ProductId, productId, StringComparison.OrdinalIgnoreCase))
+            return null;
+        _scannedVariant = null;
+        return scanned.Variant;
+    }
+
+    /// <summary>2026-10-06 (Р-08): в сфере «Одежда» весовой код — только с явно настроенным префиксом.</summary>
+    private static bool WeightBarcodeAllowedHere(string barcode)
+    {
+        if (!MarketSpheres.IsClothing)
+            return true;
+        var code = barcode.Trim();
+        if (code.Length < 2)
+            return false;
+        var prefix = code[..2];
+        var allowed = WeightBarcodeParser.AmountPrefixes.Contains(prefix) || WeightBarcodeParser.WeightPrefixes.Contains(prefix);
+        if (!allowed)
+            PosLogger.Log($"[DEBUG] Clothing mode: prefix {prefix} is not set up as a scale label — not parsed as weight.", "CART");
+        return allowed;
     }
 
     /// <summary>«Дополнительные штрихкоды» (2026-09-21): если отсканированный код — это доп.
@@ -1506,6 +1604,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                 // 2026-09-28, продажа №1136: сумма, которую кассир видел и взял, — с ней сервис
                 // оплаты сверяет итог запроса/серверной корзины перед отправкой.
                 ExpectedTotal = checkoutVm.EffectiveTotalDue,
+                DebtSchedule = checkoutVm.DebtScheduleForApi,
             }).ConfigureAwait(false);
 
             if (!result.IsSuccess)
@@ -1890,6 +1989,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             var saleId = result.CheckoutResponse is { } response
                 ? CheckoutResponseHelper.TrySaleId(response)
                 : null;
+            // 2026-10-05, запрос NurCRM: бонусы на сервере — списание и начисление отдельными операциями с номером чека
+            // (сначала списание, чтобы хватило баланса). Без связи — очередь ServerLoyalty.
+            var redeemed = checkoutVm.PointsRedeemed;
+            var earned = checkoutVm.EarnedPointsPreview;
+            _ = Task.Run(async () =>
+            {
+                if (redeemed >= 0.005)
+                    await ServerLoyalty.PostAsync(clientId, -redeemed, "redeem", saleId, null).ConfigureAwait(false);
+                if (earned >= 0.005)
+                    await ServerLoyalty.PostAsync(clientId, earned, "earn", saleId, null).ConfigureAwait(false);
+            });
+
             if (!string.IsNullOrEmpty(saleId))
             {
                 ClientLoyaltyStore.RecordTransaction(saleId, clientId, delta);
@@ -2797,6 +2908,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
                     IncreaseCommand = IncreaseQuantityCommand,
                     DecreaseCommand = DecreaseQuantityCommand,
                     WeighCommand = WeighLineCommand,
+                    VariantId = item.VariantId,
+                    ChangeVariantCommand = ChangeVariantLineCommand,
                     DiscountCommand = LineDiscountCommand,
                     SetQuantityCommand = SetQuantityCommand,
                 });

@@ -1703,6 +1703,8 @@ public partial class MainWindow : Window
         }
         // 2026-10-01: один раз предложить перенести бота на сервер NurCRM (работает круглые сутки).
         ServerBotOffer.Schedule(this);
+        // 2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета» — только на новой установке.
+        _ = MarketSphereChoiceWindow.MaybeAskAsync(this);
 
         if (!_whatsNewShown)
         {

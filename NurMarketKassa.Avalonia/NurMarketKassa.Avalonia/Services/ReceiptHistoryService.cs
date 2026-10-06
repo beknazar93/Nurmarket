@@ -586,6 +586,8 @@ public static class ReceiptHistoryService
         "mbank" => "MBank",
         "mixed" or "split" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karışık", "Aralash"),
         "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
+        // 2026-10-06: зачёт при обмене и выдаче заказа (сервер: «Зачёт (предоплата/обмен)») — показывалось слово «offset».
+        "offset" => Tr.T("Зачёт (обмен, предоплата)", "Эсепке алуу (алмаштыруу, алдын ала төлөм)", "Offset (exchange, prepayment)", "Mahsup (değişim, ön ödeme)", "Hisobga olish (almashtirish, oldindan to'lov)"),
         "" => "—",
         var other => char.ToUpperInvariant(other[0]) + other[1..],
     };

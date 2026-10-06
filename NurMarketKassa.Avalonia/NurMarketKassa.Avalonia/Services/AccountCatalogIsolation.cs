@@ -144,13 +144,22 @@ public static class VirtualKeyboardInput
 /// </summary>
 public static class PosRefundService
 {
+    /// <param name="isDefect">2026-10-06 (О-33): возврат брака — сервер не возвращает товар на склад. Причина теперь тоже
+    /// уходит на сервер (проверено 06.10: хранится в документе возврата, раньше сервер её не принимал).</param>
     public static async Task RefundWholeSaleAsync(
         Api.ISalesApiService api,
         string saleId,
         string reason,
         string? cashboxId,
+        bool isDefect = false,
         CancellationToken ct = default)
     {
+        // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
+        if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
+        {
+            await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct).ConfigureAwait(false);
+            return;
+        }
         await api.PosReturnWholeSaleAsync(saleId, reason, ct).ConfigureAwait(false);
     }
 
@@ -160,6 +169,7 @@ public static class PosRefundService
         IReadOnlyList<PosRefundLineRequest> lines,
         string reason,
         string? cashboxId,
+        bool isDefect = false,
         CancellationToken ct = default)
     {
         // Один запрос на весь возврат — тот же, что делает сайт: POST pos/sales/{id}/return/
@@ -167,6 +177,12 @@ public static class PosRefundService
         // cart-item-deletions/get/, которого на сервере нет (404) — возврат не работал никогда,
         // а кассир получал «Не удалось вернуть позицию: <название товара>».
         ct.ThrowIfCancellationRequested();
+        // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
+        if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
+        {
+            await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct).ConfigureAwait(false);
+            return;
+        }
         await api.PosReturnSaleAsync(saleId, lines, ct).ConfigureAwait(false);
     }
 }

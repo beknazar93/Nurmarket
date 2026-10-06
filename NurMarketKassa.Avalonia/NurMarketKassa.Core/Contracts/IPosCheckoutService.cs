@@ -42,7 +42,20 @@ public sealed class PosCheckoutRequest
     /// серверной корзины (старый путь): расхождение больше 0,01 — продажа молча не уходит.
     /// null — сверки нет (старые вызовы).</summary>
     public double? ExpectedTotal { get; init; }
+    /// <summary>2026-10-06: график долга (оплата «В долг») — одним платежом на дату, названную клиентом, или рассрочка
+    /// по дням / месяцам, как «Отсрочка» на сайте NurCRM. На сервер (DebtDueDateSync) и в чек.</summary>
+    public DebtSchedulePlan? DebtSchedule { get; init; }
 }
+
+/// <summary>2026-10-06: график погашения долга. Unit — "day" или "month"; Count — число платежей; Interval — через сколько
+/// дней / месяцев следующий платёж. Одним платежом — Count = 1, срок — FirstDueDate.</summary>
+public sealed record DebtSchedulePlan(string Unit, int Count, int Interval, DateTime FirstDueDate, IReadOnlyList<DebtSchedulePayment> Payments)
+{
+    public bool IsMonths => string.Equals(Unit, "month", StringComparison.OrdinalIgnoreCase);
+    public DateTime LastDueDate => Payments.Count > 0 ? Payments[^1].DueDate : FirstDueDate;
+}
+
+public sealed record DebtSchedulePayment(int Number, DateTime DueDate, decimal Amount);
 
 /// <summary>Результат оплаты для UI.</summary>
 public sealed class PosCheckoutResult

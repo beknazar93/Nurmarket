@@ -49,10 +49,64 @@ public partial class ReturnLineReasonDialog : Window
                     $"{selectedItemCount} ta tanlangan pozitsiya uchun bir xil sabab ko'rsatilib, CRM'ga yuboriladi.");
         }
 
+        BuildQuickReasons();
         Opened += (_, _) => ReasonBox.Focus();
     }
 
     public string ReasonText => (ReasonBox.Text ?? "").Trim();
+
+    /// <summary>2026-10-06 (О-33): кассир отметил «Брак» — сервер не вернёт товар на склад (is_defect).</summary>
+    public bool IsDefect
+    {
+        get => DefectCheck.IsChecked == true;
+        set => DefectCheck.IsChecked = value;
+    }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-33): частые причины — одной кнопкой (их можно дописать),
+    /// «Брак» сразу ставит отметку брака.</summary>
+    private void BuildQuickReasons()
+    {
+        // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» окно как было: без кнопок причин и «Брака».
+        if (!MarketSpheres.IsClothing)
+        {
+            QuickReasonsPanel.IsVisible = false;
+            Height = 420;
+            MinHeight = 360;
+            return;
+        }
+        DefectCheck.Content = Tr.T("Брак — товар не вернётся в продажу (на склад не возвращается)",
+            "Бузук — товар сатууга кайтпайт (кампага кайтарылбайт)",
+            "Defective — the item will not go back on sale (not returned to stock)",
+            "Kusurlu — ürün satışa dönmez (stoğa geri alınmaz)",
+            "Nuqsonli — mahsulot sotuvga qaytmaydi (omborga qaytarilmaydi)");
+        var reasons = new[]
+        {
+            (Tr.T("Не подошёл размер", "Өлчөмү туура келген жок", "Wrong size", "Beden uymadı", "O'lchami to'g'ri kelmadi"), false),
+            (Tr.T("Не подошёл цвет", "Түсү жаккан жок", "Wrong colour", "Renk uymadı", "Rangi to'g'ri kelmadi"), false),
+            (Tr.T("Передумал", "Оюн өзгөрттү", "Changed mind", "Vazgeçti", "Fikridan qaytdi"), false),
+            (Tr.T("Брак", "Бузук", "Defective", "Kusurlu", "Nuqsonli"), true),
+        };
+        foreach (var (text, defect) in reasons)
+        {
+            var chip = new Button
+            {
+                Content = text, Margin = new Avalonia.Thickness(0, 0, 8, 8), Padding = new Avalonia.Thickness(14, 6), MinHeight = 36,
+                CornerRadius = new Avalonia.CornerRadius(18), BorderThickness = new Avalonia.Thickness(1), FontSize = 13, Focusable = false,
+            };
+            chip.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
+            chip.Bind(Button.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+            chip.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            chip.Click += (_, _) =>
+            {
+                ReasonBox.Text = text;
+                ReasonBox.CaretIndex = text.Length;
+                if (defect)
+                    DefectCheck.IsChecked = true;
+                ReasonBox.Focus();
+            };
+            QuickReasonsWrap.Children.Add(chip);
+        }
+    }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
 

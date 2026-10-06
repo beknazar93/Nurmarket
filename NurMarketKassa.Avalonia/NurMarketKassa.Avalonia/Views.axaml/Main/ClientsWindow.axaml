@@ -309,6 +309,11 @@
                                             HorizontalAlignment="Stretch"
                                             Content="{DynamicResource clients.openPurchases}"
                                             Click="PurchasesButton_Click"/>
+                                    <!-- 2026-10-06, ТЗ ч.12, п. 3.2: долг без продажи (старый долг из тетради и т. п.); надпись — в коде (5 языков). -->
+                                    <Button x:Name="AddDebtButton"
+                                            Classes="SecondaryButton"
+                                            HorizontalAlignment="Stretch"
+                                            Click="AddDebtButton_Click"/>
                                 </StackPanel>
                             </Border>
 

@@ -56,7 +56,7 @@
     <ScrollViewer Classes="SettingsPageScroll">
       <!-- Колонка настроек: одна и та же ширина на всех вкладках, иначе при
            переключении карточки прыгали от края к краю вслед за содержимым. -->
-      <StackPanel Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
+      <StackPanel x:Name="CardList" Classes="SettingsCardList" Spacing="10" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
         <!-- Заголовок страницы и главный переключатель прижаты влево -->
         <Border Classes="SettingsHeaderCard" Padding="12">
@@ -346,6 +346,13 @@
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="DebtPrepayChoiceCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Center"/>
               </Grid>
+              <!-- 2026-10-06, владелец: штраф за просрочку — в чеке долга и проката. Надписи — в коде (5 языков). -->
+              <StackPanel Spacing="4" Margin="0,8,0,0">
+                <TextBlock x:Name="DebtPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" MaxLength="120"/>
+                <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="36" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+              </StackPanel>
             </StackPanel>
           </Border>
         </StackPanel>

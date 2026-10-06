@@ -260,20 +260,88 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         ApplyProductFilter();
     }
 
+    // 2026-10-06, владелец: «проведи полный редизайн склада». Фильтр наличия — кнопки и плитки
+    // «Заканчивается / Нет в наличии / Срок годности» (all / low / out / expiry).
+    private string _stockFilter = "all";
+
+    public string StockFilter => _stockFilter;
+
+    public void SetStockFilter(string filter)
+    {
+        if (_stockFilter == filter)
+            return;
+        _stockFilter = filter;
+        OnPropertyChanged(nameof(StockFilter));
+        ApplyProductFilter();
+    }
+
+    // 2026-10-06, владелец: «чтобы ИИ показывал наглядно изменения» — после «Выполнить» склад показывает только изменённые товары
+    // (id, а у только что созданных — «name:Название», пока каталог не перечитался).
+    private HashSet<string>? _changedKeys;
+
+    public int ChangedFilterCount => _changedKeys?.Count ?? 0;
+
+    public void SetChangedFilter(IReadOnlyList<string>? keys)
+    {
+        _changedKeys = keys is { Count: > 0 } ? new HashSet<string>(keys, StringComparer.OrdinalIgnoreCase) : null;
+        ApplyProductFilter();
+    }
+
+    /// <summary>Пересобрать список (после обновления сроков годности или остатков).</summary>
+    public void ReapplyProductFilter() => ApplyProductFilter();
+
+    /// <summary>Метки срока годности у товаров каталога — из справочника сервера (ProductExpiryIndex).</summary>
+    public static void ApplyExpiryBadges()
+    {
+        var marks = ProductExpiryIndex.Marks;
+        foreach (var p in CatalogCacheService.Products.ToList())
+        {
+            if (marks.TryGetValue(p.Id, out var m))
+            {
+                p.ExpiryBadgeText = ProductExpiryIndex.BadgeText(m);
+                p.ExpiryExpired = m.Expired;
+            }
+            else
+            {
+                p.ExpiryBadgeText = null;
+                p.ExpiryExpired = false;
+            }
+        }
+    }
+
     private void ApplyProductFilter()
     {
         var query = _productSearchText.Trim();
+        // 2026-10-06, владелец: «касса не видит товары на складе — при сканере, даже если товар есть на складе, говорит нет».
+        // Поиск склада знал только основной штрихкод товара: скан этикетки размера одежды или доп. штрихкода давал пустой
+        // список. Теперь — и штрихкод размера (VariantBarcodeIndex), и доп. штрихкоды.
+        // В «Продуктах» склад ищет как раньше (владелец: «главное не трогай продуктовый»).
+        var extraSearch = MarketSpheres.IsClothing || MarketSpheres.IsServices;
+        var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
             ? CatalogCacheService.Products
             : CatalogCacheService.Products.Where(p =>
                 p.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 (p.Barcode?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (p.Article?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
+                (p.Article?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (extraSearch && query.Length >= 4 && (p.AlternateBarcodesRaw?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)) ||
+                (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)));
         source = _saleUnitFilter switch
         {
             "weight" => source.Where(p => p.IsWeighted),
             "piece" => source.Where(p => !p.IsWeighted && !p.HasPieceOption),
             "piecepackage" => source.Where(p => !p.IsWeighted && p.HasPieceOption),
+            _ => source,
+        };
+        if (_changedKeys is { } changed)
+            source = source.Where(p => changed.Contains(p.Id) || changed.Contains("name:" + p.Title));
+        // 2026-10-06, редизайн склада: фильтр наличия; «Срок годности» — сначала просроченные, потом ближайшие.
+        var expiry = ProductExpiryIndex.Marks;
+        source = _stockFilter switch
+        {
+            "low" => source.Where(p => p.IsLowStock && p.Quantity > 0),
+            "out" => source.Where(p => p.Quantity <= 0),
+            "expiry" => source.Where(p => expiry.ContainsKey(p.Id)).OrderBy(p => expiry[p.Id].DaysLeft),
             _ => source,
         };
 
@@ -462,6 +530,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     public event Action<ReceivingLineVm>? ReceivingLineAdded;
 
+    /// <summary>2026-10-06 (О-70): строки приёмки проведены (для этикеток на принятые размеры).</summary>
+    public event Action<IReadOnlyList<ReceivingLineVm>>? ReceivingPosted;
+
     /// <summary>Добавить товар в приёмку из списка, а не сканом.</summary>
     public void AddReceivingProduct(CatalogProductTileVm product, double quantity)
     {
@@ -569,6 +640,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             // провести ещё раз, не сканируя накладную заново.
             foreach (var line in result.PostedLines)
                 ReceivingLines.Remove(line);
+            // 2026-10-06 (О-70): окно склада предложит этикетки на принятые размеры.
+            if (result.PostedLines.Count > 0)
+                ReceivingPosted?.Invoke(result.PostedLines);
 
             // Созданные товары появятся в каталоге кассы только после синхронизации — просим её
             // сразу, а не ждём плановую через пару минут.

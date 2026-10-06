@@ -1588,6 +1588,38 @@ public partial class MarketplaceView : UserControl
         var serial = SerialActivationDialog.Show(owner, title);
         if (serial == null)
             return;
+        _ = UnlockPackAsync(owner, slug, title, serial);
+    }
+
+    /// <summary>2026-10-05, ТЗ ч.13, п. 2.3: ключ — сначала на сервер (POST users/company/features/activate/): там функция
+    /// включается всей компании, на всех устройствах. Сервер ключа не знает или нет связи — проверка ключа кассой, как раньше.</summary>
+    private async Task UnlockPackAsync(Window? owner, string slug, string title, string serial)
+    {
+        try
+        {
+            var data = await App.GetRequiredService<NurMarketKassa.Services.NurMarketApiClient>().RequestAsync(System.Net.Http.HttpMethod.Post,
+                "api/users/company/features/activate/", new Dictionary<string, object?> { ["key"] = serial.Trim() }, null,
+                CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+            var code = data.ValueKind == System.Text.Json.JsonValueKind.Object && data.TryGetProperty("code", out var c) ? c.GetString() : null;
+            PosLogger.Log($"Маркетплейс: ключ принят сервером — функция компании {code}.", "INFO");
+            await CompanyInfoService.RefreshAsync(App.AuthApi).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Маркетплейс: сервер не включил функцию по ключу ({ex.Message}) — проверка ключа кассой.", "WARNING");
+        }
+        if (TariffGate.HasPack(slug) && !UserPreferences.Instance.UnlockedPacks.Contains(slug, StringComparer.OrdinalIgnoreCase))
+        {
+            // Включено сервером для всей компании.
+            TariffGate.RaisePacksChanged();
+            RefreshStandardPackCards();
+            PosAlertDialog.Show(owner, title,
+                Tr.T("Функция подключена для всей компании — на всех кассах и в программе владельца.", "Функция бүт компанияга туташтырылды — бардык кассаларда жана ээсинин программасында.",
+                     "Feature connected for the whole company — on every till and in the owner app.", "Özellik tüm şirket için bağlandı — tüm kasalarda ve sahip programında.",
+                     "Funksiya butun kompaniya uchun ulandi — barcha kassalarda va egasi dasturida."),
+                PosAlertKind.Success);
+            return;
+        }
 
         if (!TryValidateSerial(serial, slug, out var isPermanent))
         {

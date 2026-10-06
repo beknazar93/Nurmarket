@@ -717,9 +717,15 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         // Активный поиск (2+ символа) ищет по всему каталогу независимо от выбранной вкладки
         // (Весовые/Штучные/...) — кассиру не нужно гадать, в какой вкладке искать товар.
         var isActiveSearch = query.Length >= 2;
+        // 2026-10-06, владелец: «касса не видит товары на складе — при сканере говорит нет». Скан этикетки размера
+        // в поле поиска находил пустоту: искался только штрихкод самого товара. Штрихкод размера — товар этого размера
+        // (окно добавления сразу возьмёт этот размер, см. MainWindow.AddProductFromCatalogAsync).
+        // В «Продуктах» не ищем (владелец: «не трогай продуктовый»).
+        var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
         var filtered = _allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
-            .Where(p => MatchesSearch(p, query))
+            .Where(p => MatchesSearch(p, query)
+                        || (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)))
             .Where(MatchesAdvancedFilter)
             .Where(MatchesHotkeyGroup)
             .OrderByDescending(p => p.IsFavorite)
@@ -868,6 +874,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase
             : 0;
     }
 
+    private static bool IsGrocerySphere => !MarketSpheres.IsClothing && !MarketSpheres.IsServices;
+
     private static bool MatchesSearch(CatalogProductTileVm product, string query)
     {
         if (query.Length < 2)
@@ -876,6 +884,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase
         var q = query.ToLowerInvariant();
         return product.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
                || (product.Barcode?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+               // 2026-10-06: и доп. штрихкоды товара — скан упаковки с другим штрихкодом в поле поиска тоже находит товар.
+               // (не в «Продуктах» — владелец: «главное не трогай продуктовый»)
+               || (q.Length >= 4 && !IsGrocerySphere && (product.AlternateBarcodesRaw?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
                || product.Id.Contains(q, StringComparison.OrdinalIgnoreCase)
                || (product.Article?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
                || (product.Category?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);

@@ -90,7 +90,10 @@ public static class ShiftCashOperationsStore
                 CashOperationKind.Deposit when !IsServerDrawerInflow(x) => sum + x.Amount,
                 CashOperationKind.Withdrawal when string.IsNullOrEmpty(x.ServerFlowId) => sum - x.Amount,
                 _ => sum,
-            });
+            })
+            // 2026-10-06: поправка на ошибку сервера после обмена (завышает остаток на сумму возвращённого) —
+            // см. ExchangeCashCorrections; после исправления сервера поправки не пишутся.
+            + ExchangeCashCorrections.ForShift(shiftId);
     }
 
     /// <summary>Внесение записано на сервер как движение ящика смены — сервер сам включил его

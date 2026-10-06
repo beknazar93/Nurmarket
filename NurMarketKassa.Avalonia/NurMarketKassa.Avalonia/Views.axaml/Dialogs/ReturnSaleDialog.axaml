@@ -158,8 +158,13 @@
                   Margin="0,0,0,10" Padding="12,10"
                   Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8"
                   IsVisible="False">
-            <TextBlock x:Name="SelectedSaleText" TextWrapping="Wrap"
-                       Foreground="{DynamicResource BrushText}" FontSize="13" FontWeight="Medium"/>
+            <StackPanel Spacing="4">
+              <TextBlock x:Name="SelectedSaleText" TextWrapping="Wrap"
+                         Foreground="{DynamicResource BrushText}" FontSize="13" FontWeight="Medium"/>
+              <!-- 2026-10-06 (О-31, магазин одежды): дата чека, сколько дней прошло и предупреждение о сроке обмена. Текст — в коде. -->
+              <TextBlock x:Name="ReturnTermText" TextWrapping="Wrap" FontSize="12.5" IsVisible="False"
+                         Foreground="{DynamicResource BrushTextSoft}"/>
+            </StackPanel>
           </Border>
 
           <!-- Панель быстрых кнопок -->
@@ -186,6 +191,12 @@
                       IsEnabled="{Binding !IsBusy}"
                       Click="ReturnWholeReceipt_Click"/>
             </Grid>
+            <!-- 2026-10-06 (О-30, магазин одежды): обмен — вернуть отмеченное и выдать другой товар одним документом.
+                 Видна в сфере «Одежда»; подпись — в коде. -->
+            <Button x:Name="ExchangeSelectedButton" Classes="btn-secondary" Height="44" IsVisible="False"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    IsEnabled="{Binding !IsBusy}"
+                    Click="ExchangeSelected_Click"/>
           </StackPanel>
 
           <TextBlock x:Name="LinesPlaceholder" DockPanel.Dock="Top"

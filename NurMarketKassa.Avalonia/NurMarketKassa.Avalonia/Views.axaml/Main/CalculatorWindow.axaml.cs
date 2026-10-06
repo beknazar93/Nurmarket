@@ -662,10 +662,25 @@ public partial class CalculatorWindow : Window, IOwnerSection
         try
         {
             var today = DateTime.Today;
-            var last30 = await App.SalesApi.MarketSalesReportAsync(today.AddDays(-29), today).ConfigureAwait(true);
-            var month = await App.SalesApi.MarketSalesReportAsync(new DateTime(today.Year, today.Month, 1), today).ConfigureAwait(true);
+            // 2026-10-06, ТЗ ч.12, п. 3.7: оба периода — одним запросом итогов (summary); нет его — два отчёта, как раньше.
+            var monthStart = new DateTime(today.Year, today.Month, 1);
+            JsonElement c30 = default, cm = default;
+            if (await App.SalesApi.MarketSummaryCardsAsync(new[] { (today.AddDays(-29), today), (monthStart, today) }).ConfigureAwait(true) is { Count: 2 } cards)
+            {
+                c30 = cards[0];
+                cm = cards[1];
+            }
+            else
+            {
+                var last30 = await App.SalesApi.MarketSalesReportAsync(today.AddDays(-29), today).ConfigureAwait(true);
+                var month = await App.SalesApi.MarketSalesReportAsync(monthStart, today).ConfigureAwait(true);
+                if (last30.ValueKind == JsonValueKind.Object && last30.TryGetProperty("cards", out var l30))
+                    c30 = l30;
+                if (month.ValueKind == JsonValueKind.Object && month.TryGetProperty("cards", out var lm))
+                    cm = lm;
+            }
 
-            if (last30.ValueKind == JsonValueKind.Object && last30.TryGetProperty("cards", out var c30))
+            if (c30.ValueKind == JsonValueKind.Object)
             {
                 var margin = Card(c30, "margin_percent");
                 var avg = Card(c30, "avg_check");
@@ -675,7 +690,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
                     AvgCheckBox.Text = avg.ToString("0", CultureInfo.InvariantCulture);
             }
 
-            if (month.ValueKind == JsonValueKind.Object && month.TryGetProperty("cards", out var cm))
+            if (cm.ValueKind == JsonValueKind.Object)
             {
                 _monthRevenue = Card(cm, "revenue");
                 _monthGrossProfit = Card(cm, "gross_profit");

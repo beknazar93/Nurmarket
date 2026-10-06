@@ -223,8 +223,9 @@ namespace NurMarketKassa.ViewModels
         /// <summary>Сколько бонусов начислится клиенту при успешной оплате — считается от
         /// ИТОГОВОЙ суммы к оплате (после всех скидок и списания баллов), не от подытога, чтобы
         /// не начислять бонусы на уже списанные бонусы.</summary>
-        public double EarnedPointsPreview => LoyaltyEnabled && HasSelectedClient
-            ? Math.Round(_effectiveTotalDue * UserPreferences.Instance.LoyaltyEarnPercent / 100.0, 2)
+        // 2026-10-05: процент и «баллы включены» — из настройки магазина на сервере (ServerLoyalty), без связи — последние.
+        public double EarnedPointsPreview => LoyaltyEnabled && HasSelectedClient && ServerLoyalty.EarnEnabled
+            ? Math.Round(_effectiveTotalDue * ServerLoyalty.EarnPercent / 100.0, 2)
             : 0;
 
         public string EarnedPointsPreviewDisplay => Tr.T(
@@ -489,6 +490,7 @@ namespace NurMarketKassa.ViewModels
                 _debtCashReceived = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(DebtRemainingText));
+                RaiseDebtScheduleChanged();
                 OnPropertyChanged(nameof(PayButtonText));
                 OnPropertyChanged(nameof(BigTotalDisplay));
                 OnPropertyChanged(nameof(PayableDisplay));
@@ -622,6 +624,9 @@ namespace NurMarketKassa.ViewModels
 
                 _clientLoyaltyBalance = value != null ? ClientLoyaltyStore.GetBalance(value.Id) : 0;
                 _pointsToRedeemInput = "0";
+                // 2026-10-05, запрос NurCRM: «баланс в окне оплаты с сервера» — сначала последний известный, потом серверный.
+                if (value != null && LoyaltyEnabled)
+                    _ = LoadServerBalanceAsync(value.Id);
                 OnPropertyChanged(nameof(ClientLoyaltyBalance));
                 OnPropertyChanged(nameof(ClientLoyaltyBalanceDisplay));
                 OnPropertyChanged(nameof(PointsToRedeemInput));
@@ -630,6 +635,18 @@ namespace NurMarketKassa.ViewModels
         }
 
         public bool HasSelectedClient => _selectedClient != null;
+
+        /// <summary>Баланс клиента с сервера NurCRM: пришёл, а клиент тот же — показываем его и пересчитываем списание.</summary>
+        private async Task LoadServerBalanceAsync(string clientId)
+        {
+            var balance = await ServerLoyalty.GetBalanceAsync(clientId).ConfigureAwait(true);
+            if (balance is not { } b || _selectedClient?.Id != clientId)
+                return;
+            _clientLoyaltyBalance = b;
+            OnPropertyChanged(nameof(ClientLoyaltyBalance));
+            OnPropertyChanged(nameof(ClientLoyaltyBalanceDisplay));
+            RecalculateTotals();
+        }
         public string? ClientId => _selectedClient?.Id;
 
         public string SelectedClientName =>
@@ -841,6 +858,9 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(PayableDisplay));
             OnPropertyChanged(nameof(PayButtonText));
             OnPropertyChanged(nameof(DebtRemainingText));
+            // 2026-10-06: суммы платежей рассрочки зависят от итога.
+            OnPropertyChanged(nameof(InstallmentRows));
+            OnPropertyChanged(nameof(InstallmentSummary));
             OnPropertyChanged(nameof(MixedRemainingText));
             OnPropertyChanged(nameof(PointsRedeemed));
             OnPropertyChanged(nameof(EarnedPointsPreview));
@@ -1003,6 +1023,9 @@ namespace NurMarketKassa.ViewModels
             if (PaymentMethod == "debt")
             {
                 if (SelectedClient == null)
+                    return false;
+                // 2026-10-06: срок возврата, названный клиентом, или график рассрочки обязателен (CheckoutViewModel.DebtDue.cs).
+                if (!IsDebtScheduleValid)
                     return false;
                 var paid = ParseNonNegative(_debtCashReceived);
                 return paid is { } p && p <= _effectiveTotalDue + 1e-9;

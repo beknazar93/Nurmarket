@@ -19,6 +19,10 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// </summary>
 internal static class AvaloniaHostServiceRegistration
 {
+    /// <summary>2026-10-05: своя проверка обновлений платформы (Android — APK с GitHub, AndroidApkUpdateService)
+    /// вместо Velopack Windows-кассы. Ставится до регистрации служб (AndroidBootstrap.BeforeAvalonia).</summary>
+    public static Func<IAppUpdateService>? PlatformAppUpdateService { get; set; }
+
     public static void AddAuthInfrastructure(IServiceCollection services)
     {
         var settings = AppSettings.Load();
@@ -28,7 +32,10 @@ internal static class AvaloniaHostServiceRegistration
 
         services.AddSingleton(settings);
         services.AddSingleton<IUpdateCheckService, UpdateCheckService>();
-        services.AddSingleton<IAppUpdateService, VelopackUpdateService>();
+        if (PlatformAppUpdateService is { } platformUpdates)
+            services.AddSingleton(_ => platformUpdates());
+        else
+            services.AddSingleton<IAppUpdateService, VelopackUpdateService>();
         services.AddSingleton(_ => DatabaseService.Instance);
         services.AddSingleton<ILocalAccountsStore, LocalAccountsManager>();
         services.AddSingleton<IConnectivityService, ConnectivityService>();

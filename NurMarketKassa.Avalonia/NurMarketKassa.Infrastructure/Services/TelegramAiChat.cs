@@ -23,7 +23,7 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public static class TelegramAiChat
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(25) };
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(45) }; // 2026-10-06: 25 → 45 с — накладная по фото отвечает дольше
 
     // 2026-09-30: проверено на ключе владельца — «лёгкие» модели отвечают за 1,5–2,5 с, gemini-flash-latest и
     // gemini-3.5-flash «думают» 4–9 с и бывают перегружены (503); gemini-2.5-flash-lite этому ключу недоступна (404).
@@ -66,9 +66,30 @@ public static class TelegramAiChat
     /// <param name="serverSummary">Цифры «Сводки» программы владельца (отчёт сервера NurCRM). Есть — выручка берётся
     /// из них, а не из локальной истории продаж (она бывает неполной или с повторами: живой случай 05.10 —
     /// 1 353 572 сом за 7 дней по локальной истории против 886 049 сом на сервере).</param>
-    public static async Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct)
+    /// <summary>2026-10-06, владелец: «добавь загрузку фото накладной в наш ИИ, чтобы он мог загрузить с маржей на склад».
+    /// Фото к текущему вопросу советника (накладная, чек поставщика, товар) — уходит в Gemini частью inline_data; в историю
+    /// разговора не попадает (только текст).</summary>
+    private static readonly AsyncLocal<(byte[] Data, string Mime)?> QuestionImage = new();
+
+    public static async Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct,
+        byte[]? image = null, string? imageMime = null)
     {
-        var system = OwnerAppPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+        QuestionImage.Value = image is { Length: > 0 } ? (image, imageMime ?? "image/jpeg") : null;
+        // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам… следить за сроками годности» — сроки с сервера в сводку.
+        await ProductExpiryIndex.RefreshAsync(false, ct).ConfigureAwait(false);
+        var cards = await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false);
+        // 2026-10-06, владелец: «поиск информации в интернете по товарам сделай возможным ИИ-ассистенту» — просят описать или
+        // дополнить товар: сначала программа ищет сведения (открытые базы по штрихкоду + интернет), потом спрашивает ИИ.
+        var (research, researchSources) = await ResearchMentionedAsync(question, ct).ConfigureAwait(false);
+        if (research.Length > 0)
+            cards += (cards.Length > 0 ? "\n\n" : "") + research;
+        // 2026-10-06, владелец: «дай доступ ИИ к сотрудникам, чтобы ИИ мог считать зарплату и их продажи».
+        var staff = await StaffContextAsync(question, ct).ConfigureAwait(false);
+        if (staff.Length > 0)
+            cards += (cards.Length > 0 ? "\n\n" : "") + staff;
+        if (QuestionImage.Value is not null)
+            cards += (cards.Length > 0 ? "\n\n" : "") + ProductActionPlan.PhotoPromptText;
+        var system = OwnerAppPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
                      + (string.IsNullOrWhiteSpace(serverSummary) ? "" : serverSummary.Trim() + "\n")
                      + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary));
         // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (AiProviders): Gemini пишет строку
@@ -76,7 +97,9 @@ public static class TelegramAiChat
         var groqSearch = WebSearchUnavailable && AiProviders.CanSearchWeb;
         if (groqSearch)
             system += "\n" + GroqSearchHint;
-        var (answer, error) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true, webSearch: !groqSearch).ConfigureAwait(false);
+        var (answer, error) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true, webSearch: !groqSearch && research.Length == 0).ConfigureAwait(false);
+        if (researchSources.Count > 0)
+            LastWebSources = researchSources;
         if (!groqSearch || answer is null || SearchRequest(answer) is not { } query)
             return (answer, error);
 
@@ -156,6 +179,46 @@ public static class TelegramAiChat
 
     private const string OwnerAppHistoryKey = "ownerapp";
 
+    /// <summary>2026-10-05, владелец: «постоянное голосовое общение как ChatGPT» (ответ «да»). Инструкция для живого разговора
+    /// (GeminiLiveVoice): та же сводка магазина, что у чата советника, но ответы — короткие и для слуха; в конце — последние
+    /// реплики текстового разговора, чтобы голосом можно было продолжить начатое.</summary>
+    public static string BuildOwnerVoiceInstruction(string? serverSummary, IEnumerable<(bool Owner, string Text)> recent)
+    {
+        var sb = new StringBuilder(OwnerVoicePrompt);
+        sb.Append("\n\nСВОДКА МАГАЗИНА на ").Append(DateTime.Now.ToString("dd.MM.yyyy HH:mm")).Append(":\n");
+        if (!string.IsNullOrWhiteSpace(serverSummary))
+            sb.Append(serverSummary.Trim()).Append('\n');
+        sb.Append(BuildShopContext("", localRevenue: string.IsNullOrWhiteSpace(serverSummary)));
+        var lines = recent.TakeLast(HistoryTurns * 2).ToList();
+        if (lines.Count > 0)
+        {
+            sb.Append("\nНЕДАВНИЙ РАЗГОВОР (текстом, до звонка):\n");
+            foreach (var (owner, text) in lines)
+                sb.Append(owner ? "Владелец: " : "Советник: ").Append(text.Length > 600 ? text[..600] + "…" : text).Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    private const string OwnerVoicePrompt =
+        "Ты — ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurMarket. Сейчас вы разговариваете ГОЛОСОМ "
+        + "в реальном времени, как по телефону. Отвечай коротко и разговорно: одно–три предложения, без списков, таблиц, ссылок и символов. "
+        + "Крупные суммы округляй для слуха («около восьмисот восьмидесяти шести тысяч сом»). Говори на языке собеседника "
+        + "(русский, кыргызский, английский, турецкий или узбекский). Хочет подробностей — расскажи следующую часть или предложи посмотреть раздел программы. "
+        + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи раздел программы: "
+        + "«Продажи», «Аналитика», «ABC-анализ», «Пополнение и сроки», «Прибыль и деньги», «Долги клиентов», «Склад». "
+        + "Должники в сводке обозначены кодами [Д1], [Д2] — коды вслух не произноси: назови, сколько должников и на какую сумму, "
+        + "а имена владелец увидит в разделе «Долги клиентов». Никогда не выдумывай суммы, остатки и цены. "
+        + "Давай конкретные советы: что заказать, что продвигать, где теряются деньги, как поднять продажи; акции — не ниже закупки плюс пять процентов. "
+        + "Функции Телеграм-бота, сценарии бота и фото товаров голосом не меняются — для этого предложи написать в чат советника. "
+        // 2026-10-06, владелец спросил голосом «пополни товары»: в звонке действий с товарами нет — честно направляем в чат.
+        // 2026-10-06, владелец: «дай возможность голосом менять информацию, открывать товар на складе, добавлять и удалять информацию».
+        + "Товары в звонке меняет ПРОГРАММА: когда владелец просит изменить, дополнить или удалить информацию о товаре (описание, страна, бренд, "
+        + "категория, цена, срок годности, остаток — приход или списание), найти сведения о товаре в интернете или открыть товар на складе, — "
+        + "коротко скажи «Сейчас подготовлю» (или «Открываю»): программа сама найдёт сведения в интернете и покажет на экране список изменений; "
+        + "владелец подтверждает словами «да, выполни» или кнопкой «Выполнить». НИКОГДА не говори, что не можешь менять товары или искать в интернете, "
+        + "и не выдумывай факты о товаре — их покажет программа. Сообщения, которые начинаются с «[Программа]», — от программы: "
+        + "коротко перескажи их владельцу. Валюта — сом.";
+
     private const string OwnerAppPrompt =
         "Ты — ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurMarket (раздел «ИИ-советник»). "
         + "Владелец советуется с тобой о своём магазине. Отвечай по делу и дружелюбно, до 8–10 предложений, на языке собеседника "
@@ -211,6 +274,121 @@ public static class TelegramAiChat
         s = s.Replace("**", "").Replace("__", "").Replace("`", "");
         s = Regex.Replace(s, @"\n{3,}", "\n\n").Trim();
         return s;
+    }
+
+    /// <summary>2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам». Ответ бота владельцу с предложенными
+    /// действиями с товарами (строки «ТОВАР: {…}» убраны из текста — бот покажет их кнопками «Выполнить / Отмена»).</summary>
+    public static async Task<(string? Answer, List<ProductActionPlan.Step> Steps, string? Error)> AskOwnerBotAsync(string chatId, string question, CancellationToken ct)
+    {
+        await ProductExpiryIndex.RefreshAsync(false, ct).ConfigureAwait(false);
+        var cards = await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false);
+        var (research, _) = await ResearchMentionedAsync(question, ct).ConfigureAwait(false);
+        if (research.Length > 0)
+            cards += (cards.Length > 0 ? "\n\n" : "") + research;
+        var staff = await StaffContextAsync(question, ct).ConfigureAwait(false);
+        if (staff.Length > 0)
+            cards += (cards.Length > 0 ? "\n\n" : "") + staff;
+        var system = SystemPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question);
+        var (answer, error) = await AskCoreAsync("owner:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
+        if (answer is null)
+            return (null, new List<ProductActionPlan.Step>(), error);
+        var (text, steps) = ProductActionPlan.Extract(answer);
+        // «Открыть на складе» — только в программе владельца.
+        steps = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
+        return (ToTelegramHtml(text.Length > 0 ? text : "Подтвердите действия:"), steps, null);
+    }
+
+    private static readonly string[] StaffWords =
+    {
+        "сотрудник", "зарплат", "зп", "кассир", "продавц", "продавец", "консультант", "оклад", "преми", "бонус сотруд", "выработк",
+        "кызматкер", "айлык", "иштеген", "кто продал", "кто больше продал", "персонал",
+        // 2026-10-06, владелец: «дай доступ ИИ к списку сотрудников, их зарплате, к табелю».
+        "табел", "смен", "отработ", "кто работал", "на смене", "график", "часов", "иштеди", "табель",
+    };
+
+    /// <summary>2026-10-06, владелец: «дай доступ нашему ИИ к списку сотрудников, их зарплате, доступ к табелю». Табель — те же смены
+    /// и тот же расчёт, что окно «Табель» (ShiftHistoryService живёт в проекте программы, подставляется в App.axaml.cs).
+    /// Параметры: начало и конец периода (дни включительно).</summary>
+    public static Func<DateTime, DateTime, CancellationToken, Task<string>>? TimesheetProvider { get; set; }
+
+    /// <summary>2026-10-06, владелец: «дай доступ ИИ к сотрудникам, чтобы ИИ мог считать зарплату и их продажи». Зарплату считает
+    /// сервер, как на сайте (analytics/market/?tab=salary): по каждому — схема, оклад, процент, продажи (кассиром и консультантом),
+    /// продано штук, начислено. Период — из вопроса (сегодня, неделя, прошлый месяц), иначе с начала месяца.</summary>
+    private static async Task<string> StaffContextAsync(string question, CancellationToken ct)
+    {
+        var q = (question ?? "").ToLowerInvariant();
+        if (!StaffWords.Any(q.Contains))
+            return "";
+        var today = DateTime.Today;
+        var (from, to, label) = q.Contains("сегодн") || q.Contains("бүгүн") ? (today, today, "сегодня")
+            : q.Contains("вчера") || q.Contains("кечээ") ? (today.AddDays(-1), today.AddDays(-1), "вчера")
+            : q.Contains("недел") || q.Contains("жума") ? (today.AddDays(-6), today, "7 дней")
+            : q.Contains("прошл") && q.Contains("месяц") ? (new DateTime(today.Year, today.Month, 1).AddMonths(-1), new DateTime(today.Year, today.Month, 1).AddDays(-1), "прошлый месяц")
+            : (new DateTime(today.Year, today.Month, 1), today, "с начала месяца");
+        var sb = new StringBuilder();
+        // Список сотрудников — как у сайта (api/users/employees/), тот же, что выбор консультанта при оплате.
+        try
+        {
+            var people = await PosApp.SalesApi.ListConsultantsAsync(ct).ConfigureAwait(false);
+            if (people.Count > 0)
+                sb.Append($"СПИСОК СОТРУДНИКОВ (сервер NurCRM, всего {people.Count}): ").Append(string.Join(", ", people.Select(p => p.Name))).Append(".\n");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"ИИ: список сотрудников не получен ({ex.Message}).", "WARNING");
+        }
+        // Табель — смены кассы за тот же период.
+        if (TimesheetProvider is { } timesheet)
+        {
+            try
+            {
+                var text = await timesheet(from, to, ct).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(text))
+                    sb.Append(text.TrimEnd()).Append('\n');
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"ИИ: табель не получен ({ex.Message}).", "WARNING");
+            }
+        }
+        try
+        {
+            var report = await PosApp.SalesApi.MarketSalaryReportAsync(from, to, ct).ConfigureAwait(false);
+            string S(JsonElement e, string n) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(n, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : "";
+            sb.Append($"СОТРУДНИКИ И ЗАРПЛАТА (сервер NurCRM, {label}: {from:dd.MM}–{to:dd.MM}; считает сервер по схемам из раздела «Зарплата»):\n");
+            if (report.TryGetProperty("cards", out var cards))
+                sb.Append($"Итого начислено {S(cards, "total_payroll")} сом (оклады {S(cards, "total_base_prorated")}, проценты {S(cards, "total_percent_bonus")}, за товар {S(cards, "total_per_item_bonus")}); "
+                          + $"продажи сотрудников {S(cards, "total_employee_sales")} сом, чеков {S(cards, "sales_count")}.\n");
+            if (report.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
+                foreach (var r in rows.EnumerateArray())
+                    sb.Append($"• {S(r, "employee_label")}: {S(r, "pay_scheme_label")}"
+                              + (S(r, "monthly_base_salary") is { Length: > 0 } b && b != "0.00" ? $", оклад {b}/мес" : "")
+                              + (S(r, "sales_percent") is { Length: > 0 } pc && pc != "0.00" ? $", {pc}% от продаж" : "")
+                              + (S(r, "per_item_amount") is { Length: > 0 } pi && pi != "0.00" ? $", {pi} сом за проданный товар" : "")
+                              + $" | продажи {S(r, "employee_sales_period")} сом ({S(r, "sales_count")} чеков: кассиром {S(r, "cashier_sales_period")}, консультантом {S(r, "consultant_sales_period")})"
+                              + $", продано {S(r, "items_sold_period")} шт | начислено {S(r, "total")} сом (оклад {S(r, "base_prorated")} + процент {S(r, "percent_bonus")} + за товар {S(r, "per_item_bonus")}"
+                              + (S(r, "consultant_commission_period") is { Length: > 0 } cc && cc != "0.00" ? $" + консультант {cc}" : "") + ")\n");
+            sb.Append("Отвечая про сотрудников, их зарплату, продажи и табель (смены, дни, часы), бери цифры только отсюда; схемы меняются в разделе «Зарплата», табель — раздел «Табель».");
+            return sb.ToString();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"ИИ: зарплата сотрудников не получена ({ex.Message}).", "WARNING");
+            return sb.Append("СОТРУДНИКИ И ЗАРПЛАТА: сервер не ответил — скажи владельцу открыть раздел «Зарплата».").ToString();
+        }
+    }
+
+    /// <summary>2026-10-06: сведения из интернета о товарах из вопроса — только если просят описать / дополнить / найти сведения.</summary>
+    private static async Task<(string Text, IReadOnlyList<WebSource> Sources)> ResearchMentionedAsync(string question, CancellationToken ct)
+    {
+        if (!ProductInfoResearch.LooksLikeInfoRequest(question))
+            return ("", Array.Empty<WebSource>());
+        var targets = ProductActionPlan.Mentioned(question, 3);
+        if (targets.Count == 0)
+            return ("", Array.Empty<WebSource>());
+        var findings = await ProductInfoResearch.ResearchAsync(targets, ct).ConfigureAwait(false);
+        var sources = findings.SelectMany(f => f.Sources).GroupBy(s => s.Uri).Select(g => g.First()).Take(8).ToList();
+        return (ProductInfoResearch.ContextText(findings), sources);
     }
 
     /// <summary>Ответ на реплику владельца. Error — понятная владельцу причина, если не вышло.</summary>
@@ -481,7 +659,12 @@ public static class TelegramAiChat
         var contents = new JsonArray();
         foreach (var (role, text) in history)
             contents.Add(new JsonObject { ["role"] = role, ["parts"] = new JsonArray(new JsonObject { ["text"] = text }) });
-        contents.Add(new JsonObject { ["role"] = "user", ["parts"] = new JsonArray(new JsonObject { ["text"] = question }) });
+        var userParts = new JsonArray(new JsonObject { ["text"] = question });
+        // 2026-10-06: фото накладной / товара к вопросу советника.
+        var image = QuestionImage.Value;
+        if (image is { } img)
+            userParts.Add(new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = img.Mime, ["data"] = Convert.ToBase64String(img.Data) } });
+        contents.Add(new JsonObject { ["role"] = "user", ["parts"] = userParts });
 
         string Body(bool search)
         {
@@ -489,7 +672,8 @@ public static class TelegramAiChat
             {
                 ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
                 ["contents"] = contents.DeepClone(),
-                ["generationConfig"] = new JsonObject { ["temperature"] = 0.5, ["maxOutputTokens"] = search ? 1200 : 700 },
+                // 2026-10-06: действия с товарами («ТОВАР: …», накладная по фото) длиннее обычного ответа.
+                ["generationConfig"] = new JsonObject { ["temperature"] = image is null ? 0.5 : 0.2, ["maxOutputTokens"] = image is not null ? 3000 : search ? 1200 : 1200 },
             };
             if (search)
                 b["tools"] = new JsonArray(new JsonObject { ["google_search"] = new JsonObject() });
@@ -677,6 +861,8 @@ public static class TelegramAiChat
             Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
         }
         Add(() => TelegramReportBuilder.BuildLowStock(take: 10));
+        // 2026-10-06: просроченные и скоро истекающие товары (сервер) — для советов и действий «списать просрочку».
+        Add(() => ProductExpiryIndex.ContextText());
         Add(TelegramInquiryStore.ShortSummary);
         if (TelegramAssistant.RentalContext(question) is { } rentals)
             sb.AppendLine(rentals);

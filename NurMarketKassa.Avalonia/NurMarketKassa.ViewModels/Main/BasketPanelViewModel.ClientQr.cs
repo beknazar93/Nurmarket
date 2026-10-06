@@ -150,7 +150,7 @@ public sealed partial class BasketPanelViewModel
         }
 
         var loyaltyOn = UserPreferences.Instance.LoyaltyEnabled;
-        var balance = loyaltyOn ? ClientLoyaltyStore.GetBalance(client.Id) : 0;
+        var balance = loyaltyOn ? (await ServerLoyalty.GetBalanceAsync(client.Id).ConfigureAwait(false) ?? ClientLoyaltyStore.GetBalance(client.Id)) : 0;
         var message = BuildClientQrMessage(client, phone, created, fromMemory, loyaltyOn, balance);
         PosLogger.Log($"QR клиента {masked}: клиент выбран в чеке (новый={created}, из памяти без связи={fromMemory}).", "CART");
 
@@ -236,7 +236,7 @@ public sealed partial class BasketPanelViewModel
         (_clientPhoneLookup ??= new ClientPhoneLookup(_clientsApi)).Remember(id, name, phone);
 
         var loyaltyOn = UserPreferences.Instance.LoyaltyEnabled;
-        var balance = loyaltyOn ? ClientLoyaltyStore.GetBalance(id) : 0;
+        var balance = loyaltyOn ? (await ServerLoyalty.GetBalanceAsync(id).ConfigureAwait(false) ?? ClientLoyaltyStore.GetBalance(id)) : 0;
         var message = BuildClientQrMessage(client, string.IsNullOrWhiteSpace(phone) ? name : phone, created, fromMemory: false, loyaltyOn, balance);
         PosLogger.Log($"QR клиента (одноразовый): клиент выбран в чеке (новый={created}, {ClientQrCode.MaskPhone(ClientQrCode.NationalDigits(phone))}).", "CART");
         await RunOnUiThreadAsync(() =>

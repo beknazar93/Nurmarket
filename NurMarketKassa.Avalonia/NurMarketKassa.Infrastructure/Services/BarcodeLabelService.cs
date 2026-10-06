@@ -21,7 +21,8 @@ public sealed record LabelPrintRequest(
     LabelTemplate Template,
     string? Sku = null,
     string? Unit = null,
-    string? StoreName = null);
+    string? StoreName = null,
+    string? VariantText = null);
 
 /// <summary>
 /// Генерирует изображение этикетки (штрих-код + название товара + цена) по шаблону
@@ -31,10 +32,11 @@ public static class BarcodeLabelService
 {
     internal const int Dpi = 203; // стандартное разрешение термопринтеров этикеток.
 
+    /// <param name="variantText">2026-10-06 (О-25): размер и цвет («44, Красный») — для этикетки размера одежды.</param>
     public static Bitmap GenerateLabelBitmap(
         string productName, string barcode, string? priceText, LabelTemplate template,
-        string? sku = null, string? unit = null, string? storeName = null) =>
-        GenerateLabelBitmap(productName, barcode, priceText, template, sku, unit, storeName, Dpi);
+        string? sku = null, string? unit = null, string? storeName = null, string? variantText = null) =>
+        GenerateLabelBitmap(productName, barcode, priceText, template, sku, unit, storeName, Dpi, variantText);
 
     /// <summary>То же, но в разрешении конкретного принтера (2026-09-28): раньше этикетка всегда
     /// рисовалась в 203 dpi и потом растягивалась драйвером до 300/600 dpi — штрихи получали
@@ -43,8 +45,13 @@ public static class BarcodeLabelService
     /// устройства.</summary>
     internal static Bitmap GenerateLabelBitmap(
         string productName, string barcode, string? priceText, LabelTemplate template,
-        string? sku, string? unit, string? storeName, int dpi)
+        string? sku, string? unit, string? storeName, int dpi, string? variantText = null)
     {
+        // 2026-10-06 (О-25): строка «Размер и цвет» выключена в шаблоне — дописываем к названию, иначе размер не виден.
+        var variantElement = template.Variant;
+        if (!string.IsNullOrWhiteSpace(variantText) && variantElement is not { Enabled: true })
+            productName = productName + " — " + variantText!.Trim();
+
         var widthPx = Math.Max((int)(template.WidthMm / 25.4 * dpi), 10);
         var heightPx = Math.Max((int)(template.HeightMm / 25.4 * dpi), 10);
 
@@ -66,6 +73,8 @@ public static class BarcodeLabelService
             DrawTextElement(g, template.Unit, unit!, FontStyle.Regular, ResolveFontFamily(template.Unit, template), ResolveFontSizePx(template.Unit, template));
         if (!string.IsNullOrWhiteSpace(storeName))
             DrawTextElement(g, template.StoreName, storeName!, FontStyle.Regular, ResolveFontFamily(template.StoreName, template), ResolveFontSizePx(template.StoreName, template));
+        if (!string.IsNullOrWhiteSpace(variantText) && variantElement is { Enabled: true })
+            DrawTextElement(g, variantElement, variantText!.Trim(), FontStyle.Bold, ResolveFontFamily(variantElement, template), ResolveFontSizePx(variantElement, template));
 
         return label;
     }
@@ -635,7 +644,7 @@ public static class BarcodeLabelService
                 labelDpi = RenderDpiFor(g.DpiX);
                 label = GenerateLabelBitmap(
                     request.ProductName, request.Barcode, request.PriceText, request.Template,
-                    request.Sku, request.Unit, request.StoreName, labelDpi);
+                    request.Sku, request.Unit, request.StoreName, labelDpi, request.VariantText);
             }
             DrawOnPrinterPage(g, label, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, labelDpi);
             copiesRemaining--;
@@ -656,7 +665,7 @@ public static class BarcodeLabelService
         {
             using var label = GenerateLabelBitmap(
                 request.ProductName, request.Barcode, request.PriceText, request.Template,
-                request.Sku, request.Unit, request.StoreName);
+                request.Sku, request.Unit, request.StoreName, request.VariantText);
             var devicePath = UsbRawPrinterPort.IsRawPortLabel(request.PrinterName)
                 ? UsbRawPrinterPort.ToDevicePath(request.PrinterName)
                 : request.PrinterName;

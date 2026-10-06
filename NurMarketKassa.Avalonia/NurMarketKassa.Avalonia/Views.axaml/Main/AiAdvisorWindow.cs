@@ -21,8 +21,24 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// </summary>
 public sealed class AiAdvisorWindow : Window, IOwnerSection
 {
-    private readonly Grid _root = new() { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto,Auto"), Margin = new Thickness(24, 18, 24, 24) };
-    private readonly StackPanel _messages = new() { Spacing = 10, Margin = new Thickness(0, 4, 8, 4) };
+    // 2026-10-05, владелец: «начни редизайн окна чата с ИИ». Как в современных чатах: слева — история разговоров
+    // («＋ Новый разговор», по дням), справа — заголовок с подключёнными моделями, лента по центру (вопрос — пузырь справа,
+    // ответ ИИ — со значком ✦ и кнопками «Копировать» / «Озвучить»), пустой чат — приветствие и готовые вопросы
+    // карточками, внизу — скруглённое поле ввода с микрофоном и круглой кнопкой ➤ / ■. На телефоне история — по ☰.
+    private readonly Grid _shell = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+    private readonly Border _sidebar = new() { Width = 264, BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(12, 14) };
+    private readonly Grid _root = new() { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto,Auto"), Margin = new Thickness(24, 14, 24, 14) };
+    private readonly StackPanel _messages = new() { Spacing = 16, Margin = new Thickness(4, 8, 12, 8), MaxWidth = 860 };
+    private readonly TextBlock _status = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+    private Button? _menuButton;
+    // 2026-10-05, владелец (снимок): «некрасиво, два меню — неудобно». История — не постоянной панелью рядом с меню
+    // разделов, а выдвижной панелью справа по кнопке «История»; в программе владельца название раздела не повторяется.
+    private Control? _headerTitle;
+    private bool _narrow;
+    private Control? _welcome;
+
+    /// <summary>Реплика на экране: кто сказал и текст (для сохранения разговора).</summary>
+    private sealed record MessageTag(bool Owner, SelectableTextBlock Body);
     private readonly ScrollViewer _scroll = new();
     private readonly TextBox _input;
     private readonly Button _send;
@@ -54,6 +70,26 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private readonly StackPanel _historyList = new() { Spacing = 6 };
     private bool _busy;
 
+    // 2026-10-05, владелец: «постоянное голосовое общение как ChatGPT можем?» → «Делать? да». Кнопка «Разговор»:
+    // живой разговор голосом (GeminiLiveVoice) — микрофон слушает всё время, советник отвечает голосом сразу,
+    // текст обеих сторон пишется в чат и в историю. Вместо поля ввода — панель разговора (круг, состояние, «Перебить», «Завершить»).
+    private GeminiLiveVoice? _live;
+    private int _liveGen;
+    private Button? _talk;
+    private Border? _composer;
+    private readonly Border _liveBar = new() { CornerRadius = new CornerRadius(30), BorderThickness = new Thickness(1), Padding = new Thickness(10, 8, 12, 8), MaxWidth = 860, IsVisible = false };
+    private readonly Border _orb = new() { Width = 52, Height = 52, CornerRadius = new CornerRadius(26) };
+    private readonly ScaleTransform _orbScale = new(1, 1);
+    private readonly TextBlock _liveState = new() { FontSize = 15, FontWeight = FontWeight.SemiBold };
+    private readonly TextBlock _liveHint = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+    private Button? _liveInterrupt;
+    private DispatcherTimer? _liveTimer;
+    private SelectableTextBlock? _liveUser;
+    private SelectableTextBlock? _liveAi;
+    private readonly System.Text.StringBuilder _liveUserText = new();
+    private readonly System.Text.StringBuilder _liveAiText = new();
+    private IReadOnlyDictionary<int, string> _liveDebtors = new Dictionary<int, string>();
+
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
     public AiAdvisorWindow()
@@ -64,24 +100,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Use(this, BackgroundProperty, "BrushWindowBackdrop");
 
-        var intro = new TextBlock
-        {
-            Text = T("Спросите о своём магазине: как идут продажи, что заказать, что не продаётся, как поднять выручку. "
-                     + "Советник видит выручку за сегодня и неделю, лучшие товары и то, что заканчивается, и не выдумывает цифр.",
-                "Дүкөнүңүз жөнүндө сураңыз: сатуу кандай, эмнени заказ кылуу керек, эмне сатылбай жатат, кирешени кантип көбөйтүү. "
-                + "Кеңешчи бүгүнкү жана жумалык кирешени, мыкты товарларды жана түгөнүп бараткандарды көрөт, сандарды ойлоп чыгарбайт.",
-                "Ask about your shop: how sales are going, what to order, what isn't selling, how to grow revenue. "
-                + "The advisor sees today's and this week's revenue, top products and what is running out, and never makes numbers up.",
-                "Mağazanız hakkında sorun: satışlar nasıl, ne sipariş edilmeli, ne satılmıyor, ciro nasıl artırılır. "
-                + "Danışman bugünün ve haftanın cirosunu, en iyi ürünleri ve bitmek üzere olanları görür, rakam uydurmaz.",
-                "Do'koningiz haqida so'rang: savdo qanday, nima buyurtma qilish kerak, nima sotilmayapti, tushumni qanday oshirish. "
-                + "Maslahatchi bugungi va haftalik tushumni, eng yaxshi mahsulotlarni va tugayotganlarini ko'radi, raqamlarni o'ylab topmaydi."),
-            FontSize = 14,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 12),
-        };
-        Use(intro, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _root.Children.Add(intro);
+        BuildHeader();
 
         // Ключ нейросети (если ещё не задан).
         Use(_keyCard, Border.BackgroundProperty, "BrushPanel");
@@ -145,19 +164,16 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         // Ключ Gemini и «Модели ИИ» — друг под другом в одной строке разметки.
         BuildModelsCard();
         BuildHistoryCard();
-        var topCards = new StackPanel { Children = { _keyCard, _modelsCard, _historyCard } };
+        var topCards = new StackPanel { Children = { _keyCard, _modelsCard } };
         Grid.SetRow(topCards, 1);
         _root.Children.Add(topCards);
 
-        // Разговор.
-        var chatCard = new Border { CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1), Padding = new Thickness(12) };
-        Use(chatCard, Border.BackgroundProperty, "BrushPanelSoft");
-        Use(chatCard, Border.BorderBrushProperty, "BrushBorder");
+        // Разговор: лента по центру, без рамки.
         _scroll.Content = _messages;
         _scroll.VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
-        chatCard.Child = _scroll;
-        Grid.SetRow(chatCard, 2);
-        _root.Children.Add(chatCard);
+        _scroll.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        Grid.SetRow(_scroll, 2);
+        _root.Children.Add(_scroll);
 
         // Готовые вопросы.
         foreach (var q in new[]
@@ -174,18 +190,27 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                  })
         {
             var chip = UiKit.Chip(this, q, false);
-            chip.MinHeight = 36;
-            chip.FontSize = 13;
-            chip.Margin = new Thickness(0, 0, 8, 8);
+            chip.Content = new TextBlock { Text = q, TextWrapping = TextWrapping.Wrap, FontSize = 13.5 };
+            chip.Tag = q;
+            chip.Width = 252;
+            chip.MinHeight = 58;
+            chip.CornerRadius = new CornerRadius(14);
+            chip.Padding = new Thickness(14, 10);
+            chip.HorizontalContentAlignment = HorizontalAlignment.Left;
+            chip.Margin = new Thickness(0, 0, 10, 10);
             chip.Click += async (_, _) => await SendAsync(q).ConfigureAwait(true);
             _quick.Children.Add(chip);
         }
-        Grid.SetRow(_quick, 3);
-        _root.Children.Add(_quick);
 
-        // Строка ввода.
-        var inputRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto") };
-        _input = UiKit.Input(this, T("Напишите вопрос и нажмите Enter…", "Суроону жазып, Enter басыңыз…", "Type a question and press Enter…", "Sorunuzu yazıp Enter'a basın…", "Savolni yozib, Enter bosing…"), 48);
+        // Поле ввода.
+        var composer = new Border { CornerRadius = new CornerRadius(24), BorderThickness = new Thickness(1), Padding = new Thickness(14, 4, 6, 4), MaxWidth = 860 };
+        Use(composer, Border.BackgroundProperty, "BrushPanel");
+        Use(composer, Border.BorderBrushProperty, "BrushBorder");
+        var inputRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto") };
+        _input = UiKit.Input(this, T("Спросите о своём магазине…", "Дүкөнүңүз жөнүндө сураңыз…", "Ask about your shop…", "Mağazanız hakkında sorun…", "Do'koningiz haqida so'rang…"), 44);
+        _input.BorderThickness = new Thickness(0);
+        _input.Background = Brushes.Transparent;
+        _input.VerticalContentAlignment = VerticalAlignment.Center;
         _input.KeyDown += async (_, e) =>
         {
             if (e.Key != Key.Enter)
@@ -194,27 +219,31 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             await SendAsync(_input.Text).ConfigureAwait(true);
         };
         inputRow.Children.Add(_input);
+        AddHandler(KeyDownEvent, ScanKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         if (VoiceChatRecorder.IsSupported)
         {
-            _mic = UiKit.Ghost(this, "");
-            _mic.Content = MicGlyph(recording: false);
-            _mic.Height = 48;
-            _mic.Width = 56;
-            _mic.Padding = new Thickness(0);
-            _mic.FontSize = 20;
-            _mic.Margin = new Thickness(8, 0, 0, 0);
+            _mic = RoundButton(MicGlyph(recording: false), accent: false);
             ToolTip.SetTip(_mic, T("Спросить голосом: нажмите, говорите, нажмите ещё раз — ответ прозвучит вслух",
                 "Үн менен суроо: басыңыз, сүйлөңүз, кайра басыңыз — жооп үн менен угулат",
                 "Ask by voice: press, speak, press again — the answer will be read aloud",
                 "Sesle sor: basın, konuşun, tekrar basın — yanıt sesli okunur",
                 "Ovoz bilan so'rash: bosing, gapiring, yana bosing — javob ovoz bilan o'qiladi"));
             _mic.Click += async (_, _) => await ToggleVoiceAsync().ConfigureAwait(true);
-            Grid.SetColumn(_mic, 1);
+            Grid.SetColumn(_mic, 2);
             inputRow.Children.Add(_mic);
+            _talk = RoundButton(WaveGlyph("BrushText"), accent: false);
+            _talk.Margin = new Thickness(6, 0, 0, 0);
+            ToolTip.SetTip(_talk, T("Разговор голосом, как по телефону: говорите — советник сразу отвечает голосом и снова слушает",
+                "Үн менен маек, телефондогудай: сүйлөңүз — кеңешчи дароо үн менен жооп берип, кайра угат",
+                "Voice conversation, like a phone call: speak — the advisor answers by voice right away and listens again",
+                "Telefondaki gibi sesli sohbet: konuşun — danışman hemen sesle yanıtlar ve yeniden dinler",
+                "Telefondagidek ovozli suhbat: gapiring — maslahatchi darhol ovoz bilan javob beradi va yana tinglaydi"));
+            _talk.Click += async (_, _) => await StartLiveAsync().ConfigureAwait(true);
+            Grid.SetColumn(_talk, 3);
+            inputRow.Children.Add(_talk);
         }
-        _send = UiKit.Primary(this, T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
-        _send.Height = 48;
-        _send.Margin = new Thickness(8, 0, 0, 0);
+        _send = RoundButton(SendGlyph(stop: false), accent: true);
+        _send.Margin = new Thickness(6, 0, 0, 0);
         _send.Click += async (_, _) =>
         {
             if (_busy)
@@ -222,55 +251,62 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             else
                 await SendAsync(_input.Text).ConfigureAwait(true);
         };
-        Grid.SetColumn(_send, 2);
+        Grid.SetColumn(_send, 4);
         inputRow.Children.Add(_send);
-        var reset = UiKit.Ghost(this, T("Новый разговор", "Жаңы маек", "New chat", "Yeni sohbet", "Yangi suhbat"));
-        reset.Height = 48;
-        reset.Margin = new Thickness(8, 0, 0, 0);
-        reset.Click += (_, _) => ResetChat();
-        Grid.SetColumn(reset, 3);
-        inputRow.Children.Add(reset);
-        var history = UiKit.Ghost(this, "🕘");
-        history.Height = 48;
-        history.Width = 52;
-        history.Padding = new Thickness(0);
-        history.FontSize = 18;
-        history.Margin = new Thickness(8, 0, 0, 0);
-        ToolTip.SetTip(history, T("Прошлые разговоры", "Мурунку маектер", "Past chats", "Geçmiş sohbetler", "Oldingi suhbatlar"));
-        history.Click += (_, _) =>
+        // 2026-10-06, владелец: «добавь загрузку фото накладной в наш ИИ, чтобы он мог загрузить с маржей на склад».
+        var attach = RoundButton(new TextBlock { Text = "📎", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }, accent: false);
+        attach.Margin = new Thickness(6, 0, 0, 0);
+        ToolTip.SetTip(attach, T("Приложить фото: накладная поставщика — ИИ оприходует товары с наценкой; фото товара — опишет и заполнит карточку",
+            "Сүрөт тиркөө: жеткирүүчүнүн накладнойу — ИИ товарларды үстөк менен кириштейт; товардын сүрөтү — сүрөттөп, карточкасын толтурат",
+            "Attach a photo: a supplier invoice — the AI receives the goods with a markup; a product photo — it describes it and fills in the card",
+            "Fotoğraf ekle: tedarikçi faturası — yapay zekâ ürünleri kâr payıyla stoğa alır; ürün fotoğrafı — tanımlar ve kartı doldurur",
+            "Surat biriktirish: yetkazib beruvchi yuk xati — SI mahsulotlarni ustama bilan kirim qiladi; mahsulot surati — tavsiflab, kartani to'ldiradi"));
+        attach.Click += async (_, _) => await PickPhotoAsync().ConfigureAwait(true);
+        Grid.SetColumn(attach, 1);
+        inputRow.Children.Add(attach);
+        _attachRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 6, 0, 2), IsVisible = false };
+        composer.Child = new StackPanel { Children = { _attachRow, inputRow } };
+        Grid.SetRow(composer, 3);
+        _root.Children.Add(composer);
+        _composer = composer;
+        BuildLiveBar();
+        var footnote = new TextBlock
         {
-            _historyCard.IsVisible = !_historyCard.IsVisible;
-            if (_historyCard.IsVisible)
-                RefreshHistoryList();
+            Text = T("ИИ может ошибаться — важное проверяйте. Цифры берутся из данных вашего магазина.",
+                "ИИ жаңылышы мүмкүн — маанилүүнү текшериңиз. Сандар дүкөнүңүздүн маалыматынан алынат.",
+                "AI can make mistakes — check what matters. Numbers come from your shop's data.",
+                "Yapay zekâ hata yapabilir — önemli olanı kontrol edin. Rakamlar mağazanızın verilerinden gelir.",
+                "SI xato qilishi mumkin — muhimini tekshiring. Raqamlar do'koningiz ma'lumotlaridan olinadi."),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
         };
-        Grid.SetColumn(history, 4);
-        inputRow.Children.Add(history);
-        var models = UiKit.Ghost(this, "⚙");
-        models.Height = 48;
-        models.Width = 52;
-        models.Padding = new Thickness(0);
-        models.FontSize = 18;
-        models.Margin = new Thickness(8, 0, 0, 0);
-        ToolTip.SetTip(models, T("Модели ИИ и поиск в интернете", "ИИ моделдери жана интернеттен издөө", "AI models and web search", "Yapay zekâ modelleri ve internet araması", "SI modellari va internetda qidirish"));
-        models.Click += (_, _) =>
-        {
-            var show = !(_modelsCard.IsVisible && _routerSection.IsVisible);
-            _modelsCard.IsVisible = show;
-            _routerSection.IsVisible = show;
-        };
-        Grid.SetColumn(models, 5);
-        inputRow.Children.Add(models);
-        Grid.SetRow(inputRow, 4);
-        _root.Children.Add(inputRow);
+        Use(footnote, TextBlock.ForegroundProperty, "BrushTextSoft");
+        Grid.SetRow(footnote, 4);
+        _root.Children.Add(footnote);
 
-        Content = _root;
+        BuildSidebar();
+        Grid.SetColumn(_root, 1);
+        Grid.SetColumn(_sidebar, 1);
+        _sidebar.ZIndex = 10;
+        _sidebar.IsVisible = false;
+        _sidebar.Width = 320;
+        _sidebar.HorizontalAlignment = HorizontalAlignment.Right;
+        _sidebar.Margin = new Thickness(0, 64, 16, 16);
+        _sidebar.CornerRadius = new CornerRadius(14);
+        _sidebar.BorderThickness = new Thickness(1);
+        _sidebar.BoxShadow = BoxShadows.Parse("0 8 28 0 #50000000");
+        _scroll.PointerPressed += (_, _) => _sidebar.IsVisible = false;
+        _shell.Children.Add(_root);
+        _shell.Children.Add(_sidebar);
+        Content = _shell;
 
-        // Телефон: кнопки строки ввода — под полем, ключ — с кнопками в отдельной строке.
-        NarrowLayout.Attach(this, 640, narrow =>
+        // Телефон: история — поверх ленты по ☰; ключ — поле на всю ширину, кнопки строкой ниже.
+        NarrowLayout.Attach(this, 760, narrow =>
         {
-            _root.Margin = narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 18, 24, 24);
-            reset.IsVisible = !narrow;
-            _send.Padding = new Thickness(narrow ? 12 : 20, 0);
+            _narrow = narrow;
+            _root.Margin = narrow ? new Thickness(10, 8, 10, 10) : new Thickness(24, 14, 24, 14);
+            _sidebar.Width = narrow ? double.NaN : 320;
+            _sidebar.HorizontalAlignment = narrow ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
             // Ключ: поле на всю ширину, «Получить ключ» и «Сохранить» — строкой ниже (на телефоне поле было в 60 точек).
             keyRow.ColumnDefinitions = new ColumnDefinitions(narrow ? "*,*" : "*,Auto,Auto");
             keyRow.RowDefinitions = narrow ? new RowDefinitions("Auto,8,Auto") : new RowDefinitions();
@@ -286,16 +322,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         keyRow.Classes.Add("no-reflow");
 
         RefreshKeyCard();
-        AddBubble(T("Здравствуйте! Я ИИ-советник вашего магазина. Спросите про продажи, остатки, закупки или как поднять выручку — "
-                    + "отвечу по данным вашего магазина. Можно нажать готовый вопрос ниже.",
-                "Саламатсызбы! Мен дүкөнүңүздүн ИИ-кеңешчисимин. Сатуу, калдыктар, сатып алуулар же кирешени кантип көбөйтүү жөнүндө сураңыз — "
-                + "дүкөнүңүздүн маалыматы боюнча жооп берем. Төмөндөгү даяр суроону басса да болот.",
-                "Hello! I'm your shop's AI advisor. Ask about sales, stock, purchasing or how to grow revenue — "
-                + "I'll answer from your shop's data. You can also tap a ready question below.",
-                "Merhaba! Mağazanızın yapay zekâ danışmanıyım. Satışlar, stok, alımlar veya ciroyu nasıl artıracağınız hakkında sorun — "
-                + "mağazanızın verilerine göre yanıtlarım. Aşağıdaki hazır sorulardan birine de dokunabilirsiniz.",
-                "Assalomu alaykum! Men do'koningizning SI maslahatchisiman. Savdo, qoldiqlar, xaridlar yoki tushumni qanday oshirish haqida so'rang — "
-                + "do'koningiz ma'lumotlari bo'yicha javob beraman. Pastdagi tayyor savolni bosish ham mumkin."), fromOwner: false);
+        ShowWelcome();
+        RefreshHistoryList();
 
         // В программе владельца своя локальная история продаж — подтягиваем свежие чеки с сервера, чтобы
         // сводка для советника (выручка, лучшие товары) была по сегодняшним данным.
@@ -314,6 +342,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         });
         Closed += (_, _) =>
         {
+            EndLive(null);
             SaveCurrentChat();
             _cts?.Cancel();
             _recorder?.Dispose();
@@ -324,7 +353,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     public void AsOwnerSection()
     {
-        _root.Margin = OwnerSectionLayout.Margin;
+        // Панель истории — вплотную к краю раздела, отступ раздела — у ленты.
+        var m = OwnerSectionLayout.Margin;
+        _shell.Margin = new Thickness(0, m.Top, 0, 0);
+        _root.Margin = new Thickness(m.Left, 0, m.Right, m.Bottom);
+        // Название раздела уже есть в полосе программы владельца — не повторяем.
+        if (_headerTitle is not null)
+            _headerTitle.IsVisible = false;
     }
 
     private void RefreshKeyCard()
@@ -333,15 +368,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _input.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
         // Во время ответа или поиска фото — «■ Стоп» (раньше кнопка была просто серой, казалось — зависло).
         _send.IsEnabled = TelegramAiChat.IsConfigured || _busy;
-        _send.Content = _busy
-            ? T("■ Стоп", "■ Токтотуу", "■ Stop", "■ Durdur", "■ To'xtatish")
-            : T("Спросить", "Суроо", "Ask", "Sor", "So'rash");
+        _send.Content = SendGlyph(stop: _busy);
+        ToolTip.SetTip(_send, _busy
+            ? T("Остановить", "Токтотуу", "Stop", "Durdur", "To'xtatish")
+            : T("Спросить", "Суроо", "Ask", "Sor", "So'rash"));
+        RefreshStatus();
         // 2026-10-05, проверка на телефоне: без ключа ИИ не работала и кнопка «Найди фото…», хотя поиску фото
         // нейросеть не нужна (открытые базы товаров по штрихкоду) — она доступна всегда.
         foreach (var chip in _quick.Children.OfType<Button>())
-            chip.IsEnabled = !_busy && (TelegramAiChat.IsConfigured || chip.Content is string text && IsPhotoRequest(text));
+            chip.IsEnabled = !_busy && (TelegramAiChat.IsConfigured || chip.Tag is string text && IsPhotoRequest(text));
         if (_mic is not null)
             _mic.IsEnabled = TelegramAiChat.IsConfigured && (!_busy || _recorder is not null);
+        if (_talk is not null)
+            _talk.IsEnabled = TelegramAiChat.IsConfigured && !_busy && _recorder is null;
     }
 
     private async Task SaveKeyAsync()
@@ -370,15 +409,26 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _chatId = Guid.NewGuid().ToString("N");
         TelegramAiChat.ResetOwnerAppHistory();
         _messages.Children.Clear();
-        AddBubble(T("Начнём сначала. О чём посоветоваться?", "Башынан баштайлы. Эмне жөнүндө кеңешебиз?", "Let's start over. What would you like advice on?",
-            "Baştan başlayalım. Ne hakkında danışmak istersiniz?", "Boshidan boshlaymiz. Nima haqida maslahatlashamiz?"), fromOwner: false);
+        ShowWelcome();
+        RefreshHistoryList();
+        _sidebar.IsVisible = false;
+        _input.Focus();
     }
 
     private async Task SendAsync(string? text)
     {
         var question = (text ?? "").Trim();
+        // 2026-10-06: приложено фото без вопроса — по умолчанию это накладная.
+        if (question.Length == 0 && _attachedImage is not null)
+            question = T("Это фото накладной — оприходуй товары на склад.", "Бул накладнойдун сүрөтү — товарларды кампага кириште.",
+                "This is an invoice photo — receive the goods into stock.", "Bu bir fatura fotoğrafı — ürünleri stoğa al.",
+                "Bu yuk xati surati — mahsulotlarni omborga kirim qil.");
         if (question.Length == 0 || _busy || (!TelegramAiChat.IsConfigured && !IsPhotoRequest(question)))
             return;
+        var image = _attachedImage;
+        var imageMime = _attachedMime;
+        var imageName = _attachedName;
+        ClearAttachment();
         // Вслух отвечаем только на вопрос голосом; напечатанный вопрос — молча, как раньше.
         var speak = _voiceAnswer;
         _voiceAnswer = false;
@@ -387,10 +437,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _busy = true;
         _input.Text = "";
         RefreshKeyCard();
-        AddBubble(question, fromOwner: true);
+        AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
         // 2026-10-05, владелец: «добавь техническую возможность к ИИ для загрузки фото на склад» — просьба про фото
         // товаров выполняется программой сама (поиск по штрихкоду, загрузка после подтверждения), без нейросети.
-        if (IsPhotoRequest(question))
+        if (image is null && IsPhotoRequest(question))
         {
             try
             {
@@ -420,16 +470,22 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var askText = speak
                 ? question + "\n(Вопрос задан голосом, ответ будет озвучен: ответь коротко — 2–3 предложения, без списков и таблиц.)"
                 : question;
-            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(askText, summary, _cts.Token).ConfigureAwait(true);
+            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(askText, summary, _cts.Token, image, imageMime).ConfigureAwait(true);
             if (gen != _gen)
                 return;
             PosLogger.Log($"ИИ-советник: сводка {summaryMs} мс, ответ ИИ {watch.ElapsedMilliseconds - summaryMs} мс{(speak ? " (голосом)" : "")}.", "INFO");
             Dictionary<string, bool>? botChange = null;
             Dictionary<string, object?>? scenario = null;
+            // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам» — строки «ТОВАР: {…}» → карточка «Выполнить».
+            List<ProductActionPlan.Step>? productSteps = null;
             if (answer is { Length: > 0 })
             {
                 (answer, botChange) = ExtractBotChange(answer);
                 (answer, scenario) = ExtractScenario(answer);
+                (answer, productSteps) = ProductActionPlan.Extract(answer);
+                if (answer.Length == 0 && productSteps.Count > 0)
+                    answer = T("Предлагаю изменения — подтвердите:", "Өзгөртүүлөрдү сунуштайм — ырастаңыз:", "I suggest these changes — please confirm:",
+                        "Şu değişiklikleri öneriyorum — onaylayın:", "Quyidagi o'zgarishlarni taklif qilaman — tasdiqlang:");
                 AddProductPhotos(answer);
             }
             thinking.Text = answer is { Length: > 0 }
@@ -457,6 +513,15 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                 AddBotChangeCard(botChange);
             if (scenario is not null)
                 AddScenarioCard(scenario);
+            if (productSteps is { Count: > 0 })
+                ShowProductSteps(productSteps);
+            // 2026-10-06: строки, которые не стали действиями, — не молча, а списком (раньше накладная на 20 позиций давала «ничего»).
+            if (ProductActionPlan.LastSkipped.Count > 0)
+                AddBubble(T("Не нашёл в каталоге и не смог разобрать: ", "Каталогдон таппадым жана ажырата алган жокмун: ", "Not found in the catalog and couldn't parse: ",
+                    "Katalogda bulunamadı ve ayrıştırılamadı: ", "Katalogda topilmadi va ajratib bo'lmadi: ") + string.Join(", ", ProductActionPlan.LastSkipped)
+                    + T(". Напишите, что с ними сделать (например, «создай как новые товары»).", ". Алар менен эмне кылууну жазыңыз (мисалы, «жаңы товар катары түз»).",
+                        ". Tell me what to do with them (e.g. “create as new products”).", ". Bunlarla ne yapılacağını yazın (ör. «yeni ürün olarak oluştur»).",
+                        ". Ular bilan nima qilishni yozing (masalan, «yangi mahsulot sifatida yarat»)."), fromOwner: false);
             if (speak && answer is { Length: > 0 })
                 _ = SpeakAsync(thinking.Text ?? "");
         }
@@ -487,6 +552,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     /// <summary>Остановить текущий ответ или поиск фото: ввод сразу доступен, старая работа UI больше не трогает.</summary>
     private void StopCurrent(bool showNote)
     {
+        EndLive(null);
         var wasBusy = _busy;
         _gen++;
         _cts?.Cancel();
@@ -543,8 +609,8 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var lines = new List<SavedLine>();
         foreach (var child in _messages.Children)
         {
-            if (child is Border { Child: SelectableTextBlock text } bubble && !string.IsNullOrWhiteSpace(text.Text) && text.Text != thinking)
-                lines.Add(new SavedLine(bubble.HorizontalAlignment == HorizontalAlignment.Right, text.Text!));
+            if (child.Tag is MessageTag tag && !string.IsNullOrWhiteSpace(tag.Body.Text) && tag.Body.Text != thinking)
+                lines.Add(new SavedLine(tag.Owner, tag.Body.Text!));
         }
         return lines;
     }
@@ -561,8 +627,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         chats.RemoveAll(c => c.Id == _chatId);
         chats.Insert(0, new SavedChat(_chatId, at, title, lines));
         StoreChats(chats);
-        if (_historyCard.IsVisible)
-            RefreshHistoryList();
+        RefreshHistoryList();
     }
 
     private void BuildHistoryCard()
@@ -590,32 +655,54 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         {
             var empty = new TextBlock
             {
-                Text = T("Пока нет сохранённых разговоров. Разговор сохраняется сам после каждого ответа.",
-                    "Азырынча сакталган маектер жок. Маек ар бир жооптон кийин өзү сакталат.",
-                    "No saved chats yet. A chat is saved automatically after every answer.",
-                    "Henüz kayıtlı sohbet yok. Sohbet her yanıttan sonra otomatik kaydedilir.",
-                    "Hozircha saqlangan suhbatlar yo'q. Suhbat har bir javobdan keyin o'zi saqlanadi."),
-                FontSize = 13, TextWrapping = TextWrapping.Wrap,
+                Text = T("Здесь появятся ваши разговоры — каждый сохраняется сам после ответа.",
+                    "Бул жерде маектериңиз чыгат — ар бири жооптон кийин өзү сакталат.",
+                    "Your chats will appear here — each one is saved automatically after an answer.",
+                    "Sohbetleriniz burada görünecek — her biri yanıttan sonra otomatik kaydedilir.",
+                    "Suhbatlaringiz shu yerda chiqadi — har biri javobdan keyin o'zi saqlanadi."),
+                FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6, 4, 6, 0),
             };
             Use(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
             _historyList.Children.Add(empty);
             return;
         }
+        string? lastGroup = null;
         foreach (var chat in chats)
         {
+            var days = (DateTime.Today - chat.At.Date).TotalDays;
+            var group = days < 1 ? T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun")
+                : days < 2 ? T("Вчера", "Кечээ", "Yesterday", "Dün", "Kecha")
+                : days < 7 ? T("Последние 7 дней", "Акыркы 7 күн", "Previous 7 days", "Son 7 gün", "Oxirgi 7 kun")
+                : T("Ранее", "Мурда", "Earlier", "Daha önce", "Avvalroq");
+            if (group != lastGroup)
+            {
+                var head = new TextBlock { Text = group, FontSize = 11.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, lastGroup is null ? 2 : 12, 0, 4) };
+                Use(head, TextBlock.ForegroundProperty, "BrushTextSoft");
+                _historyList.Children.Add(head);
+                lastGroup = group;
+            }
+
+            var current = chat.Id == _chatId;
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-            var open = UiKit.Ghost(this, $"{chat.At:dd.MM HH:mm} · {chat.Title}" + (chat.Id == _chatId
-                ? T(" (сейчас)", " (азыр)", " (current)", " (şu an)", " (hozir)") : ""));
-            open.Height = 38;
-            open.HorizontalAlignment = HorizontalAlignment.Stretch;
-            open.HorizontalContentAlignment = HorizontalAlignment.Left;
+            var title = new TextBlock { Text = chat.Title, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1, FontWeight = current ? FontWeight.SemiBold : FontWeight.Normal };
+            Use(title, TextBlock.ForegroundProperty, "BrushText");
+            var open = new Button
+            {
+                Content = title, Padding = new Thickness(10, 8), CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Focusable = false,
+            };
+            Use(open, Button.BackgroundProperty, current ? "BrushAccentSoft" : "BrushPanel");
+            ToolTip.SetTip(open, $"{chat.At:dd.MM.yyyy HH:mm} · {chat.Title}");
             open.Click += (_, _) => OpenChat(chat);
             row.Children.Add(open);
-            var delete = UiKit.Ghost(this, "✕");
-            delete.Height = 38;
-            delete.Width = 44;
-            delete.Padding = new Thickness(0);
-            delete.Margin = new Thickness(6, 0, 0, 0);
+            var delete = new Button
+            {
+                Content = "✕", Width = 30, Height = 30, Padding = new Thickness(0), FontSize = 12, CornerRadius = new CornerRadius(15), BorderThickness = new Thickness(0),
+                HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0),
+                Opacity = 0.55, Focusable = false,
+            };
+            Use(delete, Button.BackgroundProperty, "BrushPanel");
+            Use(delete, Button.ForegroundProperty, "BrushTextSoft");
             ToolTip.SetTip(delete, T("Удалить разговор", "Маекти өчүрүү", "Delete chat", "Sohbeti sil", "Suhbatni o'chirish"));
             delete.Click += (_, _) =>
             {
@@ -629,6 +716,182 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             row.Classes.Add("no-reflow");
             _historyList.Children.Add(row);
         }
+    }
+
+    /// <summary>Боковая панель: «＋ Новый разговор» и история.</summary>
+    private void BuildSidebar()
+    {
+        Use(_sidebar, Border.BackgroundProperty, "BrushPanel");
+        Use(_sidebar, Border.BorderBrushProperty, "BrushBorder");
+        _sidebar.Padding = new Thickness(12, 12);
+        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 6) };
+        var label = new TextBlock { Text = T("История разговоров", "Маектердин тарыхы", "Chat history", "Sohbet geçmişi", "Suhbatlar tarixi"), FontSize = 14, FontWeight = FontWeight.Bold, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        Use(label, TextBlock.ForegroundProperty, "BrushText");
+        head.Children.Add(label);
+        var close = RoundButton(new TextBlock { Text = "✕", FontSize = 13, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }, accent: false);
+        close.Width = 32;
+        close.Height = 32;
+        close.Click += (_, _) => _sidebar.IsVisible = false;
+        Grid.SetColumn(close, 1);
+        head.Children.Add(close);
+        var list = new ScrollViewer { Content = _historyList, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        _historyList.Spacing = 2;
+        var grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        Grid.SetRow(list, 1);
+        grid.Children.Add(head);
+        grid.Children.Add(list);
+        _sidebar.Child = grid;
+    }
+
+    /// <summary>Шапка: название и модели слева; справа «История», «＋ Новый разговор», ⚙ «Модели ИИ».</summary>
+    private void BuildHeader()
+    {
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 10) };
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        var avatar = AiAvatar(34);
+        titleRow.Children.Add(avatar);
+        var titles = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        var title = new TextBlock { Text = Title, FontSize = 18, FontWeight = FontWeight.Bold };
+        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
+        titles.Children.Add(title);
+        titles.Children.Add(_status);
+        titleRow.Children.Add(titles);
+        _headerTitle = title;
+        header.Children.Add(titleRow);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        _menuButton = UiKit.Ghost(this, T("🕘  История", "🕘  Тарых", "🕘  History", "🕘  Geçmiş", "🕘  Tarix"));
+        _menuButton.Height = 40;
+        _menuButton.CornerRadius = new CornerRadius(20);
+        ToolTip.SetTip(_menuButton, T("Прошлые разговоры", "Мурунку маектер", "Past chats", "Geçmiş sohbetler", "Oldingi suhbatlar"));
+        _menuButton.Click += (_, _) =>
+        {
+            _sidebar.IsVisible = !_sidebar.IsVisible;
+            if (_sidebar.IsVisible)
+                RefreshHistoryList();
+        };
+        buttons.Children.Add(_menuButton);
+        var newChat = UiKit.Primary(this, T("＋  Новый разговор", "＋  Жаңы маек", "＋  New chat", "＋  Yeni sohbet", "＋  Yangi suhbat"));
+        newChat.Height = 40;
+        newChat.CornerRadius = new CornerRadius(20);
+        newChat.Click += (_, _) => ResetChat();
+        buttons.Children.Add(newChat);
+        var models = RoundButton(new TextBlock { Text = "⚙", FontSize = 17, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }, accent: false);
+        ToolTip.SetTip(models, T("Модели ИИ и поиск в интернете", "ИИ моделдери жана интернеттен издөө", "AI models and web search", "Yapay zekâ modelleri ve internet araması", "SI modellari va internetda qidirish"));
+        models.Click += (_, _) =>
+        {
+            var show = !(_modelsCard.IsVisible && _routerSection.IsVisible);
+            _modelsCard.IsVisible = show;
+            _routerSection.IsVisible = show;
+        };
+        buttons.Children.Add(models);
+        Grid.SetColumn(buttons, 1);
+        header.Children.Add(buttons);
+        Grid.SetRow(header, 0);
+        _root.Children.Add(header);
+
+        // Узкий экран: текст на кнопках не помещается — только значки.
+        var historyButton = _menuButton;
+        NarrowLayout.Attach(this, 640, narrow =>
+        {
+            historyButton.Content = narrow ? "🕘" : T("🕘  История", "🕘  Тарых", "🕘  History", "🕘  Geçmiş", "🕘  Tarix");
+            newChat.Content = narrow ? "＋" : T("＋  Новый разговор", "＋  Жаңы маек", "＋  New chat", "＋  Yeni sohbet", "＋  Yangi suhbat");
+        });
+    }
+
+    /// <summary>Строка под названием: какие модели работают.</summary>
+    private void RefreshStatus()
+    {
+        if (!TelegramAiChat.IsConfigured)
+        {
+            _status.Text = T("Нужен ключ ИИ — блок ниже", "ИИ ачкычы керек — төмөнкү блок", "An AI key is needed — see below", "Yapay zekâ anahtarı gerekli — aşağıya bakın", "SI kaliti kerak — pastdagi blok");
+            return;
+        }
+        var parts = new List<string> { "Google Gemini" };
+        if (AiProviders.HasGroq)
+            parts.Add(T("поиск в интернете: Groq", "интернеттен издөө: Groq", "web search: Groq", "internet araması: Groq", "internetda qidirish: Groq"));
+        if (AiProviders.HasOpenRouter)
+            parts.Add(T("запасная модель: OpenRouter", "запастагы модель: OpenRouter", "backup model: OpenRouter", "yedek model: OpenRouter", "zaxira model: OpenRouter"));
+        _status.Text = "● " + string.Join(" · ", parts);
+    }
+
+    /// <summary>Пустой чат: значок, «Чем помочь?», что умеет советник, готовые вопросы карточками.</summary>
+    private void ShowWelcome()
+    {
+        var panel = new StackPanel { Spacing = 10, Margin = new Thickness(0, 28, 0, 0), HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 800 };
+        var avatar = AiAvatar(56);
+        avatar.HorizontalAlignment = HorizontalAlignment.Center;
+        panel.Children.Add(avatar);
+        var hello = new TextBlock
+        {
+            Text = T("Чем помочь вашему магазину?", "Дүкөнүңүзгө кантип жардам берейин?", "How can I help your shop?", "Mağazanıza nasıl yardımcı olabilirim?", "Do'koningizga qanday yordam beray?"),
+            FontSize = 24, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
+        };
+        Use(hello, TextBlock.ForegroundProperty, "BrushText");
+        panel.Children.Add(hello);
+        var intro = new TextBlock
+        {
+            Text = T("Спросите про продажи, остатки, закупки или как поднять выручку — отвечу по данным вашего магазина и не выдумаю цифр. "
+                     + "Можно голосом — кнопка микрофона, а поговорить вживую, как по телефону, — кнопка «Разговор» рядом.",
+                "Сатуу, калдыктар, сатып алуулар же кирешени кантип көбөйтүү жөнүндө сураңыз — дүкөнүңүздүн маалыматы боюнча жооп берем, сандарды ойлоп чыгарбайм. "
+                + "Үн менен да болот — микрофон баскычы, ал эми телефондогудай жандуу сүйлөшүү — жанындагы «Маек» баскычы.",
+                "Ask about sales, stock, purchasing or how to grow revenue — I answer from your shop's data and never make numbers up. "
+                + "You can ask by voice — the microphone button, or talk live like on the phone — the “Conversation” button next to it.",
+                "Satışlar, stok, alımlar veya ciroyu nasıl artıracağınız hakkında sorun — mağazanızın verileriyle yanıtlarım, rakam uydurmam. "
+                + "Sesle sorabilirsiniz — mikrofon düğmesi; telefondaki gibi canlı konuşmak için yanındaki «Sohbet» düğmesi.",
+                "Savdo, qoldiqlar, xaridlar yoki tushumni qanday oshirish haqida so'rang — do'koningiz ma'lumotlari bo'yicha javob beraman, raqam o'ylab topmayman. "
+                + "Ovoz bilan so'rash — mikrofon tugmasi, telefondagidek jonli gaplashish — yonidagi «Suhbat» tugmasi."),
+            FontSize = 14, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, MaxWidth = 620,
+        };
+        Use(intro, TextBlock.ForegroundProperty, "BrushTextSoft");
+        panel.Children.Add(intro);
+        if (_quick.Parent is Panel old)
+            old.Children.Remove(_quick);
+        _quick.HorizontalAlignment = HorizontalAlignment.Center;
+        _quick.Margin = new Thickness(0, 14, 0, 0);
+        _quick.MaxWidth = 800;
+        panel.Children.Add(_quick);
+        _welcome = panel;
+        _messages.Children.Add(panel);
+        RefreshKeyCard();
+    }
+
+    /// <summary>Значок ИИ: круг с ✦.</summary>
+    private Border AiAvatar(double size)
+    {
+        var star = new TextBlock { Text = "✦", FontSize = size * 0.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        Use(star, TextBlock.ForegroundProperty, "BrushAccentForeground");
+        var circle = new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Child = star, VerticalAlignment = VerticalAlignment.Top };
+        Use(circle, Border.BackgroundProperty, "BrushAccent");
+        return circle;
+    }
+
+    /// <summary>Круглая кнопка со значком (микрофон, отправка, ☰, ⚙).</summary>
+    private Button RoundButton(Control glyph, bool accent)
+    {
+        var b = new Button
+        {
+            Content = glyph, Width = 40, Height = 40, Padding = new Thickness(0), CornerRadius = new CornerRadius(20), BorderThickness = new Thickness(0),
+            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        };
+        Use(b, Button.BackgroundProperty, accent ? "BrushAccent" : "BrushPanelSoft");
+        Use(b, Button.ForegroundProperty, accent ? "BrushAccentForeground" : "BrushText");
+        return b;
+    }
+
+    /// <summary>Значок отправки (стрелка) или «стоп» (квадрат).</summary>
+    private Control SendGlyph(bool stop)
+    {
+        var path = new Avalonia.Controls.Shapes.Path
+        {
+            Data = Geometry.Parse(stop ? "M7,7 H17 V17 H7 Z" : "M12,19 V5 M5.5,11.5 L12,5 L18.5,11.5"),
+            Width = 18, Height = 18, Stretch = Stretch.Uniform, StrokeThickness = 2.4, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round,
+        };
+        Use(path, Avalonia.Controls.Shapes.Shape.StrokeProperty, "BrushAccentForeground");
+        if (stop)
+            Use(path, Avalonia.Controls.Shapes.Shape.FillProperty, "BrushAccentForeground");
+        return path;
     }
 
     /// <summary>Открыть прошлый разговор и продолжить его: реплики — на экран, вопросы и ответы — в память разговора ИИ.</summary>
@@ -650,30 +913,102 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             }
         }
         TelegramAiChat.RestoreOwnerAppHistory(turns);
-        _historyCard.IsVisible = false;
+        RefreshHistoryList();
+        _sidebar.IsVisible = false;
         PosLogger.Log($"ИИ-советник: открыт прошлый разговор ({chat.Lines.Count} реплик).", "INFO");
         ScrollToEnd();
     }
 
-    /// <summary>Реплика: вопрос владельца — справа, ответ советника — слева. Текст можно выделить и скопировать.</summary>
+    /// <summary>Реплика: вопрос владельца — пузырь справа; ответ советника — слева со значком ✦ и кнопками
+    /// «Копировать» / «Озвучить». Текст можно выделить. Первый вопрос убирает приветствие пустого чата.</summary>
     private SelectableTextBlock AddBubble(string text, bool fromOwner)
     {
-        var body = new SelectableTextBlock { Text = text, FontSize = 14.5, TextWrapping = TextWrapping.Wrap, LineHeight = 21 };
-        Use(body, TextBlock.ForegroundProperty, "BrushText");
-        var bubble = new Border
+        if (fromOwner && _welcome is not null)
         {
-            CornerRadius = fromOwner ? new CornerRadius(14, 14, 4, 14) : new CornerRadius(14, 14, 14, 4),
-            Padding = new Thickness(14, 10),
-            MaxWidth = 680,
-            HorizontalAlignment = fromOwner ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-            BorderThickness = new Thickness(1),
-            Child = body,
-        };
-        Use(bubble, Border.BackgroundProperty, fromOwner ? "BrushAccentSoft" : "BrushPanel");
-        Use(bubble, Border.BorderBrushProperty, fromOwner ? "BrushAccentStrong" : "BrushBorder");
-        _messages.Children.Add(bubble);
+            _messages.Children.Remove(_welcome);
+            _welcome = null;
+        }
+        var body = new SelectableTextBlock { Text = text, FontSize = 14.5, TextWrapping = TextWrapping.Wrap, LineHeight = 22 };
+        Use(body, TextBlock.ForegroundProperty, "BrushText");
+        if (fromOwner)
+        {
+            var bubble = new Border
+            {
+                CornerRadius = new CornerRadius(18, 18, 4, 18),
+                Padding = new Thickness(16, 10),
+                MaxWidth = 620,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Child = body,
+                Tag = new MessageTag(true, body),
+            };
+            Use(bubble, Border.BackgroundProperty, "BrushAccentSoft");
+            _messages.Children.Add(bubble);
+            ScrollToEnd();
+            return body;
+        }
+
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Tag = new MessageTag(false, body) };
+        var avatar = AiAvatar(30);
+        avatar.Margin = new Thickness(0, 2, 12, 0);
+        row.Children.Add(avatar);
+        var content = new StackPanel { Spacing = 4 };
+        content.Children.Add(body);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Opacity = 0.75 };
+        actions.Children.Add(ActionLink(T("Копировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"), async () =>
+        {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard && !string.IsNullOrWhiteSpace(body.Text))
+                await clipboard.SetTextAsync(body.Text).ConfigureAwait(true);
+        }));
+        if (VoiceChatRecorder.IsSupported)
+            actions.Children.Add(ActionLink(T("Озвучить", "Үн менен окуу", "Read aloud", "Sesli oku", "Ovoz bilan o'qish"), () => SpeakAsync(body.Text ?? "")));
+        content.Children.Add(actions);
+        Grid.SetColumn(content, 1);
+        row.Children.Add(content);
+        _messages.Children.Add(row);
+
+        // «Думаю…» мигает, пока ответа нет; кнопки — когда ответ пришёл.
+        var thinking = T("Думаю…", "Ойлонуп жатам…", "Thinking…", "Düşünüyorum…", "O'ylayapman…");
+        if (text == thinking)
+        {
+            actions.IsVisible = false;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+            timer.Tick += (_, _) =>
+            {
+                if (body.Text != thinking || !_messages.Children.Contains(row))
+                {
+                    body.Opacity = 1;
+                    actions.IsVisible = body.Text != thinking;
+                    timer.Stop();
+                    return;
+                }
+                body.Opacity = body.Opacity > 0.7 ? 0.4 : 1;
+            };
+            timer.Start();
+        }
         ScrollToEnd();
         return body;
+    }
+
+    private Button ActionLink(string text, Func<Task> action)
+    {
+        var b = new Button
+        {
+            Content = text, FontSize = 12, Padding = new Thickness(8, 3), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent, Focusable = false,
+        };
+        Use(b, Button.ForegroundProperty, "BrushTextSoft");
+        b.Click += async (_, _) =>
+        {
+            try
+            {
+                await action().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"ИИ-советник: действие «{text}» не выполнено ({ex.Message}).", "WARNING");
+            }
+        };
+        return b;
     }
 
     // ── 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» (ответ «1 да»). ИИ предлагает изменение
@@ -947,6 +1282,367 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         ScrollToEnd();
     }
 
+    // ── 2026-10-06: фото к вопросу (накладная, товар) ──
+    private StackPanel? _attachRow;
+    private byte[]? _attachedImage;
+    private string _attachedMime = "image/jpeg";
+    private string _attachedName = "";
+
+    private async Task PickPhotoAsync()
+    {
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = T("Фото накладной или товара", "Накладнойдун же товардын сүрөтү", "Invoice or product photo", "Fatura veya ürün fotoğrafı", "Yuk xati yoki mahsulot surati"),
+                AllowMultiple = false,
+                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType(T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.webp" } } },
+            }).ConfigureAwait(true);
+            if (files.Count == 0)
+                return;
+            await using var stream = await files[0].OpenReadAsync().ConfigureAwait(true);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms).ConfigureAwait(true);
+            if (ms.Length > 15_000_000)
+            {
+                AddBubble(T("Фото больше 15 МБ — сожмите или сфотографируйте заново.", "Сүрөт 15 МБдан чоң — кичирейтиңиз же кайра тартыңыз.", "The photo is over 15 MB — shrink it or retake it.",
+                    "Fotoğraf 15 MB'tan büyük — küçültün veya yeniden çekin.", "Surat 15 MB dan katta — kichraytiring yoki qayta oling."), fromOwner: false);
+                return;
+            }
+            var name = files[0].Name;
+            var ext = Path.GetExtension(name).ToLowerInvariant();
+            SetAttachment(ms.ToArray(), ext switch { ".png" => "image/png", ".webp" => "image/webp", _ => "image/jpeg" }, name);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: фото не прикреплено ({ex.Message}).", "WARNING");
+        }
+    }
+
+    private void SetAttachment(byte[] data, string mime, string name)
+    {
+        _attachedImage = data;
+        _attachedMime = mime;
+        _attachedName = name;
+        if (_attachRow is null)
+            return;
+        _attachRow.Children.Clear();
+        try
+        {
+            using var ms = new MemoryStream(data);
+            var bmp = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(ms, 96);
+            _attachRow.Children.Add(new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Width = 48, Height = 48, Child = new Image { Source = bmp, Stretch = Stretch.UniformToFill } });
+        }
+        catch
+        {
+            // не картинка для предпросмотра — покажем имя
+        }
+        var label = new TextBlock
+        {
+            Text = name + " — " + T($"напишите, что сделать (или просто отправьте: накладная, наценка не меньше {ProductActionPlan.MinMarkupPercent:0} %)",
+                $"эмне кылууну жазыңыз (же жөн эле жөнөтүңүз: накладная, үстөк {ProductActionPlan.MinMarkupPercent:0} %дан кем эмес)",
+                $"type what to do (or just send: invoice, markup at least {ProductActionPlan.MinMarkupPercent:0}%)",
+                $"ne yapılacağını yazın (veya sadece gönderin: fatura, kâr payı en az %{ProductActionPlan.MinMarkupPercent:0})",
+                $"nima qilishni yozing (yoki shunchaki yuboring: yuk xati, ustama kamida {ProductActionPlan.MinMarkupPercent:0} %)"),
+            VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, MaxWidth = 600,
+        };
+        Use(label, TextBlock.ForegroundProperty, "BrushTextSoft");
+        _attachRow.Children.Add(label);
+        var remove = UiKit.Ghost(this, "✕");
+        remove.Height = 32;
+        remove.Click += (_, _) => ClearAttachment();
+        _attachRow.Children.Add(remove);
+        _attachRow.IsVisible = true;
+        _input.Focus();
+    }
+
+    private void ClearAttachment()
+    {
+        _attachedImage = null;
+        _attachedName = "";
+        if (_attachRow is null)
+            return;
+        _attachRow.Children.Clear();
+        _attachRow.IsVisible = false;
+    }
+
+    /// <summary>Подготовленные изменения, которые ждут «Выполнить» (или голосового «да, выполни» в звонке).</summary>
+    private Func<Task<string>>? _pendingProductApply;
+    private Action? _pendingProductCancel;
+    // 2026-10-06: «поставь наценку 25 %» даёт новую карточку — прежняя гаснет, иначе два «Выполнить» создали бы товары дважды.
+    private Action? _pendingProductSupersede;
+
+    /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». «Открыть» — сразу, остальное — карточкой с подтверждением.</summary>
+    private void ShowProductSteps(List<ProductActionPlan.Step> steps)
+    {
+        foreach (var open in steps.Where(st => st.Op is "open" or "open_section").Take(1))
+            _ = ProductActionPlan.ExecuteAsync(open, T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"));
+        var changes = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
+        if (changes.Count > 0)
+            AddProductActionsCard(changes);
+    }
+
+    // 2026-10-06, владелец «завис!!!» (снимок карточки с полями штрихкода): карточка сама ставила курсор в поле штрихкода —
+    // ответ на вопрос ИИ «наценка 20 % — оставить?» печатался туда, Enter ничего не отправлял. Теперь курсор не трогаем,
+    // а скан сканера (очень быстрый набор + Enter) где бы ни стоял курсор попадает в следующее пустое поле штрихкода карточки.
+    private List<TextBox>? _scanTargets;
+    private string _scanBuf = "";
+    private long _scanLastTick;
+    private int _scanFastRun;
+    private TextBox? _scanFocusBox;
+    private string? _scanFocusText;
+    private const int ScanInterkeyMs = 40;
+
+    private void ScanKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_scanTargets is not { Count: > 0 } targets || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0)
+            return;
+        var focused = FocusManager?.GetFocusedElement();
+        if (focused is TextBox fb && targets.Contains(fb))
+            return; // курсор в поле штрихкода — скан печатается прямо туда, Enter — к следующему полю
+        var now = Environment.TickCount64;
+        var fast = _scanBuf.Length > 0 && now - _scanLastTick is >= 0 and <= ScanInterkeyMs;
+        if (e.Key == Key.Enter)
+        {
+            var code = _scanBuf;
+            var isScan = fast && code.Length >= 4 && _scanFastRun >= code.Length - 1;
+            _scanBuf = "";
+            _scanFastRun = 0;
+            if (!isScan)
+                return;
+            e.Handled = true;
+            if (_scanFocusBox is { } leaked)
+                leaked.Text = _scanFocusText; // первые 1–2 символа скана успели попасть в поле вопроса — вернуть как было
+            if (targets.FirstOrDefault(t => t.IsEnabled && string.IsNullOrWhiteSpace(t.Text)) is { } target)
+            {
+                target.Text = code;
+                target.BringIntoView();
+            }
+            return;
+        }
+        char? ch = e.Key switch
+        {
+            >= Key.D0 and <= Key.D9 => (char)('0' + (e.Key - Key.D0)),
+            >= Key.NumPad0 and <= Key.NumPad9 => (char)('0' + (e.Key - Key.NumPad0)),
+            >= Key.A and <= Key.Z => (char)('A' + (e.Key - Key.A)),
+            Key.OemMinus or Key.Subtract => '-',
+            _ => null,
+        };
+        if (ch is null)
+        {
+            _scanBuf = "";
+            _scanFastRun = 0;
+            return;
+        }
+        if (fast)
+            _scanFastRun++;
+        else
+        {
+            _scanBuf = "";
+            _scanFastRun = 0;
+            _scanFocusBox = focused as TextBox;
+            _scanFocusText = _scanFocusBox?.Text;
+        }
+        _scanBuf += ch;
+        _scanLastTick = now;
+        if (_scanFastRun >= 2)
+            e.Handled = true;
+    }
+
+    /// <summary>2026-10-06: предложенные ИИ действия с товарами — карточкой; выполняются только по «Выполнить» (ProductActionPlan).</summary>
+    private void AddProductActionsCard(List<ProductActionPlan.Step> steps)
+    {
+        var title = new TextBlock { Text = T("Изменить товары?", "Товарларды өзгөртөлүбү?", "Change the products?", "Ürünler değiştirilsin mi?", "Mahsulotlarni o'zgartiraymi?"), FontWeight = FontWeight.Bold, FontSize = 14.5 };
+        Use(title, TextBlock.ForegroundProperty, "BrushText");
+        // 2026-10-06, владелец: «при загрузке товара спрашивать штрихкод через сканер». У нового товара без штрихкода — поле
+        // «отсканируйте»: сканер пишет в поле и жмёт Enter — курсор переходит к следующему. Штрихкод уже есть у товара в
+        // каталоге — это не новый товар, а приход к нему (дубль не создаётся).
+        var body = new StackPanel { Spacing = 4 };
+        var barcodeBoxes = new Dictionary<int, (TextBox Box, TextBlock Note)>();
+        // Только точное совпадение штрихкода (Find ищет и по названию — недописанный код не должен «найти» чужой товар).
+        static NurMarketKassa.Models.Pos.CatalogProductTileVm? ByBarcode(string code) =>
+            code.Length >= 4 && ProductActions.Find(code) is { } p && string.Equals((p.Barcode ?? "").Trim(), code, StringComparison.OrdinalIgnoreCase) ? p : null;
+        for (var i = 0; i < steps.Count; i++)
+        {
+            var line = new TextBlock { Text = "• " + ProductActionPlan.Describe(steps[i]), FontSize = 14, TextWrapping = TextWrapping.Wrap, LineHeight = 21 };
+            Use(line, TextBlock.ForegroundProperty, "BrushText");
+            body.Children.Add(line);
+            if (steps[i].Op != "create" || !string.IsNullOrWhiteSpace(steps[i].Barcode))
+                continue;
+            var box = UiKit.Input(this, T("Штрихкод — отсканируйте сканером или введите", "Штрихкод — сканер менен окутуңуз же жазыңыз", "Barcode — scan it or type it",
+                "Barkod — okutun veya yazın", "Shtrix-kod — skanerlang yoki kiriting"), 36);
+            box.Margin = new Thickness(14, 0, 0, 0);
+            box.Width = 440;
+            box.HorizontalAlignment = HorizontalAlignment.Left;
+            var note = new TextBlock { FontSize = 12.5, Margin = new Thickness(14, 0, 0, 2), TextWrapping = TextWrapping.Wrap, IsVisible = false };
+            Use(note, TextBlock.ForegroundProperty, "BrushWarning");
+            var index = i;
+            box.TextChanged += (_, _) =>
+            {
+                var code = (box.Text ?? "").Trim();
+                var existing = ByBarcode(code);
+                // Сканер «пикнул» дважды или один код у двух строк — второй товар с тем же штрихкодом сервер не примет.
+                var twice = code.Length >= 4 && barcodeBoxes.Any(kv => kv.Key != index && string.Equals((kv.Value.Box.Text ?? "").Trim(), code, StringComparison.OrdinalIgnoreCase));
+                note.IsVisible = existing is not null || twice;
+                if (twice && existing is null)
+                    note.Text = T("Этот штрихкод уже введён у другой строки — проверьте.", "Бул штрихкод башка сапта киргизилген — текшериңиз.",
+                        "This barcode is already entered on another line — please check.", "Bu barkod başka bir satıra zaten girildi — kontrol edin.",
+                        "Bu shtrix-kod boshqa qatorda kiritilgan — tekshiring.");
+                if (existing is not null)
+                    note.Text = T($"Этот штрихкод уже у товара «{existing.Title}» — будет приход к нему, новый товар не создаётся.",
+                        $"Бул штрихкод «{existing.Title}» товарында бар — ага кириш болот, жаңы товар түзүлбөйт.",
+                        $"This barcode already belongs to “{existing.Title}” — it will be received there, no new product.",
+                        $"Bu barkod zaten «{existing.Title}» ürününde — ona giriş yapılır, yeni ürün oluşturulmaz.",
+                        $"Bu shtrix-kod «{existing.Title}» mahsulotida bor — unga kirim bo'ladi, yangi mahsulot yaratilmaydi.");
+            };
+            box.KeyDown += (_, e) =>
+            {
+                if (e.Key != Key.Enter)
+                    return;
+                e.Handled = true;
+                // Следующее пустое поле штрихкода; все заполнены — к «Выполнить».
+                var next = barcodeBoxes.Where(kv => kv.Key > index && string.IsNullOrWhiteSpace(kv.Value.Box.Text)).Select(kv => kv.Value.Box).FirstOrDefault();
+                if (next is not null)
+                    next.Focus();
+            };
+            barcodeBoxes[i] = (box, note);
+            body.Children.Add(box);
+            body.Children.Add(note);
+        }
+
+        // Шаги с отсканированными штрихкодами (или приход к уже существующему товару с этим штрихкодом).
+        List<ProductActionPlan.Step> ResolveSteps() => steps.Select((st, i) =>
+        {
+            if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
+                return st;
+            return ByBarcode(code) is { Id.Length: > 0 } existing
+                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, st.Price)
+                : st with { Barcode = code };
+        }).ToList();
+        var scanTargets = barcodeBoxes.OrderBy(kv => kv.Key).Select(kv => kv.Value.Box).ToList();
+        _scanTargets = scanTargets.Count > 0 ? scanTargets : null;
+
+        var apply = UiKit.Primary(this, T("Выполнить", "Аткаруу", "Do it", "Uygula", "Bajarish"));
+        apply.Height = 38;
+        var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.Height = 38;
+        var result = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 20 };
+        Use(result, TextBlock.ForegroundProperty, "BrushText");
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { apply, cancel } };
+        var card = new Border
+        {
+            CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 10), MaxWidth = 680, BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = new StackPanel { Spacing = 8, Children = { title, body, buttons, result } },
+        };
+        Use(card, Border.BackgroundProperty, "BrushPanel");
+        Use(card, Border.BorderBrushProperty, "BrushAccentStrong");
+        var finished = false;
+        var superseded = false;
+        void Cancel()
+        {
+            if (finished)
+                return;
+            finished = true;
+            if (_pendingProductCancel == Cancel)
+            {
+                _pendingProductApply = null;
+                _pendingProductCancel = null;
+            }
+            if (ReferenceEquals(_scanTargets, scanTargets))
+                _scanTargets = null;
+            buttons.IsVisible = false;
+            result.IsVisible = true;
+            foreach (var (box, _) in barcodeBoxes.Values)
+                box.IsEnabled = false;
+            result.Text = superseded
+                ? T("Заменено новым предложением ниже.", "Төмөнкү жаңы сунуш менен алмаштырылды.", "Replaced by the new proposal below.",
+                    "Aşağıdaki yeni öneriyle değiştirildi.", "Quyidagi yangi taklif bilan almashtirildi.")
+                : T("Не меняли.", "Өзгөртүлгөн жок.", "Not changed.", "Değiştirilmedi.", "O'zgartirilmadi.");
+        }
+        async Task<string> Apply()
+        {
+            if (finished)
+                return "";
+            finished = true;
+            if (_pendingProductCancel == Cancel)
+            {
+                _pendingProductApply = null;
+                _pendingProductCancel = null;
+            }
+            if (ReferenceEquals(_scanTargets, scanTargets))
+                _scanTargets = null;
+            buttons.IsVisible = false;
+            result.IsVisible = true;
+            result.Text = T("Выполняю…", "Аткарып жатам…", "Working…", "Uygulanıyor…", "Bajarilmoqda…");
+            var done = await ProductActionPlan.ExecuteAllAsync(ResolveSteps(), T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), CancellationToken.None).ConfigureAwait(true);
+            foreach (var (box, _) in barcodeBoxes.Values)
+                box.IsEnabled = false;
+            result.Text = done;
+            PosLogger.Log($"ИИ-советник: действия с товарами выполнены по подтверждению владельца ({steps.Count}).", "INFO");
+            SaveCurrentChat();
+            ScrollToEnd();
+            return done;
+        }
+        cancel.Click += (_, _) => Cancel();
+        apply.Click += async (_, _) => await Apply().ConfigureAwait(true);
+        _pendingProductSupersede?.Invoke();
+        _pendingProductSupersede = () =>
+        {
+            superseded = true;
+            Cancel();
+        };
+        _pendingProductApply = Apply;
+        _pendingProductCancel = Cancel;
+        _messages.Children.Add(card);
+        ScrollToEnd();
+    }
+
+    /// <summary>2026-10-06, владелец (снимок звонка: «Голосом прямо в звонке поменять информацию не могу»): «дай возможность голосом
+    /// менять информацию, открывать товар на складе, добавлять и удалять информацию». Реплика владельца в звонке про товар —
+    /// параллельно со звонком тот же разбор, что в чате (сведения из интернета, строки «ТОВАР:»): «открыть» — сразу, изменения —
+    /// карточкой; «да, выполни» голосом или кнопка — выполнить. Советнику в звонке программа сообщает, что сделано.</summary>
+    private async Task LiveProductPassAsync(string utterance, GeminiLiveVoice live)
+    {
+        try
+        {
+            var (summary, _) = await GetSummaryAsync().ConfigureAwait(true);
+            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(
+                utterance + "\n(Сказано голосом во время звонка. Ответь одной-двумя фразами и строками «ТОВАР:», если нужны изменения или открыть товар.)",
+                summary, CancellationToken.None).ConfigureAwait(true);
+            if (_live != live || answer is not { Length: > 0 })
+            {
+                if (error != null)
+                    PosLogger.Log($"ИИ-советник: в звонке товар не разобран ({error}).", "WARNING");
+                return;
+            }
+            var (text, steps) = ProductActionPlan.Extract(answer);
+            var changes = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
+            // Просили сведения (без изменений) — ответ текстом на экране, со ссылками.
+            if (changes.Count == 0 && text.Length > 0 && ProductInfoResearch.LooksLikeInfoRequest(utterance))
+            {
+                AddBubble(TelegramAiChat.ToPlainText(text), fromOwner: false);
+                if (TelegramAiChat.LastWebSources.Count > 0)
+                    AddWebSources(TelegramAiChat.LastWebSources);
+            }
+            ShowProductSteps(steps);
+            var note = changes.Count > 0
+                ? "[Программа] На экране список изменений: " + string.Join("; ", changes.Select(ProductActionPlan.Describe))
+                  + ". Коротко скажи владельцу, что подготовлено, и спроси: выполнить? (ответ «да, выполни» или кнопка)."
+                : steps.Any(st => st.Op == "open")
+                    ? "[Программа] Товар открыт на складе: " + string.Join(", ", steps.Where(st => st.Op == "open").Select(st => st.Product.Title)) + ". Скажи об этом одной фразой."
+                    : text.Length > 0
+                        ? "[Программа] Найдено о товаре: " + (text.Length > 600 ? text[..600] : text) + ". Коротко перескажи главное."
+                        : "";
+            if (note.Length > 0)
+                await live.SendTextAsync(note).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: разбор товара в звонке не удался ({ex.Message}).", "WARNING");
+        }
+    }
+
     private void AddBotChangeCard(Dictionary<string, bool> change)
     {
         var lines = string.Join("\n", change.Select(c =>
@@ -1002,6 +1698,273 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         };
         _messages.Children.Add(card);
         ScrollToEnd();
+    }
+
+    /// <summary>Значок «Разговор»: звуковая волна (четыре полоски).</summary>
+    private Control WaveGlyph(string brushKey)
+    {
+        var path = new Avalonia.Controls.Shapes.Path
+        {
+            Data = Geometry.Parse("M5,10 V14 M9.5,6.5 V17.5 M14,3.5 V20.5 M18.5,8 V16"),
+            Width = 20, Height = 20, Stretch = Stretch.Uniform, StrokeThickness = 2.4, StrokeLineCap = PenLineCap.Round,
+        };
+        Use(path, Avalonia.Controls.Shapes.Shape.StrokeProperty, brushKey);
+        return path;
+    }
+
+    /// <summary>Панель живого разговора на месте поля ввода: круг (дышит под голос), что сейчас происходит, «Перебить», «Завершить».</summary>
+    private void BuildLiveBar()
+    {
+        Use(_liveBar, Border.BackgroundProperty, "BrushPanel");
+        Use(_liveBar, Border.BorderBrushProperty, "BrushAccent");
+        Use(_orb, Border.BackgroundProperty, "BrushAccent");
+        _orb.Child = WaveGlyph("BrushAccentForeground");
+        _orb.RenderTransform = _orbScale;
+        _orb.RenderTransformOrigin = RelativePoint.Center;
+        _orb.VerticalAlignment = VerticalAlignment.Center;
+        Use(_liveState, TextBlock.ForegroundProperty, "BrushText");
+        Use(_liveHint, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
+        row.Children.Add(_orb);
+        var texts = new StackPanel { Spacing = 2, Margin = new Thickness(14, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
+        texts.Children.Add(_liveState);
+        texts.Children.Add(_liveHint);
+        Grid.SetColumn(texts, 1);
+        row.Children.Add(texts);
+        _liveInterrupt = UiKit.Ghost(this, T("Перебить", "Бөлүү", "Interrupt", "Böl", "To'xtatish"));
+        _liveInterrupt.Height = 40;
+        _liveInterrupt.CornerRadius = new CornerRadius(20);
+        _liveInterrupt.Margin = new Thickness(0, 0, 8, 0);
+        _liveInterrupt.IsVisible = false;
+        ToolTip.SetTip(_liveInterrupt, T("Советник замолчит и будет слушать вас", "Кеңешчи унчукпай калып, сизди угат", "The advisor stops talking and listens to you",
+            "Danışman susar ve sizi dinler", "Maslahatchi jim bo'lib, sizni tinglaydi"));
+        _liveInterrupt.Click += (_, _) =>
+        {
+            _live?.Interrupt();
+            FinishLiveTurn(interrupted: true);
+        };
+        Grid.SetColumn(_liveInterrupt, 2);
+        row.Children.Add(_liveInterrupt);
+        var end = new Button
+        {
+            Content = T("Завершить", "Бүтүрүү", "End", "Bitir", "Tugatish"), Height = 40, Padding = new Thickness(18, 0), CornerRadius = new CornerRadius(20),
+            BorderThickness = new Thickness(0), VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold,
+        };
+        Use(end, Button.BackgroundProperty, "BrushDanger");
+        end.Foreground = Brushes.White;
+        end.Click += (_, _) => EndLive(null);
+        Grid.SetColumn(end, 3);
+        row.Children.Add(end);
+        _liveBar.Child = row;
+        Grid.SetRow(_liveBar, 3);
+        _root.Children.Add(_liveBar);
+    }
+
+    /// <summary>«Разговор»: сводка магазина → живой сеанс Gemini; дальше владелец просто говорит.</summary>
+    private async Task StartLiveAsync()
+    {
+        if (_live is not null || _busy || _recorder is not null || !TelegramAiChat.IsConfigured)
+            return;
+        var gen = ++_liveGen;
+        VoiceChatPlayer.Stop();
+        _sidebar.IsVisible = false;
+        if (_composer is not null)
+            _composer.IsVisible = false;
+        _liveBar.IsVisible = true;
+        _liveState.Text = T("Подключаюсь…", "Туташып жатам…", "Connecting…", "Bağlanıyor…", "Ulanmoqda…");
+        _liveHint.Text = T("Готовлю данные магазина для разговора", "Маек үчүн дүкөндүн маалыматын даярдап жатам", "Preparing your shop's data for the conversation",
+            "Sohbet için mağaza verileri hazırlanıyor", "Suhbat uchun do'kon ma'lumotlari tayyorlanmoqda");
+        _liveTimer?.Stop();
+        _liveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
+        _liveTimer.Tick += (_, _) => TickLive();
+        _liveTimer.Start();
+        IReadOnlyDictionary<int, string> names;
+        string instruction;
+        try
+        {
+            var (summary, debtorNames) = await GetSummaryAsync().ConfigureAwait(true);
+            names = debtorNames;
+            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(summary, CurrentLines().Select(l => (l.Owner, l.Text)));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: сводка для разговора не собрана ({ex.Message}).", "WARNING");
+            names = new Dictionary<int, string>();
+            instruction = TelegramAiChat.BuildOwnerVoiceInstruction(null, CurrentLines().Select(l => (l.Owner, l.Text)));
+        }
+        if (gen != _liveGen)
+            return;
+        _liveDebtors = names;
+        var live = new GeminiLiveVoice(instruction);
+        live.UserText += text => Dispatcher.UIThread.Post(() =>
+        {
+            if (_live != live)
+                return;
+            if (_liveUser is null)
+            {
+                _liveUser = AddBubble("", fromOwner: true);
+                // Расшифровка вопроса пришла позже начала ответа — пузырь вопроса ставим перед ответом.
+                if (_liveAi is not null && _liveUser.Parent is Control bubble
+                    && _messages.Children.FirstOrDefault(c => c.Tag is MessageTag t && t.Body == _liveAi) is { } aiRow)
+                {
+                    _messages.Children.Remove(bubble);
+                    _messages.Children.Insert(_messages.Children.IndexOf(aiRow), bubble);
+                }
+            }
+            _liveUserText.Append(text);
+            _liveUser.Text = _liveUserText.ToString().Trim();
+            ScrollToEnd();
+        });
+        live.AiText += text => Dispatcher.UIThread.Post(() =>
+        {
+            if (_live != live)
+                return;
+            _liveAi ??= AddBubble("", fromOwner: false);
+            _liveAiText.Append(text);
+            _liveAi.Text = _liveAiText.ToString().Trim();
+            ScrollToEnd();
+        });
+        live.TurnDone += () => Dispatcher.UIThread.Post(() =>
+        {
+            if (_live == live)
+                FinishLiveTurn(interrupted: false);
+        });
+        live.Ended += reason => Dispatcher.UIThread.Post(() =>
+        {
+            if (_live != live)
+                return;
+            EndLive(reason is null
+                ? null
+                : T("Разговор прервался: ", "Маек үзүлдү: ", "The conversation was interrupted: ", "Sohbet kesildi: ", "Suhbat uzildi: ") + reason
+                  + T(". Можно спросить голосом кнопкой микрофона или написать.", ". Микрофон баскычы менен үн менен сурасаңыз же жазсаңыз болот.",
+                      ". You can ask by voice with the microphone button or type.", ". Mikrofon düğmesiyle sesli sorabilir veya yazabilirsiniz.",
+                      ". Mikrofon tugmasi bilan ovozli so'rashingiz yoki yozishingiz mumkin."));
+        });
+        _live = live;
+        try
+        {
+            live.Start();
+            PosLogger.Log($"ИИ-советник: живой разговор начат (инструкция {instruction.Length} симв.).", "INFO");
+        }
+        catch (Exception ex)
+        {
+            EndLive(T("Разговор не начался: ", "Маек башталган жок: ", "The conversation didn't start: ", "Sohbet başlamadı: ", "Suhbat boshlanmadi: ") + ex.Message);
+        }
+    }
+
+    /// <summary>Каждые 60 мс: подпись состояния, «дыхание» круга, «Перебить» — пока советник говорит; 3 минуты тишины — конец.</summary>
+    private void TickLive()
+    {
+        var live = _live;
+        var state = live?.State ?? GeminiLiveVoice.LiveState.Connecting;
+        var t = Environment.TickCount64 / 1000.0;
+        double scale;
+        switch (state)
+        {
+            case GeminiLiveVoice.LiveState.Listening:
+                var hearing = live!.MicLevel > 0.06;
+                _liveState.Text = hearing
+                    ? T("Слышу вас…", "Угуп жатам…", "I'm hearing you…", "Sizi duyuyorum…", "Sizni eshityapman…")
+                    : T("Слушаю — говорите", "Угуп жатам — сүйлөңүз", "Listening — go ahead", "Dinliyorum — konuşun", "Tinglayapman — gapiring");
+                _liveHint.Text = T("Спросите что угодно о магазине. Закончили — «Завершить».", "Дүкөн жөнүндө каалаганды сураңыз. Бүттүңүзбү — «Бүтүрүү».",
+                    "Ask anything about your shop. Done — “End”.", "Mağazanız hakkında her şeyi sorun. Bitince — «Bitir».", "Do'kon haqida istalgan narsani so'rang. Tugatsangiz — «Tugatish».");
+                scale = 1 + Math.Min(0.35, live.MicLevel * 0.45);
+                _orbScale.ScaleX += (scale - _orbScale.ScaleX) * 0.5;
+                _orbScale.ScaleY = _orbScale.ScaleX;
+                _orb.Opacity = 1;
+                break;
+            case GeminiLiveVoice.LiveState.Speaking:
+                _liveState.Text = T("Советник говорит…", "Кеңешчи сүйлөп жатат…", "The advisor is speaking…", "Danışman konuşuyor…", "Maslahatchi gapiryapti…");
+                _liveHint.Text = T("Пока он говорит, микрофон молчит — чтобы не слышать сам себя. Перебить — кнопкой.",
+                    "Ал сүйлөп жатканда микрофон өчүк — өзүн укпашы үчүн. Бөлүү — баскыч менен.",
+                    "While it speaks the microphone is muted so it doesn't hear itself. Interrupt with the button.",
+                    "Konuşurken mikrofon kapalı — kendini duymaması için. Bölmek için düğmeye basın.",
+                    "U gapirayotganda mikrofon o'chiq — o'zini eshitmasligi uchun. To'xtatish — tugma bilan.");
+                scale = 1.06 + 0.06 * Math.Sin(t * 7);
+                _orbScale.ScaleX = _orbScale.ScaleY = scale;
+                _orb.Opacity = 1;
+                break;
+            default:
+                _orbScale.ScaleX = _orbScale.ScaleY = 1;
+                _orb.Opacity = 0.55 + 0.45 * Math.Abs(Math.Sin(t * 3));
+                break;
+        }
+        if (_liveInterrupt is not null)
+            _liveInterrupt.IsVisible = state == GeminiLiveVoice.LiveState.Speaking;
+        // Забыли завершить — через 3 минуты тишины разговор заканчивается сам (бесплатный лимит Google не тратится впустую).
+        if (live is not null && state == GeminiLiveVoice.LiveState.Listening && DateTime.UtcNow - live.LastActivityUtc > TimeSpan.FromMinutes(3))
+            EndLive(T("Разговор завершён: три минуты тишины.", "Маек бүттү: үч мүнөт тынчтык.", "Conversation ended: three minutes of silence.",
+                "Sohbet bitti: üç dakika sessizlik.", "Suhbat tugadi: uch daqiqa jimlik."));
+    }
+
+    /// <summary>Ответ договорён (или перебит): текст ответа — начисто, должники — по именам; реплики — в историю и в память чата.</summary>
+    private void FinishLiveTurn(bool interrupted)
+    {
+        // 2026-10-06: голосом в звонке — «да, выполни» для подготовленных изменений и просьбы про товары (LiveProductPassAsync).
+        var spoken = _liveUserText.ToString().Trim();
+        if (!interrupted && spoken.Length > 0 && _live is { } liveNow)
+        {
+            if (_pendingProductApply is { } apply && ProductActionPlan.IsVoiceYes(spoken))
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var done = await apply().ConfigureAwait(true);
+                    if (done.Length > 0)
+                        await liveNow.SendTextAsync("[Программа] Выполнено: " + done + " Коротко скажи владельцу результат.").ConfigureAwait(true);
+                });
+            else if (_pendingProductCancel is { } cancelPending && ProductActionPlan.IsVoiceNo(spoken))
+                cancelPending();
+            else if (ProductActionPlan.LooksLikeAction(spoken) || ProductInfoResearch.LooksLikeInfoRequest(spoken))
+                _ = LiveProductPassAsync(spoken, liveNow);
+        }
+        if (_liveAi is not null)
+        {
+            var text = _liveAiText.ToString().Trim();
+            _liveAi.Text = text.Length == 0
+                ? (interrupted ? "…" : "")
+                : OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(text), _liveDebtors) + (interrupted ? " …" : "");
+        }
+        var had = _liveUser is not null || _liveAi is not null;
+        _liveUser = null;
+        _liveAi = null;
+        _liveUserText.Clear();
+        _liveAiText.Clear();
+        if (!had)
+            return;
+        // Текстовый чат после разговора помнит, о чём говорили голосом.
+        var lines = CurrentLines();
+        var turns = new List<(string Role, string Text)>();
+        for (var i = 0; i + 1 < lines.Count; i++)
+        {
+            if (lines[i].Owner && !lines[i + 1].Owner)
+            {
+                turns.Add(("user", lines[i].Text));
+                turns.Add(("model", lines[i + 1].Text));
+            }
+        }
+        TelegramAiChat.RestoreOwnerAppHistory(turns);
+        SaveCurrentChat();
+    }
+
+    /// <summary>Закончить живой разговор (кнопкой, «Новый разговор», закрытие окна или обрыв) и вернуть поле ввода.</summary>
+    private void EndLive(string? note)
+    {
+        if (!_liveBar.IsVisible && _live is null)
+            return;
+        _liveGen++;
+        var live = _live;
+        _live = null;
+        if (live is not null)
+            _ = live.StopAsync();
+        FinishLiveTurn(interrupted: true);
+        _liveTimer?.Stop();
+        _liveTimer = null;
+        _liveBar.IsVisible = false;
+        if (_composer is not null)
+            _composer.IsVisible = true;
+        RefreshKeyCard();
+        if (note is not null)
+            AddBubble(note, fromOwner: false);
+        PosLogger.Log("ИИ-советник: живой разговор завершён.", "INFO");
     }
 
     /// <summary>Значок кнопки: микрофон или «стоп» (квадрат). Рисованный — эмодзи 🎤 в Windows выглядел как ручка.</summary>

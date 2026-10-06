@@ -59,8 +59,14 @@ public static class TariffGate
         public static readonly string[] All = { Ai, Clients, SalesAnalytics, Restock, Salary, Debts, Service };
     }
 
+    // 2026-10-05, ТЗ ч.13, п. 2 (сервер добавил 05.10): функция компании на сервере (features) открывает пакет на всех
+    // устройствах — ключ на одном компьютере больше не «теряется» на другом.
     public static bool HasPack(string slug) =>
-        !IsStartTariff || UserPreferences.Instance.UnlockedPacks.Contains(slug, StringComparer.OrdinalIgnoreCase);
+        !IsStartTariff || UserPreferences.Instance.UnlockedPacks.Contains(slug, StringComparer.OrdinalIgnoreCase)
+        || (CompanyInfoService.LastCompany?.Features?.Contains(ServerFeatureCode(slug), StringComparer.OrdinalIgnoreCase) ?? false);
+
+    /// <summary>Код функции на сервере для пакета: salesanalytics → sales_analytics, остальные — как есть.</summary>
+    public static string ServerFeatureCode(string slug) => slug == Packs.SalesAnalytics ? "sales_analytics" : slug;
 
     /// <summary>Пакет подключён или отключён (ключ, истёк тестовый доступ) — меню пересобирается.</summary>
     public static event Action? PacksChanged;

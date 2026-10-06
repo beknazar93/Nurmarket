@@ -151,12 +151,82 @@ public partial class App : Application
             .Build();
 
         PosLogger.Configure(AppHost.Services.GetRequiredService<ILoggerFactory>());
+        // 2026-10-05: бонусы покупателей — на сервере NurCRM (ServerLoyalty).
+        ServerLoyalty.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
+        // 2026-10-05: настройки аккаунта — на сервере, подтягиваются на любом устройстве (SettingsCloudSync).
+        SettingsCloudSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
+        // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
+        DebtDueDateSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
         // так разделение срабатывает на любом пути входа, включая смену кассира.
         CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
         // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
         ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
         CompanyInfoService.CompanyChanged += _ => ProductVariantCache.Clear();
+        // 2026-10-06 (О-01, магазин одежды): справочник штрихкодов размеров — скан этикетки размера сразу добавляет
+        // этот размер. Сервер такой штрихкод не находит (ТЗ бэкенда, часть 14, п. 14.4), поэтому касса в сфере «Одежда»
+        // сама тихо обходит каталог (см. VariantBarcodeIndex). 2026-10-06 (О-74): и программа владельца — ей нужны остатки
+        // размеров для «Заканчиваются размеры»; справочник общий, что проверила касса, программа не перепроверяет.
+        CompanyInfoService.CompanyChanged += _ => VariantBarcodeIndex.Clear();
+        _ = VariantBarcodeIndex.RunBackgroundAsync(
+                () => MarketSpheres.IsClothing,
+                () =>
+                {
+                    // Каталог обновляется в другом потоке — список мог поменяться во время перебора; тогда в следующий раз.
+                    try
+                    {
+                        return CatalogCacheService.Products.ToList()
+                            .Where(p => !p.MustWeigh && !p.IsService && !p.IsBundle && !string.IsNullOrWhiteSpace(p.Id))
+                            .Select(p => p.Id)
+                            .ToList();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return Array.Empty<string>();
+                    }
+                },
+                CancellationToken.None);
+        // 2026-10-06, владелец: «очень долгая загрузка» отчёта «Размеры и цвета» — программа владельца в «Одежде» заранее
+        // и медленно запоминает состав чеков за 30 дней (SaleSizesCache); отчёт потом читает с сервера только новые чеки.
+        CompanyInfoService.CompanyChanged += _ => SaleSizesCache.Clear();
+        if (NurMarketKassa.Services.AppMode.IsOwner)
+            _ = SaleSizesCache.RunBackgroundAsync(
+                () => MarketSpheres.IsClothing && TariffGate.CanUseSalesAnalytics && CompanyInfoService.LastCompany is not null,
+                CancellationToken.None);
+        // 2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам» — общие действия с товаром (ProductActions):
+        // кнопка «±» склада, ИИ-советник и бот меняют остаток тем же документом ревизии, что и «Списание».
+        ProductActions.InventoryApi = AppHost.Services.GetService<NurMarketKassa.Services.Api.IInventoryApiService>();
+        // 2026-10-06, владелец: «дай доступ ИИ к табелю сотрудников» — те же смены и тот же расчёт, что окно «Табель».
+        TelegramAiChat.TimesheetProvider = async (from, to, token) =>
+        {
+            var shifts = await ShiftHistoryService.LoadAsync(token, fresh: true).ConfigureAwait(false);
+            var rows = StaffTimesheetService.Aggregate(shifts, from, to);
+            static string H(TimeSpan t) => $"{(int)t.TotalHours} ч {t.Minutes:00} мин";
+            var sb = new System.Text.StringBuilder($"ТАБЕЛЬ (смены кассы {from:dd.MM}–{to:dd.MM}; часы — по закрытым сменам):\n");
+            foreach (var r in rows)
+                sb.Append($"• {r.Cashier}: смен {r.ShiftCount}, дней {r.DaysWorked}, отработано {H(r.TotalWorked)} (в среднем {H(r.AverageShift)} за смену), "
+                          + $"выручка смен {r.TotalRevenue:0.##} сом, первая смена {r.FirstShift:dd.MM HH:mm}, последняя {r.LastShift:dd.MM HH:mm}\n");
+            if (rows.Count == 0)
+                sb.Append("За этот период закрытых смен нет.\n");
+            foreach (var open in shifts.Where(s => s.ClosedAt is null && s.OpenedAt is not null))
+                sb.Append($"Сейчас на смене: {open.Cashier} с {open.OpenedAt:dd.MM HH:mm}.\n");
+            return sb.ToString();
+        };
+        ProductActions.RequestCatalogRefresh = () => AppHost?.Services.GetService<SyncService>()?.RequestCatalogSyncNow();
+        // Действие ИИ «photo» — тот же поиск фото, что у кнопки «Найди фото» советника (Open Food Facts, затем интернет).
+        ProductActionPlan.PhotoFinder = async (product, token) =>
+        {
+            var (found, _) = await ProductPhotoFinder.SearchAsync(new[] { product }, null, token, webLimit: 1).ConfigureAwait(false);
+            if (found.FirstOrDefault() is not { } candidate)
+                return new ProductActions.Result(false, Tr.T($"«{product.Title}»: фото не нашлось.", $"«{product.Title}»: сүрөт табылган жок.", $"“{product.Title}”: no photo found.",
+                    $"«{product.Title}»: fotoğraf bulunamadı.", $"«{product.Title}»: surat topilmadi."));
+            var ok = await ProductPhotoFinder.ApplyAsync(candidate, token).ConfigureAwait(false);
+            return new ProductActions.Result(ok, ok
+                ? Tr.T($"«{product.Title}»: фото поставлено ({candidate.Source}).", $"«{product.Title}»: сүрөт коюлду ({candidate.Source}).", $"“{product.Title}”: photo set ({candidate.Source}).",
+                    $"«{product.Title}»: fotoğraf eklendi ({candidate.Source}).", $"«{product.Title}»: surat qo'yildi ({candidate.Source}).")
+                : Tr.T($"«{product.Title}»: фото не загрузилось.", $"«{product.Title}»: сүрөт жүктөлгөн жок.", $"“{product.Title}”: the photo didn't upload.",
+                    $"«{product.Title}»: fotoğraf yüklenmedi.", $"«{product.Title}»: surat yuklanmadi."));
+        };
         // 2026-10-05, ТЗ часть 7: события допродажи уходят на сервер (UpsellServerSync).
         UpsellServerSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketKassa.Services.Api.RecommendationsApi>();
         // 2026-10-05, ТЗ часть 7, раздел 3: ошибки и падения — отчётами на сервер поддержки (ErrorReportService).

@@ -321,6 +321,11 @@ public sealed class UserPreferences
     /// затирал его при каждом запуске и после каждого обновления. null — ещё не видела.</summary>
     public string? MarketSphereServerSeen { get; set; }
 
+    /// <summary>2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета». true — новая установка
+    /// (файла настроек ещё не было): после входа касса один раз спросит вид магазина, если у компании на сервере он не задан
+    /// (MarketSphereChoiceWindow). У уже работающих касс в файле этого поля нет — false, ничего не спрашивается.</summary>
+    public bool MarketSphereChoicePending { get; set; } = true;
+
     /// <summary>В файле настроек был вид магазина — касса уже была настроена (не новая установка).
     /// Только на время запуска, на диск не пишется.</summary>
     public bool MarketSphereWasInFile { get; private set; }
@@ -365,6 +370,9 @@ public sealed class UserPreferences
 
     /// <summary>2026-10-05: пакеты функций «Стандарта», подключённые на «Старте» (TariffGate.Packs).</summary>
     public List<string> UnlockedPacks { get; set; } = new();
+
+    /// <summary>2026-10-05: разделы меню, которые владелец скрыл в настройках (SectionVisibility).</summary>
+    public List<string> HiddenSections { get; set; } = new();
     public List<string> MasterUnlockedThemeIds { get; set; } = new();
 
     /// <summary>Голосовое управление — платная доп. услуга (см. MarketplaceView, "Доп. функции"):
@@ -673,6 +681,12 @@ public sealed class UserPreferences
     public bool LastFilterOnlyFavorite { get; set; }
     /// <summary>Программа владельца: левое меню свёрнуто до иконок (бургер-кнопка).</summary>
     public bool OwnerSidebarCollapsed { get; set; }
+    /// <summary>2026-10-06, владелец: «займись редизайном и удобством админки». Свёрнутые группы меню программы
+    /// владельца — ключи через запятую (products, sales, reports…).</summary>
+    public string? OwnerNavCollapsedGroups { get; set; }
+    /// <summary>2026-10-06, владелец: «при загрузке и создании товаров из накладной надо сразу ставить маржу минимум 20%».
+    /// Минимальная наценка ИИ при приходе по накладной и создании товара (процентов).</summary>
+    public double AiMinMarkupPercent { get; set; } = 20;
     public string? LastFilterSearchQuery { get; set; }
     public string LastFilterCatalogKind { get; set; } = "Все";
     public double? LastFilterPriceMin { get; set; }
@@ -689,6 +703,25 @@ public sealed class UserPreferences
     public string StoreAddress { get; set; } = "";
 
     public string StoreInn { get; set; } = "";
+
+    /// <summary>2026-10-06, владелец: «в чек при прокате — сумма за день, итог, дата от и до и инфо о штрафе за просрочку;
+    /// и в долге тоже». Штраф за каждые сутки просрочки проката, сом — подставляется в окне «Новый прокат» (там его можно
+    /// поменять для конкретного проката) и печатается в чеке. 0 — строка о штрафе в чек не печатается.</summary>
+    public double RentalLatePenaltyPerDay { get; set; }
+
+    /// <summary>2026-10-06: условия штрафа за просрочку долга — печатаются в чеке продажи в долг («50 сом за каждый день»,
+    /// «1% от суммы в день»). Пусто — строка о штрафе в чек не печатается.</summary>
+    public string DebtLatePenaltyText { get; set; } = "";
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-31): срок обмена и возврата товара надлежащего качества, дней.
+    /// Закон КР «О защите прав потребителей» — 14 дней, не считая дня покупки. Позже касса предупреждает и просит подтвердить
+    /// (брак принимают дольше — поэтому не запрет). 0 — срок не проверять. Действует в сфере «Одежда».</summary>
+    public int ExchangeDaysLimit { get; set; } = 14;
+
+    /// <summary>2026-10-06 (О-32): категории, товары которых не обменивают и не возвращают, если нет брака (нижнее бельё,
+    /// чулки и носки, парфюмерия, ювелирные изделия — перечень Правительства КР), через «;». null — владелец ещё не настраивал:
+    /// берутся категории, в названии которых есть слова из этого перечня (см. NonExchangeableRules).</summary>
+    public string? NonExchangeableCategories { get; set; }
 
     /// <summary>Последняя известная дата окончания подписки NurCRM (Company.end_date, ISO),
     /// сохраняется при каждом успешном обновлении данных компании — используется для отсчёта
@@ -932,6 +965,10 @@ public sealed class UserPreferences
             else if (fromFile.GraphicPaperWidthPixels is >= 500)
                 p.ReceiptPaperWidthMm = ReceiptPaperProfile.Paper80mm;
             p.ReceiptCharWidth58 = fromFile.ReceiptCharWidth58 ?? 0;
+            p.RentalLatePenaltyPerDay = fromFile.RentalLatePenaltyPerDay is > 0 ? fromFile.RentalLatePenaltyPerDay.Value : 0;
+            p.DebtLatePenaltyText = fromFile.DebtLatePenaltyText ?? "";
+            p.ExchangeDaysLimit = fromFile.ExchangeDaysLimit is >= 0 and <= 365 ? fromFile.ExchangeDaysLimit.Value : 14;
+            p.NonExchangeableCategories = fromFile.NonExchangeableCategories;
             p.ReceiptCharWidth80 = fromFile.ReceiptCharWidth80 ?? 0;
             p.ReceiptDots58 = fromFile.ReceiptDots58 ?? 0;
             p.ReceiptDots80 = fromFile.ReceiptDots80 ?? 0;
@@ -1054,6 +1091,8 @@ public sealed class UserPreferences
                 p.MasterUnlockedFeatureFlags = fromFile.MasterUnlockedFeatureFlags;
             if (fromFile.UnlockedPacks is { Count: > 0 })
                 p.UnlockedPacks = fromFile.UnlockedPacks;
+            if (fromFile.HiddenSections is { Count: > 0 })
+                p.HiddenSections = fromFile.HiddenSections;
             if (fromFile.MasterUnlockedThemeIds is { Count: > 0 })
                 p.MasterUnlockedThemeIds = fromFile.MasterUnlockedThemeIds;
             if (fromFile.Autostart is not null)
@@ -1242,6 +1281,8 @@ public sealed class UserPreferences
             if (fromFile.LastFilterOnlyInStock.HasValue) p.LastFilterOnlyInStock = fromFile.LastFilterOnlyInStock.Value;
             if (fromFile.LastFilterOnlyFavorite.HasValue) p.LastFilterOnlyFavorite = fromFile.LastFilterOnlyFavorite.Value;
             if (fromFile.OwnerSidebarCollapsed.HasValue) p.OwnerSidebarCollapsed = fromFile.OwnerSidebarCollapsed.Value;
+            p.OwnerNavCollapsedGroups = fromFile.OwnerNavCollapsedGroups;
+            if (fromFile.AiMinMarkupPercent is > 0) p.AiMinMarkupPercent = fromFile.AiMinMarkupPercent.Value;
             if (fromFile.LastFilterSearchQuery is not null) p.LastFilterSearchQuery = fromFile.LastFilterSearchQuery;
             if (!string.IsNullOrWhiteSpace(fromFile.LastFilterCatalogKind)) p.LastFilterCatalogKind = fromFile.LastFilterCatalogKind;
             if (fromFile.LastFilterPriceMin.HasValue) p.LastFilterPriceMin = fromFile.LastFilterPriceMin;
@@ -1270,6 +1311,7 @@ public sealed class UserPreferences
                 p.MarketSphereWasInFile = true;
             }
             p.MarketSphereServerSeen = fromFile.MarketSphereServerSeen;
+            p.MarketSphereChoicePending = fromFile.MarketSphereChoicePending ?? false;
             if (fromFile.CustomerDisplay is not null)
             {
                 fromFile.CustomerDisplay.Normalize();
@@ -1384,6 +1426,7 @@ public sealed class UserPreferences
                 MasterAccessExpiresAtUtc = MasterAccessExpiresAtUtc,
                 MasterUnlockedFeatureFlags = MasterUnlockedFeatureFlags,
                 UnlockedPacks = UnlockedPacks,
+                HiddenSections = HiddenSections,
                 MasterUnlockedThemeIds = MasterUnlockedThemeIds,
                 Autostart = Autostart,
                 AutoShowTouchKeyboard = AutoShowTouchKeyboard,
@@ -1478,6 +1521,8 @@ public sealed class UserPreferences
                 LastFilterOnlyInStock = LastFilterOnlyInStock,
                 LastFilterOnlyFavorite = LastFilterOnlyFavorite,
                 OwnerSidebarCollapsed = OwnerSidebarCollapsed,
+                OwnerNavCollapsedGroups = OwnerNavCollapsedGroups,
+                AiMinMarkupPercent = AiMinMarkupPercent,
                 LastFilterSearchQuery = LastFilterSearchQuery,
                 LastFilterCatalogKind = LastFilterCatalogKind,
                 LastFilterPriceMin = LastFilterPriceMin,
@@ -1486,6 +1531,10 @@ public sealed class UserPreferences
                 QrCodePath = QrCodePath,
                 GraphicPaperWidthPixels = GraphicPaperWidthPixels,
                 ReceiptCharWidth58 = ReceiptCharWidth58 > 0 ? ReceiptCharWidth58 : null,
+                RentalLatePenaltyPerDay = RentalLatePenaltyPerDay > 0 ? RentalLatePenaltyPerDay : null,
+                DebtLatePenaltyText = string.IsNullOrWhiteSpace(DebtLatePenaltyText) ? null : DebtLatePenaltyText.Trim(),
+                ExchangeDaysLimit = ExchangeDaysLimit,
+                NonExchangeableCategories = NonExchangeableCategories,
                 ReceiptCharWidth80 = ReceiptCharWidth80 > 0 ? ReceiptCharWidth80 : null,
                 ReceiptDots58 = ReceiptDots58 > 0 ? ReceiptDots58 : null,
                 ReceiptDots80 = ReceiptDots80 > 0 ? ReceiptDots80 : null,
@@ -1513,10 +1562,13 @@ public sealed class UserPreferences
                 CatalogTileScalePercent = CatalogTileScalePercent,
                 MarketSphere = MarketSphere,
                 MarketSphereServerSeen = MarketSphereServerSeen,
+                MarketSphereChoicePending = MarketSphereChoicePending ? true : null,
                 UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
+            // 2026-10-05, владелец: «при открытии на другом устройстве все настройки аккаунта подтягивались» — на сервер.
+            SettingsCloudSync.OnSaved();
         }
         catch (Exception ex)
         {
@@ -1646,6 +1698,7 @@ public sealed class UserPreferences
         public DateTime? MasterAccessExpiresAtUtc { get; set; }
         public List<string>? MasterUnlockedFeatureFlags { get; set; }
         public List<string>? UnlockedPacks { get; set; }
+        public List<string>? HiddenSections { get; set; }
         public List<string>? MasterUnlockedThemeIds { get; set; }
         public bool? Autostart { get; set; }
         public bool? AutoShowTouchKeyboard { get; set; }
@@ -1742,6 +1795,8 @@ public sealed class UserPreferences
         public bool? LastFilterOnlyInStock { get; set; }
         public bool? LastFilterOnlyFavorite { get; set; }
         public bool? OwnerSidebarCollapsed { get; set; }
+        public string? OwnerNavCollapsedGroups { get; set; }
+        public double? AiMinMarkupPercent { get; set; }
         public string? LastFilterSearchQuery { get; set; }
         public string? LastFilterCatalogKind { get; set; }
         public double? LastFilterPriceMin { get; set; }
@@ -1750,6 +1805,10 @@ public sealed class UserPreferences
         public string? QrCodePath { get; set; }
         public int? GraphicPaperWidthPixels { get; set; }
         public int? ReceiptCharWidth58 { get; set; }
+        public double? RentalLatePenaltyPerDay { get; set; }
+        public string? DebtLatePenaltyText { get; set; }
+        public int? ExchangeDaysLimit { get; set; }
+        public string? NonExchangeableCategories { get; set; }
         public int? ReceiptCharWidth80 { get; set; }
         public int? ReceiptDots58 { get; set; }
         public int? ReceiptDots80 { get; set; }
@@ -1776,6 +1835,7 @@ public sealed class UserPreferences
         public double? CatalogTileScalePercent { get; set; }
         public string? MarketSphere { get; set; }
         public string? MarketSphereServerSeen { get; set; }
+        public bool? MarketSphereChoicePending { get; set; }
         public string? UpdateTesterCode { get; set; }
         public double? BackgroundOpacity { get; set; }
         public CustomerDisplaySettings? CustomerDisplay { get; set; }

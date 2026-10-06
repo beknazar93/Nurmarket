@@ -191,6 +191,13 @@ public sealed class PurchaseReceivingService
                         $"{name}: barkod {line.Barcode} zaten «{owner.Title}» ürününde var — kabul etmek için o ürünü okutun",
                         $"{name}: {line.Barcode} shtrix-kodi «{owner.Title}» mahsulotida allaqachon bor — qabul qilish uchun uni skanerlang"));
             }
+            // 2026-10-06 (О-70): количество строки с размерами — сумма по размерам; поправили руками — пусть откроют «Размеры».
+            if (line.VariantQuantities is { Count: > 0 } && Math.Abs(line.Quantity - line.VariantTotal) > 0.0005)
+                problems.Add(Tr.T($"{name}: принято {line.Quantity:0.###}, а по размерам {line.VariantTotal:0.###} — поправьте в колонке «Размеры»",
+                    $"{name}: {line.Quantity:0.###} кабыл алынды, ал эми өлчөмдөр боюнча {line.VariantTotal:0.###} — «Өлчөмдөр» тилкесинде оңдоңуз",
+                    $"{name}: received {line.Quantity:0.###}, but {line.VariantTotal:0.###} by size — fix it in the “Sizes” column",
+                    $"{name}: {line.Quantity:0.###} kabul edildi, bedenlere göre {line.VariantTotal:0.###} — «Bedenler» sütununda düzeltin",
+                    $"{name}: {line.Quantity:0.###} qabul qilindi, o'lchamlar bo'yicha {line.VariantTotal:0.###} — «O'lchamlar» ustunida tuzating"));
             if (line.Quantity <= 0)
                 problems.Add(Tr.T($"{name}: не указано количество", $"{name}: саны көрсөтүлгөн эмес",
                     $"{name}: quantity missing", $"{name}: miktar belirtilmedi", $"{name}: miqdor ko'rsatilmagan"));
@@ -368,6 +375,34 @@ public sealed class PurchaseReceivingService
                         $"{line.ProductName}: kabul edilmedi — {ex.Message}",
                         $"{line.ProductName}: qabul qilinmadi — {ex.Message}"));
                 }
+            }
+        }
+
+        // 3а. 2026-10-06 (О-70): приёмка сеткой — прибавляем остатки размеров. Сервер сам выравнивает остаток товара по сумме
+        //     размеров, поэтому это делается после прихода и правки товара выше (иначе их остаток перезаписал бы размеры).
+        foreach (var line in posted.Where(l => l.VariantQuantities is { Count: > 0 }))
+        {
+            try
+            {
+                var fresh = await Api.GetProductVariantsAsync(line.ProductId!, ct).ConfigureAwait(false);
+                foreach (var (variantId, qty) in line.VariantQuantities!)
+                {
+                    var v = fresh.FirstOrDefault(x => string.Equals(x.Id, variantId, StringComparison.OrdinalIgnoreCase));
+                    if (v is null || qty <= 0)
+                        continue;
+                    v.Quantity = Math.Round(v.Quantity + qty, 3);
+                    await Api.SaveProductVariantAsync(line.ProductId!, v, ct).ConfigureAwait(false);
+                }
+                ProductVariantCache.Put(line.ProductId!, await Api.GetProductVariantsAsync(line.ProductId!, ct).ConfigureAwait(false));
+                PosLogger.Log($"Приёмка: размеры товара {line.ProductId} пополнены ({line.VariantSummary}).", "CATALOG");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                errors.Add(Tr.T($"{line.ProductName}: товар принят, но остатки размеров не обновились — {ex.Message}. Проверьте в «Размеры и цвета».",
+                    $"{line.ProductName}: товар кабыл алынды, бирок өлчөмдөрдүн калдыгы жаңырган жок — {ex.Message}.",
+                    $"{line.ProductName}: received, but the size stock was not updated — {ex.Message}.",
+                    $"{line.ProductName}: kabul edildi ancak beden stokları güncellenmedi — {ex.Message}.",
+                    $"{line.ProductName}: qabul qilindi, lekin o'lchamlar qoldig'i yangilanmadi — {ex.Message}."));
             }
         }
 

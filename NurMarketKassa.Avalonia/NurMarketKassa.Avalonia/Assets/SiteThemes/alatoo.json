@@ -1,0 +1,110 @@
+{
+ "code": "alatoo",
+ "name": {
+  "ru": "Ала-Тоо",
+  "ky": "Ала-Тоо",
+  "en": "Ala-Too",
+  "tr": "Ala-Too",
+  "uz": "Ala-Too"
+ },
+ "description": {
+  "ru": "Красный с золотом и национальным узором. К праздникам и для сувениров.",
+  "ky": "Кызыл-алтын, улуттук оюу менен. Майрамдарга жана белектерге.",
+  "en": "Red and gold with a national pattern. For holidays and souvenirs.",
+  "tr": "Kırmızı-altın, ulusal desenli. Bayramlar ve hediyelik eşya için.",
+  "uz": "Qizil-oltin, milliy naqsh bilan. Bayramlar va esdaliklar uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "alatoo_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "alatoo_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#FFF8EC",
+    "surface": "#FFFFFF",
+    "text": "#2A1A12",
+    "text_muted": "#7A6556",
+    "accent": "#C8102E",
+    "accent_text": "#FFFFFF",
+    "border": "#F0DDB8",
+    "header_bg": "#C8102E",
+    "header_text": "#FFFFFF",
+    "footer_bg": "#7A0A1C",
+    "footer_text": "#FFF3D6",
+    "price": "#A10D25",
+    "old_price": "#A8998A",
+    "badge_new_bg": "#E9A80C",
+    "badge_new_text": "#2A1A12",
+    "badge_sale_bg": "#7A0A1C",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Noto Sans",
+    "base_size": 15,
+    "heading_weight": 700
+   },
+   "radius": 12,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.15,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "1:1",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": true,
+   "border": true
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

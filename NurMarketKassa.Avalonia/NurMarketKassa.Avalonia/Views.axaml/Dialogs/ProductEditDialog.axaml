@@ -230,7 +230,8 @@
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.unitLabel}"/>
                                     <TextBox Text="{Binding Unit}"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Bottom" IsVisible="{Binding !IsQuickAddMode}">
+                                <!-- 2026-10-06 (О-13): в сфере «Одежда» «Весовой» скрыт (ShowWeightToggle). -->
+                                <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Bottom" IsVisible="{Binding ShowWeightToggle}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.isWeightLabel}"/>
                                     <ToggleSwitch IsChecked="{Binding IsWeight}" OnContent="" OffContent="" Margin="0,0,0,8"/>
                                 </StackPanel>
@@ -260,6 +261,12 @@
                                     <TextBox Text="{Binding Price}"/>
                                 </StackPanel>
                             </Grid>
+                            <!-- 2026-10-05, владелец: закупка дороже продажи — красное предупреждение (ProductEditDialog.PriceWarning). -->
+                            <Border IsVisible="{Binding HasPriceWarning}" CornerRadius="8" Padding="12,8" BorderThickness="1"
+                                    Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}">
+                                <TextBlock Text="{Binding PriceWarning}" Foreground="{DynamicResource BrushDanger}" FontWeight="SemiBold"
+                                           TextWrapping="Wrap"/>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

@@ -30,6 +30,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// <summary>2026-10-04, стресс-тест: итог выбранной продажи по серверу (поле total, уже за вычетом
     /// прошлых возвратов) — запасная сумма полного возврата, если сервер не отдал документ возврата.</summary>
     private decimal? _currentSaleTotal;
+
+    /// <summary>2026-10-06 (О-31, магазин одежды): дата выбранного чека — от неё считается срок обмена и возврата.</summary>
+    private DateTime? _currentSaleDate;
     private int _salesPage;
     private readonly HashSet<string> _salesSeenIds = new(StringComparer.OrdinalIgnoreCase);
     private string _searchFilter = "";
@@ -116,6 +119,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 UpdateWindowStateUI();
             }
         };
+
+        // 2026-10-06, исследование «Кассы для одежды» (О-30): обмен одним документом — в сфере «Одежда».
+        ExchangeSelectedButton.Content = Tr.T("⇄  Обменять выбранное на другой товар", "⇄  Тандалганды башка товарга алмаштыруу",
+            "⇄  Exchange selected for another item", "⇄  Seçileni başka ürünle değiştir", "⇄  Tanlanganini boshqa mahsulotga almashtirish");
+        ExchangeSelectedButton.IsVisible = MarketSpheres.IsClothing;
 
         UpdateReceiptChrome();
         UpdateWindowStateUI();
@@ -617,6 +625,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                                 NumberStyles.Number, CultureInfo.InvariantCulture, out var saleTotalValue)
             ? saleTotalValue
             : null;
+        // 2026-10-06 (О-31): дата чека — для срока обмена и возврата.
+        _currentSaleDate = sale.ValueKind == JsonValueKind.Object
+                           && (TryGetDateTime(sale, "created_at", out var soldAt) || TryGetDateTime(sale, "paid_at", out soldAt))
+            ? soldAt
+            : Sales.FirstOrDefault(x => string.Equals(x.SaleId, _currentSaleId, StringComparison.OrdinalIgnoreCase))?.SaleDate is { } listed && listed > DateTime.MinValue
+                ? listed
+                : null;
         foreach (var lineItem in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
             var lineId = CartDisplayHelper.TryRefundLineId(lineItem);
@@ -703,11 +718,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
-        var reasonDialog = new ReturnLineReasonDialog(selected.Count);
+        // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
+        var defectPreset = await CheckReturnRulesAsync(selected, exchange: false).ConfigureAwait(true);
+        if (defectPreset is null)
+            return;
+
+        var reasonDialog = new ReturnLineReasonDialog(selected.Count) { IsDefect = defectPreset == true };
         if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
 
         var reason = reasonDialog.ReasonText;
+        var isDefect = reasonDialog.IsDefect;
         IsBusy = true;
 
         try
@@ -726,7 +747,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 _currentSaleId,
                 requests,
                 reason,
-                App.PosCashboxId).ConfigureAwait(true);
+                App.PosCashboxId,
+                isDefect).ConfigureAwait(true);
 
             SaleDetailCache.Forget(_currentSaleId);
 
@@ -942,6 +964,130 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 $"Tanlangan chek · {DisplaySaleNumber(_currentSaleId)}  ·  chekdagi pozitsiyalar: {Lines.Count}");
             LinesPlaceholder.IsVisible = false;
         }
+
+        UpdateReturnTermText(hasSale);
+    }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-31): дата чека и сколько дней прошло; после срока
+    /// обмена (закон КР — 14 дней, не считая дня покупки; см. NonExchangeableRules) — красное предупреждение.</summary>
+    private void UpdateReturnTermText(bool hasSale)
+    {
+        var limit = NonExchangeableRules.DaysLimit;
+        if (!hasSale || limit <= 0 || _currentSaleDate is not { } date)
+        {
+            ReturnTermText.IsVisible = false;
+            return;
+        }
+        var days = NonExchangeableRules.DaysPassed(date);
+        var outOfTerm = days > limit;
+        ReturnTermText.Text = Tr.T($"Чек от {date:dd.MM.yyyy}: прошло {days} дн. из {limit}.", $"Чек {date:dd.MM.yyyy}: {limit} күндүн {days} күнү өттү.",
+                                  $"Receipt of {date:dd.MM.yyyy}: {days} of {limit} days have passed.", $"{date:dd.MM.yyyy} tarihli fiş: {limit} günün {days} günü geçti.",
+                                  $"{date:dd.MM.yyyy} sanadagi chek: {limit} kundan {days} kun o'tdi.")
+                              + (outOfTerm
+                                  ? Tr.T(" Срок обмена и возврата прошёл — без брака по закону не обменивают.", " Алмаштыруу жана кайтаруу мөөнөтү өттү — мыйзам боюнча бузук эмес товар алмаштырылбайт.",
+                                      " The exchange and return period is over — by law, items without defects are not exchanged.", " Değişim ve iade süresi doldu — kanuna göre kusursuz ürün değiştirilmez.",
+                                      " Almashtirish va qaytarish muddati o'tdi — qonun bo'yicha nuqsonsiz mahsulot almashtirilmaydi.")
+                                  : "");
+        ReturnTermText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(outOfTerm ? "BrushDanger" : "BrushTextSoft"));
+        ReturnTermText.IsVisible = true;
+    }
+
+    /// <summary>2026-10-06 (О-31, О-32): проверки перед возвратом и обменом в сфере «Одежда». null — кассир отказался;
+    /// true — товар из категории «без обмена», кассир подтвердил брак (у возврата сразу стоит отметка «Брак»); false — обычный случай.
+    /// Не запрет: брак принимают и после срока, и из этих категорий.</summary>
+    private async Task<bool?> CheckReturnRulesAsync(IReadOnlyList<ReturnSaleLineVm> lines, bool exchange)
+    {
+        var title = exchange ? Tr.T("Обмен", "Алмаштыруу", "Exchange", "Değişim", "Almashtirish") : Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish");
+        if (NonExchangeableRules.IsOutOfTerm(_currentSaleDate))
+        {
+            var date = _currentSaleDate!.Value;
+            var days = NonExchangeableRules.DaysPassed(date);
+            var limit = NonExchangeableRules.DaysLimit;
+            var what = exchange ? Tr.T("обмен", "алмаштырууну", "the exchange", "değişimi", "almashtirishni") : Tr.T("возврат", "кайтарууну", "the return", "iadeyi", "qaytarishni");
+            if (await PosMessageBox.ShowModalAsync(this,
+                    Tr.T($"Чек от {date:dd.MM.yyyy}: прошло {days} дн., а срок обмена и возврата — {limit} дн. (не считая дня покупки).\n\nПо закону товар без брака после этого срока не обменивают и не возвращают; брак принимают дольше.\n\nОформить {what} всё равно?",
+                        $"Чек {date:dd.MM.yyyy}: {days} күн өттү, ал эми алмаштыруу жана кайтаруу мөөнөтү — {limit} күн (сатып алган күн эсептелбейт).\n\nМыйзам боюнча бул мөөнөттөн кийин бузук эмес товар алмаштырылбайт жана кайтарылбайт; бузук товар кечирээк да кабыл алынат.\n\nБаары бир {what} таризделсинби?",
+                        $"Receipt of {date:dd.MM.yyyy}: {days} days have passed, but the exchange and return period is {limit} days (not counting the day of purchase).\n\nBy law, items without defects are not exchanged or returned after this period; defective items are accepted longer.\n\nProcess {what} anyway?",
+                        $"{date:dd.MM.yyyy} tarihli fiş: {days} gün geçti, değişim ve iade süresi ise {limit} gün (satın alma günü sayılmaz).\n\nKanuna göre bu süreden sonra kusursuz ürün değiştirilmez ve iade edilmez; kusurlu ürün daha uzun süre kabul edilir.\n\nYine de {what} yapılsın mı?",
+                        $"{date:dd.MM.yyyy} sanadagi chek: {days} kun o'tdi, almashtirish va qaytarish muddati esa {limit} kun (xarid kuni hisoblanmaydi).\n\nQonun bo'yicha bu muddatdan keyin nuqsonsiz mahsulot almashtirilmaydi va qaytarilmaydi; nuqsonli mahsulot uzoqroq qabul qilinadi.\n\nBaribir {what} rasmiylashtirilsinmi?"),
+                    Tr.T("Срок обмена прошёл", "Алмаштыруу мөөнөтү өттү", "Exchange period is over", "Değişim süresi doldu", "Almashtirish muddati o'tdi"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true) != MessageBoxResult.Yes)
+                return null;
+            PosLogger.Log($"{title} по чеку {_currentSaleId} после срока: прошло {days} дн. из {limit}, кассир подтвердил.", "SALES");
+        }
+
+        var flagged = lines
+            .Select(l => (Line: l, Category: NonExchangeableRules.NonExchangeableCategoryOf(l.ProductId)))
+            .Where(x => x.Category != null)
+            .ToList();
+        if (flagged.Count == 0)
+            return false;
+        var names = string.Join("\n", flagged.Select(x => $"• {x.Line.Title} — «{x.Category}»"));
+        var text = exchange
+            ? Tr.T($"Эти товары без брака по закону не обменивают:\n{names}\n\nЕсли это брак — лучше оформите «Возврат» с отметкой «Брак» (товар не вернётся в продажу), а новый товар продайте обычным чеком: обмен возвращает товар на склад.\n\nВсё равно оформить обмен?",
+                $"Бул товарлар бузук болбосо мыйзам боюнча алмаштырылбайт:\n{names}\n\nЭгер бузук болсо — «Бузук» белгиси менен «Кайтарууну» таризделиңиз (товар сатууга кайтпайт), жаңы товарды кадимки чек менен сатыңыз: алмаштыруу товарды кампага кайтарат.\n\nБаары бир алмаштырылсынбы?",
+                $"By law, these items are not exchanged unless defective:\n{names}\n\nIf it is a defect, better make a “Return” marked “Defective” (the item won't go back on sale) and sell the new item with a regular receipt: an exchange puts the item back in stock.\n\nExchange anyway?",
+                $"Kanuna göre bu ürünler kusurlu değilse değiştirilmez:\n{names}\n\nKusurluysa «Kusurlu» işaretli «İade» yapın (ürün satışa dönmez) ve yeni ürünü normal fişle satın: değişim ürünü stoğa geri koyar.\n\nYine de değiştirilsin mi?",
+                $"Qonun bo'yicha bu mahsulotlar nuqsonsiz bo'lsa almashtirilmaydi:\n{names}\n\nAgar nuqson bo'lsa — «Nuqsonli» belgisi bilan «Qaytarish»ni rasmiylashtiring (mahsulot sotuvga qaytmaydi), yangi mahsulotni oddiy chek bilan soting: almashtirish mahsulotni omborga qaytaradi.\n\nBaribir almashtirilsinmi?")
+            : Tr.T($"Эти товары без брака по закону не обменивают и не возвращают:\n{names}\n\nУ товара брак? «Да» — оформить возврат как брак (товар не вернётся в продажу), «Нет» — отменить.",
+                $"Бул товарлар бузук болбосо мыйзам боюнча алмаштырылбайт жана кайтарылбайт:\n{names}\n\nТовар бузукпу? «Ооба» — кайтарууну бузук катары таризделөө (товар сатууга кайтпайт), «Жок» — жокко чыгаруу.",
+                $"By law, these items are not exchanged or returned unless defective:\n{names}\n\nIs the item defective? “Yes” — return it as defective (it won't go back on sale), “No” — cancel.",
+                $"Kanuna göre bu ürünler kusurlu değilse değiştirilmez ve iade edilmez:\n{names}\n\nÜrün kusurlu mu? «Evet» — kusurlu olarak iade et (satışa dönmez), «Hayır» — iptal.",
+                $"Qonun bo'yicha bu mahsulotlar nuqsonsiz bo'lsa almashtirilmaydi va qaytarilmaydi:\n{names}\n\nMahsulot nuqsonlimi? «Ha» — nuqsonli sifatida qaytarish (sotuvga qaytmaydi), «Yo'q» — bekor qilish.");
+        var answer = await PosMessageBox.ShowModalAsync(this, text,
+            Tr.T("Товар не подлежит обмену", "Товар алмаштырылбайт", "Item cannot be exchanged", "Ürün değiştirilemez", "Mahsulot almashtirilmaydi"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning).ConfigureAwait(true);
+        if (answer != MessageBoxResult.Yes)
+            return null;
+        PosLogger.Log($"{title} по чеку {_currentSaleId}: товар из категории без обмена ({string.Join(", ", flagged.Select(x => x.Category))}), кассир подтвердил.", "SALES");
+        return !exchange;
+    }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-30): обмен одним документом — отмеченные позиции
+    /// возвращаются, покупатель берёт другой товар, деньгами проходит только разница (окно ExchangeWindow).</summary>
+    private async void ExchangeSelected_Click(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_currentSaleId))
+            return;
+        var selected = Lines.Where(x => x.CanReturn && x.IsSelected).ToList();
+        var exchangeTitle = Tr.T("Обмен", "Алмаштыруу", "Exchange", "Değişim", "Almashtirish");
+        if (selected.Count == 0)
+        {
+            PosMessageBox.Show(this,
+                Tr.T("Отметьте галочками, что покупатель возвращает.", "Сатып алуучу эмнени кайтарарын белгилеңиз.", "Check what the customer is returning.",
+                    "Müşterinin iade ettiklerini işaretleyin.", "Xaridor nimani qaytarayotganini belgilang."),
+                exchangeTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (await CheckReturnRulesAsync(selected, exchange: true).ConfigureAwait(true) is null)
+            return;
+
+        var lines = selected.Select(l => new ExchangeReturnLine(l.LineId, l.ProductId, l.Title,
+            l.Quantity > 0 ? l.Quantity : 1,
+            l.Quantity > 0 ? Math.Round(l.RefundSum / (decimal)l.Quantity, 2) : l.RefundSum)).ToList();
+        var saleId = _currentSaleId;
+        var window = new ExchangeWindow(saleId, _currentReceiptNumber ?? DisplaySaleNumber(saleId), _currentSaleDate, lines);
+        if (await PosDialogHost.ShowModalAsync(window, this).ConfigureAwait(true) != true || window.Outcome is not { } done)
+            return;
+
+        var money = done.Difference > 0.004m
+            ? (done.PaymentMethod == "transfer"
+                ? Tr.T($"Доплата переводом: {done.Difference:N2} сом — проверьте, что перевод пришёл.", $"Которуу менен кошумча төлөм: {done.Difference:N2} сом — которуу келгенин текшериңиз.",
+                    $"Paid by transfer: {done.Difference:N2} som — check that the transfer arrived.", $"Havale ile ek ödeme: {done.Difference:N2} som — havalenin geldiğini kontrol edin.",
+                    $"O'tkazma orqali qo'shimcha to'lov: {done.Difference:N2} so'm — o'tkazma kelganini tekshiring.")
+                : Tr.T($"Получить с покупателя: {done.Difference:N2} сом наличными.", $"Сатып алуучудан алуу: {done.Difference:N2} сом накталай.",
+                    $"Take from the customer: {done.Difference:N2} som in cash.", $"Müşteriden alınacak: {done.Difference:N2} som nakit.",
+                    $"Xaridordan olish: {done.Difference:N2} so'm naqd."))
+            : done.Difference < -0.004m
+                ? RefundToGiveText(-done.Difference)
+                : Tr.T("Без доплаты.", "Кошумча төлөмсүз.", "No difference to pay.", "Fark yok.", "Qo'shimcha to'lovsiz.");
+        PosMessageBox.Show(this,
+            Tr.T("Обмен оформлен.", "Алмаштыруу таризделди.", "Exchange completed.", "Değişim tamamlandı.", "Almashtirish rasmiylashtirildi.")
+            + (string.IsNullOrWhiteSpace(done.NewSaleNumber) ? "" : Tr.T($"\nНовый чек №{done.NewSaleNumber}.", $"\nЖаңы чек №{done.NewSaleNumber}.", $"\nNew receipt No. {done.NewSaleNumber}.",
+                $"\nYeni fiş No. {done.NewSaleNumber}.", $"\nYangi chek №{done.NewSaleNumber}."))
+            + "\n" + money,
+            exchangeTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+        await RefreshCurrentSaleAsync().ConfigureAwait(true);
     }
 
     private string DisplaySaleNumber(string? saleId)
@@ -981,7 +1127,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             return;
         }
 
-        var reasonDialog = new ReturnLineReasonDialog(kind: ReturnReasonDialogKind.FullReceipt);
+        // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
+        var defectPreset = await CheckReturnRulesAsync(Lines.Where(l => l.CanReturn).ToList(), exchange: false).ConfigureAwait(true);
+        if (defectPreset is null)
+            return;
+
+        var reasonDialog = new ReturnLineReasonDialog(kind: ReturnReasonDialogKind.FullReceipt) { IsDefect = defectPreset == true };
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
@@ -1002,7 +1153,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 App.SalesApi,
                 _currentSaleId,
                 reasonDialog.ReasonText,
-                App.PosCashboxId).ConfigureAwait(true);
+                App.PosCashboxId,
+                reasonDialog.IsDefect).ConfigureAwait(true);
 
             // 2026-09-23, живой баг: полный возврат чека не писал событие смены вообще — запись
             // стояла только в построчном возврате. Вернули покупателю весь чек наличными, а в

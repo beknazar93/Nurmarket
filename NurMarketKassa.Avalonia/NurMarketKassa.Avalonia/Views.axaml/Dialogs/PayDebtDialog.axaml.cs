@@ -511,6 +511,11 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 && await TryPayViaServerAsync(onlyDebtClient, amount, button).ConfigureAwait(true))
                 return;
 
+            // 2026-10-05: долг одной продажи — одним запросом pos/sales/{id}/pay-debt/ (сервер починил, ТЗ ч.12, п. 2.3);
+            // сервер без этого адреса — старый путь по взносам.
+            if (await TryPaySaleViaServerAsync(row, amount, button).ConfigureAwait(true))
+                return;
+
             if (!await PayRowLegacyAsync(row, amount, button).ConfigureAwait(true))
                 return;
 

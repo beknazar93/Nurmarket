@@ -402,6 +402,18 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
             FinanceTabs.Items.Add(_ownerStockTab);
 
+            // 2026-10-05, владелец: «где в сводке и аналитике долги??» — вкладка «Долги» сразу после «Выручки и оплат»:
+            // кто сколько должен, давность, чеки в долг (тот же блок, что и в разделе «Долги клиентов»).
+            if (TariffGate.CanUseDebts)
+            {
+                var debtsTab = new TabItem
+                {
+                    Header = Tr.T("Долги", "Карыздар", "Debts", "Borçlar", "Qarzlar"),
+                    Content = new DebtsView(showTitle: false),
+                };
+                FinanceTabs.Items.Insert(FinanceTabs.Items.IndexOf(AnalyticsTab) + 1, debtsTab);
+            }
+
             FinanceTabs.SelectedItem = AnalyticsTab;
 
             // Доп. функцию могли купить в Маркетплейсе и вернуться сюда, не переключая вкладку.
@@ -2567,6 +2579,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "mbank" => "MBank",
                 "mixed" => Tr.T("Смешанный", "Аралаш", "Mixed", "Karışık", "Aralash"),
                 "debt" => Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"),
+                // 2026-10-06: обмен и предоплата — сервер пишет «offset»; было «Offset» по-английски.
+                "offset" => Tr.T("Зачёт", "Эсепке алуу", "Offset", "Mahsup", "Hisobga olish"),
                 _ when key.Contains("нал") => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
                 _ => char.ToUpperInvariant(method![0]) + method[1..],
             };

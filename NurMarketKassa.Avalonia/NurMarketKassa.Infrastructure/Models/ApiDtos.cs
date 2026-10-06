@@ -146,6 +146,11 @@ namespace NurMarketKassa.Models
         [JsonPropertyName("can_view_showcase")]
         public bool CanViewShowcase { get; set; }
 
+        /// <summary>2026-10-05, ТЗ ч.13, п. 2: функции компании (купленные доп. функции и услуги) — коды вида
+        /// "ai", "clients", "sales_analytics", "showcase_editor". Включены для всей компании — на всех устройствах.</summary>
+        [JsonPropertyName("features")]
+        public List<string>? Features { get; set; }
+
         /// <summary>Раскладка весового штрих-кода: "plu" (PLU 5 цифр) или "code" (внутренний
         /// код товара 6 цифр, используют весы Rongta) — из GET /users/settings/company/.</summary>
         [JsonPropertyName("scale_barcode_layout")]

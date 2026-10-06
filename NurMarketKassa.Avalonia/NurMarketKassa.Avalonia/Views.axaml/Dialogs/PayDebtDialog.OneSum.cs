@@ -32,6 +32,83 @@ public partial class PayDebtDialog
     /// <summary>Сервер не знает pay-debt — в этом окне больше не пробуем, сразу старый путь.</summary>
     private bool _serverPayDebtMissing;
 
+    // 2026-10-05: долг одной продажи — pos/sales/{id}/pay-debt/ (ТЗ ч.12, п. 2.3). Ключ живёт до ответа сервера: повторное
+    // нажатие после обрыва связи посылает ТОТ ЖЕ ключ — сервер вернёт прежний итог, вторая оплата не пройдёт.
+    private string? _pendingSalePayKey;
+    private string? _pendingSalePaySignature;
+    private bool _serverSalePayMissing;
+
+    /// <summary>Оплата долга одной продажи через сервер одним запросом. true — оплата прошла (список перезагружен);
+    /// false — сервер адрес не знает, вызывающий идёт старым путём по взносам.</summary>
+    private async Task<bool> TryPaySaleViaServerAsync(DebtSaleRow row, double amount, Button button)
+    {
+        if (_serverSalePayMissing || string.IsNullOrWhiteSpace(row.Id))
+            return false;
+        var api = App.AppHost?.Services.GetService<ClientDebtsApiService>();
+        if (api == null)
+            return false;
+
+        var signature = row.Id + "|" + amount.ToString("0.00", CultureInfo.InvariantCulture);
+        if (_pendingSalePayKey == null || _pendingSalePaySignature != signature)
+        {
+            _pendingSalePayKey = Guid.NewGuid().ToString();
+            _pendingSalePaySignature = signature;
+        }
+        var key = _pendingSalePayKey;
+
+        var contentBefore = button.Content;
+        button.Content = Tr.T("Оплата…", "Төлөм…", "Paying…", "Ödeniyor…", "To'lanmoqda…");
+        var watch = Stopwatch.StartNew();
+        PayDebtResult result;
+        try
+        {
+            result = await api.PaySaleDebtAsync(row.Id, amount, "cash", PosApp.ActiveShiftId, key).ConfigureAwait(true);
+        }
+        catch (ApiException ex) when (ClientDebtsApiService.IsEndpointMissing(ex))
+        {
+            _serverSalePayMissing = true;
+            _pendingSalePayKey = null;
+            PosLogger.Log($"Pay-debt продажи: сервер не знает pos/sales/{{id}}/pay-debt/ ({ex.StatusCode}) — старый путь по взносам.", "PAYMENT");
+            return false;
+        }
+        catch (ApiException ex) when (ex.StatusCode is >= 400 and < 500 and not 408 and not 429)
+        {
+            // Отказ по существу (например, 400 no_debt — продажа уже оплачена): следующее нажатие — новая операция.
+            _pendingSalePayKey = null;
+            throw;
+        }
+        finally
+        {
+            button.Content = contentBefore;
+        }
+
+        watch.Stop();
+        _pendingSalePayKey = null;
+        ShiftEventsStore.Record(
+            ShiftEventsStore.KindDebtPayment,
+            PosApp.ActiveShiftId,
+            "pay-debt-sale:" + key,
+            result.Paid,
+            _selectedClient?.DisplayName);
+        PosLogger.Log(
+            $"Pay-debt продажи {row.Id}: оплачено {result.Paid:0.00}, остаток {result.Left:0.00}, {watch.ElapsedMilliseconds} мс{(result.Replayed ? ", повтор по ключу" : "")}.",
+            "PAYMENT");
+
+        if (_selectedClient != null)
+            await LoadDebtSalesAsync(_selectedClient.Id).ConfigureAwait(true);
+        var ru = CultureInfo.GetCultureInfo("ru-RU");
+        var paidText = result.Paid.ToString("N2", ru);
+        var leftText = result.Left.ToString("N2", ru);
+        SuccessMessage = result.Left <= 0.005
+            ? Tr.T($"Оплачено {paidText} сом. Долг по чеку погашен.", $"{paidText} сом төлөндү. Чек боюнча карыз жабылды.",
+                $"Paid {paidText} som. The receipt's debt is paid off.", $"{paidText} som ödendi. Fişin borcu kapandı.",
+                $"{paidText} so'm to'landi. Chek bo'yicha qarz yopildi.")
+            : Tr.T($"Оплачено {paidText} сом. Остаток по чеку: {leftText} сом.", $"{paidText} сом төлөндү. Чек боюнча калдык: {leftText} сом.",
+                $"Paid {paidText} som. Left on the receipt: {leftText} som.", $"{paidText} som ödendi. Fişte kalan: {leftText} som.",
+                $"{paidText} so'm to'landi. Chek bo'yicha qoldiq: {leftText} so'm.");
+        return true;
+    }
+
     /// <summary>Сумма «Погасить одной суммой»; после загрузки долгов — весь долг клиента.</summary>
     public string PayAllAmountText
     {

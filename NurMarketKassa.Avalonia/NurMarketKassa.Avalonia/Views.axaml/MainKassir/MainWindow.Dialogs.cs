@@ -32,6 +32,7 @@ public partial class MainWindow
         _hostBridge.AddCustomItem = AddCustomItemAsync;
         _hostBridge.OfferAddUnknownProduct = OfferAddUnknownProductAsync;
         _hostBridge.ReweighCartLine = ReweighCartLineAsync;
+        _viewModel.Basket.ChangeVariantLine = ChangeCartLineVariantAsync;
         _hostBridge.ApplyLineDiscount = ApplyLineDiscountAsync;
         _hostBridge.ReplenishStockForProduct = ReplenishStockForProductAsync;
     }
@@ -91,6 +92,36 @@ public partial class MainWindow
         var cart = ResolveCartService();
         double qtyToAdd;
         var mustWeigh = ProductUnitNormalizer.RequiresWeighing(vm);
+
+        // 2026-10-06, исследование «Кассы для одежды» (О-01): отсканирован штрихкод размера — этот размер сразу,
+        // без окна выбора (количество — из поля количества, обычно 1).
+        // 2026-10-06: то же, если штрихкод размера отсканирован в поле поиска каталога и кассир добавил найденный товар.
+        var fromSearch = MarketSpheres.IsClothing && VariantBarcodeIndex.Find(_viewModel.Catalog.SearchText?.Trim()) is { } searchHit
+                         && string.Equals(searchHit.ProductId, vm.Id, StringComparison.OrdinalIgnoreCase)
+            ? searchHit.Variant
+            : null;
+        if ((_viewModel.Basket.TakeScannedVariant(vm.Id) ?? fromSearch) is { Id: { } scannedVariantId } scanned)
+        {
+            var scannedQty = ParseManualQuantity(_viewModel.Basket.ManualQuantity, false);
+            if (scannedQty <= 0)
+                scannedQty = 1;
+            if (!scanned.IsActive || scanned.Quantity < scannedQty)
+            {
+                var warn = !scanned.IsActive
+                    ? Tr.T("Этот размер/цвет снят с продажи. Всё равно добавить?", "Бул өлчөм/түс сатуудан алынган. Баары бир кошулсунбу?",
+                        "This size/color is not on sale. Add anyway?", "Bu beden/renk satışta değil. Yine de eklensin mi?", "Bu o'lcham/rang sotuvda emas. Baribir qo'shilsinmi?")
+                    : Tr.T($"Остаток этого размера/цвета — {scanned.Quantity:0.###} шт. Всё равно добавить?", $"Бул өлчөм/түстүн калдыгы — {scanned.Quantity:0.###} даана. Баары бир кошулсунбу?",
+                        $"Only {scanned.Quantity:0.###} pcs of this size/color left. Add anyway?", $"Bu beden/renkten {scanned.Quantity:0.###} adet kaldı. Yine de eklensin mi?",
+                        $"Bu o'lcham/rangdan {scanned.Quantity:0.###} dona qoldi. Baribir qo'shilsinmi?");
+                if (!await PosDialogs.ConfirmYesNoModalAsync(this, warn))
+                    return;
+            }
+            var scannedParts = new[] { scanned.Size, scanned.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
+            var scannedLabel = $"{vm.Title} ({string.Join(", ", scannedParts)})";
+            _viewModel.Basket.AddVariantFromCatalog(vm, scannedQty, scanned.Price ?? LocalCartService.ParsePrice(vm.PriceLine),
+                scannedVariantId, scannedLabel, scanned.Size, scanned.Color);
+            return;
+        }
 
         // 2026-10-01, владелец: «магазин одежды — при выборе нужно выбрать размер, цвет, возможно
         // изменение цены, если на какой-то размер или цвет есть скидка». В сфере «Одежда» у товара с
@@ -554,6 +585,42 @@ public partial class MainWindow
                 ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
                 : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
         }
+    }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-03): «Размер» на строке чека — то же окно выбора размера
+    /// и цвета, что при добавлении товара; выбранный вариант заменяет строку с тем же количеством.</summary>
+    internal async Task ChangeCartLineVariantAsync(CartLineItemVm line)
+    {
+        if (string.IsNullOrWhiteSpace(line.ProductId) || string.IsNullOrWhiteSpace(line.ItemId))
+            return;
+        var vm = CatalogCacheService.Products.ToList().FirstOrDefault(p => string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
+        if (vm is null)
+            return;
+        var variants = await LoadProductVariantsAsync(vm.Id).ConfigureAwait(true);
+        if (variants is not { Count: > 0 } || !variants.Any(v => v.IsActive))
+        {
+            PosMessageBox.Show(this, Tr.T("Размеры этого товара не загрузились — проверьте связь и попробуйте ещё раз.", "Бул товардын өлчөмдөрү жүктөлгөн жок — байланышты текшерип, кайра аракет кылыңыз.",
+                    "The sizes of this product did not load — check the connection and try again.", "Bu ürünün bedenleri yüklenemedi — bağlantıyı kontrol edip tekrar deneyin.",
+                    "Bu mahsulotning o'lchamlari yuklanmadi — aloqani tekshirib, qayta urinib ko'ring."),
+                line.ChangeVariantTooltip, MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        var picker = new VariantPickerWindow(vm, variants, Tr.T("Заменить", "Алмаштыруу", "Replace", "Değiştir", "Almashtirish"));
+        await picker.ShowDialog(this).ConfigureAwait(true);
+        if (picker.Result is not { Id: { } variantId } chosen || string.Equals(variantId, line.VariantId, StringComparison.OrdinalIgnoreCase))
+            return;
+        var qty = line.Quantity > 0 ? line.Quantity : 1;
+        if (chosen.Quantity < qty
+            && !await PosDialogs.ConfirmYesNoModalAsync(this, Tr.T(
+                $"Остаток этого размера/цвета — {chosen.Quantity:0.###} шт. Всё равно заменить?",
+                $"Бул өлчөм/түстүн калдыгы — {chosen.Quantity:0.###} даана. Баары бир алмаштырылсынбы?",
+                $"Only {chosen.Quantity:0.###} pcs of this size/color left. Replace anyway?",
+                $"Bu beden/renkten {chosen.Quantity:0.###} adet kaldı. Yine de değiştirilsin mi?",
+                $"Bu o'lcham/rangdan {chosen.Quantity:0.###} dona qoldi. Baribir almashtirilsinmi?")))
+            return;
+        var parts = new[] { chosen.Size, chosen.Color }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim());
+        _viewModel.Basket.ReplaceLineVariant(line, vm, chosen.Price ?? LocalCartService.ParsePrice(vm.PriceLine), variantId,
+            $"{vm.Title} ({string.Join(", ", parts)})", chosen.Size, chosen.Color);
     }
 
     internal async Task ReweighCartLineAsync(CartLineItemVm line)

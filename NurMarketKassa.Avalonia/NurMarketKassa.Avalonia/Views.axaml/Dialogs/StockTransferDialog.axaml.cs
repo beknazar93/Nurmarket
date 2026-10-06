@@ -30,6 +30,8 @@ public partial class StockTransferDialog : Window
         InitializeComponent();
         InitializeFileKinds();
         Opened += (_, _) => Reload();
+        // 2026-10-06: главный склад и филиалы для «Откуда/Куда» (StockTransferDialog.Branches).
+        Opened += async (_, _) => await LoadBranchPlacesAsync();
     }
 
     private sealed class ItemRow
@@ -146,6 +148,7 @@ public partial class StockTransferDialog : Window
         ItemEditPanel.IsEnabled = !closed;
         if (closed)
             SuggestionsBox.IsVisible = false;
+        UpdateBranchUi();
     }
 
     private void StatusText_Set(string status)
@@ -159,7 +162,11 @@ public partial class StockTransferDialog : Window
     /// <summary>Поля шапки сохраняются, как только из них уходит курсор. Перемещение заполняют
     /// в несколько заходов, и кнопка «Сохранить» здесь только создавала бы риск потерять
     /// введённое.</summary>
-    private void Field_Changed(object? sender, RoutedEventArgs e) => SaveHeader();
+    private void Field_Changed(object? sender, RoutedEventArgs e)
+    {
+        SaveHeader();
+        UpdateBranchUi();
+    }
 
     private void SaveHeader()
     {
@@ -324,16 +331,17 @@ public partial class StockTransferDialog : Window
         }
     }
 
-    private void Ship_Click(object? sender, RoutedEventArgs e) => ChangeStatus(StockTransferService.StatusInTransit);
+    // 2026-10-06: между главным складом и филиалами «Отправить» и «Отменить» идут через сервер (StockTransferDialog.Branches).
+    private async void Ship_Click(object? sender, RoutedEventArgs e) => await ShipAsync();
 
-    private void Deliver_Click(object? sender, RoutedEventArgs e) => ChangeStatus(StockTransferService.StatusDelivered);
+    private void Deliver_Click(object? sender, RoutedEventArgs e) => ChangeStatus(StockTransferService.StatusDelivered, DeliverNote());
 
-    private void CancelTransfer_Click(object? sender, RoutedEventArgs e) => ChangeStatus(StockTransferService.StatusCancelled);
+    private async void CancelTransfer_Click(object? sender, RoutedEventArgs e) => await CancelTransferAsync();
 
-    private void ChangeStatus(string status)
+    private void ChangeStatus(string status, string? note = null)
     {
         StockTransferService.Instance.ChangeStatus(_transferId, status,
-            App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName, null);
+            App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName, note);
         Reload();
     }
 

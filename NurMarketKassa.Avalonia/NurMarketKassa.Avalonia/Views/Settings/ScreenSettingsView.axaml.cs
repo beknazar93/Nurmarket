@@ -28,6 +28,45 @@ public partial class ScreenSettingsView : UserControl
     /// не только MainWindow за собой.</summary>
     public event EventHandler? UiScaleChanged;
 
+    /// <summary>2026-10-05, владелец: «в настройках сделай скрытие вкладок, чтобы клиент мог скрыть ненужные функции».
+    /// Карточка «Разделы меню»: переключатель у каждого раздела (SectionVisibility); выключил — раздел пропал из меню.</summary>
+    private void BuildSectionsCard()
+    {
+        var card = new Border { Classes = { "SettingsCard" }, Padding = new Avalonia.Thickness(14) };
+        var stack = new StackPanel { Spacing = 8 };
+        stack.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Разделы меню", "Менюнун бөлүмдөрү", "Menu sections", "Menü bölümleri", "Menyu bo'limlari"),
+            Classes = { "SettingsCardTitle" }, FontSize = 14,
+        });
+        var hint = new TextBlock
+        {
+            Text = Tr.T("Выключите разделы, которыми не пользуетесь, — они пропадут из меню. Включить обратно можно здесь же. Доступ по тарифу и правам сотрудников не меняется.",
+                "Колдонбогон бөлүмдөрдү өчүрүңүз — алар менюдан жоголот. Кайра ушул жерден күйгүзсө болот. Тариф жана кызматкерлердин укуктары боюнча мүмкүнчүлүк өзгөрбөйт.",
+                "Turn off the sections you don't use — they disappear from the menu. You can turn them back on here. Access by plan and staff rights doesn't change.",
+                "Kullanmadığınız bölümleri kapatın — menüden kaybolurlar. Buradan geri açabilirsiniz. Tarife ve personel yetkilerine göre erişim değişmez.",
+                "Foydalanmaydigan bo'limlarni o'chiring — ular menyudan yo'qoladi. Shu yerdan qayta yoqish mumkin. Tarif va xodimlar huquqlari bo'yicha kirish o'zgarmaydi."),
+            FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        stack.Children.Add(hint);
+        var wrap = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
+        foreach (var (key, title) in SectionVisibility.Catalog)
+        {
+            var row = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Width = 250, Margin = new Avalonia.Thickness(0, 0, 12, 6) };
+            var check = new CheckBox { Classes = { "ToggleSwitch" }, IsChecked = !SectionVisibility.IsHidden(key) };
+            check.IsCheckedChanged += (_, _) => SectionVisibility.Set(key, check.IsChecked != true);
+            row.Children.Add(check);
+            var label = new TextBlock { Text = title, FontSize = 13, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            row.Children.Add(label);
+            wrap.Children.Add(row);
+        }
+        stack.Children.Add(wrap);
+        card.Child = stack;
+        CardList.Children.Add(card);
+    }
+
     public ScreenSettingsView()
     {
         InitializeComponent();
@@ -42,6 +81,7 @@ public partial class ScreenSettingsView : UserControl
                     row.IsVisible = false;
             }
         }
+        BuildSectionsCard();
         CashboxCombo.ItemsSource =new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
         CashboxCombo.SelectedIndex = 0;
 

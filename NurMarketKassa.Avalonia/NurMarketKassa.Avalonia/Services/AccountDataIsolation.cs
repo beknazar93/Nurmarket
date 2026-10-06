@@ -39,6 +39,9 @@ public static class AccountDataIsolation
         "data",                    // pos_local.db (+ -wal/-shm) и его бэкапы
         "state.json",              // корзины/состояние экрана кассы
         "cash_history.json",       // внесения и изъятия смены
+        "exchange_cash_fix.json",  // 2026-10-06: поправки остатка смены после обмена (ошибка сервера)
+        "variant_barcodes.json",   // 2026-10-06: штрихкоды размеров одежды (скан этикетки размера)
+        "sale_sizes_cache.json",   // 2026-10-06: запомненные строки чеков для отчёта «Размеры и цвета»
         "deferred_carts.json",     // отложенные чеки
         "offline_pos_state.json",  // очередь непроведённых продаж
         "offline_sales_pending.json",  // старый формат той же очереди: база импортирует его

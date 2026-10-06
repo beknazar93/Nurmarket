@@ -195,6 +195,13 @@ public partial class WarehouseWindow : Window, IOwnerSection
 
         try
         {
+            // 2026-10-06 (О-70): этикетка размера — +N этому размеру в строке товара.
+            if (TryReceiveVariantScan(code, quantity))
+            {
+                ReceivingQuantityBox.Text = "1";
+                RefreshReceivingSummary();
+                return;
+            }
             await _viewModel.HandleReceivingScanAsync(code, quantity);
         }
         catch (Exception ex)
@@ -249,6 +256,12 @@ public partial class WarehouseWindow : Window, IOwnerSection
     /// выбранную ячейку — на сенсорном экране казалось, что таблица не редактируется вовсе.</summary>
     private void ReceivingGrid_CellPointerPressed(object? sender, DataGridCellPointerPressedEventArgs e)
     {
+        // 2026-10-06 (О-70): колонка «Размеры» — сетка размеров строки.
+        if (e.Column is not null && ReferenceEquals(e.Column, SizesColumn) && e.Row?.DataContext is NurMarketKassa.Models.ReceivingLineVm sized)
+        {
+            Dispatcher.UIThread.Post(() => _ = OpenVariantGridAsync(sized, automatic: false), DispatcherPriority.Background);
+            return;
+        }
         if (e.Column is null || e.Column.IsReadOnly || e.Row?.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
             return;
 
@@ -685,6 +698,7 @@ public partial class WarehouseWindow : Window, IOwnerSection
         if (products.Count == 0)
         {
             WarehouseTotalsPanel.ItemsSource = System.Array.Empty<KpiCardVm>();
+            BuildKpiCards(0, 0, 0, 0, 0, 0);
             return;
         }
 
@@ -706,6 +720,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             new() { Label = Tr.T("Заканчивается:", "Түгөнүп баратат:", "Running low:", "Tükenmek üzere:", "Tugab bormoqda:"), Value = low.ToString("N0") },
             new() { Label = Tr.T("Нет в наличии:", "Калдыкта жок:", "Out of stock:", "Stokta yok:", "Mavjud emas:"), Value = outOfStock.ToString("N0") },
         };
+        // 2026-10-06: те же итоги — плитками над таблицей (WarehouseWindow.Redesign.cs).
+        BuildKpiCards(products.Count, units, purchaseValue, saleValue, low, outOfStock);
     }
 
     /// <summary>Списки причин списания через "Брак" собираются вручную вместо ComboBox — тот же
@@ -777,6 +793,10 @@ public partial class WarehouseWindow : Window, IOwnerSection
                 // Длинная накладная: принятая строка должна быть видна, а не уходить за край.
                 ReceivingGrid.ScrollIntoView(line, null);
             };
+            // 2026-10-06 (О-70): приёмка одежды по размерам — см. WarehouseWindow.Variants.cs.
+            InitVariantReceiving();
+            // 2026-10-06: редизайн «Товаров» — плитки сводки, фильтр наличия, сроки годности (WarehouseWindow.Redesign.cs).
+            InitRedesign();
             RefreshReceivingSummary();
             ReceivingPaidRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = true;
@@ -808,6 +828,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
                 PosLogger.Log($"Склад: обновление с сервера не удалось ({result.ErrorMessage}) — показан локальный каталог.", "CATALOG");
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             RefreshWarehouseTotals();
+            // 2026-10-06: и сроки годности — заново с сервера.
+            _ = RefreshExpiryAsync(force: true);
             // Удачное обновление видно по таблице — окно-сообщение только если сервер не ответил.
             if (!result.Success)
                 App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(
@@ -1494,6 +1516,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
         WindowHeaderBorder.Margin = new Thickness(0, 0, 0, 8);
         ScanHintBorder.Margin = new Thickness(0);
         RootGrid.Margin = OwnerSectionLayout.Margin;
+        // 2026-10-06, ТЗ ч.12, п. 2.6: кнопка «Дубли штрихкодов» — если они есть (WarehouseWindow.Duplicates.cs).
+        _ = ShowBarcodeDuplicatesButtonAsync();
     }
 
     private void MinimizeButton_Click(object? sender, RoutedEventArgs e)

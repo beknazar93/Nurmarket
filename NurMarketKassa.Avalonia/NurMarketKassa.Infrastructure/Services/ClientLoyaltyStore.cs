@@ -53,6 +53,10 @@ public static class ClientLoyaltyStore
         if (string.IsNullOrWhiteSpace(saleId))
             return;
 
+        var remaining = Db.GetRemainingClientLoyaltyForSale(saleId);
         Db.ReverseRemainingClientLoyaltyForSale(saleId);
+        // 2026-10-05: бонусы на сервере (ServerLoyalty) — там тоже отменяем начисленное/списанное по этому чеку.
+        if (remaining is { } r && System.Math.Abs(r.Remaining) >= 0.005)
+            _ = ServerLoyalty.PostAsync(r.ClientId, -r.Remaining, "manual", saleId, "Возврат чека");
     }
 }

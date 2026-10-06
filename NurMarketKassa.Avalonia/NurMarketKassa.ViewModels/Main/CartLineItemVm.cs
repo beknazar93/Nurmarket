@@ -39,6 +39,14 @@ public sealed class CartLineItemVm : ViewModelBase
     public ICommand? SetQuantityCommand { get; init; }
     /// <summary>2026-10-03: строка ↔ оптовая цена.</summary>
     public ICommand? WholesaleCommand { get; init; }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-03): «Размер» на строке чека — покупатель передумал
+    /// с размером или цветом, строка меняется на другой вариант того же товара без удаления и поиска заново.</summary>
+    public string? VariantId { get; init; }
+    public ICommand? ChangeVariantCommand { get; init; }
+    public bool CanChangeVariant => !string.IsNullOrWhiteSpace(VariantId) && MarketSpheres.IsClothing && ChangeVariantCommand != null;
+    public string ChangeVariantText => Tr.T("Размер", "Өлчөм", "Size", "Beden", "O'lcham");
+    public string ChangeVariantTooltip => Tr.T("Сменить размер или цвет", "Өлчөмүн же түсүн алмаштыруу", "Change size or colour", "Beden veya rengi değiştir", "O'lcham yoki rangni almashtirish");
     public bool IsWholesale { get; init; }
 
     private bool _canWholesale;

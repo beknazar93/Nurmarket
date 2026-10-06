@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -135,11 +136,17 @@ public sealed class ProfitCashReconcileWindow : Window
             var pnlTask = Get("api/main/analytics/pnl/");
             var cashTask = Get("api/main/analytics/cashflow/");
             var checkTask = Get("api/main/analytics/reconcile/");
+            // 2026-10-06, ТЗ ч.12, п. 3.1 (сервер выложил 05.10): доход без задвоения — одна продажа = один доход,
+            // способ оплаты — разбивка; оплата долга — приход денег, а не выручка. Проверено 06.10: доход = выручке сводки.
+            query["operations"] = "0";
+            var financeTask = Get("api/main/analytics/finance/");
             var pnl = await pnlTask.ConfigureAwait(true);
             var cash = await cashTask.ConfigureAwait(true);
             var check = await checkTask.ConfigureAwait(true);
+            var finance = await financeTask.ConfigureAwait(true);
             RenderPnl(pnl);
             RenderCash(cash);
+            RenderFinance(finance);
             RenderChecks(check);
             _status.Text = Tr.T($"Период: {from:dd.MM.yyyy} — {to:dd.MM.yyyy}. Цифры — с сервера NurCRM, те же, что на сайте.",
                 $"Мезгил: {from:dd.MM.yyyy} — {to:dd.MM.yyyy}. Сандар — NurCRM серверинен, сайттагыдай.",
@@ -229,6 +236,38 @@ public sealed class ProfitCashReconcileWindow : Window
         }
 
         _cash.Children.Add(Row(Tr.T("Чистое движение денег", "Акчанын таза кыймылы", "Net cash flow", "Net nakit akışı", "Sof pul harakati"), Money(d, "net"), true));
+    }
+
+    /// <summary>Доход от продаж по способам оплаты и оплаты долгов (analytics/finance/) — под «Движением денег».</summary>
+    private void RenderFinance(JsonElement? data)
+    {
+        if (data is not { ValueKind: JsonValueKind.Object } d || Num(d, "income_total") is null)
+            return;
+        static string Method(string key) => key == "offset"
+            ? Tr.T("Взаимозачёт", "Өз ара эсептешүү", "Offset", "Mahsup", "O'zaro hisob")
+            : ReceiptHistoryService.PaymentLabel(key);
+
+        _cash.Children.Add(Head(Tr.T("Доход от продаж по способам оплаты", "Сатуудан киреше төлөм түрлөрү боюнча", "Sales income by payment method",
+            "Ödeme yöntemine göre satış geliri", "To'lov usullari bo'yicha sotuvdan daromad")));
+        if (d.TryGetProperty("income_by_method", out var byMethod) && byMethod.ValueKind == JsonValueKind.Object)
+            foreach (var m in byMethod.EnumerateObject().OrderByDescending(x => Num(byMethod, x.Name) ?? 0))
+                _cash.Children.Add(Row("   " + Method(m.Name), Money(byMethod, m.Name), false));
+        var count = (long)Math.Round(Num(d, "sales_count") ?? 0);
+        _cash.Children.Add(Row(Tr.T($"Доход от продаж ({count} продаж)", $"Сатуудан киреше ({count} сатуу)", $"Sales income ({count} sales)", $"Satış geliri ({count} satış)", $"Sotuvdan daromad ({count} ta sotuv)"),
+            Money(d, "income_total"), true));
+        if (d.TryGetProperty("debt_repayments", out var debt) && debt.ValueKind == JsonValueKind.Object && Num(debt, "total") is > 0.004)
+        {
+            _cash.Children.Add(Row(Tr.T("Оплаты долгов (приход денег, не выручка)", "Карыз төлөмдөрү (акча кириши, түшүм эмес)", "Debt repayments (cash in, not revenue)",
+                "Borç ödemeleri (nakit girişi, ciro değil)", "Qarz to'lovlari (pul kirimi, tushum emas)"), "+ " + Money(debt, "total"), false));
+            if (debt.TryGetProperty("by_method", out var debtBy) && debtBy.ValueKind == JsonValueKind.Object)
+                foreach (var m in debtBy.EnumerateObject())
+                    _cash.Children.Add(Row("   " + Method(m.Name), Money(debtBy, m.Name), false));
+        }
+        _cash.Children.Add(Soft(Tr.T("Одна продажа — один доход: смешанная оплата делится по способам, а не считается дважды.",
+            "Бир сатуу — бир киреше: аралаш төлөм түрлөргө бөлүнөт, эки жолу эсептелбейт.",
+            "One sale is one income: a mixed payment is split by method, not counted twice.",
+            "Bir satış bir gelirdir: karışık ödeme yöntemlere bölünür, iki kez sayılmaz.",
+            "Bitta sotuv — bitta daromad: aralash to'lov usullarga bo'linadi, ikki marta hisoblanmaydi.")));
     }
 
     private void RenderChecks(JsonElement? data)

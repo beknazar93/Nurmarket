@@ -576,7 +576,8 @@
                                             </DataGridTextColumn>
                                             <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}">
                                             </DataGridTextColumn>
-                                            <DataGridTextColumn Header="{DynamicResource common.payment}" Width="100" Binding="{ReflectionBinding PaymentMethodDisplay}" />
+                                            <!-- 2026-10-06: 100 → 130 — «Смешанный» обрезался до «Смешанны». -->
+                                            <DataGridTextColumn Header="{DynamicResource common.payment}" Width="130" Binding="{ReflectionBinding PaymentMethodDisplay}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>

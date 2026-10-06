@@ -515,6 +515,75 @@
                                              Content="{DynamicResource csh.checkout.prepayNonCash}" FontSize="14"/>
                             </StackPanel>
                             <TextBlock Text="{Binding DebtRemainingText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+                            <!-- 2026-10-06, владелец: срок долга — одним платежом (дата, названная клиентом) или рассрочка по галочке,
+                                 как «Отсрочка» сайта: по дням / по месяцам, число платежей, интервал, дата первого платежа, таблица. -->
+                            <CheckBox IsChecked="{Binding IsInstallment, Mode=TwoWay}" Content="{Binding InstallmentCheckText}" FontSize="14" Margin="0,4,0,0"/>
+                            <StackPanel IsVisible="{Binding IsSinglePayment}" Spacing="6">
+                                <TextBlock Text="{Binding DebtDueLabel}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>
+                                <WrapPanel Orientation="Horizontal">
+                                    <CalendarDatePicker SelectedDate="{Binding DebtDueDate, Mode=TwoWay}" Watermark="{Binding DebtDateWatermark}" Height="40" MinWidth="170" Margin="0,0,8,6"/>
+                                    <Button Classes="SecondaryButton" Content="{Binding DebtDue7Text}" Command="{Binding SetDebtDueDaysCommand}" CommandParameter="7" Margin="0,0,6,6"/>
+                                    <Button Classes="SecondaryButton" Content="{Binding DebtDue14Text}" Command="{Binding SetDebtDueDaysCommand}" CommandParameter="14" Margin="0,0,6,6"/>
+                                    <Button Classes="SecondaryButton" Content="{Binding DebtDue30Text}" Command="{Binding SetDebtDueDaysCommand}" CommandParameter="30" Margin="0,0,6,6"/>
+                                </WrapPanel>
+                            </StackPanel>
+                            <StackPanel IsVisible="{Binding IsInstallment}" Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                    <RadioButton GroupName="InstallmentUnit" IsChecked="{Binding IsInstallmentByDays, Mode=TwoWay}" Content="{Binding InstallmentByDaysText}" FontSize="14"/>
+                                    <RadioButton GroupName="InstallmentUnit" IsChecked="{Binding IsInstallmentByMonths, Mode=TwoWay}" Content="{Binding InstallmentByMonthsText}" FontSize="14"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding InstallmentCountLabel}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>
+                                <WrapPanel Orientation="Horizontal">
+                                    <TextBox Text="{Binding InstallmentCountText}" Width="70" Height="38" Margin="0,0,8,6" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                    <WrapPanel IsVisible="{Binding IsInstallmentByDays}">
+                                        <Button Classes="SecondaryButton" Content="2" Command="{Binding SetInstallmentCountCommand}" CommandParameter="2" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="3" Command="{Binding SetInstallmentCountCommand}" CommandParameter="3" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="7" Command="{Binding SetInstallmentCountCommand}" CommandParameter="7" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="10" Command="{Binding SetInstallmentCountCommand}" CommandParameter="10" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="14" Command="{Binding SetInstallmentCountCommand}" CommandParameter="14" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="30" Command="{Binding SetInstallmentCountCommand}" CommandParameter="30" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="90" Command="{Binding SetInstallmentCountCommand}" CommandParameter="90" Margin="0,0,6,6"/>
+                                    </WrapPanel>
+                                    <WrapPanel IsVisible="{Binding IsInstallmentByMonths}">
+                                        <Button Classes="SecondaryButton" Content="2" Command="{Binding SetInstallmentCountCommand}" CommandParameter="2" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="3" Command="{Binding SetInstallmentCountCommand}" CommandParameter="3" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="6" Command="{Binding SetInstallmentCountCommand}" CommandParameter="6" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding Months12Text}" Command="{Binding SetInstallmentCountCommand}" CommandParameter="12" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding Months24Text}" Command="{Binding SetInstallmentCountCommand}" CommandParameter="24" Margin="0,0,6,6"/>
+                                    </WrapPanel>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding InstallmentIntervalLabel}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>
+                                <WrapPanel Orientation="Horizontal">
+                                    <TextBox Text="{Binding InstallmentIntervalText}" Width="70" Height="38" Margin="0,0,8,6" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                    <WrapPanel IsVisible="{Binding IsInstallmentByDays}">
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalEveryDayText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="1" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalEveryOtherDayText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="2" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalEvery3DaysText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="3" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalWeeklyText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="7" Margin="0,0,6,6"/>
+                                    </WrapPanel>
+                                    <WrapPanel IsVisible="{Binding IsInstallmentByMonths}">
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalMonthlyText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="1" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalEvery2MonthsText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="2" Margin="0,0,6,6"/>
+                                        <Button Classes="SecondaryButton" Content="{Binding IntervalQuarterlyText}" Command="{Binding SetInstallmentIntervalCommand}" CommandParameter="3" Margin="0,0,6,6"/>
+                                    </WrapPanel>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding InstallmentFirstDateLabel}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}"/>
+                                <CalendarDatePicker SelectedDate="{Binding InstallmentFirstDate, Mode=TwoWay}" Watermark="{Binding DebtDateWatermark}" Height="40" MinWidth="170" HorizontalAlignment="Left"/>
+                                <Border BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="10,6">
+                                    <ItemsControl ItemsSource="{Binding InstallmentRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:DebtInstallmentRow">
+                                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Date}" FontSize="13" Margin="16,0" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Amount}" FontSize="13" FontWeight="SemiBold" MinWidth="90" TextAlignment="Right" Foreground="{DynamicResource BrushText}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding DebtDueHint}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
 
                         <TextBlock Text="{DynamicResource csh.checkout.client}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource BrushTextMuted}" Margin="0,6,0,0"/>

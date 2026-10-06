@@ -145,6 +145,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
         private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
         private CheckBox DebtPrepayChoiceCheck => _screenView.DebtPrepayChoiceCheck;
+        private TextBox DebtPenaltyBox => _screenView.DebtPenaltyBox;
+        private TextBox RentalPenaltyBox => _screenView.RentalPenaltyBox;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
 
         // --- Updates ---
@@ -191,6 +193,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys };
             // Клавиши кассира в программе владельца не нужны: там нет ни чека, ни каталога.
             NavKeys.IsVisible = !NurMarketKassa.Services.AppMode.IsOwner;
+            // 2026-10-05, владелец: «убери кастомизацию из настроек» — вкладка (обои, «стекло», размытие) скрыта;
+            // код вкладки оставлен, вернуть — убрать эту строку.
+            NavCustomization.IsVisible = false;
             NavigateTo(0);
             // 2026-09-29, владелец: «настройки таб меню сделай» — вкладки сверху; ряд пересчитывается
             // при смене ширины окна (масштаб, 800×600, раздел владельца) и языка (подписи другой длины).
@@ -302,6 +307,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
             ResetManualAddQtyCheck.IsChecked = prefs.ResetManualAddQtyAfterAdd;
             DebtPrepayChoiceCheck.IsChecked = prefs.DebtPrepaymentChooseMethod;
+            DebtPenaltyBox.Text = prefs.DebtLatePenaltyText;
+            RentalPenaltyBox.Text = prefs.RentalLatePenaltyPerDay > 0 ? prefs.RentalLatePenaltyPerDay.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "";
 
             // Вид кассы (раскладка) выбирается карточками прямо в ScreenSettingsView
             // (2026-09-28, шесть раскладок вместо двух радиокнопок) и применяется сразу.
@@ -446,6 +453,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 UserPreferences.Instance.DebtPrepaymentChooseMethod = DebtPrepayChoiceCheck.IsChecked == true;
                 UserPreferences.Instance.SaveToDisk();
             };
+            // 2026-10-06, владелец: «в чеке — инфо о штрафе за просрочку» (долг и прокат). Сохраняется через секунду после ввода.
+            _screenView.DebtPenaltyLabel.Text = Tr.T("Штраф за просрочку долга — печатается в чеке продажи в долг (например: «50 сом за каждый день»). Пусто — не печатать.",
+                "Карызды кечиктиргени үчүн айып — карызга сатуунун чегинде басылат (мисалы: «ар бир күн үчүн 50 сом»). Бош — басылбайт.",
+                "Late debt penalty — printed on credit-sale receipts (e.g. \"50 som per day\"). Empty — not printed.",
+                "Borç gecikme cezası — veresiye satış fişine yazılır (örn.: \"günlük 50 som\"). Boş — yazılmaz.",
+                "Qarzni kechiktirish jarimasi — qarzga sotuv chekida chiqadi (masalan: «har kun uchun 50 so'm»). Bo'sh — chiqmaydi.");
+            _screenView.RentalPenaltyLabel.Text = Tr.T("Штраф за сутки просрочки проката, сом — подставляется в «Новый прокат» и печатается в чеке",
+                "Прокатты кечиктирген ар бир сутка үчүн айып, сом — «Жаңы прокатка» коюлат жана чекте басылат",
+                "Rental late penalty per day, som — filled into \"New rental\" and printed on the receipt",
+                "Kiralama gecikme cezası (günlük, som) — \"Yeni kiralama\"ya girilir ve fişe yazılır",
+                "Prokatni kechiktirgan har sutka uchun jarima, so'm — «Yangi prokat»ga qo'yiladi va chekda chiqadi");
+            var penaltySave = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            penaltySave.Tick += (_, _) =>
+            {
+                penaltySave.Stop();
+                var prefsNow = UserPreferences.Instance;
+                prefsNow.DebtLatePenaltyText = (DebtPenaltyBox.Text ?? "").Trim();
+                prefsNow.RentalLatePenaltyPerDay = double.TryParse((RentalPenaltyBox.Text ?? "").Trim().Replace(',', '.'), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var perDay) && perDay > 0 ? perDay : 0;
+                prefsNow.SaveToDisk();
+            };
+            DebtPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
+            RentalPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             _screenView.SaveRequested += ScreenSaveRequested;
             _screenView.UiScaleChanged += (_, _) => RefreshUiScale();
             VoiceControlOpenMarketplaceButton.Click += (_, _) => NavigateToMarketplaceExtras();
@@ -867,6 +897,26 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
         }
 
+        /// <summary>2026-10-05: процент начисления бонусов — в настройку магазина на сервере (менять может владелец или администратор).</summary>
+        private async Task SaveLoyaltyPercentToServerAsync(double percent)
+        {
+            try
+            {
+                await ServerLoyalty.SavePercentAsync(percent).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Бонусы: процент не сохранён на сервере ({ex.Message}).", "WARNING");
+                PosMessageBox.Show(this,
+                    Tr.T("Процент бонусов сохранён на этой кассе, но не в настройке магазина на сервере: ",
+                        "Бонус пайызы ушул кассада сакталды, бирок сервердеги дүкөн жөндөөсүндө эмес: ",
+                        "The bonus percentage was saved on this till but not in the shop settings on the server: ",
+                        "Bonus yüzdesi bu kasada kaydedildi ama sunucudaki mağaza ayarlarında değil: ",
+                        "Bonus foizi shu kassada saqlandi, lekin serverdagi do'kon sozlamasida emas: ") + ex.Message,
+                    Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            }
+        }
+
         private async void CheckUpdate_Click(object? sender, RoutedEventArgs e)
         {
             if (sender is Button btn) btn.IsEnabled = false;
@@ -951,11 +1001,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     });
                 }).ConfigureAwait(true);
 
-                UpdateStatusText.Text = Tr.T("Обновление скачано. Касса сейчас перезапустится…", "Жаңыртуу жүктөлдү. Касса азыр кайра ачылат…", "Update downloaded. The till will now restart…", "Güncelleme indirildi. Kasa şimdi yeniden başlatılacak…", "Yangilanish yuklab olindi. Kassa hozir qayta ishga tushadi…");
+                UpdateStatusText.Text = OperatingSystem.IsAndroid()
+                    // 2026-10-05: на Android обновление ставит сам Android — окно установки (AndroidApkUpdateService).
+                    ? Tr.T("Обновление скачано. Сейчас откроется установка — нажмите «Установить».", "Жаңыртуу жүктөлдү. Азыр орнотуу ачылат — «Орнотуу» басыңыз.",
+                        "Update downloaded. The installer will open now — tap “Install”.", "Güncelleme indirildi. Şimdi yükleyici açılacak — «Yükle»ye dokunun.",
+                        "Yangilanish yuklab olindi. Hozir o'rnatish ochiladi — «O'rnatish»ni bosing.")
+                    : Tr.T("Обновление скачано. Касса сейчас перезапустится…", "Жаңыртуу жүктөлдү. Касса азыр кайра ачылат…", "Update downloaded. The till will now restart…", "Güncelleme indirildi. Kasa şimdi yeniden başlatılacak…", "Yangilanish yuklab olindi. Kassa hozir qayta ishga tushadi…");
                 await Task.Delay(1200).ConfigureAwait(true);
 
-                // Не возвращает управление — Velopack завершает процесс изнутри.
+                // Не возвращает управление — Velopack завершает процесс изнутри. На Android — возвращает: окно
+                // установки открыл Android, кнопки снова доступны.
                 updateService.ApplyUpdateAndRestart();
+                if (OperatingSystem.IsAndroid())
+                {
+                    UpdateProgressBar.IsVisible = false;
+                    CheckUpdateButton.IsEnabled = true;
+                    UpdateNowButton.IsEnabled = true;
+                    ShowVersionsButton.IsEnabled = true;
+                }
             }
             catch (Exception ex)
             {
@@ -1283,7 +1346,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     CultureInfo.InvariantCulture,
                     out var loyaltyPercent))
             {
-                prefs.LoyaltyEarnPercent = Math.Clamp(loyaltyPercent, 0, 100);
+                var newPercent = Math.Clamp(loyaltyPercent, 0, 100);
+                // 2026-10-05, запрос NurCRM: «процент начисления в настройку магазина» — общий для всех касс и приложения NurCRM.
+                if (Math.Abs(newPercent - ServerLoyalty.EarnPercent) > 0.001)
+                    _ = SaveLoyaltyPercentToServerAsync(newPercent);
+                prefs.LoyaltyEarnPercent = newPercent;
             }
 
             prefs.CashDrawerEnabled = CashDrawerEnabledCheck.IsChecked == true;

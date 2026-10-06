@@ -137,6 +137,11 @@ public interface ISalesApiService
     /// — выручка, чеки, способы оплаты и «Документы» (в т.ч. «Возврат продажи»).</summary>
     Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default);
 
+    /// <summary>2026-10-06, ТЗ ч.12, п. 3.7: карточки продаж (как cards у tab=sales) сразу за несколько периодов
+    /// одним запросом — GET api/main/analytics/market/summary/?periods=2026-10-01..2026-10-06,…
+    /// Ответ: периоды в том же порядке. null — сервер этого адреса не знает (тогда — по отчёту на каждый период).</summary>
+    Task<IReadOnlyList<JsonElement>?> MarketSummaryCardsAsync(IReadOnlyList<(DateTime From, DateTime To)> ranges, CancellationToken ct = default);
+
     /// <summary>Аналитика товаров сайта за дни [from; to] (2026-09-28, сверка ABC с вебом):
     /// GET api/main/analytics/market/?tab=products — вкладка «Товары» сайта: выручка и количество
     /// по КАЖДОМУ проданному товару (top_by_revenue, без ограничения числа строк), категории и
@@ -150,5 +155,5 @@ public interface ISalesApiService
     /// <summary>Создаёт профиль выплат (<paramref name="profileId"/> == null, POST) или меняет его
     /// (PATCH …/{id}/). Поля как у сайта: user, pay_scheme, monthly_base_salary, sales_percent.</summary>
     Task<JsonElement> SavePayProfileAsync(string? profileId, string userId, string payScheme,
-        string monthlyBaseSalary, string salesPercent, CancellationToken ct = default);
+        string monthlyBaseSalary, string salesPercent, string? perItemAmount = null, CancellationToken ct = default);
 }

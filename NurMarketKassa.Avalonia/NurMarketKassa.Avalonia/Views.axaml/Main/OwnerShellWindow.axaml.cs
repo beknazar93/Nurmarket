@@ -168,7 +168,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-04, редизайн под Android-телефон: меню по «≡», без кнопок окна (OwnerShellWindow.Phone.cs).
         AttachPhoneLayout();
         // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
-        TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(BuildNavigation);
+        TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
+        SectionVisibility.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
         _timer = new DispatcherTimer { Interval = RefreshInterval };
         _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
@@ -196,6 +197,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             _telegramTimer.Start();
             // 2026-10-01: один раз предложить перенести бота на сервер NurCRM (работает круглые сутки).
             ServerBotOffer.Schedule(this);
+            // 2026-10-06, владелец: «новым клиентам при первом запуске спрашивать сферу маркета» — только на новой установке.
+            _ = Dialogs.MarketSphereChoiceWindow.MaybeAskAsync(this);
             // 2026-10-02: сроки проката — значок у «Проката», карточка в меню и напоминание в Телеграм.
             RentalDueNotifier.Changed += OnRentalDueChanged;
             RentalDueNotifier.Start((status, token) => App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ListAsync(status, token));
@@ -338,6 +341,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             tariff += (tariff.Length > 0 ? " · " : "") + Tr.T($"до {e:dd.MM.yyyy}", $"{e:dd.MM.yyyy} чейин", $"until {e:dd.MM.yyyy}", $"{e:dd.MM.yyyy} tarihine kadar", $"{e:dd.MM.yyyy} gacha");
         TariffText.Text = tariff;
         TariffText.IsVisible = tariff.Length > 0;
+        // 2026-10-06, редизайн: в узком меню дата тарифа обрезалась («до 01.…») — полностью во всплывающей подсказке.
+        ToolTip.SetTip(CompanyCard, CompanyNameText.Text + (tariff.Length > 0 ? "\n" + tariff : ""));
 
         var name = PosApp.CurrentUserDisplayName ?? "";
         UserNameText.Text = string.IsNullOrWhiteSpace(name) ? Tr.T("Пользователь", "Колдонуучу", "User", "Kullanıcı", "Foydalanuvchi") : name;
@@ -413,28 +418,39 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         NavPanel.Children.Clear();
         _navButtons.Clear();
+        // 2026-10-06, редизайн меню: пункты и группы — для поиска раздела и сворачивания групп (OwnerShellWindow.NavSearch.cs).
+        _navEntries.Clear();
+        _navGroupHeaders.Clear();
         _siteOrdersBadge = null;
         _rentalsBadge = null;
         var pendingGroup = (string?)null;
+        var pendingGroupKey = (string?)null;
+        var currentGroupKey = (string?)null;
 
         // 2026-10-04: на телефоне меню открывается на весь экран — всегда с подписями (OwnerShellWindow.Phone.cs).
         var collapsed = UserPreferences.Instance.OwnerSidebarCollapsed && !_phoneLayout;
         ApplySidebarLayout(collapsed);
 
-        void Group(string title) => pendingGroup = title;
+        void Group(string groupKey, string title)
+        {
+            pendingGroup = title;
+            pendingGroupKey = groupKey;
+        }
 
         void Add(string key, string iconKey, string text, bool visible, Action open)
         {
             _navTitles[key] = text;
-            if (!visible)
+            // 2026-10-05: раздел скрыт владельцем (Настройки → Экран → «Разделы меню»).
+            if (!visible || SectionVisibility.IsHidden(key))
                 return;
 
             if (pendingGroup != null)
             {
-                // В свёрнутом меню вместо подписи группы — тонкая черта.
+                // В свёрнутом меню вместо подписи группы — тонкая черта; в развёрнутом — заголовок, который сворачивает группу.
                 NavPanel.Children.Add(collapsed
                     ? new Border { Height = 1, Margin = new Thickness(8, 10), Background = Brushes.Transparent, Classes = { "navGroupLine" } }
-                    : new TextBlock { Text = pendingGroup.ToUpper(UiCulture), Classes = { "navGroup" } });
+                    : NavGroupHeader(pendingGroupKey!, pendingGroup));
+                currentGroupKey = pendingGroupKey;
                 pendingGroup = null;
             }
 
@@ -483,6 +499,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 button.HorizontalContentAlignment = HorizontalAlignment.Center;
             }
             _navButtons[key] = button;
+            _navEntries.Add(new NavEntry(key, text, currentGroupKey, button, open));
             button.Click += (_, _) =>
             {
                 // 2026-10-04, телефон: выбор пункта закрывает меню на весь экран.
@@ -508,7 +525,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("aiadvisor", "AiAdvisorIcon", Tr.T("ИИ-советник", "ИИ-кеңешчи", "AI advisor", "Yapay zekâ danışmanı", "SI maslahatchi"), TariffGate.CanUseAi,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("aiadvisor", () => new AiAdvisorWindow()); });
 
-        Group(Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
+        Group("products", Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
         Add("warehouse", "WarehouseIcon", Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"), true,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("warehouse", () => App.GetRequiredService<WarehouseWindow>()); });
         // 2026-10-01: права разделов — как на сайте NurCRM (PosPermissions.ViewProducts/ViewAnalytics/…):
@@ -518,10 +535,31 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("calculator", () => new CalculatorWindow()); });
         Add("restock", "RestockIcon", Tr.T("Пополнение и сроки", "Толуктоо жана мөөнөттөр", "Restock & expiry", "Stok yenileme ve SKT", "To'ldirish va muddatlar"), TariffGate.CanUseRestock,
             () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("restock", () => App.GetRequiredService<RestockSuggestionsWindow>()); });
+        // 2026-10-05, владелец: «возврат для поставщиков тоже добавь». Поставщики и закупки на сайте NurCRM на «Старте»
+        // скрыты (платная услуга «Закупки») — здесь так же.
+        Add("supplierreturns", "ReturnIcon", Tr.T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Yetkazib beruvchilarga qaytarishlar"),
+            !TariffGate.IsStartTariff,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("supplierreturns", () => new SupplierReturnsWindow()); });
+        // 2026-10-06, владелец: «на сайте есть филиалы — изучи и добавь в нашу админку тоже». Филиалы и перемещения товара
+        // между складом и филиалами — те же, что на сайте NurCRM; права — как у «Склада». На «Старте» сайт раздел прячет — здесь так же.
+        Add("branches", "BranchesIcon", Tr.T("Филиалы", "Филиалдар", "Branches", "Şubeler", "Filiallar"), !TariffGate.IsStartTariff,
+            () => { if (Authorize(PosPermissions.ViewProducts)) OpenSection("branches", () => new BranchesWindow()); });
 
-        Group(Tr.T("Продажи и деньги", "Сатуу жана акча", "Sales & money", "Satış ve para", "Sotuvlar va pul"));
+        // 2026-10-06, редизайн меню: «Продажи и деньги» (9 пунктов) разделены — «Продажи» (чеки, долги, прокат)
+        // и «Отчёты» (финансы, аналитика, ABC, прибыль, убыток, размеры).
+        Group("sales", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"));
         Add("sales", "SalesIcon", Tr.T("Продажи", "Сатуулар", "Sales", "Satışlar", "Sotuvlar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewSales)) OpenSection("sales", () => App.GetRequiredService<SalesWindow>()); });
+        // 2026-10-05, владелец: «аналитика по долгам — при нажатии подробно показывать долги».
+        Add("debts", "DebtsIcon", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"), TariffGate.CanUseDebts,
+            OpenDebts);
+        // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
+        // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
+        Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
+            MarketSpheres.IsClothing || MarketSpheres.IsServices,
+            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
+
+        Group("reports", Tr.T("Отчёты", "Отчёттор", "Reports", "Raporlar", "Hisobotlar"));
         Add("finance", "FinanceIcon", Tr.T("Финансы", "Каржы", "Finance", "Finans", "Moliya"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("finance", () => App.GetRequiredService<FinanceWindow>()); });
         // Вся аналитика, кроме ABC (2026-09-27): выручка и оплаты, товары, сезонность, склад. Это
@@ -532,52 +570,59 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("abc", "AbcIcon", Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC-tahlil"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("abc", () => App.GetRequiredService<AbcAnalysisWindow>()); });
         // 2026-10-01, ТЗ-BE-2026-04 (AN-11, AN-12 сделаны сервером): прибыль (P&L), движение денег и сверка отчётов.
-        Add("profitcash", "FinanceIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), TariffGate.CanUseSalesAnalytics,
+        Add("profitcash", "ProfitIcon", Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit & cash", "Kâr ve nakit", "Foyda va pul"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("profitcash", () => new ProfitCashReconcileWindow()); });
         // 2026-10-03, владелец: «если в убыток продаёт со скидкой — фиксировать в админке».
         // 2026-10-05: аналитика — как «Аналитика» и «ABC», не на «Старте».
-        Add("losssales", "ReturnIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), TariffGate.CanUseSalesAnalytics,
+        Add("losssales", "LossIcon", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), TariffGate.CanUseSalesAnalytics,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("losssales", () => new LossSalesWindow()); });
+        // 2026-10-06, исследование «Кассы для одежды» (О-80): продажи по размерам и цветам — только в сфере «Одежда».
+        Add("sizesreport", "SizesIcon", Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar"),
+            MarketSpheres.IsClothing && TariffGate.CanUseSalesAnalytics,
+            () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("sizesreport", () => new SizesReportWindow()); });
 
         // 2026-09-29, владелец: «заказы с сайта тоже должны падать в админку. Настройки сайта тоже».
         // Видны на любом тарифе: если витрина не подключена (на «Старте» это платная услуга NurCRM),
         // разделы сами говорят «Витрина не подключена» и как её подключить.
-        Group(Tr.T("Сайт", "Сайт", "Website", "Web sitesi", "Veb-sayt"));
+        Group("site", Tr.T("Сайт", "Сайт", "Website", "Web sitesi", "Veb-sayt"));
         Add("siteorders", "SiteOrdersIcon", Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar"), true,
             () => { if (Authorize(PosPermissions.ViewOrders)) OpenSection("siteorders", () => new SiteOrdersWindow()); });
+        // 2026-10-05, владелец (снимок витрины): «где редактор сайта??» — вид витрины (SiteEditorWindow).
+        Add("siteeditor", "StoreIcon", Tr.T("Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri"), true,
+            () => OpenSection("siteeditor", () => new SiteEditorWindow()));
         Add("sitesettings", "SiteSettingsIcon", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari"), true,
             OpenSiteSettings);
+        // 2026-10-05, запрос NurCRM: «экран „Магазин в приложении“, чтобы владельцы подключались сами» (бесплатно на любом тарифе).
+        Add("appshop", "AppShopIcon", Tr.T("Магазин в приложении", "Тиркемедеги дүкөн", "Shop in the app", "Uygulamadaki mağaza", "Ilovadagi do'kon"), true,
+            () => OpenSection("appshop", () => new AppShopWindow()));
 
-        Group(Tr.T("Люди", "Адамдар", "People", "Kişiler", "Odamlar"));
+        // 2026-10-06, редизайн меню: «Люди» → «Клиенты» — всё о покупателях вместе (клиенты, бот, WhatsApp, воронка).
+        Group("clients", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"));
         Add("clients", "ClientsIcon", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("clients", () => App.GetRequiredService<ClientsWindow>()); });
         // 2026-10-01, владелец: «в админке где аналитика по боту — обращения, клиенты, заказы?»
         // 2026-10-05: бот на «Старте» — только если куплен в Маркетплейсе (TariffGate.CanUseTelegramBot).
         Add("telegrambot", "TelegramBotIcon", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot"), TariffGate.CanUseTelegramBot,
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("telegrambot", () => new TelegramBotAnalyticsWindow()); });
-        // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —
-        // только в сферах «Одежда» и «Услуги»; в программе владельца — просмотр (выдача и возврат в кассе).
-        Add("rentals", "RentalIcon", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"),
-            MarketSpheres.IsClothing || MarketSpheres.IsServices,
-            () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("rentals", () => new RentalsWindow(null, null)); });
-        Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), TariffGate.CanUseSalary,
-            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
-
-        Group(Tr.T("Сервис", "Кызмат", "Tools", "Araçlar", "Xizmat"));
-        Add("crm", "CrmIcon", "NurCRM", TariffGate.CanUseService,
-            () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         // 2026-10-05, владелец: «к десктопу добавь воронку и WhatsApp Web». WhatsApp Web — встроенный браузер
         // (только Windows: WebView2); на Android откроется приложение WhatsApp.
         // 2026-10-05: воронка и WhatsApp — работа с клиентами, как раздел «Клиенты»: не на «Старте».
         Add("whatsapp", "WhatsAppIcon", "WhatsApp", TariffGate.CanViewClients, OpenWhatsApp);
         Add("funnel", "FunnelIcon", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi"), TariffGate.CanViewClients,
             () => { if (Authorize(PosPermissions.ViewClients)) OpenSection("funnel", () => new FunnelWindow()); });
+
+        // 2026-10-06, редизайн меню: «Сервис» → «Управление» — зарплата, сайт NurCRM, покупка функций, настройки.
+        Group("manage", Tr.T("Управление", "Башкаруу", "Management", "Yönetim", "Boshqaruv"));
+        Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), TariffGate.CanUseSalary,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
+        Add("crm", "CrmIcon", "NurCRM", TariffGate.CanUseService,
+            () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("marketplace", () => new MarketplaceWindow().AsSection()); });
         Add("settings", "SettingsIcon", Tr.T("Настройки", "Жөндөөлөр", "Settings", "Ayarlar", "Sozlamalar"), true,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("settings", () => App.GetRequiredService<PosSettingsWindow>()); });
 
-        Group(Tr.T("Помощь", "Жардам", "Help", "Yardım", "Yordam"));
+        Group("help", Tr.T("Помощь", "Жардам", "Help", "Yardım", "Yordam"));
         Add("kb", "KnowledgeBaseIcon", Tr.T("База знаний", "Билим базасы", "Knowledge base", "Bilgi bankası", "Bilimlar bazasi"), TariffGate.CanUseService,
             () => OpenSection("kb", () => App.GetRequiredService<KnowledgeBaseWindow>()));
         Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam"), TariffGate.CanUseService,
@@ -586,13 +631,15 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
 
         // Как в меню кассы: закрыть программу и выйти на рабочий стол (вход при этом сохраняется).
-        Group(Tr.T("Система", "Система", "System", "Sistem", "Tizim"));
+        Group("system", Tr.T("Система", "Система", "System", "Sistem", "Tizim"));
         Add("exit", "ExitIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
             ExitToDesktop);
 
         UpdateNavHighlight();
         UpdateSiteOrdersBadge();
         UpdateRentalAlert();
+        NavSearchBox.IsVisible = !collapsed;
+        ApplyNavFilter();
     }
 
     // ------------------------------------------------------------------ свёрнутое меню
@@ -715,6 +762,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // напрямую. Разделы со своим обработчиком Esc (Склад, Продажи, Финансы…) срабатывают раньше.
         if (ownerSection != null)
             EscapeKey.Attach(window);
+        // 2026-10-06: Ctrl+K из раздела — к поиску раздела в меню (OwnerShellWindow.NavSearch.cs).
+        AttachNavHotkey(window);
 
         window.Opened += (_, _) => Dispatcher.UIThread.Post(() =>
         {
@@ -799,6 +848,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         var activeKey = _activeSection?.Key ?? "overview";
         foreach (var (key, button) in _navButtons)
             button.Classes.Set("active", key == activeKey);
+        // 2026-10-06: открытый раздел виден и в свёрнутой группе.
+        ApplyNavFilter();
     }
 
     /// <summary>Кладёт окно открытого раздела ровно на правую часть окна.</summary>
@@ -955,6 +1006,27 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
     }
 
+    /// <summary>Карточки прошлого периода для сравнения: итоги периода сервера (analytics/market/summary/, ТЗ ч.12, п. 3.7),
+    /// а если сервер их не отдаёт — карточки полного отчёта, как раньше.</summary>
+    private static async Task<JsonElement?> PreviousCardsAsync(DateTime from, DateTime to, CancellationToken ct)
+    {
+        try
+        {
+            if (await App.SalesApi.MarketSummaryCardsAsync(new[] { (from, to) }, ct).ConfigureAwait(true) is { Count: 1 } cards)
+                return cards[0];
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: итоги прошлого периода не получены ({ex.Message}) — полный отчёт.", "WARNING");
+        }
+        var report = await App.SalesApi.MarketSalesReportAsync(from, to, ct).ConfigureAwait(true);
+        return report.ValueKind == JsonValueKind.Object && report.TryGetProperty("cards", out var pc) ? pc.Clone() : null;
+    }
+
     /// <summary>График по дням самого периода (месяц, свои даты), иначе — последние 7 дней.</summary>
     private bool ChartIsPeriod => _period is "month" or "custom";
 
@@ -1023,7 +1095,8 @@ public partial class OwnerShellWindow : Window, IMainShell
             var (chartFrom, chartTo) = !ChartIsPeriod ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
 
             var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
-            var previousTask = _compareKey != compareKey ? App.SalesApi.MarketSalesReportAsync(prevFrom, prevTo, ct) : null;
+            // 2026-10-06, ТЗ ч.12, п. 3.7: для сравнения нужны только карточки — итоги периода (summary), не весь отчёт.
+            var previousTask = _compareKey != compareKey ? PreviousCardsAsync(prevFrom, prevTo, ct) : null;
             // 2026-10-04, п. 7: график 7 дней — раз в 5 минут (и сразу по «Обновить» / смене дня).
             var chartKey = $"{chartFrom:yyyyMMdd}:{chartTo:yyyyMMdd}";
             var chartCached = !forceChart
@@ -1035,15 +1108,14 @@ public partial class OwnerShellWindow : Window, IMainShell
             // 2026-09-28 (BE-09): возвраты периода — из списка возвратов сервера (null — не
             // ответил, тогда из «Документы → Возврат продажи» отчёта, как раньше).
             var returnsTask = NurMarketKassa.Services.Api.NurCrmReportsApi.ReturnsTotalsAsync(from, to, ct);
+            // 2026-10-06: «Сегодня» сравнивается со вчера до того же часа (OwnerShellWindow.SameTime.cs).
+            var yesterdayTask = EnsureYesterdaySalesAsync(ct);
 
             var report = await reportTask.ConfigureAwait(true);
 
             if (previousTask != null)
             {
-                var previous = await previousTask.ConfigureAwait(true);
-                _compareCards = previous.ValueKind == JsonValueKind.Object && previous.TryGetProperty("cards", out var pc)
-                    ? pc.Clone()
-                    : null;
+                _compareCards = await previousTask.ConfigureAwait(true);
                 _compareKey = compareKey;
             }
 
@@ -1061,6 +1133,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             _lastReturns = await returnsTask.ConfigureAwait(true);
             _lastReturnsKey = RangeKey(from, to);
+            await yesterdayTask.ConfigureAwait(true);
 
             // Отчёт сервера запоминается как есть: к нему добавляются чеки касс, которые сервер
             // ещё не видит (касса без интернета), — и сейчас, и когда связь пропадёт.
@@ -1074,6 +1147,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             ApplyLanSales(online: true);
             // 2026-10-05, ТЗ часть 7, п. 2.5: карточка «План продаж на месяц» (обновляется не чаще раза в 5 минут).
             _ = RefreshSalesPlanAsync();
+            // 2026-10-05, владелец: «где в сводке долги??» — карточка «Долги клиентов» (не чаще раза в 2 минуты).
+            _ = RefreshDebtsCardAsync();
+            // 2026-10-05, запрос NurCRM: заметка «Ваш магазин в приложении NurCRM — бесплатно», пока магазин не подключён.
+            _ = RefreshAppShopNoteAsync();
             if (DateTime.UtcNow - _abcRefreshedUtc > TimeSpan.FromMinutes(1))
                 RefreshAbcWhenVisible();
 
@@ -1336,23 +1413,36 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         var prev = _compareCards;
         var hint = CompareHint();
+        double? prevRevenue = prev is { } p1 ? Num(p1, "revenue") : null;
+        double? prevChecks = prev is { } p2 ? Num(p2, "transactions") : null;
+        double? prevAvg = prev is { } p3 ? Num(p3, "avg_check") : null;
+        double? prevProfit = prev is { } p4 ? Num(p4, "gross_profit") : null;
+        // 2026-10-06: «Сегодня» — со вчера до того же часа, а не с целым вчерашним днём (OwnerShellWindow.SameTime.cs).
+        if (prev != null && YesterdayShareNow() is { } share)
+        {
+            prevRevenue *= share.Revenue;
+            prevChecks *= share.Checks;
+            prevAvg = prevChecks is > 0 ? prevRevenue / prevChecks : null;
+            prevProfit *= share.Revenue;
+            hint = Tr.T("к вчера на это время", "кечээки ушул убакытка карата", "vs yesterday at this time", "dünün aynı saatine göre", "kechaning shu vaqtiga nisbatan");
+        }
 
         SetMoney(RevenueValue, Num(cards, "revenue"));
-        SetDelta(RevenueDeltaPill, RevenueDelta, RevenueDeltaHint, Num(cards, "revenue"), prev is { } p1 ? Num(p1, "revenue") : null, hint);
+        SetDelta(RevenueDeltaPill, RevenueDelta, RevenueDeltaHint, Num(cards, "revenue"), prevRevenue, hint);
 
         ChecksValue.Inlines = null;
         ChecksValue.Text = Num(cards, "transactions").ToString("N0", UiCulture);
-        SetDelta(ChecksDeltaPill, ChecksDelta, ChecksDeltaHint, Num(cards, "transactions"), prev is { } p2 ? Num(p2, "transactions") : null, hint);
+        SetDelta(ChecksDeltaPill, ChecksDelta, ChecksDeltaHint, Num(cards, "transactions"), prevChecks, hint);
 
         SetMoney(AvgValue, Num(cards, "avg_check"));
-        SetDelta(AvgDeltaPill, AvgDelta, AvgDeltaHint, Num(cards, "avg_check"), prev is { } p3 ? Num(p3, "avg_check") : null, hint);
+        SetDelta(AvgDeltaPill, AvgDelta, AvgDeltaHint, Num(cards, "avg_check"), prevAvg, hint);
 
         SetMoney(ProfitValue, Num(cards, "gross_profit"));
         var margin = Num(cards, "margin_percent");
         var profitHint = margin != 0
             ? Tr.T($"маржа {margin:0.#}%", $"маржа {margin:0.#}%", $"margin {margin:0.#}%", $"marj %{margin:0.#}", $"marja {margin:0.#}%")
             : hint;
-        SetDelta(ProfitDeltaPill, ProfitDelta, ProfitDeltaHint, Num(cards, "gross_profit"), prev is { } p4 ? Num(p4, "gross_profit") : null, profitHint);
+        SetDelta(ProfitDeltaPill, ProfitDelta, ProfitDeltaHint, Num(cards, "gross_profit"), prevProfit, profitHint);
 
         // 2026-10-05: те же цифры — «ИИ-советнику» (OwnerOverviewSnapshot), точнее локальной истории продаж.
         OwnerOverviewSnapshot.Set("1-cards",
@@ -1564,6 +1654,16 @@ public partial class OwnerShellWindow : Window, IMainShell
             Grid.SetColumn(percent, 3);
             row.Children.Add(percent);
 
+            // 2026-10-05: «В долг» — по нажатию подробные долги клиентов.
+            if (string.Equals(method?.Trim(), "debt", StringComparison.OrdinalIgnoreCase) && TariffGate.CanUseDebts)
+            {
+                row.Background = Brushes.Transparent;
+                row.Cursor = new Cursor(StandardCursorType.Hand);
+                ToolTip.SetTip(row, Tr.T("Подробно: кто и сколько должен", "Кененирээк: ким канча карыз", "Details: who owes how much", "Ayrıntılar: kim ne kadar borçlu", "Batafsil: kim qancha qarz"));
+                nameRun.TextDecorations = TextDecorations.Underline;
+                row.PointerPressed += (_, _) => OpenDebts();
+            }
+
             PaymentsLegend.Children.Add(row);
         }
 
@@ -1738,6 +1838,67 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             LowStockList.Children.Add(row);
         }
+
+        ApplyLowSizes();
+    }
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-74): в сфере «Одежда» под товарами — «Заканчиваются размеры»:
+    /// размер/цвет, которого осталось 0–1 шт., когда другие размеры модели ещё есть. Остатки размеров — из общего справочника
+    /// касс (VariantBarcodeIndex, обновляется в фоне), запросов к серверу здесь нет.</summary>
+    private void ApplyLowSizes()
+    {
+        if (!MarketSpheres.IsClothing)
+            return;
+        List<VariantBarcodeIndex.LowSize> low;
+        try
+        {
+            low = VariantBarcodeIndex.LowSizes(6);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сводка: «Заканчиваются размеры» не построено ({ex.Message}).", "WARNING");
+            return;
+        }
+        if (low.Count == 0)
+            return;
+        var titles = CatalogCacheService.Products.ToList().GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Title, StringComparer.OrdinalIgnoreCase);
+        var head = new TextBlock
+        {
+            Text = Tr.T("Заканчиваются размеры", "Өлчөмдөр түгөнүп баратат", "Sizes running out", "Bedenler tükeniyor", "O'lchamlar tugayapti"),
+            FontSize = 13, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 8, 0, 0),
+        };
+        UseBrush(head, TextBlock.ForegroundProperty, "BrushTextSoft");
+        LowStockList.Children.Add(head);
+        LowStockEmptyText.IsVisible = false;
+        foreach (var s in low)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+            var dot = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center };
+            UseBrush(dot, Shape.FillProperty, s.Quantity <= 0 ? "BrushDanger" : "BrushWarning");
+            row.Children.Add(dot);
+            var label = string.Join(", ", new[] { s.Size, s.Color }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            var name = new TextBlock
+            {
+                Text = (titles.TryGetValue(s.ProductId, out var t) ? t : "—") + (label.Length > 0 ? " — " + label : ""),
+                FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(12, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
+            };
+            UseBrush(name, TextBlock.ForegroundProperty, "BrushText");
+            Grid.SetColumn(name, 1);
+            row.Children.Add(name);
+            var qty = new TextBlock
+            {
+                Text = s.Quantity <= 0
+                    ? Tr.T("нет в наличии", "жок", "out of stock", "stokta yok", "mavjud emas")
+                    : Tr.T($"осталось {Qty(s.Quantity)}", $"{Qty(s.Quantity)} калды", $"{Qty(s.Quantity)} left", $"{Qty(s.Quantity)} kaldı", $"{Qty(s.Quantity)} qoldi"),
+                FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center,
+            };
+            UseBrush(qty, TextBlock.ForegroundProperty, s.Quantity <= 0 ? "BrushDanger" : "BrushTextSoft");
+            Grid.SetColumn(qty, 2);
+            row.Children.Add(qty);
+            LowStockList.Children.Add(row);
+        }
     }
 
     private void LowStockLink_Click(object? sender, RoutedEventArgs e)
@@ -1909,6 +2070,13 @@ public partial class OwnerShellWindow : Window, IMainShell
         _ = LoadRecentItemCountsAsync();
     }
 
+    /// <summary>2026-10-05: «Долги клиентов» — из меню и по нажатию на «В долг» в «Сводке».</summary>
+    private void OpenDebts()
+    {
+        if (TariffGate.CanUseDebts && Authorize(PosPermissions.ViewSales))
+            OpenSection("debts", () => new DebtsWindow());
+    }
+
     private static string PaymentLabel(string method) => (method ?? "").Trim().ToLowerInvariant() switch
     {
         "cash" => Tr.T("Наличные", "Накталай", "Cash", "Nakit", "Naqd"),
@@ -1916,6 +2084,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         "mbank" => "MBank",
         "mixed" or "split" => Tr.T("Смешанная", "Аралаш", "Mixed", "Karışık", "Aralash"),
         "debt" => Tr.T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"),
+        // 2026-10-06: зачёт при обмене и выдаче заказа (сервер: «Зачёт (предоплата/обмен)») — показывалось слово «offset».
+        "offset" => Tr.T("Зачёт (обмен, предоплата)", "Эсепке алуу (алмаштыруу, алдын ала төлөм)", "Offset (exchange, prepayment)", "Mahsup (değişim, ön ödeme)", "Hisobga olish (almashtirish, oldindan to'lov)"),
         "" => "—",
         var other => other,
     };

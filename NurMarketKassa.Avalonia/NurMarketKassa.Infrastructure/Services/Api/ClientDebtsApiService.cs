@@ -148,6 +148,38 @@ public sealed class ClientDebtsApiService : IDisposable
             replayed);
     }
 
+    /// <summary>2026-10-05, ТЗ ч.12, п. 2.3 (сервер починил и выложил 05.10): долг ОДНОЙ продажи — POST
+    /// api/main/pos/sales/{id}/pay-debt/ с Idempotency-Key, тело {amount, payment_method, shift}, ответ {paid, left}
+    /// (+ replayed, sale, cashflows). Можно частями, наличные попадают в смену ровно один раз, повтор с тем же ключом
+    /// ничего не создаёт, оплаченная продажа → 400 no_debt. Раньше этот адрес всегда отвечал 500 и касса гасила взносы
+    /// сделки по одному (до 30 запросов).</summary>
+    public async Task<PayDebtResult> PaySaleDebtAsync(
+        string saleId,
+        double amount,
+        string method,
+        string? shiftId,
+        string idempotencyKey,
+        CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, string>
+        {
+            ["amount"] = amount.ToString("0.00", CultureInfo.InvariantCulture),
+            ["payment_method"] = string.IsNullOrWhiteSpace(method) ? "cash" : method.Trim(),
+        };
+        if (!string.IsNullOrWhiteSpace(shiftId)
+            && !shiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
+            body["shift"] = shiftId.Trim();
+
+        var id = Uri.EscapeDataString(saleId.Trim());
+        var data = await SendWithIdempotencyKeyAsync(
+                HttpMethod.Post, $"api/main/pos/sales/{id}/pay-debt/", body, idempotencyKey, ct)
+            .ConfigureAwait(false);
+        var replayed = data.ValueKind == JsonValueKind.Object
+            && data.TryGetProperty("replayed", out var replayedEl)
+            && replayedEl.ValueKind == JsonValueKind.True;
+        return new PayDebtResult(ReadDouble(data, "paid") ?? amount, ReadDouble(data, "left") ?? 0, 1, replayed);
+    }
+
     // ── BE-04: telegram_chat_id у клиента ────────────────────────────────────────────
 
     /// <summary>PATCH /api/main/clients/{id}/ {"telegram_chat_id": …}; null — отвязать.</summary>

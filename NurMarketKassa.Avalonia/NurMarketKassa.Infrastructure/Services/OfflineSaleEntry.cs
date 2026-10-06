@@ -64,6 +64,11 @@ public sealed class OfflineSaleEntry
     /// вернёт уже проведённую продажу вместо второй.</summary>
     public bool QuickCheckoutAttempted { get; set; }
 
+    /// <summary>2026-10-06: чек уходил пакетом (pos/checkout/batch/, SyncService.BatchReplay.cs). Пока сервер не дал
+    /// по нему ясного ответа, чек досылается только пакетом и тем же ключом: ключи пакета и одиночной продажи
+    /// сервер может хранить раздельно, и одиночная досылка такого чека могла бы создать вторую продажу.</summary>
+    public bool BatchCheckoutAttempted { get; set; }
+
     /// <summary>2026-09-10: продажа сделана в автономном (офлайн, без NurCRM) режиме — для такого
     /// аккаунта сервера, на который можно выгрузить, не существует вообще, и запись никогда не
     /// должна попасть в очередь синхронизации (см. OfflinePendingSalesStore.IsPendingLike). Без

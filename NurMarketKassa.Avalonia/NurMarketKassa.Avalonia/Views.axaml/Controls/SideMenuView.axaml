@@ -116,8 +116,10 @@
                 </Grid>
             </Border>
 
+            <!-- 2026-10-05: то же, что в меню программы владельца, — нажатая у края пункт не «подтягивается» прокруткой
+                 (из-за неё первое нажатие терялось). -->
             <ScrollViewer DockPanel.Dock="Bottom"
-                          >
+                          BringIntoViewOnFocusChange="False">
                 <StackPanel Margin="0,8,0,16" Spacing="2">
                     <Border Margin="12,0,12,10"
                             Padding="14"

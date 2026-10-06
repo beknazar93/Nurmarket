@@ -47,10 +47,18 @@ public static class CompanyInfoService
         {
             var company = await authApi.GetCompanyAsync(ct).ConfigureAwait(false);
             var previousId = LastCompany?.Id;
+            var previousFeatures = string.Join(",", LastCompany?.Features ?? new List<string>());
             LastCompany = company;
+            // 2026-10-05: функции компании на сервере изменились (подключили на другом устройстве) — меню пересобирается.
+            if (previousFeatures != string.Join(",", company?.Features ?? new List<string>()))
+                TariffGate.RaisePacksChanged();
             if (!string.Equals(previousId, company?.Id, StringComparison.Ordinal))
                 RaiseCompanyChanged(company?.Id);
             ApplyCompanyToPreferences(company);
+            // 2026-10-05, запрос NurCRM: бонусы на сервере — процент из настройки магазина, разовая выгрузка, очередь.
+            _ = ServerLoyalty.AfterCompanyRefreshAsync(company?.Id);
+            // 2026-10-05: настройки аккаунта с сервера (SettingsCloudSync) — один раз на вход в компанию.
+            _ = SettingsCloudSync.PullOnceAsync(company?.Id);
             // 2026-09-28: вид магазина, заданный на сервере, — всем кассам компании (BE-18).
             // null с сервера локальный выбор не трогает (см. MarketSphereSync).
             try

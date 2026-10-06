@@ -75,6 +75,9 @@ internal static class AndroidBootstrap
         // 20 плиток — 0,9–1,7 с, почти всё — создание плиток), терминал — как было (50).
         if (NurMarketKassa.AvaloniaHost.Services.DeviceForm.IsHandheld)
             NurMarketKassa.ViewModels.Main.CatalogPanelViewModel.PageSizeOverride = 12;
+        // 2026-10-05, владелец (снимок с планшета): «баг» — «Проверка обновлений не настроена»: на Android свои
+        // обновления — APK с GitHub (AndroidApkUpdateService), а не Velopack Windows-кассы.
+        NurMarketKassa.AvaloniaHost.Services.AvaloniaHostServiceRegistration.PlatformAppUpdateService = () => new AndroidApkUpdateService();
         // 2026-10-05: «Скопировать информацию об устройстве» (окно «Удалённая поддержка») — сведения Android.
         NurMarketKassa.AvaloniaHost.Services.DeviceInfoReport.PlatformDetails = AndroidDeviceInfo.Collect;
 

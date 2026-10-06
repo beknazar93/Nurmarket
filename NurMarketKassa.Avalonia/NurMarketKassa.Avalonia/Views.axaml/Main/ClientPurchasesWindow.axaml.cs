@@ -69,6 +69,9 @@ public sealed class ClientPurchasesWindow : Window
 
         var left = new StackPanel { Spacing = 0 };
         left.Children.Add(_summary);
+        // 2026-10-06 (О-05, магазин одежды): какие размеры и цвета берёт клиент.
+        _sizes.Foreground = this.FindResource("BrushText") as IBrush ?? Brushes.Black;
+        left.Children.Add(_sizes);
         // 2026-10-02, владелец: «добавь к истории клиентов прокат тоже».
         // Прокат — над таблицей чеков: под ней он уходил за край окна.
         left.Children.Add(_rentalsHead);
@@ -213,6 +216,8 @@ public sealed class ClientPurchasesWindow : Window
             }
 
             _grid.ItemsSource = rows;
+            if (MarketSpheres.IsClothing && rows.Count > 0)
+                _ = LoadSizesAsync(rows.Select(r => r.SaleId).Where(id => id.Length > 0).Take(30).ToList(), cts.Token);
             _summary.Text = rows.Count == 0
                 ? Tr.T("Покупок пока нет.", "Азырынча сатып алуу жок.", "No purchases yet.",
                        "Henüz satın alma yok.", "Hozircha xaridlar yo'q.")
@@ -229,6 +234,84 @@ public sealed class ClientPurchasesWindow : Window
                 "Could not load purchases", "Satın almalar yüklenemedi",
                 "Xaridlarni yuklab bo'lmadi") + ": " + ex.Message;
         }
+    }
+
+    private readonly TextBlock _sizes = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Avalonia.Thickness(0, 0, 0, 10), IsVisible = false };
+
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-05): «Клиент по телефону — в карточке история с размерами
+    /// и подсказка «обычно берёт M / 44»». Список продаж размеров не содержит, поэтому читаются сами чеки (последние 30,
+    /// через общий кеш чеков и ограничитель запросов). Возвращённое не считается: берётся то, что осталось у клиента.</summary>
+    private async Task LoadSizesAsync(List<string> saleIds, CancellationToken ct)
+    {
+        var sizes = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var colors = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        using var gate = new SemaphoreSlim(4);
+        var tasks = saleIds.Select(async id =>
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                return await SaleDetailCache.GetAsync(id, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return default;
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+        JsonElement[] details;
+        try
+        {
+            details = await Task.WhenAll(tasks).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        foreach (var sale in details)
+        {
+            if (sale.ValueKind != JsonValueKind.Object || !sale.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                continue;
+            foreach (var it in items.EnumerateArray())
+            {
+                var size = ReadString(it, "variant_size")?.Trim() ?? "";
+                var color = ReadString(it, "variant_color")?.Trim() ?? "";
+                if (size.Length == 0 && color.Length == 0)
+                    continue;
+                var qtyText = ReadString(it, "returnable_qty") ?? ReadString(it, "quantity") ?? "1";
+                var qty = double.TryParse(qtyText, NumberStyles.Any, CultureInfo.InvariantCulture, out var q) ? q : 1;
+                if (qty <= 0)
+                    continue;
+                if (size.Length > 0)
+                    sizes[size] = sizes.GetValueOrDefault(size) + qty;
+                if (color.Length > 0)
+                    colors[color] = colors.GetValueOrDefault(color) + qty;
+            }
+        }
+        if (sizes.Count == 0 && colors.Count == 0)
+            return;
+        static string Join(Dictionary<string, double> d) =>
+            string.Join(", ", d.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key).Take(6)
+                .Select(kv => $"{kv.Key} — {kv.Value.ToString("0.##", CultureInfo.InvariantCulture)}"));
+        var text = "";
+        if (sizes.Count > 0)
+        {
+            // «Обычно берёт» — только когда один размер явно чаще остальных (42 и 44 по разу — не «обычно»).
+            var ranked = sizes.OrderByDescending(kv => kv.Value).ToList();
+            if (ranked.Count == 1 || ranked[0].Value > ranked[1].Value)
+            {
+                var usual = ranked[0].Key;
+                text += Tr.T($"Обычно берёт размер {usual}. ", $"Көбүнчө {usual} өлчөмүн алат. ", $"Usually buys size {usual}. ", $"Genellikle {usual} beden alır. ", $"Odatda {usual} o'lchamni oladi. ");
+            }
+            text += Tr.T("Размеры: ", "Өлчөмдөр: ", "Sizes: ", "Bedenler: ", "O'lchamlar: ") + Join(sizes) + ". ";
+        }
+        if (colors.Count > 0)
+            text += Tr.T("Цвета: ", "Түстөр: ", "Colours: ", "Renkler: ", "Ranglar: ") + Join(colors) + ".";
+        _sizes.Text = text.Trim();
+        _sizes.IsVisible = true;
     }
 
     /// <summary>Состав выбранного чека. Тем же построителем, что и предпросмотр в «Продажах», —

@@ -33,30 +33,10 @@ public sealed partial class SyncService
         if (_sales is not IPosQuickCheckoutApi quickApi)
             return (false, null);
 
-        // Смена, в которой чек пробит (см. комментарий в SubmitReplayCheckoutAsync): «offline-…»
-        // сервер не знает — тогда без смены, сервер возьмёт открытую, как и старый путь.
-        var shiftId = !string.IsNullOrWhiteSpace(entry.ShiftId)
-                      && !entry.ShiftId!.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
-            ? entry.ShiftId
-            : null;
-
-        var body = QuickCheckoutBody.TryBuild(
-            entry.CartJson,
-            entry.PaymentMethod,
-            entry.CashReceived,
-            nonCashReceived: null,
-            clientId: null,
-            shiftId,
-            entry.ConsultantId,
-            entry.ConsultantCommissionEnabled,
-            entry.ConsultantCommissionPercent,
-            printReceipt: false,
-            out var unsupported);
+        // 2026-10-06: сбор тела вынесен в BuildQuickReplayBody — им же пользуется пакетная досылка (SyncService.BatchReplay.cs).
+        var body = BuildQuickReplayBody(entry);
         if (body == null)
-        {
-            PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} не подходит ({unsupported}) — старый путь.", "OFFLINE");
             return (false, null);
-        }
 
         // Отметка ДО запроса и переживает перезапуск: следующий цикл пошлёт тот же ключ.
         OfflinePendingSalesStore.Update(entry.Id, e => e.QuickCheckoutAttempted = true);
@@ -116,5 +96,42 @@ public sealed partial class SyncService
 
         await ResyncStockAfterReplayAsync(entry, ct).ConfigureAwait(false);
         return (true, saleId);
+    }
+
+    /// <summary>Тело pos/checkout/ для чека очереди — для одиночной и пакетной досылки. null — чек этому пути не подходит.</summary>
+    private static System.Text.Json.Nodes.JsonObject? BuildQuickReplayBody(OfflineSaleEntry entry)
+    {
+        // Смена, в которой чек пробит (см. комментарий в SubmitReplayCheckoutAsync): «offline-…»
+        // сервер не знает — тогда без смены, сервер возьмёт открытую, как и старый путь.
+        var shiftId = !string.IsNullOrWhiteSpace(entry.ShiftId)
+                      && !entry.ShiftId!.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
+            ? entry.ShiftId
+            : null;
+
+        var body = QuickCheckoutBody.TryBuild(
+            entry.CartJson,
+            entry.PaymentMethod,
+            entry.CashReceived,
+            nonCashReceived: null,
+            clientId: null,
+            shiftId,
+            entry.ConsultantId,
+            entry.ConsultantCommissionEnabled,
+            entry.ConsultantCommissionPercent,
+            printReceipt: false,
+            out var unsupported);
+        if (body == null)
+        {
+            PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} не подходит ({unsupported}) — старый путь.", "OFFLINE");
+            return null;
+        }
+
+        // 2026-10-05, ТЗ ч.12, п. 2.4 (сервер выложил 05.10): время продажи и касса. Сервер относит чек к смене этой кассы,
+        // открытой в момент продажи, даже если она уже закрыта (раньше — 400 «Смена не открыта», деньги получены, а продажи
+        // на сервере нет). Проверено 05.10: sold_at в закрытой смене → 201 в ту смену, повтор тем же ключом → 200 replayed.
+        body["sold_at"] = entry.CreatedAt.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+        if (Guid.TryParse(entry.CashboxId, out _))
+            body["cashbox"] = entry.CashboxId!.Trim();
+        return body;
     }
 }

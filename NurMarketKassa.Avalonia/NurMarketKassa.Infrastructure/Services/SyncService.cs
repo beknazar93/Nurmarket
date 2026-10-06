@@ -376,9 +376,17 @@ public sealed partial class SyncService : IDisposable
     private async Task SyncBatchAsync(IReadOnlyList<OfflineSaleEntry> pending, CancellationToken ct)
     {
         var stopBatch = false;
+        // 2026-10-06, ТЗ ч.12, п. 3.6: сначала — пакетом (до 50 чеков одним запросом, SyncService.BatchReplay.cs);
+        // что пакет не провёл ясно — по одному, как раньше.
+        var (stopAll, batchSkip) = await TryBatchReplayAsync(pending, ct).ConfigureAwait(false);
+        if (stopAll)
+            return;
         foreach (var entry in pending)
         {
             ct.ThrowIfCancellationRequested();
+            // Проведён пакетом или ждёт повтора пакетом (тем же ключом) — по одному его слать нельзя.
+            if (batchSkip.Contains(entry.Id) || (entry.BatchCheckoutAttempted && !_batchMissing))
+                continue;
             // 2026-09-29: сервер снова лёг посреди досылки — остальные чеки ждут восстановления,
             // а не бьются в него по очереди (раньше на 5xx цикл шёл дальше по всему списку).
             if (!IsOnline || ServerOutageMonitor.IsOutage)

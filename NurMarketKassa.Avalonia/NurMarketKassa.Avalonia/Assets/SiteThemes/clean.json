@@ -1,0 +1,110 @@
+{
+ "code": "clean",
+ "name": {
+  "ru": "Чистый",
+  "ky": "Таза",
+  "en": "Clean",
+  "tr": "Temiz",
+  "uz": "Toza"
+ },
+ "description": {
+  "ru": "Голубой и белый, спокойный. Для аптеки, ветаптеки, косметики.",
+  "ky": "Көк жана ак, тынч. Дарыкана, ветдарыкана, косметика үчүн.",
+  "en": "Blue and white, calm. For pharmacy, vet supplies, cosmetics.",
+  "tr": "Mavi ve beyaz, sakin. Eczane, veteriner, kozmetik için.",
+  "uz": "Ko'k va oq, sokin. Dorixona, veterinariya, kosmetika uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "clean_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "clean_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F2F8FB",
+    "surface": "#FFFFFF",
+    "text": "#0F2A3D",
+    "text_muted": "#557086",
+    "accent": "#0369A1",
+    "accent_text": "#FFFFFF",
+    "border": "#D6E6F0",
+    "header_bg": "#FFFFFF",
+    "header_text": "#0F2A3D",
+    "footer_bg": "#0F2A3D",
+    "footer_text": "#E0F2FE",
+    "price": "#0F2A3D",
+    "old_price": "#94A3B8",
+    "badge_new_bg": "#0F766E",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#BE123C",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Roboto",
+    "base_size": 15,
+    "heading_weight": 700
+   },
+   "radius": 14,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "split",
+   "overlay": 0.0,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "1:1",
+   "photo_fit": "contain",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": false,
+   "border": true
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

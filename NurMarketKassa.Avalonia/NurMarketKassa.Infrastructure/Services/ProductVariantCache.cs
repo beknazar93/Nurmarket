@@ -121,7 +121,11 @@ public static class ProductVariantCache
     public static void Put(string productId, List<ProductVariantDto> list)
     {
         if (!string.IsNullOrWhiteSpace(productId) && list is not null)
+        {
             Cache[productId.Trim()] = new Entry { At = DateTime.UtcNow, List = Clone(list) };
+            // 2026-10-06 (О-01): штрихкоды размеров — в справочник для скана этикетки размера.
+            VariantBarcodeIndex.Update(productId, list);
+        }
     }
 
     /// <summary>Пометить устаревшим: при следующем открытии покажется сразу и обновится в фоне.</summary>
@@ -167,6 +171,8 @@ public static class ProductVariantCache
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             var list = await Task.Run(() => loader(productId, cts.Token)).ConfigureAwait(false) ?? new List<ProductVariantDto>();
             Cache[productId] = new Entry { At = DateTime.UtcNow, List = list };
+            // 2026-10-06 (О-01): штрихкоды размеров — в справочник для скана этикетки размера.
+            VariantBarcodeIndex.Update(productId, list);
             return list;
         }
         catch (Exception ex)

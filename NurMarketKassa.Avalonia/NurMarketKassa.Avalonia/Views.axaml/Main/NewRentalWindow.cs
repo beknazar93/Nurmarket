@@ -35,6 +35,8 @@ public sealed class NewRentalWindow : Window
     private readonly CalendarDatePicker _from = new() { SelectedDate = DateTime.Today, Height = 44, MinWidth = 170 };
     private readonly CalendarDatePicker _to = new() { SelectedDate = DateTime.Today.AddDays(1), Height = 44, MinWidth = 170 };
     private readonly TextBox _pricePerDay;
+    // 2026-10-06, владелец: «в чеке проката — инфо о штрафе за просрочку». Штраф за каждые сутки просрочки — печатается в чеке.
+    private readonly TextBox _latePenalty;
     private readonly TextBlock _total = new() { FontSize = 15, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
     private readonly RadioButton _depMoney = new() { GroupName = "dep", IsChecked = true, FontSize = 15, Margin = new Thickness(0, 0, 18, 0) };
     private readonly RadioButton _depDoc = new() { GroupName = "dep", FontSize = 15 };
@@ -82,6 +84,11 @@ public sealed class NewRentalWindow : Window
         _itemSearch = UiKit.Input(this, T("Что выдаём: название товара", "Эмне беребиз: товардын аталышы", "What to rent: product name", "Ne kiralanıyor: ürün adı", "Nima beriladi: mahsulot nomi"));
         _pricePerDay = UiKit.Input(this, "0");
         _pricePerDay.Width = 140;
+        _latePenalty = UiKit.Input(this, "0");
+        _latePenalty.Width = 140;
+        _latePenalty.HorizontalAlignment = HorizontalAlignment.Left;
+        if (NurMarketKassa.Services.UserPreferences.Instance.RentalLatePenaltyPerDay > 0)
+            _latePenalty.Text = NurMarketKassa.Services.UserPreferences.Instance.RentalLatePenaltyPerDay.ToString("0.##", CultureInfo.InvariantCulture);
         _depAmount = UiKit.Input(this, "0");
         _depAmount.Width = 160;
         _depAmount.HorizontalAlignment = HorizontalAlignment.Left;
@@ -159,7 +166,11 @@ public sealed class NewRentalWindow : Window
             dates,
             UiKit.Label(this, T("Цена за сутки (сом) — сумма добавится в чек", "Суткалык баа (сом) — сумма чекке кошулат", "Price per day (som) — the total goes into the receipt",
                 "Günlük fiyat (som) — toplam fişe eklenir", "Sutkalik narx (so'm) — summa chekka qo'shiladi")),
-            price));
+            price,
+            UiKit.Label(this, T("Штраф за каждые сутки просрочки (сом) — будет в чеке", "Ар бир кечиккен сутка үчүн айып (сом) — чекте болот",
+                "Penalty per day overdue (som) — printed on the receipt", "Gecikilen her gün için ceza (som) — fişte yazılır",
+                "Har bir kechikkan sutka uchun jarima (so'm) — chekda bo'ladi")),
+            _latePenalty));
 
         // 4. Залог — две плитки
         _depMoney.Content = T("Деньги (наличными)", "Акча (накталай)", "Money (cash)", "Para (nakit)", "Pul (naqd)");
@@ -405,6 +416,24 @@ public sealed class NewRentalWindow : Window
         var text = _itemSearch.Text?.Trim() ?? "";
         if (text.Length < 2)
             return;
+        // 2026-10-06: скан в это поле — этикетка размера сразу добавляет этот размер, штрихкод товара находит товар
+        // (раньше поиск был только по названию, и скан ничего не находил).
+        if (text.Length >= 4 && VariantBarcodeIndex.Find(text) is { } hit && hit.Variant.Id is { } hitVariantId
+            && CatalogCacheService.Products.ToList().FirstOrDefault(p => string.Equals(p.Id, hit.ProductId, StringComparison.OrdinalIgnoreCase)) is { } sized)
+        {
+            _chosenItems.Add(new RentalItem(sized.Id, hitVariantId, sized.Title, hit.Variant.Size, hit.Variant.Color, 1));
+            _itemSearch.Text = "";
+            RenderItems();
+            return;
+        }
+        if (text.Length >= 4 && (LocalProductRepository.Instance.TryGetTileByBarcode(text) ?? LocalProductRepository.Instance.TryGetTileBySku(text)) is { } byCode)
+        {
+            var chip = UiKit.Chip(this, byCode.Title, false);
+            chip.Margin = new Thickness(0, 0, 8, 8);
+            chip.Click += async (_, _) => await PickProductAsync(byCode).ConfigureAwait(true);
+            _itemResults.Children.Add(chip);
+            return;
+        }
         List<CatalogProductTileVm> found;
         try
         {
@@ -514,6 +543,16 @@ public sealed class NewRentalWindow : Window
             foreach (var item in _chosenItems)
                 if (item.ProductId is { } pid && item.VariantId is { } vid)
                     ProductVariantCache.Adjust(pid, vid, -item.Qty);
+            // 2026-10-06: условия проката для чека (цены и штрафа у проката на сервере нет) и штраф — по умолчанию в следующий раз.
+            var penalty = ParseMoney(_latePenalty.Text);
+            NurMarketKassa.Services.RentalReceiptInfoStore.Save(new NurMarketKassa.Services.RentalReceiptInfo(
+                created.Number, from.Date, to.Date, ParseMoney(_pricePerDay.Text), Days, RentTotal, depAmount, doc ?? "", penalty));
+            var prefs = NurMarketKassa.Services.UserPreferences.Instance;
+            if (Math.Abs(prefs.RentalLatePenaltyPerDay - penalty) > 0.004)
+            {
+                prefs.RentalLatePenaltyPerDay = penalty;
+                prefs.SaveToDisk();
+            }
             Close(created);
         }
         catch (Exception ex)
@@ -608,6 +647,26 @@ public sealed class ReturnRentalWindow : Window
         _penalty.HorizontalAlignment = HorizontalAlignment.Left;
         _penalty.TextChanged += (_, _) => Refresh();
         root.Children.Add(_penalty);
+        // 2026-10-06, владелец: «инфо о штрафе за просрочку». Вещь вернули позже срока — штраф подставляется сам:
+        // сутки просрочки × штраф за сутки из условий проката (они же напечатаны в чеке). Кассир может изменить сумму.
+        if (rental.DateTo is { } due && DateTime.Today > due.Date
+            && NurMarketKassa.Services.RentalReceiptInfoStore.TryGet(rental.Number) is { LatePenaltyPerDay: > 0 } terms)
+        {
+            var lateDays = (DateTime.Today - due.Date).Days;
+            var suggested = Math.Round(lateDays * terms.LatePenaltyPerDay, 2);
+            _penalty.Text = suggested.ToString("0.##", CultureInfo.InvariantCulture);
+            var lateHint = new TextBlock
+            {
+                Text = Tr.T($"Просрочка {lateDays} сут. × {RentalsWindow.Money(terms.LatePenaltyPerDay)} = {RentalsWindow.Money(suggested)} (по условиям проката в чеке)",
+                    $"Кечиктирүү {lateDays} сутка × {RentalsWindow.Money(terms.LatePenaltyPerDay)} = {RentalsWindow.Money(suggested)} (чектеги прокаттын шарттары боюнча)",
+                    $"Overdue {lateDays} d × {RentalsWindow.Money(terms.LatePenaltyPerDay)} = {RentalsWindow.Money(suggested)} (per the rental terms on the receipt)",
+                    $"Gecikme {lateDays} gün × {RentalsWindow.Money(terms.LatePenaltyPerDay)} = {RentalsWindow.Money(suggested)} (fişteki kiralama koşullarına göre)",
+                    $"Kechikish {lateDays} sutka × {RentalsWindow.Money(terms.LatePenaltyPerDay)} = {RentalsWindow.Money(suggested)} (chekdagi prokat shartlari bo'yicha)"),
+                FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
+            };
+            Use(lateHint, TextBlock.ForegroundProperty, "BrushDanger");
+            root.Children.Add(lateHint);
+        }
 
         _summary.FontSize = 16;
         _summary.FontWeight = FontWeight.Bold;

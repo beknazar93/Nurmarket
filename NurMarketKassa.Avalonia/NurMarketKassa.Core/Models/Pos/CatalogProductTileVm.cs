@@ -80,9 +80,74 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
 
     public string? Category { get; set; }
     public string? Brand { get; set; }
+
+    // ── 2026-10-06, редизайн склада: подпись «категория · бренд», срок годности, цена числом для сортировки ──
+
+    /// <summary>«Категория · Бренд» под названием в таблице склада.</summary>
+    public string SubtitleText => string.Join(" · ", new[] { Category, Brand }.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
+
+    public bool HasSubtitle => SubtitleText.Length > 0;
+
+    private string? _expiryBadgeText;
+    private bool _expiryExpired;
+
+    /// <summary>Метка срока годности («Просрочен 12.09», «Срок до 10.10») — из справочника сроков сервера (ProductExpiryIndex).</summary>
+    public string? ExpiryBadgeText
+    {
+        get => _expiryBadgeText;
+        set
+        {
+            if (_expiryBadgeText == value)
+                return;
+            _expiryBadgeText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasExpiryBadge));
+        }
+    }
+
+    public bool HasExpiryBadge => !string.IsNullOrEmpty(_expiryBadgeText);
+
+    public bool ExpiryExpired
+    {
+        get => _expiryExpired;
+        set
+        {
+            if (_expiryExpired == value)
+                return;
+            _expiryExpired = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Цена числом — для сортировки колонки «Цена» (по строке «1800.00» шло раньше «200.00»).</summary>
+    public double PriceValue
+    {
+        get
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(PriceLine ?? "", @"-?\d[\d\s ]*(?:[.,]\d+)?");
+            return m.Success && double.TryParse(m.Value.Replace(" ", "").Replace(" ", "").Replace(',', '.'),
+                System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
+        }
+    }
+
     public string Id { get; }
     public string Title { get; }
     public string PriceLine { get; }
+
+    /// <summary>2026-10-06, редизайн программы владельца: цена в таблице склада — с разрядами, как закупка рядом
+    /// («1 800,00 сом», было «1800.00 сом»). Только для показа; везде, где цену считают, — прежний <see cref="PriceLine"/>.</summary>
+    public string PriceLineDisplay
+    {
+        get
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(PriceLine ?? "", @"^\s*(-?\d[\d\s ]*(?:[.,]\d+)?)\s*(.*)$");
+            if (!m.Success || !decimal.TryParse(m.Groups[1].Value.Replace(" ", "").Replace(" ", "").Replace(',', '.'),
+                    System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                return PriceLine ?? "";
+            var suffix = m.Groups[2].Value.Trim();
+            return value.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + (suffix.Length > 0 ? " " + suffix : "");
+        }
+    }
 
     public bool MustWeigh
     {

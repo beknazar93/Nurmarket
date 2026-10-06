@@ -53,6 +53,11 @@ public sealed class LabelTemplate
     public LabelElementLayout Unit { get; set; } = new() { XMm = 21, YMm = 0, WidthMm = 17, HeightMm = 3, Enabled = false };
     public LabelElementLayout StoreName { get; set; } = new() { XMm = 2, YMm = 0, WidthMm = 36, HeightMm = 3, Enabled = false };
 
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-25): «Размер и цвет» — отдельной строкой этикетки.
+    /// Выключен — размер и цвет дописываются к названию («Платье — 44, Красный»), чтобы на этикетке размера они
+    /// были всегда.</summary>
+    public LabelElementLayout Variant { get; set; } = new() { XMm = 2, YMm = 0, WidthMm = 36, HeightMm = 4, Enabled = false };
+
     /// <summary>Ручной выбор типа кодирования штрих-кода (2026-09-06). Auto воспроизводит
     /// прежнее поведение — формат подбирается по длине кода.</summary>
     public LabelBarcodeFormat BarcodeFormat { get; set; } = LabelBarcodeFormat.Auto;
@@ -89,6 +94,7 @@ public sealed class LabelTemplate
         Sku = CloneLayout(Sku),
         Unit = CloneLayout(Unit),
         StoreName = CloneLayout(StoreName),
+        Variant = CloneLayout(Variant ?? new LabelElementLayout { Enabled = false }),
         BarcodeFormat = BarcodeFormat,
         BarcodeShowDigits = BarcodeShowDigits,
         BarcodeMargin = BarcodeMargin,

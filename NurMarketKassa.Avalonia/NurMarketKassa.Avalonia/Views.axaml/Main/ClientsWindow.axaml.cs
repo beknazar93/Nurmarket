@@ -73,6 +73,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
 
         UpdateCardButtonStates();
         UpdateAddButtonState();
+        InitDebtButton();
     }
 
     private void CloseCardButton_Click(object? sender, RoutedEventArgs e) => SelectedClient = null;
@@ -647,7 +648,10 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             createdAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var created);
 
         var id = TryGetString(element, "id") ?? "";
-        var loyaltyBalance = string.IsNullOrEmpty(id) ? 0 : ClientLoyaltyStore.GetBalance(id);
+        // 2026-10-05: бонусы на сервере NurCRM — bonus_balance клиента; нет поля (старый сервер) — локальный баланс.
+        var loyaltyBalance = double.TryParse(TryGetString(element, "bonus_balance"), NumberStyles.Any, CultureInfo.InvariantCulture, out var serverBonus)
+            ? serverBonus
+            : string.IsNullOrEmpty(id) ? 0 : ClientLoyaltyStore.GetBalance(id);
 
         return new ClientRow
         {

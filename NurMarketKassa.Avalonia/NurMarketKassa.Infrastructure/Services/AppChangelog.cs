@@ -13,115 +13,121 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
-        "Чековый принтер: в «Ширина ленты» есть вариант «80 мм — 42 симв. (XP-80 и похожие)» — линии и суммы больше не переносятся на следующую строку",
-        "Возврат чека работает и на тарифе «Старт»",
-        "Тариф «Старт»: функции «Стандарта» (ИИ, Telegram-бот, клиенты и воронка, аналитика, пополнение, зарплата, долги, поддержка) подключаются по отдельности в Маркетплейс → Доп. функции; во вкладке «Аккаунт» — сравнение «Старт» и «Стандарт»",
-        "ИИ ищет в интернете бесплатно — с ключом Groq; запасные модели OpenRouter отвечают, когда у Gemini кончился лимит. Ключи — в Настройки → Операции рядом с ключом Gemini или в ИИ-советнике",
-        "ИИ-советник: кнопка «■ Стоп», «Новый разговор» сохраняет прежний, прошлые разговоры — в «Истории»; голосом отвечает быстрее; находит фото товара по названию и в интернете",
-        "Касса и программа владельца на одном компьютере сами берут друг у друга ключи ИИ и Telegram-бота",
-        "QR покупателя из приложения NurCRM: касса находит клиента через сервер, нового заводит сама",
-        "«Заказы с сайта»: заказы витрины и Telegram-бота с сервера NurCRM, статусы «Принят → Готов → Выдан / Отменён»",
+        "ИИ-советник меняет товары после вашего «Выполнить»: приход, списание, остаток, цены, срок годности, описание, страна, бренд, категория, штрихкод, фото; сам находит сведения о товаре в интернете и показывает на складе, что изменил. То же — в Telegram-боте и голосом",
+        "Накладная по фото: 📎 в ИИ-советнике — советник читает товары и закупку, ставит цены с наценкой не ниже 20 % и оприходует на склад; у новых товаров штрихкод — сканером",
+        "Склад: плитки сводки с фильтрами, фильтр «Наличие», срок годности в строке, кнопка «±» — приход, списание, точное количество",
+        "Программа владельца: поиск раздела (Ctrl+K), группы меню сворачиваются, в «Сводке» — «к вчера на это время»; ИИ знает список сотрудников, их зарплату, продажи и табель (смены, часы)",
+        "Отложенный чек больше не пропадает при закрытии смены; после досылки офлайн-продаж касса пишет, что очередь отправлена",
+        "Режим «Одежда и обувь»: обмен по чеку, срок обмена и брак, штрихкод размера, приёмка сеткой «цвет × размер», отчёт «Размеры и цвета». В «Продуктах» всё как раньше",
+        "Перемещение в филиал со склада — на сервере NurCRM, с отменой; раздел «Филиалы»",
+        "Долг со сроком или рассрочкой, прокат с датами и штрафом в чеке; бонусы покупателей и настройки аккаунта — на сервере NurCRM, общие для всех касс",
+        "«Финансы» и «Продажи» у владельца снова загружаются (было «Нет связи с сервером»)",
     ];
 
     public static readonly string[] LatestKy =
     [
-        "Чек принтери: «Тасманын туурасы» тизмесинде «80 мм — 42 белги (XP-80 жана окшоштору)» варианты бар — сызыктар жана суммалар кийинки сапка өтпөйт",
-        "Чекти кайтаруу «Старт» тарифинде да иштейт",
-        "«Старт» тарифи: «Стандарттын» функциялары (ИИ, Telegram-бот, кардарлар жана воронка, аналитика, толуктоо, эмгек акы, карыздар, колдоо) Маркетплейс → Кошумча функциялар бөлүмүндө өзүнчө туташтырылат; «Аккаунт» өтмөгүндө «Старт» менен «Стандарттын» салыштыруусу",
-        "ИИ интернеттен акысыз издейт — Groq ачкычы менен; Gemini'нин лимити бүткөндө OpenRouter'дин запастагы моделдери жооп берет. Ачкычтар — Жөндөөлөр → Операциялар бөлүмүндө Gemini ачкычынын жанында же ИИ-кеңешчиде",
-        "ИИ-кеңешчи: «■ Токтотуу» баскычы, «Жаңы маек» мурункусун сактайт, мурунку маектер — «Тарыхта»; үн менен тезирээк жооп берет; товардын сүрөтүн аталышы боюнча жана интернеттен табат",
-        "Бир компьютердеги касса жана ээсинин программасы ИИ жана Telegram-бот ачкычтарын бири-биринен өзү алат",
-        "NurCRM тиркемесиндеги сатып алуучунун QR коду: касса кардарды сервер аркылуу табат, жаңысын өзү кошот",
-        "«Сайттан заказдар»: витринанын жана Telegram-боттун заказдары NurCRM серверинен, статустар «Кабыл алынды → Даяр → Берилди / Жокко чыгарылды»",
+        "ИИ-кеңешчи товарларды сиздин «Аткаруу» баскычыңыздан кийин өзгөртөт: кириш, эсептен чыгаруу, калдык, баалар, жарамдуулук мөөнөтү, сүрөттөмө, өлкө, бренд, категория, штрихкод, сүрөт; товар тууралуу маалыматты интернеттен өзү табат жана эмнени өзгөрткөнүн кампада көрсөтөт. Ошол эле — Telegram-ботто жана үн менен",
+        "Накладнойду сүрөт менен: ИИ-кеңешчидеги 📎 — кеңешчи товарларды жана сатып алуу баасын окуйт, баасын 20 %дан кем эмес үстөк менен коюп, кампага кириштейт; жаңы товарлардын штрихкоду — сканер менен",
+        "Кампа: чыпкалуу жыйынтык плиткалары, «Бар болушу» чыпкасы, сапта жарамдуулук мөөнөтү, «±» баскычы — кириш, эсептен чыгаруу, так саны",
+        "Ээсинин программасы: бөлүмдү издөө (Ctrl+K), меню топтору жыйналат, «Жыйынтыкта» — «кечээ ушул убакка салыштырмалуу»; ИИ кызматкерлердин тизмесин, эмгек акысын, сатууларын жана табелин (сменалар, сааттар) билет",
+        "Калтырылган чек сменаны жапканда жоголбойт; офлайн сатуулар жөнөтүлгөндөн кийин касса кезек жөнөтүлдү деп жазат",
+        "«Кийим жана бут кийим» режими: чек боюнча алмаштыруу, алмаштыруу мөөнөтү жана брак, өлчөмдүн штрихкоду, «түс × өлчөм» торчосу менен кабыл алуу, «Өлчөмдөр жана түстөр» отчету. «Азык-түлүктө» баары мурункудай",
+        "Кампадан филиалга жылдыруу — NurCRM серверинде, жокко чыгаруу менен; «Филиалдар» бөлүмү",
+        "Мөөнөтү же бөлүп төлөөсү бар карыз, чекте даталары жана айыбы менен прокат; сатып алуучулардын бонустары жана аккаунттун жөндөөлөрү — NurCRM серверинде, бардык кассаларга жалпы",
+        "Ээсинин программасындагы «Финансы» жана «Сатуулар» кайра жүктөлөт (мурда «Сервер менен байланыш жок» болчу)",
     ];
 
     public static readonly string[] LatestEn =
     [
-        "Receipt printer: “Tape width” has the option “80 mm — 42 chars (XP-80 and similar)” — lines and totals no longer wrap to the next line",
-        "Receipt returns now work on the “Start” plan too",
-        "“Start” plan: “Standard” features (AI, Telegram bot, customers and funnel, analytics, restock, salaries, debts, support) can be connected one by one in Marketplace → Extras; the “Account” tab compares “Start” and “Standard”",
-        "AI searches the web for free with a Groq key; OpenRouter backup models answer when Gemini's limit runs out. Keys go in Settings → Operations next to the Gemini key or in the AI advisor",
-        "AI advisor: a “■ Stop” button, “New chat” keeps the previous one, past chats are in “History”; voice answers come faster; finds product photos by name and on the web",
-        "The till and the owner program on one computer pick up each other's AI and Telegram bot keys automatically",
-        "Customer QR from the NurCRM app: the till finds the customer through the server and adds a new one by itself",
-        "“Website orders”: showcase and Telegram bot orders from the NurCRM server, statuses “Accepted → Ready → Handed over / Canceled”",
+        "The AI advisor changes products after you press “Do it”: receipt, write-off, stock, prices, expiry date, description, country, brand, category, barcode, photo; it finds product details on the web itself and shows in the warehouse what it changed. The same works in the Telegram bot and by voice",
+        "Invoice by photo: 📎 in the AI advisor — the advisor reads the items and purchase prices, sets prices with a markup of at least 20% and receives them into stock; barcodes of new products — with the scanner",
+        "Warehouse: summary tiles with filters, a “Stock” filter, expiry date in the row, a “±” button — receive, write off, exact quantity",
+        "Owner program: section search (Ctrl+K), collapsible menu groups, “vs yesterday at this time” in “Overview”; the AI knows the staff list, their salaries, sales and timesheet (shifts, hours)",
+        "A held receipt is no longer lost when the shift is closed; after offline sales are sent the till says the queue has been sent",
+        "“Clothing and shoes” mode: exchange by receipt, exchange period and defects, size barcodes, receiving by a “color × size” grid, the “Sizes and colors” report. In “Groceries” everything stays as before",
+        "Transfer to a branch from the warehouse — on the NurCRM server, with cancel; a “Branches” section",
+        "Debt with a due date or installments, rentals with dates and a late fee on the receipt; customer bonuses and account settings are on the NurCRM server, shared by all tills",
+        "“Finance” and “Sales” in the owner program load again (they showed “No connection to the server”)",
     ];
 
     public static readonly string[] LatestTr =
     [
-        "Fiş yazıcısı: «Rulo genişliği» listesinde «80 mm — 42 karakter (XP-80 ve benzerleri)» seçeneği var — çizgiler ve tutarlar artık alt satıra kaymıyor",
-        "Fiş iadesi «Start» tarifesinde de çalışıyor",
-        "«Start» tarifesi: «Standart» özellikleri (yapay zekâ, Telegram botu, müşteriler ve huni, analiz, stok yenileme, maaşlar, borçlar, destek) Marketplace → Ek özellikler bölümünden tek tek bağlanabilir; «Hesap» sekmesinde «Start» ve «Standart» karşılaştırması",
-        "Yapay zekâ Groq anahtarıyla internette ücretsiz arar; Gemini'nin limiti bitince OpenRouter yedek modelleri yanıtlar. Anahtarlar Ayarlar → İşlemler'de Gemini anahtarının yanında veya yapay zekâ danışmanında",
-        "Yapay zekâ danışmanı: «■ Durdur» düğmesi, «Yeni sohbet» öncekini saklar, geçmiş sohbetler «Geçmiş»te; sesli yanıtlar daha hızlı; ürün fotoğrafını adıyla ve internette bulur",
-        "Aynı bilgisayardaki kasa ve sahip programı yapay zekâ ve Telegram botu anahtarlarını birbirinden kendiliğinden alır",
-        "NurCRM uygulamasındaki müşteri QR'ı: kasa müşteriyi sunucu üzerinden bulur, yenisini kendisi ekler",
-        "«Web sitesi siparişleri»: vitrin ve Telegram botu siparişleri NurCRM sunucusundan, durumlar «Kabul edildi → Hazır → Teslim edildi / İptal edildi»",
+        "Yapay zekâ danışmanı ürünleri sizin «Uygula» onayınızdan sonra değiştirir: giriş, düşüm, stok, fiyatlar, son kullanma tarihi, açıklama, ülke, marka, kategori, barkod, fotoğraf; ürün bilgisini internette kendisi bulur ve neyi değiştirdiğini depoda gösterir. Aynısı Telegram botunda ve sesle",
+        "Fotoğraftan fatura: yapay zekâ danışmanında 📎 — danışman ürünleri ve alış fiyatlarını okur, fiyatları en az %20 kâr payıyla koyar ve stoğa alır; yeni ürünlerin barkodu — okuyucuyla",
+        "Depo: filtreli özet kutucukları, «Stok» filtresi, satırda son kullanma tarihi, «±» düğmesi — giriş, düşüm, tam miktar",
+        "Sahip programı: bölüm arama (Ctrl+K), menü grupları daraltılır, «Özet»te «dün bu saate göre»; yapay zekâ çalışan listesini, maaşlarını, satışlarını ve puantajını (vardiyalar, saatler) bilir",
+        "Bekleyen fiş vardiya kapatılınca artık kaybolmaz; çevrimdışı satışlar gönderilince kasa sıranın gönderildiğini yazar",
+        "«Giyim ve ayakkabı» modu: fişle değişim, değişim süresi ve kusurlu ürün, beden barkodu, «renk × beden» tablosuyla mal kabul, «Bedenler ve renkler» raporu. «Gıda» modunda her şey eskisi gibi",
+        "Depodan şubeye transfer — NurCRM sunucusunda, iptal edilebilir; «Şubeler» bölümü",
+        "Vadeli veya taksitli borç, fişte tarihleri ve gecikme cezasıyla kiralama; müşteri bonusları ve hesap ayarları NurCRM sunucusunda, tüm kasalarda ortak",
+        "Sahip programındaki «Finans» ve «Satışlar» yeniden yükleniyor (önce «Sunucuyla bağlantı yok» gösteriyordu)",
     ];
 
     public static readonly string[] LatestUz =
     [
-        "Chek printeri: «Lenta kengligi» ro'yxatida «80 mm — 42 belgi (XP-80 va o'xshashlari)» varianti bor — chiziqlar va summalar endi keyingi qatorga o'tmaydi",
-        "Chekni qaytarish «Start» tarifida ham ishlaydi",
-        "«Start» tarifi: «Standart» funksiyalari (SI, Telegram-bot, mijozlar va voronka, analitika, to'ldirish, ish haqi, qarzlar, yordam) Marketpleys → Qo'shimcha funksiyalar bo'limida alohida ulanadi; «Akkaunt» yorlig'ida «Start» va «Standart» taqqoslanadi",
-        "SI Groq kaliti bilan internetda bepul qidiradi; Gemini limiti tugaganda OpenRouter zaxira modellari javob beradi. Kalitlar — Sozlamalar → Operatsiyalar bo'limida Gemini kaliti yonida yoki SI maslahatchida",
-        "SI maslahatchi: «■ To'xtatish» tugmasi, «Yangi suhbat» oldingisini saqlaydi, oldingi suhbatlar «Tarix»da; ovoz bilan tezroq javob beradi; mahsulot rasmini nomi bo'yicha va internetdan topadi",
-        "Bir kompyuterdagi kassa va ega dasturi SI va Telegram-bot kalitlarini bir-biridan o'zi oladi",
-        "NurCRM ilovasidagi xaridor QR kodi: kassa mijozni server orqali topadi, yangisini o'zi qo'shadi",
-        "«Saytdan buyurtmalar»: vitrina va Telegram-bot buyurtmalari NurCRM serveridan, holatlar «Qabul qilindi → Tayyor → Berildi / Bekor qilindi»",
+        "SI maslahatchi mahsulotlarni sizning «Bajarish» tasdig'ingizdan keyin o'zgartiradi: kirim, hisobdan chiqarish, qoldiq, narxlar, yaroqlilik muddati, tavsif, mamlakat, brend, kategoriya, shtrix-kod, rasm; mahsulot haqidagi ma'lumotni internetdan o'zi topadi va nimani o'zgartirganini omborda ko'rsatadi. Xuddi shunday — Telegram-botda va ovoz bilan",
+        "Yuk xati rasm orqali: SI maslahatchidagi 📎 — maslahatchi mahsulotlar va xarid narxini o'qiydi, narxni kamida 20 % ustama bilan qo'yadi va omborga kirim qiladi; yangi mahsulotlar shtrix-kodi — skaner bilan",
+        "Ombor: filtrli xulosa plitkalari, «Mavjudlik» filtri, qatorda yaroqlilik muddati, «±» tugmasi — kirim, hisobdan chiqarish, aniq miqdor",
+        "Ega dasturi: bo'limni qidirish (Ctrl+K), menyu guruhlari yig'iladi, «Umumiy ko'rinish»da «kechagi shu vaqtga nisbatan»; SI xodimlar ro'yxati, ish haqi, sotuvlari va tabelini (smenalar, soatlar) biladi",
+        "Kutishdagi chek smena yopilganda endi yo'qolmaydi; oflayn sotuvlar yuborilgach kassa navbat yuborilganini yozadi",
+        "«Kiyim va poyabzal» rejimi: chek bo'yicha almashtirish, almashtirish muddati va nuqsonli tovar, o'lcham shtrix-kodi, «rang × o'lcham» jadvali bilan qabul, «O'lchamlar va ranglar» hisoboti. «Oziq-ovqat»da hammasi avvalgidek",
+        "Ombordan filialga ko'chirish — NurCRM serverida, bekor qilish bilan; «Filiallar» bo'limi",
+        "Muddatli yoki bo'lib to'lanadigan qarz, chekda sanalar va jarima bilan ijara; xaridorlar bonuslari va akkaunt sozlamalari — NurCRM serverida, barcha kassalar uchun umumiy",
+        "Ega dasturidagi «Moliya» va «Sotuvlar» yana yuklanadi (avval «Server bilan aloqa yo'q» chiqardi)",
     ];
 
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
-        "Кассовые терминалы со встроенным сканером и принтером (Sunmi, iMin, Urovo, Newland и похожие): коды со сканера принимаются сами, встроенный принтер чеков находится сам",
-        "При сворачивании касса больше не закрывается — работает в фоне, в шторке «NurMarket работает»",
-        "Кнопка 📷 в поиске товара — сканер штрихкодов камерой",
-        "Окна весового товара, возврата, оплаты долга, проката, истории чеков и настроек подстроены под телефон; каталог — по 12 товаров на странице, листается быстрее",
-        "Программа владельца: «Подробнее» в продажах больше не зависает; новые разделы «ИИ-советник», «Воронка» (с источником клиента) и «WhatsApp»",
-        "Изъятие больше наличных в кассе запрещено; если кассу закрыли сразу после оплаты, товары больше не возвращаются в чек",
+        "Обновление прямо из программы: «Настройки → Обновления → Проверить обновления» находит новую версию, «Обновить» скачивает и открывает установку",
+        "Долги клиентов подробно: раздел «Долги клиентов», карточка в «Сводке» и вкладка «Долги» в «Аналитике», напоминание в WhatsApp",
+        "Возврат работает на тарифе «Старт»; функции «Стандарта» можно подключить на «Старте» по отдельности, в «Аккаунте» — сравнение тарифов",
+        "«Настройки → Экран → Разделы меню»: ненужные разделы можно скрыть; при закупке дороже продажи — красное предупреждение",
+        "Чековый принтер 80 мм на 42 символа (XP-80 и похожие); покупатель с QR из приложения NurCRM находится сам",
+        "ИИ-советник: новый вид, история разговоров, «Стоп», поиск в интернете; меню программы владельца открывает раздел с первого нажатия",
     ];
 
     public static readonly string[] AndroidLatestKy =
     [
-        "Ичинде сканер жана принтер бар касса терминалдары (Sunmi, iMin, Urovo, Newland ж.б.): сканердин коддору өзү кабыл алынат, чек принтери өзү табылат",
-        "Кичирейткенде касса мындан ары жабылбайт — фондо иштейт, билдирмелерде «NurMarket иштеп жатат»",
-        "Товар издөөдө 📷 баскычы — камера менен штрихкод сканери",
-        "Салмак товары, кайтаруу, карыз төлөө, прокат, чектердин тарыхы жана жөндөөлөр терезелери телефонго ылайыкталды; каталогдо баракта 12 товар, тезирээк жылат",
-        "Ээсинин программасы: сатуудагы «Толугураак» мындан ары катып калбайт; жаңы бөлүмдөр «ИИ-кеңешчи», «Воронка» (кардардын булагы менен) жана «WhatsApp»",
-        "Кассадагы накталайдан көп алуу тыюу салынды; төлөмдөн кийин касса дароо жабылса, товарлар чекке кайтпайт",
+        "Программадан эле жаңыртуу: «Жөндөөлөр → Жаңыртуулар → Жаңыртууларды текшерүү» жаңы версияны табат, «Жаңыртуу» жүктөп, орнотууну ачат",
+        "Кардарлардын карыздары толук: «Кардарлардын карыздары» бөлүмү, «Жыйынтыктагы» карточка жана «Талдоодогу» «Карыздар» өтмөгү, WhatsApp'та эскертүү",
+        "Кайтаруу «Старт» тарифинде иштейт; «Стандарттын» функцияларын «Стартта» өзүнчө кошууга болот, «Аккаунтта» — тарифтерди салыштыруу",
+        "«Жөндөөлөр → Экран → Меню бөлүмдөрү»: керексиз бөлүмдөрдү жашырса болот; сатып алуу баасы сатуудан кымбат болсо — кызыл эскертүү",
+        "80 мм, 42 белгилүү чек принтери (XP-80 ж.б.); NurCRM тиркемесиндеги QR менен кардар өзү табылат",
+        "ИИ-кеңешчи: жаңы көрүнүш, маектердин тарыхы, «Токтотуу», интернеттен издөө; ээсинин программасынын менюсу бөлүмдү биринчи басуудан ачат",
     ];
 
     public static readonly string[] AndroidLatestEn =
     [
-        "Till terminals with a built-in scanner and printer (Sunmi, iMin, Urovo, Newland and similar): scanner codes are accepted and the built-in receipt printer is found automatically",
-        "Minimising no longer closes the till — it keeps running in the background with “NurMarket is running” in the notification shade",
-        "The 📷 button in product search — barcode scanning with the camera",
-        "Weighed-product, return, debt payment, rentals, receipt history and settings windows fit a phone; the catalog shows 12 products per page and pages faster",
-        "Owner app: “Details” in sales no longer freezes; new sections “AI advisor”, “Funnel” (with client source) and “WhatsApp”",
-        "A cash-out larger than the cash in the till is not allowed; if the till is closed right after payment, the items no longer come back into the receipt",
+        "Update right from the app: “Settings → Updates → Check for updates” finds a new version, “Update” downloads it and opens the installer",
+        "Customer debts in detail: the “Customer debts” section, a card in “Overview” and a “Debts” tab in “Analytics”, WhatsApp reminders",
+        "Returns work on the “Start” plan; “Standard” features can be added to “Start” one by one, “Account” compares the plans",
+        "“Settings → Screen → Menu sections”: hide sections you don't need; a red warning when the purchase price is above the selling price",
+        "80 mm receipt printers with 42 characters (XP-80 and similar); a customer with a QR from the NurCRM app is found automatically",
+        "AI advisor: new look, chat history, “Stop”, web search; the owner app menu opens a section on the first tap",
     ];
 
     public static readonly string[] AndroidLatestTr =
     [
-        "Dahili tarayıcılı ve yazıcılı kasa terminalleri (Sunmi, iMin, Urovo, Newland ve benzerleri): tarayıcı kodları kendiliğinden alınır, dahili fiş yazıcısı kendiliğinden bulunur",
-        "Küçültünce kasa artık kapanmıyor — arka planda çalışır, bildirimlerde «NurMarket çalışıyor»",
-        "Ürün aramada 📷 düğmesi — kamerayla barkod tarama",
-        "Tartılı ürün, iade, borç ödeme, kiralama, fiş geçmişi ve ayarlar pencereleri telefona uyarlandı; katalogda sayfada 12 ürün, daha hızlı",
-        "Sahip programı: satışlarda «Ayrıntılar» artık donmuyor; yeni bölümler «YZ danışmanı», «Huni» (müşteri kaynağıyla) ve «WhatsApp»",
-        "Kasadaki nakitten fazla çıkış yasak; kasa ödemeden hemen sonra kapanırsa ürünler fişe geri gelmez",
+        "Programdan doğrudan güncelleme: «Ayarlar → Güncellemeler → Güncellemeleri kontrol et» yeni sürümü bulur, «Güncelle» indirir ve yükleyiciyi açar",
+        "Müşteri borçları ayrıntılı: «Müşteri borçları» bölümü, «Özet»te kart ve «Analiz»de «Borçlar» sekmesi, WhatsApp hatırlatması",
+        "İade «Start» tarifesinde çalışır; «Standart» özellikleri «Start»a tek tek eklenebilir, «Hesap»ta tarife karşılaştırması",
+        "«Ayarlar → Ekran → Menü bölümleri»: gereksiz bölümler gizlenebilir; alış fiyatı satıştan yüksekse kırmızı uyarı",
+        "80 mm, 42 karakterlik fiş yazıcıları (XP-80 ve benzerleri); NurCRM uygulamasındaki QR ile müşteri kendiliğinden bulunur",
+        "Yapay zekâ danışmanı: yeni görünüm, sohbet geçmişi, «Durdur», internet araması; sahip programının menüsü bölümü ilk dokunuşta açar",
     ];
 
     public static readonly string[] AndroidLatestUz =
     [
-        "Ichki skaner va printerli kassa terminallari (Sunmi, iMin, Urovo, Newland va shunga o'xshashlar): skaner kodlari o'zi qabul qilinadi, ichki chek printeri o'zi topiladi",
-        "Yig'ilganda kassa endi yopilmaydi — fonda ishlaydi, bildirishnomalarda «NurMarket ishlayapti»",
-        "Mahsulot qidiruvida 📷 tugmasi — kamera bilan shtrix-kod skaneri",
-        "Tortiladigan mahsulot, qaytarish, qarz to'lash, prokat, cheklar tarixi va sozlamalar oynalari telefonga moslashtirildi; katalogda sahifada 12 ta mahsulot, tezroq",
-        "Egasi dasturi: savdodagi «Batafsil» endi qotib qolmaydi; yangi bo'limlar «SI-maslahatchi», «Voronka» (mijoz manbasi bilan) va «WhatsApp»",
-        "Kassadagi naqddan ko'p chiqim taqiqlangan; to'lovdan so'ng kassa darhol yopilsa, mahsulotlar chekka qaytmaydi",
+        "Dasturning o'zidan yangilash: «Sozlamalar → Yangilanishlar → Yangilanishlarni tekshirish» yangi versiyani topadi, «Yangilash» yuklab olib, o'rnatishni ochadi",
+        "Mijozlar qarzlari batafsil: «Mijozlar qarzlari» bo'limi, «Umumiy ko'rinish»da kartochka va «Analitika»da «Qarzlar» yorlig'i, WhatsApp'da eslatish",
+        "Qaytarish «Start» tarifida ishlaydi; «Standart» funksiyalarini «Start»ga alohida ulash mumkin, «Akkaunt»da tariflarni solishtirish",
+        "«Sozlamalar → Ekran → Menyu bo'limlari»: keraksiz bo'limlarni yashirish mumkin; xarid narxi sotuvdan qimmat bo'lsa — qizil ogohlantirish",
+        "80 mm, 42 belgili chek printerlari (XP-80 va shunga o'xshash); NurCRM ilovasidagi QR bilan mijoz o'zi topiladi",
+        "SI-maslahatchi: yangi ko'rinish, suhbatlar tarixi, «To'xtatish», internetda qidirish; egasi dasturi menyusi bo'limni birinchi bosishda ochadi",
     ];
 
     public static string[] LatestForCurrentLanguage() =>

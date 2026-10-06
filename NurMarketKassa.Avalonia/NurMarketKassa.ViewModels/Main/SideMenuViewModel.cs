@@ -156,7 +156,8 @@ public sealed class SideMenuViewModel : ViewModelBase
     /// два пункта меню, которые остаются доступны на любом тарифе.
     /// </summary>
     public bool CanViewWarehouse => (_permissions?.HasPermission(PosPermissions.ViewProducts) ?? true)
-                                    && NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa;
+                                    && NurMarketKassa.Services.AppMode.ShowOwnerSectionsInKassa
+                                    && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.warehouse");
     public bool CanViewSettings => _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
 
     /// <summary>2026-09-07: остальные пункты меню (кроме Склада/Настроек — см. CanViewWarehouse
@@ -298,7 +299,8 @@ public sealed class SideMenuViewModel : ViewModelBase
     });
 
     public bool ShowRental => _navigateRentalAction != null
-                              && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices);
+                              && (NurMarketKassa.Services.MarketSpheres.IsClothing || NurMarketKassa.Services.MarketSpheres.IsServices)
+                              && !NurMarketKassa.Services.SectionVisibility.IsHidden("kassa.rental");
 
     public void RefreshEntitlements()
     {
@@ -325,6 +327,23 @@ public sealed class SideMenuViewModel : ViewModelBase
         CanViewRemoteSupport = NurMarketKassa.Services.TariffGate.CanUseService;
         CanViewKnowledgeBase = NurMarketKassa.Services.TariffGate.CanUseService;
         CanViewMarketplace = _permissions?.HasPermission(PosPermissions.ViewSettings) ?? true;
+
+        // 2026-10-05, владелец: «скрытие вкладок в настройках» — пункты, скрытые в Настройки → Экран → «Разделы меню».
+        static bool Hidden(string key) => NurMarketKassa.Services.SectionVisibility.IsHidden(key);
+        CanViewStaffTimesheet &= !Hidden("kassa.timesheet");
+        CanViewReturn &= !Hidden("kassa.return");
+        CanViewDeferredReceipts &= !Hidden("kassa.deferred");
+        CanViewRestock &= !Hidden("kassa.restock");
+        CanViewFinance &= !Hidden("kassa.finance");
+        CanViewSalary &= !Hidden("kassa.salary");
+        CanViewSales &= !Hidden("kassa.sales");
+        CanViewClients &= !Hidden("kassa.clients");
+        CanViewPayDebt &= !Hidden("kassa.paydebt");
+        CanViewCrm &= !Hidden("kassa.crm");
+        CanViewErrorLogs &= !Hidden("kassa.logs");
+        CanViewRemoteSupport &= !Hidden("kassa.support");
+        CanViewKnowledgeBase &= !Hidden("kassa.kb");
+        CanViewMarketplace &= !Hidden("kassa.marketplace");
     }
 
     /// <summary>Три раздела меню сворачиваются по клику на заголовок (2026-09-05, по просьбе

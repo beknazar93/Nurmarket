@@ -298,6 +298,13 @@ public sealed partial class TelegramBotPollingService
 
     private async Task HandleUpdateAsync(JsonElement update, CancellationToken ct)
     {
+        // 2026-10-06: кнопки «Выполнить / Отмена» под предложенными ИИ действиями с товарами.
+        if (update.TryGetProperty("callback_query", out var callback))
+        {
+            await HandleProductActionCallbackAsync(callback, ct).ConfigureAwait(false);
+            return;
+        }
+
         if (!update.TryGetProperty("message", out var message)
             || !message.TryGetProperty("chat", out var chat)
             || !chat.TryGetProperty("id", out var chatIdElement))
@@ -357,6 +364,31 @@ public sealed partial class TelegramBotPollingService
         if (!isOwner)
             TelegramInquiryStore.Record(chatId!, senderName, (isVoice ? "🎤 " : "") + text!);
 
+        // 2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам». Ответ «да» / «нет» на предложенные ИИ действия
+        // с товарами (кнопки — в HandleProductActionCallbackAsync; текстом и голосом — здесь).
+        if (isOwner && ProductActionPlan.PendingToken(chatId!) is { } pendingToken && (ProductActionPlan.IsYes(text!) || ProductActionPlan.IsNo(text!)))
+        {
+            var steps = ProductActionPlan.Take(pendingToken, chatId!);
+            if (steps is null)
+                return;
+            if (ProductActionPlan.IsNo(text!))
+            {
+                await SendReplyAsync(chatId!, "Хорошо, ничего не меняю.", ct).ConfigureAwait(false);
+                return;
+            }
+            _ = TelegramBotService.SendTypingAsync(chatId!, ct);
+            var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId!, Escape(done), ct).ConfigureAwait(false);
+            return;
+        }
+
+        // Просьба изменить товар («спиши 5 молока», «опиши кока-колу», «срок годности хлеба до…») — сразу к ИИ, а не в готовые отчёты.
+        if (isOwner && TelegramAiChat.IsConfigured && !text!.TrimStart().StartsWith('/') && ProductActionPlan.LooksLikeAction(text))
+        {
+            await AskOwnerAiAsync(chatId!, text, ct).ConfigureAwait(false);
+            return;
+        }
+
         // «/команда@ИмяБота» — так Telegram присылает команды в групповых чатах.
         var at = command.IndexOf('@');
         var space = command.IndexOf(' ');
@@ -378,13 +410,10 @@ public sealed partial class TelegramBotPollingService
             // владелец вписал бесплатный ключ Google Gemini; иначе — готовая подсказка помощника.
             if (isChat && isOwner && TelegramAiChat.IsConfigured)
             {
-                _ = TelegramBotService.SendTypingAsync(chatId!, ct);
-                var (answer, error) = await TelegramAiChat.AskAsync(chatId!, text, ct).ConfigureAwait(false);
-                if (answer != null)
-                {
-                    await SendReplyAsync(chatId!, answer, ct).ConfigureAwait(false);
+                // 2026-10-06: владельцу — ответ ИИ с возможными действиями с товарами (кнопки подтверждения).
+                var error = await AskOwnerAiAsync(chatId!, text, ct).ConfigureAwait(false);
+                if (error == null)
                     return;
-                }
 
                 PosLogger.Log($"ИИ-помощник: {error}", "TELEGRAM");
                 if (direct != null)
@@ -496,6 +525,71 @@ public sealed partial class TelegramBotPollingService
     /// <summary>Расшифровка голосового вопроса, на который сейчас отвечаем (null — вопрос был текстом).
     /// Первый ответ показывает её курсивом и уходит ещё и голосом.</summary>
     private static readonly AsyncLocal<string?> ReplyVoiceTranscript = new();
+
+    /// <summary>2026-10-06: ответ ИИ владельцу; предложенные действия с товарами — сообщением с кнопками «Выполнить / Отмена»
+    /// (или ответ «да» / «нет»). null — ответ отправлен, иначе — причина, почему ИИ не ответил.</summary>
+    private static async Task<string?> AskOwnerAiAsync(string chatId, string text, CancellationToken ct)
+    {
+        _ = TelegramBotService.SendTypingAsync(chatId, ct);
+        var (answer, steps, error) = await TelegramAiChat.AskOwnerBotAsync(chatId, text, ct).ConfigureAwait(false);
+        if (answer == null)
+            return error ?? "нет ответа";
+        await SendReplyAsync(chatId, answer, ct).ConfigureAwait(false);
+        if (steps.Count > 0)
+        {
+            var token = ProductActionPlan.Remember(chatId, steps);
+            var list = "<b>Подтвердите изменения:</b>\n" + string.Join("\n", steps.Select(st => "• " + Escape(ProductActionPlan.Describe(st))))
+                       + "\n\n<i>Можно ответить «да» или «нет».</i>";
+            var sendError = await TelegramBotService.SendWithButtonsAsync(chatId, list,
+                new[] { ("✅ Выполнить", "pa:" + token + ":y"), ("✖ Отмена", "pa:" + token + ":n") }, ct).ConfigureAwait(false);
+            if (sendError != null)
+                await SendReplyAsync(chatId, list, ct).ConfigureAwait(false);
+            PosLogger.Log($"Телеграм-бот: ИИ предложил действий с товарами: {steps.Count}.", "TELEGRAM");
+        }
+        return null;
+    }
+
+    /// <summary>Нажатие «Выполнить / Отмена» под действиями с товарами — только из чата владельца.</summary>
+    private static async Task HandleProductActionCallbackAsync(JsonElement callback, CancellationToken ct)
+    {
+        var id = callback.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+        var data = callback.TryGetProperty("data", out var dataEl) ? dataEl.GetString() ?? "" : "";
+        string? chatId = null;
+        long? messageId = null;
+        if (callback.TryGetProperty("message", out var msg))
+        {
+            if (msg.TryGetProperty("chat", out var chat) && chat.TryGetProperty("id", out var cid))
+                chatId = cid.ValueKind == JsonValueKind.Number ? cid.GetInt64().ToString(CultureInfo.InvariantCulture) : cid.GetString();
+            if (msg.TryGetProperty("message_id", out var mid) && mid.TryGetInt64(out var m))
+                messageId = m;
+        }
+        var parts = data.Split(':');
+        if (parts.Length != 3 || parts[0] != "pa" || chatId == null)
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, null, null, null, ct).ConfigureAwait(false);
+            return;
+        }
+        if (!string.Equals(chatId, UserPreferences.Instance.TelegramChatId, StringComparison.Ordinal))
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, "Только владелец может подтверждать изменения.", null, null, ct).ConfigureAwait(false);
+            return;
+        }
+        var steps = ProductActionPlan.Take(parts[1], chatId);
+        if (steps is null)
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, "Уже выполнено или устарело.", chatId, messageId, ct).ConfigureAwait(false);
+            return;
+        }
+        if (parts[2] != "y")
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, "Отменено", chatId, messageId, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId, "Хорошо, ничего не меняю.", ct).ConfigureAwait(false);
+            return;
+        }
+        await TelegramBotService.AnswerCallbackAsync(id, "Выполняю…", chatId, messageId, ct).ConfigureAwait(false);
+        var done = await ProductActionPlan.ExecuteAllAsync(steps, "Телеграм-бот", ct).ConfigureAwait(false);
+        await SendReplyAsync(chatId, Escape(done), ct).ConfigureAwait(false);
+    }
 
     private static async Task SendReplyAsync(string chatId, string text, CancellationToken ct)
     {

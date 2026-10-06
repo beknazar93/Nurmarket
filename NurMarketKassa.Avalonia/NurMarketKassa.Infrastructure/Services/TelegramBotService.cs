@@ -77,6 +77,61 @@ public static class TelegramBotService
         return null;
     }
 
+    /// <summary>2026-10-06, владелец: «к ИИ и боту дай полный доступ к товарам». Сообщение с кнопками под ним
+    /// (inline_keyboard: (текст, callback_data) в ряд). Ошибка — текст причины, null — отправлено.</summary>
+    public static async Task<string?> SendWithButtonsAsync(string chatId, string text, IReadOnlyList<(string Text, string Data)> buttons, CancellationToken ct = default)
+    {
+        var token = UserPreferences.Instance.TelegramBotToken;
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(chatId))
+            return "Не задан токен бота.";
+        try
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["chat_id"] = chatId,
+                ["text"] = text.Length > 4000 ? text[..4000] + "…" : text,
+                ["parse_mode"] = "HTML",
+                ["disable_web_page_preview"] = true,
+                ["reply_markup"] = new Dictionary<string, object?>
+                {
+                    ["inline_keyboard"] = new[] { buttons.Select(b => new Dictionary<string, string> { ["text"] = b.Text, ["callback_data"] = b.Data }).ToArray() },
+                },
+            };
+            using var response = await Http.PostAsJsonAsync($"{ApiRoot}/bot{token}/sendMessage", payload, ct).ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
+                return null;
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return TryReadDescription(body) ?? $"код {(int)response.StatusCode}";
+        }
+        catch (Exception ex)
+        {
+            return ex.GetType().Name;
+        }
+    }
+
+    /// <summary>Ответ на нажатие кнопки (убирает «часики» на кнопке) и, если задан messageId, убирает кнопки у сообщения.</summary>
+    public static async Task AnswerCallbackAsync(string callbackId, string? toast, string? chatId, long? messageId, CancellationToken ct = default)
+    {
+        var token = UserPreferences.Instance.TelegramBotToken;
+        if (string.IsNullOrWhiteSpace(token))
+            return;
+        try
+        {
+            using var r1 = await Http.PostAsJsonAsync($"{ApiRoot}/bot{token}/answerCallbackQuery",
+                new Dictionary<string, object?> { ["callback_query_id"] = callbackId, ["text"] = toast ?? "" }, ct).ConfigureAwait(false);
+            if (chatId != null && messageId != null)
+            {
+                using var r2 = await Http.PostAsJsonAsync($"{ApiRoot}/bot{token}/editMessageReplyMarkup",
+                    new Dictionary<string, object?> { ["chat_id"] = chatId, ["message_id"] = messageId, ["reply_markup"] = new Dictionary<string, object?> { ["inline_keyboard"] = Array.Empty<object>() } }, ct)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // Не критично: результат действия придёт отдельным сообщением.
+        }
+    }
+
     /// <summary>2026-09-30: «печатает…» в чате, пока ИИ-помощник готовит ответ (несколько секунд) —
     /// чтобы владелец видел, что бот его услышал. Ошибка здесь ни на что не влияет.</summary>
     public static async Task SendTypingAsync(string chatId, CancellationToken ct = default)

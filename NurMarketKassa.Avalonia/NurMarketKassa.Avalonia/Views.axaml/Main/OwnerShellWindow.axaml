@@ -33,6 +33,8 @@
         <StreamGeometry x:Key="CrmIcon">M4,5 H20 V16 H13 L9,20 V16 H4 Z</StreamGeometry>
         <!-- 2026-10-05: WhatsApp — трубка в облачке; «Воронка» — сужающиеся этапы. -->
         <StreamGeometry x:Key="WhatsAppIcon">M12,3 A9,9 0 1 1 4.5,17 L3,21 L7.2,19.6 A9,9 0 0 0 12,21 M9,8 C9,12 12,15 16,15 L16.5,13.5 L14.5,12.5 L13.5,13.5 C12,13 11,12 10.5,10.5 L11.5,9.5 L10.5,7.5 Z</StreamGeometry>
+        <!-- 2026-10-06: раздел «Филиалы» — два магазина рядом. -->
+        <StreamGeometry x:Key="BranchesIcon">M2,21 H22 M3,21 V10 L8,6 L13,10 V21 M13,21 V13 L17.5,10 L22,13 V21 M6.5,21 V16 H9.5 V21 M16,21 V17 H19 V21</StreamGeometry>
         <StreamGeometry x:Key="FunnelIcon">M3,4 H21 L14,12 V19 L10,21 V12 Z</StreamGeometry>
         <!-- 2026-10-01: раздел «Телеграм-бот» — самолётик Telegram. -->
         <StreamGeometry x:Key="TelegramBotIcon">M21,4 L3,11 L9,13.5 L11,20 L14,15.5 L19,19 Z M9,13.5 L21,4</StreamGeometry>
@@ -61,6 +63,15 @@
         <StreamGeometry x:Key="RentalIcon">M12,6 A2,2 0 1 1 14,8 C14,9 12,9.5 12,11 L3,18 H21 L12,11</StreamGeometry>
         <!-- 2026-09-29, раздел «Сайт»: заказы — лоток входящих, настройки — глобус. -->
         <StreamGeometry x:Key="SiteOrdersIcon">M3,13 L6,4 H18 L21,13 V20 H3 Z M3,13 H8 L9.5,16 H14.5 L16,13 H21</StreamGeometry>
+        <!-- 2026-10-06, редизайн меню: свои значки у пунктов, которые делили чужие (Прибыль/Финансы, Размеры/Аналитика,
+             Убыток/Возвраты, Долги/Клиенты, Магазин в приложении/Маркетплейс); поиск и стрелка группы. -->
+        <StreamGeometry x:Key="ProfitIcon">M5,7 A7,2.5 0 1 0 19,7 A7,2.5 0 1 0 5,7 M5,7 V12 A7,2.5 0 0 0 19,12 V7 M5,12 V17 A7,2.5 0 0 0 19,17 V12</StreamGeometry>
+        <StreamGeometry x:Key="LossIcon">M3,7 L9,13 L13,9 L21,17 M21,17 H15 M21,17 V11</StreamGeometry>
+        <StreamGeometry x:Key="SizesIcon">M8,3 L3,6 L5,10 L7,9 V21 H17 V9 L19,10 L21,6 L16,3 A4,4 0 0 1 8,3 Z</StreamGeometry>
+        <StreamGeometry x:Key="DebtsIcon">M3,7 H19 A2,2 0 0 1 21,9 V18 A2,2 0 0 1 19,20 H5 A2,2 0 0 1 3,18 Z M3,7 L15,3 V7 M16,13.5 H21</StreamGeometry>
+        <StreamGeometry x:Key="AppShopIcon">M7,2 H17 V22 H7 Z M9,10 H15 L14.5,16 H9.5 Z M10.5,10 A1.5,1.5 0 0 1 13.5,10 M11,19 H13</StreamGeometry>
+        <StreamGeometry x:Key="SearchIcon">M10.5,4 A6.5,6.5 0 1 1 10.49,4 M15.5,15.5 L20,20</StreamGeometry>
+        <StreamGeometry x:Key="ChevronDownIcon">M6,9 L12,15 L18,9</StreamGeometry>
         <StreamGeometry x:Key="SiteSettingsIcon">M12,3 A9,9 0 1 1 11.99,3 M3,12 H21 M12,3 A14,14 0 0 1 12,21 M12,3 A14,14 0 0 0 12,21</StreamGeometry>
     </Window.Resources>
 
@@ -125,6 +136,53 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- 2026-10-06: заголовок группы меню — нажатие сворачивает и разворачивает группу. -->
+        <Style Selector="Button.navGroupBtn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,14,10,5"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.navGroupBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.navGroupBtn TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="0.6"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+        </Style>
+        <Style Selector="Button.navGroupBtn:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Button.navGroupBtn Path">
+            <Setter Property="Width" Value="11"/>
+            <Setter Property="Height" Value="11"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- 2026-10-06: поиск раздела в меню (Ctrl+K). -->
+        <Style Selector="TextBox.navSearch">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Padding" Value="8,9,4,9"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="TextBox.navSearch:pointerover /template/ Border#PART_BorderElement, TextBox.navSearch:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <Style Selector="TextBlock.navGroup">
             <Setter Property="FontSize" Value="11"/>
@@ -416,6 +474,22 @@
                     </Grid>
                 </Border>
 
+                <!-- 2026-10-06, владелец: «займись редизайном и удобством админки» — в меню 30+ разделов, поиск по названию:
+                     Ctrl+K из любого раздела, Enter открывает первый найденный, Esc очищает (OwnerShellWindow.NavSearch.cs). -->
+                <Border DockPanel.Dock="Top" x:Name="NavSearchBox" Margin="14,8,14,2" CornerRadius="10" BorderThickness="1"
+                        Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Path Classes="btnIcon" Width="15" Height="15" Margin="11,0,0,0" VerticalAlignment="Center"
+                              Data="{StaticResource SearchIcon}"/>
+                        <TextBox Grid.Column="1" x:Name="NavSearchText" Classes="navSearch"/>
+                        <Border Grid.Column="2" x:Name="NavSearchKeyHint" Margin="0,0,8,0" Padding="6,1,6,2" CornerRadius="5"
+                                VerticalAlignment="Center" Background="{DynamicResource BrushPanel}"
+                                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" IsHitTestVisible="False">
+                            <TextBlock Text="Ctrl+K" FontSize="10.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                        </Border>
+                    </Grid>
+                </Border>
+
                 <!-- Пользователь: тема и выход всегда видны -->
                 <Border DockPanel.Dock="Bottom" x:Name="UserFooter" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0"
                         Padding="14,12">
@@ -467,7 +541,11 @@
                     </Grid>
                 </Border>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <!-- 2026-10-05, владелец: «после того как пролистаешь, кнопка слева не нажимается, а уезжает вниз или вверх».
+                     Нажатая кнопка получала фокус (а при возврате из раздела фокус возвращался прежней кнопке), меню
+                     прокручивалось к ней, и под курсором оказывалось другое место — первое нажатие терялось. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              BringIntoViewOnFocusChange="False">
                     <StackPanel x:Name="NavPanel" Margin="12,2,12,12"/>
                 </ScrollViewer>
             </DockPanel>
@@ -661,6 +739,25 @@
                         </Border>
 
                         <StackPanel Grid.Column="2" Spacing="16" VerticalAlignment="Top">
+                        <!-- 2026-10-05, владелец: «где в сводке и аналитике долги??». Карточка «Долги клиентов» — первой в правой колонке, видна без прокрутки:
+                             сколько должны магазину, должники, просрочка больше 30 дней, крупные должники; «Подробно» —
+                             раздел «Долги клиентов». Заполняется в OwnerShellWindow.Debts.cs. -->
+                        <Border Classes="card" x:Name="DebtsCard" Padding="20,16,20,14" VerticalAlignment="Top" IsVisible="False">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,4,0,12">
+                                    <TextBlock x:Name="DebtsTitle" Classes="cardTitle"/>
+                                    <Button Grid.Column="1" x:Name="DebtsLink" Classes="link" Click="DebtsLink_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock x:Name="DebtsLinkText" VerticalAlignment="Center"/>
+                                            <Path Classes="btnIcon" Width="12" Height="12" Data="{StaticResource ChevronRightIcon}"
+                                                  VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <StackPanel x:Name="DebtsHost" Spacing="8"/>
+                            </DockPanel>
+                        </Border>
+
                         <Border Classes="card" Padding="20,16,20,14" VerticalAlignment="Top">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,4,0,12"/>

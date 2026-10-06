@@ -323,6 +323,15 @@ public sealed partial class SalesApiService : ISalesApiService
                 catch (ApiException e)
                 {
                     last = e;
+                    // 2026-10-06, владелец (снимок «Финансы: нет связи с сервером», «что за баг??»): сервер стал отвечать
+                    // 500 на страницу дальше «следующей за последней» (за день 65 чеков, по 500: page=2 — пусто, page=3 —
+                    // 500; проверено 06.10). «Финансы», «Продажи» и аналитика качают по 3 страницы сразу, и ошибка на
+                    // заведомо лишней странице роняла всю загрузку — окно показывало «нет связи» и чеки только этой кассы.
+                    // Теперь на 500 для страницы > 1 касса одним коротким запросом узнаёт число чеков: страницы нет — это
+                    // конец списка (пустой ответ, как раньше); страница есть — настоящий сбой, как раньше.
+                    if (e.StatusCode >= 500 && page > 1 && path == paths[0]
+                        && await PageIsPastEndAsync(path, qs, page, pageSize, ct).ConfigureAwait(false))
+                        return new List<JsonElement>();
                     if (e.StatusCode is 404 or 405 or 410)
                     {
                         if (path != paths[0])
@@ -861,6 +870,33 @@ public sealed partial class SalesApiService : ISalesApiService
             .ConfigureAwait(false);
     }
 
+    /// <summary>2026-10-06: страница <paramref name="page"/> за концом списка? Тот же запрос (период, касса) с page=1 и
+    /// размером 1 — сервер отдаёт count. Не удалось узнать — false (ошибку страницы тогда считаем настоящей).</summary>
+    private async Task<bool> PageIsPastEndAsync(string path, IReadOnlyDictionary<string, string> query, int page, int pageSize, CancellationToken ct)
+    {
+        try
+        {
+            var probe = query.ToDictionary(kv => kv.Key, kv => kv.Value);
+            probe["page"] = "1";
+            foreach (var key in new[] { "page_size", "limit" })
+                if (probe.ContainsKey(key))
+                    probe[key] = "1";
+            var data = await _client.RequestAsync(HttpMethod.Get, path, null, probe, ct).ConfigureAwait(false);
+            var root = UnwrapListRootElement(data);
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("count", out var c) && c.TryGetInt64(out var count))
+            {
+                var pastEnd = (long)(page - 1) * pageSize >= count;
+                if (pastEnd)
+                    PosLogger.Log($"Список продаж: страница {page} за концом списка (чеков {count}) — сервер ответил ошибкой, считаю концом.", "API");
+                return pastEnd;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+        }
+        return false;
+    }
+
     private static JsonElement UnwrapListRootElement(JsonElement data)
     {
         if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var inner))
@@ -983,6 +1019,36 @@ public sealed partial class SalesApiService : ISalesApiService
     public Task<JsonElement> MarketSalesReportAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
         CachedReportAsync("sales", from, to, ct);
 
+    private static bool _summaryMissing;
+
+    public async Task<IReadOnlyList<JsonElement>?> MarketSummaryCardsAsync(IReadOnlyList<(DateTime From, DateTime To)> ranges, CancellationToken ct = default)
+    {
+        if (_summaryMissing || ranges.Count == 0)
+            return null;
+        var keys = ranges.Select(r => r.From.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".." + r.To.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToList();
+        JsonElement data;
+        try
+        {
+            data = await _client.RequestAsync(HttpMethod.Get, "api/main/analytics/market/summary/", null,
+                new Dictionary<string, string> { ["periods"] = string.Join(",", keys.Distinct()) }, ct).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.StatusCode is 404 or 405)
+        {
+            _summaryMissing = true;
+            return null;
+        }
+        if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("periods", out var periods) || periods.ValueKind != JsonValueKind.Object)
+            return null;
+        var result = new List<JsonElement>();
+        foreach (var key in keys)
+        {
+            if (!periods.TryGetProperty(key, out var period) || !period.TryGetProperty("cards", out var cards) || cards.ValueKind != JsonValueKind.Object)
+                return null;
+            result.Add(cards.Clone());
+        }
+        return result;
+    }
+
     // 2026-09-29: через общий короткий кэш и с повтором при 429 (см. SalesApiService.ReportCache.cs).
     public Task<JsonElement> MarketProductsReportAsync(DateTime from, DateTime to, CancellationToken ct = default) =>
         CachedReportAsync("products", from, to, ct);
@@ -1019,7 +1085,7 @@ public sealed partial class SalesApiService : ISalesApiService
             new Dictionary<string, string> { ["user"] = userId.Trim() }, ct);
 
     public Task<JsonElement> SavePayProfileAsync(string? profileId, string userId, string payScheme,
-        string monthlyBaseSalary, string salesPercent, CancellationToken ct = default)
+        string monthlyBaseSalary, string salesPercent, string? perItemAmount = null, CancellationToken ct = default)
     {
         var body = new Dictionary<string, object?>
         {
@@ -1028,6 +1094,9 @@ public sealed partial class SalesApiService : ISalesApiService
             ["monthly_base_salary"] = monthlyBaseSalary,
             ["sales_percent"] = salesPercent,
         };
+        // 2026-10-05: сумма за каждый проданный товар (ТЗ ч.13, п. 3).
+        if (perItemAmount is not null)
+            body["per_item_amount"] = perItemAmount;
         return string.IsNullOrWhiteSpace(profileId)
             ? _client.RequestAsync(HttpMethod.Post, "api/main/market-sale-employee-pay-profiles/", body, null, ct)
             : _client.RequestAsync(HttpMethod.Patch,

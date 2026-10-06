@@ -1,0 +1,110 @@
+{
+ "code": "midnight",
+ "name": {
+  "ru": "Ночной",
+  "ky": "Түнкү",
+  "en": "Midnight",
+  "tr": "Gece",
+  "uz": "Tungi"
+ },
+ "description": {
+  "ru": "Тёмный и дорогой вид. Для электроники, техники, парфюма.",
+  "ky": "Караңгы жана кымбат көрүнүш. Электроника, техника, парфюм үчүн.",
+  "en": "Dark, premium look. For electronics, appliances, perfume.",
+  "tr": "Koyu, şık görünüm. Elektronik, beyaz eşya, parfüm için.",
+  "uz": "Qorong'i va qimmatbaho ko'rinish. Elektronika, texnika, atir uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "midnight_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "midnight_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "dark",
+   "colors": {
+    "background": "#0B1220",
+    "surface": "#151E2E",
+    "text": "#F1F5F9",
+    "text_muted": "#94A3B8",
+    "accent": "#FBBF24",
+    "accent_text": "#0B1220",
+    "border": "#263247",
+    "header_bg": "#0B1220",
+    "header_text": "#F8FAFC",
+    "footer_bg": "#050A14",
+    "footer_text": "#CBD5E1",
+    "price": "#FDE68A",
+    "old_price": "#64748B",
+    "badge_new_bg": "#15803D",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#E11D48",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Inter",
+    "base_size": 15,
+    "heading_weight": 700
+   },
+   "radius": 12,
+   "shadow": "strong",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.1,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "1:1",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": true,
+   "border": true
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

@@ -1,0 +1,110 @@
+{
+ "code": "sunny",
+ "name": {
+  "ru": "Солнечный",
+  "ky": "Күндүү",
+  "en": "Sunny",
+  "tr": "Güneşli",
+  "uz": "Quyoshli"
+ },
+ "description": {
+  "ru": "Жёлтый и белый, крупные фото. Для любого магазина у дома.",
+  "ky": "Сары жана ак, чоң сүрөттөр. Ар кандай дүкөн үчүн.",
+  "en": "Yellow and white, large photos. For any neighbourhood shop.",
+  "tr": "Sarı ve beyaz, büyük fotoğraflar. Her mahalle mağazası için.",
+  "uz": "Sariq va oq, katta rasmlar. Har qanday do'kon uchun."
+ },
+ "images": {
+  "hero.image": {
+   "file": "sunny_hero.jpg",
+   "kind": "cover"
+  },
+  "card.placeholder_image": {
+   "file": "sunny_ph.jpg",
+   "kind": "other"
+  }
+ },
+ "patch": {
+  "theme": {
+   "preset": null,
+   "mode": "light",
+   "colors": {
+    "background": "#F5F6F8",
+    "surface": "#FFFFFF",
+    "text": "#111827",
+    "text_muted": "#6B7280",
+    "accent": "#FFCC33",
+    "accent_text": "#111827",
+    "border": "#E5E7EB",
+    "header_bg": "#FFFFFF",
+    "header_text": "#111827",
+    "footer_bg": "#111827",
+    "footer_text": "#F3F4F6",
+    "price": "#111827",
+    "old_price": "#9CA3AF",
+    "badge_new_bg": "#047857",
+    "badge_new_text": "#FFFFFF",
+    "badge_sale_bg": "#DC2626",
+    "badge_sale_text": "#FFFFFF"
+   },
+   "font": {
+    "family": "Montserrat",
+    "base_size": 15,
+    "heading_weight": 700
+   },
+   "radius": 16,
+   "shadow": "soft",
+   "button_style": "filled",
+   "background_image": null,
+   "background_pattern": null
+  },
+  "header": {
+   "layout": "logo_left",
+   "sticky": true,
+   "show_search": true,
+   "show_name": true
+  },
+  "hero": {
+   "style": "cover",
+   "overlay": 0.15,
+   "align": "left"
+  },
+  "categories": {
+   "style": "chips",
+   "show_all": true,
+   "show_count": true
+  },
+  "products": {
+   "columns": {
+    "desktop": 4,
+    "tablet": 3,
+    "mobile": 2
+   },
+   "page_size": 48,
+   "pagination": "load_more",
+   "hide_zero_price": true
+  },
+  "card": {
+   "template": "standard",
+   "photo_ratio": "1:1",
+   "photo_fit": "cover",
+   "price_position": "under_name",
+   "show": {
+    "old_price": true,
+    "discount_badge": true,
+    "new_badge": false,
+    "category": true,
+    "stock": "low_only",
+    "unit": true,
+    "description": false,
+    "add_button": true,
+    "quantity_stepper": false
+   },
+   "shadow": true,
+   "border": false
+  },
+  "footer": {
+   "enabled": true
+  }
+ }
+}

@@ -161,6 +161,42 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         _ => NurMarketKassa.Services.Tr.T("На складе", "Кампада", "In stock", "Depoda", "Omborda"),
     };
 
+    /// <summary>2026-10-06, исследование «Кассы для одежды» (О-70): приёмка сеткой «цвет × размер». Сколько пришло каждого
+    /// размера (id варианта NurCRM → штук). Сервер держит остаток товара равным сумме остатков размеров (проверено 06.10:
+    /// +2 размеру — +2 товару), поэтому при проведении прибавляются остатки размеров, а количество строки = их сумма.</summary>
+    public Dictionary<string, double>? VariantQuantities { get; private set; }
+
+    /// <summary>Подписи размеров строки (id варианта → «44, Чёрный») — для таблицы и этикеток.</summary>
+    public Dictionary<string, string>? VariantLabels { get; private set; }
+
+    public double VariantTotal => VariantQuantities?.Values.Sum() ?? 0;
+
+    /// <summary>«44/Чёрный ×2, 46/Красный ×1» — колонка «Размеры» в приёмке (коротко, чтобы помещалось).</summary>
+    public string VariantSummary => VariantQuantities is not { Count: > 0 } q
+        ? ""
+        : string.Join(", ", q.Where(kv => kv.Value > 0).Select(kv =>
+            (VariantLabels != null && VariantLabels.TryGetValue(kv.Key, out var l) ? l.Replace(", ", "/") : "?") + " ×" + kv.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)));
+
+    /// <summary>Задать размеры из сетки: количество строки становится их суммой.</summary>
+    public void SetVariants(Dictionary<string, double> quantities, Dictionary<string, string> labels)
+    {
+        VariantQuantities = quantities.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        VariantLabels = new Dictionary<string, string>(labels, StringComparer.OrdinalIgnoreCase);
+        Quantity = VariantTotal;
+        OnPropertyChanged(nameof(VariantSummary));
+    }
+
+    /// <summary>+N к одному размеру (скан этикетки размера в приёмке).</summary>
+    public void AddVariant(string variantId, string label, double quantity)
+    {
+        VariantQuantities ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        VariantLabels ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        VariantQuantities[variantId] = VariantQuantities.GetValueOrDefault(variantId) + quantity;
+        VariantLabels[variantId] = label;
+        Quantity = VariantTotal;
+        OnPropertyChanged(nameof(VariantSummary));
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

@@ -32,6 +32,24 @@ public static class OperationReceiptPrinter
             originalReceiptNumber, lines, refundTotal, reason, isWholeSale, cashierName), "возврата");
     }
 
+    /// <summary>2026-10-06 (О-30, магазин одежды): чек обмена — что вернули, что выдали, доплата или сдача.</summary>
+    public static string? PrintExchange(
+        string? originalReceiptNumber,
+        DateTime? originalDate,
+        string? newReceiptNumber,
+        IReadOnlyList<(string Name, double Quantity, decimal UnitPrice, decimal Sum)> returned,
+        IReadOnlyList<(string Name, double Quantity, decimal UnitPrice, decimal Sum)> issued,
+        decimal returnedAmount,
+        decimal newAmount,
+        decimal difference,
+        string? paymentMethod,
+        string? reason,
+        string? cashierName)
+    {
+        return Print(() => ExchangeReceiptTextBuilder.Build(originalReceiptNumber, originalDate, newReceiptNumber, returned, issued,
+            returnedAmount, newAmount, difference, paymentMethod, reason, cashierName), "обмена");
+    }
+
     /// <summary>Печатает приходный или расходный чек по операции с кассой.</summary>
     public static string? PrintCashOperation(
         bool isWithdrawal,

@@ -32,7 +32,20 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _session = session;
         _updateCheck = updateCheck;
         _updateSettings = appSettings?.Updates;
+        // 2026-10-06, стресс-тест без интернета: очередь дослана пачкой (значок в шапке — 0), а под чеком оставалось
+        // «Чек сохранён, отправится автоматически. В очереди: 3». Очередь опустела — строка говорит, что чеки отправлены.
+        Toolbar.Status.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(MainStatusViewModel.QueuedCount) || Toolbar.Status.QueuedCount != 0)
+                return;
+            if (QueueMessageWords.Any(w => Basket.CartMessage.Contains(w, StringComparison.Ordinal)))
+                Basket.CartMessage = Tr.T("Все чеки из очереди отправлены на сервер.", "Кезектеги бардык чектер серверге жөнөтүлдү.",
+                    "All queued receipts have been sent to the server.", "Sıradaki tüm fişler sunucuya gönderildi.", "Navbatdagi barcha cheklar serverga yuborildi.");
+        };
     }
+
+    // Слова очереди из сообщений PosCheckoutService об оплате без связи (все 5 языков).
+    private static readonly string[] QueueMessageWords = { "В очереди:", "Кезекте:", "Queued:", "Sırada:", "Navbatda:" };
 
     private readonly IAppSession _session;
 

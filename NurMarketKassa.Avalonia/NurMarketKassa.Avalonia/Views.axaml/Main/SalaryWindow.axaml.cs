@@ -69,11 +69,11 @@ public partial class SalaryWindow : Window, IOwnerSection
         GuideTitle.Text = Tr.T("Как считается зарплата", "Эмгек акы кантип эсептелет", "How the salary is calculated",
             "Maaş nasıl hesaplanır", "Ish haqi qanday hisoblanadi");
         GuideStep1.Text = Tr.T(
-            "1. У каждого сотрудника своя схема: оклад, процент от продаж или оклад + процент (кнопка «Схема» в строке).",
-            "1. Ар бир кызматкердин өз схемасы бар: айлык, сатуудан пайыз же айлык + пайыз (саптагы «Схема» баскычы).",
-            "1. Each employee has their own scheme: fixed salary, percentage of sales, or salary + percentage (the “Scheme” button in the row).",
-            "1. Her çalışanın kendi şeması vardır: sabit maaş, satış yüzdesi veya sabit maaş + yüzde (satırdaki «Şema» düğmesi).",
-            "1. Har bir xodimning o'z sxemasi bor: maosh, sotuvdan foiz yoki maosh + foiz (qatordagi «Sxema» tugmasi).");
+            "1. У каждого сотрудника своя схема: оклад, процент от продаж, оплата за каждый проданный товар или их сочетание (кнопка «Схема» в строке).",
+            "1. Ар бир кызматкердин өз схемасы бар: айлык, сатуудан пайыз, ар бир сатылган товар үчүн төлөм же алардын айкалышы (саптагы «Схема» баскычы).",
+            "1. Each employee has their own scheme: fixed salary, percentage of sales, pay per item sold, or a combination (the “Scheme” button in the row).",
+            "1. Her çalışanın kendi şeması vardır: sabit maaş, satış yüzdesi, satılan ürün başına ödeme veya bunların birleşimi (satırdaki «Şema» düğmesi).",
+            "1. Har bir xodimning o'z sxemasi bor: maosh, sotuvdan foiz, har bir sotilgan mahsulot uchun to'lov yoki ularning birikmasi (qatordagi «Sxema» tugmasi).");
         GuideStep2.Text = Tr.T(
             "2. В расчёт идут только оплаченные чеки, где сотрудник пробил оплату, — и чеки, где он указан консультантом.",
             "2. Эсепке кызматкер төлөмүн өткөргөн төлөнгөн чектер жана ал консультант катары көрсөтүлгөн чектер гана кирет.",
@@ -89,7 +89,7 @@ public partial class SalaryWindow : Window, IOwnerSection
 
         CardPayrollLabel.Text = Tr.T("К выплате за период", "Мезгил үчүн төлөөгө", "Payable for the period", "Dönem için ödenecek", "Davr uchun to'lanadigan summa");
         CardBaseLabel.Text = Tr.T("Оклады за период", "Мезгил үчүн айлыктар", "Salaries for the period", "Dönemin sabit maaşları", "Davr uchun maoshlar");
-        CardBonusLabel.Text = Tr.T("Проценты и комиссии", "Пайыздар жана комиссиялар", "Percentages and commissions", "Yüzdeler ve komisyonlar", "Foizlar va komissiyalar");
+        CardBonusLabel.Text = Tr.T("Проценты, комиссии, за товары", "Пайыздар, комиссиялар, товарлар үчүн", "Percentages, commissions, per item", "Yüzdeler, komisyonlar, ürün başına", "Foizlar, komissiyalar, mahsulot uchun");
         CardSalesLabel.Text = Tr.T("Продажи сотрудников", "Кызматкерлердин сатуулары", "Employee sales", "Personel satışları", "Xodimlar sotuvlari");
         CardEmployeesLabel.Text = Tr.T("Сотрудников со схемой", "Схемасы бар кызматкерлер", "Employees with a scheme", "Şeması olan çalışanlar", "Sxemasi bor xodimlar");
 
@@ -99,7 +99,7 @@ public partial class SalaryWindow : Window, IOwnerSection
         HeadCashier.Text = Tr.T("Продажи как кассир", "Кассир катары сатуу", "Sales as cashier", "Kasiyer olarak satış", "Kassir sifatida sotuvlar");
         HeadConsultant.Text = Tr.T("Продажи как консультант", "Консультант катары сатуу", "Sales as consultant", "Danışman olarak satış", "Maslahatchi sifatida sotuvlar");
         HeadCommission.Text = Tr.T("Комиссия консультанта", "Консультанттын комиссиясы", "Consultant commission", "Danışman komisyonu", "Maslahatchi komissiyasi");
-        HeadBonus.Text = Tr.T("Бонус (%)", "Бонус (%)", "Bonus (%)", "Bonus (%)", "Bonus (%)");
+        HeadBonus.Text = Tr.T("Бонус (% и за товары)", "Бонус (% жана товарлар)", "Bonus (% and per item)", "Bonus (% ve ürün başına)", "Bonus (% va mahsulot)");
         HeadTotal.Text = Tr.T("К выплате", "Төлөөгө", "Payable", "Ödenecek", "To'lanadigan summa");
     }
 
@@ -228,7 +228,8 @@ public partial class SalaryWindow : Window, IOwnerSection
         var cards = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("cards", out var c) ? c : default;
         CardPayrollValue.Text = Money(Num(cards, "total_payroll")) + " " + Som;
         CardBaseValue.Text = Money(Num(cards, "total_base_prorated"));
-        CardBonusValue.Text = Money(Num(cards, "total_percent_bonus"));
+        // 2026-10-05: проценты, комиссии и начисление за проданные товары (total_per_item_bonus).
+        CardBonusValue.Text = Money(Num(cards, "total_percent_bonus") + Num(cards, "total_per_item_bonus"));
         CardSalesValue.Text = Money(Num(cards, "total_employee_sales"));
         CardEmployeesValue.Text = ((int)Num(cards, "employees_with_profile")).ToString(Ru);
 
@@ -326,8 +327,13 @@ public partial class SalaryWindow : Window, IOwnerSection
             var total = Num(r, "total");
             var name = Str(r, "employee_label");
 
+            var perItem = Num(r, "per_item_amount");
+            var perItemText = $"{Money(perItem)} / " + Tr.T("шт", "даана", "pc", "adet", "dona");
             var details = scheme switch
             {
+                "per_item" => perItemText,
+                "salary_plus_per_item" => $"{Money(monthly)} / " + Tr.T("мес", "ай", "month", "ay", "oy") + " · " + perItemText,
+                "percent_plus_per_item" => $"{percent.ToString("0.##", Ru)} % · " + perItemText,
                 "percent" => $"{percent.ToString("0.##", Ru)} %",
                 "salary_plus_percent" => $"{Money(monthly)} / " + Tr.T("мес", "ай", "month", "ay", "oy") + $" · {percent.ToString("0.##", Ru)} %",
                 _ => $"{Money(monthly)} / " + Tr.T("мес", "ай", "month", "ay", "oy"),
@@ -349,7 +355,10 @@ public partial class SalaryWindow : Window, IOwnerSection
                 ConsultantSalesText = Money(Num(r, "consultant_sales_period")),
                 ConsultantCountText = Checks(consultantCount),
                 CommissionText = Money(Num(r, "consultant_commission_period")),
-                BonusText = Money(Num(r, "percent_bonus")),
+                // 2026-10-05: + начисление за проданные товары (сколько штук — в скобках).
+                BonusText = Num(r, "per_item_bonus") is > 0 and var itemBonus
+                    ? $"{Money(Num(r, "percent_bonus") + itemBonus)} ({Tr.T("за товары", "товарлар үчүн", "items", "ürünler", "mahsulotlar")}: {Money(itemBonus)}, {Num(r, "items_sold_period").ToString("0.##", Ru)} {Tr.T("шт", "даана", "pcs", "adet", "dona")})"
+                    : Money(Num(r, "percent_bonus")),
                 TotalText = Money(total),
                 Total = total,
             };
@@ -366,6 +375,10 @@ public partial class SalaryWindow : Window, IOwnerSection
         "percent" => Tr.T("Процент от продаж", "Сатуудан пайыз", "Sales percentage", "Satış yüzdesi", "Sotuvdan foiz"),
         "salary_plus_percent" => Tr.T("Оклад + процент от продаж", "Айлык + сатуудан пайыз", "Salary + sales percentage",
             "Sabit maaş + satış yüzdesi", "Maosh + sotuvdan foiz"),
+        // 2026-10-05: оплата за каждый проданный товар (ТЗ ч.13, п. 3).
+        "per_item" => Tr.T("За каждый проданный товар", "Ар бир сатылган товар үчүн", "Per item sold", "Satılan ürün başına", "Har bir sotilgan mahsulot uchun"),
+        "salary_plus_per_item" => Tr.T("Оклад + за каждый товар", "Айлык + ар бир товар үчүн", "Salary + per item", "Sabit maaş + ürün başına", "Maosh + har bir mahsulot uchun"),
+        "percent_plus_per_item" => Tr.T("Процент + за каждый товар", "Пайыз + ар бир товар үчүн", "Percentage + per item", "Yüzde + ürün başına", "Foiz + har bir mahsulot uchun"),
         _ => serverLabel.Length > 0 ? serverLabel : "—",
     };
 }
