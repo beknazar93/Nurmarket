@@ -76,6 +76,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             if (Set(ref _quantity, value))
             {
+                _quantityRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(QuantityText));
             }
@@ -89,6 +90,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             if (Set(ref _purchasePrice, value))
             {
+                _purchaseRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(PurchasePriceText));
             }
@@ -101,7 +103,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         set
         {
             if (Set(ref _salePrice, value))
+            {
+                _saleRaw = null;
                 OnPropertyChanged(nameof(SalePriceText));
+            }
         }
     }
 
@@ -109,28 +114,41 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     // к double разбирала число без учёта запятой — «2,5» или «1 234,50» молча откатывались к
     // прежнему значению, и казалось, что таблица не редактируется. Непонятное число оставляет
     // прежнее значение.
+    // 2026-10-11, тестировщик (склад.md, 2.2.2): «невозможно стереть поле «Принято», можно только заменить». Пустое поле
+    // не разбиралось как число и тут же возвращалось прежнее значение. Теперь пустое поле остаётся пустым (значение 0),
+    // пока не впишут своё число; проведение без количества и цен по-прежнему не пускает.
+    private string? _quantityRaw, _purchaseRaw, _saleRaw;
+
     public string QuantityText
     {
-        get => Quantity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-        set => SetFromText(value, v => Quantity = v, nameof(QuantityText));
+        get => _quantityRaw ?? Quantity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => Quantity = v, nameof(QuantityText), r => _quantityRaw = r);
     }
 
     public string PurchasePriceText
     {
-        get => PurchasePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-        set => SetFromText(value, v => PurchasePrice = v, nameof(PurchasePriceText));
+        get => _purchaseRaw ?? PurchasePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => PurchasePrice = v, nameof(PurchasePriceText), r => _purchaseRaw = r);
     }
 
     public string SalePriceText
     {
-        get => SalePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-        set => SetFromText(value, v => SalePrice = v, nameof(SalePriceText));
+        get => _saleRaw ?? SalePrice.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        set => SetFromText(value, v => SalePrice = v, nameof(SalePriceText), r => _saleRaw = r);
     }
 
-    private void SetFromText(string? text, Action<double> apply, string name)
+    private void SetFromText(string? text, Action<double> apply, string name, Action<string?> setRaw)
     {
-        if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text ?? "", out var value) && value >= 0)
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            apply(0);
+            setRaw("");
+        }
+        else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text, out var value) && value >= 0)
+        {
             apply(value);
+            setRaw(null);
+        }
         OnPropertyChanged(name);
     }
 

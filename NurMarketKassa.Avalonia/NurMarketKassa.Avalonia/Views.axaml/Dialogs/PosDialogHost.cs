@@ -73,13 +73,13 @@ public static class PosDialogHost
     /// </summary>
     public static bool? Show(Window dialog, Window? owner)
     {
-        owner = ResolveOwner(owner);
-        ApplyFadeIn(dialog);
-        var task = dialog.ShowDialog<bool?>(owner);
-
         if (!Dispatcher.UIThread.CheckAccess())
             throw new InvalidOperationException(
                 "Synchronous dialogs must be opened on the UI thread. Use ShowAsync from background work.");
+
+        owner = ResolveOwner(owner);
+        ApplyFadeIn(dialog);
+        var task = dialog.ShowDialog<bool?>(owner);
 
         // UI thread: pump until the dialog closes so Click → Close can complete.
         using var cts = new CancellationTokenSource();

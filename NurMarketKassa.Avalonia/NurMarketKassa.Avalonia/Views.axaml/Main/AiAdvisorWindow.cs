@@ -92,6 +92,15 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
+    private static bool IsMissingPhotoListRequest(string question)
+    {
+        var q = question.ToLowerInvariant();
+        var asksForMissing = q.Contains("без фото") || q.Contains("без фотограф")
+                             || q.Contains("нет фото") || q.Contains("нет фотограф");
+        var explicitlyOnline = q.Contains("интернет") || q.Contains("сети") || q.Contains("онлайн");
+        return asksForMissing && !explicitlyOnline;
+    }
+
     public AiAdvisorWindow()
     {
         Title = T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi");
@@ -195,7 +204,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                      // 2026-10-05, владелец: «чтобы он смог предлагать назначить акции на проблемные товары».
                      T("Какие акции запустить?", "Кайсы акцияларды баштоо керек?", "Which promotions should I run?", "Hangi kampanyaları başlatmalıyım?", "Qanday aksiyalar boshlash kerak?"),
                      // 2026-10-05, владелец: «загрузи фото к товарам, которых нет фото».
-                     T("Найди фото для товаров без фото", "Сүрөтсүз товарларга сүрөт тап", "Find photos for products without one", "Fotoğrafsız ürünlere fotoğraf bul", "Rasmsiz mahsulotlarga rasm top"),
+                     T("Найди фото в интернете для товаров без фото", "Интернеттен сүрөтсүз товарларга сүрөт тап", "Find photos online for products without one", "Fotoğrafı olmayan ürünler için internette fotoğraf bul", "Rasmi yo'q mahsulotlar uchun internetdan rasm top"),
                  })
         {
             var chip = UiKit.Chip(this, q, false);
@@ -440,16 +449,44 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private async Task SendAsync(string? text)
     {
         var question = (text ?? "").Trim();
-        // 2026-10-06: приложено фото без вопроса — по умолчанию это накладная.
-        if (question.Length == 0 && _attachedImage is not null)
-            question = T("Это фото накладной — оприходуй товары на склад.", "Бул накладнойдун сүрөтү — товарларды кампага кириште.",
-                "This is an invoice photo — receive the goods into stock.", "Bu bir fatura fotoğrafı — ürünleri stoğa al.",
-                "Bu yuk xati surati — mahsulotlarni omborga kirim qil.");
+        // Фото без текста неоднозначно. Спрашиваем назначение перед передачей ИИ, чтобы
+        // обычное изображение товара не запускало сценарий прихода на склад.
+        if (question.Length == 0 && _attachments.Count > 0)
+        {
+            var intent = await PosMessageBox.ShowModalAsync(this,
+                T("Обработать изображение как накладную и подготовить приход на склад? Выберите «Нет», чтобы просто описать товар.",
+                    "Сүрөттү накладной катары иштеп, кампага киришти даярдайлыбы? Товарды гана сүрөттөө үчүн «Жок» басыңыз.",
+                    "Process this image as an invoice and prepare a stock receipt? Choose No to only describe the product.",
+                    "Görüntü fatura olarak işlenip stok girişi hazırlansın mı? Yalnızca ürünü açıklamak için Hayır'ı seçin.",
+                    "Rasm yuk xati sifatida qayta ishlanib, omborga kirim tayyorlansinmi? Faqat mahsulotni tasvirlash uchun Yo'qni tanlang."),
+                T("Изображение без подписи", "Сүрөттүн максаты", "Image intent", "Görüntü amacı", "Rasm maqsadi"),
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Question).ConfigureAwait(true);
+            if (intent == MessageBoxResult.Cancel)
+                return;
+            question = intent == MessageBoxResult.Yes
+                ? T("Это фото накладной — распознай все строки и подготовь приход, ничего не проводи без моего подтверждения.",
+                    "Бул накладнойдун сүрөтү — бардык саптарды таанып, мен ырастамайынча өткөрбөстөн киришти даярда.",
+                    "This is an invoice photo. Recognize every line and prepare the receipt; do not post it without my confirmation.",
+                    "Bu bir fatura fotoğrafı. Tüm satırları tanı ve onayım olmadan kaydetmeden stok girişini hazırla.",
+                    "Bu yuk xati surati. Barcha qatorlarni tanib, tasdig'im bo'lmaguncha o'tkazmasdan kirimni tayyorla.")
+                : T("Опиши товар на изображении. Не меняй склад и цены.", "Сүрөттөгү товарды сүрөттөп бер. Кампаны жана бааларды өзгөртпө.",
+                    "Describe the product in the image. Do not change stock or prices.", "Görüntüdeki ürünü açıkla. Stok ve fiyatları değiştirme.",
+                    "Rasmdagi mahsulotni tasvirla. Ombor va narxlarni o'zgartirma.");
+        }
         if (question.Length == 0 || _busy || (!TelegramAiChat.IsConfigured && !IsPhotoRequest(question)))
             return;
-        var image = _attachedImage;
-        var imageMime = _attachedMime;
-        var imageName = _attachedName;
+        // 2026-10-11 (иишка.md, 1): несколько страниц накладной — все вложения в одном вопросе.
+        var attachments = _attachments.ToList();
+        var image = attachments.Count > 0 ? attachments[0].Data : null;
+        var imageName = string.Join(", ", attachments.Select(a => a.Name));
+        // Пометка «одна накладная на N страницах» — только для ИИ, в пузыре вопроса её не видно.
+        var pagesNote = "";
+        if (attachments.Count > 1)
+            pagesNote = T($"\n(Это ОДНА накладная на {attachments.Count} страницах/фото: объедини строки всех страниц по порядку, строку на стыке страниц не дублируй.)",
+                $"\n(Бул {attachments.Count} барактагы БИР накладной: бардык барактардын саптарын ирети менен бириктир, барактардын чегиндеги сапты кайталаба.)",
+                $"\n(This is ONE invoice on {attachments.Count} pages/photos: merge the lines of all pages in order, don't duplicate a line split between pages.)",
+                $"\n(Bu {attachments.Count} sayfalık TEK bir fatura: tüm sayfaların satırlarını sırayla birleştir, sayfa geçişindeki satırı tekrarlama.)",
+                $"\n(Bu {attachments.Count} sahifali BITTA yuk xati: barcha sahifalar qatorlarini tartib bilan birlashtir, sahifalar chegarasidagi qatorni takrorlama.)");
         ClearAttachment();
         // Вслух отвечаем только на вопрос голосом; напечатанный вопрос — молча, как раньше.
         var speak = _voiceAnswer;
@@ -462,6 +499,47 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
         // 2026-10-06: «поставь фото 4» / «четвёртое» — вариант из последнего поиска фото ставит программа, без нейросети.
         // Короткая команда «открой …» (до 6 слов) — сразу; длинный вопрос со словом «открой» отвечает ИИ (он тоже умеет открывать).
+        if (image is null && IsNoPhotoInventoryQuery(question))
+        {
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            var reportToken = _cts.Token;
+            var report = AddBubble(T("Проверяю локальный каталог склада…", "Кампанын жергиликтүү каталогун текшерип жатам…",
+                "Checking the local warehouse catalog…", "Yerel depo kataloğu kontrol ediliyor…", "Omborning mahalliy katalogi tekshirilmoqda…"), fromOwner: false);
+            try
+            {
+                var rows = await Task.Run(() => BuildNoPhotoInventoryReport(reportToken), reportToken)
+                    .ConfigureAwait(true);
+                if (gen != _gen)
+                    return;
+                report.Text = rows;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                report.Text = T("Не удалось прочитать локальный каталог склада. Обновите каталог и повторите запрос.",
+                    "Кампанын жергиликтүү каталогун окуу мүмкүн болгон жок. Каталогду жаңыртып, кайра сураңыз.",
+                    "Couldn't read the local warehouse catalog. Refresh it and try again.",
+                    "Yerel depo kataloğu okunamadı. Kataloğu yenileyip tekrar deneyin.",
+                    "Omborning mahalliy katalogini o'qib bo'lmadi. Katalogni yangilab qayta urinib ko'ring.");
+                PosLogger.Log($"ИИ-советник: локальный список товаров без фото не собран ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            }
+            finally
+            {
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                    ScrollToEnd();
+                    _input.Focus();
+                }
+            }
+            return;
+        }
         // 2026-10-06: команды редактору сайта из чата — «поставь тему Ала-Тоо», «опубликуй сайт».
         if (image is null && SiteEditorWindow.LooksLikeCommand(question) && ProductActionPlan.OpenSection is not null)
         {
@@ -506,6 +584,27 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             }
             return;
         }
+        // 2026-10-10: список товаров без фото формируем из полного локального каталога,
+        // а не просим нейросеть угадать по сокращённой сводке склада. Веб-поиск здесь не запускается.
+        if (image is null && IsMissingPhotoListRequest(question))
+        {
+            var status = AddBubble(T("Сверяю весь локальный каталог…", "Жергиликтүү каталогду толук текшерип жатам…",
+                "Checking the full local catalog…", "Yerel kataloğun tamamı denetleniyor…", "Mahalliy katalog to‘liq tekshirilmoqda…"), fromOwner: false);
+            try
+            {
+                status.Text = await Task.Run(OwnerAiContext.BuildMissingPhotoReport).ConfigureAwait(true);
+            }
+            finally
+            {
+                if (gen == _gen)
+                {
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                }
+            }
+            return;
+        }
         // 2026-10-05, владелец: «добавь техническую возможность к ИИ для загрузки фото на склад» — просьба про фото
         // товаров выполняется программой сама (поиск по штрихкоду, загрузка после подтверждения), без нейросети.
         if (image is null && IsPhotoRequest(question))
@@ -535,10 +634,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var summaryMs = watch.ElapsedMilliseconds;
             // 2026-10-05, владелец: «голос очень сильно тормозит» — на вопрос голосом ответ короткий: быстрее и пишется,
             // и озвучивается (длинный ответ на 8–10 предложений звучал полминуты и готовился долго).
-            var askText = speak
+            var askText = (speak
                 ? question + "\n(Вопрос задан голосом, ответ будет озвучен: ответь коротко — 2–3 предложения, без списков и таблиц.)"
-                : question;
-            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(askText, summary, _cts.Token, image, imageMime).ConfigureAwait(true);
+                : question) + pagesNote;
+            var (answer, error, webSources) = await TelegramAiChat.AskOwnerAppWithDetailsAsync(askText, summary, _cts.Token, attachments.Select(a => (a.Data, a.Mime)).ToList()).ConfigureAwait(true);
             if (gen != _gen)
                 return;
             PosLogger.Log($"ИИ-советник: сводка {summaryMs} мс, ответ ИИ {watch.ElapsedMilliseconds - summaryMs} мс{(speak ? " (голосом)" : "")}.", "INFO");
@@ -546,12 +645,13 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             Dictionary<string, object?>? scenario = null;
             // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам» — строки «ТОВАР: {…}» → карточка «Выполнить».
             List<ProductActionPlan.Step>? productSteps = null;
+            IReadOnlyList<string> skippedItems = Array.Empty<string>();
             List<(string Name, string? Phone, double Amount)>? debtReminders = null;
             if (answer is { Length: > 0 })
             {
                 (answer, botChange) = ExtractBotChange(answer);
                 (answer, scenario) = ExtractScenario(answer);
-                (answer, productSteps) = ProductActionPlan.Extract(answer);
+                (answer, productSteps, skippedItems) = ProductActionPlan.Extract(answer, question);
                 (answer, debtReminders) = ExtractDebtReminders(answer);
                 if (answer.Length == 0 && productSteps.Count > 0)
                     answer = T("Предлагаю изменения — подтвердите:", "Өзгөртүүлөрдү сунуштайм — ырастаңыз:", "I suggest these changes — please confirm:",
@@ -565,10 +665,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             // 2026-10-05, владелец: «включи поиск по интернету для ИИ» — если ИИ искал в интернете, источники ссылками.
             // 2026-10-07: Gemini сам ищет в Google и по вопросам о магазине (по старым репликам разговора) — ссылки показываем,
             // только если владелец просил поиск или сведения о товаре.
-            if (answer is { Length: > 0 } && TelegramAiChat.LastWebSources.Count > 0
+            if (answer is { Length: > 0 } && webSources.Count > 0
                 && (ProductInfoResearch.LooksLikeInfoRequest(question)
                     || new[] { "интернет", "найди", "поищи", "google", "гугл", "сайт", "internet", "интернеттен" }.Any(question.ToLowerInvariant().Contains)))
-                AddWebSources(TelegramAiChat.LastWebSources);
+                AddWebSources(webSources);
             else if (TelegramAiChat.WebSearchUnavailable && !AiProviders.HasGroq && !_webSearchNoteShown)
             {
                 _webSearchNoteShown = true;
@@ -593,9 +693,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             if (debtReminders is { Count: > 0 })
                 AddDebtReminderCard(debtReminders);
             // 2026-10-06: строки, которые не стали действиями, — не молча, а списком (раньше накладная на 20 позиций давала «ничего»).
-            if (ProductActionPlan.LastSkipped.Count > 0)
+            if (skippedItems.Count > 0)
                 AddBubble(T("Не нашёл в каталоге и не смог разобрать: ", "Каталогдон таппадым жана ажырата алган жокмун: ", "Not found in the catalog and couldn't parse: ",
-                    "Katalogda bulunamadı ve ayrıştırılamadı: ", "Katalogda topilmadi va ajratib bo'lmadi: ") + string.Join(", ", ProductActionPlan.LastSkipped)
+                    "Katalogda bulunamadı ve ayrıştırılamadı: ", "Katalogda topilmadi va ajratib bo'lmadi: ") + string.Join(", ", skippedItems)
                     + T(". Напишите, что с ними сделать (например, «создай как новые товары»).", ". Алар менен эмне кылууну жазыңыз (мисалы, «жаңы товар катары түз»).",
                         ". Tell me what to do with them (e.g. “create as new products”).", ". Bunlarla ne yapılacağını yazın (ör. «yeni ürün olarak oluştur»).",
                         ". Ular bilan nima qilishni yozing (masalan, «yangi mahsulot sifatida yarat»)."), fromOwner: false);
@@ -1632,9 +1732,9 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
 
     // ── 2026-10-06: фото к вопросу (накладная, товар) ──
     private StackPanel? _attachRow;
-    private byte[]? _attachedImage;
-    private string _attachedMime = "image/jpeg";
-    private string _attachedName = "";
+    // 2026-10-11, тестировщик (иишка.md, 1): несколько фото/файлов (страниц накладной) — по порядку, каждую можно убрать.
+    private readonly List<(byte[] Data, string Mime, string Name)> _attachments = new();
+    private const int MaxAttachments = 10;
 
     private async Task PickPhotoAsync()
     {
@@ -1643,23 +1743,34 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
             {
                 Title = T("Фото накладной или товара", "Накладнойдун же товардын сүрөтү", "Invoice or product photo", "Fatura veya ürün fotoğrafı", "Yuk xati yoki mahsulot surati"),
-                AllowMultiple = false,
-                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType(T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.webp" } } },
+                AllowMultiple = true,
+                FileTypeFilter = new[] { new Avalonia.Platform.Storage.FilePickerFileType(T("Фото и PDF", "Сүрөт жана PDF", "Photos and PDF", "Fotoğraf ve PDF", "Rasm va PDF"))
+                    { Patterns = new[] { "*.jpg", "*.jpeg", "*.png", "*.webp", "*.pdf" } } },
             }).ConfigureAwait(true);
-            if (files.Count == 0)
-                return;
-            await using var stream = await files[0].OpenReadAsync().ConfigureAwait(true);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms).ConfigureAwait(true);
-            if (ms.Length > 15_000_000)
+            foreach (var file in files)
             {
-                AddBubble(T("Фото больше 15 МБ — сожмите или сфотографируйте заново.", "Сүрөт 15 МБдан чоң — кичирейтиңиз же кайра тартыңыз.", "The photo is over 15 MB — shrink it or retake it.",
-                    "Fotoğraf 15 MB'tan büyük — küçültün veya yeniden çekin.", "Surat 15 MB dan katta — kichraytiring yoki qayta oling."), fromOwner: false);
-                return;
+                if (_attachments.Count >= MaxAttachments)
+                {
+                    AddBubble(T($"Не больше {MaxAttachments} страниц за раз.", $"Бир жолу {MaxAttachments} барактан ашпайт.", $"No more than {MaxAttachments} pages at a time.",
+                        $"Tek seferde en fazla {MaxAttachments} sayfa.", $"Bir martada {MaxAttachments} sahifadan ko'p emas."), fromOwner: false);
+                    break;
+                }
+                await using var stream = await file.OpenReadAsync().ConfigureAwait(true);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms).ConfigureAwait(true);
+                if (ms.Length > 15_000_000 || _attachments.Sum(a => (long)a.Data.Length) + ms.Length > 40_000_000)
+                {
+                    AddBubble(T($"«{file.Name}» слишком большой (больше 15 МБ, или всего больше 40 МБ) — сожмите или сфотографируйте заново.",
+                        $"«{file.Name}» өтө чоң (15 МБдан же жалпы 40 МБдан ашык) — кичирейтиңиз же кайра тартыңыз.",
+                        $"“{file.Name}” is too big (over 15 MB, or over 40 MB in total) — shrink it or retake it.",
+                        $"«{file.Name}» çok büyük (15 MB'tan veya toplamda 40 MB'tan fazla) — küçültün veya yeniden çekin.",
+                        $"«{file.Name}» juda katta (15 MB dan yoki jami 40 MB dan ortiq) — kichraytiring yoki qayta oling."), fromOwner: false);
+                    continue;
+                }
+                var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+                _attachments.Add((ms.ToArray(), ext switch { ".png" => "image/png", ".webp" => "image/webp", ".pdf" => "application/pdf", _ => "image/jpeg" }, file.Name));
             }
-            var name = files[0].Name;
-            var ext = Path.GetExtension(name).ToLowerInvariant();
-            SetAttachment(ms.ToArray(), ext switch { ".png" => "image/png", ".webp" => "image/webp", _ => "image/jpeg" }, name);
+            RenderAttachments();
         }
         catch (Exception ex)
         {
@@ -1667,51 +1778,93 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         }
     }
 
-    private void SetAttachment(byte[] data, string mime, string name)
+    /// <summary>Вложения над строкой ввода: миниатюра и «стр. N» у каждого, ✕ — убрать страницу, «＋ Ещё страница».</summary>
+    private void RenderAttachments()
     {
-        _attachedImage = data;
-        _attachedMime = mime;
-        _attachedName = name;
         if (_attachRow is null)
             return;
         _attachRow.Children.Clear();
-        try
+        if (_attachments.Count == 0)
         {
-            using var ms = new MemoryStream(data);
-            var bmp = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(ms, 96);
-            _attachRow.Children.Add(new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Width = 48, Height = 48, Child = new Image { Source = bmp, Stretch = Stretch.UniformToFill } });
+            _attachRow.IsVisible = false;
+            return;
         }
-        catch
+        for (var n = 0; n < _attachments.Count; n++)
         {
-            // не картинка для предпросмотра — покажем имя
+            var (data, mime, name) = _attachments[n];
+            Control thumb;
+            if (mime.StartsWith("image/", StringComparison.Ordinal))
+            {
+                try
+                {
+                    using var ms = new MemoryStream(data);
+                    thumb = new Image { Source = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(ms, 96), Stretch = Stretch.UniformToFill };
+                }
+                catch
+                {
+                    thumb = new TextBlock { Text = "🖼", FontSize = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                }
+            }
+            else
+                thumb = new TextBlock { Text = "📄", FontSize = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var page = new TextBlock { Text = T($"стр. {n + 1}", $"{n + 1}-бет", $"p. {n + 1}", $"s. {n + 1}", $"{n + 1}-bet"), FontSize = 11 };
+            Use(page, TextBlock.ForegroundProperty, "BrushTextSoft");
+            var index = n;
+            var remove = UiKit.Ghost(this, "✕");
+            remove.Height = 22;
+            remove.FontSize = 11;
+            remove.Padding = new Thickness(6, 0);
+            remove.Click += (_, _) =>
+            {
+                if (index < _attachments.Count)
+                    _attachments.RemoveAt(index);
+                RenderAttachments();
+            };
+            ToolTip.SetTip(remove, name);
+            _attachRow.Children.Add(new StackPanel
+            {
+                Spacing = 2, Margin = new Thickness(0, 0, 6, 0),
+                Children =
+                {
+                    new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Width = 48, Height = 48, Child = thumb },
+                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { page, remove } },
+                },
+            });
+        }
+        if (_attachments.Count < MaxAttachments)
+        {
+            var more = UiKit.Ghost(this, T("＋ Ещё страница", "＋ Дагы барак", "＋ Another page", "＋ Bir sayfa daha", "＋ Yana sahifa"));
+            more.Height = 32;
+            more.Click += async (_, _) => await PickPhotoAsync().ConfigureAwait(true);
+            _attachRow.Children.Add(more);
         }
         var label = new TextBlock
         {
-            Text = name + " — " + T($"напишите, что сделать (или просто отправьте: накладная, наценка не меньше {ProductActionPlan.MinMarkupPercent:0} %)",
-                $"эмне кылууну жазыңыз (же жөн эле жөнөтүңүз: накладная, үстөк {ProductActionPlan.MinMarkupPercent:0} %дан кем эмес)",
-                $"type what to do (or just send: invoice, markup at least {ProductActionPlan.MinMarkupPercent:0}%)",
-                $"ne yapılacağını yazın (veya sadece gönderin: fatura, kâr payı en az %{ProductActionPlan.MinMarkupPercent:0})",
-                $"nima qilishni yozing (yoki shunchaki yuboring: yuk xati, ustama kamida {ProductActionPlan.MinMarkupPercent:0} %)"),
-            VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, MaxWidth = 600,
+            Text = T($"Напишите, что сделать (или просто отправьте: накладная, наценка не меньше {ProductActionPlan.MinMarkupPercent:0} %)",
+                $"Эмне кылууну жазыңыз (же жөн эле жөнөтүңүз: накладная, үстөк {ProductActionPlan.MinMarkupPercent:0} %дан кем эмес)",
+                $"Type what to do (or just send: invoice, markup at least {ProductActionPlan.MinMarkupPercent:0}%)",
+                $"Ne yapılacağını yazın (veya sadece gönderin: fatura, kâr payı en az %{ProductActionPlan.MinMarkupPercent:0})",
+                $"Nima qilishni yozing (yoki shunchaki yuboring: yuk xati, ustama kamida {ProductActionPlan.MinMarkupPercent:0} %)"),
+            VerticalAlignment = VerticalAlignment.Center, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, MaxWidth = 420, Margin = new Thickness(6, 0, 0, 0),
         };
         Use(label, TextBlock.ForegroundProperty, "BrushTextSoft");
         _attachRow.Children.Add(label);
-        var remove = UiKit.Ghost(this, "✕");
-        remove.Height = 32;
-        remove.Click += (_, _) => ClearAttachment();
-        _attachRow.Children.Add(remove);
         _attachRow.IsVisible = true;
         _input.Focus();
     }
 
+    /// <summary>Одно вложение (например, снимок с камеры) — как раньше; добавляется к уже прикреплённым страницам.</summary>
+    private void SetAttachment(byte[] data, string mime, string name)
+    {
+        if (_attachments.Count < MaxAttachments)
+            _attachments.Add((data, mime, name));
+        RenderAttachments();
+    }
+
     private void ClearAttachment()
     {
-        _attachedImage = null;
-        _attachedName = "";
-        if (_attachRow is null)
-            return;
-        _attachRow.Children.Clear();
-        _attachRow.IsVisible = false;
+        _attachments.Clear();
+        RenderAttachments();
     }
 
     /// <summary>Подготовленные изменения, которые ждут «Выполнить» (или голосового «да, выполни» в звонке).</summary>
@@ -1738,7 +1891,14 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             _ = ShowPhotoChoicesAsync(photos);
         var changes = steps.Where(st => st.Op is not ("open" or "open_section" or "photo")).ToList();
         if (changes.Count > 0)
-            AddProductActionsCard(changes);
+            AddProductActionsCard(changes, request);
+    }
+
+    private static bool LooksLikeInvoiceRequest(string request)
+    {
+        var text = (request ?? "").ToLowerInvariant();
+        return new[] { "накладн", "накладную", "счёт-фактур", "счет-фактур", "invoice", "fatura", "yuk xati", "накладнойдун" }
+            .Any(text.Contains);
     }
 
     // 2026-10-06, владелец «завис!!!» (снимок карточки с полями штрихкода): карточка сама ставила курсор в поле штрихкода —
@@ -1809,23 +1969,116 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     }
 
     /// <summary>2026-10-06: предложенные ИИ действия с товарами — карточкой; выполняются только по «Выполнить» (ProductActionPlan).</summary>
-    private void AddProductActionsCard(List<ProductActionPlan.Step> steps)
+    private void AddProductActionsCard(List<ProductActionPlan.Step> steps, string request)
     {
-        var title = new TextBlock { Text = T("Изменить товары?", "Товарларды өзгөртөлүбү?", "Change the products?", "Ürünler değiştirilsin mi?", "Mahsulotlarni o'zgartiraymi?"), FontWeight = FontWeight.Bold, FontSize = 14.5 };
+        var invoice = LooksLikeInvoiceRequest(request);
+        var title = new TextBlock
+        {
+            Text = invoice
+                ? T("Накладная — проверьте строки и итоги", "Накладная — саптарды жана жыйынтыкты текшериңиз", "Invoice — review items and totals", "Fatura — satırları ve toplamları kontrol edin", "Yuk xati — qatorlar va jami summani tekshiring")
+                : T("Изменить товары?", "Товарларды өзгөртөлүбү?", "Change the products?", "Ürünler değiştirilsin mi?", "Mahsulotlarni o'zgartiraymi?"),
+            FontWeight = FontWeight.Bold,
+            FontSize = 14.5,
+        };
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         // 2026-10-06, владелец: «при загрузке товара спрашивать штрихкод через сканер». У нового товара без штрихкода — поле
         // «отсканируйте»: сканер пишет в поле и жмёт Enter — курсор переходит к следующему. Штрихкод уже есть у товара в
         // каталоге — это не новый товар, а приход к нему (дубль не создаётся).
         var body = new StackPanel { Spacing = 4 };
         var barcodeBoxes = new Dictionary<int, (TextBox Box, TextBlock Note)>();
+        // 2026-10-10: список новых товаров и приходов показываем таблицей, даже если формулировка запроса не распознана как накладная.
+        var showProductTable = invoice || steps.Any(step => step.Op is "create" or "receive");
+        if (showProductTable)
+        {
+            var header = invoice
+                ? new[] { "№", "Наименование товара", "Штрихкод / Артикул", "Ед. изм.", "Кол-во", "Цена закупа", "Розничная цена", "Сумма (закуп)" }
+                : new[]
+                {
+                    T("№", "№", "No.", "No.", "№"),
+                    T("Наименование товара", "Товардын аталышы", "Product name", "Ürün adı", "Mahsulot nomi"),
+                    T("Действие", "Аракет", "Action", "İşlem", "Amal"),
+                    T("Ед. изм.", "Өлчөм бирд.", "Unit", "Birim", "O'lchov bir."),
+                    T("Кол-во", "Саны", "Qty", "Miktar", "Miqdor"),
+                    T("Цена закупа", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"),
+                    T("Розничная цена", "Чекене баа", "Retail price", "Perakende fiyatı", "Chakana narx"),
+                    T("Штрихкод / Артикул", "Штрихкод / Артикул", "Barcode / SKU", "Barkod / Stok kodu", "Shtrix-kod / Artikул"),
+                    T("Наценка", "Үстөк", "Markup", "Kâr payı", "Ustama"),
+                };
+            var rows = steps.Select((step, index) =>
+            {
+                var unit = string.IsNullOrWhiteSpace(step.Unit)
+                    ? (step.Product.MustWeigh ? "кг" : "шт")
+                    : step.Unit!;
+                var quantity = step.Qty is { } q ? q.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture) : "-";
+                var purchase = step.Purchase is { } cost ? cost.ToString("N2", System.Globalization.CultureInfo.CurrentCulture) : "-";
+                var retailValue = step.Price ?? (step.Product.PriceValue > 0 ? step.Product.PriceValue : null);
+                var retail = retailValue is { } price ? price.ToString("N2", System.Globalization.CultureInfo.CurrentCulture) : "-";
+                var lineTotal = step.Qty is { } qty && step.Purchase is { } unitCost
+                    ? (qty * unitCost).ToString("N2", System.Globalization.CultureInfo.CurrentCulture)
+                    : "-";
+                var barcode = !string.IsNullOrWhiteSpace(step.Barcode) ? step.Barcode : step.Product.Barcode;
+                if (invoice)
+                {
+                    return new[]
+                    {
+                        (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), step.Product.Title,
+                        string.IsNullOrWhiteSpace(barcode) ? "-" : barcode, unit, quantity, purchase, retail, lineTotal,
+                    };
+                }
+                var markup = step.RaisedToMin
+                    ? $"мин. {ProductActionPlan.MinMarkupPercent:0.#}%"
+                    : step.Purchase is > 0 && retailValue is { } retailPrice
+                        ? $"{((retailPrice / step.Purchase.Value - 1) * 100):0.#}%"
+                        : "-";
+                var operation = step.Op == "create"
+                    ? T("Новый товар", "Жаңы товар", "New product", "Yeni ürün", "Yangi mahsulot")
+                    : step.Op == "receive"
+                        ? T("Приход", "Киреше", "Stock receipt", "Stok girişi", "Kirim")
+                        : ProductActionPlan.Describe(step);
+                return new[]
+                {
+                    (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), step.Product.Title, operation, unit,
+                    quantity, purchase, retail, string.IsNullOrWhiteSpace(barcode) ? "-" : barcode, markup,
+                };
+            }).ToList();
+            body.Children.Add(BuildTable(header, rows));
+
+        }
+        if (invoice)
+        {
+            var totalNames = steps.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            var unitTotals = steps
+                .Where(step => step.Qty is not null)
+                .GroupBy(step => string.IsNullOrWhiteSpace(step.Unit) ? (step.Product.MustWeigh ? "кг" : "шт") : step.Unit!)
+                .Select(group => $"{group.Sum(step => step.Qty!.Value).ToString("0.###", System.Globalization.CultureInfo.CurrentCulture)} {group.Key}")
+                .ToList();
+            var totalQuantity = unitTotals.Count == 0 ? "-" : string.Join("; ", unitTotals);
+            var totalPurchase = steps.All(step => step.Qty is not null && step.Purchase is not null)
+                ? steps.Sum(step => step.Qty!.Value * step.Purchase!.Value).ToString("N2", System.Globalization.CultureInfo.CurrentCulture) + " сом"
+                : "-";
+            var totals = new TextBlock
+            {
+                Text = $"Всего наименований: {totalNames}\nОбщее количество единиц: {totalQuantity}\nОбщая сумма закупа: {totalPurchase}",
+                FontSize = 13.5,
+                FontWeight = FontWeight.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 21,
+                Margin = new Thickness(2, 4, 2, 6),
+            };
+            Use(totals, TextBlock.ForegroundProperty, "BrushText");
+            body.Children.Add(totals);
+        }
         // Только точное совпадение штрихкода (Find ищет и по названию — недописанный код не должен «найти» чужой товар).
         static NurMarketKassa.Models.Pos.CatalogProductTileVm? ByBarcode(string code) =>
             code.Length >= 4 && ProductActions.Find(code) is { } p && string.Equals((p.Barcode ?? "").Trim(), code, StringComparison.OrdinalIgnoreCase) ? p : null;
         for (var i = 0; i < steps.Count; i++)
         {
-            var line = new TextBlock { Text = "• " + ProductActionPlan.Describe(steps[i]), FontSize = 14, TextWrapping = TextWrapping.Wrap, LineHeight = 21 };
-            Use(line, TextBlock.ForegroundProperty, "BrushText");
-            body.Children.Add(line);
+            if (!showProductTable)
+            {
+                var line = new TextBlock { Text = "• " + ProductActionPlan.Describe(steps[i]), FontSize = 14, TextWrapping = TextWrapping.Wrap, LineHeight = 21 };
+                Use(line, TextBlock.ForegroundProperty, "BrushText");
+                body.Children.Add(line);
+            }
             if (steps[i].Op != "create" || !string.IsNullOrWhiteSpace(steps[i].Barcode))
                 continue;
             var box = UiKit.Input(this, T("Штрихкод — отсканируйте сканером или введите", "Штрихкод — сканер менен окутуңуз же жазыңыз", "Barcode — scan it or type it",
@@ -1906,7 +2159,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             if (!barcodeBoxes.TryGetValue(i, out var b) || (b.Box.Text ?? "").Trim() is not { Length: >= 4 } code)
                 return st;
             return ByBarcode(code) is { Id.Length: > 0 } existing
-                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, st.Price)
+                ? new ProductActionPlan.Step("receive", existing, st.Qty, null, null, st.Purchase, st.Price, ExpectedStock: existing.Quantity)
                 : st with { Barcode = code };
         }).ToList();
         var scanTargets = barcodeBoxes.OrderBy(kv => kv.Key).Select(kv => kv.Value.Box).ToList();
@@ -1919,9 +2172,24 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         var result = new TextBlock { FontSize = 13.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 20 };
         Use(result, TextBlock.ForegroundProperty, "BrushText");
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { apply, cancel } };
+        // 2026-10-11, тестировщик (иишка.md, 2): «рядом с одобрением — кнопка «Отредактировать»: подробный редактор списка, который
+        // выдаёт ИИ» (InvoiceEditorWindow). Сохранили — карточка пересобирается с исправленными строками (прежняя гаснет).
+        if (steps.Any(s => s.Op is "create" or "receive"))
+        {
+            var editButton = UiKit.Ghost(this, T("✎ Отредактировать", "✎ Түзөтүү", "✎ Edit", "✎ Düzenle", "✎ Tahrirlash"));
+            editButton.Height = 38;
+            editButton.Click += async (_, _) =>
+            {
+                var editor = new InvoiceEditorWindow(ResolveSteps());
+                var editedSteps = await editor.ShowDialog<List<ProductActionPlan.Step>?>(this).ConfigureAwait(true);
+                if (editedSteps is { Count: > 0 } && _pendingProductCancel is not null && buttons.IsVisible)
+                    AddProductActionsCard(editedSteps, request);
+            };
+            buttons.Children.Insert(1, editButton);
+        }
         var card = new Border
         {
-            CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 10), MaxWidth = 680, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 10), MaxWidth = invoice ? 900 : 680, BorderThickness = new Thickness(1),
             HorizontalAlignment = HorizontalAlignment.Left,
             Child = new StackPanel { Spacing = 8, Children = { title, body, buttons, result } },
         };
@@ -1997,7 +2265,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         try
         {
             var (summary, _) = await GetSummaryAsync().ConfigureAwait(true);
-            var (answer, error) = await TelegramAiChat.AskOwnerAppAsync(
+            var (answer, error, webSources) = await TelegramAiChat.AskOwnerAppWithDetailsAsync(
                 utterance + "\n(Сказано голосом во время звонка. Ответь одной-двумя фразами и строками «ТОВАР:», если нужны изменения или открыть товар.)",
                 summary, CancellationToken.None).ConfigureAwait(true);
             if (_live != live || answer is not { Length: > 0 })
@@ -2006,14 +2274,14 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                     PosLogger.Log($"ИИ-советник: в звонке товар не разобран ({error}).", "WARNING");
                 return;
             }
-            var (text, steps) = ProductActionPlan.Extract(answer);
+            var (text, steps, _) = ProductActionPlan.Extract(answer, utterance);
             var changes = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
             // Просили сведения (без изменений) — ответ текстом на экране, со ссылками.
             if (changes.Count == 0 && text.Length > 0 && ProductInfoResearch.LooksLikeInfoRequest(utterance))
             {
                 AddBubble(TelegramAiChat.ToPlainText(text), fromOwner: false);
-                if (TelegramAiChat.LastWebSources.Count > 0)
-                    AddWebSources(TelegramAiChat.LastWebSources);
+                if (webSources.Count > 0)
+                    AddWebSources(webSources);
             }
             ShowProductSteps(steps, utterance);
             var note = changes.Count > 0
@@ -2094,7 +2362,7 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
                               + (error ?? "нет ответа");
                 return;
             }
-            var (clean, _) = ProductActionPlan.Extract(answer);
+            var (clean, _, _) = ProductActionPlan.Extract(answer, utterance);
             var text = OwnerAiContext.RevealDebtors(TelegramAiChat.ToPlainText(clean), names);
             bubble.Text = text;
             ScrollToEnd();
@@ -3043,21 +3311,19 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
     private bool LivePhotoPass(string spoken, string aiSaid, GeminiLiveVoice live)
     {
         static bool OpenWords(string x) => new[] { "откр", "перейд", "зайди", "ачып" }.Any(x.Contains);
-        static bool PhotoWords(string x) => new[] { "фото", "фотк", "сүрөт", "photo", "картинк", "изображен", "rasm", "fotoğraf" }.Any(x.Contains);
-        static bool WebWords(string x) => new[] { "интернет", "поищи", "поиск", "internet", "online" }.Any(x.Contains);
         var t = spoken.ToLowerInvariant();
-        var ai = aiSaid.ToLowerInvariant();
         // «Открой склад, проверь фото» — это открыть товар (TryQuickOpen), не поиск фото.
         if (OpenWords(t))
             return false;
         var recentPhotoTalk = DateTime.UtcNow - _liveLastPhotoTalkUtc < TimeSpan.FromMinutes(3);
-        var fromOwner = PhotoWords(t) || (WebWords(t) && recentPhotoTalk);
-        var fromAi = !fromOwner && PhotoWords(ai) && (WebWords(ai) || new[] { "ищу", "издей", "издеп", "табат", "searching" }.Any(ai.Contains));
-        if (!fromOwner && !fromAi)
+        // Поиск разрешает только прямая команда владельца, а не слова «фото» или обещание самого ИИ.
+        var fromOwner = ProductActionPlan.IsExplicitPhotoWebSearchRequest(t)
+                        || (recentPhotoTalk && ProductActionPlan.IsExplicitWebSearchRequest(t));
+        if (!fromOwner)
             return false;
-        var source = fromOwner ? spoken : aiSaid;
+        var source = spoken;
         var products = ProductsByWords(source, 3);
-        if (products.Count == 0 && fromOwner && recentPhotoTalk)
+        if (products.Count == 0 && recentPhotoTalk)
             products = _liveLastProducts;
         if (products.Count == 0)
         {
@@ -3074,10 +3340,10 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
         _liveLastPhotoTalkUtc = DateTime.UtcNow;
         var names = string.Join(", ", products.Select(p => p.Title));
         _ = ShowPhotoChoicesAsync(products);
-        PosLogger.Log($"ИИ-советник: в звонке поиск фото в интернете — {names}{(fromAi ? " (по словам советника)" : "")}.", "INFO");
+        PosLogger.Log($"ИИ-советник: в звонке поиск фото в интернете — {names}.", "INFO");
         _ = live.SendTextAsync($"[Программа] Ищу фото в интернете для: {names}. На экране крутится индикатор поиска, через несколько секунд появятся "
                                + "варианты с номерами; владелец выберет словами «поставь фото номер N». Фото из склада программы не показывай и не обещай. "
-                               + "Скажи одной фразой, что ищешь.", respond: !fromAi);
+                       + "Скажи одной фразой, что ищешь.");
         return true;
     }
 
@@ -3093,16 +3359,78 @@ public sealed class AiAdvisorWindow : Window, IOwnerSection
             c.Label.Text = $"№{++i} · {c.Candidate.Source.Replace("интернет: ", "")}";
     }
 
-    private static bool IsPhotoRequest(string text)
+    /// <summary>2026-10-10: запрос «покажи/проанализируй склад без фото» отвечает по полному локальному каталогу, а не по короткой AI-сводке.</summary>
+    private static bool IsNoPhotoInventoryQuery(string question)
     {
-        var t = text.ToLowerInvariant();
-        var photo = new[] { "фото", "фотк", "сүрөт", "photo", "picture", "image", "fotoğraf", "resim", "rasm", "surat" }.Any(t.Contains);
-        // Начало слова, а не подстрока: иначе «кой» находится в «какой», «add» — в «address».
-        var words = t.Split(new[] { ' ', ',', '.', '!', '?', '\n', '«', '»', '"' }, StringSplitOptions.RemoveEmptyEntries);
-        var stems = new[] { "загруз", "найд", "найт", "постав", "добав", "ищи", "поищ", "жүктө", "тап", "таб", "кой", "кою", "upload", "find", "add", "set", "yükle", "bul", "ekle", "yukla", "top", "qo'sh" };
-        var act = words.Any(w => stems.Any(w.StartsWith));
-        return photo && act;
+        var text = (question ?? "").ToLowerInvariant();
+        if (ProductActionPlan.IsExplicitPhotoWebSearchRequest(text))
+            return false;
+        var withoutPhoto = new[] { "без фото", "без фотограф", "нет фото", "нет фотограф", "without photo", "no photo", "fotoğrafsız", "rasmsiz", "rasm yo'q", "сүрөтү жок" }
+            .Any(text.Contains);
+        var asksForInventory = new[] { "склад", "товар", "спис", "перечис", "покаж", "вывед", "введ", "анализ", "какие", "inventory", "product", "list", "show", "analy" }
+            .Any(text.Contains);
+        return withoutPhoto && asksForInventory;
     }
+
+    /// <summary>Полный отчёт по отсутствию фото. Используется локальная копия всего каталога; внешние сайты и AI не вызываются.</summary>
+    private static string BuildNoPhotoInventoryReport(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var catalog = LocalProductRepository.Instance.LoadAllTiles()
+            .Where(product => !product.IsService)
+            .ToList();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (catalog.Count == 0)
+            return T("Локальный каталог пуст или ещё не загружен. Обновите каталог и повторите запрос.",
+                "Жергиликтүү каталог бош же жүктөлө элек. Каталогду жаңыртып, кайра сураңыз.",
+                "The local catalog is empty or has not loaded yet. Refresh the catalog and try again.",
+                "Yerel katalog boş veya henüz yüklenmedi. Kataloğu yenileyip tekrar deneyin.",
+                "Mahalliy katalog bo'sh yoki hali yuklanmagan. Katalogni yangilab qayta urinib ko'ring.");
+
+        var missing = catalog
+            .Where(product => string.IsNullOrWhiteSpace(product.ImageUrl) && string.IsNullOrWhiteSpace(product.ProductImagePath))
+            .OrderBy(product => product.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        if (missing.Count == 0)
+            return T($"Проверено товаров: {catalog.Count}. У всех товаров каталога есть фото.",
+                $"Текшерилген товарлар: {catalog.Count}. Каталогдогу бардык товарларда сүрөт бар.",
+                $"Products checked: {catalog.Count}. Every catalog product has a photo.",
+                $"Kontrol edilen ürün: {catalog.Count}. Katalogdaki tüm ürünlerin fotoğrafı var.",
+                $"Tekshirilgan mahsulotlar: {catalog.Count}. Katalogdagi barcha mahsulotlarda rasm bor.");
+
+        static string Cell(string? value) => string.IsNullOrWhiteSpace(value)
+            ? "-"
+            : value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ").Trim();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(T("Товары без фото в локальном каталоге:", "Жергиликтүү каталогдогу сүрөтсүз товарлар:",
+            "Products without photos in the local catalog:", "Yerel katalogda fotoğrafı olmayan ürünler:",
+            "Mahalliy katalogdagi rasmsiz mahsulotlar:"));
+        sb.AppendLine("| № | " + T("Товар", "Товар", "Product", "Ürün", "Mahsulot") + " | "
+                      + T("Штрихкод / артикул", "Штрихкод / артикул", "Barcode / article", "Barkod / stok kodu", "Shtrix-kod / artikul") + " | "
+                      + T("Категория / бренд", "Категория / бренд", "Category / brand", "Kategori / marka", "Turkum / brend") + " | "
+                      + T("Цена", "Баасы", "Price", "Fiyat", "Narx") + " | "
+                      + T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq") + " |");
+        sb.AppendLine("|---:|---|---|---|---:|---:|");
+        for (var index = 0; index < missing.Count; index++)
+        {
+            if ((index & 127) == 0)
+                cancellationToken.ThrowIfCancellationRequested();
+            var product = missing[index];
+            var barcode = string.Join(" / ", new[] { product.Barcode, product.Article }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            var categoryBrand = string.Join(" / ", new[] { product.Category, product.Brand }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            sb.Append("| ").Append(index + 1).Append(" | ").Append(Cell(product.Title)).Append(" | ")
+                .Append(Cell(barcode)).Append(" | ").Append(Cell(categoryBrand)).Append(" | ")
+                .Append(Cell(product.PriceLineDisplay)).Append(" | ").Append(Cell(product.StockWithUnitText)).AppendLine(" |");
+        }
+        sb.AppendLine();
+        sb.Append(T("Всего товаров без фото", "Сүрөтсүз товарлардын жалпы саны", "Products without photos", "Fotoğrafı olmayan ürün sayısı", "Rasmsiz mahsulotlar soni"))
+            .Append(": ").Append(missing.Count).Append(" / ").Append(catalog.Count);
+        return sb.ToString();
+    }
+
+    private static bool IsPhotoRequest(string text)
+        => ProductActionPlan.IsExplicitPhotoWebSearchRequest(text);
 
     /// <summary>2026-10-05: «загрузи фото к товарам, у которых нет фото». Товары без фото → поиск по штрихкоду в
     /// открытых базах (ProductPhotoFinder) → найденные показываются с «Поставить» / «Поставить все»; остальные —

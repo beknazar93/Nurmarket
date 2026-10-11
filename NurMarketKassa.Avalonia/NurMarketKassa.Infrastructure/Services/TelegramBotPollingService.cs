@@ -404,6 +404,12 @@ public sealed partial class TelegramBotPollingService
         // сегодня», «кто должен», «цена кола»), см. TelegramAssistant. Бесплатно и без интернета.
         if (!text.TrimStart().StartsWith('/'))
         {
+            if (!isOwner && await TelegramAiChat.HandlePendingCustomerOrderAsync(chatId!, text, ct).ConfigureAwait(false) is { } orderReply)
+            {
+                await SendReplyAsync(chatId!, orderReply, ct).ConfigureAwait(false);
+                return;
+            }
+
             var (mapped, direct, isChat) = TelegramAssistant.Understand(text, isOwner);
 
             // Разговор (приветствие, «почему…», непонятный вопрос) — отвечает нейросеть, если

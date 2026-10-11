@@ -81,18 +81,31 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     private string _variantQuantity = "";
     private readonly ObservableCollection<VariantDraft> _variants = new();
 
-    public sealed class VariantDraft
+    /// <summary>2026-10-11, тестировщик (склад.md, 2.1.2): доп. штрихкод можно поправить после добавления — ✎ открывает поля
+    /// прямо в списке, ✓ сохраняет (значения Edit* переносятся в Barcode/Name/Quantity).</summary>
+    public sealed class VariantDraft : INotifyPropertyChanged
     {
-        public required string Barcode { get; init; }
+        private string _barcode = "", _name = "", _fullName = "";
+        private double _quantity;
+        private bool _isEditing;
+
+        public required string Barcode { get => _barcode; set { _barcode = value; Raise(); } }
         /// <summary>Название ВАРИАНТА (например, "клубничный") — то, что уходит в
         /// alternate_barcodes[].name и комбинируется с названием товара при сканировании
         /// (2026-09-21). Не путать с FullName ниже.</summary>
-        public required string Name { get; init; }
-        /// <summary>Название товара + название варианта — только для показа в списке уже
-        /// добавленных штрихкодов, вычисляется один раз в момент добавления/загрузки (не
-        /// live-реактивно к последующему редактированию основного названия товара).</summary>
-        public required string FullName { get; init; }
-        public double Quantity { get; init; }
+        public required string Name { get => _name; set { _name = value; Raise(); } }
+        /// <summary>Название товара + название варианта — только для показа в списке.</summary>
+        public required string FullName { get => _fullName; set { _fullName = value; Raise(); } }
+        public double Quantity { get => _quantity; set { _quantity = value; Raise(); } }
+
+        public bool IsEditing { get => _isEditing; set { _isEditing = value; Raise(); Raise(nameof(EditGlyph)); } }
+        public string EditGlyph => _isEditing ? "✓" : "✎";
+        public string EditBarcode { get; set; } = "";
+        public string EditName { get; set; } = "";
+        public string EditQuantity { get; set; } = "";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void Raise([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
     public bool Saved { get; private set; }
@@ -190,6 +203,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         // 2026-10-06, владелец (фото моноблока клиента): «там поля для цены не видны». Окно ужато под экран (DialogScreenFit),
         // а поля цены оставались ниже видимой части вкладки — на сенсоре прокрутку не найти. На невысоком окне поля плотнее
         // (цены помещаются), а поле, получившее фокус (касание, Tab), прокручивается в вид.
+        // 2026-10-11 (склад.md, 2.1): подписи вкладки «Доп. штрих-коды» и поля «Минимальный остаток»; значение — с сервера.
+        AltBarcodesTab.Header = Tr.T("Доп. штрих-коды", "Кошумча штрихкоддор", "Extra barcodes", "Ek barkodlar", "Qo'shimcha shtrix-kodlar");
+        MinimumQuantityLabel.Text = Tr.T("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq");
+        Opened += (_, _) => _ = LoadMinimumQuantityAsync();
         // 2026-10-07, владелец: «если наименование есть — поставь штрихкод из barcode-list.ru, но дай проверить и сверить».
         NameBox.LostFocus += (_, _) => _ = BarcodeSuggestAsync();
         // Совсем низкое окно (< 700: моноблок 1366×768 с масштабом 125 %) — ещё плотнее и без подсказки про скан.
@@ -892,7 +909,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-13): в сфере «Одежда» переключатель «Весовой» (и PLU) не нужен —
     /// одежду не взвешивают, а случайно включённый «Весовой» ломал продажу. Если товар уже весовой — переключатель остаётся,
     /// чтобы его можно было выключить.</summary>
-    public bool ShowWeightToggle => !IsQuickAddMode && (!MarketSpheres.IsClothing || _isWeight);
+    // 2026-10-07, владелец (снимок окна товара в режиме «Одежда»): «где при добавлении тумблер «Весовой», как на вебе?» —
+    // переключатель снова виден во всех режимах магазина, как на сайте NurCRM.
+    public bool ShowWeightToggle => !IsQuickAddMode;
     public string Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); } }
     public string PurchasePrice { get => _purchasePrice; set { _purchasePrice = value; OnPropertyChanged(); RaisePriceWarning(); } }
 
@@ -992,6 +1011,33 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public string PackageQuantity { get => _packageQuantity; set { _packageQuantity = value; OnPropertyChanged(); } }
     public string PackagePiecePrice { get => _packagePiecePrice; set { _packagePiecePrice = value; OnPropertyChanged(); } }
     public string WholesalePrice { get => _wholesalePrice; set { _wholesalePrice = value; OnPropertyChanged(); } }
+
+    // 2026-10-11, тестировщик (склад.md, 2.1.3): «Минимальный остаток» на вкладке «Упаковка». У существующего товара значение
+    // читается с сервера при открытии; не прочитали и не вписали — на сервер не отправляется (не затираем).
+    private string _minimumQuantity = "";
+    private bool _minimumQuantityKnown;
+    public string MinimumQuantity { get => _minimumQuantity; set { _minimumQuantity = value; _minimumQuantityKnown = true; OnPropertyChanged(); } }
+
+    private async Task LoadMinimumQuantityAsync()
+    {
+        if (_existing is null || string.IsNullOrWhiteSpace(_existing.Id) || OfflineModeHelper.UseLocalOperations)
+            return;
+        try
+        {
+            if (await PosApp.CatalogApi.ProductsDetailAsync(_existing.Id).ConfigureAwait(true) is { ValueKind: System.Text.Json.JsonValueKind.Object } el
+                && el.TryGetProperty("minimum_quantity", out var v) && !_minimumQuantityKnown
+                && double.TryParse(v.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var min))
+            {
+                _minimumQuantity = min > 0 ? min.ToString("0.###", CultureInfo.InvariantCulture) : "";
+                _minimumQuantityKnown = true;
+                OnPropertyChanged(nameof(MinimumQuantity));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Карточка товара: минимальный остаток не прочитан ({ex.Message}).", "WAREHOUSE");
+        }
+    }
     public string DiscountPercent { get => _discountPercent; set { _discountPercent = value; OnPropertyChanged(); } }
     public string HeightCm { get => _heightCm; set { _heightCm = value; OnPropertyChanged(); } }
     public string WidthCm { get => _widthCm; set { _widthCm = value; OnPropertyChanged(); } }
@@ -1082,6 +1128,36 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         VariantBarcode = "";
         VariantNameSuffix = "";
         VariantQuantity = "";
+        ErrorMessage = "";
+    }
+
+    private void EditVariant_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: VariantDraft draft })
+            return;
+        if (!draft.IsEditing)
+        {
+            draft.EditBarcode = draft.Barcode;
+            draft.EditName = draft.Name;
+            draft.EditQuantity = draft.Quantity > 0 ? draft.Quantity.ToString("0.###", CultureInfo.InvariantCulture) : "";
+            draft.IsEditing = true;
+            return;
+        }
+        var barcode = (draft.EditBarcode ?? "").Trim();
+        var name = (draft.EditName ?? "").Trim();
+        if (barcode.Length == 0 || _variants.Any(v => !ReferenceEquals(v, draft) && string.Equals(v.Barcode.Trim(), barcode, StringComparison.OrdinalIgnoreCase)))
+        {
+            ErrorMessage = barcode.Length == 0
+                ? Tr.T("Штрихкод не может быть пустым.", "Штрихкод бош болбошу керек.", "The barcode can't be empty.", "Barkod boş olamaz.", "Shtrix-kod bo'sh bo'lishi mumkin emas.")
+                : Tr.T("Такой доп. штрихкод уже есть в списке.", "Мындай кошумча штрихкод тизмеде бар.", "This extra barcode is already in the list.",
+                    "Bu ek barkod listede zaten var.", "Bunday qo'shimcha shtrix-kod ro'yxatda bor.");
+            return;
+        }
+        draft.Barcode = barcode;
+        draft.Name = name;
+        draft.Quantity = ParseNumber(draft.EditQuantity);
+        draft.FullName = name.Length == 0 ? barcode : (string.IsNullOrWhiteSpace(_name) ? name : $"{_name.Trim()} {name}");
+        draft.IsEditing = false;
         ErrorMessage = "";
     }
 
@@ -1216,6 +1292,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 HotkeyGroup = _hotkeyGroup == "Без горячей клавиши" ? null : _hotkeyGroup,
                 Plu = pluValue,
                 WholesalePrice = TryParseNumber(_wholesalePrice),
+                MinimumQuantity = _minimumQuantityKnown ? TryParseNumber(_minimumQuantity) ?? 0 : null,
                 DiscountPercent = TryParseNumber(_discountPercent),
                 HeightCm = TryParseNumber(_heightCm),
                 WidthCm = TryParseNumber(_widthCm),

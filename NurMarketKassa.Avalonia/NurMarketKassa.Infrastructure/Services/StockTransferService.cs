@@ -230,6 +230,35 @@ public sealed class StockTransferService
         });
     }
 
+    /// <summary>2026-10-11, тестировщик (склад.md, 5): «ничего не происходит и создаётся черновик». «Создать перемещение» сразу
+    /// заводит документ; если окно закрыли, ничего не добавив и не указав маршрут, — пустой черновик удаляется, а не копится в журнале.
+    /// true — удалён.</summary>
+    public bool DeleteIfEmptyDraft(string transferId)
+    {
+        var deleted = false;
+        DatabaseService.Instance.WithConnection(connection =>
+        {
+            using var check = connection.CreateCommand();
+            check.CommandText = """
+                SELECT COUNT(*) FROM StockTransfers t
+                WHERE t.id = $id AND t.status = $created
+                  AND t.from_place_id IS NULL AND t.to_place_id IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM StockTransferItems i WHERE i.transfer_id = t.id)
+                  AND NOT EXISTS (SELECT 1 FROM StockTransferFiles f WHERE f.transfer_id = t.id);
+                """;
+            check.Parameters.AddWithValue("$id", transferId);
+            check.Parameters.AddWithValue("$created", StatusCreated);
+            if (Convert.ToInt32(check.ExecuteScalar() ?? 0) == 0)
+                return;
+            using var delete = connection.CreateCommand();
+            delete.CommandText = "DELETE FROM StockTransferLog WHERE transfer_id = $id; DELETE FROM StockTransfers WHERE id = $id;";
+            delete.Parameters.AddWithValue("$id", transferId);
+            delete.ExecuteNonQuery();
+            deleted = true;
+        });
+        return deleted;
+    }
+
     public void RemoveItem(long itemId, string transferId)
     {
         DatabaseService.Instance.WithConnection(connection =>

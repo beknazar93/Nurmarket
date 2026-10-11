@@ -19,7 +19,7 @@ public static class ProductActionPlan
     /// <param name="Price">Цена продажи (с наценкой).</param>
     public sealed record Step(string Op, CatalogProductTileVm Product, double? Qty, string? Text, string? Reason,
         double? Purchase = null, double? Price = null, string? Barcode = null, string? Unit = null, string? Category = null,
-        bool RaisedToMin = false);
+        bool RaisedToMin = false, double? ExpectedStock = null);
 
     /// <summary>2026-10-06, владелец: «при загрузке товаров и создании товаров из накладной надо сразу ставить маржу минимум 20%».
     /// Минимальная наценка прихода и нового товара по накладной (UserPreferences.AiMinMarkupPercent, по умолчанию 20).</summary>
@@ -65,22 +65,49 @@ public static class ProductActionPlan
 
     /// <summary>Правила для фото накладной (дописываются к инструкции, когда владелец приложил фото).</summary>
     public static string PhotoPromptText =>
-        "ФОТО К ВОПРОСУ: владелец приложил фото (накладная, чек или прайс поставщика, список товаров или сам товар). Прочитай на нём строки товаров: "
-        + "название, количество, цена закупки за единицу (если на фото сумма строки — раздели на количество). Для товара, который уже есть в каталоге "
-        + "(похожее название в сводке «склад» или штрихкод) — строка ТОВАР: {\"op\": \"receive\", \"product\": \"название из сводки\", \"qty\": N, \"purchase\": закупка, \"price\": цена продажи}; "
-        + "для нового — ТОВАР: {\"op\": \"create\", \"name\": \"название как на фото\", \"qty\": N, \"purchase\": закупка, \"price\": цена продажи, \"barcode\": \"если виден\", \"unit\": \"шт/кг/л\"}. "
-        + $"Цена продажи = закупка × (1 + наценка / 100). НАЦЕНКА НЕ МЕНЬШЕ {MinMarkupPercent:0} % (правило владельца): если владелец назвал наценку — бери её, "
-        + $"но не ниже {MinMarkupPercent:0} %; если не назвал — ставь {MinMarkupPercent:0} % и последней фразой спроси: «Наценка {MinMarkupPercent:0} % — оставить или поставить другую?» "
-        + "(карточка с ценами всё равно готова — владелец может сразу нажать «Выполнить»). Программа сама поднимет цену, если она окажется ниже минимума. "
-        + "Каждую позицию — ОТДЕЛЬНОЙ строкой ТОВАР: (их может быть 20–30), список текстом не дублируй — программа покажет его сама. "
-        + "Округляй цену продажи до целого сома в большую сторону (дороже 1000 — до 10 сом). В тексте ответа — "
-        + "коротко: сколько строк прочитано, итог закупки, какая наценка; неразборчивые строки перечисли отдельно и не придумывай их. "
-        + "Если на фото не накладная, а товар — опиши его и предложи заполнить карточку.";
+        "ФОТО К ВОПРОСУ: если на фото накладная, распознай ВСЕ строки до конца документа — не ограничивай число товаров. "
+        + "Видимая часть ответа должна содержать только Markdown-таблицу, без вступления, с заголовками строго в этом порядке: "
+        + "| № | Наименование товара | Штрихкод / Артикул | Ед. изм. | Кол-во | Цена закупа | Розничная цена | Сумма (закуп) | "
+        + "|---|---|---|---|---:|---:|---:|---:|. Не добавляй заголовок или пояснение перед таблицей. "
+        + "Каждую позицию накладной вынеси в отдельную строку и не пропускай её из-за неразборчивого поля. "
+        + "Если реквизит отсутствует или не читается — поставь в его ячейке ровно -. Не угадывай значения. "
+        + "Сумма строки — количество × закупочная цена за единицу; если в документе указана только сумма строки, "
+        + "вычисли цену за единицу, когда это возможно, иначе ставь - в невычислимых полях. "
+        + "Сразу под таблицей выведи блок итогов строго из трёх строк: «Всего наименований: N», «Общее количество единиц: Q», "
+        + "«Общая сумма закупа: X сом». N — число товарных строк, Q — сумма количества по всем строкам (сохраняй обозначения единиц, если единицы смешаны), "
+        + "X — сумма столбца «Сумма (закуп)». Если итог не удаётся вычислить — поставь -. "
+        + "Не добавляй до таблицы, между таблицей и итогами или после итогов пояснения, советы, вопросы и иной видимый текст. "
+        + "Для программы после итогов добавь по одной служебной строке ТОВАР на каждую строку, у которой читаются название, количество и закупочная цена: "
+        + "для точного совпадения с товаром каталога — {\"op\": \"receive\", \"product\": \"точное название из каталога\", \"qty\": N, \"purchase\": закупка, \"price\": розничная цена}; "
+        + "для нового товара — {\"op\": \"create\", \"name\": \"название с накладной\", \"qty\": N, \"purchase\": закупка, \"price\": розничная цена, \"barcode\": \"если виден\", \"unit\": \"если видна\"}. "
+        + "Служебные строки не являются частью видимого ответа: программа удалит их перед показом. Не создавай действие, если обязательное значение не распознано; "
+        + "неразборчивую позицию всё равно оставь в таблице с дефисами. Розничная цена = закупка × (1 + наценка / 100): "
+        + $"если владелец указал наценку, используй её, но не ниже {MinMarkupPercent:0} %; иначе применяй {MinMarkupPercent:0} % без вопроса владельцу. "
+        + "Округляй цену продажи вверх до целого сома, а цены от 1000 сом — вверх до 10 сом. "
+        + "Для фото не накладной соблюдай обычный режим: если это товар — опиши его и предложи заполнить карточку.";
 
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private static readonly Regex Line = new(@"(?im)^[ \t*`•\-]*ТОВАР\s*:\s*(\{[^\n]*\})[ \t*`]*$");
+    // 2026-10-09: старый ответ Gemini печатал команды прихода как `receive: {…} — товар` вместо служебной строки ТОВАР.
+    private static readonly Regex ReceiveDisplayLine = new(@"(?im)^\s*receive\s*:\s*(\{[^\n]*?\})\s*[—–-]\s*(.+?)\s*$");
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+
+    public static bool IsExplicitWebSearchRequest(string question)
+    {
+        var t = (question ?? "").ToLowerInvariant();
+        var web = new[] { "в интернете", "в интернет", "из интернета", "из сети", "в сети", "на сайте", "с сайта", "на веб-сайте", "онлайн", "online", "on the web", "on the internet", "from the internet", "from the web", "from website", "website", "internette", "internetda", "internetdan", "интернеттен", "интернетте", "тармактан" };
+        var action = new[] { "найд", "поищ", "ищи", "проверь", "посмотр", "загруз", "скача", "search", "find", "look up", "download", "ara", "bul", "qidir", "top", "изде", "тап" };
+        var negated = new[] { "не ищи", "не надо искать", "не нужно искать", "не ищите", "не загружай", "не скачивай", "don't search", "do not search", "don't look up" };
+        return !negated.Any(t.Contains) && web.Any(t.Contains) && action.Any(t.Contains);
+    }
+
+    public static bool IsExplicitPhotoWebSearchRequest(string question)
+    {
+        var t = (question ?? "").ToLowerInvariant();
+        var photo = new[] { "фото", "фотк", "картинк", "изображен", "сүрөт", "photo", "picture", "image", "fotoğraf", "resim", "rasm", "surat" };
+        return IsExplicitWebSearchRequest(t) && photo.Any(t.Contains);
+    }
 
     /// <summary>Правила для ИИ (дописываются к инструкции советника и бота).</summary>
     public const string PromptText =
@@ -98,16 +125,18 @@ public static class ProductActionPlan
         + "create (новый товар: \"name\", \"qty\", \"purchase\", \"price\", \"barcode\"?, \"unit\"?, \"category\"?), "
         + "open_section (открыть раздел программы, \"section\": warehouse — склад, sales — продажи, finance — финансы, analytics — аналитика, "
         + "salary — зарплата, clients — клиенты, debts — долги, restock — пополнение и сроки; выполняется сразу; используй, когда просят открыть или показать раздел), "
-        + "photo (найти фото в интернете и поставить), open (открыть товар на складе программы — выполняется сразу, без подтверждения; "
+        + "photo (найти и поставить фото только если пользователь прямо попросил поискать его в интернете / сети), open (открыть товар на складе программы — выполняется сразу, без подтверждения; "
         + "только когда просят открыть или показать товар). Количество для «добавь/прибавь/пришло» — stock_in, для «спиши/убери/уменьши» — stock_out, "
         + "для «на складе ровно N» — stock_set. Просроченный товар (раздел «Сроки годности») — предлагай stock_out с reason «Просрочка». "
         + "«Заполни карточку / дополни информацию / опиши товар» — несколько строк сразу: set_description, set_country, set_brand и set_category "
-        + "(если их нет в сводке и ты уверен), а если фото нет — photo. Не меняй название и штрихкод, если об этом не просили. "
+        + "(если их нет в сводке и ты уверен). Не предлагай фото через интернет без прямой команды искать фото в сети. "
+        + "Не меняй название и штрихкод, если об этом не просили. "
         + "Не предлагай значения, которые уже стоят в карточке; если в карточке бренд или категория явно неверные (по найденному в интернете), "
         + "предложи верные и скажи почему. "
         + "Если в сводке есть блок «НАЙДЕНО В ИНТЕРНЕТЕ О ТОВАРАХ» — описание, страну, бренд и состав бери оттуда и коротко скажи, откуда сведения; "
         + "если там «сведений не нашлось» — не придумывай факты, предложи владельцу дописать сам или ограничься тем, что видно из названия. "
-        + "Не больше 10 действий за раз. Название товара пиши точно как в сводке; если товар не найден или неясен — спроси, а не угадывай.";
+        + "Обрабатывай все явно перечисленные действия и все строки накладной; не отбрасывай позиции из-за их количества. "
+        + "Название товара пиши точно как в сводке; если товар не найден или неясен — спроси, а не угадывай.";
 
     /// <summary>Похоже на просьбу изменить товар (бот: такие фразы идут к ИИ, а не в готовые отчёты).</summary>
     public static bool LooksLikeAction(string text)
@@ -122,6 +151,28 @@ public static class ProductActionPlan
             "кош", "чыгар", "өзгөрт",
         };
         return verbs.Any(t.Contains);
+    }
+
+    private static bool IsExactProductMatch(string? raw, CatalogProductTileVm candidate)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+        var q = raw.Trim();
+        return string.Equals(candidate.Id, q, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(candidate.Barcode) && string.Equals(candidate.Barcode.Trim(), q, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(candidate.Title.Trim(), q, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private static CatalogProductTileVm? ResolveProductForAction(string? rawName, string op)
+    {
+        if (string.IsNullOrWhiteSpace(rawName))
+            return null;
+        var exact = ProductActions.Find(rawName);
+        if (exact is not null && IsExactProductMatch(rawName, exact))
+            return exact;
+        if (op is "photo" or "open")
+            return exact;
+        return null;
     }
 
     /// <summary>Товары, о которых спрашивают (по словам вопроса в названии), — до <paramref name="max"/>, лучшие совпадения первыми.</summary>
@@ -175,13 +226,64 @@ public static class ProductActionPlan
 
     /// <summary>Строки «ТОВАР: {…}» из ответа ИИ → шаги (товар найден в каталоге, операция известна). Строки из ответа убираются.</summary>
     /// <summary>Строки последнего разбора, которые не удалось превратить в действие (товар не найден), — показать владельцу.</summary>
-    public static IReadOnlyList<string> LastSkipped { get; private set; } = Array.Empty<string>();
-
-    public static (string Answer, List<Step> Steps) Extract(string answer)
+    public static (string Answer, List<Step> Steps, IReadOnlyList<string> Skipped) Extract(string answer, string question = "")
     {
         var steps = new List<Step>();
         var skipped = new List<string>();
-        foreach (Match m in Line.Matches(answer))
+        var receiveLines = ReceiveDisplayLine.Matches(answer).Cast<Match>().ToList();
+        var extractionAnswer = answer;
+        string? receiveTable = null;
+        if (receiveLines.Count > 0)
+        {
+            var tableRows = new List<string>();
+            var quantities = new List<double>();
+            var amounts = new List<double>();
+            for (var i = 0; i < receiveLines.Count; i++)
+            {
+                var match = receiveLines[i];
+                try
+                {
+                    using var doc = JsonDocument.Parse(match.Groups[1].Value);
+                    var root = doc.RootElement;
+                    string? Value(string name) => root.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number
+                        ? value.ToString().Trim() : null;
+                    double? Number(string name) => double.TryParse(Value(name)?.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
+                        && double.IsFinite(value) ? value : null;
+                    var name = match.Groups[2].Value.Trim();
+                    var qty = Number("qty");
+                    var purchase = Number("purchase");
+                    var price = Number("price");
+                    var barcode = Value("barcode") ?? Value("article") ?? Value("sku");
+                    var unit = Value("unit");
+                    var category = Value("category");
+                    var amount = qty.HasValue && purchase.HasValue ? qty.Value * purchase.Value : (double?)null;
+                    static string Cell(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
+                    string F(double? value) => value?.ToString("N2", Ru) ?? "-";
+                    tableRows.Add($"| {i + 1} | {Cell(name)} | {Cell(barcode ?? "-")} | {Cell(unit ?? "-")} | {Cell(qty?.ToString("0.###", Ru) ?? "-")} | {F(purchase)} | {F(price)} | {F(amount)} |");
+                    if (qty.HasValue) quantities.Add(qty.Value);
+                    if (amount.HasValue) amounts.Add(amount.Value);
+
+                    var directive = JsonSerializer.Serialize(new Dictionary<string, object?>
+                    {
+                        ["op"] = "receive", ["product"] = name, ["qty"] = qty, ["purchase"] = purchase, ["price"] = price,
+                        ["barcode"] = barcode, ["unit"] = unit, ["category"] = category,
+                    });
+                    extractionAnswer = extractionAnswer.Replace(receiveLines[i].Value, "ТОВАР: " + directive, StringComparison.Ordinal);
+                }
+                catch (JsonException)
+                {
+                    // Некорректную служебную строку убираем из видимого ответа, но не создаём по ней приход.
+                    extractionAnswer = extractionAnswer.Replace(match.Value, "", StringComparison.Ordinal);
+                }
+            }
+            if (tableRows.Count > 0)
+            {
+                receiveTable = "| № | Наименование товара | Штрихкод / Артикул | Ед. изм. | Кол-во | Цена закупа | Розничная цена | Сумма (закуп) |\n"
+                    + "|---:|---|---|---|---:|---:|---:|---:|\n" + string.Join("\n", tableRows)
+                    + $"\n\nВсего наименований: {tableRows.Count}\nОбщее количество единиц: {(quantities.Count == tableRows.Count ? quantities.Sum().ToString("0.###", Ru) : "-")}\nОбщая сумма закупа: {(amounts.Count == tableRows.Count ? amounts.Sum().ToString("N2", Ru) : "-")} сом";
+            }
+        }
+        foreach (Match m in Line.Matches(extractionAnswer))
         {
             try
             {
@@ -191,14 +293,14 @@ public static class ProductActionPlan
                 double? N(params string[] names)
                 {
                     foreach (var n in names)
-                        if (S(n) is { } raw && double.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+                        if (S(n) is { } raw && double.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) && double.IsFinite(d))
                             return d;
                     return null;
                 }
                 var op = (S("op") ?? "").ToLowerInvariant();
                 if (op == "open_section")
                 {
-                    if (S("section") is { Length: > 0 } section && steps.Count < 10)
+                    if (S("section") is { Length: > 0 } section)
                         steps.Add(new Step(op, new CatalogProductTileVm("", section, "", false), null, section, null));
                     continue;
                 }
@@ -213,7 +315,7 @@ public static class ProductActionPlan
                     // Такой товар уже есть — это приход, а не новый товар.
                     if (ProductActions.Find(newName) is { } existing)
                         op = "receive";
-                    else if (newName.Length >= 2 && N("qty", "quantity") is { } nq && nq >= 0 && purchase is { } np && np >= 0 && steps.Count < 30)
+                    else if (newName.Length >= 2 && N("qty", "quantity") is { } nq && nq >= 0 && purchase is { } np && np >= 0)
                     {
                         var (newPrice, raised) = EnsureMinMarkup(np, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", newName, $"{newPrice ?? 0:0.00}", false), nq, null, null, np, newPrice,
@@ -223,21 +325,25 @@ public static class ProductActionPlan
                     else
                         continue;
                 }
-                var product = ProductActions.Find(S("product") ?? S("id") ?? S("name"));
+                var rawProductName = S("product") ?? S("id") ?? S("name");
+                var product = ResolveProductForAction(rawProductName, op);
                 if (product is null)
                 {
                     // 2026-10-06, владелец (снимок: накладная на 20 позиций, «баг — не появляется кнопка!!»): ИИ писал «receive» для
                     // товаров, которых нет в каталоге, — все строки молча пропускались. Приход неизвестного товара с закупкой — это новый товар.
-                    var unknownName = (S("product") ?? S("name") ?? "").Trim();
-                    if (op is "receive" or "stock_in" && unknownName.Length >= 2 && N("qty", "quantity") is { } uq && uq >= 0 && purchase is { } up && up >= 0 && steps.Count < 30)
+                    var unknownName = (rawProductName ?? "").Trim();
+                    if (op is "receive" or "stock_in" && unknownName.Length >= 2 && N("qty", "quantity") is { } uq && uq >= 0 && purchase is { } up && up >= 0)
                     {
                         var (newPrice, raised) = EnsureMinMarkup(up, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", unknownName, $"{newPrice ?? 0:0.00}", false), uq, null, null, up, newPrice,
                             S("barcode") is { Length: >= 4 } ubc && ubc.All(char.IsDigit) ? ubc : null, S("unit"), S("category"), raised));
                         continue;
                     }
-                    PosLogger.Log($"ИИ: действие с товаром пропущено — товар «{S("product")}» не найден.", "INFO");
-                    skipped.Add(unknownName.Length > 0 ? unknownName : "?");
+                    if (op is not "photo" and not "open" && !string.IsNullOrWhiteSpace(rawProductName))
+                    {
+                        PosLogger.Log($"ИИ: действие с товаром пропущено — товар «{rawProductName}» не подтверждён по точному совпадению.", "INFO");
+                        skipped.Add(rawProductName);
+                    }
                     continue;
                 }
                 Step? step = op switch
@@ -250,9 +356,11 @@ public static class ProductActionPlan
                     "set_description" or "set_country" or "set_name" or "set_brand" or "set_category" or "set_article"
                         when (S("text") ?? S("value")) is { Length: > 0 } text => new Step(op, product, null, text.Length > 3000 ? text[..3000] : text, null),
                     "set_barcode" when (S("text") ?? S("value")) is { Length: >= 4 } code && code.All(char.IsDigit) => new Step(op, product, null, code, null),
-                    "photo" or "open" => new Step(op, product, null, null, null),
+                    "photo" when IsExplicitPhotoWebSearchRequest(question) => new Step(op, product, null, null, null),
+                    "photo" => null,
+                    "open" => new Step(op, product, null, null, null),
                     "receive" when N("qty", "quantity") is { } rq && rq > 0 => EnsureMinMarkup(purchase, price, product.PriceValue) is var (rp, rr)
-                        ? new Step(op, product, rq, null, null, purchase, rp, RaisedToMin: rr)
+                        ? new Step(op, product, rq, null, null, purchase, rp, S("barcode") ?? S("article") ?? S("sku"), S("unit"), RaisedToMin: rr)
                         : null,
                     _ => null,
                 };
@@ -263,21 +371,25 @@ public static class ProductActionPlan
                     step = null;
                 if (step is { Op: "set_name" } && string.Equals(step.Text?.Trim(), product.Title.Trim(), StringComparison.CurrentCultureIgnoreCase))
                     step = null;
-                if (step != null && steps.Count < (op == "receive" ? 30 : 10))
+                if (step is { Op: "stock_in" or "stock_out" or "stock_set" or "receive" })
+                    step = step with { ExpectedStock = product.Quantity };
+                if (step != null)
                     steps.Add(step);
             }
             catch (JsonException)
             {
             }
         }
-        LastSkipped = skipped;
-        var cleaned = Line.Replace(answer, "").Trim();
-        return (Regex.Replace(cleaned, @"\n{3,}", "\n\n"), steps);
+        var cleaned = Line.Replace(extractionAnswer, "").Trim();
+        if (receiveTable is not null && !cleaned.Contains("|---", StringComparison.Ordinal))
+            cleaned = receiveTable;
+        return (Regex.Replace(cleaned, @"\n{3,}", "\n\n"), steps, skipped);
     }
 
     private static string Unit(CatalogProductTileVm p) => p.MustWeigh ? T("кг", "кг", "kg", "kg", "kg") : T("шт", "даана", "pcs", "adet", "dona");
 
     private static string Q(double v) => v.ToString("0.###", Ru);
+    private static double ExpectedStock(Step s) => s.ExpectedStock ?? s.Product.Quantity;
 
     /// <summary>Что будет сделано — для подтверждения.</summary>
     public static string Describe(Step s)
@@ -286,17 +398,17 @@ public static class ProductActionPlan
         var som = T("сом", "сом", "som", "som", "so'm");
         return s.Op switch
         {
-            "stock_in" => T($"{name} — приход {Q(s.Qty!.Value)} {Unit(s.Product)} (сейчас {Q(s.Product.Quantity)})", $"{name} — кириш {Q(s.Qty!.Value)} {Unit(s.Product)} (азыр {Q(s.Product.Quantity)})",
-                $"{name} — receive {Q(s.Qty!.Value)} {Unit(s.Product)} (now {Q(s.Product.Quantity)})", $"{name} — giriş {Q(s.Qty!.Value)} {Unit(s.Product)} (şu an {Q(s.Product.Quantity)})",
-                $"{name} — kirim {Q(s.Qty!.Value)} {Unit(s.Product)} (hozir {Q(s.Product.Quantity)})"),
-            "stock_out" => T($"{name} — списать {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r ? $" ({r})" : "")} (сейчас {Q(s.Product.Quantity)})",
-                $"{name} — эсептен чыгаруу {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r2 ? $" ({r2})" : "")} (азыр {Q(s.Product.Quantity)})",
-                $"{name} — write off {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r3 ? $" ({r3})" : "")} (now {Q(s.Product.Quantity)})",
-                $"{name} — düş {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r4 ? $" ({r4})" : "")} (şu an {Q(s.Product.Quantity)})",
-                $"{name} — hisobdan chiqarish {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r5 ? $" ({r5})" : "")} (hozir {Q(s.Product.Quantity)})"),
-            "stock_set" => T($"{name} — остаток ровно {Q(s.Qty!.Value)} {Unit(s.Product)} (сейчас {Q(s.Product.Quantity)})", $"{name} — калдык так {Q(s.Qty!.Value)} {Unit(s.Product)} (азыр {Q(s.Product.Quantity)})",
-                $"{name} — stock exactly {Q(s.Qty!.Value)} {Unit(s.Product)} (now {Q(s.Product.Quantity)})", $"{name} — stok tam {Q(s.Qty!.Value)} {Unit(s.Product)} (şu an {Q(s.Product.Quantity)})",
-                $"{name} — qoldiq aniq {Q(s.Qty!.Value)} {Unit(s.Product)} (hozir {Q(s.Product.Quantity)})"),
+            "stock_in" => T($"{name} — приход {Q(s.Qty!.Value)} {Unit(s.Product)} (сейчас {Q(ExpectedStock(s))})", $"{name} — кириш {Q(s.Qty!.Value)} {Unit(s.Product)} (азыр {Q(ExpectedStock(s))})",
+                $"{name} — receive {Q(s.Qty!.Value)} {Unit(s.Product)} (now {Q(ExpectedStock(s))})", $"{name} — giriş {Q(s.Qty!.Value)} {Unit(s.Product)} (şu an {Q(ExpectedStock(s))})",
+                $"{name} — kirim {Q(s.Qty!.Value)} {Unit(s.Product)} (hozir {Q(ExpectedStock(s))})"),
+            "stock_out" => T($"{name} — списать {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r ? $" ({r})" : "")} (сейчас {Q(ExpectedStock(s))})",
+                $"{name} — эсептен чыгаруу {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r2 ? $" ({r2})" : "")} (азыр {Q(ExpectedStock(s))})",
+                $"{name} — write off {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r3 ? $" ({r3})" : "")} (now {Q(ExpectedStock(s))})",
+                $"{name} — düş {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r4 ? $" ({r4})" : "")} (şu an {Q(ExpectedStock(s))})",
+                $"{name} — hisobdan chiqarish {Q(s.Qty!.Value)} {Unit(s.Product)}{(s.Reason is { Length: > 0 } r5 ? $" ({r5})" : "")} (hozir {Q(ExpectedStock(s))})"),
+            "stock_set" => T($"{name} — остаток ровно {Q(s.Qty!.Value)} {Unit(s.Product)} (сейчас {Q(ExpectedStock(s))})", $"{name} — калдык так {Q(s.Qty!.Value)} {Unit(s.Product)} (азыр {Q(ExpectedStock(s))})",
+                $"{name} — stock exactly {Q(s.Qty!.Value)} {Unit(s.Product)} (now {Q(ExpectedStock(s))})", $"{name} — stok tam {Q(s.Qty!.Value)} {Unit(s.Product)} (şu an {Q(ExpectedStock(s))})",
+                $"{name} — qoldiq aniq {Q(s.Qty!.Value)} {Unit(s.Product)} (hozir {Q(ExpectedStock(s))})"),
             "set_min" => T($"{name} — минимальный остаток {Q(s.Qty!.Value)}", $"{name} — минималдуу калдык {Q(s.Qty!.Value)}", $"{name} — minimum stock {Q(s.Qty!.Value)}",
                 $"{name} — asgari stok {Q(s.Qty!.Value)}", $"{name} — minimal qoldiq {Q(s.Qty!.Value)}"),
             "set_price" => T($"{name} — цена продажи {Q(s.Qty!.Value)} {som} (сейчас {s.Product.PriceLine})", $"{name} — сатуу баасы {Q(s.Qty!.Value)} {som} (азыр {s.Product.PriceLine})",
@@ -380,9 +492,9 @@ public static class ProductActionPlan
         var who = actor ?? "ИИ";
         return s.Op switch
         {
-            "stock_in" => await ProductActions.ChangeStockAsync(id, s.Qty, null, $"Приход ({who})", who, ct).ConfigureAwait(false),
-            "stock_out" => await ProductActions.ChangeStockAsync(id, -s.Qty, null, (s.Reason is { Length: > 0 } r ? r : "Списание") + $" ({who})", who, ct).ConfigureAwait(false),
-            "stock_set" => await ProductActions.ChangeStockAsync(id, null, s.Qty, $"Ревизия ({who})", who, ct).ConfigureAwait(false),
+            "stock_in" => await ProductActions.ChangeStockAsync(id, s.Qty, null, $"Приход ({who})", who, ct, s.ExpectedStock ?? s.Product.Quantity).ConfigureAwait(false),
+            "stock_out" => await ProductActions.ChangeStockAsync(id, -s.Qty, null, (s.Reason is { Length: > 0 } r ? r : "Списание") + $" ({who})", who, ct, s.ExpectedStock ?? s.Product.Quantity).ConfigureAwait(false),
+            "stock_set" => await ProductActions.ChangeStockAsync(id, null, s.Qty, $"Ревизия ({who})", who, ct, s.ExpectedStock ?? s.Product.Quantity).ConfigureAwait(false),
             "set_min" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["minimum_quantity"] = s.Qty }, T("минимальный остаток", "минималдуу калдык", "minimum stock", "asgari stok", "minimal qoldiq"), who, ct).ConfigureAwait(false),
             "set_price" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["price"] = s.Qty!.Value.ToString("0.00", CultureInfo.InvariantCulture) }, T("цена продажи", "сатуу баасы", "sale price", "satış fiyatı", "sotuv narxi"), who, ct).ConfigureAwait(false),
             "set_purchase" => await ProductActions.UpdateFieldsAsync(id, new Dictionary<string, object?> { ["purchase_price"] = s.Qty!.Value.ToString("0.00", CultureInfo.InvariantCulture) }, T("закупочная цена", "сатып алуу баасы", "purchase price", "alış fiyatı", "xarid narxi"), who, ct).ConfigureAwait(false),
@@ -424,7 +536,8 @@ public static class ProductActionPlan
     /// <summary>Приход по накладной: остаток + закупка и цена продажи (если указаны).</summary>
     private static async Task<ProductActions.Result> ReceiveAsync(Step s, string who, CancellationToken ct)
     {
-        var stock = await ProductActions.ChangeStockAsync(s.Product.Id, s.Qty, null, $"Приход по накладной ({who})", who, ct).ConfigureAwait(false);
+        var stock = await ProductActions.ChangeStockAsync(s.Product.Id, s.Qty, null, $"Приход по накладной ({who})", who, ct,
+            s.ExpectedStock ?? s.Product.Quantity).ConfigureAwait(false);
         if (!stock.Ok)
             return stock;
         var fields = new Dictionary<string, object?>();
@@ -434,8 +547,28 @@ public static class ProductActionPlan
             fields["price"] = pr.ToString("0.00", CultureInfo.InvariantCulture);
         if (fields.Count == 0)
             return stock;
-        var prices = await ProductActions.UpdateFieldsAsync(s.Product.Id, fields, T("закупка и цена", "сатып алуу жана баа", "cost and price", "alış ve fiyat", "xarid va narx"), who, ct).ConfigureAwait(false);
-        return new ProductActions.Result(prices.Ok, stock.Message + PriceText(s) + (prices.Ok ? "" : " — " + prices.Message));
+        ProductActions.Result prices;
+        try
+        {
+            prices = await ProductActions.UpdateFieldsAsync(s.Product.Id, fields, T("закупка и цена", "сатып алуу жана баа", "cost and price", "alış ve fiyat", "xarid va narx"), who, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new ProductActions.Result(true, stock.Message + PriceText(s)
+                + T(" — приход выполнен, изменение цен прервано. Не повторяйте приход; проверьте цены отдельно.",
+                    " — кириш аткарылды, бааларды өзгөртүү токтотулду. Киришти кайталап жасабаңыз; бааларды өзүнчө текшериңиз.",
+                    " — stock receipt completed, price update was interrupted. Do not repeat the receipt; check prices separately.",
+                    " — stok girişi tamamlandı, fiyat güncellemesi kesildi. Girişi tekrarlamayın; fiyatları ayrıca kontrol edin.",
+                    " — kirim bajarildi, narx yangilanishi to'xtadi. Kirimni takrorlamang; narxlarni alohida tekshiring."), Partial: true);
+        }
+        if (prices.Ok)
+            return new ProductActions.Result(true, stock.Message + PriceText(s));
+        return new ProductActions.Result(true, stock.Message
+            + T(" — приход выполнен, но цены не обновлены. Не повторяйте приход; обновите цены отдельно: ",
+                " — кириш аткарылды, бирок баалар жаңырган жок. Киришти кайталап жасабаңыз; бааларды өзүнчө жаңыртыңыз: ",
+                " — receipt completed, but prices were not updated. Do not repeat the receipt; update prices separately: ",
+                " — giriş tamamlandı ancak fiyatlar güncellenmedi. Girişi tekrarlamayın; fiyatları ayrıca güncelleyin: ",
+                " — kirim bajarildi, ammo narxlar yangilanmadi. Kirimni takrorlamang; narxlarni alohida yangilang: ") + prices.Message, Partial: true);
     }
 
     /// <summary>Новый товар по накладной — карточка сразу с остатком, закупкой и ценой (CreateProductAsync, как «Создать товар»).</summary>
@@ -480,18 +613,26 @@ public static class ProductActionPlan
     /// <summary>Голосом в звонке: «да, выполни» / «нет, не надо» (фраза целиком, с запятыми и точками).</summary>
     public static bool IsVoiceYes(string text)
     {
-        var t = Regex.Replace((text ?? "").ToLowerInvariant(), @"[^\p{L}\s]", " ").Trim();
-        var first = t.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        return first is "да" or "давай" or "выполни" or "выполняй" or "подтверждаю" or "ооба" or "макул" or "ок" or "окей" or "yes"
-               || t.Contains("выполн") || t.Contains("подтвер") || t.Contains("аткар");
+        var t = NormalizeVoiceConfirmation(text);
+        if (IsVoiceNo(text))
+            return false;
+        return t is "да" or "давай" or "выполни" or "выполняй" or "подтверждаю" or "подтверждаю действие"
+            or "да выполни" or "давай выполни" or "да выполняй" or "да подтверждаю"
+            or "ооба" or "макул" or "аткар" or "ооба аткар" or "макул аткар"
+            or "ок" or "окей" or "yes" or "yes do it" or "confirm" or "confirm order";
     }
 
     public static bool IsVoiceNo(string text)
     {
-        var t = Regex.Replace((text ?? "").ToLowerInvariant(), @"[^\p{L}\s]", " ").Trim();
-        var first = t.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        return first is "нет" or "не" or "отмена" or "отмени" or "жок" or "no" || t.Contains("не надо") || t.Contains("отмен");
+        var t = NormalizeVoiceConfirmation(text);
+        return t is "нет" or "нет не надо" or "не надо" or "не надо делать" or "не надо выполнять"
+            or "не выполняй" or "не выполняй это" or "не подтверждаю" or "не подтверждать" or "не подтверждаю действие"
+            or "отмена" or "отмени" or "отказываюсь" or "жок" or "жок аткарба" or "жок аткарба муну"
+            or "no" or "no thanks" or "no do not" or "do not" or "dont do it" or "cancel" or "cancel it";
     }
+
+    private static string NormalizeVoiceConfirmation(string? text) =>
+        Regex.Replace((text ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}]+", " ").Trim();
 
     private static async Task<ProductActions.Result> ExpiryAsync(string id, string isoDate, string who, CancellationToken ct)
     {
@@ -505,12 +646,60 @@ public static class ProductActionPlan
     /// <summary>Всё по очереди; ответ — по строке на шаг (✓ / ✗).</summary>
     public static async Task<string> ExecuteAllAsync(IReadOnlyList<Step> steps, string? actor, CancellationToken ct = default)
     {
+        var duplicateReceipts = steps
+            .Where(s => s.Op is "stock_in" or "receive" && !string.IsNullOrWhiteSpace(s.Product.Id))
+            .GroupBy(s => s.Product.Id, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .ToList();
+        if (duplicateReceipts.Count > 0)
+        {
+            var duplicateNames = duplicateReceipts.Select(g => g.First().Product.Title).ToList();
+            return T(
+                "Приход не выполнен: в пакете несколько строк для одного товара (" + string.Join(", ", duplicateNames) + "). Сверьте позиции и объедините их перед повтором.",
+                "Киреше аткарылган жок: топтомдо бир товар үчүн бир нече сап бар (" + string.Join(", ", duplicateNames) + "). Позицияларды текшерип, кайталоодон мурун бириктириңиз.",
+                "Receiving was not started: the batch has multiple lines for the same product (" + string.Join(", ", duplicateNames) + "). Review and merge those lines before retrying.",
+                "Alış işlemi başlatılmadı: toplu işlemde aynı ürün için birden fazla satır var (" + string.Join(", ", duplicateNames) + "). Tekrar denemeden önce satırları inceleyip birleştirin.",
+                "Kirim boshlanmadi: to'plamda bir mahsulot uchun bir nechta qator bor (" + string.Join(", ", duplicateNames) + "). Takrorlashdan oldin qatorlarni tekshirib birlashtiring.");
+        }
+
         var lines = new List<string>();
         var changed = new List<string>();
+        var completed = 0;
+        var failed = 0;
+        var partial = 0;
+        var stopped = false;
         foreach (var step in steps)
         {
-            var r = await ExecuteAsync(step, actor, ct).ConfigureAwait(false);
-            lines.Add((r.Ok ? "✓ " : "✗ ") + r.Message);
+            ProductActions.Result r;
+            try
+            {
+                r = await ExecuteAsync(step, actor, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                lines.Add(T("⚠ Пакет остановлен. Результат текущего шага проверьте в NurCRM перед повтором.",
+                    "⚠ Топтом токтотулду. Кайталоодон мурун учурдагы кадамдын жыйынтыгын NurCRM'ден текшериңиз.",
+                    "⚠ Batch stopped. Check the current step in NurCRM before retrying.",
+                    "⚠ Toplu işlem durduruldu. Tekrar denemeden önce mevcut adımı NurCRM'de kontrol edin.",
+                    "⚠ To'plam to'xtatildi. Takrorlashdan oldin joriy qadamni NurCRM'da tekshiring."));
+                stopped = true;
+                break;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"ИИ: пакет действий остановлен на «{step.Product.Title}» ({ex.Message}).", "WARNING");
+                lines.Add(T("⚠ Пакет остановлен из-за ошибки. Проверьте результат текущего шага в NurCRM перед повтором.",
+                    "⚠ Топтом катага байланыштуу токтотулду. Кайталоодон мурун учурдагы кадамды NurCRM'ден текшериңиз.",
+                    "⚠ Batch stopped after an error. Check the current step in NurCRM before retrying.",
+                    "⚠ Toplu işlem hata nedeniyle durduruldu. Tekrar denemeden önce mevcut adımı NurCRM'de kontrol edin.",
+                    "⚠ To'plam xato sabab to'xtatildi. Takrorlashdan oldin joriy qadamni NurCRM'da tekshiring."));
+                stopped = true;
+                break;
+            }
+            lines.Add((r.Partial ? "⚠ " : r.Ok ? "✓ " : "✗ ") + r.Message);
+            if (r.Partial) partial++;
+            else if (r.Ok) completed++;
+            else failed++;
             if (r.Ok && step.Op is not ("open" or "open_section" or "create") && step.Product.Id.Length > 0)
                 changed.Add(step.Product.Id);
             if (r.Ok && step.Op == "create")
@@ -519,7 +708,13 @@ public static class ProductActionPlan
         // 2026-10-06, владелец: «чтобы ИИ показывал наглядно изменения» — склад с изменёнными товарами.
         if (changed.Count > 0)
             ShowChangedProducts?.Invoke(changed.Distinct().ToList(), string.Join("\n", lines));
-        return string.Join("\n", lines);
+        var summary = T(
+            $"Итог: выполнено {completed}, частично {partial}, с ошибкой {failed}" + (stopped ? "; пакет остановлен." : "."),
+            $"Жыйынтык: аткарылды {completed}, жарым-жартылай {partial}, ката {failed}" + (stopped ? "; топтом токтотулду." : "."),
+            $"Result: {completed} completed, {partial} partial, {failed} failed" + (stopped ? "; batch stopped." : "."),
+            $"Sonuç: {completed} tamamlandı, {partial} kısmi, {failed} başarısız" + (stopped ? "; işlem durduruldu." : "."),
+            $"Natija: {completed} bajarildi, {partial} qisman, {failed} xato" + (stopped ? "; to'plam to'xtatildi." : "."));
+        return summary + (lines.Count > 0 ? "\n" + string.Join("\n", lines) : "");
     }
 
     // ── бот: ожидающие подтверждения (кнопки «Выполнить / Отмена» или ответ «да / нет») ──

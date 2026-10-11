@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 
 #nullable enable
 
@@ -112,6 +112,18 @@ internal static class EscPosCommands
         s.WriteByte((byte)(pin == 1 ? 1 : 0));
         s.WriteByte(25);
         s.WriteByte(250);
+    }
+
+    /// <summary>2026-10-11: DLE DC4 1 m t (10 14 01 …) — импульс ящика «в реальном времени»: принтер выполняет его сразу, даже
+    /// посреди печати, и буфер печати не трогает (в отличие от ESC @). t — длительность в единицах по 100 мс (2 → 200 мс).
+    /// Принтеры без этой команды её просто пропускают (непечатаемые управляющие байты).</summary>
+    public static void WriteRealtimeDrawerPulse(Stream s, int pin)
+    {
+        s.WriteByte(0x10);
+        s.WriteByte(0x14);
+        s.WriteByte(0x01);
+        s.WriteByte((byte)(pin == 1 ? 1 : 0));
+        s.WriteByte(2);
     }
 
     /// <summary>Прокрутка на 3 строки и отрез (GS V B 0).</summary>

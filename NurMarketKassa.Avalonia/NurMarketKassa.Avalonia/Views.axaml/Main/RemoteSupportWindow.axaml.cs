@@ -37,6 +37,10 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
     {
         InitializeComponent();
         RefreshStatus();
+#if !NURANDROID
+        // 2026-10-07: своя удалённая помощь NurMarket (RemoteSupportWindow.NurSupport.cs) — над AnyDesk, если задан сервер поддержки.
+        BuildNurSupport();
+#endif
         // 2026-10-05: на Android AnyDesk отсюда не запустить — главная кнопка окна «Скопировать информацию об устройстве».
         if (OperatingSystem.IsAndroid())
         {

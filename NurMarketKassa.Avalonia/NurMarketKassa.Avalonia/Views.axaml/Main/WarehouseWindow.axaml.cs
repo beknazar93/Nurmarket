@@ -535,7 +535,7 @@ public partial class WarehouseWindow : Window, IOwnerSection
             employee: App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName);
 
         RefreshTransfers();
-        OpenTransferCard(id);
+        OpenTransferCard(id, deleteIfEmpty: true);
     }
 
     private async void ExportTransfersExcel_Click(object? sender, RoutedEventArgs e) => await ExportTransfersAsync(toWord: false);
@@ -587,12 +587,18 @@ public partial class WarehouseWindow : Window, IOwnerSection
             OpenTransferCard(row.Id);
     }
 
-    private void OpenTransferCard(string transferId)
+    private void OpenTransferCard(string transferId, bool deleteIfEmpty = false)
     {
         var owner = this;
         var dialog = new StockTransferDialog(transferId);
         _ = dialog.ShowDialog(owner);
-        dialog.Closed += (_, _) => RefreshTransfers();
+        dialog.Closed += (_, _) =>
+        {
+            // 2026-10-11 (склад.md, 5): новый документ закрыли пустым — не оставляем черновик в журнале.
+            if (deleteIfEmpty && StockTransferService.Instance.DeleteIfEmptyDraft(transferId))
+                PosLogger.Log("Перемещение: пустой черновик удалён при закрытии.", "STOCK");
+            RefreshTransfers();
+        };
     }
 
     /// <summary>Строка журнала перемещений. Отдельный тип, а не кортеж: DataGrid привязывается
@@ -797,6 +803,8 @@ public partial class WarehouseWindow : Window, IOwnerSection
             InitVariantReceiving();
             // 2026-10-06: редизайн «Товаров» — плитки сводки, фильтр наличия, сроки годности (WarehouseWindow.Redesign.cs).
             InitRedesign();
+            // 2026-10-11: замечания тестировщика — крестики, «Очистить список», подсказки не «зависают» (WarehouseWindow.Fixes.cs).
+            InitWarehouseFixes();
             RefreshReceivingSummary();
             ReceivingPaidRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = true;
@@ -819,6 +827,21 @@ public partial class WarehouseWindow : Window, IOwnerSection
     private async void RefreshWarehouse_Click(object? sender, RoutedEventArgs e)
     {
         RefreshWarehouseButton.IsEnabled = false;
+        // 2026-10-11, тестировщик (склад.md, 1): «непонятно — обновляет или завис». Значок крутится, рядом с поиском — «Загружаю… N с».
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var spinAngle = RefreshWarehouseIcon.RenderTransform as Avalonia.Media.RotateTransform;
+        var spin = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+        spin.Tick += (_, _) =>
+        {
+            if (spinAngle is not null)
+                spinAngle.Angle = (spinAngle.Angle + 12) % 360;
+            ProductCountLoading.Text = Tr.T("Загружаю товары с сервера… ", "Товарларды серверден жүктөп жатам… ", "Loading products from the server… ",
+                "Ürünler sunucudan yükleniyor… ", "Mahsulotlar serverdan yuklanmoqda… ") + $"{watch.Elapsed.TotalSeconds:0} " + Tr.T("с", "сек", "s", "sn", "s");
+        };
+        RefreshWarehouseText.Text = Tr.T("Обновляю…", "Жаңыртып жатам…", "Refreshing…", "Yenileniyor…", "Yangilanmoqda…");
+        ProductCountLabel.IsVisible = false;
+        ProductCountLoading.IsVisible = true;
+        spin.Start();
         try
         {
             var result = await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(true);
@@ -842,6 +865,14 @@ public partial class WarehouseWindow : Window, IOwnerSection
         }
         finally
         {
+            spin.Stop();
+            if (spinAngle is not null)
+                spinAngle.Angle = 0;
+            RefreshWarehouseText.Text = this.TryFindResource("warehouse.refresh", out var refreshLabel) && refreshLabel is string label
+                ? label
+                : Tr.T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash");
+            ProductCountLoading.IsVisible = false;
+            ProductCountLabel.IsVisible = true;
             RefreshWarehouseButton.IsEnabled = true;
         }
     }

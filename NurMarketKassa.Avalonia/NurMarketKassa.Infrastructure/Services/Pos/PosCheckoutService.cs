@@ -989,7 +989,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         // Ящик открывается и в офлайне тоже: наличные кассир берёт независимо от того, дошла ли
         // продажа до сервера. Не завязано на PrintReceipt — ящик нужен и когда чек не печатают.
-        ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
+        // 2026-10-11: сам импульс — ниже, после печати чека (см. TryOpenCashDrawerAfterSale с printTask).
 
         // The completed receipt must disappear before the cashier can start
         // another operation; a delayed background reset could erase new items.
@@ -1004,6 +1004,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 request.CashReceived,
                 offlineNote: isAutonomous ? "АВТОНОМНЫЙ РЕЖИМ" : "ОФФЛАЙН (ожидает выгрузку)")
             : null;
+        // 2026-10-11, владелец: «кассовый ящик открывает один раз и больше не открывает». Импульс уходил в фоне одновременно
+        // с печатью чека на тот же принтер — посреди печати многие термопринтеры команду ящика пропускают. Теперь — после чека.
+        ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived, printTask);
 
         // 2026-09-10: автономная продажа никуда не "выгружается" (нет сервера/аккаунта, на
         // который выгружать) — "В очереди: N" тут вводит в заблуждение, как будто чек чего-то
@@ -1248,7 +1251,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
 
         Lan.LanSalePublisher.Publish(saleId, saleId, uploaded: true, cartJsonSnapshot, total, request.PaymentMethod);
 
-        ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived);
+        // 2026-10-11: импульс ящика — после печати чека, ниже (TryOpenCashDrawerAfterSale с printTask).
 
         // Чек уже оплачен и напечатан — кассир должен увидеть "готово" СЕЙЧАС, а не ждать ещё
         // два сетевых похода подряд (полный список смен + sales/start) просто чтобы завести
@@ -1271,6 +1274,9 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             ? PrintReceiptInBackground(cartJsonSnapshot, ReceiptPaymentMethodKey(request), request.CashReceived,
                 checkoutResponse: checkoutResponse)
             : null;
+        // 2026-10-11, владелец: «кассовый ящик открывает один раз и больше не открывает». Импульс уходил в фоне одновременно
+        // с печатью чека на тот же принтер — посреди печати многие термопринтеры команду ящика пропускают. Теперь — после чека.
+        ReceiptPrintService.TryOpenCashDrawerAfterSale(request.PaymentMethod, request.CashReceived, printTask);
         // 2026-10-04, п. 8: остаток смены после продажи шапка кассы возьмёт из ответа этой же проверки смены
         // (ShiftApiService.OpenShiftsListAfterSaleAsync), а не отдельным вторым запросом.
         _shiftApi.NoteSaleRecorded();

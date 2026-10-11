@@ -430,7 +430,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     private async void SelectSale_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string saleId } || string.IsNullOrWhiteSpace(saleId))
+        if (IsBusy || sender is not Button { Tag: string saleId } || string.IsNullOrWhiteSpace(saleId))
             return;
 
         await OpenSaleByIdAsync(saleId.Trim()).ConfigureAwait(true);
@@ -692,9 +692,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     private async void ReturnSelected_Click(object? sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_currentSaleId))
+        if (string.IsNullOrEmpty(_currentSaleId) || IsBusy)
             return;
 
+        var saleId = _currentSaleId;
         var selected = Lines.Where(x => x.CanReturn && x.IsSelected).ToList();
         if (selected.Count == 0)
         {
@@ -727,6 +728,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
 
+        if (!string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase))
+            return;
+
         var reason = reasonDialog.ReasonText;
         var isDefect = reasonDialog.IsDefect;
         IsBusy = true;
@@ -744,27 +748,27 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
             await PosRefundService.RefundLinesAsync(
                 App.SalesApi,
-                _currentSaleId,
+                saleId,
                 requests,
                 reason,
                 App.PosCashboxId,
                 isDefect).ConfigureAwait(true);
 
-            SaleDetailCache.Forget(_currentSaleId);
+            SaleDetailCache.Forget(saleId);
 
             // 2026-10-04, стресс-тест: сумма возврата — та, что записал сервер (документ возврата).
             // Оценка выше (сумма строк) не знает скидки на чек: сервер хранит её у продажи, а не в
             // строках, и чек возврата печатал больше, чем сервер вернул (полный возврат №1348: касса
             // 56,00, сервер 50,40). Сервер не ответил — остаётся оценка, как раньше.
             var estimatedTotal = total;
-            total = await ServerRefundAmountAsync(_currentSaleId, total).ConfigureAwait(true);
+            total = await ServerRefundAmountAsync(saleId, total).ConfigureAwait(true);
 
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,
-                ShiftEventsStore.OperationKey(_currentSaleId),
+                ShiftEventsStore.OperationKey(saleId),
                 (double)total);
 
             // Баллы лояльности отменяются, когда возвращён ВЕСЬ чек — в том числе если кассир
@@ -778,7 +782,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             {
                 try
                 {
-                    ClientLoyaltyStore.ReverseRemainingForSale(_currentSaleId);
+                    ClientLoyaltyStore.ReverseRemainingForSale(saleId);
                 }
                 catch (Exception ex)
                 {
@@ -843,7 +847,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             IsBusy = false;
         }
 
-        await RefreshCurrentSaleAsync().ConfigureAwait(true);
+        await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
     }
 
     /// <summary>2026-10-04, стресс-тест на тестовом аккаунте: сумма только что оформленного возврата
@@ -911,14 +915,18 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         return result;
     }
 
-    private async Task RefreshCurrentSaleAsync()
+    private async Task RefreshCurrentSaleAsync(string? expectedSaleId = null)
     {
-        if (string.IsNullOrEmpty(_currentSaleId))
+        var saleId = expectedSaleId ?? _currentSaleId;
+        if (string.IsNullOrEmpty(saleId))
             return;
 
         try
         {
-            FillLinesFromSale(await App.SalesApi.PosSaleGetAsync(_currentSaleId).ConfigureAwait(true));
+            var sale = await App.SalesApi.PosSaleGetAsync(saleId).ConfigureAwait(true);
+            if (!string.Equals(_currentSaleId, saleId, StringComparison.OrdinalIgnoreCase))
+                return;
+            FillLinesFromSale(sale);
             UpdateReceiptChrome();
         }
         catch (Exception ex)
@@ -1119,13 +1127,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     private async void ReturnWholeReceipt_Click(object? sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_currentSaleId))
+        if (string.IsNullOrEmpty(_currentSaleId) || IsBusy)
         {
             PosMessageBox.Show(this, Tr.T("Сначала выберите чек в списке выше.", "Алгач жогорудагы тизмеден чекти тандаңыз.", "Select a receipt in the list above first.", "Önce yukarıdaki listeden bir fiş seçin.", "Avval yuqoridagi ro'yxatdan chekni tanlang."),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        var saleId = _currentSaleId;
 
         // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
         var defectPreset = await CheckReturnRulesAsync(Lines.Where(l => l.CanReturn).ToList(), exchange: false).ConfigureAwait(true);
@@ -1146,12 +1156,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
+        if (!string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase))
+            return;
+
         IsBusy = true;
         try
         {
             await PosRefundService.RefundWholeSaleAsync(
                 App.SalesApi,
-                _currentSaleId,
+                saleId,
                 reasonDialog.ReasonText,
                 App.PosCashboxId,
                 reasonDialog.IsDefect).ConfigureAwait(true);
@@ -1164,11 +1177,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // больше, чем заплатил покупатель (№1348: 56,00 вместо 50,40). Берём сумму документа
             // возврата сервера, без него — итог продажи (total), и только потом — сумму строк.
             var linesTotal = Lines.Where(l => l.CanReturn).Sum(line => line.RefundSum);
-            var wholeTotal = await ServerRefundAmountAsync(_currentSaleId, _currentSaleTotal ?? linesTotal).ConfigureAwait(true);
+            var wholeTotal = await ServerRefundAmountAsync(saleId, _currentSaleTotal ?? linesTotal).ConfigureAwait(true);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,
-                ShiftEventsStore.OperationKey(_currentSaleId),
+                ShiftEventsStore.OperationKey(saleId),
                 (double)wholeTotal);
 
             var wholeLines = ScaleRefundLines(Lines.Where(l => l.CanReturn).Select(l => (
@@ -1202,7 +1215,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // без клиента, продажа была офлайн), метод просто ничего не делает.
             try
             {
-                ClientLoyaltyStore.ReverseRemainingForSale(_currentSaleId);
+                ClientLoyaltyStore.ReverseRemainingForSale(saleId);
             }
             catch (Exception ex)
             {
@@ -1212,7 +1225,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             PosMessageBox.Show(this, Tr.T("Полный возврат чека оформлен.", "Чек толугу менен кайтарылды.", "Full receipt return completed.", "Fişin tam iadesi tamamlandı.", "Chek to'liq qaytarildi.")
                     + "\n" + RefundToGiveText(wholeTotal),
                 Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Information);
-            await RefreshCurrentSaleAsync().ConfigureAwait(true);
+            await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
         }
         catch (ApiException ex)
         {

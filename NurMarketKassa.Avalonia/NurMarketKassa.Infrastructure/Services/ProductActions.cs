@@ -15,7 +15,7 @@ namespace NurMarketKassa.Services;
 /// Сами ИИ и бот ничего не меняют без подтверждения владельца — подтверждение показывают они (см. ProductActionPlan).</summary>
 public static class ProductActions
 {
-    public sealed record Result(bool Ok, string Message);
+    public sealed record Result(bool Ok, string Message, bool Partial = false);
 
     /// <summary>Учёт остатков (документ ревизии). Задаётся приложением при запуске.</summary>
     public static IInventoryApiService? InventoryApi { get; set; }
@@ -51,7 +51,8 @@ public static class ProductActions
     public static string Qty(double v) => v.ToString("0.###", Ru);
 
     /// <summary>Изменить остаток: <paramref name="delta"/> (+ приход, − списание) или <paramref name="setTo"/> (точное количество).</summary>
-    public static async Task<Result> ChangeStockAsync(string productId, double? delta, double? setTo, string reason, string? actor, CancellationToken ct = default)
+    public static async Task<Result> ChangeStockAsync(string productId, double? delta, double? setTo, string reason, string? actor,
+        CancellationToken ct = default, double? expectedCurrent = null)
     {
         var product = Find(productId);
         if (product is null)
@@ -72,6 +73,13 @@ public static class ProductActions
             PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не получен ({ex.Message}).", "WARNING");
             return new Result(false, T("Нет связи с сервером — остаток не получен, ничего не изменено.", "Сервер менен байланыш жок — калдык алынган жок, эч нерсе өзгөргөн жок.", "No connection to the server — nothing changed.", "Sunucuyla bağlantı yok — hiçbir şey değişmedi.", "Server bilan aloqa yo'q — hech narsa o'zgarmadi."));
         }
+
+        if (expectedCurrent is { } expected && Math.Abs(current - expected) >= 0.0005)
+            return new Result(false, T($"«{product.Title}»: остаток изменился после подготовки действия ({Qty(expected)} → {Qty(current)}). Ничего не изменено — обновите данные и подтвердите заново.",
+                $"«{product.Title}»: аракет даярдалгандан кийин калдык өзгөрдү ({Qty(expected)} → {Qty(current)}). Өзгөртүү болгон жок — маалыматты жаңыртып, кайра ырастаңыз.",
+                $"“{product.Title}”: stock changed after this action was prepared ({Qty(expected)} → {Qty(current)}). Nothing changed — refresh and confirm again.",
+                $"«{product.Title}»: işlem hazırlandıktan sonra stok değişti ({Qty(expected)} → {Qty(current)}). Değişiklik yapılmadı — yenileyip tekrar onaylayın.",
+                $"«{product.Title}»: amal tayyorlangandan keyin qoldiq o'zgardi ({Qty(expected)} → {Qty(current)}). O'zgarish qilinmadi — yangilab, qayta tasdiqlang."));
 
         var target = Math.Round(setTo ?? current + (delta ?? 0), 3);
         if (target < 0)

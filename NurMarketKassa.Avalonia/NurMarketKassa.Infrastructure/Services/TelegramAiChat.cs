@@ -71,13 +71,38 @@ public static class TelegramAiChat
     /// разговора не попадает (только текст).</summary>
     private static readonly AsyncLocal<(byte[] Data, string Mime)?> QuestionImage = new();
 
+    /// <summary>2026-10-11, тестировщик (иишка.md, 1): «несколько фото/файлов для накладной, чтобы не путаться при загрузке нескольких
+    /// страниц». Вторая и следующие страницы (фото или PDF) — к тому же вопросу, после первой.</summary>
+    private static readonly AsyncLocal<List<(byte[] Data, string Mime)>?> QuestionExtraImages = new();
+
+    /// <summary>Вопрос с несколькими вложениями (страницы накладной): первое — как обычное фото, остальные — следом в том же запросе.</summary>
+    public static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> AskOwnerAppWithDetailsAsync(
+        string question, string? serverSummary, CancellationToken ct, IReadOnlyList<(byte[] Data, string Mime)> attachments)
+    {
+        if (attachments.Count == 0)
+            return await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, null, null).ConfigureAwait(false);
+        QuestionExtraImages.Value = attachments.Skip(1).ToList();
+        try
+        {
+            return await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, attachments[0].Data, attachments[0].Mime).ConfigureAwait(false);
+        }
+        finally
+        {
+            QuestionExtraImages.Value = null;
+        }
+    }
+
     public static async Task<(string? Answer, string? Error)> AskOwnerAppAsync(string question, string? serverSummary, CancellationToken ct,
         byte[]? image = null, string? imageMime = null)
     {
+        var (answer, error, _) = await AskOwnerAppWithDetailsAsync(question, serverSummary, ct, image, imageMime).ConfigureAwait(false);
+        return (answer, error);
+    }
+
+    public static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> AskOwnerAppWithDetailsAsync(
+        string question, string? serverSummary, CancellationToken ct, byte[]? image = null, string? imageMime = null)
+    {
         QuestionImage.Value = image is { Length: > 0 } ? (image, imageMime ?? "image/jpeg") : null;
-        // 2026-10-07, владелец (снимок: к вопросу о чеках — «Найдено в интернете: Приправа…» от прошлого поиска): источники —
-        // только этого вопроса.
-        LastWebSources = Array.Empty<WebSource>();
         // 2026-10-06, владелец: «к ИИ дай полный доступ к товарам… следить за сроками годности» — сроки с сервера в сводку.
         await ProductExpiryIndex.RefreshAsync(false, ct).ConfigureAwait(false);
         var cards = await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false);
@@ -101,14 +126,15 @@ public static class TelegramAiChat
                      + BuildShopContext(question, localRevenue: string.IsNullOrWhiteSpace(serverSummary));
         // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (AiProviders): Gemini пишет строку
         // «ПОИСК: запрос», программа ищет и отдаёт найденное Gemini для ответа (в Groq уходит только запрос, без сводки).
-        var groqSearch = WebSearchUnavailable && AiProviders.CanSearchWeb;
+        var explicitWebSearch = ProductActionPlan.IsExplicitWebSearchRequest(question);
+        var groqSearch = explicitWebSearch && WebSearchUnavailable && AiProviders.CanSearchWeb;
         if (groqSearch)
             system += "\n" + GroqSearchHint;
-        var (answer, error) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true, webSearch: !groqSearch && research.Length == 0).ConfigureAwait(false);
-        if (researchSources.Count > 0)
-            LastWebSources = researchSources;
-        if (!groqSearch || answer is null || SearchRequest(answer) is not { } query)
-            return (answer, error);
+        var (answer, error, generatedSources) = await AskCoreAsync(OwnerAppHistoryKey, question, system, ct, raw: true,
+            webSearch: explicitWebSearch && !groqSearch && research.Length == 0).ConfigureAwait(false);
+        var requestSources = researchSources.Count > 0 ? researchSources : generatedSources;
+        if (!groqSearch || !explicitWebSearch || answer is null || SearchRequest(answer) is not { } query)
+            return (answer, error, requestSources);
 
         // Промежуточный ответ «ПОИСК: …» в истории разговора не нужен.
         lock (History)
@@ -117,13 +143,11 @@ public static class TelegramAiChat
                 list.RemoveRange(list.Count - 2, 2);
         }
         var (found, sources, searchError) = await AiProviders.SearchWebAsync(query, ct).ConfigureAwait(false);
-        LastWebSources = sources;
         var withResults = question + "\n\nРЕЗУЛЬТАТЫ ПОИСКА В ИНТЕРНЕТЕ по запросу «" + query + "»:\n"
                           + (found ?? "не нашлось (" + searchError + ")")
                           + "\n\nОтветь на вопрос по сводке магазина и этим результатам. Строку «ПОИСК:» больше не пиши.";
-        var (final, finalError) = await AskCoreAsync(OwnerAppHistoryKey, withResults, system.Replace(GroqSearchHint, ""), ct, raw: true).ConfigureAwait(false);
-        LastWebSources = sources;
-        return (final, finalError);
+        var (final, finalError, _) = await AskCoreAsync(OwnerAppHistoryKey, withResults, system.Replace(GroqSearchHint, ""), ct, raw: true).ConfigureAwait(false);
+        return (final, finalError, sources);
     }
 
     private const string GroqSearchHint =
@@ -139,10 +163,6 @@ public static class TelegramAiChat
 
     /// <summary>Источник из интернета, на который опирался ответ (поиск Google в Gemini).</summary>
     public sealed record WebSource(string Title, string Uri);
-
-    /// <summary>2026-10-05, владелец: «включи поиск по интернету для ИИ». Источники последнего ответа с поиском
-    /// (ИИ-советник показывает их ссылками под ответом). Пусто — ИИ ответил без поиска.</summary>
-    public static IReadOnlyList<WebSource> LastWebSources { get; private set; } = Array.Empty<WebSource>();
 
     /// <summary>2026-10-05, проверка на ключе владельца: обычные запросы — 200, с поиском Google — 429 (у бесплатного ключа
     /// Gemini квоты на поиск нет). До этого времени поиск не пробуем, отвечаем без него.</summary>
@@ -228,8 +248,8 @@ public static class TelegramAiChat
         + "а имена владелец увидит в разделе «Долги клиентов». Никогда не выдумывай суммы, остатки и цены. "
         + "Давай конкретные советы: что заказать, что продвигать, где теряются деньги, как поднять продажи; акции — не ниже закупки плюс пять процентов. "
         // 2026-10-07, владелец: «перестань выдавать фото из базы NurCRM, ищи прямо в интернете».
-        + "Просят найти или показать фото товара — программа САМА ищет его в интернете (Яндекс.Картинки, магазины) и показывает варианты "
-        + "с номерами в чате; скажи «Ищу в интернете» и назови товар точно; фото со склада программы не обещай и не говори, что не можешь. "
+        + "Поиск фото в интернете запускай только по прямой просьбе найти / поискать фото именно в интернете или в сети. "
+        + "Слова «фото», «покажи фото», «есть ли фото», «удали фото» сами по себе не разрешают сетевой поиск. "
         + "Функции Телеграм-бота и сценарии бота голосом не меняются — для этого предложи написать в чат советника. "
         // 2026-10-06, владелец сказал «поставь четвёртое фото» — советник обещал, а программа не умела. Теперь умеет.
         // 2026-10-06, владелец: «дай ИИ звонку полный доступ к программе — открывать вкладки и разделы и искать товары».
@@ -277,11 +297,11 @@ public static class TelegramAiChat
         + "клиенты и заказы через бота. Когда спрашивают про акции, проблемные товары или «что делать со складом» — предлагай "
         + "конкретные акции на конкретные товары: какой товар, какая скидка или комплект, на какой срок и почему; соблюдай правила "
         + "акций из анализа (не ниже закупки + 5 %, на товары с низкой наценкой — без скидки). "
-        + "Фото товаров программа ищет и ставит сама: если просят загрузить или найти фото — скажи нажать «Найди фото для товаров без фото». "
+        + "Фото через интернет ищи только по прямой просьбе пользователя искать фото в интернете / сети; упоминание фото само по себе не разрешает поиск. "
         // 2026-10-05, владелец: «включи поиск по интернету для ИИ».
-        + "У тебя есть поиск Google: используй его, когда нужны сведения извне — цены у конкурентов и поставщиков, новинки, "
-        + "законы и налоги Кыргызстана, курсы валют, праздники и сезонный спрос, как продавать тот или иной товар. Цифры своего магазина — "
-        + "только из сводки, не из интернета. Найденное в интернете называй как найденное и не выдумывай. "
+        + "Поиск Google и другие внешние источники используй только когда пользователь прямо просит найти или проверить информацию в интернете / сети. "
+        + "Без такой просьбы отвечай по сводке и локальным данным, а при нехватке данных честно сообщи об этом. Цифры своего магазина — "
+        + "только из сводки. Найденное в интернете называй как найденное и не выдумывай. "
         // 2026-10-05, владелец: «добавь возможность ИИ управлять ботом» (ответ «1 да»). Сам ИИ ничего не меняет:
         // он пишет строку БОТ: {...}, программа показывает её владельцу карточкой и применяет только по «Применить».
         + "Ты можешь включать и выключать функции Телеграм-бота магазина. Состояние бота — в сводке (раздел «БОТ»). "
@@ -309,7 +329,11 @@ public static class TelegramAiChat
         + "продажи по дням, должники, итоги по категориям) — ТАБЛИЦЕЙ Markdown: строка заголовков, под ней строка вида |---|---|, дальше строки; "
         + "2–7 колонок, короткие заголовки, числа с пробелами между разрядами и единицей (сом, шт, ч), без звёздочек внутри таблицы; "
         + "итог — последней строкой «Итого». Перед таблицей — одна короткая фраза, после — 1–2 предложения вывода или совета. "
-        + "Остальное — простой текст без решёток (#) и звёздочек; список — каждый пункт с новой строки, начинается с «• », не больше 10–15 пунктов.";
+        + "Остальное — простой текст без решёток (#) и звёздочек; список — каждый пункт с новой строки, начинается с «• », не больше 10–15 пунктов. "
+        // 2026-10-09: формат полного списка накладной важнее общего ограничения длины списков и обычного текста вокруг таблиц.
+        + "ИСКЛЮЧЕНИЕ: если к вопросу приложено фото накладной, не применяй ограничение 10–15 пунктов и общие правила оформления таблиц; "
+        + "выведи все строки в таблице с колонками строго по инструкции «ФОТО К ВОПРОСУ», затем ровно три заданные строки итогов; "
+        + "не используй списки вместо строк таблицы и не добавляй никакого другого видимого текста.";
 
     /// <summary>2026-10-05: ответ нейросети для окна программы (не Telegram): единые «• », без разметки Markdown.</summary>
     public static string ToPlainText(string text)
@@ -352,10 +376,10 @@ public static class TelegramAiChat
         if (salesDetail.Length > 0)
             cards += (cards.Length > 0 ? "\n\n" : "") + salesDetail;
         var system = SystemPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question);
-        var (answer, error) = await AskCoreAsync("owner:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
+        var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
         if (answer is null)
             return (null, new List<ProductActionPlan.Step>(), error);
-        var (text, steps) = ProductActionPlan.Extract(answer);
+        var (text, steps, _) = ProductActionPlan.Extract(answer, question);
         // «Открыть на складе» — только в программе владельца.
         steps = steps.Where(st => st.Op is not ("open" or "open_section")).ToList();
         return (ToTelegramHtml(text.Length > 0 ? text : "Подтвердите действия:"), steps, null);
@@ -507,7 +531,7 @@ public static class TelegramAiChat
     /// <summary>2026-10-06: сведения из интернета о товарах из вопроса — только если просят описать / дополнить / найти сведения.</summary>
     private static async Task<(string Text, IReadOnlyList<WebSource> Sources)> ResearchMentionedAsync(string question, CancellationToken ct)
     {
-        if (!ProductInfoResearch.LooksLikeInfoRequest(question))
+        if (!ProductActionPlan.IsExplicitWebSearchRequest(question) || !ProductInfoResearch.LooksLikeInfoRequest(question))
             return ("", Array.Empty<WebSource>());
         var targets = ProductActionPlan.Mentioned(question, 3);
         if (targets.Count == 0)
@@ -518,9 +542,12 @@ public static class TelegramAiChat
     }
 
     /// <summary>Ответ на реплику владельца. Error — понятная владельцу причина, если не вышло.</summary>
-    public static Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct) =>
-        AskCoreAsync("owner:" + chatId, question,
-            SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question), ct);
+    public static async Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct)
+    {
+        var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question,
+            SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n" + BuildShopContext(question), ct).ConfigureAwait(false);
+        return (answer, error);
+    }
 
     /// <summary>2026-09-30, решение владельца «консультант для всех»: любой, кто пишет боту, общается
     /// с ИИ-продавцом. Сводка — ТОЛЬКО каталог (товары, цены, есть ли в наличии) и контакты магазина:
@@ -529,6 +556,9 @@ public static class TelegramAiChat
     /// чтобы посторонние не выбрали бесплатный лимит Google.</summary>
     public static async Task<(string? Answer, string? Error)> AskCustomerAsync(string chatId, string question, CancellationToken ct)
     {
+        if (await HandlePendingCustomerOrderAsync(chatId, question, ct).ConfigureAwait(false) is { } pendingReply)
+            return (ToTelegramHtml(pendingReply), null);
+
         lock (CustomerRequests)
         {
             if (!CustomerRequests.TryGetValue(chatId, out var times))
@@ -552,10 +582,10 @@ public static class TelegramAiChat
                 : "")
             + "\n\nКАТАЛОГ (цена и наличие):\n" + TelegramAssistant.CustomerCatalogContext(question, EarlierCustomerText(chatId))
             + CustomerProfileBlock(chatId);
-        var (answer, error) = await AskCoreAsync("client:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
+        var (answer, error, _) = await AskCoreAsync("client:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
         if (answer == null)
             return (null, error);
-        answer = await ProcessOrderAsync(chatId, answer, ct).ConfigureAwait(false);
+        answer = ProcessOrder(chatId, answer);
         return (ToTelegramHtml(answer), null);
     }
 
@@ -564,18 +594,85 @@ public static class TelegramAiChat
     public static Func<string, string, IReadOnlyList<(string ProductId, double Qty)>, string?, CancellationToken,
         Task<(string Id, string Number, decimal Total)>>? OrderCreator { get; set; }
 
+    private sealed record PendingCustomerOrder(string Name, string Phone, string Comment,
+        IReadOnlyList<(string ProductId, double Qty)> Items, IReadOnlyList<string> Titles, DateTime CreatedUtc);
+
+    private static readonly object PendingCustomerOrdersLock = new();
+    private static readonly Dictionary<string, PendingCustomerOrder> PendingCustomerOrders = new();
+    private static readonly TimeSpan PendingCustomerOrderLifetime = TimeSpan.FromMinutes(15);
+
+    private static string NormalizeCustomerOrderAnswer(string? text) =>
+        Regex.Replace((text ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}]+", " ").Trim();
+
+    private static bool IsCustomerOrderConfirmation(string? text) => NormalizeCustomerOrderAnswer(text) is
+        "оформить заказ" or "да оформить заказ" or "да оформляйте" or "оформляйте" or "подтверждаю заказ"
+        or "заказываю" or "да" or "ооба" or "заказды тастыктайм" or "заказ берейин" or "yes" or "place order" or "confirm order";
+
+    private static bool IsCustomerOrderRejection(string? text) => NormalizeCustomerOrderAnswer(text) is
+        "отменить заказ" or "отмена" or "нет" or "не оформлять" or "не надо" or "жок" or "заказды жокко чыгар" or "cancel" or "no";
+
+    public static async Task<string?> HandlePendingCustomerOrderAsync(string chatId, string question, CancellationToken ct)
+    {
+        PendingCustomerOrder? draft;
+        lock (PendingCustomerOrdersLock)
+        {
+            if (!PendingCustomerOrders.TryGetValue(chatId, out draft))
+                return null;
+            if (DateTime.UtcNow - draft.CreatedUtc > PendingCustomerOrderLifetime)
+            {
+                PendingCustomerOrders.Remove(chatId);
+                return null;
+            }
+            if (IsCustomerOrderConfirmation(question) || IsCustomerOrderRejection(question))
+                PendingCustomerOrders.Remove(chatId);
+        }
+
+        if (IsCustomerOrderRejection(question))
+            return "Заказ отменён. Ничего не оформляли.";
+        if (!IsCustomerOrderConfirmation(question))
+            return "У вас подготовлен заказ. Чтобы продолжить, ответьте «Оформить заказ» или «Отменить заказ». Если нужно что-то изменить, сначала отмените текущий заказ.";
+
+        if (!string.IsNullOrWhiteSpace(draft.Name))
+            TelegramInquiryStore.SaveProfile(chatId, draft.Name, draft.Phone);
+        if (OrderCreator is null)
+        {
+            _ = TelegramBotService.SendAsync($"🛒 <b>Подтверждён заказ из Telegram</b>\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
+                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t)))
+                + (string.IsNullOrWhiteSpace(draft.Comment) ? "" : $"\nКомментарий: {Esc(draft.Comment)}"));
+            return "Заказ подтверждён и передан продавцу. Магазин свяжется с вами.";
+        }
+
+        try
+        {
+            var (_, number, total) = await OrderCreator(string.IsNullOrWhiteSpace(draft.Name) ? "Покупатель из Telegram" : draft.Name,
+                draft.Phone, draft.Items, draft.Comment, ct).ConfigureAwait(false);
+            TelegramInquiryStore.MarkLastOrder(chatId, number);
+            PosLogger.Log($"Заказ из бота №{number} оформлен после подтверждения: {draft.Items.Count} поз., {total:0.##} сом.", "TELEGRAM");
+            _ = TelegramBotService.SendAsync(
+                $"🛒 <b>Новый заказ из бота №{Esc(number)}</b>\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
+                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t)))
+                + $"\nСумма: {total:N2} сом" + (string.IsNullOrWhiteSpace(draft.Comment) ? "" : $"\nКомментарий: {Esc(draft.Comment)}"));
+            return $"✅ Заказ №{number} оформлен на сумму {total:N2} сом. Магазин свяжется с вами по номеру {draft.Phone}.";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Заказ из бота: сервер не принял подтверждённый заказ ({ex.Message}).", "TELEGRAM");
+            _ = TelegramBotService.SendAsync(
+                $"🛒 <b>Подтверждённый заказ из бота не записался на сервер</b> — свяжитесь с покупателем:\n{Esc(draft.Name)} · {Esc(draft.Phone)}\n"
+                + string.Join("\n", draft.Titles.Select(t => "• " + Esc(t))));
+            return "Заказ передан продавцу для проверки. Магазин свяжется с вами.";
+        }
+    }
+
     private static readonly Regex OrderLine = new(@"(?m)^[ \t]*ЗАКАЗ:[ \t]*(\{.*\})[ \t]*$", RegexOptions.Compiled);
 
-    /// <summary>Нейросеть дописывает строку «ЗАКАЗ: {…}», только когда покупатель подтвердил заказ и
-    /// назвал телефон. Строку убираем из ответа, товары сверяем с каталогом, заказ создаём на сервере
-    /// (цену считает сервер) и сообщаем покупателю номер и сумму, а владельцу — в его чат.</summary>
-    private static async Task<string> ProcessOrderAsync(string chatId, string answer, CancellationToken ct)
+    /// <summary>Строка модели «ЗАКАЗ: {…}» создаёт только черновик. Отдельное подтверждение покупателя
+    /// проверяется приложением в следующем сообщении, до вызова API создания заказа.</summary>
+    private static string ProcessOrder(string chatId, string answer)
     {
         var match = OrderLine.Match(answer);
         if (!match.Success)
             return answer;
-        var text = OrderLine.Replace(answer, "").Trim();
-
         string name, phone, comment;
         var items = new List<(string ProductId, double Qty)>();
         var titles = new List<string>();
@@ -590,6 +687,8 @@ public static class TelegramAiChat
             {
                 foreach (var it in arr.EnumerateArray())
                 {
+                    if (items.Count >= 50)
+                        break;
                     var title = it.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
                     double qty = 1;
                     if (it.TryGetProperty("qty", out var q))
@@ -602,7 +701,7 @@ public static class TelegramAiChat
                             qty = qs;
                     }
                     var product = TelegramAssistant.FindProductByTitle(title);
-                    if (product != null && qty > 0)
+                    if (product != null && double.IsFinite(qty) && qty is > 0 and <= 10000)
                     {
                         items.Add((product.Id, qty));
                         titles.Add($"{product.Title} × {qty:0.###}");
@@ -613,43 +712,26 @@ public static class TelegramAiChat
         catch (JsonException ex)
         {
             PosLogger.Log($"Заказ из бота: не разобран ({ex.Message}).", "TELEGRAM");
-            return text;
+            return "Не удалось разобрать заказ. Напишите товары и количество ещё раз.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException or OverflowException)
+        {
+            PosLogger.Log($"Заказ из бота: некорректные данные ({ex.Message}).", "TELEGRAM");
+            return "Не удалось разобрать заказ. Напишите товары и количество ещё раз.";
         }
 
         var digits = new string(phone.Where(char.IsDigit).ToArray());
         if (items.Count == 0 || digits.Length < 9)
         {
             PosLogger.Log($"Заказ из бота не оформлен: товаров {items.Count}, телефон {(digits.Length < 9 ? "не указан" : "есть")}.", "TELEGRAM");
-            return text + "\n\nЧтобы оформить заказ, напишите, пожалуйста, товары из нашего каталога и номер телефона.";
+            return "Чтобы подготовить заказ, напишите товары из нашего каталога и номер телефона.";
         }
-
-        // Реквизиты запоминаем сразу — в следующий раз бот только попросит их подтвердить.
-        if (!string.IsNullOrWhiteSpace(name))
-            TelegramInquiryStore.SaveProfile(chatId, name, phone);
-
-        if (OrderCreator == null)
-            return text + "\n\nЗаказ передан продавцу — вам перезвонят.";
-
-        try
-        {
-            var (_, number, total) = await OrderCreator(string.IsNullOrWhiteSpace(name) ? "Покупатель из Telegram" : name,
-                phone, items, comment, ct).ConfigureAwait(false);
-            TelegramInquiryStore.MarkLastOrder(chatId, number);
-            PosLogger.Log($"Заказ из бота №{number} оформлен: {items.Count} поз., {total:0.##} сом.", "TELEGRAM");
-            _ = TelegramBotService.SendAsync(
-                $"🛒 <b>Новый заказ из бота №{Esc(number)}</b>\n{Esc(name)} · {Esc(phone)}\n"
-                + string.Join("\n", titles.Select(t => "• " + Esc(t)))
-                + $"\nСумма: {total:N2} сом" + (string.IsNullOrWhiteSpace(comment) ? "" : $"\nКомментарий: {Esc(comment)}"));
-            return text + $"\n\n✅ Заказ №{number} оформлен на сумму {total:N2} сом. Магазин свяжется с вами по номеру {phone}.";
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Заказ из бота: сервер не принял ({ex.Message}).", "TELEGRAM");
-            _ = TelegramBotService.SendAsync(
-                $"🛒 <b>Заказ из бота не записался на сервер</b> — свяжитесь с покупателем:\n{Esc(name)} · {Esc(phone)}\n"
-                + string.Join("\n", titles.Select(t => "• " + Esc(t))));
-            return text + "\n\nЗаказ передан продавцу — вам перезвонят для подтверждения.";
-        }
+        lock (PendingCustomerOrdersLock)
+            PendingCustomerOrders[chatId] = new PendingCustomerOrder(name, phone, comment, items, titles, DateTime.UtcNow);
+        PosLogger.Log($"ИИ подготовил черновик заказа для Telegram ({items.Count} поз.) — ждёт отдельного подтверждения покупателя.", "TELEGRAM");
+        return "Проверьте заказ:\n" + string.Join("\n", titles.Select(t => "• " + t))
+               + (string.IsNullOrWhiteSpace(name) ? "" : "\nИмя: " + name) + "\nТелефон: " + phone
+               + "\n\nОформить заказ? Ответьте «Оформить заказ» или «Отменить заказ».";
     }
 
     private static string Esc(string? t) => (t ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
@@ -686,8 +768,9 @@ public static class TelegramAiChat
         + "какой нужен; нужного размера или цвета нет — предложи ближайший, который есть. Не говори «свободный размер», "
         + "если в каталоге указаны размеры."
         + " ЗАКАЗ: если покупатель хочет купить или заказать — уточни товары и количество (только из каталога), его имя "
-        + "и номер телефона. Когда всё известно, коротко перечисли заказ и спроси «Оформить?». ТОЛЬКО после явного согласия "
-        + "покупателя добавь в самом конце ответа отдельной строкой: "
+        + "и номер телефона. Когда всё известно, добавь в конце ответа отдельную строку-ЧЕРНОВИК, чтобы программа показала "
+        + "состав заказа и запросила отдельное подтверждение. Черновик НЕ является согласием и не создаёт заказ. Никогда не пиши, "
+        + "что заказ оформлен, пока покупатель отдельно не ответил «Оформить заказ»: "
         + "ЗАКАЗ: {\"name\":\"Имя\",\"phone\":\"+996...\",\"items\":[{\"title\":\"точное название из каталога\",\"qty\":1}],\"comment\":\"\"} "
         + "— размер и цвет пиши в comment (например «Джинсы: 32, синий»). Эту строку покупатель не увидит. Сумму не называй в подтверждении — её посчитает магазин. Заказ — самовывоз из магазина."
         + ListRules;
@@ -704,11 +787,22 @@ public static class TelegramAiChat
         }
     }
 
-    private static async Task<(string? Answer, string? Error)> AskCoreAsync(string historyKey, string question, string system, CancellationToken ct, bool raw = false, bool webSearch = false)
+    private static string ClampPromptContext(string system, int maxChars = 16000)
+    {
+        if (string.IsNullOrWhiteSpace(system))
+            return system ?? string.Empty;
+        if (system.Length <= maxChars)
+            return system;
+        return system[..maxChars] + "\n\n[Содержимое контекста обрезано — модель получила только начало, чтобы сохранить стабильность ответа.]";
+    }
+
+    private static async Task<(string? Answer, string? Error, IReadOnlyList<WebSource> Sources)> AskCoreAsync(
+        string historyKey, string question, string system, CancellationToken ct, bool raw = false, bool webSearch = false)
     {
         var key = AiKey;
         if (string.IsNullOrWhiteSpace(key))
-            return (null, "ключ ИИ не задан");
+            return (null, "ключ ИИ не задан", Array.Empty<WebSource>());
+        system = ClampPromptContext(system, 16000);
 
         List<(string Role, string Text)> history;
         lock (History)
@@ -720,10 +814,8 @@ public static class TelegramAiChat
 
         var chatId = historyKey;
         var (answer, error, sources) = await GenerateCoreAsync(key!, system, history, question, ct, webSearch).ConfigureAwait(false);
-        if (webSearch)
-            LastWebSources = sources;
         if (answer == null)
-            return (null, error);
+            return (null, error, sources);
 
         lock (History)
         {
@@ -734,7 +826,7 @@ public static class TelegramAiChat
                 list.RemoveAt(0);
         }
 
-        return (raw ? answer : ToTelegramHtml(answer), null);
+        return (raw ? answer : ToTelegramHtml(answer), null, sources);
     }
 
     /// <summary>2026-10-05: один вопрос без истории разговора (голосовое управление кассы — VoiceAi).</summary>
@@ -790,6 +882,10 @@ public static class TelegramAiChat
         var image = QuestionImage.Value;
         if (image is { } img)
             userParts.Add(new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = img.Mime, ["data"] = Convert.ToBase64String(img.Data) } });
+        // 2026-10-11: следующие страницы накладной — в том же сообщении, по порядку.
+        if (image is not null && QuestionExtraImages.Value is { Count: > 0 } extra)
+            foreach (var page in extra)
+                userParts.Add(new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = page.Mime, ["data"] = Convert.ToBase64String(page.Data) } });
         contents.Add(new JsonObject { ["role"] = "user", ["parts"] = userParts });
 
         string Body(bool search)
@@ -798,8 +894,8 @@ public static class TelegramAiChat
             {
                 ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = system }) },
                 ["contents"] = contents.DeepClone(),
-                // 2026-10-06: действия с товарами («ТОВАР: …», накладная по фото) длиннее обычного ответа.
-                ["generationConfig"] = new JsonObject { ["temperature"] = image is null ? 0.5 : 0.2, ["maxOutputTokens"] = image is not null ? 3000 : search ? 1200 : 1200 },
+                // 2026-10-09: длинные накладные должны помещать все строки таблицы и действия без обрыва на прежнем лимите.
+                ["generationConfig"] = new JsonObject { ["temperature"] = image is null ? 0.5 : 0.2, ["maxOutputTokens"] = image is not null ? 32768 : search ? 1200 : 1200 },
             };
             if (search)
                 b["tools"] = new JsonArray(new JsonObject { ["google_search"] = new JsonObject() });

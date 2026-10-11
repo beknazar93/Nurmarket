@@ -474,4 +474,50 @@ public static class OwnerAiContext
             return "СКЛАД: данные склада сейчас недоступны.";
         }
     }
+
+    /// <summary>Отчёт по товарам без локального фото. Строится целиком из локального каталога,
+    /// чтобы запрос на список не зависел от сокращённого контекста, отправляемого нейросети.</summary>
+    public static string BuildMissingPhotoReport()
+    {
+        try
+        {
+            IReadOnlyList<CatalogProductTileVm> tiles = LocalProductRepository.Instance.LoadAllTiles();
+            if (tiles.Count == 0)
+                tiles = CatalogCacheService.Products.ToList();
+            if (tiles.Count == 0)
+                return "Каталог товаров в программе ещё не загружен. Откройте раздел «Склад» и повторите запрос.";
+
+            var products = tiles.Where(t => !t.IsService).ToList();
+            var missing = products.Where(t => string.IsNullOrWhiteSpace(t.ImageUrl)
+                                               && string.IsNullOrWhiteSpace(t.ProductImagePath))
+                .OrderBy(t => t.Title, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var sb = new StringBuilder();
+            sb.AppendLine($"АНАЛИЗ ФОТОГРАФИЙ СКЛАДА: товаров {products.Count}, без фото {missing.Count} " +
+                          $"({(products.Count == 0 ? 0 : missing.Count * 100.0 / products.Count):0.#} %).");
+            if (missing.Count == 0)
+            {
+                sb.AppendLine("У всех товаров есть фото.");
+                return sb.ToString().TrimEnd();
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("| № | Наименование | Штрихкод / Артикул | Ед. изм. | Остаток |");
+            sb.AppendLine("|---:|---|---|---|---:|");
+            for (var i = 0; i < missing.Count; i++)
+            {
+                var t = missing[i];
+                static string Cell(string? value) => string.IsNullOrWhiteSpace(value)
+                    ? "-" : value.Trim().Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
+                var code = !string.IsNullOrWhiteSpace(t.Barcode) ? t.Barcode : t.Article;
+                var unit = string.IsNullOrWhiteSpace(t.Unit) ? (t.MustWeigh ? "кг" : "шт.") : t.Unit;
+                sb.AppendLine($"| {i + 1} | {Cell(t.Title)} | {Cell(code)} | {Cell(unit)} | {t.Quantity:0.###} |");
+            }
+            return sb.ToString().TrimEnd();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: список товаров без фото не построен ({ex.Message}).", "WARNING");
+            return "Не удалось прочитать локальный каталог товаров. Повторите запрос после загрузки склада.";
+        }
+    }
 }

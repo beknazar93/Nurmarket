@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -86,7 +86,18 @@ public partial class StockTransferDialog
             ItemEditPanel.IsEnabled = false;
             SuggestionsBox.IsVisible = false;
         }
-        BranchHint.IsVisible = hasBranches || linked;
+        // 2026-10-11, тестировщик (склад.md, 5): «нигде ничего не происходит и создаётся черновик». Без филиалов документ — только
+        // учёт на этой кассе (остатки не меняются); теперь об этом сказано прямо.
+        BranchHint.IsVisible = true;
+        if (!hasBranches && !linked)
+        {
+            BranchHint.Text = T("Филиалов у компании нет — здесь перемещение только записывается на этой кассе (между своими местами: зоны, ячейки), остатки на складе не меняются. Перемещение между складами проводится, когда заведены филиалы: программа владельца → «Филиалы».",
+                "Компанияда филиал жок — бул жерде жылдыруу ушул кассада гана жазылат (өз жайлар ортосунда: зоналар, уячалар), кампадагы калдыктар өзгөрбөйт. Кампалар ортосундагы жылдыруу филиалдар түзүлгөндө өткөрүлөт: ээсинин программасы → «Филиалдар».",
+                "The company has no branches — here a transfer is only recorded on this till (between your own places: zones, cells); warehouse stock doesn't change. Transfers between warehouses work once branches exist: owner program → “Branches”.",
+                "Şirketin şubesi yok — burada transfer yalnızca bu kasada kaydedilir (kendi yerleriniz arasında: bölge, hücre), depo stoğu değişmez. Depolar arası transfer şubeler oluşturulunca yapılır: sahip programı → «Şubeler».",
+                "Kompaniyada filial yo'q — bu yerda ko'chirish faqat shu kassada yoziladi (o'z joylaringiz orasida: zona, katak), ombordagi qoldiq o'zgarmaydi. Omborlar orasidagi ko'chirish filiallar ochilgach o'tkaziladi: ega dasturi → «Filiallar».");
+            return;
+        }
         var shown = linked ? Regex.Match(_transfer?.Note ?? "", @"№\S+").Value : "";
         BranchHint.Text = !linked ? null
             : _transfer?.Status == StockTransferService.StatusCancelled

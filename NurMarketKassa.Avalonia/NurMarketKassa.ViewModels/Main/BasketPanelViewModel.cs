@@ -1285,10 +1285,21 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             // 2026-09-17: локальный кэш мог ещё не досинхронизироваться с сайтом (товар
             // добавили/поменяли на сайте только что) — прежде чем сказать кассиру "не найдено",
             // быстро спрашиваем сервер напрямую по этому штрих-коду.
-            var serverProduct = await TryFindProductOnServerAsync(barcode).ConfigureAwait(true);
-            if (serverProduct != null)
+            var serverLookup = await TryFindProductOnServerAsync(barcode).ConfigureAwait(true);
+            if (serverLookup.Product is { } serverProduct)
             {
                 await AddFoundCatalogProductAsync(serverProduct, ResolveVariantLineName(serverProduct, barcode)).ConfigureAwait(true);
+                return;
+            }
+
+            if (serverLookup.Unavailable)
+            {
+                await RunOnUiThreadAsync(() => _prompts.ShowWarning(Tr.T(
+                    "Не удалось проверить штрихкод на сервере. Проверьте связь и повторите сканирование; создание нового товара пока недоступно.",
+                    "Штрихкодду серверден текшерүү мүмкүн болгон жок. Байланышты текшерип, кайра сканерлеңиз; азырынча жаңы товар түзүү жеткиликсиз.",
+                    "The barcode could not be verified with the server. Check the connection and scan again; creating a new product is unavailable for now.",
+                    "Barkod sunucuda doğrulanamadı. Bağlantıyı kontrol edip tekrar tarayın; şu anda yeni ürün oluşturma kullanılamıyor.",
+                    "Shtrix-kodni serverda tekshirib bo'lmadi. Ulanishni tekshirib qayta skanerlang; hozircha yangi mahsulot yaratib bo'lmaydi."))).ConfigureAwait(false);
                 return;
             }
 
@@ -1373,20 +1384,22 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
     /// добавлен/изменён в NurCRM, а кассир ещё не видит его при сканировании. Короткий таймаут
     /// и антидребезг промахов — чтобы повторные сканы несуществующего кода не долбили сервер и
     /// не подвешивали интерфейс, если сети нет вовсе.</summary>
-    private async Task<CatalogProductTileVm?> TryFindProductOnServerAsync(string barcode)
+    private sealed record BarcodeServerLookup(CatalogProductTileVm? Product, bool Unavailable);
+
+    private async Task<BarcodeServerLookup> TryFindProductOnServerAsync(string barcode)
     {
         if (string.IsNullOrWhiteSpace(barcode) || PosApp.CatalogApi is null)
-            return null;
+            return new(null, true);
 
         // 2026-10-04, стенд «сбои сервера»: сервер не отвечает или касса работает без интернета —
         // сервер не спрашиваем, сразу «не найдено» (предложение добавить товар). Раньше каждый скан
         // незнакомого кода в аварии ждал таймаут поиска (4 с).
         if (OfflineModeHelper.SellLocally)
-            return null;
+            return new(null, true);
 
         if (_serverBarcodeMissCache.TryGetValue(barcode, out var missedAt) &&
             DateTime.UtcNow - missedAt < ServerBarcodeMissTtl)
-            return null;
+            return new(null, false);
 
         try
         {
@@ -1396,14 +1409,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             if (dto == null)
             {
                 _serverBarcodeMissCache[barcode] = DateTime.UtcNow;
-                return null;
+                return new(null, false);
             }
 
             var tile = ProductCatalogMapper.TryTile(dto, PosApp.Settings?.ApiBaseUrl ?? "");
             if (tile == null)
             {
-                _serverBarcodeMissCache[barcode] = DateTime.UtcNow;
-                return null;
+                return new(null, true);
             }
 
             LocalProductRepository.Instance.UpsertFromTiles([tile]);
@@ -1415,12 +1427,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase
             CatalogCacheService.NotifyCatalogChanged();
 
             PosLogger.Log($"[DEBUG] Barcode '{barcode}' missing from local cache but found on server: productId={tile.Id}.", "CART");
-            return tile;
+            return new(tile, false);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Server barcode fallback lookup failed for '{barcode}': {ex.GetType().Name}: {ex.Message}", "CART");
-            return null;
+            return new(null, true);
         }
     }
 

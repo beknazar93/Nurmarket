@@ -40,9 +40,22 @@ public static class AiProviders
     public static bool HasGroq => TariffGate.CanUseAi && !string.IsNullOrWhiteSpace(UserPreferences.Instance.GroqApiKey);
     public static bool HasOpenRouter => TariffGate.CanUseAi && !string.IsNullOrWhiteSpace(UserPreferences.Instance.OpenRouterApiKey);
     public static bool HasFallback => HasGroq || HasOpenRouter;
+    private static readonly Dictionary<string, DateTime> ProviderCooldownUntilUtc = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsProviderBlocked(string provider)
+    {
+        lock (ProviderCooldownUntilUtc)
+            return ProviderCooldownUntilUtc.TryGetValue(provider, out var until) && DateTime.UtcNow < until;
+    }
+
+    private static void BlockProvider(string provider, TimeSpan duration)
+    {
+        lock (ProviderCooldownUntilUtc)
+            ProviderCooldownUntilUtc[provider] = DateTime.UtcNow + duration;
+    }
 
     /// <summary>Поиск в интернете через Groq доступен (ключ есть, лимит не исчерпан).</summary>
-    public static bool CanSearchWeb => HasGroq && DateTime.UtcNow >= _groqSearchBlockedUntilUtc;
+    public static bool CanSearchWeb => HasGroq && DateTime.UtcNow >= _groqSearchBlockedUntilUtc && !IsProviderBlocked("GroqSearch");
 
     /// <summary>Найти в интернете: короткий ответ по-русски с найденным и ссылки на источники.</summary>
     public static async Task<(string? Text, IReadOnlyList<TelegramAiChat.WebSource> Sources, string? Error)> SearchWebAsync(string query, CancellationToken ct)
@@ -50,6 +63,8 @@ public static class AiProviders
         var none = (IReadOnlyList<TelegramAiChat.WebSource>)Array.Empty<TelegramAiChat.WebSource>();
         if (!CanSearchWeb)
             return (null, none, HasGroq ? "поиск в интернете через Groq временно недоступен (лимит)" : "нет ключа Groq");
+        if (IsProviderBlocked("GroqSearch"))
+            return (null, none, "поиск в интернете через Groq временно недоступен (краткая блокировка)");
         var body = new JsonObject
         {
             ["model"] = GroqSearchModel,
@@ -99,6 +114,7 @@ public static class AiProviders
                     {
                         // Нет ответа — Groq недоступен: не ждать следующую модель и повторы, поиск через Groq — через 10 минут.
                         _groqSearchBlockedUntilUtc = DateTime.UtcNow.AddMinutes(10);
+                        BlockProvider("GroqSearch", TimeSpan.FromMinutes(10));
                         return (null, none, "Groq не отвечает — поиск в интернете отложен на 10 минут");
                     }
                     lastError = $"Groq: {message}";
@@ -117,7 +133,9 @@ public static class AiProviders
                         await Task.Delay(w + TimeSpan.FromMilliseconds(300), ct).ConfigureAwait(false);
                         continue;
                     }
-                    BlockSearchModel(model, IsDailyLimit(message) ? TimeSpan.FromHours(1) : wait is { } w2 && w2 > TimeSpan.Zero ? w2 : TimeSpan.FromMinutes(1));
+                    var cooldown = IsDailyLimit(message) ? TimeSpan.FromHours(1) : wait is { } w2 && w2 > TimeSpan.Zero ? w2 : TimeSpan.FromMinutes(1);
+                    BlockSearchModel(model, cooldown);
+                    BlockProvider("GroqSearch", cooldown);
                     break;
                 }
             }
@@ -200,6 +218,7 @@ public static class AiProviders
             {
                 lock (ChatBlockedUntilUtc)
                     ChatBlockedUntilUtc[name] = DateTime.UtcNow.AddMinutes(10);
+                BlockProvider(name, TimeSpan.FromMinutes(10));
             }
             PosLogger.Log($"ИИ: запасная модель {name} → HTTP {status} за {watch.ElapsedMilliseconds} мс ({lastError}).", "TELEGRAM");
         }

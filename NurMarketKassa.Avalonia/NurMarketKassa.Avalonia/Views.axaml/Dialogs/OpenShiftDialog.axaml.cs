@@ -37,9 +37,9 @@ public partial class OpenShiftDialog : Window
 
     private void Ok_Click(object? sender, RoutedEventArgs e)
     {
-        if (!decimal.TryParse(OpeningCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        if (!decimal.TryParse(OpeningCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount < 0)
         {
-            PosMessageBox.Show(this, Tr.T("Введите корректную сумму.", "Туура сумманы киргизиңиз.", "Enter a valid amount.", "Geçerli bir tutar girin.", "To'g'ri summani kiriting."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
+            PosMessageBox.Show(this, Tr.T("Введите сумму не меньше нуля.", "Нөлдөн кем эмес сумманы киргизиңиз.", "Enter an amount of zero or more.", "Sıfır veya daha büyük bir tutar girin.", "Noldan kam bo'lmagan summani kiriting."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

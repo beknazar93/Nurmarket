@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 
@@ -171,6 +171,9 @@ public sealed class ProductEditRequest
     public bool SendPurchasePrice { get; set; } = true;
     public bool SendMarkupPercent { get; set; } = true;
     public double? WholesalePrice { get; set; }
+    /// <summary>2026-10-11, тестировщик (склад.md, 2.1.3): «Минимальный остаток» на вкладке «Упаковка». null — поле не трогаем
+    /// (значение с сервера не прочитано), число — пишем в minimum_quantity.</summary>
+    public double? MinimumQuantity { get; set; }
     public double? DiscountPercent { get; set; }
     public string? Description { get; set; }
     public string? HotkeyGroup { get; set; }

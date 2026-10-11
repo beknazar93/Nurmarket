@@ -297,8 +297,14 @@
                     <Button x:Name="RefreshWarehouseButton" Classes="SecondaryButton" Margin="0,0,8,0" Padding="12,6"
                             Click="RefreshWarehouse_Click" ToolTip.Tip="{DynamicResource warehouse.refreshTooltip}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
-                            <TextBlock Text="{DynamicResource warehouse.refresh}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <!-- 2026-10-11, тестировщик (склад.md, 1): «непонятно — обновляет или завис». Значок крутится, пока идёт загрузка. -->
+                            <TextBlock x:Name="RefreshWarehouseIcon" Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"
+                                       RenderTransformOrigin="50%,50%">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="0"/>
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                            <TextBlock x:Name="RefreshWarehouseText" Text="{DynamicResource warehouse.refresh}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -352,12 +358,16 @@
                                     </Button>
                                 </TextBox.InnerRightContent>
                             </TextBox>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding ProductCountText}"
-                                       VerticalAlignment="Center"
-                                       Margin="12,0,12,0"
-                                       Foreground="{DynamicResource BrushTextSoft}"
-                                       FontSize="13"/>
+                            <Panel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,12,0">
+                                <TextBlock x:Name="ProductCountLabel"
+                                           Text="{Binding ProductCountText}"
+                                           Foreground="{DynamicResource BrushTextSoft}"
+                                           FontSize="13"/>
+                                <!-- 2026-10-11: во время «Обновить» — «Загружаю…» с секундами вместо «Всего / Найдено». -->
+                                <TextBlock x:Name="ProductCountLoading" IsVisible="False"
+                                           Foreground="{DynamicResource BrushAccentStrong}" FontWeight="SemiBold"
+                                           FontSize="13"/>
+                            </Panel>
                             <Button Grid.Column="2" Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.bulkImportButton}"
                                     Margin="0,0,8,0"
@@ -781,6 +791,18 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
                             </Border>
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.2.1): товары, которые раньше приходовали от выбранного поставщика
+                                 (WarehouseWindow.Fixes.cs → LoadSupplierProductsAsync). -->
+                            <Border x:Name="ReceivingSupplierProductsBox" IsVisible="False" Padding="10,8" CornerRadius="8"
+                                    Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                                <StackPanel Spacing="6">
+                                    <TextBlock x:Name="ReceivingSupplierProductsTitle" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
+                                    <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                        <WrapPanel x:Name="ReceivingSupplierProductsPanel"/>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
@@ -818,7 +840,11 @@
                                 Background="{DynamicResource BrushPanelSoft}"
                                 BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
                                 CornerRadius="8">
-                            <ItemsControl x:Name="ReceivingSuggestionsPanel" x:CompileBindings="False">
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.2.4): «список зависает, и его никак не убрать» — крестик закрытия. -->
+                            <Grid RowDefinitions="Auto,Auto">
+                            <Button Grid.Row="0" Content="✕" HorizontalAlignment="Right" Classes="SecondaryButton" Padding="10,2" Margin="0,0,0,2"
+                                    Click="ReceivingSuggestionsClose_Click"/>
+                            <ItemsControl Grid.Row="1" x:Name="ReceivingSuggestionsPanel" x:CompileBindings="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Button Classes="SecondaryButton"
@@ -841,6 +867,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            </Grid>
                         </Border>
 
                         <!-- Количество и обе цены правятся прямо в таблице: со сканера приходит
@@ -858,7 +885,9 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="{DynamicResource warehouse.receivingSource}" Width="120"
                                                     Binding="{ReflectionBinding SourceText}" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*"
+                                <!-- 2026-10-11, тестировщик (склад.md, 2.2.3): название сжималось в «щель в 10 пикселей» — остальные колонки
+                                     фиксированной ширины. Теперь не уже 240 точек; таблица при нехватке места прокручивается вбок. -->
+                                <DataGridTextColumn Header="{DynamicResource common.name}" Width="*" MinWidth="240"
                                                     Binding="{ReflectionBinding ProductName}"/>
                                 <DataGridTextColumn Header="{DynamicResource csh.catalog.colBarcode}" Width="140"
                                                     Binding="{ReflectionBinding Barcode}"/>
@@ -887,14 +916,27 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
+                                <!-- 2026-10-11, тестировщик (склад.md): «нужен крестик справа от товара, если случайно добавил». -->
+                                <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="✕" Tag="{Binding}" Click="ReceivingRowRemove_Click" Classes="SecondaryButton"
+                                                    Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
                             <TextBlock Grid.Column="0" x:Name="ReceivingSummaryText"
                                        VerticalAlignment="Center" FontSize="12.5"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
-                            <Button Grid.Column="1" Classes="PrimaryButton"
+                            <Button Grid.Column="1" Classes="SecondaryButton" Margin="0,0,10,0" x:Name="ReceivingClearButton"
+                                    Click="ReceivingClear_Click"/>
+                            <Button Grid.Column="2" Classes="PrimaryButton"
                                     Content="{DynamicResource warehouse.receivingCommit}"
                                     Click="ReceivingCommit_Click"
                                     Command="{Binding CommitReceivingCommand}"/>
@@ -944,10 +986,23 @@
                                                     Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
                                 <DataGridTextColumn Header="{DynamicResource warehouse.colDifference}" Width="130"
                                                     Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                <!-- 2026-10-11, тестировщик (склад.md): «нужен крестик справа от товара, если случайно добавил». -->
+                                <DataGridTemplateColumn Header="" Width="52" IsReadOnly="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="✕" Tag="{Binding}" Click="RevisionRowRemove_Click" Classes="SecondaryButton"
+                                                    Width="34" Height="30" Padding="0" HorizontalContentAlignment="Center"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    ToolTip.Tip="{DynamicResource warehouse.transferRemoveItem}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="12">
+                            <!-- 2026-10-11, тестировщик (склад.md, 3.1): «нужна кнопка для очищения выбранных». -->
+                            <Button x:Name="RevisionClearButton" Classes="SecondaryButton" Click="RevisionClear_Click"/>
                             <Button Content="{DynamicResource warehouse.commitRevisionButton}"
                                     Classes="PrimaryButton"
                                     Command="{Binding CommitRevisionCommand}" />

@@ -580,6 +580,46 @@ public sealed class PurchaseReceivingService
         return result.OrderByDescending(h => h.At).ToList();
     }
 
+    /// <summary>Товар, который раньше приходовали от поставщика: последняя цена закупки и количество.</summary>
+    public sealed record SupplierProduct(string ProductId, string Name, double LastPurchasePrice, double LastQuantity, DateTime LastAt);
+
+    /// <summary>2026-10-11, тестировщик (склад.md, 2.2.1): «при выборе поставщика не отображаются товары, которые
+    /// оприходовались на его имя (как на сайте)». Приходы с сервера (suppliers/receipts — и сделанные на сайте, и кассой),
+    /// только этого поставщика: каждый товар один раз, с последней ценой закупки; свежие первыми.</summary>
+    public async Task<List<SupplierProduct>> LoadSupplierProductsAsync(Supplier supplier, CancellationToken ct = default)
+    {
+        var byProduct = new Dictionary<string, SupplierProduct>(StringComparer.OrdinalIgnoreCase);
+        for (var page = 1; page <= 5; page++)
+        {
+            var data = await Api.ListSupplierReceiptsAsync(page, 100, ct).ConfigureAwait(false);
+            if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("results", out var receipts)
+                || receipts.ValueKind != JsonValueKind.Array)
+                break;
+            foreach (var receipt in receipts.EnumerateArray())
+            {
+                var supplierId = Str(receipt, "supplier") ?? Str(receipt, "supplier_id");
+                var supplierName = Str(receipt, "supplier_name");
+                var ours = (supplierId is not null && string.Equals(supplierId, supplier.Id, StringComparison.OrdinalIgnoreCase))
+                           || (supplierId is null && supplierName is not null && string.Equals(supplierName.Trim(), supplier.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
+                if (!ours || !receipt.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                    continue;
+                DateTime.TryParse(Str(receipt, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at);
+                foreach (var item in items.EnumerateArray())
+                {
+                    var productId = Str(item, "product_id") ?? Str(item, "product");
+                    if (productId is null || (byProduct.TryGetValue(productId, out var known) && known.LastAt >= at))
+                        continue;
+                    byProduct[productId] = new SupplierProduct(productId, Str(item, "product_name") ?? Str(item, "name") ?? "",
+                        Num(item, "purchase_price"), Num(item, "qty"), at);
+                }
+            }
+            if (!data.TryGetProperty("next", out var next) || next.ValueKind != JsonValueKind.String)
+                break;
+        }
+        PosLogger.Log($"Приёмка: товары поставщика «{supplier.Name}» — {byProduct.Count}.", "STOCK");
+        return byProduct.Values.OrderByDescending(p => p.LastAt).ToList();
+    }
+
     // ------------------------------------------------------------------ JSON
 
     private static string? Str(JsonElement obj, string key)

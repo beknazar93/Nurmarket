@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -790,6 +790,9 @@ public sealed class CatalogApiService : ICatalogApiService
         var characteristics = BuildCharacteristics(r);
         if (characteristics != null)
             body["characteristics"] = characteristics;
+        // 2026-10-11: минимальный остаток — только если окно товара его прочитало или вписали (null — не трогаем на сервере).
+        if (r.MinimumQuantity is { } minimum)
+            body["minimum_quantity"] = minimum.ToString("0.###", CultureInfo.InvariantCulture);
 
         if (r.IsNew)
         {

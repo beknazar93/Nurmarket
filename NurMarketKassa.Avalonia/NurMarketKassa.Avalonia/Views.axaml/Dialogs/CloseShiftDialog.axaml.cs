@@ -131,12 +131,11 @@ public partial class CloseShiftDialog : Window
 
     private void Ok_Click(object? sender, RoutedEventArgs e)
     {
-        if (!string.IsNullOrWhiteSpace(ClosingCashBox.Text) &&
-            !decimal.TryParse(ClosingCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        if (!decimal.TryParse(ClosingCashBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) || amount < 0)
         {
             PosMessageBox.Show(this,
-                Tr.T("Введите корректную сумму.", "Туура сумманы киргизиңиз.", "Enter a valid amount.",
-                    "Geçerli bir tutar girin.", "To'g'ri summani kiriting."),
+                Tr.T("Введите фактическую сумму наличных. Если наличных нет — введите 0.", "Нак акчанын чыныгы суммасын киргизиңиз. Нак акча жок болсо — 0 киргизиңиз.", "Enter the counted cash amount. Enter 0 if there is no cash.",
+                    "Sayılmış nakit tutarını girin. Nakit yoksa 0 girin.", "Hisoblangan naqd pulni kiriting. Naqd pul bo'lmasa 0 kiriting."),
                 Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;

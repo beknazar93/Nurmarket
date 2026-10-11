@@ -182,7 +182,7 @@
                     <!-- 2026-10-06, моноблок клиента: поля цены уходили под край, прокрутку пальцем не найти — полоса видна всегда,
                          на невысоком экране поля плотнее (ProductEditDialog.CompactForShortScreen). -->
                     <ScrollViewer x:Name="MainTabScroll" Padding="0,14,16,6" AllowAutoHide="False">
-                        <StackPanel x:Name="MainTabStack" Spacing="20" Margin="0,0,0,80">
+                        <StackPanel x:Name="MainTabStack" Spacing="20" Margin="0,0,0,240">
                             <!-- 2026-10-03, владелец: «изучи веб — при скане, если товар есть в базе готовых наименований,
                                  сразу всё подставляется». Подсказка и результат поиска в базе NurCRM (только новый товар). -->
                             <!-- 2026-10-06: на очень низком окне (< 700) подсказка прячется, чтобы цены были видны (ScanHintHost). -->
@@ -203,11 +203,8 @@
                             </StackPanel>
 
                             <Grid x:Name="NarrowRowMain" ColumnDefinitions="*,18,*">
-                                <StackPanel Grid.Column="0" Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
-                                    <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="8">
+                                <!-- 2026-10-11, тестировщик (склад.md, 2.1.1): артикул — на вкладке «Доп. штрих-коды», штрихкод во всю ширину. -->
+                                <StackPanel Grid.Column="0" Grid.ColumnSpan="3" Spacing="8">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource csh.catalog.colBarcode}"/>
                                     <Grid ColumnDefinitions="*,Auto,Auto">
                                         <TextBox x:Name="BarcodeBox" Grid.Column="0" Text="{Binding Barcode}"
@@ -254,6 +251,39 @@
                                 </StackPanel>
                             </Grid>
 
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.1.1): горячая клавиша — на «Основном». -->
+                            <StackPanel IsVisible="{Binding !IsQuickAddMode}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.hotkeyLabel}"/>
+                                    <!-- Обычный ComboBox не открывался в этом окне — у него
+                                         ExtendClientAreaToDecorationsHint="True" (своя рамка без системного
+                                         хрома), а всплывающее меню ComboBox в таких окнах у Avalonia иногда
+                                         не рендерится/не ловит клики. Разворачиваемая панель без Popup —
+                                         тот же приём, что уже применялся в PayDebtDialog для похожей проблемы. -->
+                                    <Button x:Name="HotkeyToggleButton" Classes="SecondaryButton"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                            Click="HotkeyToggleButton_Click">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock x:Name="HotkeyCurrentText" Grid.Column="0"/>
+                                            <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </Grid>
+                                    </Button>
+                                    <Border x:Name="HotkeyOptionsPanel" IsVisible="False"
+                                            Background="{DynamicResource BrushPanel}"
+                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                            CornerRadius="8" Padding="8"
+                                            BoxShadow="0 6 16 0 #26000000">
+                                        <ItemsControl x:Name="HotkeyOptionsList">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+
                             <TextBlock Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
                             <Grid x:Name="NarrowRowPrices" ColumnDefinitions="*,18,*,18,*">
                                 <StackPanel Grid.Column="0" Spacing="8">
@@ -269,6 +299,19 @@
                                     <TextBox Text="{Binding Price}"/>
                                 </StackPanel>
                             </Grid>
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.1.1): оптовая цена (и скидка) — на «Основном», рядом с ценами. -->
+                            <StackPanel IsVisible="{Binding !IsQuickAddMode}">
+                                <Grid ColumnDefinitions="*,18,*">
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.wholesalePriceLabel}"/>
+                                        <TextBox Text="{Binding WholesalePrice}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.discountLabel}"/>
+                                        <TextBox Text="{Binding DiscountPercent}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
                             <!-- 2026-10-05, владелец: закупка дороже продажи — красное предупреждение (ProductEditDialog.PriceWarning). -->
                             <Border IsVisible="{Binding HasPriceWarning}" CornerRadius="8" Padding="12,8" BorderThickness="1"
                                     Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}">
@@ -278,10 +321,15 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
-                <TabItem Header="{DynamicResource product.tabCategory}" IsVisible="{Binding !IsQuickAddMode}">
+                <TabItem x:Name="AltBarcodesTab" Header="{DynamicResource product.tabCategory}" IsVisible="{Binding !IsQuickAddMode}">
                     <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
+                        <StackPanel Spacing="20" Margin="0,0,0,240">
                             <StackPanel Spacing="22" HorizontalAlignment="Stretch">
+                                <StackPanel Spacing="8" IsVisible="{Binding !IsQuickAddMode}">
+                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.codeLabel}"/>
+                                    <TextBox Text="{Binding Code}" Watermark="{DynamicResource product.articleWatermark}"/>
+                                </StackPanel>
+
                                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
                                     <TextBlock Text="{DynamicResource product.altBarcodesWatermark}" FontSize="11"
@@ -314,15 +362,24 @@
                                                 <DataTemplate>
                                                     <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
                                                             Padding="10,8" Margin="0,0,0,6">
-                                                        <Grid ColumnDefinitions="*,Auto,Auto">
-                                                            <StackPanel Grid.Column="0">
+                                                        <!-- 2026-10-11, тестировщик (склад.md, 2.1.2): доп. штрихкод можно поправить после добавления —
+                                                             ✎ открывает поля, ✓ сохраняет. -->
+                                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                                            <StackPanel Grid.Column="0" IsVisible="{Binding !IsEditing}">
                                                                 <TextBlock Text="{Binding FullName}" FontWeight="Bold"/>
                                                                 <TextBlock Text="{Binding Barcode}" FontSize="11"
                                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                                             </StackPanel>
-                                                            <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
+                                                            <Grid Grid.Column="0" ColumnDefinitions="*,8,*,8,80" IsVisible="{Binding IsEditing}">
+                                                                <TextBox Grid.Column="0" Text="{Binding EditBarcode}" Watermark="{DynamicResource product.variantBarcodeWatermark}"/>
+                                                                <TextBox Grid.Column="2" Text="{Binding EditName}" Watermark="{DynamicResource product.variantNameWatermark}"/>
+                                                                <TextBox Grid.Column="4" Text="{Binding EditQuantity}"/>
+                                                            </Grid>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0" IsVisible="{Binding !IsEditing}"
                                                                        Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
-                                                            <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
+                                                            <Button Grid.Column="2" Classes="WindowControlButton" Content="{Binding EditGlyph}" Margin="6,0,0,0"
+                                                                    Tag="{Binding}" Click="EditVariant_Click"/>
+                                                            <Button Grid.Column="3" Classes="WindowControlButton" Content="✕"
                                                                     Tag="{Binding}" Click="RemoveVariant_Click"/>
                                                         </Grid>
                                                     </Border>
@@ -332,6 +389,94 @@
                                     </StackPanel>
                                 </StackPanel>
 
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabPackage}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,240">
+                            <!-- 2026-10-11, тестировщик (склад.md, 2.1.3): минимальный остаток — ниже него товар в «Заканчивается». -->
+                            <StackPanel Spacing="8" Width="220" HorizontalAlignment="Left">
+                                <TextBlock Classes="FieldLabel" x:Name="MinimumQuantityLabel"/>
+                                <TextBox Text="{Binding MinimumQuantity}"/>
+                            </StackPanel>
+                            <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
+                                <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
+                                <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
+                                    <StackPanel Grid.Column="0" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
+                                        <TextBox Text="{Binding PackageQuantity}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
+                                        <TextBox Text="{Binding PackagePiecePrice}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Spacing="10" IsVisible="{Binding IsBundleKind}">
+                                <TextBlock Text="{DynamicResource product.bundleItemsHeader}" FontWeight="Bold" FontSize="13"/>
+                                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="14"
+                                        IsVisible="{Binding !HasBundleItems}">
+                                    <Button Classes="SecondaryButton" HorizontalAlignment="Center"
+                                            Content="{DynamicResource product.selectBundleItems}"
+                                            Click="SelectBundleItems_Click"/>
+                                </Border>
+                                <StackPanel Spacing="8" IsVisible="{Binding HasBundleItems}">
+                                    <ItemsControl ItemsSource="{Binding BundleItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
+                                                        Padding="10,8" Margin="0,0,0,6">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
+                                                                   Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                                        <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
+                                                                Tag="{Binding ProductId}" Click="RemoveBundleItem_Click"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Classes="SecondaryButton" HorizontalAlignment="Left"
+                                            Content="{DynamicResource product.selectBundleItems}"
+                                            Click="SelectBundleItems_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,240">
+                            <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
+                                 остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
+                            <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
+                                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock x:Name="VariantsTitle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                                        <TextBlock x:Name="VariantsHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" x:Name="VariantsButton" Classes="SecondaryButton" Margin="12,0,0,0"
+                                            VerticalAlignment="Center" Click="VariantsButton_Click"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="{DynamicResource product.tabMore}" IsVisible="{Binding !IsQuickAddMode}">
+                    <ScrollViewer Padding="0,14,16,6">
+                        <StackPanel Spacing="20" Margin="0,0,0,240">
+                            <StackPanel Spacing="22" HorizontalAlignment="Stretch">
+
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.descriptionLabel}"/>
+                                        <TextBox Text="{Binding Description}" Watermark="{DynamicResource product.descriptionWatermark}" AcceptsReturn="True" Height="150" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                <!-- 2026-10-11 (склад.md, 2.1.5): категория и бренд перенесены сюда с вкладки кодов. -->
                                 <!-- Категория и бренд (2026-09-07): раскрывающиеся списки из справочников NurCRM
                                      (GET api/main/categories и api/main/brands) + строка "создать новую" — как
                                      на сайте (там select + "Создать категорию/бренд"), вместо свободного текста,
@@ -410,128 +555,7 @@
                                         </Border>
                                     </StackPanel>
                                 </Grid>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
-                <TabItem Header="{DynamicResource product.tabPackage}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
-                            <StackPanel Spacing="14" IsVisible="{Binding !IsQuickAddMode}">
-                                <CheckBox Content="{DynamicResource product.enablePieceSale}" IsChecked="{Binding EnablePieceSale}"/>
-                                <Grid x:Name="NarrowRowPackage" ColumnDefinitions="*,18,*" IsVisible="{Binding EnablePieceSale}">
-                                    <StackPanel Grid.Column="0" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packageQtyLabel}"/>
-                                        <TextBox Text="{Binding PackageQuantity}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.packagePriceLabel}"/>
-                                        <TextBox Text="{Binding PackagePiecePrice}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
 
-                            <StackPanel Spacing="10" IsVisible="{Binding IsBundleKind}">
-                                <TextBlock Text="{DynamicResource product.bundleItemsHeader}" FontWeight="Bold" FontSize="13"/>
-                                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8" Padding="14"
-                                        IsVisible="{Binding !HasBundleItems}">
-                                    <Button Classes="SecondaryButton" HorizontalAlignment="Center"
-                                            Content="{DynamicResource product.selectBundleItems}"
-                                            Click="SelectBundleItems_Click"/>
-                                </Border>
-                                <StackPanel Spacing="8" IsVisible="{Binding HasBundleItems}">
-                                    <ItemsControl ItemsSource="{Binding BundleItems}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="{DynamicResource BrushPanelSoft}" CornerRadius="8"
-                                                        Padding="10,8" Margin="0,0,0,6">
-                                                    <Grid ColumnDefinitions="*,Auto,Auto">
-                                                        <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Quantity}" Margin="10,0"
-                                                                   Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
-                                                        <Button Grid.Column="2" Classes="WindowControlButton" Content="✕"
-                                                                Tag="{Binding ProductId}" Click="RemoveBundleItem_Click"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <Button Classes="SecondaryButton" HorizontalAlignment="Left"
-                                            Content="{DynamicResource product.selectBundleItems}"
-                                            Click="SelectBundleItems_Click"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
-                <TabItem Header="{DynamicResource product.tabVariants}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
-                            <!-- 2026-10-01, магазин одежды: размеры и цвета товара (варианты NurCRM — своя цена,
-                                 остаток, штрихкод). На сайте NurCRM редактора вариантов нет — он здесь. -->
-                            <Border Padding="14,12" CornerRadius="10" Background="{DynamicResource BrushPanelSoft}"
-                                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <StackPanel Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock x:Name="VariantsTitle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                                        <TextBlock x:Name="VariantsHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-                                    </StackPanel>
-                                    <Button Grid.Column="1" x:Name="VariantsButton" Classes="SecondaryButton" Margin="12,0,0,0"
-                                            VerticalAlignment="Center" Click="VariantsButton_Click"/>
-                                </Grid>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
-                <TabItem Header="{DynamicResource product.tabMore}" IsVisible="{Binding !IsQuickAddMode}">
-                    <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
-                            <StackPanel Spacing="22" HorizontalAlignment="Stretch">
-
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.descriptionLabel}"/>
-                                        <TextBox Text="{Binding Description}" Watermark="{DynamicResource product.descriptionWatermark}" AcceptsReturn="True" Height="150" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                <Grid ColumnDefinitions="*,18,*">
-                                    <StackPanel Grid.Column="0" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.wholesalePriceLabel}"/>
-                                        <TextBox Text="{Binding WholesalePrice}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Spacing="8">
-                                        <TextBlock Classes="FieldLabel" Text="{DynamicResource product.discountLabel}"/>
-                                        <TextBox Text="{Binding DiscountPercent}"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel Spacing="8">
-                                    <TextBlock Classes="FieldLabel" Text="{DynamicResource product.hotkeyLabel}"/>
-                                    <!-- Обычный ComboBox не открывался в этом окне — у него
-                                         ExtendClientAreaToDecorationsHint="True" (своя рамка без системного
-                                         хрома), а всплывающее меню ComboBox в таких окнах у Avalonia иногда
-                                         не рендерится/не ловит клики. Разворачиваемая панель без Popup —
-                                         тот же приём, что уже применялся в PayDebtDialog для похожей проблемы. -->
-                                    <Button x:Name="HotkeyToggleButton" Classes="SecondaryButton"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                            Click="HotkeyToggleButton_Click">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock x:Name="HotkeyCurrentText" Grid.Column="0"/>
-                                            <TextBlock Grid.Column="1" Text="▾" Foreground="{DynamicResource BrushTextSoft}"/>
-                                        </Grid>
-                                    </Button>
-                                    <Border x:Name="HotkeyOptionsPanel" IsVisible="False"
-                                            Background="{DynamicResource BrushPanel}"
-                                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-                                            CornerRadius="8" Padding="8"
-                                            BoxShadow="0 6 16 0 #26000000">
-                                        <ItemsControl x:Name="HotkeyOptionsList">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel/>
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                    </Border>
-                                </StackPanel>
 
                                 <StackPanel Spacing="22">
                                     <TextBlock Text="{DynamicResource product.characteristicsHeader}" FontWeight="Bold" FontSize="13"/>
@@ -565,7 +589,7 @@
                 </TabItem>
                 <TabItem Header="{DynamicResource product.tabHistory}" x:Name="HistoryTab" IsVisible="{Binding #PurchaseHistoryExpander.IsVisible}">
                     <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,80">
+                        <StackPanel Spacing="20" Margin="0,0,0,240">
                             <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
                                  Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
                                  первом раскрытии: это запрос к серверу, а карточку открывают часто. -->
