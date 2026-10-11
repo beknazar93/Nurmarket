@@ -1,4 +1,4 @@
-#if !NURANDROID
+﻿#if !NURANDROID
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Drawing;
@@ -64,6 +64,9 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     private readonly HashSet<ushort> _keysDown = new();
     private readonly HashSet<int> _buttonsDown = new();
     private volatile bool _viewOnly;
+    // 2026-10-11, проверка безопасности: согласие кассира — только своё, локальное. Без него «started» от сервера
+    // не включает показ экрана и управление (сервер с ошибкой или подменённый не подключится без «Разрешить»).
+    private volatile bool _consentGranted;
     private volatile bool _forceFull = true;
     private volatile int _quality = 60;
     private uint _frameNo;
@@ -87,7 +90,11 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         try
         {
             SetState(State.Connecting);
-            await _ws.ConnectAsync(new Uri(RelayUrl), ct).ConfigureAwait(false);
+            var relay = new Uri(RelayUrl);
+            // 2026-10-11: без шифрования (ws://) — только сервер на этом же ПК (проверка); иначе экран и ввод шли бы открыто.
+            if (relay.Scheme != "wss" && !(relay.Scheme == "ws" && relay.IsLoopback))
+                throw new InvalidOperationException("адрес сервера поддержки должен начинаться с wss://");
+            await _ws.ConnectAsync(relay, ct).ConfigureAwait(false);
             await SendJsonAsync(new
             {
                 type = "hello", role = "host", protocol = 1, app = "NurMarketKassa", version, company,
@@ -130,9 +137,19 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                             m.TryGetProperty("expiresIn", out var exp) ? exp.GetInt32() : 900);
                         break;
                     case "join-request":
+                        if (Current is State.InSession or State.AskingConsent)
+                            break; // 2026-10-11: второй запрос во время сеанса или вопроса кассиру — не сбрасывает их
                         _ = AskConsentAsync(m.TryGetProperty("operator", out var op) ? op.GetString() ?? "" : "", ct);
                         break;
                     case "started":
+                        if (!_consentGranted || Current == State.InSession)
+                        {
+                            PosLogger.Log("Удалённая помощь: сервер начал сеанс без согласия кассира — отклонено.", "WARNING");
+                            endReason = Tr.T("Сеанс отклонён: кассир не давал разрешения.", "Сеанс четке кагылды: кассир уруксат берген жок.",
+                                "The session was rejected: the cashier did not allow it.", "Oturum reddedildi: kasiyer izin vermedi.",
+                                "Seans rad etildi: kassir ruxsat bermagan.");
+                            break;
+                        }
                         Operator = m.TryGetProperty("operator", out var name) ? name.GetString() ?? "" : "";
                         PosLogger.Log($"Удалённая помощь: сеанс начат, оператор «{Operator}».", "INFO");
                         SetState(State.InSession);
@@ -255,6 +272,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
             return;
         }
         PosLogger.Log($"Удалённая помощь: оператор «{op}» — {(accept ? "разрешено" : "отказано")} кассиром.", "INFO");
+        _consentGranted = accept;
         if (!accept)
             SetState(State.WaitingOperator);
         await SendJsonAsync(new { type = "consent", accept }, ct).ConfigureAwait(false);
