@@ -1102,11 +1102,14 @@ public partial class MainWindow : Window
         // в открытом всплывающем меню цифры сканера забирало меню, а Enter нажимал пункт меню. Пока фокус во
         // всплывающем окне кассы (меню, выпадашка), клавиши сначала идут сканеру; готовый код закрывает меню и
         // уходит в чек, как обычный скан. Обычные стрелки/Enter/Esc кассира меню получает как раньше.
+        // 2026-10-21: на Android свой TopLevel (Shell\TopLevel.cs) и меню без PopupRoot — блок не собирался (CS8121).
+#if !NURANDROID
         if (focused is Visual visual && TopLevel.GetTopLevel(visual) is PopupRoot popupRoot && ReferenceEquals(popupRoot.ParentTopLevel, this))
         {
             OnPopupScanKey(popupRoot, e);
             return;
         }
+#endif
 
         if (e.Key == Key.Enter && _barcodeInputService is AvaloniaKeyboardWedgeBarcodeService { HasCompleteScan: true })
             _barcodeInputService.ProcessKeyDown(e);
@@ -1175,11 +1178,14 @@ public partial class MainWindow : Window
         if (_popupScanHookInstalled)
             return;
         _popupScanHookInstalled = true;
+        // 2026-10-21: на Android MainWindow — слой, а не TopLevel Avalonia (CS8121); всплывающих окон PopupRoot там нет.
+#if !NURANDROID
         InputElement.KeyDownEvent.AddClassHandler<PopupRoot>((root, e) =>
         {
             if (root.ParentTopLevel is MainWindow main)
                 main.OnPopupScanKey(root, e);
         }, RoutingStrategies.Tunnel);
+#endif
     }
 
     private void OnPopupScanKey(PopupRoot popupRoot, KeyEventArgs e)

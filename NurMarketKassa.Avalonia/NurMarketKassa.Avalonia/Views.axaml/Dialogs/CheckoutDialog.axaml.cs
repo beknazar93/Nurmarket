@@ -383,9 +383,14 @@ public partial class CheckoutDialog : Window
 
     private static Window? MainKassaWindow(Window owner)
     {
+        // 2026-10-21: на Android окна — слои (NurMarketKassa.Window), панель оплаты не прилипает (DockTo → false); иначе CS1503.
+#if NURANDROID
+        return null;
+#else
         var main = (Avalonia.Application.Current?.ApplicationLifetime
             as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
         return main is not null && !ReferenceEquals(main, owner) && IsDockable(main) ? main : null;
+#endif
     }
 
     private static bool IsDockable(Window window) =>
@@ -488,7 +493,12 @@ public partial class CheckoutDialog : Window
 
     private void DockOwner_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
+        // 2026-10-21: у TopLevel оболочки Android нет ClientSizeProperty (CS0117); там панель не прилипает вовсе.
+#if NURANDROID
+        if (e.Property == WindowStateProperty)
+#else
         if (e.Property == TopLevel.ClientSizeProperty || e.Property == WindowStateProperty)
+#endif
             QueueRedock();
     }
 
